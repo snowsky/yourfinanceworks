@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon, Plus, Trash, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,58 @@ const defaultItem = {
 interface InvoiceFormProps {
   invoice?: Invoice;
   isEdit?: boolean;
+}
+
+// PDF styles and document
+const pdfStyles = StyleSheet.create({
+  page: { padding: 24, fontSize: 12, fontFamily: 'Helvetica' },
+  section: { marginBottom: 12 },
+  title: { fontSize: 20, marginBottom: 12, fontWeight: 'bold' },
+  table: { flexDirection: 'column', width: 'auto', marginVertical: 8 },
+  tableRow: { flexDirection: 'row' },
+  tableCellHeader: { flex: 1, fontWeight: 'bold', padding: 4, backgroundColor: '#eee' },
+  tableCell: { flex: 1, padding: 4 },
+});
+
+function InvoicePDF({ invoice }: { invoice: Invoice }) {
+  return (
+    <Document>
+      <Page size="A4" style={pdfStyles.page}>
+        <View style={pdfStyles.section}>
+          <Text style={pdfStyles.title}>Invoice {invoice.number}</Text>
+          <Text>Client: {invoice.client_name || invoice.client_id}</Text>
+          <Text>Date: {invoice.date}</Text>
+          <Text>Due Date: {invoice.due_date}</Text>
+          <Text>Status: {invoice.status}</Text>
+        </View>
+        <View style={pdfStyles.section}>
+          <Text>Items:</Text>
+          <View style={pdfStyles.table}>
+            <View style={pdfStyles.tableRow}>
+              <Text style={pdfStyles.tableCellHeader}>Description</Text>
+              <Text style={pdfStyles.tableCellHeader}>Quantity</Text>
+              <Text style={pdfStyles.tableCellHeader}>Price</Text>
+              <Text style={pdfStyles.tableCellHeader}>Total</Text>
+            </View>
+            {invoice.items.map((item, idx) => (
+              <View style={pdfStyles.tableRow} key={idx}>
+                <Text style={pdfStyles.tableCell}>{item.description}</Text>
+                <Text style={pdfStyles.tableCell}>{item.quantity}</Text>
+                <Text style={pdfStyles.tableCell}>${item.price.toFixed(2)}</Text>
+                <Text style={pdfStyles.tableCell}>${(item.quantity * item.price).toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={{ marginTop: 8, fontWeight: 'bold' }}>Total: ${invoice.amount.toFixed(2)}</Text>
+        </View>
+        {invoice.notes && (
+          <View style={pdfStyles.section}>
+            <Text>Notes: {invoice.notes}</Text>
+          </View>
+        )}
+      </Page>
+    </Document>
+  );
 }
 
 export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
@@ -502,6 +555,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                   <Button variant="outline" type="button" onClick={() => navigate("/invoices")}>
                     Cancel
                   </Button>
+                  {isEdit && invoice && (
+                    <PDFDownloadLink
+                      document={<InvoicePDF invoice={invoice} />}
+                      fileName={`Invoice-${invoice.number}.pdf`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {({ loading }) => (
+                        <Button variant="secondary" type="button" disabled={loading} className="mr-2">
+                          {loading ? 'Preparing PDF...' : 'Export to PDF'}
+                        </Button>
+                      )}
+                    </PDFDownloadLink>
+                  )}
                   <Button type="submit" disabled={submitting}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isEdit ? "Update Invoice" : "Create Invoice"}
