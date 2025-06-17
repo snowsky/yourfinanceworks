@@ -2,6 +2,181 @@
 
 This is a FastMCP (Model Context Protocol) server that provides AI models with tools to interact with the Invoice Application API. It enables AI assistants to list, search, create, and manage clients and invoices through a standardized interface using the modern FastMCP framework.
 
+## 📊 Architecture Overview
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Claude Desktop"
+        CD[Claude AI Assistant]
+    end
+    
+    subgraph "MCP Server Process"
+        MCP[FastMCP Server<br/>Invoice Application MCP]
+        SC[ServerContext<br/>• api_client<br/>• tools]
+        LIFESPAN[Lifespan Manager<br/>• Initialize<br/>• Cleanup]
+    end
+    
+    subgraph "API Layer"
+        API[InvoiceAPIClient<br/>JWT Authentication]
+        TOOLS[InvoiceTools<br/>Business Logic]
+    end
+    
+    subgraph "Invoice Application"
+        BACKEND[FastAPI Backend<br/>http://localhost:8000/api]
+        DB[(SQLite Database)]
+    end
+    
+    subgraph "Available MCP Tools"
+        CLIENT_TOOLS["Client Management<br/>• list_clients<br/>• search_clients<br/>• get_client<br/>• create_client"]
+        INVOICE_TOOLS["Invoice Management<br/>• list_invoices<br/>• search_invoices<br/>• get_invoice<br/>• create_invoice"]
+        ANALYTICS["Analytics<br/>• get_clients_with_outstanding_balance<br/>• get_overdue_invoices<br/>• get_invoice_stats"]
+    end
+    
+    CD -.->|"MCP Protocol<br/>stdio transport"| MCP
+    MCP --> SC
+    SC --> API
+    SC --> TOOLS
+    API -->|"HTTP/REST<br/>JWT Auth"| BACKEND
+    BACKEND --> DB
+    
+    LIFESPAN -.-> SC
+    
+    MCP --> CLIENT_TOOLS
+    MCP --> INVOICE_TOOLS
+    MCP --> ANALYTICS
+    
+    TOOLS -.-> CLIENT_TOOLS
+    TOOLS -.-> INVOICE_TOOLS
+    TOOLS -.-> ANALYTICS
+    
+    style CD fill:#e1f5fe
+    style MCP fill:#f3e5f5
+    style SC fill:#fff3e0
+    style BACKEND fill:#e8f5e8
+    style DB fill:#fce4ec
+```
+
+### MCP Tool Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Claude as Claude Desktop
+    participant MCP as MCP Server
+    participant API as Invoice API Client
+    participant Backend as FastAPI Backend
+    participant DB as Database
+    
+    User->>Claude: "List all clients with outstanding balances"
+    Claude->>MCP: Tool call: get_clients_with_outstanding_balance()
+    MCP->>API: Authenticate with JWT token
+    API->>Backend: GET /api/clients?outstanding=true
+    Backend->>DB: Query clients with unpaid invoices
+    DB-->>Backend: Client data with balances
+    Backend-->>API: JSON response
+    API-->>MCP: Formatted client data
+    MCP-->>Claude: Structured tool response
+    Claude-->>User: "Here are 3 clients with outstanding balances..."
+    
+    Note over MCP,API: ServerContext manages connections
+    Note over API,Backend: JWT token auto-refresh
+```
+
+## 📸 Screenshots
+
+### MCP Server Running
+When properly configured and started, you should see output similar to this:
+
+```
+INFO:MCP.server:Starting Invoice FastMCP Server...
+INFO:MCP.server:API Base URL: http://localhost:8000/api
+INFO:MCP.server:Initialized API client for http://localhost:8000/api
+[06/17/25 11:05:44] INFO     Starting MCP server 'Invoice Application MCP Server'  server.py:1168
+                             with transport 'stdio'                                              
+INFO:FastMCP.fastmcp.server.server:Starting MCP server 'Invoice Application MCP Server' with transport 'stdio'
+```
+
+### MCP Tools in Action
+
+The following screenshots demonstrate the MCP tools working through Claude Desktop integration:
+
+| MCP Tool | Screenshot | Description |
+|----------|------------|-------------|
+| `create_client` | [Create Invoice Client](images/create_invoice_client.png) | Create new clients with natural language requests |
+| `list_clients` | [List Invoice Clients](images/list_invoice_clients.png) | Get complete list of clients with contact info and balances |
+| `search_clients` | [Search Invoice Clients](images/search_invoice_clients.png) | Intelligent search across client data |
+| `list_invoices` | [List Invoices](images/list_invoices.png) | View all invoices with client info and payment status |
+
+#### 1. Creating Invoice Clients
+**Tool Used:** `create_client`
+
+![Create Invoice Client](images/create_invoice_client.png)
+
+*Claude can create new clients with natural language requests like "Create a new client named John Doe with email john@company.com"*
+
+#### 2. Listing Invoice Clients  
+**Tool Used:** `list_clients`
+
+![List Invoice Clients](images/list_invoice_clients.png)
+
+*Get a complete list of all clients with their contact information and balance details*
+
+#### 3. Searching Invoice Clients
+**Tool Used:** `search_clients` 
+
+![Search Invoice Clients](images/search_invoice_clients.png)
+
+*Intelligent search across client names, emails, phone numbers, and addresses*
+
+#### 4. Listing Invoices
+**Tool Used:** `list_invoices`
+
+![List Invoices](images/list_invoices.png)
+
+*View all invoices with client information, amounts, due dates, and payment status*
+
+### Claude Desktop Integration
+Once integrated with Claude Desktop, you can ask natural language questions like:
+
+**Example Conversation:**
+```
+User: "Show me all clients with outstanding balances"
+
+Claude: I'll check for clients with outstanding balances using the invoice system.
+
+[Uses get_clients_with_outstanding_balance tool]
+
+Based on the invoice data, here are the clients with outstanding balances:
+
+1. **John Doe Company** - Outstanding: $2,500.00
+   - Email: john@company.com
+   - Last invoice: #INV-001 (Overdue by 15 days)
+
+2. **Jane Smith LLC** - Outstanding: $1,200.00
+   - Email: jane@smithllc.com
+   - Last invoice: #INV-003 (Due in 5 days)
+
+Would you like me to get more details about any of these clients or their invoices?
+```
+
+**More Example Queries:**
+- *"Create a new client for ABC Company with email contact@abc.com"*
+- *"Search for clients containing 'Smith' in their name"*
+- *"Show me all invoices from the last 30 days"*
+- *"Find overdue invoices that need follow-up"*
+- *"What are my total outstanding receivables?"*
+
+## ✨ Key Benefits
+
+🚀 **Natural Language Interface** - Talk to your invoice system in plain English  
+🔄 **Real-time Data** - Always up-to-date information from your live database  
+🔒 **Secure Authentication** - JWT-based API authentication with token management  
+⚡ **Fast Performance** - Optimized queries and efficient data processing  
+📊 **Rich Analytics** - Get insights on business metrics and client data  
+🛠️ **Developer Friendly** - Built with modern FastMCP framework
+
 ## Features
 
 ### Client Management
@@ -17,9 +192,9 @@ This is a FastMCP (Model Context Protocol) server that provides AI models with t
 - **Create Invoice**: Generate new invoices for clients
 
 ### Analytics & Reporting
-- **Outstanding Balances**: Find clients with unpaid invoices
-- **Overdue Invoices**: Identify invoices past their due date
-- **Invoice Statistics**: Get overall financial metrics
+- **Outstanding Balances**: Find clients with unpaid invoices (`get_clients_with_outstanding_balance`)
+- **Overdue Invoices**: Identify invoices past their due date (`get_overdue_invoices`)
+- **Invoice Statistics**: Get overall financial metrics (`get_invoice_stats`)
 
 ## Installation
 
@@ -32,10 +207,101 @@ pip install -r requirements.txt
 Note: This implementation uses FastMCP, a modern and simplified framework for building MCP servers with a decorator-based approach.
 
 2. Set up environment variables:
+
+### Option A: Using Environment Variables
 ```bash
 export INVOICE_API_BASE_URL="http://localhost:8000/api"
 export INVOICE_API_EMAIL="your_email@example.com"
 export INVOICE_API_PASSWORD="your_password"
+```
+
+### Option B: Using Environment File (Recommended)
+Copy the example environment file and customize it:
+```bash
+cp example.env .env
+# Edit .env with your actual values
+```
+
+The server will automatically load configuration from a `.env` file in the MCP directory if it exists.
+
+## Configuration
+
+### Environment File (`.env`)
+
+The MCP server supports configuration through environment variables. You can use the provided `example.env` as a template:
+
+```bash
+# Copy the example file
+cp api/MCP/example.env api/MCP/.env
+```
+
+#### Configuration Options
+
+| Environment Variable | Description | Default | Required |
+|---------------------|-------------|---------|----------|
+| `INVOICE_API_BASE_URL` | Base URL for the Invoice API | `http://localhost:8000/api` | No |
+| `INVOICE_API_EMAIL` | Email for API authentication | None | **Yes** |
+| `INVOICE_API_PASSWORD` | Password for API authentication | None | **Yes** |
+| `REQUEST_TIMEOUT` | HTTP request timeout in seconds | `30` | No |
+| `DEFAULT_PAGE_SIZE` | Default pagination size for lists | `100` | No |
+| `MAX_PAGE_SIZE` | Maximum allowed pagination size | `1000` | No |
+| `TOKEN_STORAGE_FILE` | File path for storing auth tokens | `.mcp_token` | No |
+
+#### Example `.env` file:
+```env
+# Invoice Application MCP Server Configuration
+
+# API Configuration - REQUIRED
+INVOICE_API_BASE_URL=http://localhost:8000/api
+INVOICE_API_EMAIL=your_email@example.com
+INVOICE_API_PASSWORD=your_secure_password
+
+# Request Configuration - OPTIONAL
+REQUEST_TIMEOUT=30
+
+# Pagination Configuration - OPTIONAL
+DEFAULT_PAGE_SIZE=100
+MAX_PAGE_SIZE=1000
+
+# Token Storage - OPTIONAL
+# TOKEN_STORAGE_FILE=.mcp_token
+```
+
+### Configuration Priority
+
+The server uses the following configuration priority (highest to lowest):
+
+1. **Command-line arguments** (highest priority)
+2. **Environment variables**
+3. **`.env` file values**
+4. **Default values** (lowest priority)
+
+Examples:
+```bash
+# Using .env file only
+python -m MCP
+
+# Override .env with command-line arguments
+python -m MCP --email different@email.com --api-url http://different-server:8000/api
+
+# Mix of .env and command-line (email from CLI, password from .env)
+python -m MCP --email override@email.com
+```
+
+### Security Best Practices
+
+⚠️ **Important Security Notes:**
+
+- **Never commit `.env` files** to version control
+- Use strong, unique passwords
+- Consider using environment variables in production instead of files
+- The `TOKEN_STORAGE_FILE` contains sensitive authentication tokens - keep it secure
+- Regularly rotate API credentials
+
+```bash
+# Add .env to your .gitignore
+echo ".env" >> .gitignore
+echo ".mcp_token" >> .gitignore
 ```
 
 ## Usage
@@ -43,28 +309,26 @@ export INVOICE_API_PASSWORD="your_password"
 ### Running the FastMCP Server
 
 ```bash
-# From the api directory
-python -m MCP
+# From the api directory - recommended approach
+python -m MCP --email user@example.com --password mypassword
 
-# Or with explicit arguments
-python -m MCP.server --email user@example.com --password mypassword --api-url http://localhost:8000/api
+# With custom API URL
+python -m MCP --email user@example.com --password mypassword --api-url http://localhost:8000/api
 
 # With verbose logging
-python -m MCP.server --verbose
+python -m MCP --email user@example.com --password mypassword --verbose
 ```
 
-### Configuration
+### Command-Line Usage
 
-The server can be configured through environment variables or command-line arguments:
+The server can be configured through command-line arguments, which override environment variables:
 
-| Environment Variable | CLI Argument | Default | Description |
-|---------------------|--------------|---------|-------------|
-| `INVOICE_API_BASE_URL` | `--api-url` | `http://localhost:8000/api` | Base URL for the Invoice API |
-| `INVOICE_API_EMAIL` | `--email` | None | Email for API authentication |
-| `INVOICE_API_PASSWORD` | `--password` | None | Password for API authentication |
-| `REQUEST_TIMEOUT` | N/A | 30 | HTTP request timeout in seconds |
-| `DEFAULT_PAGE_SIZE` | N/A | 100 | Default pagination size |
-| `MAX_PAGE_SIZE` | N/A | 1000 | Maximum pagination size |
+| CLI Argument | Environment Variable | Default | Description |
+|--------------|---------------------|---------|-------------|
+| `--api-url` | `INVOICE_API_BASE_URL` | `http://localhost:8000/api` | Base URL for the Invoice API |
+| `--email` | `INVOICE_API_EMAIL` | None | Email for API authentication |
+| `--password` | `INVOICE_API_PASSWORD` | None | Password for API authentication |
+| `--verbose` | N/A | False | Enable verbose logging |
 
 ### Using with Claude Desktop
 
@@ -74,9 +338,8 @@ Add this to your Claude Desktop configuration (`claude_desktop_config.json`):
 {
   "mcpServers": {
     "invoice-app": {
-      "command": "python",
-      "args": ["-m", "MCP.server", "--email", "your_email@example.com", "--password", "your_password"],
-      "cwd": "/path/to/your/invoice/app/api",
+      "command": "/path/to/your/venv/bin/python",
+      "args": ["/path/to/your/project/api/launch_mcp.py", "--email", "your_email@example.com", "--password", "your_password"],
       "env": {
         "INVOICE_API_BASE_URL": "http://localhost:8000/api"
       }
@@ -84,6 +347,8 @@ Add this to your Claude Desktop configuration (`claude_desktop_config.json`):
   }
 }
 ```
+
+**Important**: Use the full path to your virtual environment's Python interpreter to ensure all dependencies are available.
 
 ## Available Tools
 
@@ -286,7 +551,7 @@ The MCP server handles authentication automatically by:
 Run with verbose logging to see detailed request/response information:
 
 ```bash
-python -m MCP.server --verbose
+python -m MCP --verbose
 ```
 
 ## Development
@@ -376,4 +641,4 @@ FastMCP was chosen for this implementation because it:
 
 ## License
 
-This FastMCP server is part of the Invoice Application project. Please refer to the main project license. 
+This FastMCP server is part of the Invoice Application project. Please refer to the main project license.

@@ -6,7 +6,6 @@ This script tests the basic functionality of the MCP server
 without requiring the full MCP protocol implementation.
 """
 import asyncio
-import json
 import sys
 import os
 
@@ -144,7 +143,7 @@ def print_usage():
     print("   pip install -r MCP/requirements.txt")
     print("")
     print("3. Run the MCP server:")
-    print("   python -m MCP.server --email your_email@example.com --password your_password")
+    print("   python launch_mcp.py --email your_email@example.com --password your_password")
     print("")
     print("4. Configure Claude Desktop to use the MCP server (see MCP/README.md)")
     print("")

@@ -4,11 +4,11 @@ Invoice Application FastMCP Server
 This is the main FastMCP server for the Invoice Application.
 It provides tools for AI models to interact with the invoice system API.
 """
-import asyncio
 import argparse
 import logging
 import sys
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Optional, AsyncIterator
 
 from fastmcp import FastMCP
 
@@ -20,34 +20,56 @@ from .config import config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global variables for the API client and tools
-api_client: Optional[InvoiceAPIClient] = None
-tools: Optional[InvoiceTools] = None
+class ServerContext:
+    """Context class to hold server state"""
+    def __init__(self):
+        self.api_client: Optional[InvoiceAPIClient] = None
+        self.tools: Optional[InvoiceTools] = None
 
-# Initialize FastMCP server
-mcp = FastMCP("Invoice Application MCP Server")
+# Global context instance
+server_context = ServerContext()
 
-async def initialize_clients(email: str, password: str, api_base_url: str):
-    """Initialize the API client and tools"""
-    global api_client, tools
+@asynccontextmanager
+async def lifespan(app: FastMCP) -> AsyncIterator[None]:
+    """FastMCP lifespan context manager for initialization and cleanup"""
+    args = parse_arguments()
     
-    if api_client is None:
-        api_client = InvoiceAPIClient(
-            base_url=api_base_url,
-            email=email,
-            password=password
+    # Configure logging level
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("Verbose logging enabled")
+    
+    # Validate required credentials
+    if not args.email or not args.password:
+        logger.error("Email and password are required for API authentication")
+        logger.error("Set them via command line arguments or environment variables:")
+        logger.error("  INVOICE_API_EMAIL and INVOICE_API_PASSWORD")
+        sys.exit(1)
+    
+    logger.info("Starting Invoice FastMCP Server...")
+    logger.info(f"API Base URL: {args.api_url}")
+    
+    try:
+        # Initialize API client and tools
+        server_context.api_client = InvoiceAPIClient(
+            base_url=args.api_url,
+            email=args.email,
+            password=args.password
         )
-        tools = InvoiceTools(api_client)
-        logger.info(f"Initialized API client for {api_base_url}")
+        server_context.tools = InvoiceTools(server_context.api_client)
+        logger.info(f"Initialized API client for {args.api_url}")
+        
+        yield
+        
+    finally:
+        # Cleanup
+        if server_context.api_client:
+            await server_context.api_client.close()
+            server_context.api_client = None
+            logger.info("Cleaned up API client")
 
-async def cleanup_clients():
-    """Clean up the API client"""
-    global api_client
-    
-    if api_client:
-        await api_client.close()
-        api_client = None
-        logger.info("Cleaned up API client")
+# Initialize FastMCP server with lifespan
+mcp = FastMCP("Invoice Application MCP Server", lifespan=lifespan)
 
 # Client Management Tools
 
@@ -60,10 +82,10 @@ async def list_clients(skip: int = 0, limit: int = 100) -> dict:
         skip: Number of clients to skip for pagination (default: 0)
         limit: Maximum number of clients to return (default: 100)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.list_clients(skip=skip, limit=limit)
+    return await server_context.tools.list_clients(skip=skip, limit=limit)
 
 @mcp.tool()
 async def search_clients(query: str, skip: int = 0, limit: int = 100) -> dict:
@@ -75,10 +97,10 @@ async def search_clients(query: str, skip: int = 0, limit: int = 100) -> dict:
         skip: Number of results to skip for pagination (default: 0)
         limit: Maximum number of results to return (default: 100)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.search_clients(query=query, skip=skip, limit=limit)
+    return await server_context.tools.search_clients(query=query, skip=skip, limit=limit)
 
 @mcp.tool()
 async def get_client(client_id: int) -> dict:
@@ -88,10 +110,10 @@ async def get_client(client_id: int) -> dict:
     Args:
         client_id: ID of the client to retrieve
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.get_client(client_id=client_id)
+    return await server_context.tools.get_client(client_id=client_id)
 
 @mcp.tool()
 async def create_client(name: str, email: Optional[str] = None, phone: Optional[str] = None, address: Optional[str] = None) -> dict:
@@ -104,10 +126,10 @@ async def create_client(name: str, email: Optional[str] = None, phone: Optional[
         phone: Client's phone number (optional)
         address: Client's address (optional)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.create_client(name=name, email=email, phone=phone, address=address)
+    return await server_context.tools.create_client(name=name, email=email, phone=phone, address=address)
 
 # Invoice Management Tools
 
@@ -120,10 +142,10 @@ async def list_invoices(skip: int = 0, limit: int = 100) -> dict:
         skip: Number of invoices to skip for pagination (default: 0)
         limit: Maximum number of invoices to return (default: 100)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.list_invoices(skip=skip, limit=limit)
+    return await server_context.tools.list_invoices(skip=skip, limit=limit)
 
 @mcp.tool()
 async def search_invoices(query: str, skip: int = 0, limit: int = 100) -> dict:
@@ -135,10 +157,10 @@ async def search_invoices(query: str, skip: int = 0, limit: int = 100) -> dict:
         skip: Number of results to skip for pagination (default: 0)
         limit: Maximum number of results to return (default: 100)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.search_invoices(query=query, skip=skip, limit=limit)
+    return await server_context.tools.search_invoices(query=query, skip=skip, limit=limit)
 
 @mcp.tool()
 async def get_invoice(invoice_id: int) -> dict:
@@ -148,10 +170,10 @@ async def get_invoice(invoice_id: int) -> dict:
     Args:
         invoice_id: ID of the invoice to retrieve
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.get_invoice(invoice_id=invoice_id)
+    return await server_context.tools.get_invoice(invoice_id=invoice_id)
 
 @mcp.tool()
 async def create_invoice(client_id: int, amount: float, due_date: str, status: str = "draft", notes: Optional[str] = None) -> dict:
@@ -165,10 +187,10 @@ async def create_invoice(client_id: int, amount: float, due_date: str, status: s
         status: Status of the invoice (default: "draft")
         notes: Additional notes for the invoice (optional)
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.create_invoice(client_id=client_id, amount=amount, due_date=due_date, status=status, notes=notes)
+    return await server_context.tools.create_invoice(client_id=client_id, amount=amount, due_date=due_date, status=status, notes=notes)
 
 # Analytics Tools
 
@@ -177,30 +199,30 @@ async def get_clients_with_outstanding_balance() -> dict:
     """
     Get all clients that have outstanding balances (unpaid invoices).
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.get_clients_with_outstanding_balance()
+    return await server_context.tools.get_clients_with_outstanding_balance()
 
 @mcp.tool()
 async def get_overdue_invoices() -> dict:
     """
     Get all invoices that are past their due date and still unpaid.
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.get_overdue_invoices()
+    return await server_context.tools.get_overdue_invoices()
 
 @mcp.tool()
 async def get_invoice_stats() -> dict:
     """
     Get overall invoice statistics including total income and other metrics.
     """
-    if tools is None:
+    if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
-    return await tools.get_invoice_stats()
+    return await server_context.tools.get_invoice_stats()
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -218,13 +240,13 @@ Environment Variables:
 
 Examples:
   # Run with default settings
-  python -m MCP.server
+  python -m MCP
   
   # Run with custom API URL
-  python -m MCP.server --api-url http://api.mycompany.com/api
+  python -m MCP --api-url http://api.mycompany.com/api
   
   # Run with custom credentials
-  python -m MCP.server --email user@example.com --password mypassword
+  python -m MCP --email user@example.com --password mypassword
 
 Available Tools:
   - list_clients: List all clients with pagination
@@ -264,40 +286,21 @@ Available Tools:
     
     return parser.parse_args()
 
-async def main():
-    """Main entry point"""
-    args = parse_arguments()
-    
-    # Configure logging level
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logger.debug("Verbose logging enabled")
-    
-    # Validate required credentials
-    if not args.email or not args.password:
-        logger.error("Email and password are required for API authentication")
-        logger.error("Set them via command line arguments or environment variables:")
-        logger.error("  INVOICE_API_EMAIL and INVOICE_API_PASSWORD")
-        sys.exit(1)
-    
-    logger.info("Starting Invoice FastMCP Server...")
-    logger.info(f"API Base URL: {args.api_url}")
-    
+def main():
+    """Main entry point - simplified to just run FastMCP"""
     try:
-        # Initialize API clients
-        await initialize_clients(args.email, args.password, args.api_url)
-        
-        # Run the FastMCP server
-        await mcp.run()
-        
+        mcp.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
         logger.error(f"Server error: {e}")
         raise
-    finally:
-        # Clean up
-        await cleanup_clients()
+
+# Legacy compatibility functions - deprecated but kept for backwards compatibility
+def main_sync():
+    """Legacy sync entry point - use main() instead"""
+    logger.warning("main_sync() is deprecated, use main() instead")
+    main()
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    main() 
