@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 class PaymentBase(BaseModel):
     amount: float = Field(..., description="Payment amount")
+    currency: str = Field("USD", description="Currency code for the payment")
     payment_date: date = Field(default_factory=date.today, description="Date of payment")
     payment_method: str = Field(..., description="Payment method (e.g., Credit Card, Bank Transfer)")
     reference_number: Optional[str] = Field(None, description="Payment reference number")
@@ -15,6 +16,7 @@ class PaymentCreate(PaymentBase):
 
 class PaymentUpdate(BaseModel):
     amount: Optional[float] = Field(None, description="Payment amount")
+    currency: Optional[str] = Field(None, description="Currency code for the payment")
     payment_date: Optional[date] = Field(None, description="Date of payment")
     payment_method: Optional[str] = Field(None, description="Payment method")
     reference_number: Optional[str] = Field(None, description="Payment reference number")

@@ -7,12 +7,20 @@ A modern, multi-tenant invoice management system built with FastAPI and React. T
 ### Core Functionality
 - **Multi-tenant Architecture** - Isolated data per tenant/organization
 - **Client Management** - Add, edit, and manage customer information
-- **Invoice Creation** - Generate professional invoices with automatic numbering
-- **Payment Tracking** - Record and track payments against invoices
+- **Smart Invoice Creation** - Generate professional invoices with automatic numbering and intelligent status management
+- **Advanced Invoice Editing** - Individual item updates with immutable paid invoice protection
+- **Payment Tracking** - Record and track payments against invoices with automatic status updates
 - **Dashboard Analytics** - Overview of financial metrics and statistics
 - **PDF Generation** - Export invoices as professional PDF documents
 - **Email Delivery** - Send invoices directly to clients via email with PDF attachments
 - **Responsive Design** - Modern UI that works on desktop and mobile
+
+### Invoice Management Enhancements ✨
+- **Intelligent Item Management** - Individual invoice item updates without losing data
+- **Immutable Paid Invoices** - Paid invoices are protected from accidental changes (except status)
+- **Smart Status Controls** - New invoices can only be created as "Pending" or "Overdue"
+- **Enhanced Data Persistence** - Invoice descriptions and details are properly saved and loaded
+- **Consistent API Responses** - All endpoints return complete invoice data including items
 
 ### Authentication & Security
 - **User Authentication** - Secure login/signup with JWT tokens
@@ -21,13 +29,35 @@ A modern, multi-tenant invoice management system built with FastAPI and React. T
 - **Tenant Isolation** - Complete data separation between organizations
 
 ### Technical Features
-- **RESTful API** - Clean, documented API endpoints
+- **RESTful API** - Clean, documented API endpoints with consistent data structures
 - **AI Integration (MCP)** - Model Context Protocol server for AI assistant integration
-- **Email Service Integration** - Support for AWS SES, Azure Email Services, and Mailgun
+- **Email Service Integration** - Support for AWS SES, Azure Email Services, and Mailgun with proper API routing
 - **Real-time Updates** - Instant UI updates with optimistic rendering
 - **Search & Filtering** - Advanced filtering and search capabilities
 - **Docker Support** - Containerized deployment ready
 - **Database Migrations** - Automated schema management
+
+## 🆕 Recent Updates & Improvements
+
+### Invoice Management Enhancements
+- **✅ Fixed Invoice Item Persistence** - Invoice item descriptions now save correctly without reverting to default values
+- **✅ Enhanced Item Update Logic** - Individual items can be updated, added, or removed without affecting other items
+- **✅ Immutable Paid Invoice Protection** - Paid invoices are now read-only except for status changes to prevent accidental modifications
+- **✅ Smart Status Management** - New invoices can only be created with "Pending" or "Overdue" status for better workflow control
+
+### API & Data Consistency
+- **✅ Complete API Responses** - All invoice endpoints now return consistent data structures including invoice items
+- **✅ Proper Item ID Handling** - Invoice items include proper IDs for reliable updates and tracking
+- **✅ Enhanced Error Handling** - Eliminated "Invoice items could not be loaded properly" errors
+
+### Email Integration Improvements
+- **✅ Fixed Email Routing** - Email sending now uses the correct API base URL configuration
+- **✅ Consistent API Client Usage** - All frontend requests use the centralized API client for better reliability
+
+### User Experience Improvements
+- **✅ Visual Feedback for Paid Invoices** - Clear indication when invoices are locked due to paid status
+- **✅ Improved Form Validation** - Better error messages and validation for invoice creation and editing
+- **✅ Enhanced Data Loading** - More reliable data loading with proper fallback handling
 
 ## 🏗️ Architecture
 
@@ -420,15 +450,60 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🔮 Roadmap
 
+### ✅ Completed Features
 - [x] **AI Integration (MCP)** - Model Context Protocol server for AI assistants ✨
 - [x] **Email Invoice Delivery** - Support for AWS SES, Azure Email Services, and Mailgun ✨
-- [ ] Recurring invoices
-- [ ] Multi-currency support
-- [ ] Advanced reporting and analytics  
+- [x] **Recurring Invoices** - Support for recurring invoice generation
+- [x] **Enhanced Invoice Management** - Individual item updates and immutable paid invoices ✨
+- [x] **Improved Data Consistency** - Complete API responses and reliable data persistence ✨
+- [x] **Smart Status Controls** - Intelligent invoice status management ✨
+
+### 🚧 In Development
+- [ ] Multi-currency support with exchange rate management
+- [ ] Advanced reporting and analytics dashboard
+- [ ] Enhanced payment gateway integrations
+
+### 📋 Planned Features
 - [ ] Mobile app (React Native)
-- [ ] Integration with payment gateways
+- [ ] Advanced user permissions and role management
 - [ ] Automated backup system
-- [ ] Advanced user permissions
+- [ ] Invoice templates and customization
+- [ ] Bulk operations for invoices and clients
+- [ ] Advanced search and filtering
+- [ ] Audit logs and activity tracking
+
+## 🛠️ Troubleshooting
+
+### Common Issues and Solutions
+
+#### "Invoice items could not be loaded properly"
+- **Fixed in v1.2.0** - This error has been resolved with improved API responses
+- If you encounter this, ensure you're using the latest version
+
+#### Email sending returns 404 error
+- **Fixed in v1.2.0** - Email routing now uses proper API base URL configuration
+- Verify your `VITE_API_URL` environment variable is set correctly
+- Check that the backend is running on the expected port
+
+#### Invoice item descriptions not saving
+- **Fixed in v1.2.0** - Item descriptions now persist correctly
+- Individual items can be updated without affecting others
+
+#### Paid invoices being accidentally modified
+- **Fixed in v1.2.0** - Paid invoices are now immutable except for status changes
+- This prevents accidental data corruption and maintains audit trails
+
+### Configuration Issues
+
+#### Frontend not connecting to backend
+1. Check that `VITE_API_URL` is set correctly (default: `http://localhost:8000/api`)
+2. Ensure backend is running on the expected port
+3. Verify Docker networks are properly configured
+
+#### Database connection issues
+1. Check file permissions for SQLite database
+2. Ensure database volume is properly mounted in Docker
+3. Run database initialization: `python db_init.py`
 
 ## 🆘 Support
 
@@ -436,12 +511,27 @@ For support and questions:
 - Create an issue on GitHub
 - Check the documentation at `/docs`
 - Review API documentation at `/docs` endpoint
+- See troubleshooting section above for common issues
 
 ## 🏷️ Version History
 
-- **v1.0.0** - Initial release with core functionality
-  - Multi-tenant architecture
-  - Invoice and client management
-  - Payment tracking
-  - PDF generation
-  - Modern React UI
+### v1.2.0 - Enhanced Invoice Management ✨
+- **🔧 Invoice Item Improvements** - Fixed item persistence and individual item updates
+- **🔒 Paid Invoice Protection** - Immutable paid invoices with status-only editing
+- **📧 Email Integration Fixes** - Proper API routing and reliable email sending
+- **🎯 Smart Status Controls** - Restricted new invoice statuses for better workflow
+- **🔄 Data Consistency** - Complete API responses and enhanced error handling
+- **🎨 UX Enhancements** - Better visual feedback and form validation
+
+### v1.1.0 - AI and Email Integration
+- **🤖 MCP Integration** - Model Context Protocol server for AI assistants
+- **📧 Email Delivery** - Multi-provider email support (AWS SES, Azure, Mailgun)
+- **🔄 Recurring Invoices** - Automated recurring invoice generation
+- **🏗️ Multi-currency Foundation** - Currency support infrastructure
+
+### v1.0.0 - Initial Release
+- **🏢 Multi-tenant Architecture** - Complete tenant isolation
+- **📋 Invoice and Client Management** - Core business functionality
+- **💰 Payment Tracking** - Comprehensive payment management
+- **📄 PDF Generation** - Professional invoice documents
+- **⚛️ Modern React UI** - Responsive, accessible interface

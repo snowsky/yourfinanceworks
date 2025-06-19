@@ -7,10 +7,11 @@ import traceback
 from datetime import datetime, timedelta
 
 from models.database import get_db
-from models.models import Invoice, Client, User, Payment
+from models.models import Invoice, Client, User, Payment, InvoiceItem
 from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
+from services.currency_service import CurrencyService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,9 +29,29 @@ def create_invoice(
         # Generate unique invoice number
         invoice_number = generate_invoice_number(db, current_user.tenant_id)
         
+        # Initialize currency service
+        currency_service = CurrencyService(db)
+        
+        # Determine invoice currency
+        invoice_currency = invoice.currency
+        if not invoice_currency or invoice_currency == "USD":
+            # Use client's preferred currency or tenant default
+            invoice_currency = currency_service.get_client_preferred_currency(
+                invoice.client_id, 
+                current_user.tenant_id
+            )
+        
+        # Validate currency
+        if not currency_service.validate_currency_code(invoice_currency):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid currency code: {invoice_currency}"
+            )
+        
         db_invoice = Invoice(
             number=invoice_number,
             amount=float(invoice.amount),
+            currency=invoice_currency,
             due_date=invoice.due_date,
             status=invoice.status,
             notes=invoice.notes,
@@ -42,9 +63,25 @@ def create_invoice(
             recurring_frequency=invoice.recurring_frequency
         )
         db.add(db_invoice)
+        db.flush()  # Get the invoice ID
+        
+        # Create invoice items
+        for item_data in invoice.items:
+            db_item = InvoiceItem(
+                invoice_id=db_invoice.id,
+                description=item_data.description,
+                quantity=float(item_data.quantity),
+                price=float(item_data.price),
+                amount=float(item_data.quantity) * float(item_data.price)
+            )
+            db.add(db_item)
+        
         db.commit()
         db.refresh(db_invoice)
         return db_invoice
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error in create_invoice: {str(e)}")
@@ -84,6 +121,7 @@ def read_invoices(
                 "id": invoice.id,
                 "number": invoice.number,
                 "amount": float(invoice.amount),
+                "currency": invoice.currency,
                 "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
                 "status": invoice.status,
                 "notes": invoice.notes,
@@ -137,10 +175,26 @@ def read_invoice(
             )
 
         invoice, client_name, total_paid = invoice_tuple
+        
+        # Get invoice items
+        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+        items_data = [
+            {
+                "id": item.id,
+                "invoice_id": item.invoice_id,
+                "description": item.description,
+                "quantity": item.quantity,
+                "price": item.price,
+                "amount": item.amount
+            }
+            for item in items
+        ]
+        
         invoice_dict = {
             "id": invoice.id,
             "number": invoice.number,
             "amount": float(invoice.amount),
+            "currency": invoice.currency,
             "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
             "status": invoice.status,
             "notes": invoice.notes,
@@ -151,7 +205,8 @@ def read_invoice(
             "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
             "total_paid": float(total_paid),
             "is_recurring": invoice.is_recurring,
-            "recurring_frequency": invoice.recurring_frequency
+            "recurring_frequency": invoice.recurring_frequency,
+            "items": items_data
         }
         return invoice_dict
     except HTTPException:
@@ -182,23 +237,84 @@ def update_invoice(
                 detail="Invoice not found"
             )
         
+        # Initialize currency service for validation
+        currency_service = CurrencyService(db)
+        
         # Update invoice fields
         update_data = invoice.dict(exclude_unset=True)
         for key, value in update_data.items():
             if key != "items":
                 if key == 'amount':
                     value = float(value)
+                elif key == 'currency':
+                    # Validate currency code
+                    if not currency_service.validate_currency_code(value):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Invalid currency code: {value}"
+                        )
                 setattr(db_invoice, key, value)
+        
+        # Handle items update if provided
+        if invoice.items is not None:
+            # Get existing items
+            existing_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+            existing_items_dict = {item.id: item for item in existing_items}
+            
+            # Track which items are being updated
+            updated_item_ids = set()
+            
+            # Process each item in the update request
+            for item_data in invoice.items:
+                if item_data.id and item_data.id in existing_items_dict:
+                    # Update existing item
+                    existing_item = existing_items_dict[item_data.id]
+                    existing_item.description = item_data.description
+                    existing_item.quantity = float(item_data.quantity)
+                    existing_item.price = float(item_data.price)
+                    existing_item.amount = float(item_data.quantity) * float(item_data.price)
+                    existing_item.updated_at = datetime.utcnow()
+                    updated_item_ids.add(item_data.id)
+                else:
+                    # Create new item (no ID or ID not found)
+                    db_item = InvoiceItem(
+                        invoice_id=invoice_id,
+                        description=item_data.description,
+                        quantity=float(item_data.quantity),
+                        price=float(item_data.price),
+                        amount=float(item_data.quantity) * float(item_data.price)
+                    )
+                    db.add(db_item)
+            
+            # Remove items that are no longer in the list
+            for item_id, item in existing_items_dict.items():
+                if item_id not in updated_item_ids:
+                    db.delete(item)
         
         db_invoice.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_invoice)
+        
+        # Get updated items to include in response
+        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+        items_data = [
+            {
+                "id": item.id,
+                "invoice_id": item.invoice_id,
+                "description": item.description,
+                "quantity": item.quantity,
+                "price": item.price,
+                "amount": item.amount
+            }
+            for item in items
+        ]
         
         # Convert to response format
         invoice_dict = {
             "id": db_invoice.id,
             "number": db_invoice.number,
             "amount": float(db_invoice.amount),
+            "currency": db_invoice.currency,
             "due_date": db_invoice.due_date.isoformat() if db_invoice.due_date else None,
             "status": db_invoice.status,
             "notes": db_invoice.notes,
@@ -207,7 +323,8 @@ def update_invoice(
             "created_at": db_invoice.created_at.isoformat() if db_invoice.created_at else None,
             "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
             "is_recurring": db_invoice.is_recurring,
-            "recurring_frequency": db_invoice.recurring_frequency
+            "recurring_frequency": db_invoice.recurring_frequency,
+            "items": items_data
         }
         return invoice_dict
     except HTTPException:

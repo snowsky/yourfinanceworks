@@ -23,6 +23,7 @@ class InvoiceItem(InvoiceItemBase):
 
 class InvoiceBase(BaseModel):
     amount: float = Field(..., description="Total amount of the invoice")
+    currency: str = Field("USD", description="Currency code for the invoice")
     due_date: datetime = Field(..., description="Due date of the invoice")
     status: str = Field(..., description="Status of the invoice (draft, sent, paid, etc.)")
     notes: Optional[str] = Field(None, description="Additional notes for the invoice")
@@ -35,6 +36,7 @@ class InvoiceCreate(InvoiceBase):
 
 class InvoiceUpdate(BaseModel):
     amount: Optional[float] = Field(None, description="Total amount of the invoice")
+    currency: Optional[str] = Field(None, description="Currency code for the invoice")
     due_date: Optional[datetime] = Field(None, description="Due date of the invoice")
     status: Optional[str] = Field(None, description="Status of the invoice (draft, sent, paid, etc.)")
     notes: Optional[str] = Field(None, description="Additional notes for the invoice")
@@ -58,4 +60,5 @@ class Invoice(InvoiceBase):
 
 class InvoiceWithClient(Invoice):
     client_name: str
-    total_paid: float = 0.0 
+    total_paid: float = 0.0
+    items: List[InvoiceItem] = [] 

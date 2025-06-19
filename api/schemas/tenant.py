@@ -10,6 +10,7 @@ class TenantBase(BaseModel):
     address: Optional[str] = None
     tax_id: Optional[str] = None
     logo_url: Optional[str] = None
+    default_currency: str = "USD"
     is_active: bool = True
 
 class TenantCreate(TenantBase):
@@ -23,6 +24,7 @@ class TenantUpdate(BaseModel):
     address: Optional[str] = None
     tax_id: Optional[str] = None
     logo_url: Optional[str] = None
+    default_currency: Optional[str] = None
     is_active: Optional[bool] = None
 
 class Tenant(TenantBase):

@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { clientApi, Client } from "@/lib/api";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required"),
   address: z.string().min(1, "Address is required"),
+  preferred_currency: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -37,6 +39,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
       email: client?.email || "",
       phone: client?.phone || "",
       address: client?.address || "",
+      preferred_currency: client?.preferred_currency || "",
     },
   });
 
@@ -54,7 +57,9 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
           email: data.email,
           phone: data.phone,
           address: data.address,
-          balance: 0 // Set initial balance to 0 for new clients
+          balance: 0, // Set initial balance to 0 for new clients
+          paid_amount: 0,
+          preferred_currency: data.preferred_currency
         };
         await clientApi.createClient(newClient);
         toast.success("Client created successfully!");
@@ -126,6 +131,24 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                   <FormLabel>Address</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder="123 Main St, City, State, ZIP" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="preferred_currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preferred Currency (Optional)</FormLabel>
+                  <FormControl>
+                    <CurrencySelector
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select preferred currency"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

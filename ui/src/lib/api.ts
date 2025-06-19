@@ -11,6 +11,7 @@ export interface Client {
   address: string;
   balance: number;
   paid_amount: number;
+  preferred_currency?: string;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export interface Invoice {
   date: string;
   due_date: string;
   amount: number;
+  currency?: string;
   paid_amount: number;
   status: InvoiceStatus;
   notes?: string;
@@ -51,6 +53,7 @@ export interface Payment {
   invoice_number: string;
   client_name: string;
   amount: number;
+  currency?: string;
   payment_date: string;
   payment_method: string;
   reference_number?: string;
@@ -86,7 +89,7 @@ export interface Settings {
 }
 
 // Generic API request function with error handling
-async function apiRequest<T>(url: string, options: RequestInit = {}, config: { isLogin?: boolean } = {}): Promise<T> {
+export async function apiRequest<T>(url: string, options: RequestInit = {}, config: { isLogin?: boolean } = {}): Promise<T> {
   try {
     // Get JWT token from localStorage
     const token = localStorage.getItem('token');
@@ -249,12 +252,13 @@ export const invoiceApi = {
         paid_amount: apiResponse.total_paid || 0, // API returns total_paid, not paid_amount
         status: apiResponse.status || 'pending',
         notes: apiResponse.notes || '',
-        items: [{
-          description: "Service/Product",
-          quantity: 1,
-          price: apiResponse.amount || 0,
-          amount: apiResponse.amount || 0
-        }], // Since API doesn't return items, create a single item with the total amount
+        items: apiResponse.items && Array.isArray(apiResponse.items) ? apiResponse.items.map((item: any) => ({
+          id: item.id,
+          description: item.description || '',
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          amount: item.amount || (item.quantity || 1) * (item.price || 0)
+        })) : [],
         created_at: apiResponse.created_at || '',
         updated_at: apiResponse.updated_at || '',
         is_recurring: apiResponse.is_recurring,

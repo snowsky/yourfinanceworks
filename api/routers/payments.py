@@ -9,6 +9,7 @@ from models.database import get_db
 from models.models import Payment, Invoice, Client, User
 from schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSchema, PaymentWithInvoice
 from routers.auth import get_current_user
+from services.currency_service import CurrencyService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +44,7 @@ def read_payments(
             payment_dict = {
                 "id": payment.id,
                 "amount": float(payment.amount),
+                "currency": payment.currency,
                 "payment_date": payment.payment_date.date(),  # Convert to date
                 "payment_method": payment.payment_method,
                 "reference_number": payment.reference_number,
@@ -96,6 +98,7 @@ def read_payment(
         payment_dict = {
             "id": payment.id,
             "amount": float(payment.amount),
+            "currency": payment.currency,
             "payment_date": payment.payment_date.date(),  # Convert to date
             "payment_method": payment.payment_method,
             "reference_number": payment.reference_number,
@@ -125,6 +128,34 @@ def create_payment(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # Get the invoice to determine currency
+        invoice = db.query(Invoice).filter(
+            Invoice.id == payment.invoice_id,
+            Invoice.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not invoice:
+            raise HTTPException(
+                status_code=404,
+                detail="Invoice not found"
+            )
+        
+        # Initialize currency service
+        currency_service = CurrencyService(db)
+        
+        # Determine payment currency
+        payment_currency = payment.currency
+        if not payment_currency or payment_currency == "USD":
+            # Use invoice currency by default
+            payment_currency = invoice.currency
+        
+        # Validate currency
+        if not currency_service.validate_currency_code(payment_currency):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid currency code: {payment_currency}"
+            )
+        
         # Convert payment_date to datetime if it's a date
         payment_date = payment.payment_date
         if isinstance(payment_date, date):
@@ -132,6 +163,7 @@ def create_payment(
         
         db_payment = Payment(
             amount=float(payment.amount),
+            currency=payment_currency,
             payment_date=payment_date,
             payment_method=payment.payment_method,
             reference_number=payment.reference_number,
@@ -145,6 +177,9 @@ def create_payment(
         db.commit()
         db.refresh(db_payment)
         return db_payment
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error in create_payment: {str(e)}")
@@ -172,12 +207,22 @@ def update_payment(
                 detail="Payment not found"
             )
         
+        # Initialize currency service for validation
+        currency_service = CurrencyService(db)
+        
         # Update payment fields
         for field, value in payment.dict(exclude_unset=True).items():
             if field == 'amount':
                 value = float(value)
             elif field == 'payment_date' and isinstance(value, date):
                 value = datetime.combine(value, datetime.min.time())
+            elif field == 'currency':
+                # Validate currency code
+                if not currency_service.validate_currency_code(value):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid currency code: {value}"
+                    )
             setattr(db_payment, field, value)
         
         db_payment.updated_at = datetime.utcnow()

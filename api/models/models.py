@@ -21,6 +21,9 @@ class Tenant(Base):
     tax_id = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
     
+    # Currency settings
+    default_currency = Column(String, default="USD", nullable=False)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
@@ -30,6 +33,7 @@ class Tenant(Base):
     invoices = relationship("Invoice", back_populates="tenant")
     payments = relationship("Payment", back_populates="tenant")
     settings = relationship("Settings", back_populates="tenant")
+    currency_rates = relationship("CurrencyRate", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"
@@ -70,6 +74,7 @@ class Client(Base):
     address = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
     paid_amount = Column(Float, default=0)
+    preferred_currency = Column(String, nullable=True)  # Optional, fallback to tenant default
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -83,6 +88,7 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True, index=True)
     number = Column(String, unique=True, index=True, nullable=False)  # Make number unique
     amount = Column(Float, nullable=False)
+    currency = Column(String, default="USD", nullable=False)
     due_date = Column(DateTime, nullable=False)
     status = Column(String, nullable=False, default="draft")
     notes = Column(String, nullable=True)
@@ -97,6 +103,7 @@ class Invoice(Base):
     tenant = relationship("Tenant", back_populates="invoices")
     client = relationship("Client", back_populates="invoices")
     payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
+    items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
 
 class Payment(Base):
     __tablename__ = "payments"
@@ -106,6 +113,7 @@ class Payment(Base):
     
     invoice_id = Column(Integer, ForeignKey("invoices.id"))
     amount = Column(Float, nullable=False)
+    currency = Column(String, default="USD", nullable=False)
     payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
     payment_method = Column(String, nullable=False, default="system")
     reference_number = Column(String, nullable=True)
@@ -129,4 +137,45 @@ class Settings(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="settings") 
+    tenant = relationship("Tenant", back_populates="settings")
+
+class SupportedCurrency(Base):
+    __tablename__ = "supported_currencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    symbol = Column(String, nullable=False)
+    decimal_places = Column(Integer, default=2, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class CurrencyRate(Base):
+    __tablename__ = "currency_rates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    from_currency = Column(String, nullable=False)
+    to_currency = Column(String, nullable=False)
+    rate = Column(Float, nullable=False)
+    effective_date = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="currency_rates")
+
+class InvoiceItem(Base):
+    __tablename__ = "invoice_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
+    description = Column(String, nullable=False)
+    quantity = Column(Float, nullable=False, default=1.0)
+    price = Column(Float, nullable=False, default=0.0)
+    amount = Column(Float, nullable=False, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    invoice = relationship("Invoice", back_populates="items") 

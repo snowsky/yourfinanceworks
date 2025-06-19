@@ -6,6 +6,7 @@ from models.database import get_db
 from models.models import Tenant, User
 from schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
 from routers.auth import get_current_user
+from services.currency_service import CurrencyService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -30,6 +31,14 @@ def create_tenant(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Subdomain already exists"
             )
+    
+    # Validate currency code
+    currency_service = CurrencyService(db)
+    if not currency_service.validate_currency_code(tenant.default_currency):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid currency code: {tenant.default_currency}"
+        )
     
     db_tenant = Tenant(**tenant.dict())
     db.add(db_tenant)
@@ -120,6 +129,15 @@ def update_tenant(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Subdomain already exists"
+            )
+    
+    # Validate currency code if being updated
+    if tenant_update.default_currency:
+        currency_service = CurrencyService(db)
+        if not currency_service.validate_currency_code(tenant_update.default_currency):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid currency code: {tenant_update.default_currency}"
             )
     
     # Update tenant fields

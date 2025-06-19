@@ -21,6 +21,8 @@ import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, Invoic
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { CurrencySelector } from "@/components/ui/currency-selector";
+import { apiRequest } from "@/lib/api";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -42,6 +44,7 @@ const formatStatus = (status: string) => {
 const formSchema = z.object({
   client: z.string().min(1, "Client is required"),
   invoiceNumber: z.string().min(1, "Invoice number is required"),
+  currency: z.string().min(1, "Currency is required"),
   date: z.date(),
   dueDate: z.date(),
   status: z.enum(["pending", "paid", "overdue", "partially_paid"] as const),
@@ -55,6 +58,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const defaultItem = {
+  id: undefined,
   description: "",
   quantity: 1,
   price: 0,
@@ -86,6 +90,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   const [updateHistory, setUpdateHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isRecurring, setIsRecurring] = useState(invoice?.is_recurring || false);
+  const [itemKeyCounter, setItemKeyCounter] = useState(0);
 
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
@@ -241,6 +246,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     defaultValues: {
       client: invoice ? invoice.client_id.toString() : "",
       invoiceNumber: invoice ? invoice.number : `INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      currency: invoice?.currency || "USD",
       date: invoice ? safeParseDateString(invoice.date || invoice.created_at) : new Date(),
       dueDate: invoice ? safeParseDateString(invoice.due_date) : new Date(new Date().setDate(new Date().getDate() + 30)),
       status: isValidInvoiceStatus(invoice?.status || "pending") ? invoice?.status || "pending" : "pending",
@@ -314,9 +320,21 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   }, [form, clients, previewInvoice]);
 
   const items = form.watch("items");
+  const currentStatus = form.watch("status");
+  const isInvoicePaid = isEdit && currentStatus === "paid";
 
   const addItem = () => {
-    form.setValue("items", [...items, { ...defaultItem }]);
+    const currentItems = form.getValues("items");
+    console.log("Current items before add:", currentItems);
+    const newItem = { ...defaultItem };
+    console.log("New item being added:", newItem);
+    const updatedItems = [...currentItems, newItem];
+    console.log("Updated items array:", updatedItems);
+    form.setValue("items", updatedItems);
+    // Increment counter for new item keys
+    setItemKeyCounter(prev => prev + 1);
+    // Trigger form re-render
+    form.trigger("items");
   };
 
   const removeItem = (index: number) => {
@@ -348,19 +366,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
     setSendingEmail(true);
     try {
-      const response = await fetch('/api/email/send-invoice', {
+      const result = await apiRequest<any>('/email/send-invoice', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
         body: JSON.stringify({
           invoice_id: invoice.id,
           include_pdf: true,
         }),
       });
-
-      const result = await response.json();
       
       if (result.success) {
         toast.success("Invoice sent successfully!");
@@ -419,10 +431,18 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           // Update the invoice with calculated total amount
           const updateData = {
             amount: totalAmount,
+            currency: data.currency,
             due_date: format(data.dueDate, "yyyy-MM-dd'T'HH:mm:ss"),
             notes: data.notes || "",
             status: data.status,
             client_id: Number(data.client),
+            items: data.items.map(item => ({
+              description: item.description || '',
+              quantity: Number(item.quantity) || 1,
+              price: Number(item.price) || 0,
+              amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
+              id: item.id
+            })),
           };
           
           console.log("Updating invoice with data:", updateData);
@@ -591,6 +611,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           date: format(data.date, "yyyy-MM-dd'T'HH:mm:ss"),
           due_date: formattedDueDate,
           amount: totalAmount,
+          currency: data.currency,
           paid_amount: data.paidAmount || 0,
           status: data.status,
           notes: data.notes || "",
@@ -619,7 +640,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="w-full px-6 py-6">
         <div className="flex items-center justify-center h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
           <p>Loading invoice data...</p>
@@ -630,7 +651,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
   if (!clients.length) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="w-full px-6 py-6">
         <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
           <p className="text-lg">No clients found. Please add a client first.</p>
           <Button onClick={() => setShowNewClientDialog(true)}>
@@ -692,7 +713,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
       <Card>
         <CardContent>
           <div className="flex flex-col lg:flex-row gap-8">
@@ -758,7 +779,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
             <div className="flex-1 order-1 lg:order-2">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <FormField
                       control={form.control}
                       name="client"
@@ -807,7 +828,26 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         <FormItem>
                           <FormLabel>Invoice Number</FormLabel>
                           <FormControl>
-                            <Input {...field} />
+                            <Input {...field} disabled={isInvoicePaid} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="currency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Currency</FormLabel>
+                          <FormControl>
+                            <CurrencySelector
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Select currency"
+                              disabled={isInvoicePaid}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -829,6 +869,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                     "w-full pl-3 text-left font-normal",
                                     !field.value && "text-muted-foreground"
                                   )}
+                                  disabled={isInvoicePaid}
                                 >
                                   {field.value ? (
                                     format(field.value, "PPP")
@@ -843,9 +884,9 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={isInvoicePaid ? undefined : field.onChange}
                                 disabled={(date) =>
-                                  date < new Date("1900-01-01")
+                                  isInvoicePaid || date < new Date("1900-01-01")
                                 }
                                 initialFocus
                               />
@@ -871,6 +912,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                     "w-full pl-3 text-left font-normal",
                                     !field.value && "text-muted-foreground"
                                   )}
+                                  disabled={isInvoicePaid}
                                 >
                                   {field.value ? (
                                     format(field.value, "PPP")
@@ -885,9 +927,9 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={isInvoicePaid ? undefined : field.onChange}
                                 disabled={(date) =>
-                                  date < new Date("1900-01-01")
+                                  isInvoicePaid || date < new Date("1900-01-01")
                                 }
                                 initialFocus
                               />
@@ -926,7 +968,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="paid">Paid</SelectItem>
+                              {isEdit && <SelectItem value="paid">Paid</SelectItem>}
                               <SelectItem value="partially_paid">Partially Paid</SelectItem>
                               <SelectItem value="overdue">Overdue</SelectItem>
                             </SelectContent>
@@ -983,7 +1025,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   form.setValue("status", "partially_paid");
                                 }
                               }}
-                              disabled={form.watch("status") === "paid"}
+                              disabled={isInvoicePaid}
                             />
                           </FormControl>
                           <div className="mt-2 space-y-1">
@@ -1006,7 +1048,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <FormField
                       control={form.control}
                       name="isRecurring"
@@ -1022,6 +1064,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               }}
                               defaultValue={field.value?.toString() || "false"}
                               className="flex space-x-4"
+                              disabled={isInvoicePaid}
                             >
                               <FormItem className="flex items-center space-x-2">
                                 <FormControl>
@@ -1048,7 +1091,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Recurring Frequency</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select frequency" />
@@ -1076,14 +1119,15 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         variant="outline"
                         size="sm"
                         onClick={addItem}
+                        disabled={isInvoicePaid}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Item
                       </Button>
                     </div>
 
-                    {items.map((_, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-4 items-start">
+                    {items.map((item, index) => (
+                      <div key={item.id ? `existing-${item.id}` : `new-${itemKeyCounter}-${index}`} className="grid grid-cols-12 gap-4 items-start">
                         <div className="col-span-6">
                           <FormField
                             control={form.control}
@@ -1091,7 +1135,17 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                             render={({ field }) => (
                               <FormItem>
                                 <FormControl>
-                                  <Input placeholder="Description" {...field} />
+                                  <Input 
+                                    placeholder="Description" 
+                                    {...field}
+                                    key={`desc-${index}`}
+                                    value={field.value || ''}
+                                    onChange={(e) => {
+                                      console.log(`Item ${index} description changed to:`, e.target.value);
+                                      field.onChange(e);
+                                    }}
+                                    disabled={isInvoicePaid}
+                                  />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -1110,6 +1164,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                     min="1"
                                     placeholder="Qty"
                                     {...field}
+                                    disabled={isInvoicePaid}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1130,6 +1185,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                     step="0.01"
                                     placeholder="Price"
                                     {...field}
+                                    disabled={isInvoicePaid}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1143,7 +1199,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                             variant="ghost"
                             size="icon"
                             onClick={() => removeItem(index)}
-                            disabled={items.length === 1}
+                            disabled={items.length === 1 || isInvoicePaid}
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
@@ -1159,7 +1215,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} disabled={isInvoicePaid} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1169,7 +1225,6 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                   <div className="flex justify-end gap-4">
                     <Button
                       type="submit"
-                      disabled={submitting}
                     >
                       {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {isEdit ? "Update Invoice" : "Create Invoice"}

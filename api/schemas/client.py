@@ -9,6 +9,7 @@ class ClientBase(BaseModel):
     address: Optional[str] = Field(None, description="Client's address")
     balance: float = Field(0.0, description="Current balance")
     paid_amount: float = Field(0.0, description="Total amount paid")
+    preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
 
 class ClientCreate(ClientBase):
     pass
@@ -20,6 +21,7 @@ class ClientUpdate(BaseModel):
     address: Optional[str] = Field(None, description="Client's address")
     balance: Optional[float] = Field(None, description="Current balance")
     paid_amount: Optional[float] = Field(None, description="Total amount paid")
+    preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
 
 class Client(ClientBase):
     id: int
