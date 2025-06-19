@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: 'http://backend:8000',
         changeOrigin: true,
-        secure: false
+        secure: false,
       }
     }
   },

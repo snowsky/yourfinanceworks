@@ -1,25 +1,26 @@
 services:
   backend:
     build:
-      context: api
+      context: ./api
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./api:/data
+      - ./api:/app
     environment:
-      - DATABASE_URL=sqlite:///data/invoice_app.db
+      - DATABASE_URL=sqlite:////app/invoice_app.db
     networks:
       - app-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
-      context: ui
+      context: ./ui
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     environment:
-      - VITE_API_URL=http://backend:8000/api
+      - VITE_API_URL=/api
     depends_on:
       - backend
     networks:

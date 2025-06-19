@@ -7,7 +7,7 @@ import logging
 
 from routers import clients, invoices, payments, auth, tenant, settings, email
 from cors_middleware import CustomCORSMiddleware
-from models.database import engine
+from models.database import engine, Base
 from models import models
 from db_init import init_db
 
@@ -47,6 +47,15 @@ async def catch_exceptions_middleware(request: Request, call_next):
 
 # Add our custom CORS middleware
 app.add_middleware(CustomCORSMiddleware)
+
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Include routers (they already have their own prefixes)
 app.include_router(auth.router, prefix="/api")

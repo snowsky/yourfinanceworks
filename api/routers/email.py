@@ -256,10 +256,20 @@ async def get_email_configuration(
     if not email_settings or not email_settings.value:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Email configuration not found"
+            detail="Email configuration not found for this tenant"
         )
     
-    return EmailConfig(**email_settings.value)
+    config_data = email_settings.value
+    
+    return EmailConfig(
+        provider=config_data.get('provider', 'aws_ses'),
+        aws_access_key_id=config_data.get('aws_access_key_id'),
+        aws_secret_access_key=config_data.get('aws_secret_access_key'),
+        aws_region=config_data.get('aws_region'),
+        azure_connection_string=config_data.get('azure_connection_string'),
+        mailgun_api_key=config_data.get('mailgun_api_key'),
+        mailgun_domain=config_data.get('mailgun_domain')
+    )
 
 @router.put("/config", response_model=EmailConfig)
 async def update_email_configuration(

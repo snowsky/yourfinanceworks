@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -47,6 +48,8 @@ const formSchema = z.object({
   paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -82,8 +85,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [updateHistory, setUpdateHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-
+  const [isRecurring, setIsRecurring] = useState(invoice?.is_recurring || false);
 
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
@@ -245,6 +247,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       paidAmount: invoice?.paid_amount || 0,
       items: safeItems,
       notes: invoice?.notes || "",
+      isRecurring: invoice?.is_recurring || false,
+      recurringFrequency: invoice?.recurring_frequency || "monthly",
     },
   });
 
@@ -578,12 +582,26 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         );
 
         // Prepare request payload for new invoice
+        const selectedClient = clients.find(c => c.id.toString() === data.client);
         const invoiceData = {
-          amount: totalAmount,
+          number: data.invoiceNumber,
           client_id: Number(data.client),
+          client_name: selectedClient?.name || '',
+          client_email: selectedClient?.email || '',
+          date: format(data.date, "yyyy-MM-dd'T'HH:mm:ss"),
           due_date: formattedDueDate,
-          notes: data.notes || "",
+          amount: totalAmount,
+          paid_amount: data.paidAmount || 0,
           status: data.status,
+          notes: data.notes || "",
+          items: data.items.map(item => ({
+            description: item.description || '',
+            quantity: Number(item.quantity) || 1,
+            price: Number(item.price) || 0,
+            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0)
+          })),
+          is_recurring: data.isRecurring,
+          recurring_frequency: data.recurringFrequency,
         };
         
         // Create new invoice
@@ -986,6 +1004,68 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="isRecurring"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>Invoice Type</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={(value) => {
+                                const recurring = value === "true";
+                                field.onChange(recurring);
+                                setIsRecurring(recurring);
+                              }}
+                              defaultValue={field.value?.toString() || "false"}
+                              className="flex space-x-4"
+                            >
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <RadioGroupItem value="false" />
+                                </FormControl>
+                                <FormLabel className="font-normal">One-time</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <RadioGroupItem value="true" />
+                                </FormControl>
+                                <FormLabel className="font-normal">Recurring</FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {isRecurring && (
+                      <FormField
+                        control={form.control}
+                        name="recurringFrequency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Recurring Frequency</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select frequency" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="yearly">Yearly</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-4">

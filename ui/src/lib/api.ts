@@ -41,6 +41,8 @@ export interface Invoice {
   items: InvoiceItem[];
   created_at: string;
   updated_at: string;
+  is_recurring?: boolean;
+  recurring_frequency?: string;
 }
 
 export interface Payment {
@@ -84,13 +86,14 @@ export interface Settings {
 }
 
 // Generic API request function with error handling
-async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(url: string, options: RequestInit = {}, config: { isLogin?: boolean } = {}): Promise<T> {
   try {
     // Get JWT token from localStorage
     const token = localStorage.getItem('token');
     
-    console.log(`Making API request to ${url}`, options);
-    const response = await fetch(url.startsWith('http') ? url : `/api${url}`, {
+    const requestUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    console.log(`Making API request to ${requestUrl}`, options);
+    const response = await fetch(requestUrl, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -110,7 +113,7 @@ async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T>
       }
 
       // Handle authentication errors
-      if (response.status === 401 || response.status === 403) {
+      if (!config.isLogin && (response.status === 401 || response.status === 403)) {
         // Clear invalid token and redirect to login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -185,7 +188,7 @@ export const authApi = {
     apiRequest<any>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
+    }, { isLogin: true }),
   register: (userData: any) =>
     apiRequest<any>('/auth/register', {
       method: 'POST',
@@ -214,7 +217,9 @@ export const invoiceApi = {
         notes: apiInvoice.notes || '',
         items: [], // API doesn't return items for list view
         created_at: apiInvoice.created_at || '',
-        updated_at: apiInvoice.updated_at || ''
+        updated_at: apiInvoice.updated_at || '',
+        is_recurring: apiInvoice.is_recurring,
+        recurring_frequency: apiInvoice.recurring_frequency,
       }));
       
       console.log("Mapped invoices with paid amounts:", mappedInvoices);
@@ -251,7 +256,9 @@ export const invoiceApi = {
           amount: apiResponse.amount || 0
         }], // Since API doesn't return items, create a single item with the total amount
         created_at: apiResponse.created_at || '',
-        updated_at: apiResponse.updated_at || ''
+        updated_at: apiResponse.updated_at || '',
+        is_recurring: apiResponse.is_recurring,
+        recurring_frequency: apiResponse.recurring_frequency,
       };
       
       console.log("Mapped invoice object:", invoice);
@@ -262,23 +269,16 @@ export const invoiceApi = {
       throw error;
     }
   },
-  createInvoice: (invoice: {
-    amount: number;
-    client_id: number;
-    due_date: string;
-    status: string;
-    notes?: string;
-  }) => 
+  createInvoice: (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) => 
     apiRequest<Invoice>('/invoices/', {
       method: 'POST',
-      body: JSON.stringify(invoice),
+      body: JSON.stringify(invoiceData),
     }),
-  updateInvoice: (id: number, invoice: Partial<Invoice>) => 
+  updateInvoice: (id: number, invoiceData: Partial<Invoice>) =>
     apiRequest<Invoice>(`/invoices/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(invoice),
+      body: JSON.stringify(invoiceData),
     }),
-
   deleteInvoice: (id: number) => 
     apiRequest(`/invoices/${id}`, {
       method: 'DELETE',

@@ -37,7 +37,9 @@ def create_invoice(
             client_id=invoice.client_id,
             tenant_id=current_user.tenant_id,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            is_recurring=invoice.is_recurring,
+            recurring_frequency=invoice.recurring_frequency
         )
         db.add(db_invoice)
         db.commit()
@@ -90,7 +92,9 @@ def read_invoices(
                 "tenant_id": invoice.tenant_id,
                 "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
                 "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
-                "total_paid": float(total_paid)
+                "total_paid": float(total_paid),
+                "is_recurring": invoice.is_recurring,
+                "recurring_frequency": invoice.recurring_frequency
             }
             result.append(invoice_dict)
 
@@ -145,7 +149,9 @@ def read_invoice(
             "tenant_id": invoice.tenant_id,
             "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
             "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
-            "total_paid": float(total_paid)
+            "total_paid": float(total_paid),
+            "is_recurring": invoice.is_recurring,
+            "recurring_frequency": invoice.recurring_frequency
         }
         return invoice_dict
     except HTTPException:
@@ -177,10 +183,12 @@ def update_invoice(
             )
         
         # Update invoice fields
-        for field, value in invoice.dict(exclude_unset=True).items():
-            if field == 'amount':
-                value = float(value)
-            setattr(db_invoice, field, value)
+        update_data = invoice.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            if key != "items":
+                if key == 'amount':
+                    value = float(value)
+                setattr(db_invoice, key, value)
         
         db_invoice.updated_at = datetime.utcnow()
         db.commit()
@@ -197,7 +205,9 @@ def update_invoice(
             "client_id": db_invoice.client_id,
             "tenant_id": db_invoice.tenant_id,
             "created_at": db_invoice.created_at.isoformat() if db_invoice.created_at else None,
-            "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None
+            "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
+            "is_recurring": db_invoice.is_recurring,
+            "recurring_frequency": db_invoice.recurring_frequency
         }
         return invoice_dict
     except HTTPException:
