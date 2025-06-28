@@ -1,12 +1,12 @@
 # Invoice Management Application
 
-A modern, multi-tenant invoice management system built with FastAPI and React. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices.
+A modern, multi-tenant invoice management system built with FastAPI and React. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
 
 ## 🚀 Features
 
 ### Core Functionality
 - **Multi-tenant Architecture** - Isolated data per tenant/organization
-- **Client Management** - Add, edit, and manage customer information
+- **Client Management** - Add, edit, and manage customer information with CRM capabilities
 - **Smart Invoice Creation** - Generate professional invoices with automatic numbering and intelligent status management
 - **Advanced Invoice Editing** - Individual item updates with immutable paid invoice protection
 - **Payment Tracking** - Record and track payments against invoices with automatic status updates
@@ -15,10 +15,30 @@ A modern, multi-tenant invoice management system built with FastAPI and React. T
 - **Email Delivery** - Send invoices directly to clients via email with PDF attachments
 - **Responsive Design** - Modern UI that works on desktop and mobile
 
+### 🆕 CRM & Client Management
+- **Client Notes System** - Add, edit, update, and delete client notes with timestamps
+- **Note Management** - Inline editing with save/cancel functionality
+- **User Attribution** - Track which user created each note
+- **Complete CRM History** - Comprehensive client interaction tracking
+- **Enhanced Client Profiles** - Rich client information with note history
+
+### 💰 Currency & International Support
+- **Multi-Currency Support** - Support for multiple currencies with proper formatting
+- **Currency Selection** - Choose preferred currency per client and invoice
+- **Dynamic Currency API** - Real-time currency support with fallback handling
+- **Localized Display** - Proper currency formatting and display
+
+### 📊 Data Management & Backup
+- **Complete Data Export** - Export all business data to SQLite format
+- **Data Import/Restore** - Import data from previous backups with conflict resolution
+- **Smart Import Logic** - Automatic invoice number generation to avoid conflicts
+- **Data Integrity** - Comprehensive validation and error handling during import/export
+- **Backup Recommendations** - Built-in guidance for data safety best practices
+
 ### Invoice Management Enhancements ✨
 - **Intelligent Item Management** - Individual invoice item updates without losing data
 - **Immutable Paid Invoices** - Paid invoices are protected from accidental changes (except status)
-- **Smart Status Controls** - New invoices can only be created as "Pending" or "Overdue"
+- **Smart Status Controls** - Enhanced status filtering and management
 - **Enhanced Data Persistence** - Invoice descriptions and details are properly saved and loaded
 - **Consistent API Responses** - All endpoints return complete invoice data including items
 
@@ -37,27 +57,71 @@ A modern, multi-tenant invoice management system built with FastAPI and React. T
 - **Docker Support** - Containerized deployment ready
 - **Database Migrations** - Automated schema management
 
-## 🆕 Recent Updates & Improvements
+## 🆕 Recent Major Updates & Improvements
+
+### 🎯 CRM System Implementation
+- **✅ Complete Client Notes System** - Full CRUD operations for client notes with user attribution
+- **✅ Inline Note Editing** - Edit notes directly in the interface with save/cancel functionality
+- **✅ Note Deletion with Confirmation** - Safe note deletion with preview confirmation dialogs
+- **✅ Timestamp Tracking** - Automatic creation and update timestamps for all notes
+- **✅ User Attribution** - Track which user created each note for accountability
+- **✅ Enhanced Client Profiles** - Rich client detail pages with integrated note management
+
+### 💾 Data Management & Backup System
+- **✅ Complete Data Export** - Export all tenant data (clients, invoices, payments, notes, settings) to SQLite
+- **✅ Data Import/Restore** - Import data from SQLite backups with intelligent conflict resolution
+- **✅ Smart Invoice Number Generation** - Automatic generation of unique invoice numbers during import
+- **✅ Data Integrity Protection** - Comprehensive validation and rollback on import errors
+- **✅ User-Friendly Interface** - Intuitive data management UI with clear warnings and guidance
+- **✅ Best Practices Integration** - Built-in recommendations for backup and restore procedures
+
+### 💰 Currency System Enhancement
+- **✅ Multi-Currency Support** - Full support for multiple currencies with proper API integration
+- **✅ Client Currency Preferences** - Set and save preferred currency per client
+- **✅ Dynamic Currency Loading** - Real-time currency options with fallback handling
+- **✅ Currency Display Components** - Consistent currency formatting throughout the application
+- **✅ API Integration Fix** - Resolved currency selector API connectivity issues
+
+### 🔧 Bug Fixes & System Improvements
+- **✅ Invoice Status Filtering** - Fixed invoice status dropdown and backend filtering
+- **✅ Client Currency Updates** - Resolved issues with saving client preferred currency
+- **✅ API Response Consistency** - Fixed missing fields in client and invoice API responses
+- **✅ Currency Selector Integration** - Fixed "API not available" errors in currency selection
+- **✅ Import Conflict Resolution** - Resolved unique constraint errors during data import
+- **✅ Error Handling Enhancement** - Improved error messages and user feedback throughout
+
+### 🎨 UI/UX Improvements
+- **✅ Refactored Data Management Tab** - Complete redesign of export/import interface
+- **✅ Visual Status Indicators** - Color-coded status indicators and progress feedback
+- **✅ Enhanced File Selection** - Improved file upload interface with visual feedback
+- **✅ Responsive Design Updates** - Better mobile and tablet experience
+- **✅ Professional Layout** - Clean, modern interface with improved information hierarchy
+- **✅ Interactive Elements** - Better button states, loading indicators, and user feedback
+
+### 📈 Performance & Reliability
+- **✅ Database Optimization** - Improved query performance and data handling
+- **✅ Error Recovery** - Enhanced error handling with proper rollback mechanisms
+- **✅ API Reliability** - More robust API responses with consistent data structures
+- **✅ Session Management** - Better handling of database sessions and transactions
+- **✅ Memory Management** - Improved cleanup of temporary files and resources
 
 ### Invoice Management Enhancements
 - **✅ Fixed Invoice Item Persistence** - Invoice item descriptions now save correctly without reverting to default values
 - **✅ Enhanced Item Update Logic** - Individual items can be updated, added, or removed without affecting other items
 - **✅ Immutable Paid Invoice Protection** - Paid invoices are now read-only except for status changes to prevent accidental modifications
-- **✅ Smart Status Management** - New invoices can only be created with "Pending" or "Overdue" status for better workflow control
+- **✅ Smart Status Management** - Enhanced status filtering and management capabilities
 
 ### API & Data Consistency
 - **✅ Complete API Responses** - All invoice endpoints now return consistent data structures including invoice items
 - **✅ Proper Item ID Handling** - Invoice items include proper IDs for reliable updates and tracking
 - **✅ Enhanced Error Handling** - Eliminated "Invoice items could not be loaded properly" errors
-
-### Email Integration Improvements
-- **✅ Fixed Email Routing** - Email sending now uses the correct API base URL configuration
-- **✅ Consistent API Client Usage** - All frontend requests use the centralized API client for better reliability
+- **✅ Centralized API Client** - All frontend requests use the centralized API client for better reliability
 
 ### User Experience Improvements
 - **✅ Visual Feedback for Paid Invoices** - Clear indication when invoices are locked due to paid status
 - **✅ Improved Form Validation** - Better error messages and validation for invoice creation and editing
 - **✅ Enhanced Data Loading** - More reliable data loading with proper fallback handling
+- **✅ Professional UI Components** - Consistent design language with ShadCN UI components
 
 ## 🏗️ Architecture
 
@@ -318,8 +382,14 @@ The API is fully documented and available at:
 - `PUT /api/clients/{id}` - Update client
 - `DELETE /api/clients/{id}` - Delete client
 
+#### CRM (Client Notes)
+- `GET /api/crm/clients/{client_id}/notes` - Get client notes
+- `POST /api/crm/clients/{client_id}/notes` - Create client note
+- `PUT /api/crm/clients/{client_id}/notes/{note_id}` - Update client note
+- `DELETE /api/crm/clients/{client_id}/notes/{note_id}` - Delete client note
+
 #### Invoices
-- `GET /api/invoices/` - List invoices
+- `GET /api/invoices/` - List invoices (with status filtering)
 - `POST /api/invoices/` - Create invoice
 - `PUT /api/invoices/{id}` - Update invoice
 - `DELETE /api/invoices/{id}` - Delete invoice
@@ -328,6 +398,13 @@ The API is fully documented and available at:
 - `GET /api/payments/` - List payments
 - `POST /api/payments/` - Record payment
 - `PUT /api/payments/{id}` - Update payment
+
+#### Data Management
+- `GET /api/settings/export-data` - Export all tenant data to SQLite
+- `POST /api/settings/import-data` - Import data from SQLite file
+
+#### Currency
+- `GET /api/currency/supported` - Get supported currencies
 
 ## 🗃️ Database Schema
 
@@ -347,11 +424,24 @@ The API is fully documented and available at:
 - Customer information
 - Contact details
 - Balance tracking
+- Preferred currency settings
+
+#### Client Notes (CRM)
+- Note content and timestamps
+- User attribution
+- Client association
+- Tenant isolation
 
 #### Invoices
 - Auto-generated invoice numbers
 - Due dates and status tracking
 - Notes and custom fields
+- Multi-currency support
+
+#### Invoice Items
+- Individual line items
+- Descriptions, quantities, prices
+- Automatic amount calculations
 
 #### Payments
 - Payment tracking against invoices
@@ -365,9 +455,14 @@ ui/src/
 ├── components/          # Reusable UI components
 │   ├── ui/             # ShadCN UI components
 │   ├── auth/           # Authentication components
+│   ├── clients/        # Client management components
+│   │   └── ClientNotes.tsx  # CRM notes component
 │   ├── invoices/       # Invoice-specific components
 │   └── layout/         # Layout components
 ├── pages/              # Route components
+│   ├── Settings.tsx    # Settings with data management
+│   ├── EditClient.tsx  # Client editing with CRM
+│   └── ...
 ├── lib/                # Utilities and API client
 ├── hooks/              # Custom React hooks
 └── routers/            # Route definitions
@@ -414,6 +509,7 @@ VITE_API_URL=http://localhost:8000/api
 - SQL injection protection via SQLAlchemy ORM
 - Input validation with Pydantic schemas
 - Tenant isolation at database level
+- Secure data export/import with validation
 
 ## 🧪 Testing
 
@@ -435,6 +531,7 @@ npm test
 - **Caching**: Query result caching with TanStack Query
 - **Lazy Loading**: Component-level code splitting
 - **Compression**: Gzip compression for API responses
+- **Efficient Data Export**: Streaming data export for large datasets
 
 ## 🤝 Contributing
 

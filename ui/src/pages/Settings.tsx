@@ -8,13 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download, Database, Upload } from "lucide-react";
 import { settingsApi } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [companyInfo, setCompanyInfo] = useState({
     name: "Your Company",
@@ -218,10 +221,56 @@ const Settings = () => {
     }
   };
 
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      await settingsApi.exportData();
+      toast.success("Data exported successfully!");
+    } catch (error) {
+      console.error("Failed to export data:", error);
+      toast.error("Failed to export data. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.sqlite')) {
+        toast.error("Please select a SQLite file (.sqlite extension)");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleImportData = async () => {
+    if (!selectedFile) {
+      toast.error("Please select a file to import");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const result = await settingsApi.importData(selectedFile);
+      toast.success(`Data imported successfully! ${JSON.stringify(result.imported_counts)}`);
+      setSelectedFile(null);
+      // Reset the file input
+      const fileInput = document.getElementById('import-file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    } catch (error) {
+      console.error("Failed to import data:", error);
+      toast.error(`Failed to import data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-screen">
+        <div className="h-full flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
           <p>Loading settings...</p>
         </div>
@@ -234,14 +283,15 @@ const Settings = () => {
       <div className="h-full space-y-6 fade-in">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Configure your account and preferences</p>
+          <p className="text-muted-foreground">Manage your application preferences and configuration</p>
         </div>
 
-        <Tabs defaultValue="company" className="slide-in">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <Tabs defaultValue="company" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="company">Company Info</TabsTrigger>
             <TabsTrigger value="invoices">Invoice Settings</TabsTrigger>
             <TabsTrigger value="email">Email Settings</TabsTrigger>
+            <TabsTrigger value="export">Data Management</TabsTrigger>
           </TabsList>
           
           <TabsContent value="company" className="mt-6">
@@ -570,6 +620,303 @@ const Settings = () => {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="export" className="space-y-6">
+            {/* Data Overview Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Data Management
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Backup, restore, and manage your business data with complete control over your information.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-2xl font-bold text-blue-600">📊</div>
+                    <h3 className="font-medium text-blue-900 mt-2">Complete Backup</h3>
+                    <p className="text-sm text-blue-700 mt-1">Export all your business data in one file</p>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-2xl font-bold text-green-600">🔄</div>
+                    <h3 className="font-medium text-green-900 mt-2">Easy Restore</h3>
+                    <p className="text-sm text-green-700 mt-1">Restore from previous backups instantly</p>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="text-2xl font-bold text-purple-600">🔒</div>
+                    <h3 className="font-medium text-purple-900 mt-2">Data Control</h3>
+                    <p className="text-sm text-purple-700 mt-1">Your data stays under your control</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Export Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  Export Data
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Create a complete backup of all your business data including clients, invoices, payments, and settings.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium mb-3">What will be exported:</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>Client information and contact details</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Complete invoice history with line items</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span>Payment records and transaction history</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <span>Client notes and CRM data</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                          <span>Company and application settings</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium mb-3">Export Details:</h4>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <p><strong>Format:</strong> SQLite database (.sqlite)</p>
+                        <p><strong>Compatibility:</strong> Works with database tools and custom applications</p>
+                        <p><strong>Security:</strong> No sensitive authentication data included</p>
+                        <p><strong>Size:</strong> Typically 1-10 MB depending on data volume</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <Button 
+                    onClick={handleExportData} 
+                    disabled={exporting}
+                    size="lg"
+                    className="w-full sm:w-auto"
+                  >
+                    {exporting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Export...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Complete Backup
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Export includes all data from your current tenant. File will be downloaded automatically.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Import Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Import Data
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Restore your business data from a previously exported backup file.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-amber-600 text-lg">⚠️</div>
+                    <div>
+                      <h4 className="font-medium text-amber-900 mb-1">Important Warning</h4>
+                      <p className="text-sm text-amber-800">
+                        Importing data will <strong>permanently replace</strong> all your current data. 
+                        This action cannot be undone. We strongly recommend creating an export backup first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="import-file" className="text-base font-medium">Select Backup File</Label>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Choose a SQLite file (.sqlite) that was previously exported from this application.
+                      </p>
+                      <Input
+                        id="import-file"
+                        type="file"
+                        accept=".sqlite"
+                        onChange={handleFileSelect}
+                        disabled={importing}
+                        className="cursor-pointer"
+                      />
+                      {selectedFile && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="font-medium">File selected:</span>
+                          </div>
+                          <p className="text-sm text-green-700 mt-1">
+                            {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium mb-3">Import Process:</h4>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                          <span>File validation and structure check</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                          <span>Current data backup and removal</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                          <span>Import new data with ID mapping</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                          <span>Data integrity verification</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      onClick={handleExportData} 
+                      disabled={exporting || importing}
+                      variant="outline"
+                      size="lg"
+                    >
+                      {exporting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating Backup...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="mr-2 h-4 w-4" />
+                          Backup Current Data First
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button 
+                      onClick={handleImportData} 
+                      disabled={importing || !selectedFile}
+                      variant="destructive"
+                      size="lg"
+                    >
+                      {importing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Importing Data...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Import & Replace Data
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Recommended: Always create a backup before importing to preserve your current data.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Best Practices Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span className="text-lg">💡</span>
+                  Best Practices & Tips
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3 text-green-700">✅ Recommended Practices</h4>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Create regular backups (weekly or monthly)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Always backup before importing new data</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Store backup files in multiple safe locations</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Test imports in a separate environment first</span>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-3 text-blue-700">🔧 Technical Information</h4>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>SQLite files can be opened with DB Browser for SQLite</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>Data can be used programmatically in custom applications</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>Import validates file structure before processing</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>New invoice numbers are generated to avoid conflicts</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

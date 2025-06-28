@@ -74,6 +74,7 @@ def read_clients(
                 "address": client.address,
                 "balance": max(0, outstanding_balance),  # Use calculated outstanding balance
                 "paid_amount": float(total_paid),
+                "preferred_currency": client.preferred_currency,
                 "created_at": client.created_at,
                 "updated_at": client.updated_at
             }
@@ -148,6 +149,7 @@ def read_client(
             "address": client.address,
             "balance": max(0, outstanding_balance),  # Use calculated outstanding balance
             "paid_amount": float(total_paid),
+            "preferred_currency": client.preferred_currency,
             "created_at": client.created_at,
             "updated_at": client.updated_at
         }

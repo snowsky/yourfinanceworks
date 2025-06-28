@@ -34,6 +34,7 @@ class Tenant(Base):
     payments = relationship("Payment", back_populates="tenant")
     settings = relationship("Settings", back_populates="tenant")
     currency_rates = relationship("CurrencyRate", back_populates="tenant")
+    client_notes = relationship("ClientNote", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"
@@ -61,6 +62,7 @@ class User(Base):
     
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
+    notes = relationship("ClientNote", back_populates="user")
 
 class Client(Base):
     __tablename__ = "clients"
@@ -81,6 +83,25 @@ class Client(Base):
     # Relationships
     tenant = relationship("Tenant", back_populates="clients")
     invoices = relationship("Invoice", back_populates="client", cascade="all, delete-orphan")
+    notes = relationship("ClientNote", back_populates="client", cascade="all, delete-orphan")
+
+class ClientNote(Base):
+    __tablename__ = "client_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    note = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Foreign keys
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+
+    # Relationships
+    client = relationship("Client", back_populates="notes")
+    user = relationship("User", back_populates="notes")
+    tenant = relationship("Tenant", back_populates="client_notes")
 
 class Invoice(Base):
     __tablename__ = "invoices"

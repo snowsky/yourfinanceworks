@@ -90,9 +90,11 @@ const Invoices = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
                       <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="partially_paid">Partially Paid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -145,11 +147,13 @@ const Invoices = () => {
                             variant={
                               invoice.status === 'paid' ? 'default' : 
                               invoice.status === 'pending' ? 'secondary' : 
+                              invoice.status === 'draft' ? 'outline' :
                               'destructive'
                             }
                             className={
                               invoice.status === 'paid' ? 'bg-green-100 text-green-800 hover:bg-green-100' : 
                               invoice.status === 'pending' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100' : 
+                              invoice.status === 'draft' ? 'bg-gray-100 text-gray-800 hover:bg-gray-100' :
                               'bg-red-100 text-red-800 hover:bg-red-100'
                             }
                           >

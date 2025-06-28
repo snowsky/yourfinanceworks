@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional
 import logging
 import traceback
 from datetime import datetime, timedelta
@@ -95,12 +95,13 @@ def create_invoice(
 def read_invoices(
     skip: int = 0,
     limit: int = 100,
+    status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Get invoices with client information and payment status
-        invoices = db.query(
+        # Build base query
+        query = db.query(
             Invoice,
             Client.name.label('client_name'),
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
@@ -110,7 +111,14 @@ def read_invoices(
             Payment, Invoice.id == Payment.invoice_id
         ).filter(
             Invoice.tenant_id == current_user.tenant_id
-        ).group_by(
+        )
+        
+        # Apply status filter if provided
+        if status_filter and status_filter != "all":
+            query = query.filter(Invoice.status == status_filter)
+        
+        # Get invoices with client information and payment status
+        invoices = query.group_by(
             Invoice.id
         ).offset(skip).limit(limit).all()
 

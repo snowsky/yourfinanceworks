@@ -16,6 +16,15 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ClientNote {
+  id: number;
+  note: string;
+  user_id: number;
+  client_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InvoiceItem {
   id?: number;
   description: string;
@@ -25,7 +34,7 @@ export interface InvoiceItem {
   invoice_id?: number;
 }
 
-export type InvoiceStatus = "pending" | "paid" | "overdue" | "partially_paid";
+export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid";
 
 export interface Invoice {
   id: number;
@@ -185,6 +194,31 @@ export const clientApi = {
     }),
 };
 
+// CRM API methods
+export const crmApi = {
+    getNotesForClient: (clientId: number) =>
+        apiRequest<ClientNote[]>(`/crm/clients/${clientId}/notes`),
+    createNoteForClient: (clientId: number, note: { note: string }) =>
+        apiRequest<ClientNote>(`/crm/clients/${clientId}/notes`, {
+            method: 'POST',
+            body: JSON.stringify(note),
+        }),
+    updateNoteForClient: (clientId: number, noteId: number, note: { note: string }) =>
+        apiRequest<ClientNote>(`/crm/clients/${clientId}/notes/${noteId}`, {
+            method: 'PUT',
+            body: JSON.stringify(note),
+        }),
+    deleteNoteForClient: (clientId: number, noteId: number) =>
+        apiRequest(`/crm/clients/${clientId}/notes/${noteId}`, {
+            method: 'DELETE',
+        }),
+};
+
+// Currency API methods
+export const currencyApi = {
+    getSupportedCurrencies: () => apiRequest<any>('/currency/supported'),
+};
+
 // Auth API methods
 export const authApi = {
   login: (email: string, password: string) =>
@@ -203,7 +237,7 @@ export const authApi = {
 export const invoiceApi = {
   getInvoices: async (status?: string): Promise<Invoice[]> => {
     try {
-      const response = await apiRequest<any[]>(`/invoices/${status ? `?status=${status}` : ''}`);
+      const response = await apiRequest<any[]>(`/invoices/${status ? `?status_filter=${status}` : ''}`);
       
       // Map API response to frontend Invoice interface
       const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
@@ -365,7 +399,61 @@ export const settingsApi = {
   getSettings: () => apiRequest<Settings>('/settings/'),
   updateSettings: (settings: Partial<Settings>) => 
     apiRequest<Settings>('/settings/', {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(settings),
     }),
+  exportData: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/settings/export-data`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to export data');
+    }
+    
+    // Get filename from response headers or create a default one
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = `data_export_${new Date().toISOString().split('T')[0]}.sqlite`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    // Create blob and download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+  importData: async (file: File) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/settings/import-data`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to import data');
+    }
+    
+    return await response.json();
+  },
 }; 

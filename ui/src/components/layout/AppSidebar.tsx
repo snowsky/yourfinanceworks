@@ -19,6 +19,7 @@ import {
   ChevronLeft, 
   DollarSign, 
   FileText, 
+  LogOut,
   Settings, 
   Users 
 } from "lucide-react";
@@ -141,11 +142,12 @@ export function AppSidebar() {
           </div>
           <div className="flex justify-center">
             <Button 
-              variant="outline" 
+              variant="destructive" 
               size="sm" 
-              className="text-white border-sidebar-border hover:bg-red-600 hover:border-red-600"
+              className="w-full"
               onClick={handleLogout}
             >
+              <LogOut className="w-4 h-4 mr-2" />
               Log Out
             </Button>
           </div>

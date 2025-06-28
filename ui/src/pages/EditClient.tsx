@@ -5,6 +5,7 @@ import { ClientForm } from "@/components/clients/ClientForm";
 import { clientApi, Client } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { ClientNotes } from "@/components/clients/ClientNotes";
 
 const EditClient = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,6 +70,8 @@ const EditClient = () => {
         </div>
         
         <ClientForm client={client} isEdit={true} />
+
+        {client && <ClientNotes clientId={client.id} />}
       </div>
     </AppLayout>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Label } from './label';
+import { currencyApi } from '@/lib/api';
 
 interface Currency {
   id: number;
@@ -53,36 +54,29 @@ export function CurrencySelector({
       if (!token) {
         console.log('No auth token, using fallback currencies');
         setUsingFallback(true);
+        setError(null);
         setLoading(false);
         return;
       }
 
       console.log('Fetching currencies from API...');
-      const response = await fetch('/api/currency/supported', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const data = await currencyApi.getSupportedCurrencies();
 
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       console.log('Currency API response:', data);
       
       if (data.currencies && data.currencies.length > 0) {
         setCurrencies(data.currencies);
         setUsingFallback(false);
+        setError(null);
         console.log('Successfully loaded currencies from API');
       } else {
         console.log('API returned empty currencies, using fallback');
         setUsingFallback(true);
+        setError(null);
       }
     } catch (err) {
       console.error('Error fetching currencies:', err);
-      setError(`Failed to load currencies: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`API unavailable - using default currencies`);
       setUsingFallback(true);
       console.log('Using fallback currencies due to error');
     } finally {
@@ -120,13 +114,13 @@ export function CurrencySelector({
           ))}
         </SelectContent>
       </Select>
-      {usingFallback && (
-        <div className="text-xs text-yellow-600 mt-1">
-          Using default currencies (API not available)
+      {usingFallback && !error && (
+        <div className="text-xs text-muted-foreground mt-1">
+          Using default currencies
         </div>
       )}
       {error && (
-        <div className="text-xs text-red-600 mt-1">
+        <div className="text-xs text-yellow-600 mt-1">
           {error}
         </div>
       )}
