@@ -35,6 +35,7 @@ class Tenant(Base):
     settings = relationship("Settings", back_populates="tenant")
     currency_rates = relationship("CurrencyRate", back_populates="tenant")
     client_notes = relationship("ClientNote", back_populates="tenant")
+    discount_rules = relationship("DiscountRule", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"
@@ -162,6 +163,25 @@ class Settings(Base):
     
     # Relationships
     tenant = relationship("Tenant", back_populates="settings")
+
+class DiscountRule(Base):
+    __tablename__ = "discount_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    
+    name = Column(String, nullable=False)  # e.g., "High Value Discount", "Bulk Order Discount"
+    min_amount = Column(Float, nullable=False)  # Minimum amount to trigger the rule
+    discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
+    discount_value = Column(Float, nullable=False)  # percentage or fixed amount
+    is_active = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=0, nullable=False)  # Higher priority rules are applied first
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    
+    # Relationships
+    tenant = relationship("Tenant", back_populates="discount_rules")
 
 class SupportedCurrency(Base):
     __tablename__ = "supported_currencies"

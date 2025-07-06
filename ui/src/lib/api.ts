@@ -100,6 +100,48 @@ export interface Settings {
   invoice_settings: InvoiceSettings;
 }
 
+// Discount rule types
+export interface DiscountRule {
+  id: number;
+  name: string;
+  min_amount: number;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  is_active: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DiscountRuleCreate {
+  name: string;
+  min_amount: number;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  is_active?: boolean;
+  priority?: number;
+}
+
+export interface DiscountRuleUpdate {
+  name?: string;
+  min_amount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
+  is_active?: boolean;
+  priority?: number;
+}
+
+export interface DiscountCalculation {
+  discount_type: 'percentage' | 'fixed' | 'none';
+  discount_value: number;
+  discount_amount: number;
+  applied_rule?: {
+    id: number;
+    name: string;
+    min_amount: number;
+  };
+}
+
 // Generic API request function with error handling
 export async function apiRequest<T>(url: string, options: RequestInit = {}, config: { isLogin?: boolean } = {}): Promise<T> {
   try {
@@ -327,6 +369,11 @@ export const invoiceApi = {
     apiRequest(`/invoices/${id}`, {
       method: 'DELETE',
     }),
+  calculateDiscount: (subtotal: number) => 
+    apiRequest<DiscountCalculation>('/invoices/calculate-discount', {
+      method: 'POST',
+      body: JSON.stringify({ subtotal }),
+    }),
 };
 
 // Payment API methods
@@ -462,4 +509,29 @@ export const settingsApi = {
     
     return await response.json();
   },
+};
+
+// Discount Rules API methods
+export const discountRulesApi = {
+  getDiscountRules: () => apiRequest<DiscountRule[]>('/discount-rules/'),
+  getDiscountRule: (id: number) => apiRequest<DiscountRule>(`/discount-rules/${id}`),
+  createDiscountRule: (discountRule: DiscountRuleCreate) => 
+    apiRequest<DiscountRule>('/discount-rules/', {
+      method: 'POST',
+      body: JSON.stringify(discountRule),
+    }),
+  updateDiscountRule: (id: number, discountRule: DiscountRuleUpdate) => 
+    apiRequest<DiscountRule>(`/discount-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(discountRule),
+    }),
+  deleteDiscountRule: (id: number) => 
+    apiRequest(`/discount-rules/${id}`, {
+      method: 'DELETE',
+    }),
+  calculateDiscount: (subtotal: number) => 
+    apiRequest<DiscountCalculation>('/discount-rules/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ subtotal }),
+    }),
 }; 

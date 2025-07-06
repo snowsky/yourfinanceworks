@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime, timedelta
 
 from models.database import get_db
-from models.models import Invoice, Client, User, Payment, InvoiceItem
+from models.models import Invoice, Client, User, Payment, InvoiceItem, DiscountRule
 from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
@@ -442,4 +442,57 @@ def get_total_income(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to calculate total income: {str(e)}"
+        )
+
+@router.post("/calculate-discount")
+def calculate_discount(
+    subtotal: float,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Calculate the applicable discount for a given subtotal using discount rules"""
+    try:
+        # Get all active discount rules for the tenant, ordered by priority and min_amount
+        discount_rules = db.query(DiscountRule).filter(
+            DiscountRule.tenant_id == current_user.tenant_id,
+            DiscountRule.is_active == True
+        ).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
+        
+        # Find the first applicable rule
+        applicable_rule = None
+        for rule in discount_rules:
+            if subtotal >= rule.min_amount:
+                applicable_rule = rule
+                break
+        
+        if not applicable_rule:
+            return {
+                "discount_type": "none",
+                "discount_value": 0,
+                "discount_amount": 0,
+                "applied_rule": None
+            }
+        
+        # Calculate discount amount
+        if applicable_rule.discount_type == "percentage":
+            discount_amount = (subtotal * applicable_rule.discount_value) / 100
+        else:  # fixed amount
+            discount_amount = min(applicable_rule.discount_value, subtotal)
+        
+        return {
+            "discount_type": applicable_rule.discount_type,
+            "discount_value": applicable_rule.discount_value,
+            "discount_amount": discount_amount,
+            "applied_rule": {
+                "id": applicable_rule.id,
+                "name": applicable_rule.name,
+                "min_amount": applicable_rule.min_amount
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error in calculate_discount: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate discount: {str(e)}"
         ) 

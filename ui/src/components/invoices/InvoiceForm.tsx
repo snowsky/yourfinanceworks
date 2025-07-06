@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings } from "@/lib/api";
+import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -53,7 +53,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
   isRecurring: z.boolean().optional(),
   recurringFrequency: z.string().optional(),
-  discountType: z.enum(["percentage", "fixed"] as const).default("percentage"),
+  discountType: z.enum(["percentage", "fixed", "rule"] as const).default("percentage"),
   discountValue: z.number().min(0, "Discount value cannot be negative").default(0),
 });
 
@@ -97,6 +97,15 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   );
   const [updateHistoryCache, setUpdateHistoryCache] = useState<{[key: string]: any[]}>({});
   const [itemKeyCounter, setItemKeyCounter] = useState(0);
+  const [appliedDiscountRule, setAppliedDiscountRule] = useState<{
+    id: number;
+    name: string;
+    min_amount: number;
+    discount_type: 'percentage' | 'fixed';
+    discount_value: number;
+  } | null>(null);
+  const [availableDiscountRules, setAvailableDiscountRules] = useState<DiscountRule[]>([]);
+  const [isRefreshingForm, setIsRefreshingForm] = useState(false);
 
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number, invoiceData?: Invoice, previousDiscountInfo?: {value: number, type: string}) => {
@@ -203,12 +212,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [clientsData, settingsData] = await Promise.all([
+        const [clientsData, settingsData, discountRulesData] = await Promise.all([
           clientApi.getClients(),
-          settingsApi.getSettings()
+          settingsApi.getSettings(),
+          discountRulesApi.getDiscountRules()
         ]);
         setClients(clientsData);
         setSettings(settingsData);
+        setAvailableDiscountRules(discountRulesData);
       } catch (error) {
         console.error("Failed to fetch data:", error);
         toast.error("Failed to load data");
@@ -232,6 +243,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         }
       }
     }, [invoice, isEdit, fetchUpdateHistory, updateHistoryCache]);
+
+
 
   const handleCreateClient = async () => {
     try {
@@ -308,7 +321,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       notes: invoice?.notes || "",
       isRecurring: invoice?.is_recurring || false,
       recurringFrequency: invoice?.recurring_frequency || "monthly",
-      discountType: (invoice?.discount_type === "percentage" || invoice?.discount_type === "fixed") ? invoice.discount_type : "percentage",
+      discountType: "percentage", // Will be overridden by form reset logic if discount rule is found
       discountValue: invoice?.discount_value || 0,
     },
   });
@@ -331,53 +344,150 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       console.log("- Form default paid amount:", form.getValues("paidAmount"));
       console.log("- Form default discount type:", form.getValues("discountType"));
       console.log("- Form default discount value:", form.getValues("discountValue"));
+      console.log("- Available discount rules:", availableDiscountRules.map(r => ({ name: r.name, type: r.discount_type, value: r.discount_value, min_amount: r.min_amount })));
     }
-  }, [invoice, isEdit, form]);
+  }, [invoice, isEdit, form, availableDiscountRules]);
 
   // Reset form when invoice changes (for editing)
   useEffect(() => {
-    if (invoice && isEdit) {
-      console.log("Resetting form with invoice data...");
-      console.log("Invoice discount data:", {
-        discount_type: invoice.discount_type,
-        discount_value: invoice.discount_value,
-        subtotal: invoice.subtotal,
-        amount: invoice.amount
+    console.log("Form reset useEffect triggered:", {
+      hasInvoice: !!invoice,
+      isEdit,
+      availableDiscountRulesLength: availableDiscountRules.length,
+      isRefreshingForm,
+      currentDiscountType: form.getValues("discountType"),
+      currentDiscountValue: form.getValues("discountValue")
+    });
+    
+    if (invoice && isEdit && availableDiscountRules.length > 0 && !isRefreshingForm) {
+      // Check if form is already correctly set to avoid unnecessary resets
+      const currentDiscountType = form.getValues("discountType");
+      const currentDiscountValue = form.getValues("discountValue");
+      
+      console.log("Form reset check - current values:", {
+        currentDiscountType,
+        currentDiscountValue,
+        invoiceDiscountValue: invoice.discount_value,
+        invoiceDiscountType: invoice.discount_type
       });
       
-      const formData = {
-        client: invoice.client_id.toString(),
-        invoiceNumber: invoice.number,
-        currency: invoice.currency || "USD",
-        date: safeParseDateString(invoice.date || invoice.created_at),
-        dueDate: safeParseDateString(invoice.due_date),
-        status: isValidInvoiceStatus(invoice.status) ? invoice.status : "pending",
-        paidAmount: invoice.paid_amount || 0,
-        items: safeItems,
-        notes: invoice.notes || "",
-        isRecurring: invoice.is_recurring || false,
-        recurringFrequency: invoice.recurring_frequency || "monthly",
-        discountType: (invoice.discount_type === "percentage" || invoice.discount_type === "fixed") ? (invoice.discount_type as "percentage" | "fixed") : "percentage",
-        discountValue: invoice.discount_value || 0,
-      };
+      // Always check for discount rules when editing an invoice with a discount value
+      const shouldReset = currentDiscountValue !== (invoice.discount_value || 0) || 
+        (invoice.discount_value && invoice.discount_value > 0 && currentDiscountType !== "rule");
       
-      console.log("Form data to reset:", formData);
-      form.reset(formData);
-      console.log("Form reset complete");
-      
-      // Also set the values individually to ensure they're set
-      setTimeout(() => {
-        console.log("Setting individual form values...");
-        form.setValue("discountType", formData.discountType);
-        form.setValue("discountValue", formData.discountValue);
-        console.log("Individual form values set");
-        console.log("Form values after setting:", {
-          discountType: form.getValues("discountType"),
-          discountValue: form.getValues("discountValue")
+      if (shouldReset) {
+        console.log("Resetting form with invoice data...");
+        console.log("Invoice discount data:", {
+          discount_type: invoice.discount_type,
+          discount_value: invoice.discount_value,
+          subtotal: invoice.subtotal,
+          amount: invoice.amount
         });
-      }, 100);
+        console.log("Available discount rules:", availableDiscountRules);
+        
+        // Check if the existing discount matches any available discount rule
+        const discountValue = invoice.discount_value || 0;
+        let discountType: "percentage" | "fixed" | "rule" = "percentage";
+        let matchingRule = null;
+        
+        console.log("Checking for matching rules...");
+        console.log("Looking for rule with:", {
+          discount_type: invoice.discount_type,
+          discount_value: discountValue,
+          available_rules_count: availableDiscountRules.length
+        });
+        
+        if (discountValue > 0 && availableDiscountRules.length > 0) {
+          const invoiceSubtotal = invoice.subtotal || calculateSubtotal();
+          matchingRule = availableDiscountRules.find(rule => {
+            // Check if this rule matches the saved discount type and value
+            // Don't check minimum amount during form reset - the invoice might have been saved when it met the minimum
+            const typeMatches = rule.discount_type === invoice.discount_type;
+            const valueMatches = rule.discount_value === discountValue;
+            const isActive = rule.is_active;
+            
+            const matches = isActive && typeMatches && valueMatches;
+            
+            console.log(`Checking rule "${rule.name}":`, {
+              is_active: isActive,
+              rule_type: rule.discount_type,
+              rule_value: rule.discount_value,
+              rule_min_amount: rule.min_amount,
+              invoice_type: invoice.discount_type,
+              invoice_value: discountValue,
+              invoice_subtotal: invoiceSubtotal,
+              type_matches: typeMatches,
+              value_matches: valueMatches,
+              meets_minimum: invoiceSubtotal >= rule.min_amount,
+              matches: matches,
+              note: "Minimum amount check disabled during form reset"
+            });
+            return matches;
+          });
+          
+          if (matchingRule) {
+            discountType = "rule";
+            setAppliedDiscountRule({
+              id: matchingRule.id,
+              name: matchingRule.name,
+              min_amount: matchingRule.min_amount,
+              discount_type: matchingRule.discount_type,
+              discount_value: matchingRule.discount_value
+            });
+            console.log("Found matching rule:", matchingRule.name);
+          } else {
+            discountType = (invoice.discount_type === "percentage" || invoice.discount_type === "fixed") ? (invoice.discount_type as "percentage" | "fixed") : "percentage";
+            setAppliedDiscountRule(null);
+            console.log("No matching rule found, using:", discountType);
+          }
+        } else {
+          discountType = (invoice.discount_type === "percentage" || invoice.discount_type === "fixed") ? (invoice.discount_type as "percentage" | "fixed") : "percentage";
+          setAppliedDiscountRule(null);
+          console.log("No discount value or no rules available, using:", discountType);
+        }
+        
+        const formData = {
+          client: invoice.client_id.toString(),
+          invoiceNumber: invoice.number,
+          currency: invoice.currency || "USD",
+          date: safeParseDateString(invoice.date || invoice.created_at),
+          dueDate: safeParseDateString(invoice.due_date),
+          status: isValidInvoiceStatus(invoice.status) ? invoice.status : "pending",
+          paidAmount: invoice.paid_amount || 0,
+          items: safeItems,
+          notes: invoice.notes || "",
+          isRecurring: invoice.is_recurring || false,
+          recurringFrequency: invoice.recurring_frequency || "monthly",
+          discountType: discountType,
+          discountValue: discountValue,
+        };
+        
+        console.log("Form data to reset:", formData);
+        console.log("Discount rule matching:", {
+          discountValue,
+          invoiceDiscountType: invoice.discount_type,
+          matchingRule: matchingRule?.name,
+          finalDiscountType: discountType,
+          availableRules: availableDiscountRules.map(r => ({ name: r.name, type: r.discount_type, value: r.discount_value })),
+          appliedDiscountRule: appliedDiscountRule
+        });
+        form.reset(formData);
+        console.log("Form reset complete");
+        
+        // Also set the values individually to ensure they're set
+        setTimeout(() => {
+          console.log("Setting individual form values...");
+          form.setValue("discountType", formData.discountType);
+          form.setValue("discountValue", formData.discountValue);
+          console.log("Individual form values set");
+          console.log("Form values after setting:", {
+            discountType: form.getValues("discountType"),
+            discountValue: form.getValues("discountValue")
+          });
+        }, 100);
+      }
     }
-  }, [invoice, isEdit, form, safeItems]);
+  }, [invoice, isEdit, form, safeItems, availableDiscountRules]);
 
   // Initialize preview with current invoice data
   useEffect(() => {
@@ -409,6 +519,15 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   // Update preview when form values change
   useEffect(() => {
     const subscription = form.watch((value) => {
+      // Debug discount type changes
+      if (value.discountType) {
+        console.log("Form discount type changed:", {
+          newType: value.discountType,
+          newValue: value.discountValue,
+          appliedRule: appliedDiscountRule?.name
+        });
+      }
+      
       const selectedClient = clients.find(c => c.id.toString() === value.client);
       const itemsWithAmount = (value.items || previewInvoice?.items || []).map(item => ({
         description: item.description || '',
@@ -447,6 +566,46 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     });
     return () => subscription.unsubscribe();
   }, [form, clients, previewInvoice]);
+
+  // Auto-apply discount rules when subtotal changes
+  useEffect(() => {
+    const subtotal = calculateSubtotal();
+    if (subtotal > 0) {
+      // Debounce the API call to avoid too many requests
+      const timeoutId = setTimeout(async () => {
+        try {
+          const discountCalculation = await discountRulesApi.calculateDiscount(subtotal);
+          
+          if (discountCalculation.discount_type !== 'none' && discountCalculation.discount_amount > 0) {
+            // Show suggestion for both new and editing invoices
+            if (discountCalculation.applied_rule) {
+              toast.info(`Discount rule available: ${discountCalculation.applied_rule.name} - ${discountCalculation.discount_value}${discountCalculation.discount_type === 'percentage' ? '%' : '$'} discount`, {
+                action: {
+                  label: 'Apply',
+                  onClick: () => {
+                    form.setValue("discountType", "rule");
+                    form.setValue("discountValue", discountCalculation.discount_value);
+                    setAppliedDiscountRule({
+                      id: discountCalculation.applied_rule.id,
+                      name: discountCalculation.applied_rule.name,
+                      min_amount: discountCalculation.applied_rule.min_amount,
+                      discount_type: discountCalculation.discount_type as 'percentage' | 'fixed',
+                      discount_value: discountCalculation.discount_value
+                    });
+                    toast.success(`Applied ${discountCalculation.applied_rule.name}`);
+                  }
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Failed to apply discount rules:", error);
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [form.watch("items"), isEdit]);
 
   const items = form.watch("items");
   const currentStatus = form.watch("status");
@@ -496,6 +655,29 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     return subtotal;
   };
 
+  // Function to automatically apply discount rules
+  const applyDiscountRules = async (subtotal: number) => {
+    try {
+      const discountCalculation = await discountRulesApi.calculateDiscount(subtotal);
+      
+      if (discountCalculation.discount_type !== 'none' && discountCalculation.discount_amount > 0) {
+        // Auto-apply the discount rule
+        form.setValue("discountType", discountCalculation.discount_type);
+        form.setValue("discountValue", discountCalculation.discount_value);
+        
+        // Show a toast notification about the applied rule
+        if (discountCalculation.applied_rule) {
+          toast.success(`Applied ${discountCalculation.applied_rule.name}: ${discountCalculation.discount_value}${discountCalculation.discount_type === 'percentage' ? '%' : '$'} discount`);
+        }
+        
+        return discountCalculation.discount_amount;
+      }
+    } catch (error) {
+      console.error("Failed to apply discount rules:", error);
+    }
+    return 0;
+  };
+
   const calculateDiscount = () => {
     const subtotal = calculateSubtotal();
     const discountType = form.watch("discountType");
@@ -517,6 +699,29 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       } else {
         const discount = Math.min(actualDiscountValue, subtotal);
         console.log("calculateDiscount - fixed discount:", discount);
+        return discount;
+      }
+    }
+    
+    // Handle discount rule type
+    if (discountType === "rule" && appliedDiscountRule) {
+      // Check if subtotal meets minimum amount requirement
+      if (subtotal < appliedDiscountRule.min_amount) {
+        console.log("calculateDiscount - rule not applied, subtotal below minimum:", {
+          subtotal,
+          min_amount: appliedDiscountRule.min_amount,
+          rule_name: appliedDiscountRule.name
+        });
+        return 0;
+      }
+      
+      if (appliedDiscountRule.discount_type === "percentage") {
+        const discount = (subtotal * appliedDiscountRule.discount_value) / 100;
+        console.log("calculateDiscount - rule percentage discount:", discount);
+        return discount;
+      } else {
+        const discount = Math.min(appliedDiscountRule.discount_value, subtotal);
+        console.log("calculateDiscount - rule fixed discount:", discount);
         return discount;
       }
     }
@@ -607,17 +812,28 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           const subtotal = data.items.reduce((sum, item) => 
             sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
           );
-          const discount = data.discountType === "percentage" 
-            ? (subtotal * (data.discountValue || 0)) / 100
-            : Math.min(data.discountValue || 0, subtotal);
+          
+          let discount = 0;
+          if (data.discountType === "rule" && appliedDiscountRule) {
+            if (appliedDiscountRule.discount_type === "percentage") {
+              discount = (subtotal * appliedDiscountRule.discount_value) / 100;
+            } else {
+              discount = Math.min(appliedDiscountRule.discount_value, subtotal);
+            }
+          } else if (data.discountType === "percentage") {
+            discount = (subtotal * (data.discountValue || 0)) / 100;
+          } else {
+            discount = Math.min(data.discountValue || 0, subtotal);
+          }
+          
           const totalAmount = Math.max(0, subtotal - discount);
 
           // Update the invoice with calculated total amount
           const updateData = {
             amount: totalAmount,
             subtotal: subtotal,
-            discount_type: data.discountType,
-            discount_value: data.discountValue || 0,
+            discount_type: data.discountType === "rule" && appliedDiscountRule ? appliedDiscountRule.discount_type : data.discountType,
+            discount_value: data.discountType === "rule" && appliedDiscountRule ? appliedDiscountRule.discount_value : (data.discountValue || 0),
             currency: data.currency,
             due_date: format(data.dueDate, "yyyy-MM-dd'T'HH:mm:ss"),
             notes: data.notes || "",
@@ -631,6 +847,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               id: item.id
             })),
           };
+          
+          console.log("Saving invoice with discount data:", {
+            formDiscountType: data.discountType,
+            formDiscountValue: data.discountValue,
+            appliedDiscountRule: appliedDiscountRule,
+            finalDiscountType: updateData.discount_type,
+            finalDiscountValue: updateData.discount_value
+          });
           
           // Capture current discount values before update for change tracking
           const currentDiscountValue = data.discountValue || 0;
@@ -804,18 +1028,73 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
             });
             
             // Update the form with the new data
-            const newDiscountType = (updatedInvoice.discount_type === "percentage" || updatedInvoice.discount_type === "fixed") ? (updatedInvoice.discount_type as "percentage" | "fixed") : "percentage";
             const newDiscountValue = updatedInvoice.discount_value !== undefined ? updatedInvoice.discount_value : 0;
+            
+            // Check if this discount value matches any available discount rule
+            let newDiscountType: "percentage" | "fixed" | "rule" = "percentage";
+            let matchingRule = null;
+            
+            if (newDiscountValue > 0) {
+              const subtotal = calculateSubtotal();
+              matchingRule = availableDiscountRules.find(rule => {
+                // Check if this rule matches the saved discount type and value
+                const typeMatches = rule.discount_type === updatedInvoice.discount_type;
+                const valueMatches = rule.discount_value === newDiscountValue;
+                const isActive = rule.is_active;
+                const meetsMinimum = subtotal >= rule.min_amount;
+                
+                const matches = isActive && typeMatches && valueMatches && meetsMinimum;
+                
+                console.log(`Checking rule "${rule.name}":`, {
+                  is_active: isActive,
+                  rule_type: rule.discount_type,
+                  rule_value: rule.discount_value,
+                  rule_min_amount: rule.min_amount,
+                  invoice_type: updatedInvoice.discount_type,
+                  invoice_value: newDiscountValue,
+                  invoice_subtotal: subtotal,
+                  type_matches: typeMatches,
+                  value_matches: valueMatches,
+                  meets_minimum: meetsMinimum,
+                  matches: matches
+                });
+                return matches;
+              });
+              
+              if (matchingRule) {
+                newDiscountType = "rule";
+                setAppliedDiscountRule({
+                  id: matchingRule.id,
+                  name: matchingRule.name,
+                  min_amount: matchingRule.min_amount,
+                  discount_type: matchingRule.discount_type,
+                  discount_value: matchingRule.discount_value
+                });
+              } else {
+                newDiscountType = (updatedInvoice.discount_type === "percentage" || updatedInvoice.discount_type === "fixed") ? (updatedInvoice.discount_type as "percentage" | "fixed") : "percentage";
+                setAppliedDiscountRule(null);
+              }
+            } else {
+              newDiscountType = (updatedInvoice.discount_type === "percentage" || updatedInvoice.discount_type === "fixed") ? (updatedInvoice.discount_type as "percentage" | "fixed") : "percentage";
+              setAppliedDiscountRule(null);
+            }
             
             console.log("Setting form values:", {
               discountType: newDiscountType,
               discountValue: newDiscountValue,
-              paidAmount: updatedInvoice.paid_amount || 0
+              paidAmount: updatedInvoice.paid_amount || 0,
+              matchingRule: matchingRule?.name
             });
             
+            setIsRefreshingForm(true);
             form.setValue("discountType", newDiscountType);
             form.setValue("discountValue", newDiscountValue);
             form.setValue("paidAmount", updatedInvoice.paid_amount || 0);
+            
+            // Reset the flag after a short delay
+            setTimeout(() => {
+              setIsRefreshingForm(false);
+            }, 200);
             
             // Refresh the update history with the updated invoice data and previous discount info
             console.log("Calling fetchUpdateHistory with:", {
@@ -849,9 +1128,20 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         const subtotal = data.items.reduce((sum, item) => 
           sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
         );
-        const discount = data.discountType === "percentage" 
-          ? (subtotal * (data.discountValue || 0)) / 100
-          : Math.min(data.discountValue || 0, subtotal);
+        
+        let discount = 0;
+        if (data.discountType === "rule" && appliedDiscountRule) {
+          if (appliedDiscountRule.discount_type === "percentage") {
+            discount = (subtotal * appliedDiscountRule.discount_value) / 100;
+          } else {
+            discount = Math.min(appliedDiscountRule.discount_value, subtotal);
+          }
+        } else if (data.discountType === "percentage") {
+          discount = (subtotal * (data.discountValue || 0)) / 100;
+        } else {
+          discount = Math.min(data.discountValue || 0, subtotal);
+        }
+        
         const totalAmount = Math.max(0, subtotal - discount);
 
         // Prepare request payload for new invoice
@@ -865,8 +1155,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           due_date: formattedDueDate,
           amount: totalAmount,
           subtotal: subtotal,
-          discount_type: data.discountType,
-          discount_value: data.discountValue || 0,
+          discount_type: data.discountType === "rule" && appliedDiscountRule ? appliedDiscountRule.discount_type : data.discountType,
+          discount_value: data.discountType === "rule" && appliedDiscountRule ? appliedDiscountRule.discount_value : (data.discountValue || 0),
           currency: data.currency,
           paid_amount: data.paidAmount || 0,
           status: data.status,
@@ -1473,7 +1763,17 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Discount Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Clear applied rule when switching away from rule type
+                                if (value !== "rule") {
+                                  setAppliedDiscountRule(null);
+                                }
+                              }} 
+                              value={field.value} 
+                              disabled={isInvoicePaid}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select discount type" />
@@ -1482,6 +1782,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               <SelectContent>
                                 <SelectItem value="percentage">Percentage (%)</SelectItem>
                                 <SelectItem value="fixed">Fixed Amount</SelectItem>
+                                <SelectItem value="rule">Discount Rule</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1496,30 +1797,104 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           <FormItem>
                             <FormLabel>Discount Value</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder={form.watch("discountType") === "percentage" ? "0.00" : "0.00"}
-                                {...field}
-                                onChange={(e) => {
-                                  const value = parseFloat(e.target.value) || 0;
-                                  const discountType = form.watch("discountType");
-                                  
-                                  if (discountType === "percentage" && value > 100) {
-                                    field.onChange(100);
-                                  } else {
-                                    field.onChange(value);
-                                  }
-                                }}
-                                disabled={isInvoicePaid}
-                              />
+                              {form.watch("discountType") === "rule" ? (
+                                <Select 
+                                  value={appliedDiscountRule?.id?.toString() || ""}
+                                  onValueChange={(value) => {
+                                    const selectedRule = availableDiscountRules.find(rule => rule.id.toString() === value);
+                                    if (selectedRule) {
+                                      field.onChange(selectedRule.discount_value);
+                                      setAppliedDiscountRule({
+                                        id: selectedRule.id,
+                                        name: selectedRule.name,
+                                        min_amount: selectedRule.min_amount,
+                                        discount_type: selectedRule.discount_type,
+                                        discount_value: selectedRule.discount_value
+                                      });
+                                    }
+                                  }}
+                                  disabled={isInvoicePaid}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a discount rule" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableDiscountRules
+                                      .filter(rule => rule.is_active)
+                                      .sort((a, b) => b.priority - a.priority || b.min_amount - a.min_amount)
+                                      .map((rule) => (
+                                        <SelectItem key={rule.id} value={rule.id.toString()}>
+                                          {rule.name} - {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : '$'} (min: ${rule.min_amount})
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder={form.watch("discountType") === "percentage" ? "0.00" : "0.00"}
+                                  {...field}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const discountType = form.watch("discountType");
+                                    
+                                    if (discountType === "percentage" && value > 100) {
+                                      field.onChange(100);
+                                    } else {
+                                      field.onChange(value);
+                                    }
+                                  }}
+                                  disabled={isInvoicePaid}
+                                />
+                              )}
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    {/* Discount Rule Indicator */}
+                    {form.watch("discountType") === "rule" && appliedDiscountRule && (
+                      <div className={`text-sm p-4 rounded-md border ${
+                        calculateSubtotal() >= appliedDiscountRule.min_amount 
+                          ? "text-blue-600 bg-blue-50 border-blue-200" 
+                          : "text-orange-600 bg-orange-50 border-orange-200"
+                      }`}>
+                        <div className="font-medium mb-2">
+                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? "💡 Applied Discount Rule:" : "⚠️ Discount Rule Not Applied:"}
+                        </div>
+                        <div className="space-y-1">
+                          <div><span className="font-medium">Rule:</span> {appliedDiscountRule.name}</div>
+                          <div><span className="font-medium">Minimum Amount:</span> ${appliedDiscountRule.min_amount.toFixed(2)}</div>
+                          <div><span className="font-medium">Current Subtotal:</span> ${calculateSubtotal().toFixed(2)}</div>
+                          <div><span className="font-medium">Discount:</span> {appliedDiscountRule.discount_value}{appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'}</div>
+                          <div><span className="font-medium">Discount Amount:</span> -${calculateDiscount().toFixed(2)}</div>
+                        </div>
+                        <div className={`text-xs mt-2 pt-2 border-t ${
+                          calculateSubtotal() >= appliedDiscountRule.min_amount 
+                            ? "text-blue-500 border-blue-200" 
+                            : "text-orange-500 border-orange-200"
+                        }`}>
+                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? (
+                            !isEdit ? 
+                              "This discount rule was automatically applied based on your invoice subtotal." :
+                              "This discount rule was manually selected from your available rules."
+                          ) : (
+                            `This discount rule requires a minimum subtotal of $${appliedDiscountRule.min_amount.toFixed(2)}. Add more items to qualify for the discount.`
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Legacy discount indicator for non-rule discounts */}
+                    {form.watch("discountValue") > 0 && form.watch("discountType") !== "rule" && (
+                      <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-200">
+                        <span className="font-medium">💡 Discount Applied:</span> {form.watch("discountValue")}{form.watch("discountType") === "percentage" ? "%" : "$"} discount
+                      </div>
+                    )}
 
                     {/* Summary Section */}
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
@@ -1538,6 +1913,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               const actualDiscountType = invoice.discount_type || "percentage";
                               const actualDiscountValue = invoice.discount_value || 0;
                               return actualDiscountType === "percentage" ? `${actualDiscountValue}%` : "Fixed";
+                            }
+                            
+                            if (discountType === "rule" && appliedDiscountRule) {
+                              return `${appliedDiscountRule.discount_value}${appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'} (Rule)`;
                             }
                             
                             return discountType === "percentage" ? `${discountValue}%` : "Fixed";

@@ -9,8 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Download, Database, Upload } from "lucide-react";
-import { settingsApi } from "@/lib/api";
+import { settingsApi, discountRulesApi, DiscountRule, DiscountRuleCreate } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Edit, Plus } from "lucide-react";
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
@@ -18,6 +21,20 @@ const Settings = () => {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // Discount rules state
+  const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
+  const [loadingDiscountRules, setLoadingDiscountRules] = useState(false);
+  const [showDiscountRuleDialog, setShowDiscountRuleDialog] = useState(false);
+  const [editingDiscountRule, setEditingDiscountRule] = useState<DiscountRule | null>(null);
+  const [newDiscountRule, setNewDiscountRule] = useState<DiscountRuleCreate>({
+    name: "",
+    min_amount: 0,
+    discount_type: "percentage",
+    discount_value: 0,
+    is_active: true,
+    priority: 0,
+  });
   
   const [companyInfo, setCompanyInfo] = useState({
     name: "Your Company",
@@ -108,6 +125,18 @@ const Settings = () => {
           }
         } catch (error) {
           console.log("Email settings not configured yet");
+        }
+        
+        // Fetch discount rules
+        try {
+          setLoadingDiscountRules(true);
+          const rules = await discountRulesApi.getDiscountRules();
+          setDiscountRules(rules);
+        } catch (error) {
+          console.error("Failed to fetch discount rules:", error);
+          toast.error("Failed to load discount rules");
+        } finally {
+          setLoadingDiscountRules(false);
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
@@ -267,6 +296,99 @@ const Settings = () => {
     }
   };
 
+  // Discount rules management functions
+  const handleCreateDiscountRule = async () => {
+    try {
+      const rule = await discountRulesApi.createDiscountRule(newDiscountRule);
+      setDiscountRules([...discountRules, rule]);
+      setShowDiscountRuleDialog(false);
+      setNewDiscountRule({
+        name: "",
+        min_amount: 0,
+        discount_type: "percentage",
+        discount_value: 0,
+        is_active: true,
+        priority: 0,
+      });
+      toast.success("Discount rule created successfully!");
+    } catch (error) {
+      console.error("Failed to create discount rule:", error);
+      toast.error("Failed to create discount rule");
+    }
+  };
+
+  const handleUpdateDiscountRule = async () => {
+    if (!editingDiscountRule) return;
+    
+    try {
+      const updatedRule = await discountRulesApi.updateDiscountRule(editingDiscountRule.id, {
+        name: newDiscountRule.name,
+        min_amount: newDiscountRule.min_amount,
+        discount_type: newDiscountRule.discount_type,
+        discount_value: newDiscountRule.discount_value,
+        is_active: newDiscountRule.is_active,
+        priority: newDiscountRule.priority,
+      });
+      
+      setDiscountRules(discountRules.map(rule => 
+        rule.id === editingDiscountRule.id ? updatedRule : rule
+      ));
+      setShowDiscountRuleDialog(false);
+      setEditingDiscountRule(null);
+      setNewDiscountRule({
+        name: "",
+        min_amount: 0,
+        discount_type: "percentage",
+        discount_value: 0,
+        is_active: true,
+        priority: 0,
+      });
+      toast.success("Discount rule updated successfully!");
+    } catch (error) {
+      console.error("Failed to update discount rule:", error);
+      toast.error("Failed to update discount rule");
+    }
+  };
+
+  const handleDeleteDiscountRule = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this discount rule?")) return;
+    
+    try {
+      await discountRulesApi.deleteDiscountRule(id);
+      setDiscountRules(discountRules.filter(rule => rule.id !== id));
+      toast.success("Discount rule deleted successfully!");
+    } catch (error) {
+      console.error("Failed to delete discount rule:", error);
+      toast.error("Failed to delete discount rule");
+    }
+  };
+
+  const openEditDialog = (rule: DiscountRule) => {
+    setEditingDiscountRule(rule);
+    setNewDiscountRule({
+      name: rule.name,
+      min_amount: rule.min_amount,
+      discount_type: rule.discount_type,
+      discount_value: rule.discount_value,
+      is_active: rule.is_active,
+      priority: rule.priority,
+    });
+    setShowDiscountRuleDialog(true);
+  };
+
+  const openCreateDialog = () => {
+    setEditingDiscountRule(null);
+    setNewDiscountRule({
+      name: "",
+      min_amount: 0,
+      discount_type: "percentage",
+      discount_value: 0,
+      is_active: true,
+      priority: 0,
+    });
+    setShowDiscountRuleDialog(true);
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -287,9 +409,10 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="company">Company Info</TabsTrigger>
             <TabsTrigger value="invoices">Invoice Settings</TabsTrigger>
+            <TabsTrigger value="discount-rules">Discount Rules</TabsTrigger>
             <TabsTrigger value="email">Email Settings</TabsTrigger>
             <TabsTrigger value="export">Data Management</TabsTrigger>
           </TabsList>
@@ -459,6 +582,73 @@ const Settings = () => {
                     Save Changes
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="discount-rules" className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Discount Rules</CardTitle>
+                  <Button onClick={openCreateDialog} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Rule
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {loadingDiscountRules ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm text-muted-foreground">Loading discount rules...</span>
+                  </div>
+                ) : discountRules.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No discount rules configured yet.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Create discount rules to automatically apply discounts based on invoice totals.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {discountRules.map((rule) => (
+                      <div key={rule.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium">{rule.name}</h4>
+                            <Badge variant={rule.is_active ? "default" : "secondary"}>
+                              {rule.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                            <Badge variant="outline">Priority: {rule.priority}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {rule.discount_type === "percentage" 
+                              ? `${rule.discount_value}% discount` 
+                              : `$${rule.discount_value} discount`
+                            } when total ≥ ${rule.min_amount}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(rule)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteDiscountRule(rule.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -921,6 +1111,113 @@ const Settings = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Discount Rule Dialog */}
+        <Dialog open={showDiscountRuleDialog} onOpenChange={setShowDiscountRuleDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>
+                {editingDiscountRule ? "Edit Discount Rule" : "Create Discount Rule"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="rule-name">Rule Name</Label>
+                <Input
+                  id="rule-name"
+                  value={newDiscountRule.name}
+                  onChange={(e) => setNewDiscountRule(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., High Value Discount, Bulk Order Discount"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min-amount">Minimum Amount</Label>
+                  <Input
+                    id="min-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newDiscountRule.min_amount}
+                    onChange={(e) => setNewDiscountRule(prev => ({ ...prev, min_amount: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0.00"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Input
+                    id="priority"
+                    type="number"
+                    min="0"
+                    value={newDiscountRule.priority}
+                    onChange={(e) => setNewDiscountRule(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="discount-type">Discount Type</Label>
+                  <Select
+                    value={newDiscountRule.discount_type}
+                    onValueChange={(value: 'percentage' | 'fixed') => 
+                      setNewDiscountRule(prev => ({ ...prev, discount_type: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">Percentage (%)</SelectItem>
+                      <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="discount-value">
+                    {newDiscountRule.discount_type === "percentage" ? "Discount Percentage" : "Discount Amount"}
+                  </Label>
+                  <Input
+                    id="discount-value"
+                    type="number"
+                    min="0"
+                    step={newDiscountRule.discount_type === "percentage" ? "0.01" : "0.01"}
+                    value={newDiscountRule.discount_value}
+                    onChange={(e) => setNewDiscountRule(prev => ({ ...prev, discount_value: parseFloat(e.target.value) || 0 }))}
+                    placeholder={newDiscountRule.discount_type === "percentage" ? "5.00" : "50.00"}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is-active"
+                  checked={newDiscountRule.is_active}
+                  onCheckedChange={(checked) => setNewDiscountRule(prev => ({ ...prev, is_active: checked }))}
+                />
+                <Label htmlFor="is-active">Active</Label>
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDiscountRuleDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={editingDiscountRule ? handleUpdateDiscountRule : handleCreateDiscountRule}
+                >
+                  {editingDiscountRule ? "Update Rule" : "Create Rule"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

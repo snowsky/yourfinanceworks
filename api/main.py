@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 import traceback
 import logging
 
-from routers import clients, invoices, payments, auth, tenant, settings, email, currency, crm
+from routers import clients, invoices, payments, auth, tenant, settings, email, currency, crm, discount_rules
 from cors_middleware import CustomCORSMiddleware
 from models.database import engine, Base
 from models import models
@@ -67,6 +67,7 @@ app.include_router(settings.router, prefix="/api")
 app.include_router(email.router, prefix="/api")
 app.include_router(currency.router, prefix="/api")
 app.include_router(crm.router, prefix="/api")
+app.include_router(discount_rules.router, prefix="/api")
 
 @app.get("/")
 def read_root():
