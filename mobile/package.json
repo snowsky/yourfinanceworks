@@ -1,0 +1,39 @@
+{
+  "name": "invoice-app-mobile",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "^53.0.16",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "@react-navigation/native": "^6.1.16",
+    "@react-navigation/stack": "^6.4.1",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "react-native-paper": "^5.12.3",
+    "react-native-vector-icons": "^10.1.0",
+    "axios": "^1.7.9",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "react-native-picker-select": "^9.0.0",
+    "react-native-date-picker": "^4.3.3",
+    "react-native-modal": "^13.0.1",
+    "react-native-keyboard-aware-scroll-view": "^0.9.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.0.10",
+    "@types/react-native": "~0.73.0",
+    "typescript": "~5.8.3"
+  },
+  "private": true
+}

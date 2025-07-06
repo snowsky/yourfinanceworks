@@ -47,12 +47,14 @@ const formSchema = z.object({
   currency: z.string().min(1, "Currency is required"),
   date: z.date(),
   dueDate: z.date(),
-  status: z.enum(["pending", "paid", "overdue", "partially_paid"] as const),
+  status: z.custom<InvoiceStatus>(),
   paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
   isRecurring: z.boolean().optional(),
   recurringFrequency: z.string().optional(),
+  discountType: z.enum(["percentage", "fixed"] as const).default("percentage"),
+  discountValue: z.number().min(0, "Discount value cannot be negative").default(0),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -90,10 +92,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   const [updateHistory, setUpdateHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isRecurring, setIsRecurring] = useState(invoice?.is_recurring || false);
+  const [previousDiscount, setPreviousDiscount] = useState<{value: number, type: string} | null>(
+    invoice ? { value: invoice.discount_value || 0, type: invoice.discount_type || 'percentage' } : null
+  );
+  const [updateHistoryCache, setUpdateHistoryCache] = useState<{[key: string]: any[]}>({});
   const [itemKeyCounter, setItemKeyCounter] = useState(0);
 
   // Fetch update history for the invoice
-  const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
+  const fetchUpdateHistory = useCallback(async (invoiceId: number, invoiceData?: Invoice, previousDiscountInfo?: {value: number, type: string}) => {
     setLoadingHistory(true);
     try {
       // Get all payments for this invoice
@@ -113,34 +119,75 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         notes: payment.notes
       }));
 
-      // Add invoice creation entry
-      const creationHistory = [{
+      // Use provided invoice data or fall back to the prop
+      const currentInvoice = invoiceData || invoice;
+
+      // Get existing history from cache
+      const existingHistory = updateHistoryCache[invoiceId] || [];
+
+      // Add invoice creation entry (only if not already exists)
+      const creationHistory = existingHistory.find(entry => entry.id === 'creation') ? [] : [{
         id: 'creation',
         type: 'creation',
         action: 'Invoice Created',
-        amount: invoice?.amount || 0,
-        date: invoice?.created_at || new Date().toISOString(),
-        details: `Invoice ${invoice?.number} created`,
+        amount: currentInvoice?.amount || 0,
+        date: currentInvoice?.created_at || new Date().toISOString(),
+        details: `Invoice ${currentInvoice?.number} created`,
         notes: null
       }];
 
-      // Add invoice updates (we'll simulate this for now, could be enhanced with actual audit log)
-      const updateHistoryItems = [];
-      if (invoice?.updated_at && invoice.updated_at !== invoice.created_at) {
-        updateHistoryItems.push({
-          id: 'update',
+      // Add new update entries for this update
+      const newUpdateEntries = [];
+      
+      // Use the actual updated_at timestamp from the invoice, or current time as fallback
+      const updateTimestamp = currentInvoice?.updated_at || new Date().toISOString();
+      
+      // Add discount change entry if there was a change
+      console.log("Checking for discount change:", {
+        previousDiscountInfo,
+        currentDiscountValue: currentInvoice?.discount_value,
+        currentDiscountType: currentInvoice?.discount_type,
+        hasChange: previousDiscountInfo && currentInvoice?.discount_value !== previousDiscountInfo.value
+      });
+      
+      if (previousDiscountInfo && currentInvoice?.discount_value !== previousDiscountInfo.value) {
+        const discountText = currentInvoice?.discount_value && currentInvoice.discount_value > 0
+          ? `Discount changed from ${previousDiscountInfo.value}${previousDiscountInfo.type === 'percentage' ? '%' : ' (fixed)'} to ${currentInvoice.discount_value}${currentInvoice.discount_type === 'percentage' ? '%' : ' (fixed)'}`
+          : `Discount removed (was ${previousDiscountInfo.value}${previousDiscountInfo.type === 'percentage' ? '%' : ' (fixed)'})`;
+        
+        console.log("Adding discount change entry:", discountText);
+        
+        newUpdateEntries.push({
+          id: `discount-update-${updateTimestamp}`,
           type: 'update',
-          action: 'Invoice Updated',
-          amount: invoice.amount,
-          date: invoice.updated_at,
-          details: `Status: ${formatStatus(invoice.status)}`,
+          action: 'Discount Changed',
+          amount: currentInvoice?.amount || 0,
+          date: updateTimestamp,
+          details: discountText,
           notes: null
         });
       }
 
-      // Combine and sort all history items
-      const allHistory = [...creationHistory, ...updateHistoryItems, ...paymentHistory]
+      // Add general update entry for this update
+      newUpdateEntries.push({
+        id: `update-${updateTimestamp}`,
+        type: 'update',
+        action: 'Invoice Updated',
+        amount: currentInvoice?.amount || 0,
+        date: updateTimestamp,
+        details: `Invoice details modified`,
+        notes: null
+      });
+
+      // Combine existing history with new entries
+      const allHistory = [...existingHistory, ...creationHistory, ...newUpdateEntries, ...paymentHistory]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Update cache
+      setUpdateHistoryCache(prev => ({
+        ...prev,
+        [invoiceId]: allHistory
+      }));
 
       setUpdateHistory(allHistory);
     } catch (error) {
@@ -149,7 +196,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     } finally {
       setLoadingHistory(false);
     }
-  }, [invoice]);
+  }, [invoice, updateHistoryCache]);
 
   // Fetch clients and settings
   useEffect(() => {
@@ -174,11 +221,17 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   }, [navigate]);
 
   // Fetch update history when invoice is available
-  useEffect(() => {
-    if (invoice && isEdit) {
-      fetchUpdateHistory(invoice.id);
-    }
-  }, [invoice, isEdit, fetchUpdateHistory]);
+      useEffect(() => {
+      if (invoice && isEdit) {
+        // Initialize cache with existing history
+        const existingHistory = updateHistoryCache[invoice.id] || [];
+        if (existingHistory.length === 0) {
+          fetchUpdateHistory(invoice.id, invoice);
+        } else {
+          setUpdateHistory(existingHistory);
+        }
+      }
+    }, [invoice, isEdit, fetchUpdateHistory, updateHistoryCache]);
 
   const handleCreateClient = async () => {
     try {
@@ -255,6 +308,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       notes: invoice?.notes || "",
       isRecurring: invoice?.is_recurring || false,
       recurringFrequency: invoice?.recurring_frequency || "monthly",
+      discountType: (invoice?.discount_type === "percentage" || invoice?.discount_type === "fixed") ? invoice.discount_type : "percentage",
+      discountValue: invoice?.discount_value || 0,
     },
   });
 
@@ -269,9 +324,60 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       console.log("- Notes:", invoice.notes);
       console.log("- Items:", invoice.items);
       console.log("- Due Date:", invoice.due_date);
+      console.log("- Discount Type:", invoice.discount_type);
+      console.log("- Discount Value:", invoice.discount_value);
+      console.log("- Subtotal:", invoice.subtotal);
+      console.log("- Amount:", invoice.amount);
       console.log("- Form default paid amount:", form.getValues("paidAmount"));
+      console.log("- Form default discount type:", form.getValues("discountType"));
+      console.log("- Form default discount value:", form.getValues("discountValue"));
     }
   }, [invoice, isEdit, form]);
+
+  // Reset form when invoice changes (for editing)
+  useEffect(() => {
+    if (invoice && isEdit) {
+      console.log("Resetting form with invoice data...");
+      console.log("Invoice discount data:", {
+        discount_type: invoice.discount_type,
+        discount_value: invoice.discount_value,
+        subtotal: invoice.subtotal,
+        amount: invoice.amount
+      });
+      
+      const formData = {
+        client: invoice.client_id.toString(),
+        invoiceNumber: invoice.number,
+        currency: invoice.currency || "USD",
+        date: safeParseDateString(invoice.date || invoice.created_at),
+        dueDate: safeParseDateString(invoice.due_date),
+        status: isValidInvoiceStatus(invoice.status) ? invoice.status : "pending",
+        paidAmount: invoice.paid_amount || 0,
+        items: safeItems,
+        notes: invoice.notes || "",
+        isRecurring: invoice.is_recurring || false,
+        recurringFrequency: invoice.recurring_frequency || "monthly",
+        discountType: (invoice.discount_type === "percentage" || invoice.discount_type === "fixed") ? (invoice.discount_type as "percentage" | "fixed") : "percentage",
+        discountValue: invoice.discount_value || 0,
+      };
+      
+      console.log("Form data to reset:", formData);
+      form.reset(formData);
+      console.log("Form reset complete");
+      
+      // Also set the values individually to ensure they're set
+      setTimeout(() => {
+        console.log("Setting individual form values...");
+        form.setValue("discountType", formData.discountType);
+        form.setValue("discountValue", formData.discountValue);
+        console.log("Individual form values set");
+        console.log("Form values after setting:", {
+          discountType: form.getValues("discountType"),
+          discountValue: form.getValues("discountValue")
+        });
+      }, 100);
+    }
+  }, [invoice, isEdit, form, safeItems]);
 
   // Initialize preview with current invoice data
   useEffect(() => {
@@ -280,9 +386,21 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         ...item,
         amount: (item.quantity || 1) * (item.price || 0)
       }));
+      const subtotal = itemsWithAmount.reduce((sum, item) => sum + item.amount, 0);
+      const discountType = invoice.discount_type || "percentage";
+      const discountValue = invoice.discount_value || 0;
+      const discount = discountType === "percentage" 
+        ? (subtotal * discountValue) / 100
+        : Math.min(discountValue, subtotal);
+      const totalAmount = Math.max(0, subtotal - discount);
+      
       setPreviewInvoice({
         ...invoice,
         items: itemsWithAmount,
+        subtotal: subtotal,
+        discount_type: discountType,
+        discount_value: discountValue,
+        amount: totalAmount,
         paid_amount: invoice.paid_amount || 0
       });
     }
@@ -309,7 +427,18 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         status: value.status || previewInvoice?.status || 'pending',
         notes: value.notes || previewInvoice?.notes || '',
         items: itemsWithAmount,
-        amount: itemsWithAmount.reduce((sum, item) => sum + item.amount, 0),
+        subtotal: itemsWithAmount.reduce((sum, item) => sum + item.amount, 0),
+        discount_type: value.discountType || previewInvoice?.discount_type || "percentage",
+        discount_value: Number(value.discountValue) || previewInvoice?.discount_value || 0,
+        amount: (() => {
+          const subtotal = itemsWithAmount.reduce((sum, item) => sum + item.amount, 0);
+          const discountType = value.discountType || previewInvoice?.discount_type || "percentage";
+          const discountValue = Number(value.discountValue) || previewInvoice?.discount_value || 0;
+          const discount = discountType === "percentage" 
+            ? (subtotal * discountValue) / 100
+            : Math.min(discountValue, subtotal);
+          return Math.max(0, subtotal - discount);
+        })(),
         client_id: Number(value.client) || previewInvoice?.client_id || 0,
         id: previewInvoice?.id || 0,
         paid_amount: Number(value.paidAmount) || previewInvoice?.paid_amount || 0,
@@ -347,15 +476,66 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   };
 
   const calculateSubtotal = () => {
-    return items.reduce((sum, item) => {
+    // When editing, use the actual invoice data if form values are not yet loaded
+    if (isEdit && invoice && (!items || items.length === 0 || items[0].quantity === 0)) {
+      const subtotal = invoice.items.reduce((sum, item) => {
+        const quantity = item.quantity || 0;
+        const price = item.price || 0;
+        return sum + quantity * price;
+      }, 0);
+      console.log("calculateSubtotal - using invoice data:", subtotal);
+      return subtotal;
+    }
+    
+    const subtotal = items.reduce((sum, item) => {
       const quantity = item.quantity || 0;
       const price = item.price || 0;
       return sum + quantity * price;
     }, 0);
+    console.log("calculateSubtotal - using form data:", subtotal);
+    return subtotal;
+  };
+
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const discountType = form.watch("discountType");
+    const discountValue = form.watch("discountValue") || 0;
+    
+    console.log("calculateDiscount - subtotal:", subtotal, "discountType:", discountType, "discountValue:", discountValue);
+    
+    // When editing, use the actual invoice discount data if form values are not yet loaded
+    if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
+      const actualDiscountType = invoice.discount_type || "percentage";
+      const actualDiscountValue = invoice.discount_value || 0;
+      
+      console.log("calculateDiscount - using invoice data:", actualDiscountType, actualDiscountValue);
+      
+      if (actualDiscountType === "percentage") {
+        const discount = (subtotal * actualDiscountValue) / 100;
+        console.log("calculateDiscount - percentage discount:", discount);
+        return discount;
+      } else {
+        const discount = Math.min(actualDiscountValue, subtotal);
+        console.log("calculateDiscount - fixed discount:", discount);
+        return discount;
+      }
+    }
+    
+    if (discountType === "percentage") {
+      const discount = (subtotal * discountValue) / 100;
+      console.log("calculateDiscount - form percentage discount:", discount);
+      return discount;
+    } else {
+      const discount = Math.min(discountValue, subtotal);
+      console.log("calculateDiscount - form fixed discount:", discount);
+      return discount;
+    }
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal();
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return Math.max(0, subtotal - discount);
   };
 
   const sendInvoiceEmail = async () => {
@@ -423,14 +603,21 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         console.log("Updating invoice with data:", data);
        
         try {
-          // Calculate total amount from items
-          const totalAmount = data.items.reduce((sum, item) => 
+          // Calculate amounts with discount
+          const subtotal = data.items.reduce((sum, item) => 
             sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
           );
+          const discount = data.discountType === "percentage" 
+            ? (subtotal * (data.discountValue || 0)) / 100
+            : Math.min(data.discountValue || 0, subtotal);
+          const totalAmount = Math.max(0, subtotal - discount);
 
           // Update the invoice with calculated total amount
           const updateData = {
             amount: totalAmount,
+            subtotal: subtotal,
+            discount_type: data.discountType,
+            discount_value: data.discountValue || 0,
             currency: data.currency,
             due_date: format(data.dueDate, "yyyy-MM-dd'T'HH:mm:ss"),
             notes: data.notes || "",
@@ -445,15 +632,26 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
             })),
           };
           
+          // Capture current discount values before update for change tracking
+          const currentDiscountValue = data.discountValue || 0;
+          const currentDiscountType = data.discountType || 'percentage';
+          
+          console.log("Captured discount values before update:", {
+            currentDiscountValue,
+            currentDiscountType,
+            formDiscountValue: form.getValues("discountValue"),
+            formDiscountType: form.getValues("discountType"),
+            previousDiscountState: previousDiscount
+          });
+          
           console.log("Updating invoice with data:", updateData);
-          await invoiceApi.updateInvoice(invoice.id, updateData);
+          const updateResult = await invoiceApi.updateInvoice(invoice.id, updateData);
+          console.log("Update result:", updateResult);
           
           // Handle payment amount separately
           const paidAmount = Number(data.paidAmount) || 0;
           const currentPaidAmount = invoice.paid_amount || 0;
-          const invoiceTotalAmount = data.items.reduce((sum, item) => 
-            sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
-          );
+          const invoiceTotalAmount = totalAmount; // Use the discounted total amount
           
           console.log("Payment comparison:");
           console.log("- New paid amount:", paidAmount);
@@ -495,7 +693,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                     // Update the form with the new paid amount
                     form.setValue("paidAmount", updatedInvoice.paid_amount);
                     // Refresh the update history
-                    await fetchUpdateHistory(invoice.id);
+                    await fetchUpdateHistory(invoice.id, updatedInvoice);
                   } catch (refreshError) {
                     console.error("Failed to refresh invoice data:", refreshError);
                   }
@@ -568,7 +766,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       // Update the form with the new paid amount
                       form.setValue("paidAmount", updatedInvoice.paid_amount);
                       // Refresh the update history
-                      await fetchUpdateHistory(invoice.id);
+                      await fetchUpdateHistory(invoice.id, updatedInvoice);
                     } catch (refreshError) {
                       console.error("Failed to refresh invoice data:", refreshError);
                     }
@@ -590,16 +788,71 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           }
           
           toast.success("Invoice updated successfully!");
+          
+          // Refresh the invoice data to show updated values
+          try {
+            // Capture current discount values before refresh for change tracking
+            const currentDiscountValue = form.getValues("discountValue") || 0;
+            const currentDiscountType = form.getValues("discountType") || 'percentage';
+            
+            const updatedInvoice = await invoiceApi.getInvoice(invoice.id);
+            console.log("Refreshed invoice data after update:", updatedInvoice);
+            console.log("Discount data from updated invoice:", {
+              discount_type: updatedInvoice.discount_type,
+              discount_value: updatedInvoice.discount_value,
+              amount: updatedInvoice.amount
+            });
+            
+            // Update the form with the new data
+            const newDiscountType = (updatedInvoice.discount_type === "percentage" || updatedInvoice.discount_type === "fixed") ? (updatedInvoice.discount_type as "percentage" | "fixed") : "percentage";
+            const newDiscountValue = updatedInvoice.discount_value !== undefined ? updatedInvoice.discount_value : 0;
+            
+            console.log("Setting form values:", {
+              discountType: newDiscountType,
+              discountValue: newDiscountValue,
+              paidAmount: updatedInvoice.paid_amount || 0
+            });
+            
+            form.setValue("discountType", newDiscountType);
+            form.setValue("discountValue", newDiscountValue);
+            form.setValue("paidAmount", updatedInvoice.paid_amount || 0);
+            
+            // Refresh the update history with the updated invoice data and previous discount info
+            console.log("Calling fetchUpdateHistory with:", {
+              invoiceId: updatedInvoice.id,
+              previousDiscountInfo: previousDiscount || {
+                value: currentDiscountValue,
+                type: currentDiscountType
+              }
+            });
+            
+            await fetchUpdateHistory(updatedInvoice.id, updatedInvoice, previousDiscount || {
+              value: currentDiscountValue,
+              type: currentDiscountType
+            });
+            
+            // Update previous discount for next change tracking
+            setPreviousDiscount({
+              value: updatedInvoice.discount_value || 0,
+              type: updatedInvoice.discount_type || 'percentage'
+            });
+          } catch (refreshError) {
+            console.error("Failed to refresh invoice data after update:", refreshError);
+          }
         } catch (error) {
           console.error("API error:", error);
           const errorMessage = error instanceof Error ? error.message : String(error);
           toast.error(`Failed to update invoice: ${errorMessage}`);
         }
       } else {
-        // Calculate total amount from items
-        const totalAmount = data.items.reduce((sum, item) => 
+        // Calculate amounts with discount
+        const subtotal = data.items.reduce((sum, item) => 
           sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
         );
+        const discount = data.discountType === "percentage" 
+          ? (subtotal * (data.discountValue || 0)) / 100
+          : Math.min(data.discountValue || 0, subtotal);
+        const totalAmount = Math.max(0, subtotal - discount);
 
         // Prepare request payload for new invoice
         const selectedClient = clients.find(c => c.id.toString() === data.client);
@@ -611,6 +864,9 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           date: format(data.date, "yyyy-MM-dd'T'HH:mm:ss"),
           due_date: formattedDueDate,
           amount: totalAmount,
+          subtotal: subtotal,
+          discount_type: data.discountType,
+          discount_value: data.discountValue || 0,
           currency: data.currency,
           paid_amount: data.paidAmount || 0,
           status: data.status,
@@ -944,7 +1200,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       control={form.control}
                       name="status"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col">
                           <FormLabel>Status</FormLabel>
                           <Select
                             onValueChange={(value) => {
@@ -1033,8 +1289,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               Paid Amount: ${field.value?.toFixed(2) || '0.00'}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              Remaining Balance: ${(form.watch("items").reduce((sum, item) => 
-                                sum + (item.quantity || 0) * (item.price || 0), 0) - (field.value || 0)).toFixed(2)}
+                              Remaining Balance: ${(calculateTotal() - (field.value || 0)).toFixed(2)}
                             </div>
                             {isEdit && (
                               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
@@ -1206,6 +1461,95 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Discount Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Discount</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="discountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select discount type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                                <SelectItem value="fixed">Fixed Amount</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="discountValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Discount Value</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder={form.watch("discountType") === "percentage" ? "0.00" : "0.00"}
+                                {...field}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  const discountType = form.watch("discountType");
+                                  
+                                  if (discountType === "percentage" && value > 100) {
+                                    field.onChange(100);
+                                  } else {
+                                    field.onChange(value);
+                                  }
+                                }}
+                                disabled={isInvoicePaid}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Summary Section */}
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Discount ({(() => {
+                            const discountType = form.watch("discountType");
+                            const discountValue = form.watch("discountValue") || 0;
+                            
+                            // When editing, use the actual invoice discount data if form values are not yet loaded
+                            if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
+                              const actualDiscountType = invoice.discount_type || "percentage";
+                              const actualDiscountValue = invoice.discount_value || 0;
+                              return actualDiscountType === "percentage" ? `${actualDiscountValue}%` : "Fixed";
+                            }
+                            
+                            return discountType === "percentage" ? `${discountValue}%` : "Fixed";
+                          })()}):
+                        </span>
+                        <span className="font-medium text-red-600">-${calculateDiscount().toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between">
+                        <span className="font-semibold">Total:</span>
+                        <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
 
                   <FormField

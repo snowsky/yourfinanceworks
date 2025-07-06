@@ -117,6 +117,9 @@ class Invoice(Base):
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
     is_recurring = Column(Boolean, default=False)
     recurring_frequency = Column(String, nullable=True)
+    discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
+    discount_value = Column(Float, default=0.0, nullable=False)  # percentage or fixed amount
+    subtotal = Column(Float, nullable=False)  # Amount before discount
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

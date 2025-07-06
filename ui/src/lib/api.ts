@@ -54,6 +54,9 @@ export interface Invoice {
   updated_at: string;
   is_recurring?: boolean;
   recurring_frequency?: string;
+  discount_type?: string;
+  discount_value?: number;
+  subtotal?: number;
 }
 
 export interface Payment {
@@ -297,6 +300,9 @@ export const invoiceApi = {
         updated_at: apiResponse.updated_at || '',
         is_recurring: apiResponse.is_recurring,
         recurring_frequency: apiResponse.recurring_frequency,
+        discount_type: apiResponse.discount_type,
+        discount_value: apiResponse.discount_value,
+        subtotal: apiResponse.subtotal,
       };
       
       console.log("Mapped invoice object:", invoice);

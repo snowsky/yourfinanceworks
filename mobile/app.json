@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Invoice App",
+    "slug": "invoice-app-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.haoinvoiceapp.mobile",
+      "buildNumber": "1.0.0"
+    },
+    "android": {
+      "package": "com.haoinvoiceapp.mobile",
+      "versionCode": 1
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
+    }
+  }
+} 

@@ -30,6 +30,9 @@ class InvoiceBase(BaseModel):
     client_id: int = Field(..., description="ID of the client this invoice belongs to")
     is_recurring: Optional[bool] = False
     recurring_frequency: Optional[str] = None
+    discount_type: Optional[str] = Field("percentage", description="Type of discount: percentage or fixed")
+    discount_value: Optional[float] = Field(0.0, description="Discount value (percentage or fixed amount)")
+    subtotal: Optional[float] = Field(None, description="Subtotal before discount")
 
 class InvoiceCreate(InvoiceBase):
     items: List[InvoiceItemCreate]
@@ -44,6 +47,9 @@ class InvoiceUpdate(BaseModel):
     items: Optional[List[InvoiceItemUpdate]] = None
     is_recurring: Optional[bool] = None
     recurring_frequency: Optional[str] = None
+    discount_type: Optional[str] = Field(None, description="Type of discount: percentage or fixed")
+    discount_value: Optional[float] = Field(None, description="Discount value (percentage or fixed amount)")
+    subtotal: Optional[float] = Field(None, description="Subtotal before discount")
 
 class Invoice(InvoiceBase):
     id: int
@@ -51,6 +57,7 @@ class Invoice(InvoiceBase):
     tenant_id: int
     created_at: datetime
     updated_at: datetime
+    items: List[InvoiceItem] = []
 
     class Config:
         from_attributes = True

@@ -60,7 +60,10 @@ def create_invoice(
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             is_recurring=invoice.is_recurring,
-            recurring_frequency=invoice.recurring_frequency
+            recurring_frequency=invoice.recurring_frequency,
+            discount_type=invoice.discount_type or "percentage",
+            discount_value=float(invoice.discount_value or 0),
+            subtotal=float(invoice.subtotal or invoice.amount)
         )
         db.add(db_invoice)
         db.flush()  # Get the invoice ID
@@ -140,7 +143,10 @@ def read_invoices(
                 "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
                 "total_paid": float(total_paid),
                 "is_recurring": invoice.is_recurring,
-                "recurring_frequency": invoice.recurring_frequency
+                "recurring_frequency": invoice.recurring_frequency,
+                "discount_type": invoice.discount_type,
+                "discount_value": float(invoice.discount_value) if invoice.discount_value else 0,
+                "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount)
             }
             result.append(invoice_dict)
 
@@ -198,6 +204,8 @@ def read_invoice(
             for item in items
         ]
         
+        logger.info(f"Returning {len(items_data)} items for invoice {invoice_id}: {[{'id': item['id'], 'description': item['description'], 'description_length': len(item['description']) if item['description'] else 0} for item in items_data]}")
+        
         invoice_dict = {
             "id": invoice.id,
             "number": invoice.number,
@@ -214,6 +222,9 @@ def read_invoice(
             "total_paid": float(total_paid),
             "is_recurring": invoice.is_recurring,
             "recurring_frequency": invoice.recurring_frequency,
+            "discount_type": invoice.discount_type,
+            "discount_value": float(invoice.discount_value) if invoice.discount_value else 0,
+            "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
             "items": items_data
         }
         return invoice_dict
@@ -265,18 +276,25 @@ def update_invoice(
         
         # Handle items update if provided
         if invoice.items is not None:
+            logger.info(f"Processing {len(invoice.items)} items for invoice {invoice_id}")
+            logger.info(f"Items data: {[{'id': item.id, 'description': item.description, 'description_length': len(item.description) if item.description else 0} for item in invoice.items]}")
+            
             # Get existing items
             existing_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
             existing_items_dict = {item.id: item for item in existing_items}
+            logger.info(f"Found {len(existing_items)} existing items: {[item.id for item in existing_items]}")
             
             # Track which items are being updated
             updated_item_ids = set()
             
             # Process each item in the update request
             for item_data in invoice.items:
+                logger.info(f"Processing item: id={item_data.id}, description='{item_data.description}', description_length={len(item_data.description) if item_data.description else 0}")
+                
                 if item_data.id and item_data.id in existing_items_dict:
                     # Update existing item
                     existing_item = existing_items_dict[item_data.id]
+                    logger.info(f"Updating existing item {item_data.id}: description from '{existing_item.description}' to '{item_data.description}'")
                     existing_item.description = item_data.description
                     existing_item.quantity = float(item_data.quantity)
                     existing_item.price = float(item_data.price)
@@ -285,6 +303,7 @@ def update_invoice(
                     updated_item_ids.add(item_data.id)
                 else:
                     # Create new item (no ID or ID not found)
+                    logger.info(f"Creating new item with description: '{item_data.description}'")
                     db_item = InvoiceItem(
                         invoice_id=invoice_id,
                         description=item_data.description,
@@ -317,6 +336,8 @@ def update_invoice(
             for item in items
         ]
         
+        logger.info(f"Returning {len(items_data)} items in response: {[{'id': item['id'], 'description': item['description'], 'description_length': len(item['description']) if item['description'] else 0} for item in items_data]}")
+        
         # Convert to response format
         invoice_dict = {
             "id": db_invoice.id,
@@ -332,6 +353,9 @@ def update_invoice(
             "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
             "is_recurring": db_invoice.is_recurring,
             "recurring_frequency": db_invoice.recurring_frequency,
+            "discount_type": db_invoice.discount_type,
+            "discount_value": float(db_invoice.discount_value) if db_invoice.discount_value else 0,
+            "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
             "items": items_data
         }
         return invoice_dict

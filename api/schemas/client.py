@@ -7,8 +7,6 @@ class ClientBase(BaseModel):
     email: Optional[str] = Field(None, description="Client's email address")
     phone: Optional[str] = Field(None, description="Client's phone number")
     address: Optional[str] = Field(None, description="Client's address")
-    balance: float = Field(0.0, description="Current balance")
-    paid_amount: float = Field(0.0, description="Total amount paid")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
 
 class ClientCreate(ClientBase):
@@ -26,6 +24,8 @@ class ClientUpdate(BaseModel):
 class Client(ClientBase):
     id: int
     tenant_id: int
+    balance: float = Field(0.0, description="Current balance")
+    paid_amount: float = Field(0.0, description="Total amount paid")
     created_at: datetime
     updated_at: datetime
 
