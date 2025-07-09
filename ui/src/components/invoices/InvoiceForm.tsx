@@ -23,6 +23,7 @@ import { InvoicePDF } from "./InvoicePDF";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { apiRequest } from "@/lib/api";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -1227,6 +1228,9 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                )}
                                <span className="font-medium text-sm">
                                  {entry.action === 'update' ? 'Update' : entry.action}
+                                 {entry.user_name && (
+                                   <span className="ml-2 text-xs text-muted-foreground">by {entry.user_name}</span>
+                                 )}
                                </span>
                              </div>
                             <span className="text-xs text-muted-foreground">
@@ -1522,10 +1526,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           </FormControl>
                           <div className="mt-2 space-y-1">
                             <div className="text-sm text-muted-foreground">
-                              Paid Amount: ${field.value?.toFixed(2) || '0.00'}
+                              Paid Amount: <CurrencyDisplay amount={field.value || 0} currency={form.watch("currency") || invoice?.currency || 'USD'} />
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              Remaining Balance: ${(calculateTotal() - (field.value || 0)).toFixed(2)}
+                              Remaining Balance: <CurrencyDisplay amount={Math.max(0, calculateTotal() - (field.value || 0))} currency={form.watch("currency") || invoice?.currency || 'USD'} />
                             </div>
                             {isEdit && (
                               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
@@ -1853,22 +1857,36 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           Discount ({(() => {
                             const discountType = form.watch("discountType");
                             const discountValue = form.watch("discountValue") || 0;
-                            
                             // When editing, use the actual invoice discount data if form values are not yet loaded
                             if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
                               const actualDiscountType = invoice.discount_type || "percentage";
                               const actualDiscountValue = invoice.discount_value || 0;
                               return actualDiscountType === "percentage" ? `${actualDiscountValue}%` : "Fixed";
                             }
-                            
                             if (discountType === "rule" && appliedDiscountRule) {
                               return `${appliedDiscountRule.discount_value}${appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'} (Rule)`;
                             }
-                            
                             return discountType === "percentage" ? `${discountValue}%` : "Fixed";
                           })()}):
                         </span>
-                        <span className="font-medium text-red-600">-${calculateDiscount().toFixed(2)}</span>
+                        <span className="font-medium text-red-600">${(() => {
+                          const discountType = form.watch("discountType");
+                          const discountValue = form.watch("discountValue") || 0;
+                          const subtotal = calculateSubtotal();
+                          if (discountType === "rule" && appliedDiscountRule) {
+                            if (subtotal < appliedDiscountRule.min_amount) return (0).toFixed(2);
+                            if (appliedDiscountRule.discount_type === "percentage") {
+                              return ((subtotal * appliedDiscountRule.discount_value) / 100).toFixed(2);
+                            } else {
+                              return (Math.min(appliedDiscountRule.discount_value, subtotal)).toFixed(2);
+                            }
+                          }
+                          if (discountType === "percentage") {
+                            return ((subtotal * discountValue) / 100).toFixed(2);
+                          } else {
+                            return (Math.min(discountValue, subtotal)).toFixed(2);
+                          }
+                        })()}</span>
                       </div>
                       <div className="border-t pt-2 flex justify-between">
                         <span className="font-semibold">Total:</span>

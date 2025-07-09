@@ -14,6 +14,7 @@ export function InvoiceChart() {
       setLoading(true);
       try {
         const data = await invoiceApi.getInvoices();
+        console.log('Fetched invoices for chart:', data);
         prepareChartData(data);
       } catch (error) {
         console.error("Failed to fetch invoices for chart:", error);
@@ -27,40 +28,39 @@ export function InvoiceChart() {
   }, []);
 
   const prepareChartData = (invoiceData: Invoice[]) => {
+    console.log('Preparing chart data for invoices:', invoiceData);
     // Prepare data for chart
     const chartData = Array(6).fill(0).map((_, index) => {
       const month = new Date();
       month.setMonth(month.getMonth() - 5 + index);
-      
       const monthName = month.toLocaleString('default', { month: 'short' });
       const year = month.getFullYear().toString().slice(2);
       const label = `${monthName} '${year}`;
-      
       const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
       const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-      
+      console.log('Bar:', label, 'Start:', startOfMonth, 'End:', endOfMonth);
       // Get invoices for this month
       const monthInvoices = invoiceData.filter(invoice => {
-        const invoiceDate = new Date(invoice.date);
+        const invoiceDate = new Date(invoice.date || invoice.created_at);
+        console.log('Invoice:', invoice.number, 'Date:', invoice.date, 'Created:', invoice.created_at, 'Parsed:', invoiceDate);
+        if (isNaN(invoiceDate.getTime())) return false;
         return invoiceDate >= startOfMonth && invoiceDate <= endOfMonth;
       });
-      
+      console.log('Invoices for', label, ':', monthInvoices);
       // Calculate totals
       const paid = monthInvoices
         .filter(inv => inv.status === 'paid')
         .reduce((sum, inv) => sum + inv.amount, 0);
-        
       const pending = monthInvoices
         .filter(inv => inv.status === 'pending')
         .reduce((sum, inv) => sum + inv.amount, 0);
-      
       return {
         name: label,
         paid: parseFloat(paid.toFixed(2)),
         pending: parseFloat(pending.toFixed(2))
       };
     });
-    
+    console.log('Final chart data:', chartData);
     setChartData(chartData);
   };
 

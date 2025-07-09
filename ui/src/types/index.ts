@@ -20,6 +20,7 @@ export interface InvoiceHistory {
   previous_values?: Record<string, any>;
   current_values?: Record<string, any>;
   created_at: string;
+  user_name?: string;
 }
 
 export interface InvoiceHistoryCreate {

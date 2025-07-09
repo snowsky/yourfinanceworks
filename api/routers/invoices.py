@@ -540,44 +540,52 @@ def calculate_discount(
             detail=f"Failed to calculate discount: {str(e)}"
         ) 
 
-@router.get("/{invoice_id}/history", response_model=List[InvoiceHistory])
+@router.get("/{invoice_id}/history")
 def get_invoice_history(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get update history for a specific invoice"""
+    """Get update history for a specific invoice, including user name"""
     try:
-        from models.models import InvoiceHistory as InvoiceHistoryModel
-        
+        from models.models import InvoiceHistory as InvoiceHistoryModel, User as UserModel
+
         # Verify invoice exists and belongs to user's tenant
         invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id,
             Invoice.tenant_id == current_user.tenant_id
         ).first()
-        
         if not invoice:
-            raise HTTPException(
-                status_code=404,
-                detail="Invoice not found"
+            raise HTTPException(status_code=404, detail="Invoice not found")
+
+        # Join with User to get user name (first_name + last_name)
+        history = (
+            db.query(
+                InvoiceHistoryModel,
+                (func.coalesce(UserModel.first_name, '') + ' ' + func.coalesce(UserModel.last_name, '')).label("user_name")
             )
-        
-        # Get history records
-        history = db.query(InvoiceHistoryModel).filter(
-            InvoiceHistoryModel.invoice_id == invoice_id,
-            InvoiceHistoryModel.tenant_id == current_user.tenant_id
-        ).order_by(InvoiceHistoryModel.created_at.desc()).all()
-        
-        return history
-        
+            .join(UserModel, InvoiceHistoryModel.user_id == UserModel.id)
+            .filter(
+                InvoiceHistoryModel.invoice_id == invoice_id,
+                InvoiceHistoryModel.tenant_id == current_user.tenant_id
+            )
+            .order_by(InvoiceHistoryModel.created_at.desc())
+            .all()
+        )
+
+        # Return as list of dicts with user_name
+        result = []
+        for h, user_name in history:
+            entry = h.__dict__.copy()
+            entry["user_name"] = user_name
+            result.append(entry)
+        return result
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching invoice history: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to fetch invoice history"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch invoice history")
 
 @router.post("/{invoice_id}/history", response_model=InvoiceHistory)
 def create_invoice_history_entry(

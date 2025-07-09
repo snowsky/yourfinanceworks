@@ -130,9 +130,11 @@ const Invoices = () => {
                   ) : filteredInvoices.length > 0 ? (
                     filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium flex items-center">
-                          <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                          {invoice.number}
+                        <TableCell className="font-medium">
+                          <span className="inline-flex items-center">
+                            <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {invoice.number}
+                          </span>
                         </TableCell>
                         <TableCell>{invoice.client_name}</TableCell>
                         <TableCell className="hidden sm:table-cell">{invoice.date}</TableCell>
