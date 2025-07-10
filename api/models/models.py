@@ -174,6 +174,7 @@ class DiscountRule(Base):
     min_amount = Column(Float, nullable=False)  # Minimum amount to trigger the rule
     discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
     discount_value = Column(Float, nullable=False)  # percentage or fixed amount
+    currency = Column(String, default="USD", nullable=False)  # New field for currency
     is_active = Column(Boolean, default=True, nullable=False)
     priority = Column(Integer, default=0, nullable=False)  # Higher priority rules are applied first
     

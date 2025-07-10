@@ -35,6 +35,7 @@ interface Invoice {
   number: string;
   client_name: string;
   client_id: number;
+  date: string;
   due_date: string;
   amount: number;
   total_paid: number;
@@ -77,8 +78,8 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
     client: invoice.client_id.toString(),
     invoiceNumber: invoice.number,
     currency: invoice.currency || 'USD',
-    date: new Date().toISOString().split('T')[0], // Use current date as default
-    dueDate: invoice.due_date,
+    date: (invoice.date || new Date().toISOString()).split('T')[0],
+    dueDate: (invoice.due_date || new Date().toISOString()).split('T')[0],
     status: invoice.status,
     paidAmount: invoice.total_paid || 0,
     items: (() => {

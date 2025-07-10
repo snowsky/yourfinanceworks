@@ -25,6 +25,9 @@ services:
       - backend
     networks:
       - app-network
+    # Causes issue
+    # volumes:
+    #   - ./ui:/app
 
 networks:
   app-network:

@@ -105,6 +105,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   } | null>(null);
   const [availableDiscountRules, setAvailableDiscountRules] = useState<DiscountRule[]>([]);
   const [isRefreshingForm, setIsRefreshingForm] = useState(false);
+  const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
 
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
@@ -190,7 +191,12 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       }
     }, [invoice, isEdit, fetchUpdateHistory]);
 
-
+  useEffect(() => {
+    if (invoice) {
+      console.log("[DEBUG] Invoice object received by InvoiceForm:", invoice);
+      console.log("[DEBUG] Invoice currency:", invoice.currency);
+    }
+  }, [invoice]);
 
   const handleCreateClient = async () => {
     try {
@@ -275,6 +281,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   // Debug logging for form initialization
   useEffect(() => {
     if (invoice && isEdit) {
+      console.log("[DEBUG] Form initialized with invoice data:", invoice);
+      console.log("[DEBUG] Form currency default:", form.getValues("currency"));
       console.log("Form initialized with invoice data:");
       console.log("- Client ID:", invoice.client_id);
       console.log("- Invoice Number:", invoice.number);
@@ -296,6 +304,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
   // Reset form when invoice changes (for editing)
   useEffect(() => {
+    console.log("[DEBUG] Form reset useEffect triggered. Invoice:", invoice);
+    if (invoice) {
+      console.log("[DEBUG] Invoice currency at reset:", invoice.currency);
+    }
     console.log("Form reset useEffect triggered:", {
       hasInvoice: !!invoice,
       isEdit,
@@ -1122,6 +1134,12 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     }
   };
 
+  useEffect(() => {
+    if (currenciesLoaded && invoice?.currency) {
+      form.setValue('currency', invoice.currency);
+    }
+  }, [currenciesLoaded, invoice, form]);
+
   if (loading) {
     return (
       <div className="w-full px-6 py-6">
@@ -1343,6 +1361,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               onValueChange={field.onChange}
                               placeholder="Select currency"
                               disabled={isInvoicePaid}
+                              onCurrenciesLoaded={() => setCurrenciesLoaded(true)}
                             />
                           </FormControl>
                           <FormMessage />
@@ -1751,8 +1770,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                 <Select 
                                   value={appliedDiscountRule?.id?.toString() || ""}
                                   onValueChange={(value) => {
-                                    const selectedRule = availableDiscountRules.find(rule => rule.id.toString() === value);
-                                    if (selectedRule) {
+                                    const selectedRule = availableDiscountRules.find(
+                                      rule => rule.id.toString() === value
+                                    );
+                                    if (
+                                      selectedRule &&
+                                      (selectedRule.currency || '').trim().toUpperCase() === (form.watch("currency") || '').trim().toUpperCase()
+                                    ) {
                                       field.onChange(selectedRule.discount_value);
                                       setAppliedDiscountRule({
                                         id: selectedRule.id,
@@ -1761,6 +1785,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                         discount_type: selectedRule.discount_type,
                                         discount_value: selectedRule.discount_value
                                       });
+                                    } else {
+                                      field.onChange(0);
+                                      setAppliedDiscountRule(null);
+                                      toast.error("Selected discount rule does not match the invoice currency.");
                                     }
                                   }}
                                   disabled={isInvoicePaid}
@@ -1770,13 +1798,25 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   </SelectTrigger>
                                   <SelectContent>
                                     {availableDiscountRules
-                                      .filter(rule => rule.is_active)
                                       .sort((a, b) => b.priority - a.priority || b.min_amount - a.min_amount)
-                                      .map((rule) => (
-                                        <SelectItem key={rule.id} value={rule.id.toString()}>
-                                          {rule.name} - {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : '$'} (min: ${rule.min_amount})
-                                        </SelectItem>
-                                      ))}
+                                      .map((rule) => {
+                                        const dropdownCurrency = form.watch("currency");
+                                        console.log("DiscountRule currency:", rule.currency, "Dropdown value:", dropdownCurrency);
+                                        return (
+                                          <SelectItem
+                                            key={rule.id}
+                                            value={rule.id.toString()}
+                                            disabled={(rule.currency || '').trim().toUpperCase() !== (dropdownCurrency || '').trim().toUpperCase()}
+                                          >
+                                            {rule.name} - {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : '$'} (min: ${rule.min_amount})
+                                            {(rule.currency || '').trim().toUpperCase() !== (dropdownCurrency || '').trim().toUpperCase() && (
+                                              <span style={{ color: '#888', fontSize: '0.85em', marginLeft: 8 }}>
+                                                (Not available for {dropdownCurrency})
+                                              </span>
+                                            )}
+                                          </SelectItem>
+                                        );
+                                      })}
                                   </SelectContent>
                                 </Select>
                               ) : (

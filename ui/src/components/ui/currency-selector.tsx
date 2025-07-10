@@ -19,6 +19,7 @@ interface CurrencySelectorProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  onCurrenciesLoaded?: () => void; // <-- add this
 }
 
 // Fallback currencies that will always be available
@@ -37,7 +38,8 @@ export function CurrencySelector({
   label = "Currency",
   placeholder = "Select currency",
   disabled = false,
-  className = ""
+  className = "",
+  onCurrenciesLoaded
 }: CurrencySelectorProps) {
   const [currencies, setCurrencies] = useState<Currency[]>(FALLBACK_CURRENCIES);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,9 @@ export function CurrencySelector({
       console.log('Using fallback currencies due to error');
     } finally {
       setLoading(false);
+      if (typeof onCurrenciesLoaded === 'function') {
+        onCurrenciesLoaded();
+      }
     }
   };
 

@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit, Plus } from "lucide-react";
 import { CurrencyManager } from "@/components/ui/currency-manager";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,7 @@ const Settings = () => {
     discount_value: 0,
     is_active: true,
     priority: 0,
+    currency: "USD",
   });
   
   const [companyInfo, setCompanyInfo] = useState({
@@ -300,7 +302,7 @@ const Settings = () => {
   // Discount rules management functions
   const handleCreateDiscountRule = async () => {
     try {
-      const rule = await discountRulesApi.createDiscountRule(newDiscountRule);
+      const rule = await discountRulesApi.createDiscountRule({ ...newDiscountRule, currency: newDiscountRule.currency || "USD" });
       setDiscountRules([...discountRules, rule]);
       setShowDiscountRuleDialog(false);
       setNewDiscountRule({
@@ -310,6 +312,7 @@ const Settings = () => {
         discount_value: 0,
         is_active: true,
         priority: 0,
+        currency: "USD",
       });
       toast.success("Discount rule created successfully!");
     } catch (error) {
@@ -322,18 +325,13 @@ const Settings = () => {
     if (!editingDiscountRule) return;
     
     try {
-      const updatedRule = await discountRulesApi.updateDiscountRule(editingDiscountRule.id, {
-        name: newDiscountRule.name,
-        min_amount: newDiscountRule.min_amount,
-        discount_type: newDiscountRule.discount_type,
-        discount_value: newDiscountRule.discount_value,
-        is_active: newDiscountRule.is_active,
-        priority: newDiscountRule.priority,
+      await discountRulesApi.updateDiscountRule(editingDiscountRule.id, {
+        ...newDiscountRule,
+        currency: newDiscountRule.currency || "USD",
       });
-      
-      setDiscountRules(discountRules.map(rule => 
-        rule.id === editingDiscountRule.id ? updatedRule : rule
-      ));
+      // Re-fetch the full list of discount rules from the backend
+      const rules = await discountRulesApi.getDiscountRules();
+      setDiscountRules(rules);
       setShowDiscountRuleDialog(false);
       setEditingDiscountRule(null);
       setNewDiscountRule({
@@ -343,6 +341,7 @@ const Settings = () => {
         discount_value: 0,
         is_active: true,
         priority: 0,
+        currency: "USD",
       });
       toast.success("Discount rule updated successfully!");
     } catch (error) {
@@ -373,6 +372,7 @@ const Settings = () => {
       discount_value: rule.discount_value,
       is_active: rule.is_active,
       priority: rule.priority,
+      currency: rule.currency || "USD",
     });
     setShowDiscountRuleDialog(true);
   };
@@ -386,6 +386,7 @@ const Settings = () => {
       discount_value: 0,
       is_active: true,
       priority: 0,
+      currency: "USD",
     });
     setShowDiscountRuleDialog(true);
   };
@@ -634,6 +635,8 @@ const Settings = () => {
                               {rule.is_active ? "Active" : "Inactive"}
                             </Badge>
                             <Badge variant="outline">Priority: {rule.priority}</Badge>
+                            {/* Show currency badge */}
+                            <Badge variant="secondary">{rule.currency || "USD"}</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {rule.discount_type === "percentage" 
@@ -1204,6 +1207,15 @@ const Settings = () => {
                     placeholder={newDiscountRule.discount_type === "percentage" ? "5.00" : "50.00"}
                   />
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <CurrencySelector
+                  value={newDiscountRule.currency || "USD"}
+                  onValueChange={(value) => setNewDiscountRule(prev => ({ ...prev, currency: value }))}
+                  placeholder="Select currency"
+                />
               </div>
               
               <div className="flex items-center space-x-2">

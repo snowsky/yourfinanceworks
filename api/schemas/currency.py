@@ -61,3 +61,33 @@ class CurrencyListResponse(BaseModel):
 class ExchangeRateListResponse(BaseModel):
     rates: List[CurrencyRate] = Field(..., description="List of exchange rates")
     base_currency: str = Field(..., description="Base currency for the tenant") 
+
+class DiscountRuleBase(BaseModel):
+    name: str
+    min_amount: float
+    discount_type: str
+    discount_value: float
+    currency: str = "USD"
+    is_active: Optional[bool] = True
+    priority: Optional[int] = 0
+
+class DiscountRuleCreate(DiscountRuleBase):
+    pass
+
+class DiscountRuleUpdate(BaseModel):
+    name: Optional[str]
+    min_amount: Optional[float]
+    discount_type: Optional[str]
+    discount_value: Optional[float]
+    currency: Optional[str]
+    is_active: Optional[bool]
+    priority: Optional[int]
+
+class DiscountRule(DiscountRuleBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True 

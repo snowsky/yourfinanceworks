@@ -111,6 +111,7 @@ export interface DiscountRule {
   priority: number;
   created_at: string;
   updated_at: string;
+  currency: string;
 }
 
 export interface DiscountRuleCreate {
@@ -120,6 +121,7 @@ export interface DiscountRuleCreate {
   discount_value: number;
   is_active?: boolean;
   priority?: number;
+  currency: string;
 }
 
 export interface DiscountRuleUpdate {
@@ -129,6 +131,7 @@ export interface DiscountRuleUpdate {
   discount_value?: number;
   is_active?: boolean;
   priority?: number;
+  currency?: string;
 }
 
 export interface DiscountCalculation {

@@ -20,6 +20,7 @@ class DiscountRuleUpdate(BaseModel):
     discount_value: Optional[float] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
+    currency: Optional[str] = None
 
 class DiscountRule(DiscountRuleBase):
     id: int
@@ -40,6 +41,7 @@ class DiscountRuleResponse(BaseModel):
     priority: int
     created_at: datetime
     updated_at: datetime
+    currency: str
 
     class Config:
         from_attributes = True 

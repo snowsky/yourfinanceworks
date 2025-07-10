@@ -8,6 +8,27 @@ export interface DiscountRule {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  currency: string;
+}
+
+export interface DiscountRuleCreate {
+  name: string;
+  min_amount: number;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  is_active?: boolean;
+  priority?: number;
+  currency: string;
+}
+
+export interface DiscountRuleUpdate {
+  name?: string;
+  min_amount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
+  is_active?: boolean;
+  priority?: number;
+  currency?: string;
 }
 
 export interface InvoiceHistory {
