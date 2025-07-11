@@ -154,6 +154,111 @@ class InvoiceAPIClient:
         except Exception:
             return False
     
+    # Currency Management Methods
+    async def list_currencies(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        """List supported currencies"""
+        return await self._make_request(
+            "GET", 
+            "/currency/supported",
+            params={"active_only": active_only}
+        )
+    
+    async def create_currency(self, currency_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a custom currency"""
+        return await self._make_request("POST", "/currency/custom", json=currency_data)
+    
+    async def convert_currency(self, amount: float, from_currency: str, to_currency: str, conversion_date: Optional[str] = None) -> Dict[str, Any]:
+        """Convert amount from one currency to another"""
+        params = {
+            "amount": amount,
+            "from_currency": from_currency,
+            "to_currency": to_currency
+        }
+        if conversion_date:
+            params["conversion_date"] = conversion_date
+            
+        return await self._make_request("POST", "/currency/convert", params=params)
+    
+    # Payment Management Methods
+    async def list_payments(self, skip: int = 0, limit: int = None) -> List[Dict[str, Any]]:
+        """List all payments with pagination"""
+        limit = limit or config.DEFAULT_PAGE_SIZE
+        limit = min(limit, config.MAX_PAGE_SIZE)
+        
+        return await self._make_request(
+            "GET", 
+            "/payments/",
+            params={"skip": skip, "limit": limit}
+        )
+    
+    async def create_payment(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new payment"""
+        return await self._make_request("POST", "/payments/", json=payment_data)
+    
+    async def get_payment(self, payment_id: int) -> Dict[str, Any]:
+        """Get a specific payment by ID"""
+        return await self._make_request("GET", f"/payments/{payment_id}")
+    
+    # Settings Methods
+    async def get_settings(self) -> Dict[str, Any]:
+        """Get tenant settings"""
+        return await self._make_request("GET", "/settings/")
+    
+    # Discount Rules Methods
+    async def list_discount_rules(self) -> List[Dict[str, Any]]:
+        """List all discount rules"""
+        return await self._make_request("GET", "/discount-rules/")
+    
+    async def create_discount_rule(self, rule_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new discount rule"""
+        return await self._make_request("POST", "/discount-rules/", json=rule_data)
+    
+    async def update_discount_rule(self, rule_id: int, rule_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update an existing discount rule"""
+        return await self._make_request("PUT", f"/discount-rules/{rule_id}", json=rule_data)
+    
+    async def delete_discount_rule(self, rule_id: int) -> bool:
+        """Delete a discount rule"""
+        try:
+            await self._make_request("DELETE", f"/discount-rules/{rule_id}")
+            return True
+        except Exception:
+            return False
+    
+    # CRM Methods
+    async def create_client_note(self, client_id: int, note_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a note for a client"""
+        return await self._make_request("POST", f"/crm/clients/{client_id}/notes", json=note_data)
+    
+    async def list_client_notes(self, client_id: int) -> List[Dict[str, Any]]:
+        """List notes for a client"""
+        return await self._make_request("GET", f"/crm/clients/{client_id}/notes")
+    
+    # Email Methods
+    async def send_invoice_email(self, email_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Send an invoice via email"""
+        return await self._make_request("POST", "/email/send-invoice", json=email_data)
+    
+    async def test_email_configuration(self, test_email: str) -> Dict[str, Any]:
+        """Test email configuration"""
+        return await self._make_request("POST", "/email/test", json={"test_email": test_email})
+    
+    # Tenant Methods
+    async def get_tenant_info(self) -> Dict[str, Any]:
+        """Get current tenant information"""
+        return await self._make_request("GET", "/tenants/me")
+    
+    async def list_tenants(self, skip: int = 0, limit: int = None) -> List[Dict[str, Any]]:
+        """List all tenants (superuser only)"""
+        limit = limit or config.DEFAULT_PAGE_SIZE
+        limit = min(limit, config.MAX_PAGE_SIZE)
+        
+        return await self._make_request(
+            "GET", 
+            "/tenants/",
+            params={"skip": skip, "limit": limit}
+        )
+    
     # Statistics and Reporting
     async def get_invoice_stats(self) -> Dict[str, Any]:
         """Get invoice statistics"""

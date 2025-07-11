@@ -1,5 +1,94 @@
 # FastMCP Refactoring Changes
 
+## New Tools Added (Latest Update)
+
+The MCP server has been expanded with comprehensive new tools to support the full invoice application functionality:
+
+### Currency Management Tools
+- **`list_currencies`**: List supported currencies with optional filtering for active currencies
+- **`create_currency`**: Create custom currencies for the tenant (e.g., Bitcoin, custom tokens)
+- **`convert_currency`**: Convert amounts between currencies using exchange rates
+
+### Payment Management Tools
+- **`list_payments`**: List all payments with pagination support
+- **`create_payment`**: Record payments for invoices with various payment methods
+
+### Settings & Configuration Tools
+- **`get_settings`**: Retrieve tenant settings and company information
+- **`get_tenant_info`**: Get current tenant details and configuration
+
+### Discount Rules Tools
+- **`list_discount_rules`**: List all discount rules for the tenant
+- **`create_discount_rule`**: Create new discount rules with percentage or fixed amounts
+
+### CRM Tools
+- **`create_client_note`**: Create notes for client interactions and follow-ups
+
+### Email Integration Tools
+- **`send_invoice_email`**: Send invoices via email with customizable messages
+- **`test_email_configuration`**: Test email setup and configuration
+
+### Example Usage of New Tools
+
+```bash
+# Currency Management
+python -m MCP --email user@example.com --password password
+# Then use tools like:
+# - "List all active currencies"
+# - "Create a Bitcoin currency with symbol ₿"
+# - "Convert 100 USD to EUR"
+
+# Payment Management
+# - "Record a payment of $500 for invoice #123"
+# - "List all payments from last month"
+
+# Settings & Configuration
+# - "Get my company settings"
+# - "Show tenant information"
+
+# Discount Rules
+# - "Create a 10% discount for orders over $1000"
+# - "List all discount rules"
+
+# CRM
+# - "Add a note to client John Doe about our meeting"
+
+# Email
+# - "Send invoice #123 via email"
+# - "Test my email configuration"
+```
+
+### Updated Available Tools List
+
+The complete list of available tools now includes:
+
+**Client Management:**
+- `list_clients`, `search_clients`, `get_client`, `create_client`
+
+**Invoice Management:**
+- `list_invoices`, `search_invoices`, `get_invoice`, `create_invoice`
+
+**Analytics:**
+- `get_clients_with_outstanding_balance`, `get_overdue_invoices`, `get_invoice_stats`
+
+**Currency Management:**
+- `list_currencies`, `create_currency`, `convert_currency`
+
+**Payment Management:**
+- `list_payments`, `create_payment`
+
+**Settings & Configuration:**
+- `get_settings`, `get_tenant_info`
+
+**Discount Rules:**
+- `list_discount_rules`, `create_discount_rule`
+
+**CRM:**
+- `create_client_note`
+
+**Email Integration:**
+- `send_invoice_email`, `test_email_configuration`
+
 ## Overview
 
 The Invoice Application MCP server has been refactored to use **FastMCP**, a modern and simplified framework for building Model Context Protocol servers.

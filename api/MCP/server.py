@@ -224,6 +224,194 @@ async def get_invoice_stats() -> dict:
     
     return await server_context.tools.get_invoice_stats()
 
+# Currency Management Tools
+
+@mcp.tool()
+async def list_currencies(active_only: bool = True) -> dict:
+    """
+    List supported currencies with optional filtering for active currencies only.
+    
+    Args:
+        active_only: Return only active currencies (default: True)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.list_currencies(active_only=active_only)
+
+@mcp.tool()
+async def create_currency(code: str, name: str, symbol: str, decimal_places: int = 2, is_active: bool = True) -> dict:
+    """
+    Create a custom currency for the tenant.
+    
+    Args:
+        code: Currency code (e.g., USD, EUR)
+        name: Currency name
+        symbol: Currency symbol
+        decimal_places: Number of decimal places (default: 2)
+        is_active: Whether the currency is active (default: True)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.create_currency(code=code, name=name, symbol=symbol, decimal_places=decimal_places, is_active=is_active)
+
+@mcp.tool()
+async def convert_currency(amount: float, from_currency: str, to_currency: str, conversion_date: Optional[str] = None) -> dict:
+    """
+    Convert amount from one currency to another using current or historical exchange rates.
+    
+    Args:
+        amount: Amount to convert
+        from_currency: Source currency code
+        to_currency: Target currency code
+        conversion_date: Date for conversion rate in YYYY-MM-DD format (optional)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.convert_currency(amount=amount, from_currency=from_currency, to_currency=to_currency, conversion_date=conversion_date)
+
+# Payment Management Tools
+
+@mcp.tool()
+async def list_payments(skip: int = 0, limit: int = 100) -> dict:
+    """
+    List all payments with pagination support.
+    
+    Args:
+        skip: Number of payments to skip for pagination (default: 0)
+        limit: Maximum number of payments to return (default: 100)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.list_payments(skip=skip, limit=limit)
+
+@mcp.tool()
+async def create_payment(invoice_id: int, amount: float, payment_date: str, payment_method: str, reference: Optional[str] = None, notes: Optional[str] = None) -> dict:
+    """
+    Create a new payment for an invoice.
+    
+    Args:
+        invoice_id: ID of the invoice this payment is for
+        amount: Payment amount
+        payment_date: Payment date in ISO format (YYYY-MM-DD)
+        payment_method: Payment method (cash, check, credit_card, etc.)
+        reference: Payment reference number (optional)
+        notes: Additional notes (optional)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.create_payment(invoice_id=invoice_id, amount=amount, payment_date=payment_date, payment_method=payment_method, reference=reference, notes=notes)
+
+# Settings Tools
+
+@mcp.tool()
+async def get_settings() -> dict:
+    """
+    Get tenant settings including company information and invoice settings.
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.get_settings()
+
+# Discount Rules Tools
+
+@mcp.tool()
+async def list_discount_rules() -> dict:
+    """
+    List all discount rules for the current tenant.
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.list_discount_rules()
+
+@mcp.tool()
+async def create_discount_rule(name: str, discount_type: str, discount_value: float, min_amount: Optional[float] = None, max_discount: Optional[float] = None, priority: int = 1, is_active: bool = True, currency: Optional[str] = None) -> dict:
+    """
+    Create a new discount rule for the tenant.
+    
+    Args:
+        name: Name of the discount rule
+        discount_type: Type of discount (percentage, fixed)
+        discount_value: Discount value
+        min_amount: Minimum amount for discount to apply (optional)
+        max_discount: Maximum discount amount (optional)
+        priority: Priority of the rule, higher number = higher priority (default: 1)
+        is_active: Whether the rule is active (default: True)
+        currency: Currency code for the rule (optional)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.create_discount_rule(name=name, discount_type=discount_type, discount_value=discount_value, min_amount=min_amount, max_discount=max_discount, priority=priority, is_active=is_active, currency=currency)
+
+# CRM Tools
+
+@mcp.tool()
+async def create_client_note(client_id: int, title: str, content: str, note_type: str = "general") -> dict:
+    """
+    Create a note for a client.
+    
+    Args:
+        client_id: ID of the client
+        title: Note title
+        content: Note content
+        note_type: Type of note (general, call, meeting, etc.) (default: "general")
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.create_client_note(client_id=client_id, title=title, content=content, note_type=note_type)
+
+# Email Tools
+
+@mcp.tool()
+async def send_invoice_email(invoice_id: int, to_email: Optional[str] = None, to_name: Optional[str] = None, subject: Optional[str] = None, message: Optional[str] = None) -> dict:
+    """
+    Send an invoice via email.
+    
+    Args:
+        invoice_id: ID of the invoice to send
+        to_email: Recipient email address (optional, uses client email if not provided)
+        to_name: Recipient name (optional, uses client name if not provided)
+        subject: Email subject (optional)
+        message: Custom message (optional)
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.send_invoice_email(invoice_id=invoice_id, to_email=to_email, to_name=to_name, subject=subject, message=message)
+
+@mcp.tool()
+async def test_email_configuration(test_email: str) -> dict:
+    """
+    Test email configuration by sending a test email.
+    
+    Args:
+        test_email: Email address to send test email to
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.test_email_configuration(test_email=test_email)
+
+# Tenant Tools
+
+@mcp.tool()
+async def get_tenant_info() -> dict:
+    """
+    Get current tenant information including company details and settings.
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.get_tenant_info()
+
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
@@ -260,6 +448,18 @@ Available Tools:
   - get_clients_with_outstanding_balance: Get clients with unpaid invoices
   - get_overdue_invoices: Get invoices past their due date
   - get_invoice_stats: Get overall invoice statistics
+  - list_currencies: List supported currencies
+  - create_currency: Create a custom currency
+  - convert_currency: Convert amount between currencies
+  - list_payments: List all payments with pagination
+  - create_payment: Create a new payment
+  - get_settings: Get tenant settings
+  - list_discount_rules: List all discount rules
+  - create_discount_rule: Create a new discount rule
+  - create_client_note: Create a note for a client
+  - send_invoice_email: Send an invoice via email
+  - test_email_configuration: Test email configuration
+  - get_tenant_info: Get current tenant information
         """
     )
     

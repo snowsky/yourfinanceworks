@@ -167,6 +167,15 @@ Would you like me to get more details about any of these clients or their invoic
 - *"Show me all invoices from the last 30 days"*
 - *"Find overdue invoices that need follow-up"*
 - *"What are my total outstanding receivables?"*
+- *"List all supported currencies"*
+- *"Create a custom currency for Bitcoin"*
+- *"Convert 100 USD to EUR"*
+- *"Record a payment of $500 for invoice #123"*
+- *"Get my company settings"*
+- *"Create a 10% discount rule for orders over $1000"*
+- *"Add a note to client John Doe about our meeting"*
+- *"Send invoice #123 via email"*
+- *"Test my email configuration"*
 
 ## ✨ Key Benefits
 
@@ -195,6 +204,30 @@ Would you like me to get more details about any of these clients or their invoic
 - **Outstanding Balances**: Find clients with unpaid invoices (`get_clients_with_outstanding_balance`)
 - **Overdue Invoices**: Identify invoices past their due date (`get_overdue_invoices`)
 - **Invoice Statistics**: Get overall financial metrics (`get_invoice_stats`)
+
+### Currency Management
+- **List Currencies**: Get supported currencies with filtering options (`list_currencies`)
+- **Create Custom Currencies**: Add new currencies for your business (`create_currency`)
+- **Currency Conversion**: Convert amounts between currencies (`convert_currency`)
+
+### Payment Management
+- **List Payments**: Get all payments with pagination (`list_payments`)
+- **Create Payments**: Record payments for invoices (`create_payment`)
+
+### Settings & Configuration
+- **Get Settings**: Retrieve tenant settings and company information (`get_settings`)
+- **Tenant Information**: Get current tenant details (`get_tenant_info`)
+
+### Discount Rules
+- **List Discount Rules**: Get all discount rules for the tenant (`list_discount_rules`)
+- **Create Discount Rules**: Set up new discount rules (`create_discount_rule`)
+
+### CRM Features
+- **Client Notes**: Create notes for client interactions (`create_client_note`)
+
+### Email Integration
+- **Send Invoice Emails**: Send invoices via email (`send_invoice_email`)
+- **Test Email Configuration**: Verify email setup (`test_email_configuration`)
 
 ## Installation
 
@@ -486,6 +519,240 @@ Get all invoices that are past their due date and still unpaid.
 
 #### `get_invoice_stats`
 Get overall invoice statistics including total income and other metrics.
+
+### Currency Management Tools
+
+#### `list_currencies`
+List supported currencies with optional filtering for active currencies only.
+
+**Parameters:**
+- `active_only` (boolean, optional): Return only active currencies (default: true)
+
+**Example:**
+```json
+{
+  "name": "list_currencies",
+  "arguments": {
+    "active_only": true
+  }
+}
+```
+
+#### `create_currency`
+Create a custom currency for the tenant.
+
+**Parameters:**
+- `code` (string): Currency code (e.g., USD, EUR)
+- `name` (string): Currency name
+- `symbol` (string): Currency symbol
+- `decimal_places` (int, optional): Number of decimal places (default: 2)
+- `is_active` (boolean, optional): Whether the currency is active (default: true)
+
+**Example:**
+```json
+{
+  "name": "create_currency",
+  "arguments": {
+    "code": "BTC",
+    "name": "Bitcoin",
+    "symbol": "₿",
+    "decimal_places": 8,
+    "is_active": true
+  }
+}
+```
+
+#### `convert_currency`
+Convert amount from one currency to another using current or historical exchange rates.
+
+**Parameters:**
+- `amount` (float): Amount to convert
+- `from_currency` (string): Source currency code
+- `to_currency` (string): Target currency code
+- `conversion_date` (string, optional): Date for conversion rate in YYYY-MM-DD format
+
+**Example:**
+```json
+{
+  "name": "convert_currency",
+  "arguments": {
+    "amount": 100.00,
+    "from_currency": "USD",
+    "to_currency": "EUR",
+    "conversion_date": "2024-01-15"
+  }
+}
+```
+
+### Payment Management Tools
+
+#### `list_payments`
+List all payments with pagination support.
+
+**Parameters:**
+- `skip` (int, optional): Number of payments to skip for pagination (default: 0)
+- `limit` (int, optional): Maximum number of payments to return (default: 100)
+
+#### `create_payment`
+Create a new payment for an invoice.
+
+**Parameters:**
+- `invoice_id` (int): ID of the invoice this payment is for
+- `amount` (float): Payment amount
+- `payment_date` (string): Payment date in ISO format (YYYY-MM-DD)
+- `payment_method` (string): Payment method (cash, check, credit_card, etc.)
+- `reference` (string, optional): Payment reference number
+- `notes` (string, optional): Additional notes
+
+**Example:**
+```json
+{
+  "name": "create_payment",
+  "arguments": {
+    "invoice_id": 123,
+    "amount": 500.00,
+    "payment_date": "2024-01-15",
+    "payment_method": "credit_card",
+    "reference": "TXN-12345",
+    "notes": "Partial payment"
+  }
+}
+```
+
+### Settings Tools
+
+#### `get_settings`
+Get tenant settings including company information and invoice settings.
+
+**Example:**
+```json
+{
+  "name": "get_settings",
+  "arguments": {}
+}
+```
+
+### Discount Rules Tools
+
+#### `list_discount_rules`
+List all discount rules for the current tenant.
+
+**Example:**
+```json
+{
+  "name": "list_discount_rules",
+  "arguments": {}
+}
+```
+
+#### `create_discount_rule`
+Create a new discount rule for the tenant.
+
+**Parameters:**
+- `name` (string): Name of the discount rule
+- `discount_type` (string): Type of discount (percentage, fixed)
+- `discount_value` (float): Discount value
+- `min_amount` (float, optional): Minimum amount for discount to apply
+- `max_discount` (float, optional): Maximum discount amount
+- `priority` (int, optional): Priority of the rule, higher number = higher priority (default: 1)
+- `is_active` (boolean, optional): Whether the rule is active (default: true)
+- `currency` (string, optional): Currency code for the rule
+
+**Example:**
+```json
+{
+  "name": "create_discount_rule",
+  "arguments": {
+    "name": "Bulk Discount",
+    "discount_type": "percentage",
+    "discount_value": 10.0,
+    "min_amount": 1000.0,
+    "max_discount": 500.0,
+    "priority": 1,
+    "is_active": true,
+    "currency": "USD"
+  }
+}
+```
+
+### CRM Tools
+
+#### `create_client_note`
+Create a note for a client.
+
+**Parameters:**
+- `client_id` (int): ID of the client
+- `title` (string): Note title
+- `content` (string): Note content
+- `note_type` (string, optional): Type of note (general, call, meeting, etc.) (default: "general")
+
+**Example:**
+```json
+{
+  "name": "create_client_note",
+  "arguments": {
+    "client_id": 123,
+    "title": "Follow-up Call",
+    "content": "Called client to discuss payment terms. They agreed to pay within 30 days.",
+    "note_type": "call"
+  }
+}
+```
+
+### Email Tools
+
+#### `send_invoice_email`
+Send an invoice via email.
+
+**Parameters:**
+- `invoice_id` (int): ID of the invoice to send
+- `to_email` (string, optional): Recipient email address (uses client email if not provided)
+- `to_name` (string, optional): Recipient name (uses client name if not provided)
+- `subject` (string, optional): Email subject
+- `message` (string, optional): Custom message
+
+**Example:**
+```json
+{
+  "name": "send_invoice_email",
+  "arguments": {
+    "invoice_id": 123,
+    "to_email": "client@example.com",
+    "to_name": "John Doe",
+    "subject": "Invoice #INV-001",
+    "message": "Please find attached invoice for our services."
+  }
+}
+```
+
+#### `test_email_configuration`
+Test email configuration by sending a test email.
+
+**Parameters:**
+- `test_email` (string): Email address to send test email to
+
+**Example:**
+```json
+{
+  "name": "test_email_configuration",
+  "arguments": {
+    "test_email": "test@example.com"
+  }
+}
+```
+
+### Tenant Tools
+
+#### `get_tenant_info`
+Get current tenant information including company details and settings.
+
+**Example:**
+```json
+{
+  "name": "get_tenant_info",
+  "arguments": {}
+}
+```
 
 ## Response Format
 
