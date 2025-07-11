@@ -5,7 +5,7 @@ Script to add custom currencies like Bitcoin and Ethereum to the database.
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 def add_custom_currencies():
     # Get the database path
@@ -46,7 +46,7 @@ def add_custom_currencies():
                 cursor.execute("""
                     INSERT INTO supported_currencies (code, name, symbol, decimal_places, is_active, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (code, name, symbol, decimals, True, datetime.now()))
+                """, (code, name, symbol, decimals, True, datetime.now(timezone.utc)))
                 print(f"Added {name} ({code}) with symbol {symbol}")
                 added_count += 1
             else:

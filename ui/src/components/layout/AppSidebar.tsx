@@ -52,7 +52,7 @@ export function AppSidebar() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`${API_BASE_URL}/tenants/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/tenants/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

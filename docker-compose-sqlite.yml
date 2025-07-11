@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile
     container_name: invoice_app_ui
     ports:
-      - "8080:8080"
+      - "3000:3000"
     environment:
       - VITE_API_URL=http://localhost:8000
     depends_on:
@@ -58,4 +58,4 @@ volumes:
 
 networks:
   invoice_app_network:
-    driver: bridge
+    driver: bridge 

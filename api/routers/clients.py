@@ -5,7 +5,7 @@ import logging
 import traceback
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models.database import get_db
 from models.models import Client, User, Payment, Invoice
@@ -174,8 +174,8 @@ def create_client(
         db_client = Client(
             **client.dict(),
             tenant_id=current_user.tenant_id,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         db.add(db_client)
         db.commit()
@@ -220,7 +220,7 @@ def update_client(
         for field, value in client.dict(exclude_unset=True).items():
             setattr(db_client, field, value)
         
-        db_client.updated_at = datetime.utcnow()
+        db_client.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_client)
         return db_client

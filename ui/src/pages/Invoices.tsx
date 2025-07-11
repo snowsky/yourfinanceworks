@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { invoiceApi, Invoice } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { formatDate } from '@/lib/utils';
 
 const formatStatus = (status: string) => {
   return status.split('_').map(word => 
@@ -137,8 +138,8 @@ const Invoices = () => {
                           </span>
                         </TableCell>
                         <TableCell>{invoice.client_name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{invoice.date}</TableCell>
-                        <TableCell className="hidden md:table-cell">{invoice.due_date}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
+                        <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
                         <TableCell className="text-right font-medium">
                           <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
                         </TableCell>

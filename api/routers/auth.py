@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
 
@@ -24,9 +24,9 @@ security = HTTPBearer()
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -79,7 +79,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
             tenant_name = f"{user.first_name or 'User'}'s Organization"
             if user.first_name and user.last_name:
                 tenant_name = f"{user.first_name} {user.last_name}'s Organization"
-        
+
         # Create tenant
         db_tenant = Tenant(
             name=tenant_name,
@@ -90,7 +90,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_tenant)
         tenant_id = db_tenant.id
-        
+
         # Make first user of tenant an admin
         user_role = "admin"
     else:
@@ -103,7 +103,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
             )
         tenant_id = user.tenant_id
         user_role = user.role or "user"
-    
+
     # Create user
     hashed_password = get_password_hash(user.password)
     db_user = User(
@@ -117,17 +117,17 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         is_superuser=user.is_superuser,
         is_verified=user.is_verified
     )
-    
+
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
+
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": db_user.email}, expires_delta=access_token_expires
     )
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -137,7 +137,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_credentials.email).first()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -150,18 +150,18 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user"
         )
-    
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -170,4 +170,4 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserRead)
 def read_users_me(current_user: User = Depends(get_current_user)):
-    return UserRead.from_orm(current_user) 
+    return UserRead.from_orm(current_user)

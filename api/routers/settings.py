@@ -6,7 +6,7 @@ from typing import Dict, Any
 import tempfile
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from models.database import get_db
@@ -117,7 +117,7 @@ def export_tenant_data(
     try:
         # Create a temporary SQLite database
         temp_dir = tempfile.mkdtemp()
-        export_file = os.path.join(temp_dir, f"tenant_{current_user.tenant_id}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sqlite")
+        export_file = os.path.join(temp_dir, f"tenant_{current_user.tenant_id}_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.sqlite")
         
         # Create new SQLite database
         export_engine = create_engine(f"sqlite:///{export_file}")
@@ -165,7 +165,7 @@ def export_tenant_data(
             return FileResponse(
                 path=export_file,
                 media_type='application/octet-stream',
-                filename=f"tenant_{current_user.tenant_id}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sqlite",
+                filename=f"tenant_{current_user.tenant_id}_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.sqlite",
                 background=lambda: shutil.rmtree(temp_dir, ignore_errors=True)
             )
             
@@ -261,7 +261,7 @@ async def import_tenant_data(
                                 preferred_currency=client.preferred_currency,
                                 tenant_id=current_user.tenant_id,  # Override with current tenant
                                 created_at=client.created_at,
-                                updated_at=datetime.utcnow()
+                                updated_at=datetime.now(timezone.utc)
                             )
                             db.add(new_client)
                         db.flush()  # Get IDs for clients
@@ -281,7 +281,7 @@ async def import_tenant_data(
                         old_to_new_invoice_ids = {}
                         
                         # Generate unique invoice numbers for all invoices first
-                        date_prefix = datetime.now().strftime("%Y%m%d")
+                        date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
                         
                         # Find the latest invoice number for today
                         latest_invoice = db.query(Invoice).filter(
@@ -313,7 +313,7 @@ async def import_tenant_data(
                                 client_id=old_to_new_client_ids.get(invoice.client_id),
                                 tenant_id=current_user.tenant_id,
                                 created_at=invoice.created_at,
-                                updated_at=datetime.utcnow(),
+                                updated_at=datetime.now(timezone.utc),
                                 is_recurring=invoice.is_recurring,
                                 recurring_frequency=invoice.recurring_frequency
                             )
@@ -351,7 +351,7 @@ async def import_tenant_data(
                                     notes=payment.notes,
                                     tenant_id=current_user.tenant_id,
                                     created_at=payment.created_at,
-                                    updated_at=datetime.utcnow()
+                                    updated_at=datetime.now(timezone.utc)
                                 )
                                 db.add(new_payment)
                                 payment_count += 1
@@ -371,7 +371,7 @@ async def import_tenant_data(
                                     price=item.price,
                                     amount=item.amount,
                                     created_at=item.created_at,
-                                    updated_at=datetime.utcnow()
+                                    updated_at=datetime.now(timezone.utc)
                                 )
                                 db.add(new_item)
                                 item_count += 1
@@ -390,7 +390,7 @@ async def import_tenant_data(
                                     user_id=current_user.id,  # Assign to current user
                                     tenant_id=current_user.tenant_id,
                                     created_at=note.created_at,
-                                    updated_at=datetime.utcnow()
+                                    updated_at=datetime.now(timezone.utc)
                                 )
                                 db.add(new_note)
                                 note_count += 1

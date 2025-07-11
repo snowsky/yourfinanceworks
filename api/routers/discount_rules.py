@@ -5,7 +5,7 @@ from models.database import get_db
 from models.models import DiscountRule
 from schemas.discount_rule import DiscountRuleCreate, DiscountRuleUpdate, DiscountRuleResponse
 from routers.auth import get_current_user
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/discount-rules", tags=["discount-rules"])
 
@@ -77,7 +77,7 @@ async def update_discount_rule(
         )
     
     update_data = discount_rule_update.dict(exclude_unset=True)
-    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_at"] = datetime.now(timezone.utc)
     
     for field, value in update_data.items():
         setattr(db_discount_rule, field, value)

@@ -112,7 +112,7 @@ const Payments = () => {
                       <TableRow key={payment.id}>
                         <TableCell>{payment.invoice_number}</TableCell>
                         <TableCell>{payment.client_name}</TableCell>
-                        <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' })} UTC</TableCell>
                         <TableCell>
                           <CurrencyDisplay amount={payment.amount} currency={payment.currency || 'USD'} />
                         </TableCell>

@@ -5,7 +5,7 @@ import json
 import os
 from typing import Optional, Dict, Any
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .config import config
 
@@ -38,7 +38,7 @@ class InvoiceAPIAuthClient:
                         self._token_expires = datetime.fromisoformat(expires_str)
                         
                     # Check if token is still valid (with 5 minute buffer)
-                    if self._token_expires and self._token_expires > datetime.now() + timedelta(minutes=5):
+                    if self._token_expires and self._token_expires > datetime.now(timezone.utc) + timedelta(minutes=5):
                         return True
         except Exception:
             pass
@@ -76,7 +76,7 @@ class InvoiceAPIAuthClient:
             self._token = data["access_token"]
             
             # Estimate token expiry (typically 30 minutes from API)
-            self._token_expires = datetime.now() + timedelta(minutes=25)  # 5 min buffer
+            self._token_expires = datetime.now(timezone.utc) + timedelta(minutes=25)  # 5 min buffer
             
             await self._save_token_to_file()
             return self._token
@@ -95,7 +95,7 @@ class InvoiceAPIAuthClient:
             await self._load_token_from_file()
         
         # Check if current token is valid
-        if self._token and self._token_expires and self._token_expires > datetime.now():
+        if self._token and self._token_expires and self._token_expires > datetime.now(timezone.utc):
             return self._token
         
         # Need to authenticate

@@ -9,7 +9,7 @@ from jinja2 import Template
 import logging
 from pydantic import BaseModel
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -359,7 +359,7 @@ class EmailService:
             'invoice': invoice_data,
             'client': client_data,
             'company': company_data,
-            'current_date': datetime.now().strftime('%B %d, %Y')
+            'current_date': datetime.now(timezone.utc).strftime('%B %d, %Y')
         }
         
         # Render templates

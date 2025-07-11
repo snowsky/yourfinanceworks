@@ -5,7 +5,7 @@ Script to clean up currencies and keep only the desired ones.
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 def cleanup_currencies():
     # Get the database path
@@ -72,7 +72,7 @@ def cleanup_currencies():
                     UPDATE supported_currencies 
                     SET is_active = 0, updated_at = ? 
                     WHERE code = ?
-                """, (datetime.now(), code))
+                """, (datetime.now(timezone.utc), code))
                 print(f"  → Deactivated {code} instead of deleting")
             else:
                 # Safe to delete

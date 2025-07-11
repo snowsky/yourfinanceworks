@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import logging
 
 from models.models import SupportedCurrency, CurrencyRate, Tenant, Client
@@ -85,7 +85,7 @@ class CurrencyService:
                 amount=amount,
                 converted_amount=amount,
                 exchange_rate=1.0,
-                conversion_date=datetime.now()
+                conversion_date=datetime.now(timezone.utc)
             )
         
         exchange_rate = self.get_exchange_rate(tenant_id, from_currency, to_currency, conversion_date)
@@ -102,7 +102,7 @@ class CurrencyService:
             amount=amount,
             converted_amount=converted_amount,
             exchange_rate=exchange_rate,
-            conversion_date=datetime.now()
+            conversion_date=datetime.now(timezone.utc)
         )
     
     def update_exchange_rate(self, tenant_id: int, from_currency: str, to_currency: str, 
@@ -121,7 +121,7 @@ class CurrencyService:
         
         if existing_rate:
             existing_rate.rate = rate
-            existing_rate.updated_at = datetime.utcnow()
+            existing_rate.updated_at = datetime.now(timezone.utc)
             currency_rate = existing_rate
         else:
             currency_rate = CurrencyRate(

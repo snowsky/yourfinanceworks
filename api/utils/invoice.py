@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from models.models import Invoice
 
@@ -8,7 +8,7 @@ def generate_invoice_number(db: Session, tenant_id: int) -> str:
     Format: INV-{YYYYMMDD}-{XXXX} where XXXX is a sequential number
     """
     # Get the current date in YYYYMMDD format
-    date_prefix = datetime.now().strftime("%Y%m%d")
+    date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
     
     # Find the latest invoice number for today
     latest_invoice = db.query(Invoice).filter(

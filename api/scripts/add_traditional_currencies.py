@@ -5,7 +5,7 @@ Script to add traditional currencies to the database.
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 def add_traditional_currencies():
     # Get the database path
@@ -52,7 +52,7 @@ def add_traditional_currencies():
                 cursor.execute("""
                     INSERT INTO supported_currencies (code, name, symbol, decimal_places, is_active, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (code, name, symbol, decimals, True, datetime.now(), datetime.now()))
+                """, (code, name, symbol, decimals, True, datetime.now(timezone.utc), datetime.now(timezone.utc)))
                 print(f"Added {name} ({code}) with symbol {symbol}")
                 added_count += 1
             else:
@@ -61,7 +61,7 @@ def add_traditional_currencies():
                     UPDATE supported_currencies 
                     SET is_active = 1, updated_at = ? 
                     WHERE code = ?
-                """, (datetime.now(), code))
+                """, (datetime.now(timezone.utc), code))
                 print(f"Updated {name} ({code}) to be active")
         
         conn.commit()

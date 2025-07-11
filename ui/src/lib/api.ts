@@ -247,20 +247,20 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
 
 // Client API methods
 export const clientApi = {
-  getClients: () => apiRequest<Client[]>('/clients/'),
-  getClient: (id: number) => apiRequest<Client>(`/clients/${id}`),
+  getClients: () => apiRequest<Client[]>("/api/clients/"),
+  getClient: (id: number) => apiRequest<Client>(`/api/clients/${id}`),
   createClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => 
-    apiRequest<Client>('/clients/', {
+    apiRequest<Client>("/api/clients/", {
       method: 'POST',
       body: JSON.stringify(client),
     }),
   updateClient: (id: number, client: Partial<Client>) => 
-    apiRequest<Client>(`/clients/${id}`, {
+    apiRequest<Client>(`/api/clients/${id}`, {
       method: 'PUT',
       body: JSON.stringify(client),
     }),
   deleteClient: (id: number) => 
-    apiRequest(`/clients/${id}`, {
+    apiRequest(`/api/clients/${id}`, {
       method: 'DELETE',
     }),
 };
@@ -268,35 +268,35 @@ export const clientApi = {
 // CRM API methods
 export const crmApi = {
     getNotesForClient: (clientId: number) =>
-        apiRequest<ClientNote[]>(`/crm/clients/${clientId}/notes`),
+        apiRequest<ClientNote[]>(`/api/crm/clients/${clientId}/notes`),
     createNoteForClient: (clientId: number, note: { note: string }) =>
-        apiRequest<ClientNote>(`/crm/clients/${clientId}/notes`, {
+        apiRequest<ClientNote>(`/api/crm/clients/${clientId}/notes`, {
             method: 'POST',
             body: JSON.stringify(note),
         }),
     updateNoteForClient: (clientId: number, noteId: number, note: { note: string }) =>
-        apiRequest<ClientNote>(`/crm/clients/${clientId}/notes/${noteId}`, {
+        apiRequest<ClientNote>(`/api/crm/clients/${clientId}/notes/${noteId}`, {
             method: 'PUT',
             body: JSON.stringify(note),
         }),
     deleteNoteForClient: (clientId: number, noteId: number) =>
-        apiRequest(`/crm/clients/${clientId}/notes/${noteId}`, {
+        apiRequest(`/api/crm/clients/${clientId}/notes/${noteId}`, {
             method: 'DELETE',
         }),
 };
 
 // Currency API methods
 export const currencyApi = {
-    getSupportedCurrencies: () => apiRequest<any>('/currency/supported?active_only=false'),
-    createCustomCurrency: (data: any) => apiRequest<any>('/currency/custom', {
+    getSupportedCurrencies: () => apiRequest<any>("/api/currency/supported?active_only=false"),
+    createCustomCurrency: (data: any) => apiRequest<any>("/api/currency/custom", {
         method: 'POST',
         body: JSON.stringify(data),
     }),
-    updateCustomCurrency: (id: number, data: any) => apiRequest<any>(`/currency/custom/${id}`, {
+    updateCustomCurrency: (id: number, data: any) => apiRequest<any>(`/api/currency/custom/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
     }),
-    deleteCustomCurrency: (id: number) => apiRequest<any>(`/currency/custom/${id}`, {
+    deleteCustomCurrency: (id: number) => apiRequest<any>(`/api/currency/custom/${id}`, {
         method: 'DELETE',
     }),
 };
@@ -304,12 +304,12 @@ export const currencyApi = {
 // Auth API methods
 export const authApi = {
   login: (email: string, password: string) =>
-    apiRequest<any>('/auth/login', {
+    apiRequest<any>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }, { isLogin: true }),
   register: (userData: any) =>
-    apiRequest<any>('/auth/register', {
+    apiRequest<any>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     }),
@@ -319,7 +319,7 @@ export const authApi = {
 export const invoiceApi = {
   getInvoices: async (status?: string): Promise<Invoice[]> => {
     try {
-      const response = await apiRequest<any[]>(`/invoices/${status ? `?status_filter=${status}` : ''}`);
+      const response = await apiRequest<any[]>(`/api/invoices/${status ? `?status_filter=${status}` : ''}`);
       
       // Map API response to frontend Invoice interface
       const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
@@ -336,8 +336,8 @@ export const invoiceApi = {
         status: apiInvoice.status || 'pending',
         notes: apiInvoice.notes || '',
         items: [], // API doesn't return items for list view
-        created_at: apiInvoice.created_at || '',
-        updated_at: apiInvoice.updated_at || '',
+        created_at: apiInvoice.created_at,
+        updated_at: apiInvoice.updated_at,
         is_recurring: apiInvoice.is_recurring,
         recurring_frequency: apiInvoice.recurring_frequency,
       }));
@@ -352,7 +352,7 @@ export const invoiceApi = {
   getInvoice: async (id: number) => {
     try {
       // Get invoice data from API
-      const apiResponse = await apiRequest<any>(`/invoices/${id}`);
+      const apiResponse = await apiRequest<any>(`/api/invoices/${id}`);
       
       console.log("API response for invoice:", apiResponse);
       
@@ -395,24 +395,24 @@ export const invoiceApi = {
     }
   },
   createInvoice: (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) => 
-    apiRequest<Invoice>('/invoices/', {
+    apiRequest<Invoice>('/api/invoices/', {
       method: 'POST',
       body: JSON.stringify(invoiceData),
     }),
   updateInvoice: (id: number, invoiceData: Partial<Invoice>) =>
-    apiRequest<Invoice>(`/invoices/${id}`, {
+    apiRequest<Invoice>(`/api/invoices/${id}`, {
       method: 'PUT',
       body: JSON.stringify(invoiceData),
     }),
   deleteInvoice: (id: number) => 
-    apiRequest(`/invoices/${id}`, { method: 'DELETE' }),
+    apiRequest(`/api/invoices/${id}`, { method: 'DELETE' }),
   
   // Invoice history methods
   getInvoiceHistory: (invoiceId: number) => 
-    apiRequest<InvoiceHistory[]>(`/invoices/${invoiceId}/history`),
+    apiRequest<InvoiceHistory[]>(`/api/invoices/${invoiceId}/history`),
   
   createInvoiceHistoryEntry: (invoiceId: number, historyEntry: InvoiceHistoryCreate) => 
-    apiRequest<InvoiceHistory>(`/invoices/${invoiceId}/history`, {
+    apiRequest<InvoiceHistory>(`/api/invoices/${invoiceId}/history`, {
       method: 'POST',
       body: JSON.stringify(historyEntry),
     }),
@@ -420,8 +420,8 @@ export const invoiceApi = {
 
 // Payment API methods
 export const paymentApi = {
-  getPayments: () => apiRequest<Payment[]>('/payments/'),
-  getPayment: (id: number) => apiRequest<Payment>(`/payments/${id}`),
+  getPayments: () => apiRequest<Payment[]>("/api/payments/"),
+  getPayment: (id: number) => apiRequest<Payment>(`/api/payments/${id}`),
   createPayment: (payment: {
     invoice_id: number;
     amount: number;
@@ -430,17 +430,17 @@ export const paymentApi = {
     reference_number?: string;
     notes?: string;
   }) => 
-    apiRequest<Payment>('/payments/', {
+    apiRequest<Payment>("/api/payments/", {
       method: 'POST',
       body: JSON.stringify(payment),
     }),
   updatePayment: (id: number, payment: Partial<Payment>) => 
-    apiRequest<Payment>(`/payments/${id}`, {
+    apiRequest<Payment>(`/api/payments/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payment),
     }),
   deletePayment: (id: number) => 
-    apiRequest(`/payments/${id}`, {
+    apiRequest(`/api/payments/${id}`, {
       method: 'DELETE',
     }),
 };
@@ -616,9 +616,9 @@ export const dashboardApi = {
 
 // Settings API methods
 export const settingsApi = {
-  getSettings: () => apiRequest<Settings>('/settings/'),
+  getSettings: () => apiRequest<Settings>("/api/settings/"),
   updateSettings: (settings: Partial<Settings>) => 
-    apiRequest<Settings>('/settings/', {
+    apiRequest<Settings>("/api/settings/", {
       method: 'POST',
       body: JSON.stringify(settings),
     }),
@@ -680,28 +680,28 @@ export const settingsApi = {
 
 // Discount Rules API methods
 export const discountRulesApi = {
-  getDiscountRules: () => apiRequest<DiscountRule[]>('/discount-rules/'),
-  getDiscountRule: (id: number) => apiRequest<DiscountRule>(`/discount-rules/${id}`),
+  getDiscountRules: () => apiRequest<DiscountRule[]>("/api/discount-rules/"),
+  getDiscountRule: (id: number) => apiRequest<DiscountRule>(`/api/discount-rules/${id}`),
   createDiscountRule: (discountRule: DiscountRuleCreate) => 
-    apiRequest<DiscountRule>('/discount-rules/', {
+    apiRequest<DiscountRule>("/api/discount-rules/", {
       method: 'POST',
       body: JSON.stringify(discountRule),
     }),
   updateDiscountRule: (id: number, discountRule: DiscountRuleUpdate) => 
-    apiRequest<DiscountRule>(`/discount-rules/${id}`, {
+    apiRequest<DiscountRule>(`/api/discount-rules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(discountRule),
     }),
   deleteDiscountRule: (id: number) => 
-    apiRequest(`/discount-rules/${id}`, {
+    apiRequest(`/api/discount-rules/${id}`, {
       method: 'DELETE',
     }),
   calculateDiscount: (subtotal: number) => {
     console.log("Sending discount calculation request:", {
-      url: `/discount-rules/calculate?subtotal=${subtotal}`,
+      url: `/api/discount-rules/calculate?subtotal=${subtotal}`,
       subtotal: subtotal
     });
-    return apiRequest<DiscountCalculation>(`/discount-rules/calculate?subtotal=${subtotal}`, {
+    return apiRequest<DiscountCalculation>(`/api/discount-rules/calculate?subtotal=${subtotal}`, {
       method: 'POST',
     });
   },

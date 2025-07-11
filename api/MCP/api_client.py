@@ -3,7 +3,7 @@ API Client for Invoice Application MCP integration
 """
 from typing import List, Dict, Any, Optional
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .auth_client import InvoiceAPIAuthClient, AuthenticationError
 from .config import config
@@ -275,7 +275,7 @@ class InvoiceAPIClient:
     async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
         """Get overdue invoices"""
         invoices = await self.list_invoices(limit=config.MAX_PAGE_SIZE)
-        current_date = datetime.now().date()
+        current_date = datetime.now(timezone.utc).date()
         
         overdue_invoices = []
         for invoice in invoices:

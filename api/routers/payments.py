@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import logging
 import traceback
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 from models.database import get_db
 from models.models import Payment, Invoice, Client, User
@@ -172,8 +172,8 @@ def create_payment(
             notes=payment.notes,
             invoice_id=payment.invoice_id,
             tenant_id=current_user.tenant_id,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
         db.add(db_payment)
         db.commit()
@@ -227,7 +227,7 @@ def update_payment(
                     )
             setattr(db_payment, field, value)
         
-        db_payment.updated_at = datetime.utcnow()
+        db_payment.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_payment)
         return db_payment

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, Table, DateTime, Boolean, JSON, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -24,8 +24,8 @@ class Tenant(Base):
     # Currency settings
     default_currency = Column(String, default="USD", nullable=False)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     users = relationship("User", back_populates="tenant")
@@ -58,8 +58,8 @@ class User(Base):
     last_name = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
@@ -78,8 +78,8 @@ class Client(Base):
     balance = Column(Float, default=0.0)
     paid_amount = Column(Float, default=0)
     preferred_currency = Column(String, nullable=True)  # Optional, fallback to tenant default
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant = relationship("Tenant", back_populates="clients")
@@ -91,8 +91,8 @@ class ClientNote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     note = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Foreign keys
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
@@ -121,8 +121,8 @@ class Invoice(Base):
     discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
     discount_value = Column(Float, default=0.0, nullable=False)  # percentage or fixed amount
     subtotal = Column(Float, nullable=False)  # Amount before discount
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant = relationship("Tenant", back_populates="invoices")
@@ -139,12 +139,12 @@ class Payment(Base):
     invoice_id = Column(Integer, ForeignKey("invoices.id"))
     amount = Column(Float, nullable=False)
     currency = Column(String, default="USD", nullable=False)
-    payment_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    payment_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     payment_method = Column(String, nullable=False, default="system")
     reference_number = Column(String, nullable=True)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant = relationship("Tenant", back_populates="payments")
@@ -158,8 +158,8 @@ class Settings(Base):
     
     key = Column(String, index=True)  # Removed unique constraint for multi-tenancy
     value = Column(JSON)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     tenant = relationship("Tenant", back_populates="settings")
@@ -178,8 +178,8 @@ class DiscountRule(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     priority = Column(Integer, default=0, nullable=False)  # Higher priority rules are applied first
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     tenant = relationship("Tenant", back_populates="discount_rules")
@@ -193,8 +193,8 @@ class SupportedCurrency(Base):
     symbol = Column(String, nullable=False)
     decimal_places = Column(Integer, default=2, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=True)
 
 class CurrencyRate(Base):
     __tablename__ = "currency_rates"
@@ -205,8 +205,8 @@ class CurrencyRate(Base):
     to_currency = Column(String, nullable=False)
     rate = Column(Float, nullable=False)
     effective_date = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tenant = relationship("Tenant", back_populates="currency_rates")
@@ -220,8 +220,8 @@ class InvoiceItem(Base):
     quantity = Column(Float, nullable=False, default=1.0)
     price = Column(Float, nullable=False, default=0.0)
     amount = Column(Float, nullable=False, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     invoice = relationship("Invoice", back_populates="items")
@@ -239,7 +239,7 @@ class InvoiceHistory(Base):
     previous_values = Column(JSON, nullable=True)  # Store previous values for comparison
     current_values = Column(JSON, nullable=True)   # Store current values
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     invoice = relationship("Invoice")

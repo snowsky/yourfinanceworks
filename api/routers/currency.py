@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import logging
 
 from models.database import get_db
@@ -149,8 +149,7 @@ def update_exchange_rate(
         if rate_update.effective_date is not None:
             existing_rate.effective_date = rate_update.effective_date
         
-        from datetime import datetime
-        existing_rate.updated_at = datetime.utcnow()
+        existing_rate.updated_at = datetime.now(timezone.utc)
         
         db.commit()
         db.refresh(existing_rate)
@@ -286,7 +285,7 @@ def create_custom_currency(
         
         # Set updated_at if the column exists
         try:
-            new_currency.updated_at = datetime.utcnow()
+            new_currency.updated_at = datetime.now(timezone.utc)
         except AttributeError:
             # updated_at column might not exist yet
             pass
@@ -342,7 +341,7 @@ def update_custom_currency(
         
         from datetime import datetime
         try:
-            existing_currency.updated_at = datetime.utcnow()
+            existing_currency.updated_at = datetime.now(timezone.utc)
         except AttributeError:
             # updated_at column might not exist yet
             pass

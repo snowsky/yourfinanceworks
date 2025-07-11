@@ -1,8 +1,9 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
+from sqlalchemy.engine.url import make_url
 
 from models.models import Base, User, Tenant, Client, Invoice, Payment, Settings
 from models.database import SQLALCHEMY_DATABASE_URL
@@ -13,18 +14,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Enable foreign key support for SQLite
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+if make_url(SQLALCHEMY_DATABASE_URL).get_backend_name() == "sqlite":
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 def init_db():
     # Create database engine
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
+    if make_url(SQLALCHEMY_DATABASE_URL).get_backend_name() == "sqlite":
+        engine = create_engine(
+            SQLALCHEMY_DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+    else:
+        engine = create_engine(SQLALCHEMY_DATABASE_URL)
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
@@ -47,8 +55,8 @@ def init_db():
                 phone="123-456-7890",
                 address="123 Main St",
                 tax_id="123-45-6789",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(default_tenant)
             db.commit()
@@ -65,8 +73,8 @@ def init_db():
                 is_active=True,
                 is_superuser=True,
                 tenant_id=default_tenant.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(default_admin)
             db.commit()
@@ -83,8 +91,8 @@ def init_db():
                 address="123 Main St",
                 balance=0.0,
                 tenant_id=default_tenant.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(sample_client)
             db.commit()
@@ -96,13 +104,14 @@ def init_db():
             sample_invoice = Invoice(
                 number="INV-001",
                 amount=1000.0,
-                due_date=datetime.utcnow() + timedelta(days=30),
+                subtotal=1000.0,  # Set subtotal to match amount
+                due_date=datetime.now(timezone.utc) + timedelta(days=30),
                 status="draft",
                 notes="Sample invoice",
                 client_id=sample_client.id,
                 tenant_id=default_tenant.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(sample_invoice)
             db.commit()
@@ -113,18 +122,44 @@ def init_db():
         if not sample_payment:
             sample_payment = Payment(
                 amount=500.0,
-                payment_date=datetime.utcnow(),
+                payment_date=datetime.now(timezone.utc),
                 payment_method="bank_transfer",
                 reference_number="REF-001",
                 notes="Sample payment",
                 invoice_id=sample_invoice.id,
                 tenant_id=default_tenant.id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(sample_payment)
             db.commit()
             db.refresh(sample_payment)
+        
+        # Seed default supported currencies if none exist for this tenant
+        from models.models import SupportedCurrency
+        existing_currencies = db.query(SupportedCurrency).count()
+        if existing_currencies == 0:
+            default_currencies = [
+                {"code": "USD", "name": "US Dollar", "symbol": "$", "decimal_places": 2},
+                {"code": "EUR", "name": "Euro", "symbol": "€", "decimal_places": 2},
+                {"code": "GBP", "name": "British Pound", "symbol": "£", "decimal_places": 2},
+                {"code": "CAD", "name": "Canadian Dollar", "symbol": "C$", "decimal_places": 2},
+                {"code": "AUD", "name": "Australian Dollar", "symbol": "A$", "decimal_places": 2},
+                {"code": "JPY", "name": "Japanese Yen", "symbol": "¥", "decimal_places": 0},
+                {"code": "CHF", "name": "Swiss Franc", "symbol": "CHF", "decimal_places": 2},
+                {"code": "CNY", "name": "Chinese Yuan", "symbol": "¥", "decimal_places": 2},
+                {"code": "INR", "name": "Indian Rupee", "symbol": "₹", "decimal_places": 2},
+                {"code": "BRL", "name": "Brazilian Real", "symbol": "R$", "decimal_places": 2},
+            ]
+            for currency in default_currencies:
+                db.add(SupportedCurrency(
+                    code=currency["code"],
+                    name=currency["name"],
+                    symbol=currency["symbol"],
+                    decimal_places=currency["decimal_places"],
+                    is_active=True
+                ))
+            db.commit()
         
     except Exception as e:
         db.rollback()

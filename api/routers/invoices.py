@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 import logging
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from models.database import get_db
 from models.models import Invoice, Client, User, Payment, InvoiceItem, DiscountRule
@@ -18,6 +18,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
+
+def make_aware(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 @router.post("/", response_model=InvoiceSchema)
 def create_invoice(
@@ -57,8 +64,8 @@ def create_invoice(
             notes=invoice.notes,
             client_id=invoice.client_id,
             tenant_id=current_user.tenant_id,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             discount_type=invoice.discount_type or "percentage",
@@ -78,6 +85,26 @@ def create_invoice(
                 amount=float(item_data.quantity) * float(item_data.price)
             )
             db.add(db_item)
+        
+        # Create history entry for invoice creation
+        from models.models import InvoiceHistory as InvoiceHistoryModel
+        creation_history = InvoiceHistoryModel(
+            invoice_id=db_invoice.id,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            action='creation',
+            details=f'Invoice {db_invoice.number} created',
+            previous_values=None,
+            current_values={
+                'number': db_invoice.number,
+                'amount': db_invoice.amount,
+                'currency': db_invoice.currency,
+                'status': db_invoice.status,
+                'due_date': db_invoice.due_date.isoformat() if db_invoice.due_date else None,
+                'notes': db_invoice.notes
+            }
+        )
+        db.add(creation_history)
         
         db.commit()
         db.refresh(db_invoice)
@@ -122,7 +149,7 @@ def read_invoices(
         
         # Get invoices with client information and payment status
         invoices = query.group_by(
-            Invoice.id
+            Invoice.id, Client.name
         ).offset(skip).limit(limit).all()
 
         # Convert to response format
@@ -179,7 +206,7 @@ def read_invoice(
             Invoice.id == invoice_id,
             Invoice.tenant_id == current_user.tenant_id
         ).group_by(
-            Invoice.id
+            Invoice.id, Client.name
         ).first()
 
         if invoice_tuple is None:
@@ -312,7 +339,7 @@ def update_invoice(
                     existing_item.quantity = float(getattr(item_data, 'quantity', existing_item.quantity))
                     existing_item.price = float(getattr(item_data, 'price', existing_item.price))
                     existing_item.amount = float(getattr(item_data, 'quantity', existing_item.quantity)) * float(getattr(item_data, 'price', existing_item.price))
-                    existing_item.updated_at = datetime.utcnow()
+                    existing_item.updated_at = datetime.now(timezone.utc)
                     updated_item_ids.add(item_data.id)
                 else:
                     # Create new item (no ID or ID not found)
@@ -361,7 +388,7 @@ def update_invoice(
         )
         
         db.add(history_entry)
-        db_invoice.updated_at = datetime.utcnow()
+        db_invoice.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_invoice)
         
@@ -579,6 +606,9 @@ def get_invoice_history(
             entry = h.__dict__.copy()
             entry["user_name"] = user_name
             result.append(entry)
+
+        # Return only the actual history entries from the database
+        # The invoice's updated_at is already reflected in the latest history entry
         return result
 
     except HTTPException:

@@ -162,16 +162,16 @@ export function InvoiceChart() {
                     const currency = dataKey.split('_')[1] || 'USD';
                     const category = dataKey.split('_')[0];
                     
-                    let categoryName = '';
+                  let categoryName = '';
                     if (category === 'paid') {
-                      categoryName = 'Paid';
+                    categoryName = 'Paid';
                     } else if (category === 'partiallyPaid') {
-                      categoryName = 'Partially Paid';
+                    categoryName = 'Partially Paid';
                     } else if (category === 'pending') {
-                      categoryName = 'Pending';
-                    } else {
-                      categoryName = name; // Fallback
-                    }
+                    categoryName = 'Pending';
+                  } else {
+                    categoryName = name; // Fallback
+                  }
                     
                     // Format currency with symbol
                     const symbols: { [key: string]: string } = {
@@ -195,7 +195,7 @@ export function InvoiceChart() {
                     const formattedValue = `${symbol}${Number(value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     
                     return [formattedValue, categoryName];
-                  }}
+                }}
                 />
                 {Array.from(new Set(chartData.flatMap(item => 
                   Object.keys(item).filter(key => key.startsWith('paid_') || key.startsWith('pending_') || key.startsWith('partiallyPaid_'))

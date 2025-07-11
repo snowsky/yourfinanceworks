@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, text, Column, Integer, String, Float, Fore
 from sqlalchemy.orm import sessionmaker
 from models.database import SQLALCHEMY_DATABASE_URL
 from models.models import Base, InvoiceItem
+from sqlalchemy.engine.url import make_url
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +27,10 @@ def run_migration():
     
     # Get database URL
     database_url = SQLALCHEMY_DATABASE_URL
-    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    if make_url(database_url).get_backend_name() == "sqlite":
+        engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    else:
+        engine = create_engine(database_url)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
     try:

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -131,20 +131,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         notes: payment.notes
       }));
 
-      // Add invoice creation entry if not in history
-      const hasCreationEntry = history.some(entry => entry.action === 'Invoice Created');
-      const creationHistory = hasCreationEntry ? [] : [{
-        id: 'creation',
-        type: 'creation',
-        action: 'Invoice Created',
-        amount: invoice?.amount || 0,
-        date: invoice?.created_at || new Date().toISOString(),
-        details: `Invoice ${invoice?.number} created`,
-        notes: null
-      }];
-
-      // Combine API history with payment history and creation entry
-      const allHistory = [...history, ...creationHistory, ...paymentHistory]
+      // Combine API history with payment history
+      const allHistory = [...history, ...paymentHistory]
         .sort((a, b) => {
           const dateA = 'date' in a ? a.date : a.created_at;
           const dateB = 'date' in b ? b.date : b.created_at;
@@ -1247,21 +1235,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                  <Edit className="w-4 h-4 text-orange-600" />
                                )}
                                <span className="font-medium text-sm">
-                                 {entry.action === 'update' ? 'Update' : entry.action}
+                                 {entry.action === 'update' ? 'Update' : entry.action === 'creation' ? 'Invoice Created' : entry.action}
                                  {entry.user_name && (
                                    <span className="ml-2 text-xs text-muted-foreground">by {entry.user_name}</span>
                                  )}
                                </span>
                              </div>
                             <span className="text-xs text-muted-foreground">
-                              {(() => {
-                                const dateValue = (entry as any).date || (entry as any).created_at;
-                                if (dateValue && !isNaN(new Date(dateValue).getTime())) {
-                                  return format(new Date(dateValue), "MMM dd, HH:mm");
-                                } else {
-                                  return "Invalid date";
-                                }
-                              })()}
+                              {formatDateTime((entry as any).date || (entry as any).created_at)}
                             </span>
                           </div>
                           <div className="text-sm space-y-1">
@@ -1640,6 +1621,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         <Plus className="h-4 w-4 mr-2" />
                         Add Item
                       </Button>
+                    </div>
+
+                    {/* Column headers for items */}
+                    <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 mb-2">
+                      <div className="col-span-6">Description</div>
+                      <div className="col-span-2">Quantity</div>
+                      <div className="col-span-3">Price</div>
+                      <div className="col-span-1">Actions</div>
                     </div>
 
                     {items.map((item, index) => (
