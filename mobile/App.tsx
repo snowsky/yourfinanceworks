@@ -8,6 +8,7 @@ import InvoicesScreen from './src/screens/InvoicesScreen';
 import NewInvoiceScreen from './src/screens/NewInvoiceScreen';
 import EditInvoiceScreen from './src/screens/EditInvoiceScreen';
 import ClientsScreen from './src/screens/ClientsScreen';
+import PaymentsScreen from './src/screens/PaymentsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import apiService, { User, Client, Invoice, CreateInvoiceData, UpdateInvoiceData, InvoiceItemCreate, InvoiceItemUpdate } from './src/services/api';
 
@@ -82,7 +83,7 @@ const App: React.FC = () => {
   };
 
   const handleNavigateToPayments = () => {
-    Alert.alert('Payments', 'Payments screen will be implemented soon!');
+    setCurrentScreen('payments');
   };
 
   const handleNavigateToSettings = () => {
@@ -351,6 +352,12 @@ const App: React.FC = () => {
             clients={clients}
             onUpdateInvoice={handleUpdateInvoice}
             onNavigateBack={handleNavigateBackFromEditInvoice}
+          />
+        );
+      case 'payments':
+        return (
+          <PaymentsScreen
+            onNavigateBack={handleNavigateBack}
           />
         );
       case 'settings':

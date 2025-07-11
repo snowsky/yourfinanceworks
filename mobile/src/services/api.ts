@@ -41,6 +41,15 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ClientNote {
+  id: number;
+  note: string;
+  user_id: number;
+  client_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InvoiceItem {
   id?: number;
   invoice_id?: number;
@@ -63,56 +72,163 @@ export interface InvoiceItemUpdate {
   price: number;
 }
 
+export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid";
+
 export interface Invoice {
   id: number;
   number: string;
   amount: number;
   currency: string;
+  date: string;
   due_date: string;
-  status: string;
+  status: InvoiceStatus;
   notes?: string;
   client_id: number;
   client_name: string;
+  client_email: string;
+  paid_amount: number;
   tenant_id: string;
   created_at: string;
   updated_at: string;
   total_paid: number;
   is_recurring?: boolean;
   recurring_frequency?: string;
+  discount_type?: string;
+  discount_value?: number;
+  subtotal?: number;
   items?: InvoiceItem[];
 }
 
+export interface Payment {
+  id: number;
+  invoice_id: number;
+  invoice_number: string;
+  client_name: string;
+  amount: number;
+  currency?: string;
+  payment_date: string;
+  payment_method: string;
+  reference_number?: string;
+  notes?: string;
+  status: 'completed' | 'pending' | 'failed';
+  tenant_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Settings types
+export interface CompanyInfo {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  tax_id: string;
+  logo?: string;
+}
+
+export interface InvoiceSettings {
+  prefix: string;
+  next_number: string;
+  terms: string;
+  notes?: string;
+  send_copy: boolean;
+  auto_reminders: boolean;
+}
+
+export interface Settings {
+  company_info: CompanyInfo;
+  invoice_settings: InvoiceSettings;
+}
+
+// Discount rule types
+export interface DiscountRule {
+  id: number;
+  name: string;
+  min_amount: number;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  is_active: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+  currency: string;
+}
+
+export interface DiscountRuleCreate {
+  name: string;
+  min_amount: number;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  is_active?: boolean;
+  priority?: number;
+  currency: string;
+}
+
+export interface DiscountRuleUpdate {
+  name?: string;
+  min_amount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  discount_value?: number;
+  is_active?: boolean;
+  priority?: number;
+  currency?: string;
+}
+
+export interface DiscountCalculation {
+  discount_type: 'percentage' | 'fixed' | 'none';
+  discount_value: number;
+  discount_amount: number;
+  applied_rule?: {
+    id: number;
+    name: string;
+    min_amount: number;
+  };
+}
+
 export interface DashboardStats {
-  totalIncome: number;
-  pendingInvoices: number;
+  totalIncome: Record<string, number>;
+  pendingInvoices: Record<string, number>;
   totalClients: number;
   invoicesPaid: number;
   invoicesPending: number;
   invoicesOverdue: number;
+  monthlyStats?: {
+    currentMonth: number;
+    previousMonth: number;
+    percentageChange: number;
+  };
 }
 
 export interface CreateInvoiceData {
   client_id: number;
   amount: number;
   currency: string;
+  date: string;
   due_date: string;
-  status: string;
+  status: InvoiceStatus;
   notes?: string;
   items: InvoiceItemCreate[];
   is_recurring?: boolean;
   recurring_frequency?: string;
+  discount_type?: string;
+  discount_value?: number;
+  paid_amount?: number;
 }
 
 export interface UpdateInvoiceData {
   client_id: number;
   amount: number;
   currency: string;
+  date: string;
   due_date: string;
-  status: string;
+  status: InvoiceStatus;
   notes?: string;
   items: InvoiceItemUpdate[];
   is_recurring?: boolean;
   recurring_frequency?: string;
+  discount_type?: string;
+  discount_value?: number;
+  paid_amount?: number;
 }
 
 export interface LoginCredentials {
@@ -133,6 +249,57 @@ export interface CreateClientData {
   email: string;
   phone?: string;
   address?: string;
+  preferred_currency?: string;
+}
+
+// Generic API request function with enhanced error handling
+export async function apiRequest<T>(
+  url: string, 
+  options: RequestInit = {}, 
+  config: { isLogin?: boolean } = {}
+): Promise<T> {
+  try {
+    // Get JWT token from AsyncStorage
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    
+    const requestUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+    console.log(`Making API request to ${requestUrl}`, options);
+    
+    const response = await fetch(requestUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      // Try to parse error response
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // If JSON parsing fails, use status text
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      // Handle authentication errors
+      if (!config.isLogin && (response.status === 401 || response.status === 403)) {
+        // Clear invalid token and redirect to login
+        await AsyncStorage.removeItem(TOKEN_KEY);
+        await AsyncStorage.removeItem(USER_KEY);
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`API request failed for ${url}:`, error);
+    throw error;
+  }
 }
 
 // API Service Class
@@ -195,15 +362,16 @@ class ApiService {
     }
   }
 
-  // HTTP Request Helper
+  // HTTP Request Helper with enhanced error handling
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    config: { isLogin?: boolean } = {}
   ): Promise<T> {
     const token = await this.getToken();
     const url = `${this.baseURL}${endpoint}`;
 
-    const config: RequestInit = {
+    const requestOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -213,10 +381,18 @@ class ApiService {
     };
 
     try {
-      const response = await fetch(url, config);
+      const response = await fetch(url, requestOptions);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        
+        // Handle authentication errors
+        if (!config.isLogin && (response.status === 401 || response.status === 403)) {
+          await this.removeToken();
+          await this.removeUser();
+          throw new Error('Authentication failed. Please log in again.');
+        }
+
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
@@ -232,7 +408,7 @@ class ApiService {
     const response = await this.request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
-    });
+    }, { isLogin: true });
 
     await this.setToken(response.access_token);
     await this.setUser(response.user);
@@ -248,9 +424,8 @@ class ApiService {
         tenant_id: null, // Will create new tenant
         is_active: true,
         is_verified: true,
-        is_superuser: false,
       }),
-    });
+    }, { isLogin: true });
 
     await this.setToken(response.access_token);
     await this.setUser(response.user);
@@ -267,7 +442,7 @@ class ApiService {
     try {
       return await this.request<User>('/auth/me');
     } catch (error) {
-      console.error('Error getting current user:', error);
+      console.error('Failed to get current user:', error);
       return null;
     }
   }
@@ -303,7 +478,7 @@ class ApiService {
 
   // Invoice Methods
   async getInvoices(statusFilter?: string): Promise<Invoice[]> {
-    const params = statusFilter && statusFilter !== 'all' ? `?status_filter=${statusFilter}` : '';
+    const params = statusFilter ? `?status=${statusFilter}` : '';
     return await this.request<Invoice[]>(`/invoices/${params}`);
   }
 
@@ -337,30 +512,199 @@ class ApiService {
     });
   }
 
+  // Payment Methods
+  async getPayments(): Promise<Payment[]> {
+    return await this.request<Payment[]>('/payments/');
+  }
+
+  async createPayment(paymentData: Partial<Payment>): Promise<Payment> {
+    return await this.request<Payment>('/payments/', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  // Settings Methods
+  async getSettings(): Promise<Settings> {
+    return await this.request<Settings>('/settings/');
+  }
+
+  async updateSettings(settings: Partial<Settings>): Promise<Settings> {
+    return await this.request<Settings>('/settings/', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  // Discount Rules Methods
+  async getDiscountRules(): Promise<DiscountRule[]> {
+    return await this.request<DiscountRule[]>('/discount-rules/');
+  }
+
+  async getDiscountRule(ruleId: number): Promise<DiscountRule> {
+    return await this.request<DiscountRule>(`/discount-rules/${ruleId}/`);
+  }
+
+  async createDiscountRule(ruleData: DiscountRuleCreate): Promise<DiscountRule> {
+    return await this.request<DiscountRule>('/discount-rules/', {
+      method: 'POST',
+      body: JSON.stringify(ruleData),
+    });
+  }
+
+  async updateDiscountRule(ruleId: number, ruleData: DiscountRuleUpdate): Promise<DiscountRule> {
+    return await this.request<DiscountRule>(`/discount-rules/${ruleId}/`, {
+      method: 'PUT',
+      body: JSON.stringify(ruleData),
+    });
+  }
+
+  async deleteDiscountRule(ruleId: number): Promise<void> {
+    await this.request(`/discount-rules/${ruleId}/`, {
+      method: 'DELETE',
+    });
+  }
+
+  async calculateDiscount(amount: number, currency: string): Promise<DiscountCalculation> {
+    return await this.request<DiscountCalculation>('/discount-rules/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ amount, currency }),
+    });
+  }
+
   // Dashboard Methods
   async getDashboardStats(): Promise<DashboardStats> {
     try {
-      const [totalIncome, invoices] = await Promise.all([
-        this.request<{ total_income: number }>('/invoices/stats/total-income'),
-        this.getInvoices(),
+      const [invoices, clients] = await Promise.all([
+        this.request<Invoice[]>('/invoices/'),
+        this.request<Client[]>('/clients/')
       ]);
 
-      const stats: DashboardStats = {
-        totalIncome: totalIncome.total_income || 0,
-        pendingInvoices: invoices.filter(inv => inv.status === 'pending').reduce((sum, inv) => sum + inv.amount, 0),
-        totalClients: (await this.getClients()).length,
-        invoicesPaid: invoices.filter(inv => inv.status === 'paid').length,
-        invoicesPending: invoices.filter(inv => inv.status === 'pending').length,
-        invoicesOverdue: invoices.filter(inv => inv.status === 'overdue').length,
+      // Group income by currency
+      const totalIncome: Record<string, number> = {};
+      const pendingInvoices: Record<string, number> = {};
+      
+      invoices.forEach(invoice => {
+        const currency = invoice.currency || 'USD';
+        
+        // Calculate total income (paid invoices)
+        if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
+          const paidAmount = invoice.paid_amount || 0;
+          totalIncome[currency] = (totalIncome[currency] || 0) + paidAmount;
+        }
+        
+        // Calculate pending amount (unpaid invoices)
+        if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {
+          const outstandingAmount = invoice.amount - (invoice.paid_amount || 0);
+          if (outstandingAmount > 0) {
+            pendingInvoices[currency] = (pendingInvoices[currency] || 0) + outstandingAmount;
+          }
+        }
+      });
+
+      // Count invoices by status
+      const invoicesPaid = invoices.filter(inv => inv.status === 'paid').length;
+      const invoicesPending = invoices.filter(inv => inv.status === 'pending').length;
+      const invoicesOverdue = invoices.filter(inv => inv.status === 'overdue').length;
+
+      // Calculate trends (current month vs previous month)
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      // Helper function to calculate monthly totals
+      const calculateMonthlyTotal = (targetMonth: number, targetYear: number) => {
+        return invoices
+          .filter(invoice => {
+            const invoiceDate = new Date(invoice.created_at);
+            return invoiceDate.getMonth() === targetMonth && 
+                   invoiceDate.getFullYear() === targetYear &&
+                   (invoice.status === 'paid' || invoice.status === 'partially_paid');
+          })
+          .reduce((sum, invoice) => sum + (invoice.paid_amount || 0), 0);
       };
 
-      return stats;
-    } catch (error) {
-      console.error('Error getting dashboard stats:', error);
-      // Return default stats on error
+      // Helper function to calculate monthly pending
+      const calculateMonthlyPending = (targetMonth: number, targetYear: number) => {
+        return invoices
+          .filter(invoice => {
+            const invoiceDate = new Date(invoice.created_at);
+            return invoiceDate.getMonth() === targetMonth && 
+                   invoiceDate.getFullYear() === targetYear &&
+                   (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid');
+          })
+          .reduce((sum, invoice) => {
+            const outstandingAmount = invoice.amount - (invoice.paid_amount || 0);
+            return sum + (outstandingAmount > 0 ? outstandingAmount : 0);
+          }, 0);
+      };
+
+      // Helper function to calculate monthly clients
+      const calculateMonthlyClients = (targetMonth: number, targetYear: number) => {
+        const clientIds = new Set();
+        invoices
+          .filter(invoice => {
+            const invoiceDate = new Date(invoice.created_at);
+            return invoiceDate.getMonth() === targetMonth && 
+                   invoiceDate.getFullYear() === targetYear;
+          })
+          .forEach(invoice => clientIds.add(invoice.client_id));
+        return clientIds.size;
+      };
+
+      // Helper function to calculate monthly overdue
+      const calculateMonthlyOverdue = (targetMonth: number, targetYear: number) => {
+        return invoices
+          .filter(invoice => {
+            const invoiceDate = new Date(invoice.created_at);
+            return invoiceDate.getMonth() === targetMonth && 
+                   invoiceDate.getFullYear() === targetYear &&
+                   invoice.status === 'overdue';
+          }).length;
+      };
+
+      // Calculate current and previous month totals
+      const currentMonthIncome = calculateMonthlyTotal(currentMonth, currentYear);
+      const previousMonthIncome = calculateMonthlyTotal(previousMonth, previousYear);
+      const currentMonthPending = calculateMonthlyPending(currentMonth, currentYear);
+      const previousMonthPending = calculateMonthlyPending(previousMonth, previousYear);
+      const currentMonthClients = calculateMonthlyClients(currentMonth, currentYear);
+      const previousMonthClients = calculateMonthlyClients(previousMonth, previousYear);
+      const currentMonthOverdue = calculateMonthlyOverdue(currentMonth, currentYear);
+      const previousMonthOverdue = calculateMonthlyOverdue(previousMonth, previousYear);
+
+      // Calculate percentage changes
+      const calculatePercentageChange = (current: number, previous: number) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return ((current - previous) / previous) * 100;
+      };
+
+      const incomeTrend = calculatePercentageChange(currentMonthIncome, previousMonthIncome);
+      const pendingTrend = calculatePercentageChange(currentMonthPending, previousMonthPending);
+      const clientsTrend = calculatePercentageChange(currentMonthClients, previousMonthClients);
+      const overdueTrend = calculatePercentageChange(currentMonthOverdue, previousMonthOverdue);
+
       return {
-        totalIncome: 0,
-        pendingInvoices: 0,
+        totalIncome,
+        pendingInvoices,
+        totalClients: clients.length,
+        invoicesPaid,
+        invoicesPending,
+        invoicesOverdue,
+        monthlyStats: {
+          currentMonth: currentMonthIncome,
+          previousMonth: previousMonthIncome,
+          percentageChange: Math.round(incomeTrend * 10) / 10
+        }
+      };
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+      // Return default stats if API fails
+      return {
+        totalIncome: {},
+        pendingInvoices: {},
         totalClients: 0,
         invoicesPaid: 0,
         invoicesPending: 0,
@@ -371,12 +715,13 @@ class ApiService {
 
   // Utility Methods
   async isAuthenticated(): Promise<boolean> {
-    const token = await this.getToken();
-    if (!token) return false;
-
     try {
-      const user = await this.getCurrentUser();
-      return !!user;
+      const token = await this.getToken();
+      if (!token) return false;
+      
+      // Verify token is still valid
+      await this.getCurrentUser();
+      return true;
     } catch (error) {
       return false;
     }
@@ -387,6 +732,5 @@ class ApiService {
   }
 }
 
-// Export singleton instance
 const apiService = new ApiService();
 export default apiService; 

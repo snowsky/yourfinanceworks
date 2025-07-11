@@ -10,15 +10,9 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-
-interface DashboardStats {
-  totalIncome: number;
-  pendingInvoices: number;
-  totalClients: number;
-  invoicesPaid: number;
-  invoicesPending: number;
-  invoicesOverdue: number;
-}
+import apiService, { DashboardStats, Invoice } from '../services/api';
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
+import { formatDate } from '../utils/date';
 
 interface DashboardScreenProps {
   onNavigateToInvoices: () => void;
@@ -42,32 +36,77 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   user,
 }) => {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
-    totalIncome: 0,
-    pendingInvoices: 0,
+    totalIncome: {},
+    pendingInvoices: {},
     totalClients: 0,
     invoicesPaid: 0,
     invoicesPending: 0,
     invoicesOverdue: 0,
   });
+  const [recentInvoices, setRecentInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('');
   const [tenantName, setTenantName] = useState('');
+  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
 
-  const fetchDashboardStats = async () => {
+  // Helper function to format multiple currencies as string
+  const formatMultiCurrencyString = (currencyAmounts: Record<string, number>) => {
+    if (Object.keys(currencyAmounts).length === 0) {
+      return "$0.00";
+    }
+    
+    return Object.entries(currencyAmounts)
+      .map(([currency, amount]) => {
+        // Use fallback symbols for common currencies
+        const symbols: { [key: string]: string } = {
+          'USD': '$',
+          'EUR': '€',
+          'GBP': '£',
+          'CAD': 'C$',
+          'AUD': 'A$',
+          'JPY': '¥',
+          'CHF': 'CHF',
+          'CNY': '¥',
+          'INR': '₹',
+          'BRL': 'R$',
+          'BTC': '₿',
+          'ETH': 'Ξ',
+          'XRP': 'XRP',
+          'SOL': '◎'
+        };
+        
+        const symbol = symbols[currency.toUpperCase()] || currency;
+        return `${symbol}${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      })
+      .join(' / ');
+  };
+
+  const fetchDashboardData = async () => {
     try {
-      // Simulate API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setDashboardStats({
-        totalIncome: 15420.50,
-        pendingInvoices: 8230.00,
-        totalClients: 24,
-        invoicesPaid: 18,
-        invoicesPending: 6,
-        invoicesOverdue: 2,
-      });
+      const [stats, invoices] = await Promise.all([
+        apiService.getDashboardStats(),
+        apiService.getInvoices()
+      ]);
+      
+      setDashboardStats(stats);
+      setRecentInvoices(invoices.slice(0, 5)); // Get last 5 invoices
+      
+      // Determine primary currency from invoices
+      if (invoices.length > 0) {
+        const currencyCounts = invoices.reduce((acc, invoice) => {
+          const currency = invoice.currency || 'USD';
+          acc[currency] = (acc[currency] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        const mostCommonCurrency = Object.entries(currencyCounts)
+          .sort(([,a], [,b]) => b - a)[0]?.[0] || 'USD';
+        setPrimaryCurrency(mostCommonCurrency);
+      }
     } catch (error) {
-      console.error('Failed to fetch dashboard stats:', error);
+      console.error('Failed to fetch dashboard data:', error);
+      // Keep existing data on error
     }
   };
 
@@ -83,14 +122,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboardStats();
+    await fetchDashboardData();
     setRefreshing(false);
   };
 
   useEffect(() => {
     const initializeDashboard = async () => {
       setLoading(true);
-      await fetchDashboardStats();
+      await fetchDashboardData();
       loadUserInfo();
       setLoading(false);
     };
@@ -128,6 +167,38 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <Ionicons name={icon as any} size={24} color={color} />
       </View>
       <Text style={styles.quickActionText}>{title}</Text>
+    </TouchableOpacity>
+  );
+
+  const RecentInvoiceItem = ({ invoice }: { invoice: Invoice }) => (
+    <TouchableOpacity style={styles.recentInvoiceItem}>
+      <View style={styles.invoiceHeader}>
+        <Text style={styles.invoiceNumber}>#{invoice.number}</Text>
+        <View style={[styles.statusBadge, { 
+          backgroundColor: invoice.status === 'paid' ? '#10B981' + '20' :
+                         invoice.status === 'pending' ? '#F59E0B' + '20' :
+                         invoice.status === 'overdue' ? '#EF4444' + '20' :
+                         '#6B7280' + '20'
+        }]}>
+          <Text style={[styles.statusText, { 
+            color: invoice.status === 'paid' ? '#10B981' :
+                   invoice.status === 'pending' ? '#F59E0B' :
+                   invoice.status === 'overdue' ? '#EF4444' :
+                   '#6B7280'
+          }]}>
+            {invoice.status.replace('_', ' ').toUpperCase()}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.clientName}>{invoice.client_name}</Text>
+      <View style={styles.invoiceFooter}>
+        <Text style={styles.invoiceAmount}>
+          {formatCurrency(invoice.amount, invoice.currency || primaryCurrency)}
+        </Text>
+        <Text style={styles.invoiceDate}>
+          {formatDate(invoice.due_date)}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
@@ -169,14 +240,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <View style={styles.statsGrid}>
           <StatCard
             title="Total Income"
-            value={`$${dashboardStats.totalIncome.toFixed(2)}`}
+            value={formatMultiCurrencyString(dashboardStats.totalIncome)}
             icon="cash-outline"
             description="Revenue from paid invoices"
             color="#10B981"
           />
           <StatCard
             title="Pending Amount"
-            value={`$${dashboardStats.pendingInvoices.toFixed(2)}`}
+            value={formatMultiCurrencyString(dashboardStats.pendingInvoices)}
             icon="document-text-outline"
             description="Awaiting payment"
             color="#F59E0B"
@@ -201,19 +272,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
             <QuickAction
-              title="Invoices"
-              icon="document-text-outline"
+              title="New Invoice"
+              icon="add-circle-outline"
               onPress={onNavigateToInvoices}
-              color="#3B82F6"
-            />
-            <QuickAction
-              title="Clients"
-              icon="people-outline"
-              onPress={onNavigateToClients}
               color="#10B981"
             />
             <QuickAction
-              title="Payments"
+              title="Add Client"
+              icon="person-add-outline"
+              onPress={onNavigateToClients}
+              color="#3B82F6"
+            />
+            <QuickAction
+              title="Record Payment"
               icon="card-outline"
               onPress={onNavigateToPayments}
               color="#F59E0B"
@@ -227,42 +298,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </View>
 
-        <View style={styles.recentSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity onPress={onNavigateToInvoices}>
-              <Text style={styles.viewAllText}>View all</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.recentItem}>
-            <View style={styles.recentIcon}>
-              <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
+        {recentInvoices.length > 0 && (
+          <View style={styles.recentInvoicesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Invoices</Text>
+              <TouchableOpacity onPress={onNavigateToInvoices}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.recentContent}>
-              <Text style={styles.recentTitle}>Invoice #INV-001</Text>
-              <Text style={styles.recentSubtitle}>Client: ABC Company</Text>
-              <Text style={styles.recentAmount}>$1,250.00</Text>
-            </View>
-            <View style={styles.recentStatus}>
-              <Text style={[styles.statusText, { color: '#10B981' }]}>Paid</Text>
+            <View style={styles.recentInvoicesList}>
+              {recentInvoices.map((invoice, index) => (
+                <RecentInvoiceItem key={invoice.id || index} invoice={invoice} />
+              ))}
             </View>
           </View>
-
-          <View style={styles.recentItem}>
-            <View style={styles.recentIcon}>
-              <Ionicons name="document-text-outline" size={20} color="#F59E0B" />
-            </View>
-            <View style={styles.recentContent}>
-              <Text style={styles.recentTitle}>Invoice #INV-002</Text>
-              <Text style={styles.recentSubtitle}>Client: XYZ Corp</Text>
-              <Text style={styles.recentAmount}>$850.00</Text>
-            </View>
-            <View style={styles.recentStatus}>
-              <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
-            </View>
-          </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -271,112 +321,115 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
-  },
-  scrollView: {
-    flex: 1,
+    color: '#6B7280',
   },
   header: {
-    padding: 20,
-    paddingTop: 40,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    maxWidth: '80%',
+  },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
   },
   signOutText: {
     marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
     color: '#EF4444',
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontWeight: '500',
   },
   statsGrid: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    padding: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   statCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    width: '48%',
     borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   statHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#111827',
   },
   statTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#374151',
     marginBottom: 4,
   },
   statDescription: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12,
+    color: '#6B7280',
   },
   quickActionsSection: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#111827',
     marginBottom: 16,
   },
   quickActionsGrid: {
@@ -385,17 +438,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickAction: {
-    width: '48%',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    width: '48%',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -403,7 +453,7 @@ const styles = StyleSheet.create({
   quickActionIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -411,12 +461,12 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: '#374151',
     textAlign: 'center',
   },
-  recentSection: {
+  recentInvoicesSection: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -426,60 +476,60 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '600',
+    color: '#3B82F6',
+    fontWeight: '500',
   },
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+  recentInvoicesList: {
+    gap: 12,
+  },
+  recentInvoiceItem: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  recentIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
+  invoiceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: 12,
+    marginBottom: 8,
   },
-  recentContent: {
-    flex: 1,
-  },
-  recentTitle: {
+  invoiceNumber: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    color: '#111827',
   },
-  recentSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  recentAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  recentStatus: {
-    marginLeft: 12,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    textTransform: 'uppercase',
+  },
+  clientName: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  invoiceFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  invoiceAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  invoiceDate: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });
 
