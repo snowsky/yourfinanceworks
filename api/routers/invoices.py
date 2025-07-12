@@ -291,6 +291,7 @@ def update_invoice(
         old_discount_value = db_invoice.discount_value
         old_discount_type = db_invoice.discount_type
         old_amount = db_invoice.amount
+        old_notes = db_invoice.notes
 
         # Update invoice fields
         update_data = invoice.dict(exclude_unset=True)
@@ -367,6 +368,13 @@ def update_invoice(
             old_discount = f"{old_discount_value}{'%' if old_discount_type == 'percentage' else ' (fixed)'}"
             new_discount = f"{invoice.discount_value}{'%' if invoice.discount_type == 'percentage' else ' (fixed)'}"
             changes.append(f"Discount changed from {old_discount} to {new_discount}")
+        if invoice.notes is not None and old_notes != invoice.notes:
+            if not old_notes and invoice.notes:
+                changes.append("Notes added")
+            elif old_notes and not invoice.notes:
+                changes.append("Notes removed")
+            else:
+                changes.append("Notes updated")
         history_entry = InvoiceHistoryModel(
             invoice_id=invoice_id,
             tenant_id=current_user.tenant_id,
@@ -377,13 +385,15 @@ def update_invoice(
                 'currency': old_currency,
                 'discount_value': old_discount_value,
                 'discount_type': old_discount_type,
-                'amount': old_amount
+                'amount': old_amount,
+                'notes': old_notes
             },
             current_values={
                 'currency': db_invoice.currency,
                 'discount_value': db_invoice.discount_value,
                 'discount_type': db_invoice.discount_type,
-                'amount': db_invoice.amount
+                'amount': db_invoice.amount,
+                'notes': db_invoice.notes
             }
         )
         

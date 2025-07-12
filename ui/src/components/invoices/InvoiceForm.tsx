@@ -24,6 +24,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { apiRequest } from "@/lib/api";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -106,6 +107,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
   const [availableDiscountRules, setAvailableDiscountRules] = useState<DiscountRule[]>([]);
   const [isRefreshingForm, setIsRefreshingForm] = useState(false);
   const [currenciesLoaded, setCurrenciesLoaded] = useState(false);
+  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<any>(null);
+  const [showHistoryDetailsModal, setShowHistoryDetailsModal] = useState(false);
+
+  // Handle opening the history details modal
+  const handleOpenHistoryDetails = (entry: any) => {
+    setSelectedHistoryEntry(entry);
+    setShowHistoryDetailsModal(true);
+  };
+
+  const handleCloseHistoryDetails = () => {
+    setShowHistoryDetailsModal(false);
+    setSelectedHistoryEntry(null);
+  };
 
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
@@ -1259,6 +1273,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                 {entry.notes}
                               </div>
                             )}
+                            {/* View Details Link - Only show for entries with previous/current values */}
+                            {(entry.previous_values || entry.current_values) && (
+                              <div className="pt-2 border-t border-gray-200">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenHistoryDetails(entry)}
+                                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                >
+                                  View Details
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))
@@ -2087,6 +2114,15 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* History Details Modal */}
+      {selectedHistoryEntry && (
+        <InvoiceHistoryDetailsModal
+          open={showHistoryDetailsModal}
+          onClose={handleCloseHistoryDetails}
+          historyEntry={selectedHistoryEntry}
+        />
+      )}
     </div>
   );
 }
