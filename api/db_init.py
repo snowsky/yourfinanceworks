@@ -55,6 +55,7 @@ def init_db():
                 phone="123-456-7890",
                 address="123 Main St",
                 tax_id="123-45-6789",
+                enable_ai_assistant=False,  # Enable AI assistant by default
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )

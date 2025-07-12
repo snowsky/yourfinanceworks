@@ -573,4 +573,108 @@ class InvoiceTools:
             }
             
         except Exception as e:
-            return {"success": False, "error": f"Failed to get invoice stats: {e}"} 
+            return {"success": False, "error": f"Failed to get invoice stats: {e}"}
+
+    async def analyze_invoice_patterns(self) -> Dict[str, Any]:
+        """Analyze invoice patterns to identify trends and provide recommendations."""
+        try:
+            # Fetch all invoices and clients
+            invoices = await self.api_client.list_invoices(limit=1000)  # Assuming max 1000 invoices for now
+            clients = await self.api_client.list_clients(limit=1000)  # Assuming max 1000 clients
+
+            if not invoices:
+                return {"success": True, "data": {"message": "No invoices found to analyze."}}
+
+            # Create a client map for easy lookup
+            client_map = {client['id']: client for client in clients}
+
+            # Analysis variables
+            total_invoices = len(invoices)
+            paid_invoices = [inv for inv in invoices if inv['status'] == 'paid']
+            unpaid_invoices = [inv for inv in invoices if inv['status'] != 'paid']
+            overdue_invoices = [inv for inv in unpaid_invoices if inv.get('due_date') and inv['due_date'] < datetime.now().isoformat()]
+            
+            total_revenue = sum(inv['amount'] for inv in paid_invoices)
+            outstanding_revenue = sum(inv['amount'] for inv in unpaid_invoices)
+
+            # Client analysis
+            client_payment_times = {}
+            for inv in paid_invoices:
+                if inv.get('paid_date') and inv.get('created_at'):
+                    client_id = inv['client_id']
+                    paid_date = datetime.fromisoformat(inv['paid_date'])
+                    created_date = datetime.fromisoformat(inv['created_at'])
+                    payment_time = (paid_date - created_date).days
+                    
+                    if client_id not in client_payment_times:
+                        client_payment_times[client_id] = []
+                    client_payment_times[client_id].append(payment_time)
+
+            avg_payment_times = {
+                client_map.get(cid, {}).get('name', f"Client {cid}"): sum(times) / len(times)
+                for cid, times in client_payment_times.items()
+            }
+
+            fastest_paying_clients = sorted(avg_payment_times.items(), key=lambda item: item[1])[:3]
+            slowest_paying_clients = sorted(avg_payment_times.items(), key=lambda item: item[1], reverse=True)[:3]
+
+            # Recommendations
+            recommendations = []
+            if overdue_invoices:
+                recommendations.append(f"You have {len(overdue_invoices)} overdue invoices. Consider sending reminders.")
+            if slowest_paying_clients:
+                slow_client_name = slowest_paying_clients[0][0]
+                recommendations.append(f"'{slow_client_name}' is your slowest paying client. Consider shortening their payment terms.")
+
+            analysis_data = {
+                "total_invoices": total_invoices,
+                "paid_invoices": len(paid_invoices),
+                "unpaid_invoices": len(unpaid_invoices),
+                "overdue_invoices": len(overdue_invoices),
+                "total_revenue": total_revenue,
+                "outstanding_revenue": outstanding_revenue,
+                "average_payment_time_days": sum(avg_payment_times.values()) / len(avg_payment_times) if avg_payment_times else 0,
+                "fastest_paying_clients": fastest_paying_clients,
+                "slowest_paying_clients": slowest_paying_clients,
+                "recommendations": recommendations
+            }
+
+            return {"success": True, "data": analysis_data}
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to analyze invoice patterns: {e}"}
+
+    async def suggest_invoice_actions(self) -> Dict[str, Any]:
+        """Suggest actionable items based on invoice analysis."""
+        try:
+            analysis_result = await self.analyze_invoice_patterns()
+            if not analysis_result.get("success"):
+                return analysis_result
+
+            analysis_data = analysis_result.get("data", {})
+            recommendations = analysis_data.get("recommendations", [])
+            overdue_invoices_count = analysis_data.get("overdue_invoices", 0)
+
+            actions = []
+            if overdue_invoices_count > 0:
+                actions.append({
+                    "action": "send_reminders",
+                    "description": f"You have {overdue_invoices_count} overdue invoices. Would you like to draft reminder emails?",
+                    "tool_to_use": "draft_reminder_email(invoice_id)"
+                })
+            
+            if analysis_data.get("slowest_paying_clients"):
+                slow_client = analysis_data["slowest_paying_clients"][0]
+                actions.append({
+                    "action": "review_payment_terms",
+                    "description": f"'{slow_client[0]}' is your slowest paying client (avg. {slow_client[1]:.1f} days). Consider shortening their payment terms.",
+                    "client_name": slow_client[0]
+                })
+
+            if not actions:
+                actions.append({"action": "no_suggestions", "description": "Everything looks good! No immediate actions suggested."})
+
+            return {"success": True, "data": {"suggested_actions": actions, "raw_analysis": analysis_data}}
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to suggest invoice actions: {e}"} 

@@ -16,6 +16,7 @@ import EditInvoice from "./pages/EditInvoice";
 import Payments from "./pages/Payments";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import AIAssistant from "./components/AIAssistant";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      <AIAssistant />
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -5,10 +5,23 @@ from fastapi.responses import JSONResponse
 import traceback
 import logging
 
-from routers import clients, invoices, payments, auth, tenant, settings, email, currency, crm, discount_rules
-from cors_middleware import CustomCORSMiddleware
-from models.database import engine, Base
+from routers import (
+    auth,
+    clients,
+    invoices,
+    payments,
+    currency,
+    settings,
+    tenant,
+    discount_rules,
+    crm,
+    email,
+    ai, # Add the new AI router
+    ai_config # Add the new AI config router
+)
+from models.database import engine
 from models import models
+from cors_middleware import CustomCORSMiddleware
 from db_init import init_db
 
 # Configure logging
@@ -68,6 +81,8 @@ app.include_router(email.router, prefix="/api/v1")
 app.include_router(currency.router, prefix="/api/v1")
 app.include_router(crm.router, prefix="/api/v1")
 app.include_router(discount_rules.router, prefix="/api/v1")
+app.include_router(ai.router, prefix="/api/v1") # Include the new AI router
+app.include_router(ai_config.router, prefix="/api/v1") # Include the new AI config router
 
 @app.get("/")
 def read_root():

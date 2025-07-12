@@ -98,6 +98,39 @@ export interface InvoiceSettings {
 export interface Settings {
   company_info: CompanyInfo;
   invoice_settings: InvoiceSettings;
+  enable_ai_assistant?: boolean;
+}
+
+// AI Configuration types
+export interface AIConfig {
+  id: number;
+  tenant_id: number;
+  provider_name: string;
+  provider_url?: string;
+  api_key?: string;
+  model_name: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIConfigCreate {
+  provider_name: string;
+  provider_url?: string;
+  api_key?: string;
+  model_name: string;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+
+export interface AIConfigUpdate {
+  provider_name?: string;
+  provider_url?: string;
+  api_key?: string;
+  model_name?: string;
+  is_active?: boolean;
+  is_default?: boolean;
 }
 
 // Discount rule types
@@ -197,10 +230,9 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
 
       // Handle authentication errors
       if (!config.isLogin && (response.status === 401 || response.status === 403)) {
-        // Clear invalid token and redirect to login
+        // Clear invalid token but don't redirect here - let the component handle it
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
         throw new Error('Authentication failed. Please log in again.');
       }
 
@@ -619,7 +651,7 @@ export const settingsApi = {
   getSettings: () => apiRequest<Settings>("/settings/"),
   updateSettings: (settings: Partial<Settings>) => 
     apiRequest<Settings>("/settings/", {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify(settings),
     }),
   exportData: async () => {
@@ -705,4 +737,45 @@ export const discountRulesApi = {
       method: 'POST',
     });
   },
+};
+
+// AI Configuration API methods
+export const aiConfigApi = {
+  getAIConfigs: () => apiRequest<AIConfig[]>("/ai-config/"),
+  getAIConfig: (id: number) => apiRequest<AIConfig>(`/ai-config/${id}`),
+  createAIConfig: (config: AIConfigCreate) => 
+    apiRequest<AIConfig>("/ai-config/", {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  updateAIConfig: (id: number, config: AIConfigUpdate) => 
+    apiRequest<AIConfig>(`/ai-config/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+  deleteAIConfig: (id: number) => 
+    apiRequest(`/ai-config/${id}`, {
+      method: 'DELETE',
+    }),
+  testAIConfig: (id: number) => 
+    apiRequest<{success: boolean, message: string, response?: string}>(`/ai-config/test/${id}`),
+};
+
+// AI Assistant API methods
+export const aiApi = {
+  analyzePatterns: () => apiRequest<{success: boolean, data: any}>("/ai/analyze-patterns"),
+  suggestActions: () => apiRequest<{success: boolean, data: any}>("/ai/suggest-actions"),
+  chat: (message: string, configId: number) => 
+    apiRequest<{success: boolean, data: any}>("/ai/chat", {
+      method: 'POST',
+      body: JSON.stringify({ message, config_id: configId }),
+    }),
+};
+
+// Generic API client for direct calls
+export const api = {
+  get: <T>(url: string, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'GET' }, config),
+  post: <T>(url: string, data?: any, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'POST', body: JSON.stringify(data) }, config),
+  put: <T>(url: string, data?: any, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'PUT', body: JSON.stringify(data) }, config),
+  delete: <T>(url: string, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'DELETE' }, config),
 }; 

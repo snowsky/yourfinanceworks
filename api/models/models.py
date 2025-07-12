@@ -19,7 +19,8 @@ class Tenant(Base):
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
     tax_id = Column(String, nullable=True)
-    logo_url = Column(String, nullable=True)
+    company_logo_url = Column(String, nullable=True)
+    enable_ai_assistant = Column(Boolean, default=False)
     
     # Currency settings
     default_currency = Column(String, default="USD", nullable=False)
@@ -36,6 +37,7 @@ class Tenant(Base):
     currency_rates = relationship("CurrencyRate", back_populates="tenant")
     client_notes = relationship("ClientNote", back_populates="tenant")
     discount_rules = relationship("DiscountRule", back_populates="tenant")
+    ai_configs = relationship("AIConfig", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"
@@ -245,3 +247,20 @@ class InvoiceHistory(Base):
     invoice = relationship("Invoice")
     tenant = relationship("Tenant")
     user = relationship("User") 
+
+class AIConfig(Base):
+    __tablename__ = "ai_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    provider_name = Column(String, nullable=False)  # e.g., "openai", "ollama"
+    provider_url = Column(String, nullable=True)  # For custom endpoints
+    api_key = Column(String, nullable=True)  # API key/token
+    model_name = Column(String, nullable=False)  # e.g., "gpt-4", "llama2"
+    is_active = Column(Boolean, default=True)
+    is_default = Column(Boolean, default=False)  # Only one default per tenant
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    
+    # Relationship
+    tenant = relationship("Tenant", back_populates="ai_configs") 

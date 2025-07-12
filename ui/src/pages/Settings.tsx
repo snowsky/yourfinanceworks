@@ -8,16 +8,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Download, Database, Upload } from "lucide-react";
-import { settingsApi, discountRulesApi, DiscountRule, DiscountRuleCreate } from "@/lib/api";
+import { Loader2, Download, Database, Upload, Plus, Edit, Trash2 } from "lucide-react";
+import { settingsApi, discountRulesApi, aiConfigApi, DiscountRule, DiscountRuleCreate, AIConfig, AIConfigCreate } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Plus } from "lucide-react";
 import { CurrencyManager } from "@/components/ui/currency-manager";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const Settings = () => {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -48,6 +49,22 @@ const Settings = () => {
     logo: "",
   });
 
+    const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
+  
+  // AI Configuration state
+  const [aiConfigs, setAiConfigs] = useState<AIConfig[]>([]);
+  const [loadingAiConfigs, setLoadingAiConfigs] = useState(false);
+  const [showAIConfigDialog, setShowAIConfigDialog] = useState(false);
+  const [editingAIConfig, setEditingAIConfig] = useState<AIConfig | null>(null);
+  const [newAIConfig, setNewAIConfig] = useState<AIConfigCreate>({
+    provider_name: "openai",
+    provider_url: "",
+    api_key: "",
+    model_name: "gpt-4",
+    is_active: true,
+    is_default: false,
+  });
+  
   const [invoiceSettings, setInvoiceSettings] = useState({
     prefix: "INV-",
     next_number: "0001",
@@ -91,6 +108,9 @@ const Settings = () => {
             logo: settings.company_info.logo || companyInfo.logo,
           });
         }
+
+        // Set AI assistant enabled state
+        setAiAssistantEnabled(settings.enable_ai_assistant ?? false);
         
         if (settings.invoice_settings) {
           setInvoiceSettings({
@@ -141,6 +161,18 @@ const Settings = () => {
         } finally {
           setLoadingDiscountRules(false);
         }
+        
+        // Fetch AI configurations
+        try {
+          setLoadingAiConfigs(true);
+          const configs = await aiConfigApi.getAIConfigs();
+          setAiConfigs(configs);
+        } catch (error) {
+          console.error("Failed to fetch AI configs:", error);
+          toast.error("Failed to load AI configurations");
+        } finally {
+          setLoadingAiConfigs(false);
+        }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
         toast.error("Failed to load settings");
@@ -148,7 +180,7 @@ const Settings = () => {
         setLoading(false);
       }
     };
-    
+
     fetchSettings();
   }, []);
 
@@ -224,11 +256,15 @@ const Settings = () => {
           notes: invoiceSettings.notes,
           send_copy: invoiceSettings.send_copy,
           auto_reminders: invoiceSettings.auto_reminders
-        }
+        },
+        enable_ai_assistant: aiAssistantEnabled
       };
       
       // Send to API
       await settingsApi.updateSettings(settingsData);
+      
+      // Invalidate settings cache to refresh AI assistant
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
       
       // Save email settings separately
       try {
@@ -391,6 +427,114 @@ const Settings = () => {
     setShowDiscountRuleDialog(true);
   };
 
+  // AI Configuration handlers
+  const handleAIConfigChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewAIConfig((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAIConfigToggleChange = (name: string, checked: boolean) => {
+    setNewAIConfig((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const handleCreateAIConfig = async () => {
+    try {
+      await aiConfigApi.createAIConfig(newAIConfig);
+      toast.success("AI configuration created successfully!");
+      setShowAIConfigDialog(false);
+      // Refresh AI configs
+      const configs = await aiConfigApi.getAIConfigs();
+      setAiConfigs(configs);
+    } catch (error) {
+      console.error("Failed to create AI config:", error);
+      toast.error("Failed to create AI configuration");
+    }
+  };
+
+  const handleUpdateAIConfig = async () => {
+    if (!editingAIConfig) return;
+    
+    try {
+      await aiConfigApi.updateAIConfig(editingAIConfig.id, newAIConfig);
+      toast.success("AI configuration updated successfully!");
+      setShowAIConfigDialog(false);
+      // Refresh AI configs
+      const configs = await aiConfigApi.getAIConfigs();
+      setAiConfigs(configs);
+    } catch (error) {
+      console.error("Failed to update AI config:", error);
+      toast.error("Failed to update AI configuration");
+    }
+  };
+
+  const handleDeleteAIConfig = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this AI configuration?")) return;
+    
+    try {
+      await aiConfigApi.deleteAIConfig(id);
+      toast.success("AI configuration deleted successfully!");
+      // Refresh AI configs
+      const configs = await aiConfigApi.getAIConfigs();
+      setAiConfigs(configs);
+    } catch (error) {
+      console.error("Failed to delete AI config:", error);
+      toast.error("Failed to delete AI configuration");
+    }
+  };
+
+  const handleTestAIConfig = async (id: number) => {
+    try {
+      const result = await aiConfigApi.testAIConfig(id);
+      if (result.success) {
+        toast.success("AI configuration test successful!");
+      } else {
+        toast.error(`AI configuration test failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Failed to test AI config:", error);
+      toast.error("Failed to test AI configuration");
+    }
+  };
+
+  const openEditAIConfigDialog = (config: AIConfig) => {
+    setEditingAIConfig(config);
+    setNewAIConfig({
+      provider_name: config.provider_name,
+      provider_url: config.provider_url || "",
+      api_key: config.api_key || "",
+      model_name: config.model_name,
+      is_active: config.is_active,
+      is_default: config.is_default,
+    });
+    setShowAIConfigDialog(true);
+  };
+
+  const openCreateAIConfigDialog = () => {
+    setEditingAIConfig(null);
+    setNewAIConfig({
+      provider_name: "openai",
+      provider_url: "",
+      api_key: "",
+      model_name: "gpt-4",
+      is_active: true,
+      is_default: false,
+    });
+    setShowAIConfigDialog(true);
+  };
+
+  const handleProviderChange = (provider: string) => {
+    setNewAIConfig(prev => ({
+      ...prev,
+      provider_name: provider,
+      model_name: 
+        provider === "openai" ? "gpt-4" :
+        provider === "ollama" ? "llama2" :
+        provider === "anthropic" ? "claude-3-sonnet" :
+        provider === "google" ? "gemini-pro" :
+        "model-name"
+    }));
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -411,11 +555,12 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="company">Company Info</TabsTrigger>
             <TabsTrigger value="invoices">Invoice Settings</TabsTrigger>
             <TabsTrigger value="currencies">Currencies</TabsTrigger>
             <TabsTrigger value="discount-rules">Discount Rules</TabsTrigger>
+            <TabsTrigger value="ai-config">AI Configuration</TabsTrigger>
             <TabsTrigger value="email">Email Settings</TabsTrigger>
             <TabsTrigger value="export">Data Management</TabsTrigger>
           </TabsList>
@@ -665,6 +810,102 @@ const Settings = () => {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="ai-config" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Configuration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* AI Assistant Toggle */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="ai_assistant">AI Assistant</Label>
+                      <p className="text-sm text-muted-foreground">Enable the AI assistant to help with invoice analysis and suggestions</p>
+                    </div>
+                    <Switch 
+                      id="ai_assistant" 
+                      checked={aiAssistantEnabled} 
+                      onCheckedChange={setAiAssistantEnabled} 
+                    />
+                  </div>
+                </div>
+
+                {/* AI Provider Configurations */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold">AI Provider Configurations</h3>
+                      <p className="text-sm text-muted-foreground">Configure AI providers for enhanced features</p>
+                    </div>
+                    <Button onClick={openCreateAIConfigDialog}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Provider
+                    </Button>
+                  </div>
+                  
+                  {loadingAiConfigs ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                  ) : aiConfigs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No AI configurations yet.</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Add AI providers to enable enhanced features.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {aiConfigs.map((config) => (
+                        <div key={config.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-medium">{config.provider_name}</h4>
+                              <Badge variant={config.is_active ? "default" : "secondary"}>
+                                {config.is_active ? "Active" : "Inactive"}
+                              </Badge>
+                              {config.is_default && (
+                                <Badge variant="outline">Default</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Model: {config.model_name}
+                              {config.provider_url && ` | URL: ${config.provider_url}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTestAIConfig(config.id)}
+                            >
+                              Test
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditAIConfigDialog(config)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteAIConfig(config.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1127,6 +1368,124 @@ const Settings = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* AI Configuration Dialog */}
+        <Dialog open={showAIConfigDialog} onOpenChange={setShowAIConfigDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>
+                {editingAIConfig ? "Edit AI Configuration" : "Add AI Configuration"}
+              </DialogTitle>
+              <DialogDescription>
+                Configure an AI provider for enhanced features like invoice analysis and suggestions.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="provider_name">Provider</Label>
+                  <Select
+                    value={newAIConfig.provider_name}
+                    onValueChange={handleProviderChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="ollama">Ollama</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                      <SelectItem value="google">Google</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="model_name">Model</Label>
+                  <Input
+                    id="model_name"
+                    name="model_name"
+                    value={newAIConfig.model_name}
+                    onChange={handleAIConfigChange}
+                    placeholder={
+                      newAIConfig.provider_name === "openai" ? "e.g., gpt-4, gpt-3.5-turbo" :
+                      newAIConfig.provider_name === "ollama" ? "e.g., llama2, llama3.1:8b, codellama" :
+                      newAIConfig.provider_name === "anthropic" ? "e.g., claude-3-sonnet, claude-3-haiku" :
+                      newAIConfig.provider_name === "google" ? "e.g., gemini-pro, gemini-flash" :
+                      "e.g., model-name"
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {newAIConfig.provider_name === "openai" && "Use OpenAI model names like gpt-4, gpt-3.5-turbo"}
+                    {newAIConfig.provider_name === "ollama" && "Use Ollama model names like llama2, llama3.1:8b, codellama (will be prefixed with 'ollama/')"}
+                    {newAIConfig.provider_name === "anthropic" && "Use Anthropic model names like claude-3-sonnet, claude-3-haiku"}
+                    {newAIConfig.provider_name === "google" && "Use Google model names like gemini-pro, gemini-flash"}
+                    {newAIConfig.provider_name === "custom" && "Use your custom model name"}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="provider_url">Provider URL (Optional)</Label>
+                <Input
+                  id="provider_url"
+                  name="provider_url"
+                  value={newAIConfig.provider_url}
+                  onChange={handleAIConfigChange}
+                  placeholder="https://api.openai.com/v1"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Leave empty for default endpoints. Required for custom providers.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="api_key">API Key</Label>
+                <Input
+                  id="api_key"
+                  name="api_key"
+                  type="password"
+                  value={newAIConfig.api_key}
+                  onChange={handleAIConfigChange}
+                  placeholder="Enter your API key"
+                />
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_active"
+                    checked={newAIConfig.is_active}
+                    onCheckedChange={(checked) => handleAIConfigToggleChange('is_active', checked)}
+                  />
+                  <Label htmlFor="is_active">Active</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_default"
+                    checked={newAIConfig.is_default}
+                    onCheckedChange={(checked) => handleAIConfigToggleChange('is_default', checked)}
+                  />
+                  <Label htmlFor="is_default">Default Provider</Label>
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAIConfigDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={editingAIConfig ? handleUpdateAIConfig : handleCreateAIConfig}
+              >
+                {editingAIConfig ? "Update" : "Create"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Discount Rule Dialog */}
         <Dialog open={showDiscountRuleDialog} onOpenChange={setShowDiscountRuleDialog}>

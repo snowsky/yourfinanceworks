@@ -36,7 +36,7 @@ def get_settings(
             "phone": tenant.phone or "",
             "address": tenant.address or "",
             "tax_id": tenant.tax_id or "",
-            "logo": tenant.logo_url or ""
+            "logo": tenant.company_logo_url or ""
         },
         "invoice_settings": {
             "prefix": "INV-",
@@ -45,7 +45,8 @@ def get_settings(
             "notes": "Thank you for your business!",
             "send_copy": True,
             "auto_reminders": True
-        }
+        },
+        "enable_ai_assistant": tenant.enable_ai_assistant or False
     }
 
 @router.put("/")
@@ -80,7 +81,11 @@ def update_settings(
         if "tax_id" in company_info:
             tenant.tax_id = company_info["tax_id"]
         if "logo" in company_info:
-            tenant.logo_url = company_info["logo"]
+            tenant.company_logo_url = company_info["logo"]
+    
+    # Update AI assistant setting if provided
+    if "enable_ai_assistant" in settings:
+        tenant.enable_ai_assistant = settings["enable_ai_assistant"]
     
     # Note: invoice_settings are currently stored as defaults
     # In a full implementation, you might want to store these in a separate settings table
@@ -96,7 +101,7 @@ def update_settings(
             "phone": tenant.phone or "",
             "address": tenant.address or "",
             "tax_id": tenant.tax_id or "",
-            "logo": tenant.logo_url or ""
+            "logo": tenant.company_logo_url or ""
         },
         "invoice_settings": {
             "prefix": "INV-",
@@ -105,7 +110,8 @@ def update_settings(
             "notes": "Thank you for your business!",
             "send_copy": True,
             "auto_reminders": True
-        }
+        },
+        "enable_ai_assistant": tenant.enable_ai_assistant or False
     }
 
 @router.get("/export-data")

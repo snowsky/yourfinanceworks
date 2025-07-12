@@ -17,7 +17,9 @@ class InvoiceSettings(BaseModel):
     send_copy: bool = True
     auto_reminders: bool = True
 
-class Settings(BaseModel):
+class Settings(SettingsBase):
+    id: int
+    enable_ai_assistant: bool = False
     company_info: CompanyInfo
     invoice_settings: InvoiceSettings
 

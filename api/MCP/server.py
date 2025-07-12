@@ -9,6 +9,7 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 from typing import Optional, AsyncIterator
+from datetime import datetime
 
 from fastmcp import FastMCP
 
@@ -223,6 +224,22 @@ async def get_invoice_stats() -> dict:
         return {"success": False, "error": "Server not properly initialized"}
     
     return await server_context.tools.get_invoice_stats()
+
+@mcp.tool()
+async def analyze_invoice_patterns() -> dict:
+    """Analyze invoice patterns to identify trends and provide recommendations."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.analyze_invoice_patterns()
+
+@mcp.tool()
+async def suggest_invoice_actions() -> dict:
+    """Suggest actionable items based on invoice analysis."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.suggest_invoice_actions()
 
 # Currency Management Tools
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface ProtectedRouteProps {
@@ -7,34 +7,43 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
 
-    if (!token || !user) {
-      // No authentication data, redirect to login
-      navigate('/login');
-      return;
-    }
+      if (!token || !user) {
+        setIsAuthenticated(false);
+        navigate('/login', { replace: true });
+        return;
+      }
 
-    try {
-      // Validate that user data is valid JSON
-      JSON.parse(user);
-    } catch (error) {
-      // Invalid user data, clear and redirect
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/login');
-    }
+      try {
+        // Validate that user data is valid JSON
+        JSON.parse(user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        // Invalid user data, clear and redirect
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        navigate('/login', { replace: true });
+      }
+    };
+
+    checkAuth();
   }, [navigate]);
 
-  // Check if user is authenticated
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
+  // Don't render anything while checking authentication
+  if (isAuthenticated === null) {
+    return null;
+  }
 
-  if (!token || !user) {
-    return null; // Don't render anything while redirecting
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null;
   }
 
   return <>{children}</>;

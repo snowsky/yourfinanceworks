@@ -119,9 +119,17 @@ def migrate_database():
                     key VARCHAR,
                     value JSON,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    enable_ai_assistant BOOLEAN DEFAULT 0 NOT NULL
                 )
             """)
+        else:
+            # Check if enable_ai_assistant column exists in settings table
+            cursor.execute("PRAGMA table_info(settings)")
+            settings_columns = [column[1] for column in cursor.fetchall()]
+            if 'enable_ai_assistant' not in settings_columns:
+                print("Adding enable_ai_assistant column to settings table...")
+                cursor.execute("ALTER TABLE settings ADD COLUMN enable_ai_assistant BOOLEAN DEFAULT 0 NOT NULL")
         
         # Commit changes
         conn.commit()
