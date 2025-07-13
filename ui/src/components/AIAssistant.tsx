@@ -17,7 +17,7 @@ interface Message {
 const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(
-    [{ id: 1, sender: 'ai', text: "Hello! I'm your Invoice Assistant. How can I help you today?" }]
+    [{ id: 1, sender: 'ai', text: "Hello! I'm your AI Assistant. Look for the sleek gradient bot icon in the bottom right corner to chat with me anytime! 🤖✨" }]
   );
   const [input, setInput] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -212,19 +212,33 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
         try {
           const response = await aiApi.analyzePatterns();
           console.log('AI Assistant: Analyze patterns response:', response);
+          console.log('AI Assistant: Response success:', response.success);
+          console.log('AI Assistant: Response data:', response.data);
+          console.log('AI Assistant: Response error:', (response as any).error);
           
           if (response.success) {
             const data = response.data;
+            // Format revenue by currency
+            const formatRevenueByCurrency = (revenueData: any) => {
+                if (!revenueData || Object.keys(revenueData).length === 0) {
+                    return "None";
+                }
+                return Object.entries(revenueData)
+                    .map(([currency, amount]) => `${currency} ${(amount as number).toFixed(2)}`)
+                    .join(', ');
+            };
+
             const analysisText = `
 **Invoice Pattern Analysis**
 
 📊 **Summary:**
 - Total Invoices: ${data.total_invoices}
 - Paid Invoices: ${data.paid_invoices}
+- Partially Paid Invoices: ${data.partially_paid_invoices || 0}
 - Unpaid Invoices: ${data.unpaid_invoices}
 - Overdue Invoices: ${data.overdue_invoices}
-- Total Revenue: $${data.total_revenue}
-- Outstanding Revenue: $${data.outstanding_revenue}
+- Total Revenue: ${formatRevenueByCurrency(data.total_revenue_by_currency)}
+- Outstanding Revenue: ${formatRevenueByCurrency(data.outstanding_revenue_by_currency)}
 
 💡 **Recommendations:**
 ${data.recommendations.map((rec: string) => `- ${rec}`).join('\n')}
@@ -236,6 +250,11 @@ ${data.recommendations.map((rec: string) => `- ${rec}`).join('\n')}
           }
         } catch (error) {
           console.error('AI Assistant: Error calling analyze-patterns:', error);
+          console.error('AI Assistant: Error details:', {
+            message: error.message,
+            stack: error.stack,
+            response: error.response
+          });
           throw error;
         }
       } else if (lowerText.includes('suggest') && lowerText.includes('action')) {
@@ -303,7 +322,7 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <TooltipProvider>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={setIsOpen} className="[&_[data-radix-dialog-overlay]]:bg-black/20">
           <DialogTrigger asChild>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -320,7 +339,8 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
               </TooltipContent>
             </Tooltip>
           </DialogTrigger>
-          <DialogContent className="w-full max-w-[600px] h-[80vh] max-h-[800px] flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in">
+          <DialogContent className="w-full max-w-[600px] h-[80vh] max-h-[800px] flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in [&>div]:rounded-3xl [&>div]:bg-transparent">
+            <DialogTitle className="sr-only">Invoice AI Assistant Chat</DialogTitle>
             <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 p-6 flex items-center gap-4 rounded-t-3xl shadow-md">
               <div className="bg-white/30 rounded-full p-3 shadow-lg">
                 <Bot className="h-10 w-10 text-white" />

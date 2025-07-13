@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/lib/api";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");

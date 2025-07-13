@@ -282,7 +282,7 @@ const Settings = () => {
       if (aiAssistantEnabled) {
         // AI Assistant was enabled
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
-        toast.success("AI Assistant enabled! Look for the blue bot icon in the bottom-right corner.");
+        toast.success("AI Assistant enabled! Look for the sleek gradient bot icon in the bottom-right corner.");
       } else {
         // AI Assistant was disabled - more aggressive cache clearing
         console.log('Settings: AI Assistant disabled, clearing all related cache');
@@ -507,7 +507,7 @@ const Settings = () => {
       if (checked) {
         // AI Assistant was enabled
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
-        toast.success("AI Assistant enabled! Look for the blue bot icon in the bottom-right corner.");
+        toast.success("AI Assistant enabled! Look for the sleek gradient bot icon in the bottom-right corner.");
       } else {
         // AI Assistant was disabled - aggressive cache clearing
         console.log('AI Assistant: Disabled, clearing all related cache');

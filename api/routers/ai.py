@@ -34,12 +34,32 @@ async def analyze_patterns(
         # Calculate basic metrics
         total_invoices = len(invoices)
         paid_invoices = len([inv for inv in invoices if inv.status == "paid"])
+        partially_paid_invoices = len([inv for inv in invoices if inv.status == "partially_paid"])
         unpaid_invoices = len([inv for inv in invoices if inv.status in ["pending", "draft"]])
         overdue_invoices = len([inv for inv in invoices if inv.status == "overdue"])
         
-        # Calculate revenue metrics
-        total_revenue = sum(inv.amount for inv in invoices if inv.status == "paid")
-        outstanding_revenue = sum(inv.amount for inv in invoices if inv.status in ["pending", "draft", "overdue"])
+        # Calculate revenue metrics with better error handling - grouped by currency
+        total_revenue_by_currency = {}
+        outstanding_revenue_by_currency = {}
+        
+        for inv in invoices:
+            currency = inv.currency or "USD"
+            
+            if inv.status == "paid":
+                if currency not in total_revenue_by_currency:
+                    total_revenue_by_currency[currency] = 0
+                total_revenue_by_currency[currency] += inv.amount
+            elif inv.status == "partially_paid":
+                # Calculate paid amount from payments
+                paid_amount = sum(payment.amount for payment in inv.payments)
+                if currency not in total_revenue_by_currency:
+                    total_revenue_by_currency[currency] = 0
+                total_revenue_by_currency[currency] += paid_amount
+            
+            if inv.status in ["pending", "draft", "overdue"]:
+                if currency not in outstanding_revenue_by_currency:
+                    outstanding_revenue_by_currency[currency] = 0
+                outstanding_revenue_by_currency[currency] += inv.amount
         
         # Get client payment patterns (explicit join)
         from sqlalchemy.orm import aliased
@@ -77,22 +97,31 @@ async def analyze_patterns(
         recommendations = []
         if overdue_invoices > 0:
             recommendations.append(f"Send reminders for {overdue_invoices} overdue invoices")
-        if outstanding_revenue > total_revenue * 0.3:
+        
+        # Calculate total outstanding and total revenue across all currencies
+        total_outstanding = sum(outstanding_revenue_by_currency.values())
+        total_revenue = sum(total_revenue_by_currency.values())
+        
+        if total_outstanding > total_revenue * 0.3:
             recommendations.append("Consider implementing stricter payment terms")
         if slowest_paying_clients:
             recommendations.append("Review payment terms for slow-paying clients")
         if total_invoices == 0:
             recommendations.append("Start creating invoices to track your business")
         
+        # Debug logging
+        print(f"Analyze patterns debug: total_invoices={total_invoices}, paid={paid_invoices}, partially_paid={partially_paid_invoices}, total_revenue_by_currency={total_revenue_by_currency}")
+        
         return {
             "success": True,
             "data": {
                 "total_invoices": total_invoices,
                 "paid_invoices": paid_invoices,
+                "partially_paid_invoices": partially_paid_invoices,
                 "unpaid_invoices": unpaid_invoices,
                 "overdue_invoices": overdue_invoices,
-                "total_revenue": total_revenue,
-                "outstanding_revenue": outstanding_revenue,
+                "total_revenue_by_currency": total_revenue_by_currency,
+                "outstanding_revenue_by_currency": outstanding_revenue_by_currency,
                 "fastest_paying_clients": fastest_paying_clients,
                 "slowest_paying_clients": slowest_paying_clients,
                 "recommendations": recommendations
