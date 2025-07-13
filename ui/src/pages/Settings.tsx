@@ -555,14 +555,14 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="company">Company Info</TabsTrigger>
-            <TabsTrigger value="invoices">Invoice Settings</TabsTrigger>
-            <TabsTrigger value="currencies">Currencies</TabsTrigger>
-            <TabsTrigger value="discount-rules">Discount Rules</TabsTrigger>
-            <TabsTrigger value="ai-config">AI Configuration</TabsTrigger>
-            <TabsTrigger value="email">Email Settings</TabsTrigger>
-            <TabsTrigger value="export">Data Management</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+            <TabsTrigger value="company" className="text-xs md:text-sm">Company Info</TabsTrigger>
+            <TabsTrigger value="invoices" className="text-xs md:text-sm">Invoice Settings</TabsTrigger>
+            <TabsTrigger value="currencies" className="text-xs md:text-sm">Currencies</TabsTrigger>
+            <TabsTrigger value="discount-rules" className="text-xs md:text-sm">Discount Rules</TabsTrigger>
+            <TabsTrigger value="ai-config" className="text-xs md:text-sm">AI Configuration</TabsTrigger>
+            <TabsTrigger value="email" className="text-xs md:text-sm">Email Settings</TabsTrigger>
+            <TabsTrigger value="export" className="text-xs md:text-sm">Data Management</TabsTrigger>
           </TabsList>
           
           <TabsContent value="company" className="mt-6">

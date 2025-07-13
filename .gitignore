@@ -32,3 +32,4 @@ api/**/__pycache__
 api/.env
 api/invoice_api.egg-info
 api/*.db
+api/.mcp_token

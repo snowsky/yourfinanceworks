@@ -3,6 +3,7 @@ FastMCP Tools for Invoice Application
 """
 from typing import Any, Dict, List, Optional
 import json
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 from .api_client import InvoiceAPIClient
