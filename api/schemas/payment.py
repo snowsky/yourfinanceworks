@@ -25,7 +25,6 @@ class PaymentUpdate(BaseModel):
 
 class Payment(PaymentBase):
     id: int
-    tenant_id: int
     created_at: datetime
     updated_at: datetime
     status: str = Field(default="completed", description="Payment status")

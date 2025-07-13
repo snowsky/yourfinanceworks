@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime, date, timezone
 
 from models.database import get_db
-from models.models import Payment, Invoice, Client, User
+from models.models_per_tenant import Payment, Invoice, Client, User
 from schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSchema, PaymentWithInvoice
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
@@ -26,6 +26,7 @@ def read_payments(
 ):
     try:
         # Get payments with invoice and client information
+        # No tenant_id filtering needed since we're in the tenant's database
         payments = db.query(
             Payment,
             Invoice.number.label('invoice_number'),
@@ -34,8 +35,6 @@ def read_payments(
             Invoice, Payment.invoice_id == Invoice.id
         ).join(
             Client, Invoice.client_id == Client.id
-        ).filter(
-            Payment.tenant_id == current_user.tenant_id
         ).offset(skip).limit(limit).all()
 
         # Convert to response format
@@ -52,7 +51,6 @@ def read_payments(
                 "invoice_id": payment.invoice_id,
                 "invoice_number": invoice_number,
                 "client_name": client_name,
-                "tenant_id": payment.tenant_id,
                 "created_at": payment.created_at,
                 "updated_at": payment.updated_at,
                 "status": "completed"  # Add status field
@@ -76,6 +74,7 @@ def read_payment(
 ):
     try:
         # Get payment with invoice and client information
+        # No tenant_id filtering needed since we're in the tenant's database
         payment_tuple = db.query(
             Payment,
             Invoice.number.label('invoice_number'),
@@ -85,8 +84,7 @@ def read_payment(
         ).join(
             Client, Invoice.client_id == Client.id
         ).filter(
-            Payment.id == payment_id,
-            Payment.tenant_id == current_user.tenant_id
+            Payment.id == payment_id
         ).first()
 
         if payment_tuple is None:
@@ -107,7 +105,6 @@ def read_payment(
             "invoice_id": payment.invoice_id,
             "invoice_number": invoice_number,
             "client_name": client_name,
-            "tenant_id": payment.tenant_id,
             "created_at": payment.created_at,
             "updated_at": payment.updated_at,
             "status": "completed"  # Add status field
@@ -131,9 +128,9 @@ def create_payment(
 ):
     try:
         # Get the invoice to determine currency
+        # No tenant_id filtering needed since we're in the tenant's database
         invoice = db.query(Invoice).filter(
-            Invoice.id == payment.invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.id == payment.invoice_id
         ).first()
         
         if not invoice:
@@ -163,6 +160,7 @@ def create_payment(
         if isinstance(payment_date, date):
             payment_date = datetime.combine(payment_date, datetime.min.time())
         
+        # No tenant_id needed since each tenant has its own database
         db_payment = Payment(
             amount=float(payment.amount),
             currency=payment_currency,
@@ -171,7 +169,6 @@ def create_payment(
             reference_number=payment.reference_number,
             notes=payment.notes,
             invoice_id=payment.invoice_id,
-            tenant_id=current_user.tenant_id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
@@ -180,7 +177,6 @@ def create_payment(
         db.refresh(db_payment)
         return db_payment
     except HTTPException:
-        db.rollback()
         raise
     except Exception as e:
         db.rollback()
@@ -199,9 +195,9 @@ def update_payment(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # No tenant_id filtering needed since we're in the tenant's database
         db_payment = db.query(Payment).filter(
-            Payment.id == payment_id,
-            Payment.tenant_id == current_user.tenant_id
+            Payment.id == payment_id
         ).first()
         if db_payment is None:
             raise HTTPException(
@@ -249,9 +245,9 @@ def delete_payment(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # No tenant_id filtering needed since we're in the tenant's database
         db_payment = db.query(Payment).filter(
-            Payment.id == payment_id,
-            Payment.tenant_id == current_user.tenant_id
+            Payment.id == payment_id
         ).first()
         if db_payment is None:
             raise HTTPException(

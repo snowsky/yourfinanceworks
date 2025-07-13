@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func, distinct, case
+from typing import List, Optional
 import logging
 import traceback
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy import func
 from datetime import datetime, timezone
 
 from models.database import get_db
-from models.models import Client, User, Payment, Invoice
+from models.models_per_tenant import Client, User, Payment, Invoice
 from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
 
@@ -27,6 +26,7 @@ def read_clients(
 ):
     try:
         # Get clients with their total invoice amounts, total paid amounts, and calculate outstanding balance
+        # No tenant_id filtering needed since we're in the tenant's database
         clients = db.query(
             Client,
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid'),
@@ -35,8 +35,6 @@ def read_clients(
             Invoice, Invoice.client_id == Client.id
         ).outerjoin(
             Payment, Payment.invoice_id == Invoice.id
-        ).filter(
-            Client.tenant_id == current_user.tenant_id
         ).group_by(
             Client.id
         ).offset(skip).limit(limit).all()
@@ -67,16 +65,16 @@ def read_clients(
             
             client_dict = {
                 "id": client.id,
-                "tenant_id": client.tenant_id,
                 "name": client.name,
                 "email": client.email,
                 "phone": client.phone,
                 "address": client.address,
-                "balance": max(0, outstanding_balance),  # Use calculated outstanding balance
+                "balance": client.balance,
                 "paid_amount": float(total_paid),
+                "outstanding_balance": outstanding_balance,
                 "preferred_currency": client.preferred_currency,
-                "created_at": client.created_at,
-                "updated_at": client.updated_at
+                "created_at": client.created_at.isoformat() if client.created_at else None,
+                "updated_at": client.updated_at.isoformat() if client.updated_at else None
             }
             result.append(client_dict)
 
@@ -97,6 +95,7 @@ def read_client(
 ):
     try:
         # Get client with total paid amount
+        # No tenant_id filtering needed since we're in the tenant's database
         client_tuple = db.query(
             Client,
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
@@ -105,8 +104,7 @@ def read_client(
         ).outerjoin(
             Payment, Payment.invoice_id == Invoice.id
         ).filter(
-            Client.id == client_id,
-            Client.tenant_id == current_user.tenant_id
+            Client.id == client_id
         ).group_by(
             Client.id
         ).first()
@@ -142,16 +140,16 @@ def read_client(
         
         client_dict = {
             "id": client.id,
-            "tenant_id": client.tenant_id,
             "name": client.name,
             "email": client.email,
             "phone": client.phone,
             "address": client.address,
-            "balance": max(0, outstanding_balance),  # Use calculated outstanding balance
+            "balance": client.balance,
             "paid_amount": float(total_paid),
+            "outstanding_balance": outstanding_balance,
             "preferred_currency": client.preferred_currency,
-            "created_at": client.created_at,
-            "updated_at": client.updated_at
+            "created_at": client.created_at.isoformat() if client.created_at else None,
+            "updated_at": client.updated_at.isoformat() if client.updated_at else None
         }
         return client_dict
     except HTTPException:
@@ -171,9 +169,21 @@ def create_client(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # Check for existing client with same name and email to prevent duplicates
+        existing_client = db.query(Client).filter(
+            Client.name == client.name,
+            Client.email == client.email
+        ).first()
+        
+        if existing_client:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Client with name '{client.name}' and email '{client.email}' already exists"
+            )
+        
+        # No tenant_id needed since each tenant has its own database
         db_client = Client(
             **client.dict(),
-            tenant_id=current_user.tenant_id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
@@ -181,14 +191,8 @@ def create_client(
         db.commit()
         db.refresh(db_client)
         return db_client
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Database error in create_client: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error in create_client: {str(e)}")
@@ -206,9 +210,9 @@ def update_client(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # No tenant_id filtering needed since we're in the tenant's database
         db_client = db.query(Client).filter(
-            Client.id == client_id,
-            Client.tenant_id == current_user.tenant_id
+            Client.id == client_id
         ).first()
         if db_client is None:
             raise HTTPException(
@@ -243,10 +247,8 @@ def delete_client(
 ):
     try:
         # Check if client exists
-        db_client = db.query(Client).filter(
-            Client.id == client_id,
-            Client.tenant_id == current_user.tenant_id
-        ).first()
+        # No tenant_id filtering needed since we're in the tenant's database
+        db_client = db.query(Client).filter(Client.id == client_id).first()
         if db_client is None:
             raise HTTPException(
                 status_code=404,
@@ -254,16 +256,16 @@ def delete_client(
             )
         
         # Check if client has associated invoices
+        # No tenant_id filtering needed since we're in the tenant's database
         has_invoices = db.query(Invoice).filter(
-            Invoice.client_id == client_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.client_id == client_id
         ).first() is not None
         
         if has_invoices:
             # Delete all associated invoices first
+            # No tenant_id filtering needed since we're in the tenant's database
             db.query(Invoice).filter(
-                Invoice.client_id == client_id,
-                Invoice.tenant_id == current_user.tenant_id
+                Invoice.client_id == client_id
             ).delete()
         
         # Now delete the client

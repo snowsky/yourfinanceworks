@@ -4,7 +4,8 @@ from sqlalchemy import desc
 from datetime import datetime, date, timezone
 import logging
 
-from models.models import SupportedCurrency, CurrencyRate, Tenant, Client
+from models.models import SupportedCurrency, CurrencyRate, Tenant
+from models.models_per_tenant import Client
 from schemas.currency import CurrencyConversion
 
 logger = logging.getLogger(__name__)
@@ -39,18 +40,19 @@ class CurrencyService:
             # Fallback to USD if there's any database error
             return "USD"
     
-    def get_client_preferred_currency(self, client_id: int, tenant_id: int) -> str:
-        """Get the preferred currency for a client, fallback to tenant default"""
+    def get_client_preferred_currency(self, client_id: int) -> str:
+        """Get the preferred currency for a client, fallback to USD"""
         try:
+            # No tenant_id filtering needed since we're in the tenant's database
             client = self.db.query(Client).filter(
-                Client.id == client_id,
-                Client.tenant_id == tenant_id
+                Client.id == client_id
             ).first()
             
             if client and client.preferred_currency:
                 return client.preferred_currency
             
-            return self.get_tenant_default_currency(tenant_id)
+            # Fallback to USD since we don't have tenant context in per-tenant database
+            return "USD"
         except Exception as e:
             logger.warning(f"Error getting client preferred currency: {e}")
             # Fallback to USD if there's any database error

@@ -61,6 +61,10 @@ async def catch_exceptions_middleware(request: Request, call_next):
 # Add our custom CORS middleware
 app.add_middleware(CustomCORSMiddleware)
 
+# Add tenant context middleware
+from middleware.tenant_context_middleware import TenantContextMiddleware
+app.add_middleware(TenantContextMiddleware)
+
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,

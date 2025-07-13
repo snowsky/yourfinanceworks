@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from models.database import get_db
-from models.models import DiscountRule
+from models.models_per_tenant import DiscountRule
 from schemas.discount_rule import DiscountRuleCreate, DiscountRuleUpdate, DiscountRuleResponse
 from routers.auth import get_current_user
 from datetime import datetime, timezone
@@ -15,9 +15,8 @@ async def get_discount_rules(
     current_user = Depends(get_current_user)
 ):
     """Get all discount rules for the current tenant"""
-    discount_rules = db.query(DiscountRule).filter(
-        DiscountRule.tenant_id == current_user.tenant_id
-    ).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
+    # No tenant_id filtering needed since we're in the tenant's database
+    discount_rules = db.query(DiscountRule).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
     
     return discount_rules
 
@@ -28,13 +27,23 @@ async def create_discount_rule(
     current_user = Depends(get_current_user)
 ):
     """Create a new discount rule"""
+    # No tenant_id needed since each tenant has its own database
     db_discount_rule = DiscountRule(
-        **discount_rule.dict(),
-        tenant_id=current_user.tenant_id
+        name=discount_rule.name,
+        min_amount=discount_rule.min_amount,
+        discount_type=discount_rule.discount_type,
+        discount_value=discount_rule.discount_value,
+        currency=discount_rule.currency,
+        is_active=discount_rule.is_active,
+        priority=discount_rule.priority,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
     )
+    
     db.add(db_discount_rule)
     db.commit()
     db.refresh(db_discount_rule)
+    
     return db_discount_rule
 
 @router.get("/{discount_rule_id}", response_model=DiscountRuleResponse)
@@ -43,10 +52,10 @@ async def get_discount_rule(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get a specific discount rule"""
+    """Get a specific discount rule by ID"""
+    # No tenant_id filtering needed since we're in the tenant's database
     discount_rule = db.query(DiscountRule).filter(
-        DiscountRule.id == discount_rule_id,
-        DiscountRule.tenant_id == current_user.tenant_id
+        DiscountRule.id == discount_rule_id
     ).first()
     
     if not discount_rule:
@@ -64,27 +73,28 @@ async def update_discount_rule(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update a discount rule"""
-    db_discount_rule = db.query(DiscountRule).filter(
-        DiscountRule.id == discount_rule_id,
-        DiscountRule.tenant_id == current_user.tenant_id
+    """Update an existing discount rule"""
+    # No tenant_id filtering needed since we're in the tenant's database
+    discount_rule = db.query(DiscountRule).filter(
+        DiscountRule.id == discount_rule_id
     ).first()
     
-    if not db_discount_rule:
+    if not discount_rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Discount rule not found"
         )
     
-    update_data = discount_rule_update.dict(exclude_unset=True)
-    update_data["updated_at"] = datetime.now(timezone.utc)
+    # Update fields
+    for field, value in discount_rule_update.dict(exclude_unset=True).items():
+        setattr(discount_rule, field, value)
     
-    for field, value in update_data.items():
-        setattr(db_discount_rule, field, value)
+    discount_rule.updated_at = datetime.now(timezone.utc)
     
     db.commit()
-    db.refresh(db_discount_rule)
-    return db_discount_rule
+    db.refresh(discount_rule)
+    
+    return discount_rule
 
 @router.delete("/{discount_rule_id}")
 async def delete_discount_rule(
@@ -93,18 +103,18 @@ async def delete_discount_rule(
     current_user = Depends(get_current_user)
 ):
     """Delete a discount rule"""
-    db_discount_rule = db.query(DiscountRule).filter(
-        DiscountRule.id == discount_rule_id,
-        DiscountRule.tenant_id == current_user.tenant_id
+    # No tenant_id filtering needed since we're in the tenant's database
+    discount_rule = db.query(DiscountRule).filter(
+        DiscountRule.id == discount_rule_id
     ).first()
     
-    if not db_discount_rule:
+    if not discount_rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Discount rule not found"
         )
     
-    db.delete(db_discount_rule)
+    db.delete(discount_rule)
     db.commit()
     
     return {"message": "Discount rule deleted successfully"}
@@ -115,41 +125,32 @@ async def calculate_discount(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Calculate the applicable discount for a given subtotal"""
-    # Get all active discount rules for the tenant, ordered by priority and min_amount
+    """Calculate discount for a given subtotal"""
+    # No tenant_id filtering needed since we're in the tenant's database
     discount_rules = db.query(DiscountRule).filter(
-        DiscountRule.tenant_id == current_user.tenant_id,
-        DiscountRule.is_active == True
+        DiscountRule.is_active == True,
+        DiscountRule.min_amount <= subtotal
     ).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
     
-    # Find the first applicable rule
-    applicable_rule = None
-    for rule in discount_rules:
-        if subtotal >= rule.min_amount:
-            applicable_rule = rule
-            break
-    
-    if not applicable_rule:
+    if not discount_rules:
         return {
-            "discount_type": "none",
-            "discount_value": 0,
-            "discount_amount": 0,
-            "applied_rule": None
+            "discount_amount": 0.0,
+            "discount_type": "percentage",
+            "discount_value": 0.0,
+            "rule_name": None
         }
     
-    # Calculate discount amount
-    if applicable_rule.discount_type == "percentage":
-        discount_amount = (subtotal * applicable_rule.discount_value) / 100
-    else:  # fixed amount
-        discount_amount = min(applicable_rule.discount_value, subtotal)
+    # Apply the first (highest priority) rule
+    rule = discount_rules[0]
+    
+    if rule.discount_type == "percentage":
+        discount_amount = subtotal * (rule.discount_value / 100)
+    else:  # fixed
+        discount_amount = rule.discount_value
     
     return {
-        "discount_type": applicable_rule.discount_type,
-        "discount_value": applicable_rule.discount_value,
         "discount_amount": discount_amount,
-        "applied_rule": {
-            "id": applicable_rule.id,
-            "name": applicable_rule.name,
-            "min_amount": applicable_rule.min_amount
-        }
+        "discount_type": rule.discount_type,
+        "discount_value": rule.discount_value,
+        "rule_name": rule.name
     } 

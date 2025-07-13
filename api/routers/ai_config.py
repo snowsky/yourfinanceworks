@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from models.database import get_db
 from routers.auth import get_current_user
-from models.models import User, AIConfig as AIConfigModel
+from models.models_per_tenant import User, AIConfig as AIConfigModel
 from schemas.ai_config import AIConfigCreate, AIConfigUpdate, AIConfig as AIConfigSchema
 
 router = APIRouter(
@@ -19,7 +19,8 @@ def get_ai_configs(
     db: Session = Depends(get_db)
 ):
     """Get all AI configurations for the current tenant"""
-    configs = db.query(AIConfigModel).filter(AIConfigModel.tenant_id == current_user.tenant_id).all()
+    # No tenant_id filtering needed since we're in the tenant's database
+    configs = db.query(AIConfigModel).all()
     return configs
 
 @router.post("/", response_model=AIConfigSchema)
@@ -38,15 +39,13 @@ def create_ai_config(
     
     # If this is set as default, unset other defaults
     if config.is_default:
+        # No tenant_id filtering needed since we're in the tenant's database
         db.query(AIConfigModel).filter(
-            AIConfigModel.tenant_id == current_user.tenant_id,
             AIConfigModel.is_default == True
         ).update({"is_default": False})
     
-    db_config = AIConfigModel(
-        tenant_id=current_user.tenant_id,
-        **config.dict()
-    )
+    # No tenant_id needed since each tenant has its own database
+    db_config = AIConfigModel(**config.dict())
     db.add(db_config)
     db.commit()
     db.refresh(db_config)
@@ -67,18 +66,16 @@ def update_ai_config(
             detail="Only tenant admins can update AI configurations"
         )
     
-    db_config = db.query(AIConfigModel).filter(
-        AIConfigModel.id == config_id,
-        AIConfigModel.tenant_id == current_user.tenant_id
-    ).first()
+    # No tenant_id filtering needed since we're in the tenant's database
+    db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
     
     if not db_config:
         raise HTTPException(status_code=404, detail="AI configuration not found")
     
     # If this is set as default, unset other defaults
     if config.is_default:
+        # No tenant_id filtering needed since we're in the tenant's database
         db.query(AIConfigModel).filter(
-            AIConfigModel.tenant_id == current_user.tenant_id,
             AIConfigModel.is_default == True,
             AIConfigModel.id != config_id
         ).update({"is_default": False})
@@ -106,10 +103,8 @@ def delete_ai_config(
             detail="Only tenant admins can delete AI configurations"
         )
     
-    db_config = db.query(AIConfigModel).filter(
-        AIConfigModel.id == config_id,
-        AIConfigModel.tenant_id == current_user.tenant_id
-    ).first()
+    # No tenant_id filtering needed since we're in the tenant's database
+    db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
     
     if not db_config:
         raise HTTPException(status_code=404, detail="AI configuration not found")
@@ -125,10 +120,8 @@ def test_ai_config(
     db: Session = Depends(get_db)
 ):
     """Test an AI configuration"""
-    db_config = db.query(AIConfigModel).filter(
-        AIConfigModel.id == config_id,
-        AIConfigModel.tenant_id == current_user.tenant_id
-    ).first()
+    # No tenant_id filtering needed since we're in the tenant's database
+    db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
     
     if not db_config:
         raise HTTPException(status_code=404, detail="AI configuration not found")

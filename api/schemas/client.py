@@ -23,9 +23,9 @@ class ClientUpdate(BaseModel):
 
 class Client(ClientBase):
     id: int
-    tenant_id: int
     balance: float = Field(0.0, description="Current balance")
     paid_amount: float = Field(0.0, description="Total amount paid")
+    outstanding_balance: Optional[float] = Field(0.0, description="Outstanding balance")
     created_at: datetime
     updated_at: datetime
 

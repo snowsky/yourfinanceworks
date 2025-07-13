@@ -9,8 +9,9 @@ import shutil
 from datetime import datetime, timezone, date
 import logging
 
-from models.database import get_db
-from models.models import Tenant, User, Client, Invoice, Payment, Settings, ClientNote, InvoiceItem
+from models.database import get_db, get_master_db
+from models.models_per_tenant import User, Client, Invoice, Payment, Settings, ClientNote, InvoiceItem
+from models.models import Tenant, MasterUser
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
 
@@ -21,10 +22,11 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 @router.get("/")
 def get_settings(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Get tenant settings (using tenant info as settings)"""
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     
@@ -53,163 +55,107 @@ def get_settings(
 def update_settings(
     settings: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Update tenant settings"""
-    # Only tenant admins can update settings
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=403, 
-            detail="Only tenant admins can update settings"
-        )
-    
-    tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     
     # Update tenant info from company_info
-    if "company_info" in settings:
-        company_info = settings["company_info"]
-        if "name" in company_info:
-            tenant.name = company_info["name"]
-        if "email" in company_info:
-            tenant.email = company_info["email"]
-        if "phone" in company_info:
-            tenant.phone = company_info["phone"]
-        if "address" in company_info:
-            tenant.address = company_info["address"]
-        if "tax_id" in company_info:
-            tenant.tax_id = company_info["tax_id"]
-        if "logo" in company_info:
-            tenant.company_logo_url = company_info["logo"]
+    company_info = settings.get("company_info", {})
+    if company_info:
+        tenant.name = company_info.get("name", tenant.name)
+        tenant.email = company_info.get("email", tenant.email)
+        tenant.phone = company_info.get("phone", tenant.phone)
+        tenant.address = company_info.get("address", tenant.address)
+        tenant.tax_id = company_info.get("tax_id", tenant.tax_id)
+        tenant.company_logo_url = company_info.get("logo", tenant.company_logo_url)
     
-    # Update AI assistant setting if provided
+    # Update AI assistant setting
     if "enable_ai_assistant" in settings:
         tenant.enable_ai_assistant = settings["enable_ai_assistant"]
     
-    # Note: invoice_settings are currently stored as defaults
-    # In a full implementation, you might want to store these in a separate settings table
+    master_db.commit()
+    master_db.refresh(tenant)
     
-    db.commit()
-    db.refresh(tenant)
-    
-    # Return updated settings
-    return {
-        "company_info": {
-            "name": tenant.name,
-            "email": tenant.email or "",
-            "phone": tenant.phone or "",
-            "address": tenant.address or "",
-            "tax_id": tenant.tax_id or "",
-            "logo": tenant.company_logo_url or ""
-        },
-        "invoice_settings": {
-            "prefix": "INV-",
-            "next_number": "0001",
-            "terms": "Payment due within 30 days from the date of invoice.\nLate payments are subject to a 1.5% monthly finance charge.",
-            "notes": "Thank you for your business!",
-            "send_copy": True,
-            "auto_reminders": True
-        },
-        "enable_ai_assistant": tenant.enable_ai_assistant or False
-    }
+    return {"message": "Settings updated successfully"}
 
 @router.get("/export-data")
 def export_tenant_data(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
-    """Export all tenant data to a SQLite file"""
+    """Export tenant data to a JSON file"""
     try:
-        # Create a temporary SQLite database
-        temp_dir = tempfile.mkdtemp()
-        export_file = os.path.join(temp_dir, f"tenant_{current_user.tenant_id}_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.sqlite")
-        
-        # Create new SQLite database
-        export_engine = create_engine(f"sqlite:///{export_file}")
-        
-        # Create tables in export database
-        from models.models import Base
-        Base.metadata.create_all(export_engine)
-        
-        # Export data
-        from sqlalchemy.orm import sessionmaker
-        ExportSession = sessionmaker(bind=export_engine)
-        export_db = ExportSession()
+        # Get tenant record from master database
+        tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
         
         try:
-            # Get tenant record first
-            tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-            
-            # Export tenant data
+            # Export tenant data from the tenant database
             tenant_data = {
                 'tenant': [tenant] if tenant else [],
-                'clients': db.query(Client).filter(Client.tenant_id == current_user.tenant_id).all(),
-                'invoices': db.query(Invoice).filter(Invoice.tenant_id == current_user.tenant_id).all(),
-                'payments': db.query(Payment).filter(Payment.tenant_id == current_user.tenant_id).all(),
-                'settings': db.query(Settings).filter(Settings.tenant_id == current_user.tenant_id).all(),
-                'client_notes': db.query(ClientNote).filter(ClientNote.tenant_id == current_user.tenant_id).all(),
-                'invoice_items': db.query(InvoiceItem).join(Invoice).filter(Invoice.tenant_id == current_user.tenant_id).all(),
+                'clients': db.query(Client).all(),
+                'invoices': db.query(Invoice).all(),
+                'payments': db.query(Payment).all(),
+                'settings': db.query(Settings).all(),
+                'client_notes': db.query(ClientNote).all(),
+                'invoice_items': db.query(InvoiceItem).join(Invoice).all(),
             }
             
-            # Copy data to export database with error handling
-            for table_name, records in tenant_data.items():
-                logger.info(f"Exporting {len(records)} records from {table_name}")
-                for record in records:
-                    try:
-                        # Create a new instance for the export database
-                        record_dict = {}
-                        for c in record.__table__.columns:
-                            value = getattr(record, c.name)
-                            # Handle None values and data type conversions
-                            if value is None:
-                                record_dict[c.name] = None
-                            elif isinstance(value, (datetime, date)):
-                                # Keep datetime objects as-is for SQLite
-                                record_dict[c.name] = value
-                            else:
-                                record_dict[c.name] = value
-                        
-                        new_record = record.__class__(**record_dict)
-                        export_db.add(new_record)
-                    except Exception as e:
-                        logger.error(f"Error exporting record from {table_name}: {str(e)}")
-                        # Continue with other records
-                        continue
+            # Convert to JSON-serializable format
+            export_data = {}
+            for key, value in tenant_data.items():
+                if isinstance(value, list):
+                    export_data[key] = []
+                    for item in value:
+                        if hasattr(item, '__dict__'):
+                            item_dict = {}
+                            for attr_key, attr_value in item.__dict__.items():
+                                if not attr_key.startswith('_'):
+                                    if isinstance(attr_value, (datetime, date)):
+                                        item_dict[attr_key] = attr_value.isoformat()
+                                    else:
+                                        item_dict[attr_key] = attr_value
+                            export_data[key].append(item_dict)
+                        else:
+                            export_data[key].append(str(item))
+                else:
+                    export_data[key] = str(value)
             
-            export_db.commit()
-            
-            logger.info(f"Successfully exported data for tenant {current_user.tenant_id}")
+            # Create a temporary file
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as tmp_file:
+                import json
+                json.dump(export_data, tmp_file, indent=2, default=str)
+                tmp_file_path = tmp_file.name
             
             # Return the file
             return FileResponse(
-                path=export_file,
-                media_type='application/octet-stream',
-                filename=f"tenant_{current_user.tenant_id}_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.sqlite",
-                background=lambda: shutil.rmtree(temp_dir, ignore_errors=True)
+                path=tmp_file_path,
+                filename=f"tenant_data_{current_user.tenant_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                media_type="application/json"
             )
             
         except Exception as e:
-            logger.error(f"Error during export database operations: {str(e)}")
-            export_db.rollback()
-            raise
-        finally:
-            export_db.close()
-            
+            logger.error(f"Error exporting tenant data: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error exporting data: {str(e)}"
+            )
+    
     except Exception as e:
-        logger.error(f"Error exporting data for tenant {current_user.tenant_id}: {str(e)}")
-        # Clean up temp directory on error
-        if 'temp_dir' in locals():
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.error(f"Error in export_tenant_data: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to export data: {str(e)}"
+            detail=f"Error in data export: {str(e)}"
         )
 
 @router.post("/import-data")
 async def import_tenant_data(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Import data from an uploaded SQLite file"""

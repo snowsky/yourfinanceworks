@@ -57,7 +57,6 @@ class InvoiceUpdate(BaseModel):
 class Invoice(InvoiceBase):
     id: int
     number: str
-    tenant_id: int
     created_at: datetime
     updated_at: datetime
     items: List[InvoiceItem] = []
@@ -81,15 +80,31 @@ class InvoiceHistoryBase(BaseModel):
 
 class InvoiceHistoryCreate(InvoiceHistoryBase):
     invoice_id: int
-    tenant_id: int
     user_id: int
 
 class InvoiceHistory(InvoiceHistoryBase):
     id: int
     invoice_id: int
-    tenant_id: int
     user_id: int
     created_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+# Recycle Bin Schemas
+class DeletedInvoice(Invoice):
+    """Schema for displaying deleted invoices in the recycle bin"""
+    is_deleted: bool
+    deleted_at: Optional[datetime]
+    deleted_by: Optional[int]
+    deleted_by_username: Optional[str] = None  # Username of who deleted it
+
+class RecycleBinResponse(BaseModel):
+    """Response schema for recycle bin operations"""
+    message: str
+    invoice_id: int
+    action: str  # "moved_to_recycle", "restored", "permanently_deleted"
+
+class RestoreInvoiceRequest(BaseModel):
+    """Request schema for restoring an invoice"""
+    new_status: Optional[str] = "draft"  # Status to set when restoring 

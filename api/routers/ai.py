@@ -8,7 +8,8 @@ import httpx
 
 from models.database import get_db
 from routers.auth import get_current_user
-from models.models import User, Invoice, Client, Payment, Tenant, AIConfig
+from models.models_per_tenant import User, Invoice, Client, Payment, AIConfig
+from models.models import Tenant
 
 router = APIRouter(
     prefix="/ai",
@@ -28,8 +29,8 @@ async def analyze_patterns(
     revenue, and client payment behavior.
     """
     try:
-        # Get all invoices for the current tenant
-        invoices = db.query(Invoice).filter(Invoice.tenant_id == current_user.tenant_id).all()
+        # Get all invoices (no tenant_id filtering needed since we're in the tenant's database)
+        invoices = db.query(Invoice).all()
         
         # Calculate basic metrics
         total_invoices = len(invoices)
@@ -72,11 +73,7 @@ async def analyze_patterns(
             )
             .join(InvoiceAlias, InvoiceAlias.client_id == Client.id)
             .join(PaymentAlias, PaymentAlias.invoice_id == InvoiceAlias.id)
-            .filter(
-                Client.tenant_id == current_user.tenant_id,
-                InvoiceAlias.tenant_id == current_user.tenant_id,
-                PaymentAlias.tenant_id == current_user.tenant_id
-            )
+            # No tenant_id filtering needed since we're in the tenant's database
             .group_by(Client.name)
             .all()
         )
@@ -145,25 +142,17 @@ async def suggest_actions(
     """
     try:
         # Get overdue invoices
-        overdue_invoices = db.query(Invoice).filter(
-            and_(
-                Invoice.tenant_id == current_user.tenant_id,
-                Invoice.status == "overdue"
-            )
-        ).all()
+        # No tenant_id filtering needed since we're in the tenant's database
+        overdue_invoices = db.query(Invoice).filter(Invoice.status == "overdue").all()
         
         # Get clients with outstanding balances
-        clients_with_balance = db.query(Client).filter(
-            and_(
-                Client.tenant_id == current_user.tenant_id,
-                Client.balance > 0
-            )
-        ).all()
+        # No tenant_id filtering needed since we're in the tenant's database
+        clients_with_balance = db.query(Client).filter(Client.balance > 0).all()
         
         # Get recent invoices that might need follow-up
+        # No tenant_id filtering needed since we're in the tenant's database
         recent_invoices = db.query(Invoice).filter(
             and_(
-                Invoice.tenant_id == current_user.tenant_id,
                 Invoice.status.in_(["pending", "draft"]),
                 Invoice.due_date <= datetime.now(timezone.utc) + timedelta(days=7)
             )
@@ -244,15 +233,15 @@ async def chat_with_ai(
         
         # Get AI configuration
         if config_id:
+            # No tenant_id filtering needed since we're in the tenant's database
             ai_config = db.query(AIConfig).filter(
                 AIConfig.id == config_id,
-                AIConfig.tenant_id == current_user.tenant_id,
                 AIConfig.is_active == True
             ).first()
         else:
             # Get default active configuration
+            # No tenant_id filtering needed since we're in the tenant's database
             ai_config = db.query(AIConfig).filter(
-                AIConfig.tenant_id == current_user.tenant_id,
                 AIConfig.is_default == True,
                 AIConfig.is_active == True
             ).first()

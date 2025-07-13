@@ -1,18 +1,18 @@
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from models.models import Invoice
+from models.models_per_tenant import Invoice
 
-def generate_invoice_number(db: Session, tenant_id: int) -> str:
+def generate_invoice_number(db: Session) -> str:
     """
-    Generate a unique invoice number for a tenant.
+    Generate a unique invoice number for the current tenant.
     Format: INV-{YYYYMMDD}-{XXXX} where XXXX is a sequential number
     """
     # Get the current date in YYYYMMDD format
     date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
     
     # Find the latest invoice number for today
+    # No tenant_id filtering needed since we're in the tenant's database
     latest_invoice = db.query(Invoice).filter(
-        Invoice.tenant_id == tenant_id,
         Invoice.number.like(f"INV-{date_prefix}-%")
     ).order_by(Invoice.number.desc()).first()
     

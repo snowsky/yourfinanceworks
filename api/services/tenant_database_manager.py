@@ -1,0 +1,284 @@
+import os
+import logging
+from typing import Dict, Optional
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
+
+from models.models import Base, Tenant
+from models.database import SQLALCHEMY_DATABASE_URL
+from models.models_per_tenant import Base as TenantBase
+
+logger = logging.getLogger(__name__)
+
+class TenantDatabaseManager:
+    """
+    Manages database connections and operations for individual tenants
+    """
+    
+    def __init__(self):
+        self.tenant_engines: Dict[str, Engine] = {}
+        self.tenant_sessions: Dict[str, sessionmaker] = {}
+        self.master_engine = None
+        self.master_session = None
+        self._init_master_connection()
+    
+    def _init_master_connection(self):
+        """Initialize connection to master database for tenant management"""
+        try:
+            self.master_engine = create_engine(
+                SQLALCHEMY_DATABASE_URL,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                pool_size=5,
+                max_overflow=10
+            )
+            self.master_session = sessionmaker(
+                autocommit=False, 
+                autoflush=False, 
+                bind=self.master_engine
+            )
+            logger.info("Master database connection initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize master database: {e}")
+            raise
+    
+    def get_tenant_database_url(self, tenant_id: int) -> str:
+        """Generate database URL for a specific tenant"""
+        base_url = SQLALCHEMY_DATABASE_URL
+        
+        # Extract components from base URL
+        if base_url.startswith("postgresql://"):
+            # Example: postgresql://user:password@host:port/database
+            parts = base_url.split("/")
+            base_connection = "/".join(parts[:-1])
+            return f"{base_connection}/tenant_{tenant_id}"
+        else:
+            raise ValueError(f"Unsupported database URL format: {base_url}")
+    
+    def create_tenant_database(self, tenant_id: int, tenant_name: str) -> bool:
+        """Create a new database for a tenant"""
+        try:
+            db_name = f"tenant_{tenant_id}"
+            logger.info(f"Creating database for tenant {tenant_id}: {db_name}")
+            
+            # Check if database already exists and drop it to ensure clean schema
+            try:
+                with self.master_engine.connect() as conn:
+                    conn.execute(text("COMMIT"))
+                    # Check if database exists
+                    result = conn.execute(text(f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'"))
+                    if result.fetchone():
+                        logger.info(f"Database {db_name} already exists, dropping to recreate with correct schema")
+                        # Drop existing database
+                        conn.execute(text(f"DROP DATABASE {db_name}"))
+                        logger.info(f"Dropped existing database {db_name}")
+            except Exception as e:
+                logger.warning(f"Could not check/drop existing database {db_name}: {e}")
+            
+            # Connect to master database to create new database
+            with self.master_engine.connect() as conn:
+                # Use autocommit mode for database creation
+                conn.execute(text("COMMIT"))
+                conn.execute(text(f"CREATE DATABASE {db_name}"))
+                logger.info(f"Database {db_name} created successfully")
+            
+            # Initialize schema in new tenant database
+            self._init_tenant_schema(tenant_id)
+            
+            return True
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to create database for tenant {tenant_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error creating database for tenant {tenant_id}: {e}")
+            return False
+    
+    def recreate_tenant_database(self, tenant_id: int, tenant_name: str) -> bool:
+        """Recreate a tenant database with the correct schema"""
+        try:
+            db_name = f"tenant_{tenant_id}"
+            logger.info(f"Recreating database for tenant {tenant_id}: {db_name}")
+            
+            # Close any existing connections to this database
+            tenant_key = f"tenant_{tenant_id}"
+            if tenant_key in self.tenant_engines:
+                self.tenant_engines[tenant_key].dispose()
+                del self.tenant_engines[tenant_key]
+                del self.tenant_sessions[tenant_key]
+            
+            # Drop and recreate the database
+            with self.master_engine.connect() as conn:
+                conn.execute(text("COMMIT"))
+                conn.execute(text(f"DROP DATABASE IF EXISTS {db_name}"))
+                conn.execute(text(f"CREATE DATABASE {db_name}"))
+                logger.info(f"Database {db_name} recreated successfully")
+            
+            # Initialize schema in new tenant database
+            self._init_tenant_schema(tenant_id)
+            
+            return True
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to recreate database for tenant {tenant_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error recreating database for tenant {tenant_id}: {e}")
+            return False
+    
+    def _init_tenant_schema(self, tenant_id: int):
+        """Initialize schema in tenant database"""
+        try:
+            tenant_url = self.get_tenant_database_url(tenant_id)
+            tenant_engine = create_engine(
+                tenant_url,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                pool_size=5,
+                max_overflow=10
+            )
+            
+            # Create all tables in tenant database
+            TenantBase.metadata.create_all(bind=tenant_engine)
+            
+            # Initialize any default data if needed
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=tenant_engine)
+            db = SessionLocal()
+            
+            try:
+                # Add any tenant-specific initialization here
+                # For example, create default settings, currencies, etc.
+                self._create_tenant_defaults(db)
+                db.commit()
+                logger.info(f"Schema initialized for tenant {tenant_id}")
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize schema for tenant {tenant_id}: {e}")
+            raise
+    
+    def _create_tenant_defaults(self, db_session):
+        """Create default data for a new tenant database"""
+        # Import here to avoid circular imports
+        from models.models_per_tenant import SupportedCurrency
+        
+        # Create default supported currencies
+        default_currencies = [
+            {"code": "USD", "name": "US Dollar", "symbol": "$", "decimal_places": 2},
+            {"code": "EUR", "name": "Euro", "symbol": "€", "decimal_places": 2},
+            {"code": "GBP", "name": "British Pound", "symbol": "£", "decimal_places": 2},
+            {"code": "JPY", "name": "Japanese Yen", "symbol": "¥", "decimal_places": 0},
+            {"code": "CAD", "name": "Canadian Dollar", "symbol": "C$", "decimal_places": 2},
+            {"code": "AUD", "name": "Australian Dollar", "symbol": "A$", "decimal_places": 2},
+        ]
+        
+        for currency_data in default_currencies:
+            currency = SupportedCurrency(**currency_data)
+            db_session.add(currency)
+    
+    def get_tenant_engine(self, tenant_id: int) -> Engine:
+        """Get or create database engine for a tenant"""
+        tenant_key = f"tenant_{tenant_id}"
+        
+        if tenant_key not in self.tenant_engines:
+            tenant_url = self.get_tenant_database_url(tenant_id)
+            
+            self.tenant_engines[tenant_key] = create_engine(
+                tenant_url,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                pool_size=5,
+                max_overflow=10
+            )
+            
+            self.tenant_sessions[tenant_key] = sessionmaker(
+                autocommit=False,
+                autoflush=False,
+                bind=self.tenant_engines[tenant_key]
+            )
+            
+            logger.info(f"Created database connection for {tenant_key}")
+        
+        return self.tenant_engines[tenant_key]
+    
+    def get_tenant_session(self, tenant_id: int) -> sessionmaker:
+        """Get database session factory for a tenant"""
+        tenant_key = f"tenant_{tenant_id}"
+        
+        if tenant_key not in self.tenant_sessions:
+            self.get_tenant_engine(tenant_id)  # This will create both engine and session
+        
+        return self.tenant_sessions[tenant_key]
+    
+    def drop_tenant_database(self, tenant_id: int) -> bool:
+        """Drop a tenant database (use with caution!)"""
+        try:
+            db_name = f"tenant_{tenant_id}"
+            logger.warning(f"Dropping database for tenant {tenant_id}: {db_name}")
+            
+            # Close any existing connections
+            tenant_key = f"tenant_{tenant_id}"
+            if tenant_key in self.tenant_engines:
+                self.tenant_engines[tenant_key].dispose()
+                del self.tenant_engines[tenant_key]
+                del self.tenant_sessions[tenant_key]
+            
+            # Drop the database
+            with self.master_engine.connect() as conn:
+                conn.execute(text("COMMIT"))
+                conn.execute(text(f"DROP DATABASE IF EXISTS {db_name}"))
+                logger.info(f"Database {db_name} dropped successfully")
+            
+            return True
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to drop database for tenant {tenant_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error dropping database for tenant {tenant_id}: {e}")
+            return False
+    
+    def migrate_tenant_schema(self, tenant_id: int):
+        """Apply schema migrations to a tenant database"""
+        try:
+            tenant_engine = self.get_tenant_engine(tenant_id)
+            
+            # Apply any pending migrations
+            TenantBase.metadata.create_all(bind=tenant_engine)
+            
+            logger.info(f"Schema migration completed for tenant {tenant_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to migrate schema for tenant {tenant_id}: {e}")
+            raise
+    
+    def get_all_tenant_databases(self) -> list:
+        """Get list of all tenant database names"""
+        try:
+            with self.master_engine.connect() as conn:
+                result = conn.execute(text(
+                    "SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%'"
+                ))
+                return [row[0] for row in result.fetchall()]
+        except Exception as e:
+            logger.error(f"Failed to get tenant databases: {e}")
+            return []
+    
+    def close_all_connections(self):
+        """Close all database connections"""
+        for engine in self.tenant_engines.values():
+            engine.dispose()
+        
+        if self.master_engine:
+            self.master_engine.dispose()
+        
+        self.tenant_engines.clear()
+        self.tenant_sessions.clear()
+        
+        logger.info("All database connections closed")
+
+# Global instance
+tenant_db_manager = TenantDatabaseManager() 

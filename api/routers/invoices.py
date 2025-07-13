@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_, distinct
 from typing import List, Optional
 import logging
 import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, date, timezone
+from decimal import Decimal
 
 from models.database import get_db
-from models.models import Invoice, Client, User, Payment, InvoiceItem, DiscountRule
-from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate
+from models.models_per_tenant import Invoice, Client, User, Payment, InvoiceItem, DiscountRule
+from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate, RecycleBinResponse, DeletedInvoice, RestoreInvoiceRequest
 from routers.auth import get_current_user
-from utils.invoice import generate_invoice_number
 from services.currency_service import CurrencyService
+from utils.invoice import generate_invoice_number
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +35,8 @@ def create_invoice(
 ):
     try:
         # Generate unique invoice number
-        invoice_number = generate_invoice_number(db, current_user.tenant_id)
+        # No tenant_id needed since we're in the tenant's database
+        invoice_number = generate_invoice_number(db)
         
         # Initialize currency service
         currency_service = CurrencyService(db)
@@ -43,9 +45,9 @@ def create_invoice(
         invoice_currency = invoice.currency
         if not invoice_currency or invoice_currency == "USD":
             # Use client's preferred currency or tenant default
+            # No tenant_id needed since we're in the tenant's database
             invoice_currency = currency_service.get_client_preferred_currency(
-                invoice.client_id, 
-                current_user.tenant_id
+                invoice.client_id
             )
         
         # Validate currency
@@ -55,6 +57,7 @@ def create_invoice(
                 detail=f"Invalid currency code: {invoice_currency}"
             )
         
+        # No tenant_id needed since each tenant has its own database
         db_invoice = Invoice(
             number=invoice_number,
             amount=float(invoice.amount),
@@ -63,7 +66,6 @@ def create_invoice(
             status=invoice.status,
             notes=invoice.notes,
             client_id=invoice.client_id,
-            tenant_id=current_user.tenant_id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
             is_recurring=invoice.is_recurring,
@@ -87,10 +89,9 @@ def create_invoice(
             db.add(db_item)
         
         # Create history entry for invoice creation
-        from models.models import InvoiceHistory as InvoiceHistoryModel
+        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         creation_history = InvoiceHistoryModel(
             invoice_id=db_invoice.id,
-            tenant_id=current_user.tenant_id,
             user_id=current_user.id,
             action='creation',
             details=f'Invoice {db_invoice.number} created',
@@ -130,7 +131,8 @@ def read_invoices(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Build base query
+        # Build base query (exclude soft-deleted invoices)
+        # No tenant_id filtering needed since we're in the tenant's database
         query = db.query(
             Invoice,
             Client.name.label('client_name'),
@@ -139,9 +141,7 @@ def read_invoices(
             Client, Invoice.client_id == Client.id
         ).outerjoin(
             Payment, Invoice.id == Payment.invoice_id
-        ).filter(
-            Invoice.tenant_id == current_user.tenant_id
-        )
+        ).filter(Invoice.is_deleted == False)
         
         # Apply status filter if provided
         if status_filter and status_filter != "all":
@@ -165,7 +165,6 @@ def read_invoices(
                 "notes": invoice.notes,
                 "client_id": invoice.client_id,
                 "client_name": client_name,
-                "tenant_id": invoice.tenant_id,
                 "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
                 "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
                 "total_paid": float(total_paid),
@@ -186,6 +185,238 @@ def read_invoices(
             detail=f"Failed to fetch invoices: {str(e)}"
         )
 
+# Recycle Bin Endpoints (must come before /{invoice_id} route)
+
+@router.get("/recycle-bin", response_model=List[DeletedInvoice])
+def get_deleted_invoices(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all deleted invoices in the recycle bin"""
+    try:
+        deleted_invoices = db.query(Invoice).filter(
+            Invoice.is_deleted == True
+        ).offset(skip).limit(limit).all()
+        
+        # Build response with additional info
+        result = []
+        for invoice in deleted_invoices:
+            invoice_dict = {
+                "id": invoice.id,
+                "number": invoice.number,
+                "amount": invoice.amount,
+                "currency": invoice.currency,
+                "due_date": invoice.due_date,
+                "status": invoice.status,
+                "notes": invoice.notes,
+                "client_id": invoice.client_id,
+                "is_recurring": invoice.is_recurring,
+                "recurring_frequency": invoice.recurring_frequency,
+                "discount_type": invoice.discount_type,
+                "discount_value": invoice.discount_value,
+                "subtotal": invoice.subtotal,
+                "created_at": invoice.created_at,
+                "updated_at": invoice.updated_at,
+                "is_deleted": invoice.is_deleted,
+                "deleted_at": invoice.deleted_at,
+                "deleted_by": invoice.deleted_by,
+                "deleted_by_username": invoice.deleted_by_user.email if invoice.deleted_by_user else None,
+                "items": []  # Add items if needed
+            }
+            result.append(invoice_dict)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting deleted invoices: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get deleted invoices: {str(e)}"
+        )
+
+@router.post("/recycle-bin/empty", response_model=dict)
+def empty_recycle_bin(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Empty the entire recycle bin (admin only)"""
+    try:
+        # Only admins can empty the recycle bin
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Only administrators can empty the recycle bin"
+            )
+        
+        # Get all deleted invoices
+        deleted_invoices = db.query(Invoice).filter(Invoice.is_deleted == True).all()
+        count = len(deleted_invoices)
+        
+        if count == 0:
+            return {"message": "Recycle bin is already empty", "deleted_count": 0}
+        
+        # Log the bulk deletion
+        from models.models_per_tenant import InvoiceHistory
+        history_entry = InvoiceHistory(
+            invoice_id=None,  # No specific invoice
+            user_id=current_user.id,
+            action="recycle_bin_emptied",
+            details=f"Recycle bin emptied by {current_user.email}, {count} invoices permanently deleted",
+            current_values={"deleted_count": count}
+        )
+        db.add(history_entry)
+        
+        # Delete all invoices in recycle bin
+        for invoice in deleted_invoices:
+            db.delete(invoice)
+        
+        db.commit()
+        
+        return {
+            "message": f"Recycle bin emptied successfully. {count} invoices permanently deleted.",
+            "deleted_count": count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error emptying recycle bin: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to empty recycle bin: {str(e)}"
+        )
+
+@router.post("/{invoice_id}/restore", response_model=RecycleBinResponse)
+def restore_invoice(
+    invoice_id: int,
+    restore_request: RestoreInvoiceRequest = RestoreInvoiceRequest(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Restore an invoice from the recycle bin"""
+    try:
+        # Find the deleted invoice
+        db_invoice = db.query(Invoice).filter(
+            Invoice.id == invoice_id,
+            Invoice.is_deleted == True
+        ).first()
+        
+        if db_invoice is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Deleted invoice not found"
+            )
+        
+        # Restore the invoice
+        db_invoice.is_deleted = False
+        db_invoice.deleted_at = None
+        db_invoice.deleted_by = None
+        db_invoice.status = restore_request.new_status  # Set the new status
+        db_invoice.updated_at = datetime.now(timezone.utc)
+        
+        # Log the restoration in invoice history
+        from models.models_per_tenant import InvoiceHistory
+        history_entry = InvoiceHistory(
+            invoice_id=invoice_id,
+            user_id=current_user.id,
+            action="restored_from_recycle",
+            details=f"Invoice restored from recycle bin by {current_user.email}",
+            current_values={
+                "is_deleted": False, 
+                "status": restore_request.new_status,
+                "restored_at": datetime.now(timezone.utc).isoformat()
+            }
+        )
+        db.add(history_entry)
+        
+        db.commit()
+        
+        return RecycleBinResponse(
+            message="Invoice restored successfully",
+            invoice_id=invoice_id,
+            action="restored"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error restoring invoice: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restore invoice: {str(e)}"
+        )
+
+@router.delete("/{invoice_id}/permanent", response_model=RecycleBinResponse)
+def permanently_delete_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Permanently delete an invoice from the recycle bin"""
+    try:
+        # Find the deleted invoice
+        db_invoice = db.query(Invoice).filter(
+            Invoice.id == invoice_id,
+            Invoice.is_deleted == True
+        ).first()
+        
+        if db_invoice is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Deleted invoice not found"
+            )
+        
+        # Only admins can permanently delete invoices
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Only administrators can permanently delete invoices"
+            )
+        
+        # Log the permanent deletion before deleting
+        from models.models_per_tenant import InvoiceHistory
+        history_entry = InvoiceHistory(
+            invoice_id=invoice_id,
+            user_id=current_user.id,
+            action="permanently_deleted",
+            details=f"Invoice permanently deleted by {current_user.email}",
+            previous_values={
+                "number": db_invoice.number,
+                "amount": float(db_invoice.amount),
+                "client_id": db_invoice.client_id
+            }
+        )
+        db.add(history_entry)
+        db.commit()  # Commit the history first
+        
+        # Now permanently delete the invoice (this will cascade to related records)
+        db.delete(db_invoice)
+        db.commit()
+        
+        return RecycleBinResponse(
+            message="Invoice permanently deleted",
+            invoice_id=invoice_id,
+            action="permanently_deleted"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error permanently deleting invoice: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to permanently delete invoice: {str(e)}"
+        )
+
 @router.get("/{invoice_id}", response_model=InvoiceWithClient)
 def read_invoice(
     invoice_id: int,
@@ -194,6 +425,7 @@ def read_invoice(
 ):
     try:
         # Get invoice with client information and payment status
+        # No tenant_id filtering needed since we're in the tenant's database
         invoice_tuple = db.query(
             Invoice,
             Client.name.label('client_name'),
@@ -204,7 +436,7 @@ def read_invoice(
             Payment, Invoice.id == Payment.invoice_id
         ).filter(
             Invoice.id == invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.is_deleted == False
         ).group_by(
             Invoice.id, Client.name
         ).first()
@@ -243,7 +475,6 @@ def read_invoice(
             "notes": invoice.notes,
             "client_id": invoice.client_id,
             "client_name": client_name,
-            "tenant_id": invoice.tenant_id,
             "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
             "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
             "total_paid": float(total_paid),
@@ -273,9 +504,10 @@ def update_invoice(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # No tenant_id filtering needed since we're in the tenant's database (exclude soft-deleted)
         db_invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.is_deleted == False
         ).first()
         if db_invoice is None:
             raise HTTPException(
@@ -360,7 +592,7 @@ def update_invoice(
                     db.delete(item)
         
         # Create history entry for the update
-        from models.models import InvoiceHistory as InvoiceHistoryModel
+        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         changes = []
         if invoice.currency and old_currency != invoice.currency:
             changes.append(f"Currency changed from {old_currency} to {invoice.currency}")
@@ -377,7 +609,6 @@ def update_invoice(
                 changes.append("Notes updated")
         history_entry = InvoiceHistoryModel(
             invoice_id=invoice_id,
-            tenant_id=current_user.tenant_id,
             user_id=current_user.id,
             action='update',
             details='; '.join(changes) if changes else 'Invoice details modified',
@@ -428,7 +659,6 @@ def update_invoice(
             "status": db_invoice.status,
             "notes": db_invoice.notes,
             "client_id": db_invoice.client_id,
-            "tenant_id": db_invoice.tenant_id,
             "created_at": db_invoice.created_at.isoformat() if db_invoice.created_at else None,
             "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
             "is_recurring": db_invoice.is_recurring,
@@ -450,25 +680,49 @@ def update_invoice(
             detail=f"Failed to update invoice: {str(e)}"
         )
 
-@router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{invoice_id}", response_model=RecycleBinResponse)
 def delete_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """Move an invoice to the recycle bin (soft delete)"""
     try:
+        # Find the invoice (exclude already deleted ones)
         db_invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.is_deleted == False
         ).first()
+        
         if db_invoice is None:
             raise HTTPException(
                 status_code=404,
-                detail="Invoice not found"
+                detail="Invoice not found or already deleted"
             )
         
-        db.delete(db_invoice)
+        # Soft delete the invoice
+        db_invoice.is_deleted = True
+        db_invoice.deleted_at = datetime.now(timezone.utc)
+        db_invoice.deleted_by = current_user.id
+        
+        # Log the deletion in invoice history
+        from models.models_per_tenant import InvoiceHistory
+        history_entry = InvoiceHistory(
+            invoice_id=invoice_id,
+            user_id=current_user.id,
+            action="moved_to_recycle",
+            details=f"Invoice moved to recycle bin by {current_user.email}",
+            current_values={"is_deleted": True, "deleted_at": db_invoice.deleted_at.isoformat()}
+        )
+        db.add(history_entry)
+        
         db.commit()
+        
+        return RecycleBinResponse(
+            message="Invoice moved to recycle bin successfully",
+            invoice_id=invoice_id,
+            action="moved_to_recycle"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -477,7 +731,7 @@ def delete_invoice(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete invoice: {str(e)}"
+            detail=f"Failed to move invoice to recycle bin: {str(e)}"
         )
 
 @router.post("/{invoice_id}/send-email")
@@ -504,14 +758,12 @@ def get_total_income(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Calculate total income from all paid invoices
+        # Calculate total income from all paid invoices (exclude soft-deleted)
         total_income = db.query(
             func.coalesce(func.sum(Payment.amount), 0)
         ).join(
             Invoice, Payment.invoice_id == Invoice.id
-        ).filter(
-            Invoice.tenant_id == current_user.tenant_id
-        ).scalar()
+        ).filter(Invoice.is_deleted == False).scalar()
 
         return {
             "total_income": float(total_income) if total_income is not None else 0.0
@@ -532,9 +784,8 @@ def calculate_discount(
 ):
     """Calculate the applicable discount for a given subtotal using discount rules"""
     try:
-        # Get all active discount rules for the tenant, ordered by priority and min_amount
+        # Get all active discount rules, ordered by priority and min_amount
         discount_rules = db.query(DiscountRule).filter(
-            DiscountRule.tenant_id == current_user.tenant_id,
             DiscountRule.is_active == True
         ).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
         
@@ -585,12 +836,12 @@ def get_invoice_history(
 ):
     """Get update history for a specific invoice, including user name"""
     try:
-        from models.models import InvoiceHistory as InvoiceHistoryModel, User as UserModel
+        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
 
-        # Verify invoice exists and belongs to user's tenant
+        # Verify invoice exists (allow access to history for deleted invoices)
+        # No tenant_id filtering needed since we're in the tenant's database
         invoice = db.query(Invoice).filter(
-            Invoice.id == invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.id == invoice_id
         ).first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
@@ -599,12 +850,11 @@ def get_invoice_history(
         history = (
             db.query(
                 InvoiceHistoryModel,
-                (func.coalesce(UserModel.first_name, '') + ' ' + func.coalesce(UserModel.last_name, '')).label("user_name")
+                (func.coalesce(User.first_name, '') + ' ' + func.coalesce(User.last_name, '')).label("user_name")
             )
-            .join(UserModel, InvoiceHistoryModel.user_id == UserModel.id)
+            .join(User, InvoiceHistoryModel.user_id == User.id)
             .filter(
-                InvoiceHistoryModel.invoice_id == invoice_id,
-                InvoiceHistoryModel.tenant_id == current_user.tenant_id
+                InvoiceHistoryModel.invoice_id == invoice_id
             )
             .order_by(InvoiceHistoryModel.created_at.desc())
             .all()
@@ -636,12 +886,11 @@ def create_invoice_history_entry(
 ):
     """Create a new history entry for an invoice"""
     try:
-        from models.models import InvoiceHistory as InvoiceHistoryModel
+        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         
-        # Verify invoice exists and belongs to user's tenant
+        # Verify invoice exists (no tenant_id filtering needed since we're in the tenant's database)
         invoice = db.query(Invoice).filter(
-            Invoice.id == invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.id == invoice_id
         ).first()
         
         if not invoice:
@@ -653,7 +902,6 @@ def create_invoice_history_entry(
         # Create history entry
         db_history = InvoiceHistoryModel(
             invoice_id=invoice_id,
-            tenant_id=current_user.tenant_id,
             user_id=current_user.id,
             action=history_entry.action,
             details=history_entry.details,

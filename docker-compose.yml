@@ -1,43 +1,91 @@
 version: '3.8'
 
 services:
-  postgres:
+  # Master PostgreSQL database for tenant management
+  postgres-master:
     image: postgres:15
-    container_name: invoice_app_postgres
+    container_name: invoice_app_postgres_master
     environment:
-      POSTGRES_DB: invoice_app
+      POSTGRES_DB: invoice_master
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      # Allow multiple databases to be created
+      POSTGRES_MULTIPLE_DATABASES: "true"
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./api/scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+      - postgres_master_data:/var/lib/postgresql/data
+      - ./api/scripts/init-master-postgres.sql:/docker-entrypoint-initdb.d/init-master-postgres.sql
+      - ./api/scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: invoice_app_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - invoice_app_network
     restart: unless-stopped
 
+  # API service with multi-tenant support
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: invoice_app_api
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/invoice_app
-      - SECRET_KEY=your-secret-key-here
+      # Master database for tenant management
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - REDIS_URL=redis://redis:6379
+      
+      # JWT settings
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      
+      # Multi-tenant configuration
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      
+      # Other settings
+      - DEBUG=${DEBUG:-False}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
+      postgres-master:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - invoice_app_network
     restart: unless-stopped
     volumes:
       - ./api:/app
       - /app/__pycache__
+      - /app/venv
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # UI service
   ui:
     build:
       context: ./ui
@@ -53,9 +101,50 @@ services:
       - invoice_app_network
     restart: unless-stopped
 
+  # Database backup service (optional)
+  backup:
+    image: postgres:15
+    container_name: invoice_app_backup
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST: postgres-master
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./backups:/backups
+      - ./api/scripts/backup-tenants.sh:/backup-tenants.sh
+    networks:
+      - invoice_app_network
+    restart: "no"
+    profiles:
+      - backup
+    command: ["sh", "-c", "chmod +x /backup-tenants.sh && /backup-tenants.sh"]
+
+  # Database migration service (for one-time migration)
+  migration:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: invoice_app_migration
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - PYTHONPATH=/app
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: "no"
+    profiles:
+      - migration
+    volumes:
+      - ./api:/app
+    command: ["python", "scripts/migrate_to_db_per_tenant.py", "--dry-run"]
+
 volumes:
-  postgres_data:
+  postgres_master_data:
+  redis_data:
 
 networks:
   invoice_app_network:
-    driver: bridge
+    driver: bridge 
