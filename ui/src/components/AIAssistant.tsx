@@ -301,17 +301,18 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-6 right-6 z-50">
       <TooltipProvider>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  className="rounded-full w-16 h-16 shadow-lg bg-blue-600 hover:bg-blue-700"
+                  className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform duration-200 border-4 border-white/40 backdrop-blur-lg"
+                  style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}
                   onClick={() => setIsOpen(true)}
                 >
-                  <Bot className="h-6 w-6" />
+                  <Bot className="h-10 w-10 text-white drop-shadow-lg" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -319,16 +320,23 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
               </TooltipContent>
             </Tooltip>
           </DialogTrigger>
-          <DialogContent className="w-[400px] h-[600px] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Invoice AI Assistant</DialogTitle>
-            </DialogHeader>
-            <ScrollArea ref={scrollAreaRef} className="flex-grow p-4 border rounded-md mb-4">
-              <div className="flex flex-col space-y-2">
+          <DialogContent className="w-full max-w-[600px] h-[80vh] max-h-[800px] flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in">
+            <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 p-6 flex items-center gap-4 rounded-t-3xl shadow-md">
+              <div className="bg-white/30 rounded-full p-3 shadow-lg">
+                <Bot className="h-10 w-10 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
+                <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
+              </div>
+            </div>
+            <ScrollArea ref={scrollAreaRef} className="flex-grow px-6 py-4 overflow-y-auto">
+              <div className="flex flex-col space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`p-2 rounded-lg max-w-[80%] ${msg.sender === 'user' ? 'bg-blue-500 text-white self-end' : 'bg-gray-200 self-start'}`}
+                    className={`px-4 py-3 rounded-2xl max-w-[80%] shadow-md transition-all duration-200 ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white self-end animate-bounce-in-right' : 'bg-white/80 text-gray-900 self-start animate-bounce-in-left border border-gray-200'}`}
+                    style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                   >
                     {msg.text}
                   </div>
@@ -336,11 +344,23 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="flex space-x-2 mb-4">
-              <Button onClick={() => handleQuickAction("Analyze my invoice patterns")}>Analyze Patterns</Button>
-              <Button onClick={() => handleQuickAction("Suggest actions")}>Suggest Actions</Button>
+            <div className="flex space-x-2 px-6 pb-3 pt-2">
+              <Button
+                variant="outline"
+                className="rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 font-semibold shadow hover:from-blue-200 hover:to-purple-200"
+                onClick={() => handleQuickAction('Analyze my invoice patterns')}
+              >
+                Analyze Patterns
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 font-semibold shadow hover:from-pink-200 hover:to-purple-200"
+                onClick={() => handleQuickAction('Suggest actions')}
+              >
+                Suggest Actions
+              </Button>
             </div>
-            <div className="flex">
+            <div className="flex items-center px-6 pb-6 pt-2 gap-2">
               <Input
                 placeholder="Type your message..."
                 value={input}
@@ -350,10 +370,13 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
                     handleSendMessage();
                   }
                 }}
-                className="flex-grow mr-2"
+                className="flex-grow rounded-xl bg-white/80 border border-gray-300 shadow focus:ring-2 focus:ring-blue-400 focus:border-blue-400 text-lg px-4 py-3"
               />
-              <Button onClick={() => handleSendMessage()}>
-                <Send className="h-4 w-4" />
+              <Button
+                className="rounded-full w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
+                onClick={() => handleSendMessage()}
+              >
+                <Send className="h-6 w-6" />
               </Button>
             </div>
           </DialogContent>
