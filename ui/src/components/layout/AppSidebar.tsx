@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +29,7 @@ import { API_BASE_URL } from "@/lib/api";
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(!isMobile);
   const [tenantName, setTenantName] = useState('InvoiceApp');
@@ -72,6 +74,9 @@ export function AppSidebar() {
     // Clear authentication data
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Clear React Query cache to prevent 403 errors
+    queryClient.clear();
     
     // Redirect to login page
     navigate('/login');

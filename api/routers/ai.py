@@ -471,8 +471,63 @@ These suggestions are based on your actual invoice data and business patterns.
                 # Fallback to LLM
                 pass
         
-        # Pattern 3: Client management queries
-        elif any(phrase in lower_message for phrase in ["client", "customer", "list clients", "search client", "find client"]):
+        # Pattern 3: Payment queries (moved before client queries to prioritize payments)
+        elif any(phrase in lower_message for phrase in ["payment", "pay", "paid", "list payments", "payment from", "received payment"]):
+            print(f"MCP Integration: Detected payment pattern in message: '{message}'")
+            try:
+                print("MCP Integration: Querying payments with natural language...")
+                result = await tools.query_payments(query=message)
+                
+                if result.get("success"):
+                    payments = result.get("data", [])
+                    date_filter_applied = result.get("date_filter_applied", False)
+                    date_description = result.get("date_description", "")
+                    
+                    if payments:
+                        # Format response based on whether date filtering was applied
+                        if date_filter_applied:
+                            response_title = f"**Payments {date_description}**"
+                        else:
+                            response_title = "**Payment Information**"
+                        
+                        mcp_response = f"""
+{response_title}
+
+💰 **Payments ({len(payments)} found):**
+{chr(10).join([f"- **Payment #{payment.get('id', 'N/A')}** - Invoice #{payment.get('invoice_number', 'N/A')}" +
+                f" - Amount: ${payment.get('amount', 0)}" +
+                f" - Method: {payment.get('payment_method', 'Unknown')}" +
+                f" - Date: {payment.get('payment_date', 'N/A')}"
+                for payment in payments])}
+
+This information was retrieved using your actual payment data through our MCP tools.
+                        """.strip()
+                    else:
+                        if date_filter_applied:
+                            mcp_response = f"No payments found {date_description}."
+                        else:
+                            mcp_response = "No payments found."
+                    
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": mcp_response,
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
+                else:
+                    print(f"MCP Integration: Tool execution failed: {result}")
+                    # Fallback to LLM if MCP fails
+                    pass
+            except Exception as e:
+                print(f"MCP Integration: Exception during tool execution: {e}")
+                # Fallback to LLM
+                pass
+        
+        # Pattern 4: Client management queries (moved after payment queries)
+        elif any(phrase in lower_message for phrase in ["client", "customer", "list clients", "search client", "find client"]) and not any(phrase in lower_message for phrase in ["payment", "pay", "paid"]):
             print(f"MCP Integration: Detected client management pattern in message: '{message}'")
             try:
                 if "search" in lower_message or "find" in lower_message:
@@ -527,7 +582,7 @@ This information was retrieved using your actual client data through our MCP too
                 # Fallback to LLM
                 pass
         
-        # Pattern 4: Invoice management queries
+        # Pattern 5: Invoice management queries
         elif any(phrase in lower_message for phrase in ["invoice", "bill", "list invoices", "search invoice", "find invoice"]):
             print(f"MCP Integration: Detected invoice management pattern in message: '{message}'")
             try:
@@ -564,49 +619,6 @@ This information was retrieved using your actual invoice data through our MCP to
                         """.strip()
                     else:
                         mcp_response = "No invoices found matching your query."
-                    
-                    return {
-                        "success": True,
-                        "data": {
-                            "response": mcp_response,
-                            "provider": ai_config.provider_name,
-                            "model": ai_config.model_name,
-                            "source": "mcp_tools"
-                        }
-                    }
-                else:
-                    print(f"MCP Integration: Tool execution failed: {result}")
-                    # Fallback to LLM if MCP fails
-                    pass
-            except Exception as e:
-                print(f"MCP Integration: Exception during tool execution: {e}")
-                # Fallback to LLM
-                pass
-        
-        # Pattern 5: Payment queries
-        elif any(phrase in lower_message for phrase in ["payment", "pay", "paid", "list payments"]):
-            print(f"MCP Integration: Detected payment pattern in message: '{message}'")
-            try:
-                print("MCP Integration: Listing payments...")
-                result = await tools.list_payments(limit=20)
-                
-                if result.get("success"):
-                    payments = result.get("data", [])
-                    if payments:
-                        mcp_response = f"""
-**Payment Information**
-
-💰 **Payments ({len(payments)} found):**
-{chr(10).join([f"- **Payment #{payment.get('id', 'N/A')}** - Invoice #{payment.get('invoice_number', 'N/A')}" +
-                f" - Amount: ${payment.get('amount', 0)}" +
-                f" - Method: {payment.get('payment_method', 'Unknown')}" +
-                f" - Date: {payment.get('payment_date', 'N/A')}"
-                for payment in payments])}
-
-This information was retrieved using your actual payment data through our MCP tools.
-                        """.strip()
-                    else:
-                        mcp_response = "No payments found."
                     
                     return {
                         "success": True,

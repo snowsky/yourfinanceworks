@@ -306,6 +306,19 @@ async def list_payments(skip: int = 0, limit: int = 100) -> dict:
     return await server_context.tools.list_payments(skip=skip, limit=limit)
 
 @mcp.tool()
+async def query_payments(query: str) -> dict:
+    """
+    Query payments using natural language (e.g., 'payments yesterday', 'payments this week', 'cash payments over $100').
+    
+    Args:
+        query: Natural language query describing the payments to find
+    """
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    
+    return await server_context.tools.query_payments(query=query)
+
+@mcp.tool()
 async def create_payment(invoice_id: int, amount: float, payment_date: str, payment_method: str, reference: Optional[str] = None, notes: Optional[str] = None) -> dict:
     """
     Create a new payment for an invoice.

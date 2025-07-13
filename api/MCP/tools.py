@@ -377,6 +377,161 @@ class InvoiceTools:
         except Exception as e:
             return {"success": False, "error": f"Failed to list payments: {e}"}
     
+    async def query_payments(self, query: str) -> Dict[str, Any]:
+        """Query payments using natural language (e.g., 'payments yesterday', 'payments this week')"""
+        try:
+            from datetime import datetime, date, timedelta
+            
+            # Get all payments first
+            payments = await self.api_client.list_payments(skip=0, limit=1000)
+            
+            # Parse the query for date-related keywords
+            query_lower = query.lower()
+            filtered_payments = payments
+            date_filter_applied = False
+            date_description = ""
+            
+            # Parse date-related keywords (ordered from most specific to least specific)
+            if "yesterday" in query_lower:
+                yesterday = (datetime.now() - timedelta(days=1)).date()
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == yesterday
+                ]
+                date_filter_applied = True
+                date_description = "yesterday"
+            elif "today" in query_lower:
+                today = datetime.now().date()
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == today
+                ]
+                date_filter_applied = True
+                date_description = "today"
+            elif "this week" in query_lower:
+                # Get start of this week (Monday) to now
+                today = datetime.now()
+                start_of_week = today - timedelta(days=today.weekday())
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_week
+                ]
+                date_filter_applied = True
+                date_description = "this week"
+            elif "last week" in query_lower:
+                # Get last week's Monday to Sunday
+                today = datetime.now()
+                start_of_this_week = today - timedelta(days=today.weekday())
+                start_of_last_week = start_of_this_week - timedelta(days=7)
+                end_of_last_week = start_of_this_week - timedelta(seconds=1)  # End of Sunday
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and start_of_last_week <= datetime.fromisoformat(str(p['payment_date'])) <= end_of_last_week
+                ]
+                date_filter_applied = True
+                date_description = "last week"
+            elif "this month" in query_lower:
+                # Get start of this month
+                today = datetime.now()
+                start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_month
+                ]
+                date_filter_applied = True
+                date_description = "this month"
+            elif "last month" in query_lower:
+                # Get last calendar month (first to last day of previous month)
+                today = datetime.now()
+                first_day_this_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                # Get first day of last month
+                if today.month == 1:
+                    first_day_last_month = first_day_this_month.replace(year=today.year-1, month=12)
+                else:
+                    first_day_last_month = first_day_this_month.replace(month=today.month-1)
+                # Last day of last month is one second before first day of this month
+                last_day_last_month = first_day_this_month - timedelta(seconds=1)
+                
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and first_day_last_month <= datetime.fromisoformat(str(p['payment_date'])) <= last_day_last_month
+                ]
+                date_filter_applied = True
+                date_description = "last month"
+            elif "past week" in query_lower:
+                # Past week = last 7 days (different from "last week")
+                week_ago = datetime.now() - timedelta(days=7)
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= week_ago
+                ]
+                date_filter_applied = True
+                date_description = "in the past 7 days"
+            elif "past month" in query_lower:
+                # Past month = last 30 days (different from "last month")
+                month_ago = datetime.now() - timedelta(days=30)
+                filtered_payments = [
+                    p for p in payments 
+                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= month_ago
+                ]
+                date_filter_applied = True
+                date_description = "in the past 30 days"
+            
+            # Parse payment method filters
+            if "credit card" in query_lower or "card" in query_lower:
+                filtered_payments = [
+                    p for p in filtered_payments 
+                    if p.get('payment_method') and 'credit' in p['payment_method'].lower()
+                ]
+            elif "cash" in query_lower:
+                filtered_payments = [
+                    p for p in filtered_payments 
+                    if p.get('payment_method') and 'cash' in p['payment_method'].lower()
+                ]
+            elif "check" in query_lower or "cheque" in query_lower:
+                filtered_payments = [
+                    p for p in filtered_payments 
+                    if p.get('payment_method') and 'check' in p['payment_method'].lower()
+                ]
+            
+            # Parse amount filters
+            if "over" in query_lower or "above" in query_lower:
+                import re
+                amount_match = re.search(r'(?:over|above)\s*\$?(\d+(?:\.\d+)?)', query_lower)
+                if amount_match:
+                    min_amount = float(amount_match.group(1))
+                    filtered_payments = [
+                        p for p in filtered_payments 
+                        if p.get('amount') and float(p['amount']) > min_amount
+                    ]
+            elif "under" in query_lower or "below" in query_lower:
+                import re
+                amount_match = re.search(r'(?:under|below)\s*\$?(\d+(?:\.\d+)?)', query_lower)
+                if amount_match:
+                    max_amount = float(amount_match.group(1))
+                    filtered_payments = [
+                        p for p in filtered_payments 
+                        if p.get('amount') and float(p['amount']) < max_amount
+                    ]
+            
+            # Parse client filters
+            if "from" in query_lower and "client" in query_lower:
+                # This is already handled by the existing filtering logic
+                pass
+            
+            return {
+                "success": True,
+                "data": filtered_payments,
+                "count": len(filtered_payments),
+                "query": query,
+                "date_filter_applied": date_filter_applied,
+                "date_description": date_description,
+                "total_payments_checked": len(payments)
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Failed to query payments: {e}"}
+    
     async def create_payment(self, invoice_id: int, amount: float, payment_date: str, payment_method: str, reference: Optional[str] = None, notes: Optional[str] = None) -> Dict[str, Any]:
         """Create a new payment"""
         try:

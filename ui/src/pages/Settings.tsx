@@ -260,11 +260,39 @@ const Settings = () => {
         enable_ai_assistant: aiAssistantEnabled
       };
       
+      console.log('Settings: Saving AI Assistant state', {
+        currentState: aiAssistantEnabled,
+        settingsData: settingsData.enable_ai_assistant
+      });
+      
       // Send to API
       await settingsApi.updateSettings(settingsData);
       
-      // Invalidate settings cache to refresh AI assistant
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      console.log('Settings: API update successful, invalidating cache');
+      
+      // Invalidate settings cache to refresh AI assistant immediately
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      
+      // Force refetch of settings to ensure AI Assistant updates immediately
+      await queryClient.refetchQueries({ queryKey: ['settings'] });
+      
+      console.log('Settings: Cache invalidated and refetched');
+      
+      // Handle AI assistant state changes
+      if (aiAssistantEnabled) {
+        // AI Assistant was enabled
+        await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
+        toast.success("AI Assistant enabled! Look for the blue bot icon in the bottom-right corner.");
+      } else {
+        // AI Assistant was disabled - more aggressive cache clearing
+        console.log('Settings: AI Assistant disabled, clearing all related cache');
+        await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
+        await queryClient.removeQueries({ queryKey: ['ai-configs'] }); // Remove cached data completely
+        await queryClient.resetQueries({ queryKey: ['settings'] }); // Reset settings cache
+        toast.success("AI Assistant disabled.");
+      }
+      
+      toast.success("Settings saved successfully!");
       
       // Save email settings separately
       try {
@@ -279,8 +307,7 @@ const Settings = () => {
       } catch (error) {
         console.log("Failed to save email settings:", error);
       }
-      
-      toast.success("Settings saved successfully!");
+
     } catch (error) {
       console.error("Failed to save settings:", error);
       toast.error("Failed to save settings");
@@ -435,6 +462,67 @@ const Settings = () => {
 
   const handleAIConfigToggleChange = (name: string, checked: boolean) => {
     setNewAIConfig((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  // Handle AI Assistant toggle with immediate save
+  const handleAIAssistantToggle = async (checked: boolean) => {
+    console.log('AI Assistant Toggle:', { from: aiAssistantEnabled, to: checked });
+    
+    // Update local state immediately for UI responsiveness
+    setAiAssistantEnabled(checked);
+    
+    try {
+      // Prepare settings data for API
+      const settingsData = {
+        company_info: {
+          name: companyInfo.name,
+          email: companyInfo.email,
+          phone: companyInfo.phone,
+          address: companyInfo.address,
+          tax_id: companyInfo.tax_id,
+          logo: companyInfo.logo
+        },
+        invoice_settings: {
+          prefix: invoiceSettings.prefix,
+          next_number: invoiceSettings.next_number,
+          terms: invoiceSettings.terms,
+          notes: invoiceSettings.notes,
+          send_copy: invoiceSettings.send_copy,
+          auto_reminders: invoiceSettings.auto_reminders
+        },
+        enable_ai_assistant: checked // Use the new toggle value
+      };
+      
+      console.log('AI Assistant: Saving toggle state to API...', { enable_ai_assistant: checked });
+      
+      // Save to API
+      await settingsApi.updateSettings(settingsData);
+      
+      console.log('AI Assistant: Toggle saved successfully, updating cache...');
+      
+      // Invalidate and refetch settings cache immediately
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      await queryClient.refetchQueries({ queryKey: ['settings'] });
+      
+      if (checked) {
+        // AI Assistant was enabled
+        await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
+        toast.success("AI Assistant enabled! Look for the blue bot icon in the bottom-right corner.");
+      } else {
+        // AI Assistant was disabled - aggressive cache clearing
+        console.log('AI Assistant: Disabled, clearing all related cache');
+        await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
+        await queryClient.removeQueries({ queryKey: ['ai-configs'] });
+        await queryClient.resetQueries({ queryKey: ['settings'] });
+        toast.success("AI Assistant disabled.");
+      }
+      
+    } catch (error) {
+      console.error('Failed to save AI Assistant toggle:', error);
+      // Revert local state on error
+      setAiAssistantEnabled(!checked);
+      toast.error("Failed to save AI Assistant setting");
+    }
   };
 
   const handleCreateAIConfig = async () => {
@@ -830,7 +918,7 @@ const Settings = () => {
                     <Switch 
                       id="ai_assistant" 
                       checked={aiAssistantEnabled} 
-                      onCheckedChange={setAiAssistantEnabled} 
+                      onCheckedChange={handleAIAssistantToggle} 
                     />
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,23 +20,127 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     [{ id: 1, sender: 'ai', text: "Hello! I'm your Invoice Assistant. How can I help you today?" }]
   );
   const [input, setInput] = useState('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Check if user is authenticated (reactive)
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      const authStatus = !!(token && user);
+      console.log('AI Assistant: Authentication check', { token: !!token, user: !!user, authStatus });
+      setIsAuthenticated(authStatus);
+    };
+    
+    checkAuth();
+    
+    // Check authentication on localStorage changes
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Fetch user settings to check the enable_ai_assistant flag
   const { data: settings, isLoading: settingsLoading, error: settingsError } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings/'),
-    refetchInterval: 5000, // Refetch every 5 seconds to catch settings changes
+    refetchInterval: (query) => {
+      // Stop refetching if there's an authentication error
+      if (query.state.error && 
+          (query.state.error.message.includes('403') || 
+           query.state.error.message.includes('Authentication failed'))) {
+        console.log('AI Assistant: Stopping refetch due to authentication error');
+        return false;
+      }
+      return 5000; // Refetch every 5 seconds if no auth error
+    },
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Always refetch on mount
+    staleTime: 0, // Consider data immediately stale to ensure fresh data
+    enabled: isAuthenticated, // Only run query when authenticated
+    retry: (failureCount, error) => {
+      // Don't retry on authentication errors
+      if (error.message.includes('403') || error.message.includes('Authentication failed')) {
+        console.log('AI Assistant: Not retrying due to authentication error');
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
+
+  // Add effect to log settings changes for debugging
+  useEffect(() => {
+    if (settings) {
+      console.log('AI Assistant: Settings updated', {
+        enable_ai_assistant: (settings as any)?.enable_ai_assistant,
+        settingsData: settings
+      });
+    }
+  }, [settings]);
 
   // Fetch AI configurations
   const { data: aiConfigs, isLoading: aiConfigsLoading } = useQuery({
     queryKey: ['ai-configs'],
     queryFn: () => api.get('/ai-config/'),
-    enabled: !!settings?.enable_ai_assistant, // Only fetch if AI assistant is enabled
+    enabled: isAuthenticated && !!(settings && (settings as any).enable_ai_assistant), // Only fetch if authenticated and AI assistant is enabled
+    retry: (failureCount, error) => {
+      // Don't retry on authentication errors
+      if (error.message.includes('403') || error.message.includes('Authentication failed')) {
+        console.log('AI Assistant: Not retrying AI configs due to authentication error');
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
-  const isAIAssistantEnabled = settings?.enable_ai_assistant;
-  const defaultAIConfig = aiConfigs?.find((config: any) => config.is_default && config.is_active);
+  // Handle authentication errors
+  useEffect(() => {
+    if (settingsError && (settingsError.message.includes('403') || settingsError.message.includes('Authentication failed'))) {
+      console.log('AI Assistant: Authentication error detected, clearing auth state');
+      // Clear authentication state to trigger re-authentication
+      setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+  }, [settingsError]);
+
+  console.log('AI Assistant: Component state', {
+    isAuthenticated,
+    settings,
+    settingsLoading,
+    settingsError,
+    aiConfigs,
+    aiConfigsLoading,
+    componentWillRender: isAuthenticated && !settingsLoading
+  });
+
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    console.log('AI Assistant: Not rendering - not authenticated');
+    return null;
+  }
+
+  const isAIAssistantEnabled = settings && (settings as any).enable_ai_assistant;
+  const defaultAIConfig = aiConfigs && Array.isArray(aiConfigs) ? 
+    (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) : 
+    undefined;
 
   // Enhanced debug logging
   console.log('AI Assistant Debug:', { 
@@ -48,6 +152,17 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     aiConfigsLoading,
     defaultAIConfig,
     shouldRender: !settingsLoading && isAIAssistantEnabled 
+  });
+
+  // CRITICAL: Add detailed logging for disabled state
+  console.log('AI Assistant Render Decision:', {
+    isAuthenticated,
+    settingsLoading,
+    settingsError: !!settingsError,
+    settings: settings,
+    isAIAssistantEnabled,
+    rawSettingsValue: settings ? (settings as any).enable_ai_assistant : 'no settings',
+    willRender: isAuthenticated && !settingsLoading && isAIAssistantEnabled
   });
 
   // Don't render if loading or AI assistant is disabled
@@ -63,11 +178,16 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 
   // Check if AI assistant should be shown
   if (!isAIAssistantEnabled) {
-    console.log('AI Assistant: Not rendering because AI assistant is disabled');
+    console.log('AI Assistant: Not rendering because AI assistant is disabled', {
+      settings,
+      enable_ai_assistant: settings ? (settings as any).enable_ai_assistant : 'undefined',
+      isAIAssistantEnabled,
+      reason: 'enable_ai_assistant is false or settings is null'
+    });
     return null;
   }
 
-  console.log('AI Assistant: Rendering component');
+  console.log('AI Assistant: Rendering component - all checks passed');
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
@@ -78,7 +198,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     if (!messageText) setInput('');
 
     // Show typing indicator
-    const typingMessage = { id: messages.length + 2, sender: 'ai', text: "Thinking..." };
+    const typingMessage: Message = { id: messages.length + 2, sender: 'ai', text: "Thinking..." };
     setMessages((prev) => [...prev, typingMessage]);
 
     try {
@@ -199,43 +319,44 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
               </TooltipContent>
             </Tooltip>
           </DialogTrigger>
-        <DialogContent className="w-[400px] h-[600px] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Invoice AI Assistant</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-grow p-4 border rounded-md mb-4">
-            <div className="flex flex-col space-y-2">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`p-2 rounded-lg max-w-[80%] ${msg.sender === 'user' ? 'bg-blue-500 text-white self-end' : 'bg-gray-200 self-start'}`}
-                >
-                  {msg.text}
-                </div>
-              ))}
+          <DialogContent className="w-[400px] h-[600px] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Invoice AI Assistant</DialogTitle>
+            </DialogHeader>
+            <ScrollArea ref={scrollAreaRef} className="flex-grow p-4 border rounded-md mb-4">
+              <div className="flex flex-col space-y-2">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`p-2 rounded-lg max-w-[80%] ${msg.sender === 'user' ? 'bg-blue-500 text-white self-end' : 'bg-gray-200 self-start'}`}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+            <div className="flex space-x-2 mb-4">
+              <Button onClick={() => handleQuickAction("Analyze my invoice patterns")}>Analyze Patterns</Button>
+              <Button onClick={() => handleQuickAction("Suggest actions")}>Suggest Actions</Button>
             </div>
-          </ScrollArea>
-          <div className="flex space-x-2 mb-4">
-            <Button onClick={() => handleQuickAction("Analyze my invoice patterns")}>Analyze Patterns</Button>
-            <Button onClick={() => handleQuickAction("Suggest actions")}>Suggest Actions</Button>
-          </div>
-          <div className="flex">
-            <Input
-              placeholder="Type your message..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSendMessage();
-                }
-              }}
-              className="flex-grow mr-2"
-            />
-            <Button onClick={() => handleSendMessage()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogContent>
+            <div className="flex">
+              <Input
+                placeholder="Type your message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSendMessage();
+                  }
+                }}
+                className="flex-grow mr-2"
+              />
+              <Button onClick={() => handleSendMessage()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogContent>
         </Dialog>
       </TooltipProvider>
     </div>
