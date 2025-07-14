@@ -1,7 +1,7 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,7 @@ import {
   Settings, 
   Users 
 } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, settingsApi } from "@/lib/api";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -32,43 +32,82 @@ export function AppSidebar() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(!isMobile);
-  const [tenantName, setTenantName] = useState('InvoiceApp');
+  const [forceUpdate, setForceUpdate] = useState(0);
 
-  // Get tenant name from user data
-  React.useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        // You can get tenant name from user data or make an API call
-        // For now, we'll use a default or fetch it from the tenant API
-        fetchTenantName();
-      } catch (error) {
-        console.error('Error parsing user data:', error);
+  // Get company name from settings with moderate refetching
+  const { data: settings, isLoading: settingsLoading, refetch } = useQuery({
+    queryKey: ['settings', forceUpdate], // Include forceUpdate in query key to force refetch
+    queryFn: () => {
+      console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
+      return settingsApi.getSettings();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Consider data immediately stale to ensure fresh data
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnReconnect: true, // Refetch when network reconnects
+    refetchIntervalInBackground: false, // Don't refetch when tab is not active
+  });
+
+  const companyName = settings?.company_info?.name || 'InvoiceApp';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Sidebar: Settings data changed:', {
+      companyName,
+      settings: settings?.company_info,
+      settingsFull: settings,
+      forceUpdate,
+      timestamp: new Date().toISOString()
+    });
+  }, [settings, companyName, forceUpdate]);
+
+  // Also try a direct approach - listen for localStorage changes
+  useEffect(() => {
+    const checkForUpdates = () => {
+      const lastUpdate = localStorage.getItem('settings_updated');
+      if (lastUpdate) {
+        console.log('Sidebar: Detected settings update via localStorage');
+        setForceUpdate(prev => prev + 1);
       }
-    }
+    };
+
+    // Check immediately
+    checkForUpdates();
+    
+    // Set up interval to check for updates
+    const interval = setInterval(checkForUpdates, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchTenantName = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+  // Listen for settings updates and force refetch
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      console.log('Sidebar: Settings update event received');
+      // Force refetch settings when they're updated
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.refetchQueries({ queryKey: ['settings'] });
+      // Force component re-render
+      setForceUpdate(prev => prev + 1);
+    };
 
-      const response = await fetch(`${API_BASE_URL}/tenants/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const tenant = await response.json();
-        setTenantName(tenant.name);
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'settings_updated') {
+        console.log('Sidebar: Storage event received for settings update');
+        handleSettingsUpdate();
       }
-    } catch (error) {
-      console.error('Error fetching tenant name:', error);
-    }
-  };
+    };
+
+    // Listen for both custom events and storage events
+    window.addEventListener('settings-updated', handleSettingsUpdate);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('settings-updated', handleSettingsUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [queryClient]);
 
   const handleLogout = () => {
     // Clear authentication data
@@ -120,9 +159,6 @@ export function AppSidebar() {
         <SidebarHeader className="py-6 px-2 border-b border-sidebar-border">
           <div className="flex flex-col items-center text-center">
             <span className="text-xl font-bold text-white">InvoiceApp</span>
-            <span className="text-sm text-gray-300 mt-1 truncate max-w-full px-2">
-              {tenantName}
-            </span>
           </div>
         </SidebarHeader>
         <SidebarContent className="pt-6">
@@ -143,7 +179,11 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter className="py-4 px-2 border-t border-sidebar-border space-y-4">
           <div className="px-2">
-            <UserProfile />
+            <UserProfile 
+              companyName={companyName} 
+              companyAddress={settings?.company_info?.address}
+              companyLogo={settings?.company_info?.logo}
+            />
           </div>
           <div className="flex justify-center">
             <Button 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 from typing import Dict, Any
@@ -8,6 +8,9 @@ import os
 import shutil
 from datetime import datetime, timezone, date
 import logging
+import uuid
+from PIL import Image
+import io
 
 from models.database import get_db, get_master_db
 from models.models_per_tenant import User, Client, Invoice, Settings, ClientNote, InvoiceItem
@@ -68,7 +71,7 @@ def update_settings(
     company_info = settings.get("company_info", {})
     if company_info:
         tenant.name = company_info.get("name", tenant.name)
-        tenant.email = company_info.get("email", tenant.email)
+        
         tenant.phone = company_info.get("phone", tenant.phone)
         tenant.address = company_info.get("address", tenant.address)
         tenant.tax_id = company_info.get("tax_id", tenant.tax_id)
@@ -408,3 +411,52 @@ async def import_tenant_data(
             status_code=500,
             detail=f"Failed to import data: {str(e)}"
         )
+
+@router.post("/upload-logo")
+def upload_company_logo(
+    file: UploadFile = File(...),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Upload a company logo image and return its public URL (per-tenant directory)."""
+    # Only allow image files
+    if not file.content_type or not file.content_type.startswith("image/"):
+        logger.error(f"Rejected upload: not an image file. Content-Type: {file.content_type}")
+        raise HTTPException(status_code=400, detail="Only image files are allowed.")
+
+    # Ensure static/logos/<tenant_id> directory exists
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "static", "logos")
+    static_dir = os.path.abspath(static_dir)
+    tenant_dir = os.path.join(static_dir, str(current_user.tenant_id))
+    os.makedirs(tenant_dir, exist_ok=True)
+
+    # Use consistent filename for each tenant (overwrites existing logo)
+    ext = os.path.splitext(file.filename)[1] or ".png"
+    filename = f"logo{ext}"
+    file_path = os.path.join(tenant_dir, filename)
+    
+    print(f"Attempting to save logo to {file_path}")
+
+    try:
+        file.file.seek(0)  # Ensure pointer is at the start
+        
+        # Read the uploaded file
+        file_content = file.file.read()
+        
+        # Open and resize the image using PIL
+        image = Image.open(io.BytesIO(file_content))
+        
+        # Resize to 100x100 while maintaining aspect ratio
+        image.thumbnail((200, 200), Image.Resampling.LANCZOS)
+        
+        # Save the resized image
+        image.save(file_path, quality=85, optimize=True)
+        
+        print(f"Logo saved successfully to {file_path}")
+        
+        # Return the public URL
+        logo_url = f"/static/logos/{current_user.tenant_id}/{filename}"
+        return {"url": logo_url}
+        
+    except Exception as e:
+        print(f"Failed to save logo to {file_path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save logo: {e}")

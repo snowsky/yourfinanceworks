@@ -33,3 +33,7 @@ api/.env
 api/invoice_api.egg-info
 api/*.db
 api/.mcp_token
+# Ignore all files under static/logos/
+api/static/logos/*
+# But do not ignore the directory itself
+!api/static/logos/ 

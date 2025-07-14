@@ -221,8 +221,12 @@ def update_client(
                 detail="Client not found"
             )
         
-        # Update client fields
-        for field, value in client.dict(exclude_unset=True).items():
+        # Update client fields, excluding email
+        update_data = client.dict(exclude_unset=True)
+        if 'email' in update_data:
+            del update_data['email']  # Remove email from update data
+        
+        for field, value in update_data.items():
             setattr(db_client, field, value)
         
         db_client.updated_at = datetime.now(timezone.utc)

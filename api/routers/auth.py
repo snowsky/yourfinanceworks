@@ -80,11 +80,15 @@ def register(user: UserCreate, db: Session = Depends(get_master_db)):
             if user.first_name and user.last_name:
                 tenant_name = f"{user.first_name} {user.last_name}'s Organization"
 
+        # Only set address if provided
+        tenant_address = getattr(user, 'organization_address', None) or getattr(user, 'address', None)
+
         # Create tenant
         db_tenant = Tenant(
             name=tenant_name,
             email=user.email,
-            is_active=True
+            is_active=True,
+            address=tenant_address if tenant_address else None
         )
         db.add(db_tenant)
         db.commit()

@@ -125,8 +125,8 @@ const Clients = () => {
                           ${client.paid_amount.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className={client.balance > 0 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
-                            ${client.balance.toFixed(2)}
+                          <span className={(client.outstanding_balance || 0) > 0 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
+                            ${(client.outstanding_balance || 0).toFixed(2)}
                           </span>
                         </TableCell>
                         <TableCell>

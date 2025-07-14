@@ -73,11 +73,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   });
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
-    name: "Your Company",
-    email: "contact@yourcompany.com",
-    phone: "(555) 123-4567",
-    address: "123 Business Avenue, Suite 100, New York, NY 10001",
-    tax_id: "12-3456789",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    tax_id: "",
   });
 
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({

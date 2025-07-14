@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Bot, Maximize2, Minimize2, Sparkles, MessageCircle } from 'lucide-react';
+import { Send, Bot, Maximize2, Minimize2, Sparkles, MessageCircle, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, aiApi } from '@/lib/api'; // Import both api and aiApi
 import PaymentCharts from './PaymentCharts';
@@ -131,12 +131,35 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       checkAuth();
     };
     
+    // Listen for storage events (from other tabs)
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    // Also check periodically for immediate login detection
+    const interval = setInterval(checkAuth, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
+  // Also check auth on every render for immediate detection
+  const currentAuth = (() => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    return !!(token && user);
+  })();
+  
+  // Update authentication state if it changed
+  useEffect(() => {
+    if (currentAuth !== isAuthenticated) {
+      console.log('AI Assistant: Authentication state changed', { from: isAuthenticated, to: currentAuth });
+      setIsAuthenticated(currentAuth);
+    }
+  }, [currentAuth, isAuthenticated]);
+
   // Fetch user settings to check the enable_ai_assistant flag
-  const { data: settings, isLoading: settingsLoading, error: settingsError } = useQuery({
+  const { data: settings, isLoading: settingsLoading, error: settingsError, refetch: refetchSettings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings/'),
     refetchInterval: (query) => {
@@ -162,6 +185,14 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       return failureCount < 3;
     },
   });
+
+  // Force refetch settings when authentication state changes to true
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('AI Assistant: Authentication detected, forcing settings refetch');
+      refetchSettings();
+    }
+  }, [isAuthenticated, refetchSettings]);
 
   // Add effect to log settings changes for debugging
   useEffect(() => {
@@ -527,114 +558,134 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <TooltipProvider>
-        <Dialog open={isOpen} onOpenChange={setIsOpen} className="[&_[data-radix-dialog-overlay]]:bg-black/20">
-          <DialogTrigger asChild>
-            <Button
-              className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform duration-200 border-4 border-white/40 backdrop-blur-lg"
-              style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}
-              onClick={() => setIsOpen(true)}
-            >
-              <Bot className="h-10 w-10 text-white drop-shadow-lg" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className={`w-full flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in [&>div]:rounded-3xl [&>div]:bg-transparent ${
-            isFullscreen 
-              ? 'max-w-[95vw] h-[95vh] max-h-[95vh]' 
-              : 'max-w-[600px] h-[80vh] max-h-[800px]'
-          }`}>
-            <DialogTitle className="sr-only">Invoice AI Assistant Chat</DialogTitle>
-            <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 p-6 flex items-center justify-between rounded-t-3xl shadow-md">
-              <div className="flex items-center gap-4">
-                <div className="bg-white/30 rounded-full p-3 shadow-lg">
-                  <Bot className="h-10 w-10 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
-                  <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleFullscreen}
-                className="text-white hover:text-white/80 hover:bg-white/20 rounded-full p-2 transition-all duration-200"
-                title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="h-5 w-5" />
-                ) : (
-                  <Maximize2 className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-            <ScrollArea ref={scrollAreaRef} className="flex-grow px-6 py-4 overflow-y-auto">
-              <div className="flex flex-col space-y-4">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`max-w-[80%] transition-all duration-200 ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white self-end animate-bounce-in-right px-4 py-3 rounded-2xl shadow-md' : 'self-start animate-bounce-in-left'}`}
-                    style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
-                  >
-                    {msg.sender === 'user' ? (
-                      <div className="px-4 py-3 rounded-2xl shadow-md">
-                        {msg.text}
-                      </div>
-                    ) : (
-                      typeof msg.text === 'string' ? (
-                        <EnhancedAIResponse text={msg.text} />
-                      ) : (
-                        msg.text
-                      )
-                    )}
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
-            <div className="flex space-x-2 px-6 pb-3 pt-2">
-              <Button
-                variant="outline"
-                className="rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 font-semibold shadow hover:from-blue-200 hover:to-purple-200"
-                onClick={() => handleQuickAction('Analyze my invoice patterns')}
-              >
-                Analyze Patterns
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 font-semibold shadow hover:from-pink-200 hover:to-purple-200"
-                onClick={() => handleQuickAction('Suggest actions')}
-              >
-                Suggest Actions
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl bg-gradient-to-r from-green-100 to-blue-100 text-green-700 font-semibold shadow hover:from-green-200 hover:to-blue-200"
-                onClick={() => handleQuickAction('Show payment charts')}
-              >
-                Payment Charts
-              </Button>
-            </div>
-            <div className="flex items-center px-6 pb-6 pt-2 gap-2">
-              <Input
-                placeholder="Type your message..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSendMessage();
-                  }
-                }}
-                className="flex-grow rounded-xl bg-white/80 border border-gray-300 shadow focus:ring-2 focus:ring-blue-400 focus:border-blue-400 text-lg px-4 py-3"
+        <div>
+          <Button
+            className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform duration-200 border-4 border-white/40 backdrop-blur-lg"
+            style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}
+            onClick={() => setIsOpen(true)}
+          >
+            <Bot className="h-10 w-10 text-white drop-shadow-lg" />
+          </Button>
+          
+          {isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              {/* Backdrop */}
+              <div 
+                className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+                onClick={() => setIsOpen(false)}
               />
-              <Button
-                className="rounded-full w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
-                onClick={() => handleSendMessage()}
-              >
-                <Send className="h-6 w-6" />
-              </Button>
+              
+              {/* Dialog */}
+              <div className={`relative w-full flex flex-col p-0 bg-white shadow-2xl border-0 overflow-hidden animate-fade-in rounded-3xl ${
+                isFullscreen 
+                  ? 'max-w-[95vw] h-[95vh] max-h-[95vh]' 
+                  : 'max-w-[600px] h-[80vh] max-h-[800px]'
+              }`}>
+                <div className="relative p-6 flex items-center justify-between shadow-md overflow-hidden rounded-t-3xl z-20 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500">
+                  <div className="relative flex items-center gap-4 z-20">
+                    <div className="bg-white/20 rounded-full p-2 shadow-lg">
+                      <Bot className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
+                      <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
+                    </div>
+                  </div>
+                  <div className="relative flex items-center gap-2 z-20">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleFullscreen}
+                      className="text-white hover:text-white/90 hover:bg-white/30 rounded-lg p-2.5 transition-all duration-200 border border-white/20 shadow-lg backdrop-blur-sm"
+                      title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="h-5 w-5 drop-shadow-sm" />
+                      ) : (
+                        <Maximize2 className="h-5 w-5 drop-shadow-sm" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsOpen(false)}
+                      className="text-white hover:text-white/90 hover:bg-white/30 rounded-lg p-2.5 transition-all duration-200 border border-white/20 shadow-lg backdrop-blur-sm"
+                      title="Close chat"
+                    >
+                      <X className="h-5 w-5 drop-shadow-sm" />
+                    </Button>
+                  </div>
+                </div>
+                <ScrollArea ref={scrollAreaRef} className="flex-grow px-6 py-4 overflow-y-auto relative z-20">
+                  <div className="flex flex-col space-y-4">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`max-w-[80%] transition-all duration-200 ${msg.sender === 'user' ? 'bg-blue-100 text-blue-900 self-end px-4 py-3 rounded-2xl shadow-md' : 'bg-gray-100 text-gray-900 self-start px-4 py-3 rounded-2xl shadow-md'}`}
+                        style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+                      >
+                        {msg.sender === 'user' ? (
+                          <div>
+                            {msg.text}
+                          </div>
+                        ) : (
+                          typeof msg.text === 'string' ? (
+                            <EnhancedAIResponse text={msg.text} />
+                          ) : (
+                            msg.text
+                          )
+                        )}
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+                <div className="flex space-x-2 px-6 pb-3 pt-2 relative z-20">
+                  <Button
+                    variant="outline"
+                    className="rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 font-semibold shadow hover:from-blue-200 hover:to-purple-200"
+                    onClick={() => handleQuickAction('Analyze my invoice patterns')}
+                  >
+                    Analyze Patterns
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 font-semibold shadow hover:from-pink-200 hover:to-purple-200"
+                    onClick={() => handleQuickAction('Suggest actions')}
+                  >
+                    Suggest Actions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl bg-gradient-to-r from-green-100 to-blue-100 text-green-700 font-semibold shadow hover:from-green-200 hover:to-blue-200"
+                    onClick={() => handleQuickAction('Show payment charts')}
+                  >
+                    Payment Charts
+                  </Button>
+                </div>
+                <div className="flex items-center px-6 pb-6 pt-2 gap-2 relative z-20">
+                  <Input
+                    placeholder="Type your message..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSendMessage();
+                      }
+                    }}
+                    className="flex-grow rounded-xl bg-white/80 border border-gray-300 shadow focus:ring-2 focus:ring-blue-400 focus:border-blue-400 text-lg px-4 py-3"
+                  />
+                  <Button
+                    className="rounded-full w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-500 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
+                    onClick={() => handleSendMessage()}
+                  >
+                    <Send className="h-6 w-6" />
+                  </Button>
+                </div>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          )}
+        </div>
       </TooltipProvider>
     </div>
   );

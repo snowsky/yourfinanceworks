@@ -1,82 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { User, Building2 } from 'lucide-react';
-import { API_BASE_URL } from '../../lib/api';
+import React from 'react';
+import { User, Building2, MapPin } from 'lucide-react';
 
-interface UserProfileProps {
-  compact?: boolean;
-}
-
-export function UserProfile({ compact = false }: UserProfileProps) {
-  const [user, setUser] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null);
-
-  useEffect(() => {
-    const loadUserData = () => {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        try {
-          setUser(JSON.parse(userData));
-        } catch (error) {
-          console.error('Error parsing user data:', error);
-        }
-      }
-    };
-
-    const fetchTenantData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const response = await fetch(`${API_BASE_URL}/tenants/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const tenantData = await response.json();
-          setTenant(tenantData);
-        }
-      } catch (error) {
-        console.error('Error fetching tenant data:', error);
-      }
-    };
-
-    loadUserData();
-    fetchTenantData();
-  }, []);
-
-  if (!user) return null;
-
-  const displayName = user.first_name 
-    ? `${user.first_name} ${user.last_name || ''}`.trim()
-    : user.email;
-
-  if (compact) {
-    return (
-      <div className="flex items-center space-x-2 text-sm text-gray-300">
-        <User className="h-4 w-4" />
-        <span className="truncate">{displayName}</span>
-      </div>
-    );
-  }
-
+export function UserProfile({ companyName, companyAddress, companyLogo }: { 
+  companyName: string, 
+  companyAddress?: string,
+  companyLogo?: string 
+}) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+  // Construct full logo URL if logo path is provided
+  const logoUrl = companyLogo ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${companyLogo}` : null;
+  
   return (
     <div className="space-y-2 text-sm">
       <div className="flex items-center space-x-2 text-white">
         <User className="h-4 w-4" />
-        <span className="truncate font-medium">{displayName}</span>
+        <span className="truncate font-medium">{user?.first_name || user?.name || 'User'}</span>
       </div>
-      {tenant && (
-        <div className="flex items-center space-x-2 text-gray-300">
+      <div className="flex items-center space-x-2 text-gray-300">
+        {logoUrl ? (
+          <img 
+            src={logoUrl} 
+            alt="Company Logo" 
+            className="h-4 w-4 object-contain rounded"
+            onError={(e) => {
+              console.error('Failed to load logo in sidebar:', e);
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        ) : (
           <Building2 className="h-4 w-4" />
-          <span className="truncate">{tenant.name}</span>
-        </div>
-      )}
-      {user.role && (
-        <div className="text-xs text-gray-400 capitalize">
-          {user.role}
+        )}
+        <span className="truncate">{companyName}</span>
+      </div>
+      {companyAddress && companyAddress.trim() !== '' && (
+        <div className="flex items-center space-x-2 text-gray-400 text-xs">
+          <MapPin className="h-4 w-4" />
+          <span className="truncate">{companyAddress}</span>
         </div>
       )}
     </div>

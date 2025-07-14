@@ -15,7 +15,7 @@ import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional(),
   phone: z.string().min(1, "Phone number is required"),
   address: z.string().min(1, "Address is required"),
   preferred_currency: z.string().optional(),
@@ -47,14 +47,20 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
     setSubmitting(true);
     try {
       if (isEdit && client) {
-        // Update existing client - only send fields that are being updated
-        await clientApi.updateClient(client.id, data);
+        // Update existing client - exclude email from updates
+        const updateData = {
+          name: data.name,
+          phone: data.phone,
+          address: data.address,
+          preferred_currency: data.preferred_currency
+        };
+        await clientApi.updateClient(client.id, updateData);
         toast.success("Client updated successfully!");
       } else {
-        // Create new client with required fields
+        // Create new client with required fields including email
         const newClient = {
           name: data.name,
-          email: data.email,
+          email: data.email || "",
           phone: data.phone,
           address: data.address,
           balance: 0, // Set initial balance to 0 for new clients
@@ -95,19 +101,40 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="client@example.com" type="email" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!isEdit ? (
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        placeholder="client@example.com" 
+                        type="email" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                    {client?.email || "No email provided"}
+                  </div>
+                  <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    Read Only
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Email cannot be changed once a client is created
+                </p>
+              </FormItem>
+            )}
 
             <FormField
               control={form.control}

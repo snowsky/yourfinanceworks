@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import traceback
 import logging
+from fastapi.staticfiles import StaticFiles
+import os
 
 from routers import (
     auth,
@@ -21,7 +23,7 @@ from routers import (
 )
 from models.database import engine
 from models import models
-from cors_middleware import CustomCORSMiddleware
+
 from db_init import init_db
 
 # Configure logging
@@ -44,6 +46,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Serve static files (e.g., for company logos)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # Add error handling middleware
 @app.middleware("http")
 async def catch_exceptions_middleware(request: Request, call_next):
@@ -58,21 +73,11 @@ async def catch_exceptions_middleware(request: Request, call_next):
             content={"detail": f"Internal server error: {str(e)}"}
         )
 
-# Add our custom CORS middleware
-app.add_middleware(CustomCORSMiddleware)
+
 
 # Add tenant context middleware
 from middleware.tenant_context_middleware import TenantContextMiddleware
 app.add_middleware(TenantContextMiddleware)
-
-# CORS Middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
 
 # Include routers with v1 API versioning
 app.include_router(auth.router, prefix="/api/v1")

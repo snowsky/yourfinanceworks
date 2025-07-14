@@ -41,13 +41,17 @@ const Settings = () => {
   });
   
   const [companyInfo, setCompanyInfo] = useState({
-    name: "Your Company",
-    email: "contact@yourcompany.com",
-    phone: "(555) 123-4567",
-    address: "123 Business Avenue, Suite 100, New York, NY 10001",
-    tax_id: "12-3456789",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    tax_id: "",
     logo: "",
   });
+
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
     const [aiAssistantEnabled, setAiAssistantEnabled] = useState(false);
   
@@ -186,6 +190,7 @@ const Settings = () => {
 
   const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    if (name === 'email') return;
     setCompanyInfo((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -276,6 +281,15 @@ const Settings = () => {
       // Force refetch of settings to ensure AI Assistant updates immediately
       await queryClient.refetchQueries({ queryKey: ['settings'] });
       
+      // Also invalidate any settings queries with additional keys
+      await queryClient.invalidateQueries({ queryKey: ['settings'], exact: false });
+      
+      // Trigger events to notify sidebar of settings update
+      localStorage.setItem('settings_updated', Date.now().toString());
+      window.dispatchEvent(new StorageEvent('storage', { key: 'settings_updated' }));
+      window.dispatchEvent(new CustomEvent('settings-updated'));
+      
+      console.log('Settings: Events dispatched for sidebar update');
       console.log('Settings: Cache invalidated and refetched');
       
       // Handle AI assistant state changes
@@ -623,6 +637,75 @@ const Settings = () => {
     }));
   };
 
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadLogo = async () => {
+    if (!logoFile) return;
+
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', logoFile);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/settings/upload-logo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload logo');
+      }
+
+      const result = await response.json();
+      const logoUrl = result.url;
+
+      // Update company info with the new logo URL
+      setCompanyInfo(prev => ({ ...prev, logo: logoUrl }));
+      
+      // Save the settings with the new logo URL to the backend
+      try {
+        await settingsApi.updateSettings({
+          company_info: {
+            ...companyInfo,
+            logo: logoUrl
+          }
+        });
+      } catch (saveError) {
+        console.error('Failed to save logo URL to settings:', saveError);
+        // Don't show error to user since upload succeeded
+      }
+      
+      // Invalidate settings query to refresh sidebar and other components
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      
+      // Clear the file input and preview
+      setLogoFile(null);
+      setLogoPreview("");
+      
+      toast.success('Logo uploaded successfully!');
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      toast.error('Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -690,6 +773,7 @@ const Settings = () => {
                       type="email" 
                       value={companyInfo.email} 
                       onChange={handleCompanyChange} 
+                      disabled 
                     />
                   </div>
                   
@@ -717,13 +801,51 @@ const Settings = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="logo">Company Logo</Label>
-                  <Input 
-                    id="logo" 
-                    name="logo" 
-                    type="file" 
-                    accept="image/*" 
-                  />
-                  <p className="text-sm text-muted-foreground">Recommended size: 200x200px</p>
+                  <div className="space-y-4">
+                    <Input 
+                      id="logo" 
+                      name="logo" 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleLogoFileChange}
+                      disabled={uploadingLogo}
+                    />
+                    <p className="text-sm text-muted-foreground">Recommended size: 200x200px</p>
+                    
+                    {/* Logo Preview */}
+                    {(logoPreview || companyInfo.logo) && (
+                      <div className="space-y-2">
+                        <Label>Logo Preview</Label>
+                        <div className="flex items-center space-x-4">
+                          <img 
+                            src={logoPreview || `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${companyInfo.logo}`} 
+                            alt="Company Logo" 
+                            className="w-16 h-16 object-contain border rounded"
+                            onError={(e) => {
+                              console.error('Failed to load logo image:', e);
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          {logoFile && (
+                            <Button 
+                              onClick={uploadLogo} 
+                              disabled={uploadingLogo}
+                              size="sm"
+                            >
+                              {uploadingLogo ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                'Upload Logo'
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex justify-end">

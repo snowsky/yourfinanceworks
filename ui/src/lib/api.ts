@@ -11,6 +11,7 @@ export interface Client {
   address: string;
   balance: number;
   paid_amount: number;
+  outstanding_balance?: number;
   preferred_currency?: string;
   created_at: string;
   updated_at: string;
@@ -205,6 +206,8 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
   try {
     // Get JWT token from localStorage
     const token = localStorage.getItem('token');
+    console.log('API Request - Token:', token ? 'Present' : 'Missing');
+    console.log('API Request - Token value:', token);
     
     const requestUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     console.log(`Making API request to ${requestUrl}`, options);
@@ -217,13 +220,22 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
       },
     });
 
+    console.log('API Response status:', response.status);
+    console.log('API Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    // Log the raw response text for debugging
+    const responseText = await response.text();
+    console.log('API Raw response text:', responseText);
+    
     if (!response.ok) {
       // Try to parse error response
       let errorData;
       try {
-        errorData = await response.json();
+        errorData = JSON.parse(responseText);
+        console.log('API Error response:', errorData);
       } catch (e) {
         // If JSON parsing fails, use status text
+        console.log('API Error - could not parse JSON:', e);
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
 
@@ -267,7 +279,19 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
       return {} as T;
     }
 
-    return await response.json() as T;
+    // Parse the response text as JSON
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText) as T;
+    } catch (e) {
+      console.log('API Success response is not valid JSON:', e);
+      throw new Error('Invalid JSON response from server');
+    }
+    
+    console.log('API Success response:', responseData);
+    console.log('API Response type:', typeof responseData);
+    console.log('API Response keys:', Object.keys(responseData || {}));
+    return responseData;
   } catch (error) {
     console.error('API request failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
