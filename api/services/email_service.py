@@ -339,6 +339,195 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send invoice email: {str(e)}")
             return False
+
+    def send_password_reset_email(
+        self,
+        user_email: str,
+        user_name: str,
+        reset_token: str,
+        company_name: str = "Invoice Management System",
+        from_name: str = "Invoice Management System",
+        from_email: str = "noreply@invoiceapp.com"
+    ) -> bool:
+        """Send a password reset email"""
+        try:
+            # Create email message
+            message = self._create_password_reset_message(
+                user_email, user_name, reset_token, company_name, from_name, from_email
+            )
+            
+            # Send email
+            return self.provider.send_email(message)
+            
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {str(e)}")
+            return False
+
+    def _create_password_reset_message(
+        self,
+        user_email: str,
+        user_name: str,
+        reset_token: str,
+        company_name: str,
+        from_name: str,
+        from_email: str
+    ) -> EmailMessage:
+        """Create password reset email message"""
+        
+        # Generate reset URL
+        reset_url = f"http://localhost:8080/reset-password?token={reset_token}"
+        
+        # Create HTML template
+        html_template = Template("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Password Reset</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f5f5f5;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+                .logo {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 10px;
+                }
+                .title {
+                    color: #333;
+                    font-size: 20px;
+                    margin-bottom: 20px;
+                }
+                .message {
+                    color: #666;
+                    line-height: 1.6;
+                    margin-bottom: 30px;
+                }
+                .button {
+                    display: inline-block;
+                    background-color: #007bff;
+                    color: white;
+                    padding: 12px 30px;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                }
+                .button:hover {
+                    background-color: #0056b3;
+                }
+                .footer {
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #eee;
+                    color: #999;
+                    font-size: 14px;
+                    text-align: center;
+                }
+                .warning {
+                    background-color: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    border-radius: 5px;
+                    padding: 15px;
+                    margin: 20px 0;
+                    color: #856404;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="logo">{{ company_name }}</div>
+                    <h1 class="title">Reset Your Password</h1>
+                </div>
+                
+                <div class="message">
+                    <p>Hello {{ user_name }},</p>
+                    <p>We received a request to reset your password for your account. If you didn't make this request, you can safely ignore this email.</p>
+                    <p>To reset your password, click the button below:</p>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="{{ reset_url }}" class="button">Reset Password</a>
+                </div>
+                
+                <div class="warning">
+                    <strong>Important:</strong> This password reset link will expire in 1 hour for security reasons. If you need to reset your password after this time, you'll need to request a new reset link.
+                </div>
+                
+                <div class="message">
+                    <p>If the button above doesn't work, you can also copy and paste the following link into your browser:</p>
+                    <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace;">{{ reset_url }}</p>
+                </div>
+                
+                <div class="footer">
+                    <p>If you have any questions or need assistance, please contact our support team.</p>
+                    <p>&copy; {{ company_name }}. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """)
+        
+        # Create text template
+        text_template = Template("""
+        {{ company_name }} - Password Reset
+        
+        Hello {{ user_name }},
+        
+        We received a request to reset your password for your account. If you didn't make this request, you can safely ignore this email.
+        
+        To reset your password, please visit the following link:
+        {{ reset_url }}
+        
+        IMPORTANT: This password reset link will expire in 1 hour for security reasons. If you need to reset your password after this time, you'll need to request a new reset link.
+        
+        If you have any questions or need assistance, please contact our support team.
+        
+        Best regards,
+        {{ company_name }} Team
+        """)
+        
+        # Render templates
+        html_body = html_template.render(
+            company_name=company_name,
+            user_name=user_name,
+            reset_url=reset_url
+        )
+        
+        text_body = text_template.render(
+            company_name=company_name,
+            user_name=user_name,
+            reset_url=reset_url
+        )
+        
+        # Create email message
+        return EmailMessage(
+            subject=f"Password Reset - {company_name}",
+            from_name=from_name,
+            from_email=from_email,
+            to_name=user_name,
+            to_email=user_email,
+            html_body=html_body,
+            text_body=text_body
+        )
     
     def _create_invoice_message(
         self,

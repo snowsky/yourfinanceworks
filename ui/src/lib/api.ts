@@ -384,6 +384,20 @@ export const authApi = {
     apiRequest<{ available: boolean; name: string }>(`/tenants/check-name-availability?name=${encodeURIComponent(name)}`, {
       method: 'GET',
     }),
+  checkEmailAvailability: (email: string) =>
+    apiRequest<{ available: boolean; email: string }>(`/auth/check-email-availability?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+    }),
+  requestPasswordReset: (email: string) =>
+    apiRequest<{ message: string; success: boolean }>(`/auth/request-password-reset`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, newPassword: string) =>
+    apiRequest<{ message: string; success: boolean }>(`/auth/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
   activateUser: (inviteId: number, activationData: { password: string; first_name?: string; last_name?: string }) =>
     apiRequest<any>(`/auth/invites/${inviteId}/activate`, {
       method: 'POST',

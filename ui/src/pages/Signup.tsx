@@ -25,6 +25,15 @@ const Signup: React.FC = () => {
     available: null,
     message: ''
   });
+  const [emailStatus, setEmailStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    available: null,
+    message: ''
+  });
   const navigate = useNavigate();
 
   // Debounced organization name availability check
@@ -71,6 +80,52 @@ const Signup: React.FC = () => {
     }
   }, []);
 
+  // Debounced email availability check
+  const checkEmailAvailability = useCallback(async (email: string) => {
+    if (!email) {
+      setEmailStatus({
+        checking: false,
+        available: null,
+        message: ''
+      });
+      return;
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailStatus({
+        checking: false,
+        available: false,
+        message: 'Please enter a valid email address'
+      });
+      return;
+    }
+
+    setEmailStatus({
+      checking: true,
+      available: null,
+      message: 'Checking availability...'
+    });
+
+    try {
+      const result = await authApi.checkEmailAvailability(email);
+      setEmailStatus({
+        checking: false,
+        available: result.available,
+        message: result.available 
+          ? '✓ Email is available' 
+          : '✗ Email is already registered. Please use a different email or try logging in.'
+      });
+    } catch (error) {
+      setEmailStatus({
+        checking: false,
+        available: null,
+        message: 'Error checking availability'
+      });
+    }
+  }, []);
+
   // Debounce the organization name check
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -81,6 +136,17 @@ const Signup: React.FC = () => {
 
     return () => clearTimeout(timeoutId);
   }, [formData.organization_name, checkOrganizationNameAvailability]);
+
+  // Debounce the email availability check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.email) {
+        checkEmailAvailability(formData.email);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email, checkEmailAvailability]);
 
 
 
@@ -106,6 +172,20 @@ const Signup: React.FC = () => {
     // Validate password strength
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
+    // Validate email availability
+    if (emailStatus.available === false) {
+      setError('Email is not available. Please use a different email address.');
+      setLoading(false);
+      return;
+    }
+
+    // If we're still checking email availability, wait for it to complete
+    if (emailStatus.checking) {
+      setError('Please wait while we check email availability.');
       setLoading(false);
       return;
     }
@@ -258,17 +338,60 @@ const Signup: React.FC = () => {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={formData.email}
-                onChange={handleChange}
-              />
+              <div className="mt-1 relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className={`appearance-none relative block w-full px-3 py-2 pr-12 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
+                    emailStatus.available === false 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                      : emailStatus.available === true 
+                      ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="Email address"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+                {/* Availability indicator */}
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  {emailStatus.checking && (
+                    <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                  )}
+                  {emailStatus.available === true && (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  )}
+                  {emailStatus.available === false && (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                </div>
+              </div>
+              {/* Status message */}
+              {emailStatus.message && (
+                <div className={`mt-2 p-2 rounded-md text-sm ${
+                  emailStatus.available === true 
+                    ? 'bg-green-50 border border-green-200 text-green-700' 
+                    : emailStatus.available === false 
+                    ? 'bg-red-50 border border-red-200 text-red-700' 
+                    : 'bg-gray-50 border border-gray-200 text-gray-700'
+                }`}>
+                  {emailStatus.message}
+                  {emailStatus.available === false && emailStatus.message.includes('already registered') && (
+                    <div className="mt-2 pt-2 border-t border-red-200">
+                      <p className="text-xs text-red-600">
+                        💡 <strong>Tip:</strong> If you already have an account, try{' '}
+                        <Link to="/login" className="underline hover:text-red-800">
+                          logging in
+                        </Link>{' '}
+                        instead.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Password */}

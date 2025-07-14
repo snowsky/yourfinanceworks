@@ -33,6 +33,7 @@ class MasterUser(Base):
     
     # Relationships
     tenant = relationship("Tenant")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
 
 class Invite(Base):
     __tablename__ = "invites"
@@ -57,6 +58,22 @@ class Invite(Base):
     # Relationships
     tenant = relationship("Tenant")
     invited_by = relationship("MasterUser")
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("master_users.id"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = relationship("MasterUser", back_populates="password_reset_tokens")
 
 class Tenant(Base):
     __tablename__ = "tenants"

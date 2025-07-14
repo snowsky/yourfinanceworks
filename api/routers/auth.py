@@ -7,10 +7,13 @@ from typing import Optional, List
 import os
 import secrets
 import hashlib
+from sqlalchemy import func
 
 from models.database import get_db, get_master_db
-from models.models import User, Tenant, MasterUser, Invite  # Add Invite import
+from models.models import User, Tenant, MasterUser, Invite, PasswordResetToken, Settings  # Add PasswordResetToken, Settings import
 from schemas.user import UserCreate, UserLogin, Token, UserRead, UserUpdate, InviteCreate, InviteRead, InviteAccept, UserList, UserRoleUpdate, AdminActivateUser
+from schemas.password_reset import PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse
+from services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from utils.auth import verify_password, get_password_hash
 from models.models_per_tenant import User as TenantUser
 from services.tenant_database_manager import tenant_db_manager
@@ -36,6 +39,84 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_password_reset_token() -> str:
+    """Generate a secure random token for password reset"""
+    return secrets.token_urlsafe(32)
+
+def create_reset_token_entry(db: Session, user_id: int) -> PasswordResetToken:
+    """Create a password reset token entry in the database"""
+    # Deactivate any existing tokens for this user
+    existing_tokens = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user_id,
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.now(timezone.utc)
+    ).all()
+    
+    for token in existing_tokens:
+        token.is_used = True
+        token.used_at = datetime.now(timezone.utc)
+    
+    # Create new token
+    token = create_password_reset_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)  # Token expires in 1 hour
+    
+    reset_token = PasswordResetToken(
+        token=token,
+        user_id=user_id,
+        expires_at=expires_at
+    )
+    
+    db.add(reset_token)
+    db.commit()
+    db.refresh(reset_token)
+    
+    return reset_token
+
+def verify_reset_token(db: Session, token: str) -> Optional[PasswordResetToken]:
+    """Verify a password reset token and return the token object if valid"""
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.is_used == False,
+        PasswordResetToken.expires_at > datetime.now(timezone.utc)
+    ).first()
+    
+    return reset_token
+
+def get_email_service_for_tenant(db: Session, tenant_id: int) -> Optional[EmailService]:
+    """Get configured email service for a tenant"""
+    try:
+        # Get email configuration from settings
+        email_settings = db.query(Settings).filter(
+            Settings.tenant_id == tenant_id,
+            Settings.key == "email_config"
+        ).first()
+        
+        if not email_settings or not email_settings.value:
+            return None
+        
+        email_config_data = email_settings.value
+        
+        # Check if email service is enabled
+        if not email_config_data.get('enabled', False):
+            return None
+        
+        # Create email provider config
+        config = EmailProviderConfig(
+            provider=EmailProvider(email_config_data['provider']),
+            aws_access_key_id=email_config_data.get('aws_access_key_id'),
+            aws_secret_access_key=email_config_data.get('aws_secret_access_key'),
+            aws_region=email_config_data.get('aws_region'),
+            azure_connection_string=email_config_data.get('azure_connection_string'),
+            mailgun_api_key=email_config_data.get('mailgun_api_key'),
+            mailgun_domain=email_config_data.get('mailgun_domain')
+        )
+        
+        return EmailService(config)
+        
+    except Exception as e:
+        print(f"Failed to initialize email service for tenant {tenant_id}: {str(e)}")
+        return None
 
 def authenticate_user(db: Session, email: str, password: str):
     user = db.query(MasterUser).filter(MasterUser.email == email).first()
@@ -584,3 +665,178 @@ def admin_activate_user(
         tenant_db.commit()
     
     return user
+
+@router.get("/check-email-availability")
+def check_email_availability(
+    email: str,
+    master_db: Session = Depends(get_master_db)
+):
+    """Check if an email address is available (public endpoint for signup)"""
+    if not email or len(email.strip()) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email must be at least 3 characters long"
+        )
+    
+    # Basic email format validation
+    import re
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, email.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email format"
+        )
+    
+    # Check if email already exists (case-insensitive)
+    existing_user = master_db.query(MasterUser).filter(
+        func.lower(MasterUser.email) == func.lower(email.strip())
+    ).first()
+    
+    return {
+        "available": existing_user is None,
+        "email": email.strip()
+    }
+
+@router.post("/request-password-reset", response_model=PasswordResetResponse)
+def request_password_reset(
+    request: PasswordResetRequest,
+    master_db: Session = Depends(get_master_db)
+):
+    """Request a password reset for a user"""
+    user = master_db.query(MasterUser).filter(
+        func.lower(MasterUser.email) == func.lower(request.email.strip())
+    ).first()
+    
+    # Always return success to prevent email enumeration
+    if not user:
+        return PasswordResetResponse(
+            message="If the email address exists in our system, you will receive a password reset email shortly.",
+            success=True
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        return PasswordResetResponse(
+            message="If the email address exists in our system, you will receive a password reset email shortly.",
+            success=True
+        )
+    
+    # Create password reset token
+    reset_token = create_reset_token_entry(master_db, user.id)
+    
+    # Get tenant and email service configuration
+    tenant = master_db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    email_service = get_email_service_for_tenant(master_db, user.tenant_id)
+    
+    # Try to send email if email service is configured
+    if email_service and tenant:
+        try:
+            # Get email configuration for from details
+            email_settings = master_db.query(Settings).filter(
+                Settings.tenant_id == user.tenant_id,
+                Settings.key == "email_config"
+            ).first()
+            
+            email_config_data = email_settings.value if email_settings else {}
+            from_name = email_config_data.get('from_name', tenant.name)
+            from_email = email_config_data.get('from_email', 'noreply@invoiceapp.com')
+            
+            # Send password reset email
+            user_display_name = f"{user.first_name} {user.last_name}".strip() or user.email
+            
+            success = email_service.send_password_reset_email(
+                user_email=user.email,
+                user_name=user_display_name,
+                reset_token=reset_token.token,
+                company_name=tenant.name,
+                from_name=from_name,
+                from_email=from_email
+            )
+            
+            if success:
+                print(f"Password reset email sent successfully to {user.email}")
+            else:
+                print(f"Failed to send password reset email to {user.email}")
+                
+        except Exception as e:
+            print(f"Error sending password reset email to {user.email}: {str(e)}")
+    else:
+        # Fallback: Log token if email service is not configured
+        print(f"Email service not configured for tenant {user.tenant_id}")
+        print(f"Password reset token for {user.email}: {reset_token.token}")
+        print(f"Reset URL: http://localhost:8080/reset-password?token={reset_token.token}")
+    
+    return PasswordResetResponse(
+        message="If the email address exists in our system, you will receive a password reset email shortly.",
+        success=True
+    )
+
+@router.post("/reset-password", response_model=PasswordResetResponse)
+def reset_password(
+    request: PasswordResetConfirm,
+    master_db: Session = Depends(get_master_db)
+):
+    """Reset user password using a valid token"""
+    # Verify token
+    reset_token = verify_reset_token(master_db, request.token)
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token"
+        )
+    
+    # Get user
+    user = master_db.query(MasterUser).filter(MasterUser.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account is inactive"
+        )
+    
+    # Validate password strength
+    if len(request.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long"
+        )
+    
+    # Update password
+    user.hashed_password = get_password_hash(request.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    
+    # Mark token as used
+    reset_token.is_used = True
+    reset_token.used_at = datetime.now(timezone.utc)
+    
+    # Also update password in tenant database
+    try:
+        from models.database import set_tenant_context
+        set_tenant_context(user.tenant_id)
+        
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+        tenant_db = tenant_session()
+        
+        try:
+            tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == user.id).first()
+            if tenant_user:
+                tenant_user.hashed_password = get_password_hash(request.new_password)
+                tenant_user.updated_at = datetime.now(timezone.utc)
+                tenant_db.commit()
+        finally:
+            tenant_db.close()
+    except Exception as e:
+        # If tenant user update fails, still allow master user password update
+        print(f"Warning: Failed to update tenant user password: {str(e)}")
+    
+    master_db.commit()
+    
+    return PasswordResetResponse(
+        message="Password has been reset successfully. You can now log in with your new password.",
+        success=True
+    )

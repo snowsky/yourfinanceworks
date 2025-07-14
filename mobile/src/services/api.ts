@@ -433,6 +433,26 @@ class ApiService {
     return response;
   }
 
+  async checkEmailAvailability(email: string): Promise<{ available: boolean; email: string }> {
+    return await this.request<{ available: boolean; email: string }>(`/auth/check-email-availability?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+    }, { isLogin: true });
+  }
+
+  async requestPasswordReset(email: string): Promise<{ message: string; success: boolean }> {
+    return await this.request<{ message: string; success: boolean }>(`/auth/request-password-reset`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }, { isLogin: true });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string; success: boolean }> {
+    return await this.request<{ message: string; success: boolean }>(`/auth/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }, { isLogin: true });
+  }
+
   async logout(): Promise<void> {
     await this.removeToken();
     await this.removeUser();

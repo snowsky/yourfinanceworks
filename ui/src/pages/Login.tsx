@@ -26,19 +26,12 @@ const Login = () => {
       // Store token and user info
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      toast({
-        title: "Success",
-        description: "Logged in successfully!",
-      });
+      toast.success("Logged in successfully!");
       navigate("/dashboard");
     } catch (error: any) {
       const errorMessage = error.message || "Login failed. Please check your credentials.";
       setError(errorMessage);
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -46,10 +39,7 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     // TODO: Implement Google SSO
-    toast({
-      title: "Coming Soon",
-      description: "Google SSO will be available soon!",
-    });
+    toast.info("Google SSO will be available soon!");
   };
 
   return (
@@ -108,6 +98,15 @@ const Login = () => {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
+            
+            <div className="text-center">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Forgot your password?
+              </Link>
+            </div>
           </form>
           
           <div className="relative">
