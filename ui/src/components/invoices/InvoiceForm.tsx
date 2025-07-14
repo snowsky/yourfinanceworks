@@ -17,6 +17,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { isAdmin } from "@/utils/auth";
 import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
@@ -202,14 +203,67 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [clientsData, settingsData, discountRulesData] = await Promise.all([
+        // Get current user role using utility function
+        const isAdminUser = isAdmin();
+        
+        // Fetch clients and discount rules (always)
+        const [clientsData, discountRulesData] = await Promise.all([
           clientApi.getClients(),
-          settingsApi.getSettings(),
           discountRulesApi.getDiscountRules()
         ]);
         setClients(clientsData);
-        setSettings(settingsData);
         setAvailableDiscountRules(discountRulesData);
+        
+        // Only fetch settings for admin users
+        if (isAdminUser) {
+          try {
+            const settingsData = await settingsApi.getSettings();
+            setSettings(settingsData);
+          } catch (error) {
+            console.log("Settings not accessible for current user role");
+            // Set default settings for non-admin users
+            setSettings({
+              company_info: {
+                name: 'InvoiceApp',
+                email: '',
+                phone: '',
+                address: '',
+                tax_id: '',
+                logo: ''
+              },
+              invoice_settings: {
+                prefix: 'INV-',
+                next_number: '0001',
+                terms: 'Payment due within 30 days from the date of invoice.',
+                notes: 'Thank you for your business!',
+                send_copy: true,
+                auto_reminders: true
+              },
+              enable_ai_assistant: false
+            });
+          }
+        } else {
+          // Set default settings for non-admin users
+          setSettings({
+            company_info: {
+              name: 'InvoiceApp',
+              email: '',
+              phone: '',
+              address: '',
+              tax_id: '',
+              logo: ''
+            },
+            invoice_settings: {
+              prefix: 'INV-',
+              next_number: '0001',
+              terms: 'Payment due within 30 days from the date of invoice.',
+              notes: 'Thank you for your business!',
+              send_copy: true,
+              auto_reminders: true
+            },
+            enable_ai_assistant: false
+          });
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
         toast.error("Failed to load data");

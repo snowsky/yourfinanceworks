@@ -26,6 +26,8 @@ import {
   UserCheck
 } from "lucide-react";
 import { API_BASE_URL, settingsApi } from "@/lib/api";
+import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
+import { createSettingsQueryOptions } from "@/utils/query";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -35,19 +37,40 @@ export function AppSidebar() {
   const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
 
-  // Get company name from settings with moderate refetching
+  // Get current user data from localStorage
+  const user = getCurrentUser();
+  const userRole = user?.role || 'user';
+  const isAdminUser = userRole === 'admin';
+
+  console.log('Sidebar: User check:', { 
+    user, 
+    userRole, 
+    isAdminUser,
+    shouldFetchSettings: isAdminUser 
+  });
+
+  // Get company name from settings with moderate refetching (only for admin users)
+  // Note: We conditionally define the query to prevent API calls for non-admin users
   const { data: settings, isLoading: settingsLoading, refetch } = useQuery({
     queryKey: ['settings', forceUpdate], // Include forceUpdate in query key to force refetch
     queryFn: () => {
       console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
       return settingsApi.getSettings();
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000, // 30 seconds
     refetchOnWindowFocus: true,
-    staleTime: 0, // Consider data immediately stale to ensure fresh data
-    refetchOnMount: true, // Always refetch when component mounts
-    refetchOnReconnect: true, // Refetch when network reconnects
-    refetchIntervalInBackground: false, // Don't refetch when tab is not active
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchIntervalInBackground: false,
+    staleTime: 0,
+    enabled: isAdminUser, // Only fetch settings for admin users
+    retry: (failureCount, error: any) => {
+      // Don't retry on authentication/authorization errors
+      if (error?.message?.includes('403') || error?.message?.includes('401')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
   const companyName = settings?.company_info?.name || 'InvoiceApp';
@@ -122,19 +145,6 @@ export function AppSidebar() {
     navigate('/login');
   };
 
-  // Get current user role from localStorage
-  const getCurrentUserRole = () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      return user?.role || 'user';
-    } catch {
-      return 'user';
-    }
-  };
-
-  const userRole = getCurrentUserRole();
-  const isAdmin = userRole === 'admin';
-
   const mainMenuItems = [
     { 
       path: '/', 
@@ -157,7 +167,7 @@ export function AppSidebar() {
       icon: <DollarSign className="w-5 h-5" /> 
     },
     // Only show Users menu item for admin users
-    ...(isAdmin ? [{ 
+    ...(isAdminUser ? [{ 
       path: '/users', 
       label: 'Users', 
       icon: <UserCheck className="w-5 h-5" /> 
@@ -165,11 +175,12 @@ export function AppSidebar() {
   ];
 
   const settingsMenuItems = [
-    { 
+    // Only show Settings for admin users
+    ...(isAdminUser ? [{ 
       path: '/settings', 
       label: 'Settings', 
       icon: <Settings className="w-5 h-5" /> 
-    }
+    }] : [])
   ];
 
   const isActive = (path: string) => {

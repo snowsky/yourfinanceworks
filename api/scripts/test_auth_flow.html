@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Flow Test</title>
+</head>
+<body>
+    <h1>Authentication Flow Test</h1>
+    
+    <div>
+        <h2>Login Test</h2>
+        <button onclick="testLogin()">Test Login with Regular User</button>
+        <button onclick="checkAuth()">Check Auth Status</button>
+        <button onclick="clearAuth()">Clear Auth</button>
+    </div>
+    
+    <div id="output"></div>
+    
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+        
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<p>' + JSON.stringify(message) + '</p>';
+            console.log(message);
+        }
+        
+        async function testLogin() {
+            try {
+                log('Starting login test...');
+                
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'testuser@example.com',
+                        password: 'testpassword123'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log('Login successful!');
+                log('Response data: ' + JSON.stringify(data, null, 2));
+                
+                // Store in localStorage like the actual app
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                log('Stored in localStorage');
+                
+                // Test the auth utilities
+                checkAuth();
+                
+            } catch (error) {
+                log('Login failed: ' + error.message);
+            }
+        }
+        
+        function checkAuth() {
+            log('Checking authentication...');
+            
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            log('Token exists: ' + !!token);
+            log('User exists: ' + !!user);
+            
+            if (user) {
+                try {
+                    const userData = JSON.parse(user);
+                    log('User data: ' + JSON.stringify(userData, null, 2));
+                    log('User role: ' + userData.role);
+                } catch (e) {
+                    log('Error parsing user data: ' + e.message);
+                }
+            }
+        }
+        
+        function clearAuth() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            log('Auth cleared');
+        }
+    </script>
+</body>
+</html> 

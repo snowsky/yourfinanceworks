@@ -18,6 +18,7 @@ from routers.payments import Payment
 from models.models import Tenant, MasterUser
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
+from utils.rbac import require_admin
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ def get_settings(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get tenant settings (using tenant info as settings)"""
+    # Only admins can view settings
+    require_admin(current_user, "view settings")
+    
+    
     tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -63,6 +68,10 @@ def update_settings(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update tenant settings"""
+    # Only admins can update settings
+    require_admin(current_user, "update settings")
+    
+    
     tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -93,6 +102,9 @@ def export_tenant_data(
     master_db: Session = Depends(get_master_db)
 ):
     """Export tenant data to a JSON file"""
+    # Only admins can export data
+    require_admin(current_user, "export data")
+    
     try:
         # Get tenant record from master database
         tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
@@ -165,11 +177,7 @@ async def import_tenant_data(
     """Import data from an uploaded SQLite file"""
     try:
         # Only tenant admins can import data
-        if current_user.role != "admin":
-            raise HTTPException(
-                status_code=403, 
-                detail="Only tenant admins can import data"
-            )
+        require_admin(current_user, "import data")
         
         # Validate file type
         if not file.filename or not file.filename.endswith('.sqlite'):
@@ -418,6 +426,9 @@ def upload_company_logo(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Upload a company logo image and return its public URL (per-tenant directory)."""
+    # Only admins can upload company logo
+    require_admin(current_user, "upload company logo")
+    
     # Only allow image files
     if not file.content_type or not file.content_type.startswith("image/"):
         logger.error(f"Rejected upload: not an image file. Content-Type: {file.content_type}")

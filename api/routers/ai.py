@@ -589,7 +589,7 @@ This comprehensive payment information was retrieved using your actual payment d
                     except Exception as e:
                         print(f"MCP Integration: Error calling list_clients: {e}")
                         result = {"success": False, "error": str(e)}
-                
+
                 if result.get("success"):
                     clients = result.get("data", [])
                     if clients:

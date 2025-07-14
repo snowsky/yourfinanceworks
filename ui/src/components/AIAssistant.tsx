@@ -8,6 +8,8 @@ import { Send, Bot, Maximize2, Minimize2, Sparkles, MessageCircle, X } from 'luc
 import { useQuery } from '@tanstack/react-query';
 import { api, aiApi } from '@/lib/api'; // Import both api and aiApi
 import PaymentCharts from './PaymentCharts';
+import { isAdmin, getCurrentUser } from '@/utils/auth';
+import { createSettingsQueryOptions } from '@/utils/query';
 
 interface Message {
   id: number;
@@ -158,7 +160,32 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     }
   }, [currentAuth, isAuthenticated]);
 
-  // Fetch user settings to check the enable_ai_assistant flag
+  // Get current user data from localStorage
+  const user = getCurrentUser();
+  const userRole = user?.role || 'user';
+  const isAdminUser = userRole === 'admin';
+
+  console.log('AI Assistant: User check:', { 
+    isAuthenticated, 
+    user, 
+    userRole, 
+    isAdminUser,
+    shouldFetchSettings: isAuthenticated && isAdminUser 
+  });
+
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    console.log('AI Assistant: Not rendering - not authenticated');
+    return null;
+  }
+
+  // Don't render anything if user is not admin
+  if (!isAdminUser) {
+    console.log('AI Assistant: Not rendering - user is not admin');
+    return null;
+  }
+
+  // Fetch user settings to check the enable_ai_assistant flag (only for admin users)
   const { data: settings, isLoading: settingsLoading, error: settingsError, refetch: refetchSettings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings/'),
@@ -175,7 +202,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     refetchOnWindowFocus: true, // Refetch when window gains focus
     refetchOnMount: true, // Always refetch on mount
     staleTime: 0, // Consider data immediately stale to ensure fresh data
-    enabled: isAuthenticated, // Only run query when authenticated
+    enabled: isAuthenticated && isAdminUser, // Only run query when authenticated and user is admin
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('403') || error.message.includes('Authentication failed')) {
@@ -240,13 +267,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     componentWillRender: isAuthenticated && !settingsLoading
   });
 
-  // Don't render anything if not authenticated
-  if (!isAuthenticated) {
-    console.log('AI Assistant: Not rendering - not authenticated');
-    return null;
-  }
-
-  const isAIAssistantEnabled = settings && (settings as any).enable_ai_assistant;
+  const isAIAssistantEnabled = isAdminUser && settings && (settings as any).enable_ai_assistant;
   const defaultAIConfig = aiConfigs && Array.isArray(aiConfigs) ? 
     (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) : 
     undefined;

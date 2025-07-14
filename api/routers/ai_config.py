@@ -5,6 +5,7 @@ from models.database import get_db
 from routers.auth import get_current_user
 from models.models_per_tenant import User, AIConfig as AIConfigModel
 from schemas.ai_config import AIConfigCreate, AIConfigUpdate, AIConfig as AIConfigSchema
+from utils.rbac import require_admin
 
 router = APIRouter(
     prefix="/ai-config",
@@ -31,11 +32,7 @@ def create_ai_config(
 ):
     """Create a new AI configuration"""
     # Only tenant admins can create AI configs
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=403, 
-            detail="Only tenant admins can create AI configurations"
-        )
+    require_admin(current_user, "create AI configurations")
     
     # If this is set as default, unset other defaults
     if config.is_default:
@@ -60,11 +57,7 @@ def update_ai_config(
 ):
     """Update an AI configuration"""
     # Only tenant admins can update AI configs
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=403, 
-            detail="Only tenant admins can update AI configurations"
-        )
+    require_admin(current_user, "update AI configurations")
     
     # No tenant_id filtering needed since we're in the tenant's database
     db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
@@ -97,11 +90,7 @@ def delete_ai_config(
 ):
     """Delete an AI configuration"""
     # Only tenant admins can delete AI configs
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=403, 
-            detail="Only tenant admins can delete AI configurations"
-        )
+    require_admin(current_user, "delete AI configurations")
     
     # No tenant_id filtering needed since we're in the tenant's database
     db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()

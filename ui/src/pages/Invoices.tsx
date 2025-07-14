@@ -12,6 +12,7 @@ import { invoiceApi, Invoice } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from '@/lib/utils';
+import { canPerformActions } from "@/utils/auth";
 
 const formatStatus = (status: string) => {
   return status.split('_').map(word => 
@@ -23,6 +24,9 @@ const Invoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Check if user can perform actions (not a viewer)
+  const canPerformAction = canPerformActions();
   const [statusFilter, setStatusFilter] = useState("all");
   
   useEffect(() => {
@@ -63,11 +67,13 @@ const Invoices = () => {
             <h1 className="text-3xl font-bold">Invoices</h1>
             <p className="text-muted-foreground">Create and manage your invoices</p>
           </div>
-          <Link to="/invoices/new">
-            <Button className="sm:self-end whitespace-nowrap">
-              <Plus className="mr-2 h-4 w-4" /> New Invoice
-            </Button>
-          </Link>
+          {canPerformAction && (
+            <Link to="/invoices/new">
+              <Button className="sm:self-end whitespace-nowrap">
+                <Plus className="mr-2 h-4 w-4" /> New Invoice
+              </Button>
+            </Link>
+          )}
         </div>
         
         <Card className="slide-in">
@@ -167,11 +173,13 @@ const Invoices = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Link to={`/invoices/edit/${invoice.id}`}>
-                            <Button variant="ghost" size="icon">
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </Link>
+                          {canPerformAction && (
+                            <Link to={`/invoices/edit/${invoice.id}`}>
+                              <Button variant="ghost" size="icon">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

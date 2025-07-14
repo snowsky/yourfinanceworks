@@ -11,6 +11,7 @@ from models.models_per_tenant import Client, User, Invoice
 from routers.payments import Payment
 from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
+from utils.rbac import require_non_viewer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -169,6 +170,9 @@ def create_client(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Check if user has permission to create clients
+    require_non_viewer(current_user, "create clients")
+    
     try:
         # Check for existing client with same name and email to prevent duplicates
         existing_client = db.query(Client).filter(
@@ -210,6 +214,9 @@ def update_client(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Check if user has permission to update clients
+    require_non_viewer(current_user, "update clients")
+    
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_client = db.query(Client).filter(

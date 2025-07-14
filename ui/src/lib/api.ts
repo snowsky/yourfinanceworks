@@ -240,15 +240,23 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
       }
 
       // Handle authentication errors
-      if (!config.isLogin && (response.status === 401 || response.status === 403)) {
-        // Clear invalid token and user
+      if (!config.isLogin && response.status === 401) {
+        // Only log out on 401 (unauthorized) - token is invalid/expired
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         // Show toast and redirect to login
-        toast.error('Session expired or unauthorized. Please log in again.');
+        toast.error('Session expired. Please log in again.');
         // Use window.location.replace for reliability
         window.location.replace('/login');
         throw new Error('Authentication failed. Please log in again.');
+      }
+      
+      // Handle 403 (forbidden) errors without logging out
+      if (response.status === 403) {
+        // User is authenticated but lacks permissions - don't log out
+        console.log('403 Forbidden - User lacks permissions for this resource');
+        // Just throw the error without auto-logout
+        throw new Error(errorData.detail || 'Access denied. You do not have permission to access this resource.');
       }
 
       // Better handle validation errors (422)

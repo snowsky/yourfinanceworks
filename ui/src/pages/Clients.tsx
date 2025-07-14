@@ -9,6 +9,7 @@ import { clientApi, Client } from "@/lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { canPerformActions } from "@/utils/auth";
 
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -16,6 +17,9 @@ const Clients = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Check if user can perform actions (not a viewer)
+  const canPerformAction = canPerformActions();
   
   useEffect(() => {
     const fetchClients = async () => {
@@ -68,11 +72,13 @@ const Clients = () => {
             <h1 className="text-3xl font-bold">Clients</h1>
             <p className="text-muted-foreground">Manage your client information and balances</p>
           </div>
-          <Link to="/clients/new">
-            <Button className="sm:self-end whitespace-nowrap">
-              <Plus className="mr-2 h-4 w-4" /> Add Client
-            </Button>
-          </Link>
+          {canPerformAction && (
+            <Link to="/clients/new">
+              <Button className="sm:self-end whitespace-nowrap">
+                <Plus className="mr-2 h-4 w-4" /> Add Client
+              </Button>
+            </Link>
+          )}
         </div>
         
         <Card className="slide-in">
@@ -131,18 +137,22 @@ const Clients = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Link to={`/clients/edit/${client.id}`}>
-                              <Button variant="ghost" size="icon">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => setClientToDelete(client)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                            {canPerformAction && (
+                              <>
+                                <Link to={`/clients/edit/${client.id}`}>
+                                  <Button variant="ghost" size="icon">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => setClientToDelete(client)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

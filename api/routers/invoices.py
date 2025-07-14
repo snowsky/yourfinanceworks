@@ -14,6 +14,7 @@ from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSche
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
 from utils.invoice import generate_invoice_number
+from utils.rbac import require_non_viewer, require_admin
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,9 @@ def create_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Check if user has permission to create invoices
+    require_non_viewer(current_user, "create invoices")
+    
     try:
         # Generate unique invoice number
         # No tenant_id needed since we're in the tenant's database
@@ -246,11 +250,7 @@ def empty_recycle_bin(
     """Empty the entire recycle bin (admin only)"""
     try:
         # Only admins can empty the recycle bin
-        if current_user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Only administrators can empty the recycle bin"
-            )
+        require_admin(current_user, "empty the recycle bin")
         
         # Get all deleted invoices
         deleted_invoices = db.query(Invoice).filter(Invoice.is_deleted == True).all()
@@ -375,11 +375,7 @@ def permanently_delete_invoice(
             )
         
         # Only admins can permanently delete invoices
-        if current_user.role != "admin":
-            raise HTTPException(
-                status_code=403,
-                detail="Only administrators can permanently delete invoices"
-            )
+        require_admin(current_user, "permanently delete invoices")
         
         # Log the permanent deletion before deleting
         from models.models_per_tenant import InvoiceHistory
@@ -504,6 +500,9 @@ def update_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Check if user has permission to update invoices
+    require_non_viewer(current_user, "update invoices")
+    
     try:
         # No tenant_id filtering needed since we're in the tenant's database (exclude soft-deleted)
         db_invoice = db.query(Invoice).filter(

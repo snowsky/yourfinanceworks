@@ -16,7 +16,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
-    console.log('ProtectedRoute: Checking authentication', { token: !!token, user: !!user });
+    console.log('ProtectedRoute: Checking authentication', { 
+      token: !!token, 
+      user: !!user,
+      tokenLength: token?.length,
+      userLength: user?.length,
+      path: location.pathname
+    });
 
     if (!token || !user) {
       console.log('ProtectedRoute: No token or user found, redirecting to login');
@@ -28,12 +34,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     try {
       // Validate that user data is valid JSON
-      JSON.parse(user);
-      console.log('ProtectedRoute: Authentication valid');
+      const userData = JSON.parse(user);
+      console.log('ProtectedRoute: Authentication valid', { 
+        userData,
+        role: userData?.role,
+        email: userData?.email 
+      });
       setIsAuthenticated(true);
       setIsLoading(false);
     } catch (error) {
-      console.log('ProtectedRoute: Invalid user data, clearing and redirecting');
+      console.log('ProtectedRoute: Invalid user data, clearing and redirecting', { error });
       // Invalid user data, clear and redirect
       localStorage.removeItem('token');
       localStorage.removeItem('user');

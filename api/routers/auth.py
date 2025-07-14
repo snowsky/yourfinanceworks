@@ -15,6 +15,7 @@ from utils.auth import verify_password, get_password_hash
 from models.models_per_tenant import User as TenantUser
 from services.tenant_database_manager import tenant_db_manager
 from middleware.tenant_context_middleware import set_tenant_context
+from utils.rbac import require_admin
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -288,8 +289,7 @@ def invite_user(
 ):
     """Invite a user to the organization (admin only)"""
     # Check if current user is admin
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can invite users")
+    require_admin(current_user, "invite users")
     
     # Check if user already exists
     existing_user = db.query(MasterUser).filter(
@@ -357,8 +357,7 @@ def list_invites(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """List all invites for the organization (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can view invites")
+    require_admin(current_user, "view invites")
     
     invites = db.query(Invite).filter(
         Invite.tenant_id == current_user.tenant_id
@@ -458,8 +457,7 @@ def list_users(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """List all users in the organization (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can view users")
+    require_admin(current_user, "view users")
     
     users = db.query(MasterUser).filter(
         MasterUser.tenant_id == current_user.tenant_id
@@ -475,8 +473,7 @@ def update_user_role(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update user role (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can update user roles")
+    require_admin(current_user, "update user roles")
     
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot update your own role")
@@ -518,8 +515,7 @@ def admin_activate_user(
 ):
     """Admin activates a pending invite by setting password and creating user account"""
     # Check if current user is admin
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can activate users")
+    require_admin(current_user, "activate users")
     
     # Find the invite
     invite = db.query(Invite).filter(
