@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 import logging
 from sqlalchemy.engine.url import make_url
 
-from models.models import Base, User, Tenant, Client, Invoice, Payment, Settings
+from models.models import Base, User, Tenant, Client, Invoice, Settings
+from routers.payments import Payment
 from models.database import SQLALCHEMY_DATABASE_URL
 from utils.auth import get_password_hash
 
@@ -128,7 +129,6 @@ def init_db():
                 reference_number="REF-001",
                 notes="Sample payment",
                 invoice_id=sample_invoice.id,
-                tenant_id=default_tenant.id,
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )

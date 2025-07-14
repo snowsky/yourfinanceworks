@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Bot } from 'lucide-react';
+import { Send, Bot, Maximize2, Minimize2, Sparkles, MessageCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api, aiApi } from '@/lib/api'; // Import both api and aiApi
+import PaymentCharts from './PaymentCharts';
 
 interface Message {
   id: number;
@@ -14,10 +15,87 @@ interface Message {
   text: string | React.ReactNode;
 }
 
+// Styled AI Response Component
+const StyledAIResponse = ({ children }: { children: React.ReactNode }) => (
+  <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 rounded-xl border border-indigo-200 shadow-lg">
+    <div className="flex items-start gap-3">
+      <div className="bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full p-2 shadow-md">
+        <Sparkles className="h-4 w-4 text-white" />
+      </div>
+      <div className="flex-1">
+        <div className="text-gray-800 leading-relaxed">
+          {children}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Enhanced AI Response with different styles based on content
+const EnhancedAIResponse = ({ text }: { text: string }) => {
+  // Check if the response contains specific patterns to apply different styling
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes('error') || lowerText.includes('sorry') || lowerText.includes('failed')) {
+    return (
+      <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-xl border border-red-200 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="bg-gradient-to-br from-red-500 to-pink-500 rounded-full p-2 shadow-md">
+            <MessageCircle className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-red-800 leading-relaxed font-medium">
+              {text}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (lowerText.includes('success') || lowerText.includes('great') || lowerText.includes('excellent')) {
+    return (
+      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-full p-2 shadow-md">
+            <Sparkles className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-green-800 leading-relaxed font-medium">
+              {text}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (lowerText.includes('configuration') || lowerText.includes('settings')) {
+    return (
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full p-2 shadow-md">
+            <MessageCircle className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="text-blue-800 leading-relaxed">
+              {text}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Default styled response
+  return <StyledAIResponse>{text}</StyledAIResponse>;
+};
+
 const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(
-    [{ id: 1, sender: 'ai', text: "Hello! I'm your AI Assistant. Look for the sleek gradient bot icon in the bottom right corner to chat with me anytime! 🤖✨" }]
+    [{ id: 1, sender: 'ai', text: <EnhancedAIResponse text="Hello! I'm your AI Assistant. Look for the sleek gradient bot icon in the bottom right corner to chat with me anytime! 🤖✨" /> }]
   );
   const [input, setInput] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -198,7 +276,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     if (!messageText) setInput('');
 
     // Show typing indicator
-    const typingMessage: Message = { id: messages.length + 2, sender: 'ai', text: "Thinking..." };
+    const typingMessage: Message = { id: messages.length + 2, sender: 'ai', text: <EnhancedAIResponse text="Thinking..." /> };
     setMessages((prev) => [...prev, typingMessage]);
 
     try {
@@ -228,23 +306,73 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
                     .join(', ');
             };
 
-            const analysisText = `
-**Invoice Pattern Analysis**
-
-📊 **Summary:**
-- Total Invoices: ${data.total_invoices}
-- Paid Invoices: ${data.paid_invoices}
-- Partially Paid Invoices: ${data.partially_paid_invoices || 0}
-- Unpaid Invoices: ${data.unpaid_invoices}
-- Overdue Invoices: ${data.overdue_invoices}
-- Total Revenue: ${formatRevenueByCurrency(data.total_revenue_by_currency)}
-- Outstanding Revenue: ${formatRevenueByCurrency(data.outstanding_revenue_by_currency)}
-
-💡 **Recommendations:**
-${data.recommendations.map((rec: string) => `- ${rec}`).join('\n')}
-            `.trim();
+            const analysisComponent = (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+                  <h3 className="text-lg font-bold text-blue-900 mb-3 flex items-center">
+                    📊 Invoice Pattern Analysis
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <h4 className="font-semibold text-gray-800 mb-2">📈 Summary</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Total Invoices:</span>
+                          <span className="font-medium">{data.total_invoices}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Paid Invoices:</span>
+                          <span className="font-medium text-green-600">{data.paid_invoices}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Partially Paid:</span>
+                          <span className="font-medium text-yellow-600">{data.partially_paid_invoices || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Unpaid Invoices:</span>
+                          <span className="font-medium text-red-600">{data.unpaid_invoices}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Overdue Invoices:</span>
+                          <span className="font-medium text-red-600">{data.overdue_invoices}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <h4 className="font-semibold text-gray-800 mb-2">💰 Revenue</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Total Revenue:</span>
+                          <span className="font-medium text-green-600">{formatRevenueByCurrency(data.total_revenue_by_currency)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Outstanding:</span>
+                          <span className="font-medium text-orange-600">{formatRevenueByCurrency(data.outstanding_revenue_by_currency)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-800 mb-2 flex items-center">
+                      💡 Recommendations
+                    </h4>
+                    <ul className="space-y-1 text-sm">
+                      {data.recommendations.map((rec: string, index: number) => (
+                        <li key={index} className="flex items-start">
+                          <span className="text-green-600 mr-2">•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
             
-            setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: analysisText }]);
+            setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: analysisComponent }]);
           } else {
             throw new Error('Failed to analyze patterns');
           }
@@ -266,24 +394,97 @@ ${data.recommendations.map((rec: string) => `- ${rec}`).join('\n')}
           
           if (response.success) {
             const data = response.data;
-            const actionsText = `
-**Suggested Actions**
-
-🎯 **Recommended Actions:**
-${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.description} (Priority: ${action.priority})`).join('\n')}
-
-📈 **Summary:**
-- Overdue Invoices: ${data.overdue_count}
-- Clients with Balance: ${data.clients_with_balance}
-- Recent Invoices: ${data.recent_invoices_count}
-            `.trim();
+            const actionsComponent = (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg border border-pink-200">
+                  <h3 className="text-lg font-bold text-pink-900 mb-3 flex items-center">
+                    🎯 Suggested Actions
+                  </h3>
+                  
+                  <div className="space-y-3 mb-4">
+                    {data.suggested_actions.map((action: any, index: number) => (
+                      <div key={index} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-pink-400">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-800 mb-1">{action.action}</h4>
+                            <p className="text-sm text-gray-600">{action.description}</p>
+                          </div>
+                          <div className="ml-3">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              action.priority === 'high' ? 'bg-red-100 text-red-800' :
+                              action.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {action.priority} priority
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+                      📈 Quick Summary
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div className="bg-white p-2 rounded text-center">
+                        <div className="text-2xl font-bold text-red-600">{data.overdue_count}</div>
+                        <div className="text-xs text-gray-600">Overdue Invoices</div>
+                      </div>
+                      <div className="bg-white p-2 rounded text-center">
+                        <div className="text-2xl font-bold text-orange-600">{data.clients_with_balance}</div>
+                        <div className="text-xs text-gray-600">Clients with Balance</div>
+                      </div>
+                      <div className="bg-white p-2 rounded text-center">
+                        <div className="text-2xl font-bold text-blue-600">{data.recent_invoices_count}</div>
+                        <div className="text-xs text-gray-600">Recent Invoices</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
             
-            setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: actionsText }]);
+            setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: actionsComponent }]);
           } else {
             throw new Error('Failed to get suggestions');
           }
         } catch (error) {
           console.error('AI Assistant: Error calling suggest-actions:', error);
+          throw error;
+        }
+      } else if (lowerText.includes('payment') || lowerText.includes('payments')) {
+        // Handle payment data display with charts
+        console.log('AI Assistant: Using payments endpoint with charts');
+        try {
+          const response = await api.get('/payments/') as any;
+          console.log('AI Assistant: Payments response:', response);
+          
+          if (response.success && response.chart_data && Array.isArray(response.data)) {
+            const paymentCharts = (
+              <div className="mt-4">
+                <PaymentCharts 
+                  chartData={response.chart_data} 
+                  payments={response.data} 
+                />
+              </div>
+            );
+            
+            setMessages((prev) => [...prev.slice(0, -1), { 
+              id: prev.length, 
+              sender: 'ai', 
+              text: (
+                <div>
+                  {paymentCharts}
+                </div>
+              )
+            }]);
+          } else {
+            throw new Error('Failed to get payment data');
+          }
+        } catch (error) {
+          console.error('AI Assistant: Error calling payments endpoint:', error);
           throw error;
         }
       } else {
@@ -302,7 +503,7 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
 
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
-          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: aiResponse }]);
+          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={aiResponse} /> }]);
         } else {
           throw new Error('Failed to get AI response');
         }
@@ -310,7 +511,7 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
     } catch (error) {
       console.error("Error getting AI response:", error);
       const errorMessage = "Sorry, I encountered an error. Please try again or check your AI configuration.";
-      setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: errorMessage }]);
+      setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={errorMessage} /> }]);
     }
   };
 
@@ -319,46 +520,72 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
     handleSendMessage(action);
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <TooltipProvider>
         <Dialog open={isOpen} onOpenChange={setIsOpen} className="[&_[data-radix-dialog-overlay]]:bg-black/20">
           <DialogTrigger asChild>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform duration-200 border-4 border-white/40 backdrop-blur-lg"
-                  style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}
-                  onClick={() => setIsOpen(true)}
-                >
-                  <Bot className="h-10 w-10 text-white drop-shadow-lg" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>AI Assistant</p>
-              </TooltipContent>
-            </Tooltip>
+            <Button
+              className="rounded-full w-20 h-20 shadow-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 hover:scale-105 transition-transform duration-200 border-4 border-white/40 backdrop-blur-lg"
+              style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)' }}
+              onClick={() => setIsOpen(true)}
+            >
+              <Bot className="h-10 w-10 text-white drop-shadow-lg" />
+            </Button>
           </DialogTrigger>
-          <DialogContent className="w-full max-w-[600px] h-[80vh] max-h-[800px] flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in [&>div]:rounded-3xl [&>div]:bg-transparent">
+          <DialogContent className={`w-full flex flex-col p-0 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border-0 overflow-hidden animate-fade-in [&>div]:rounded-3xl [&>div]:bg-transparent ${
+            isFullscreen 
+              ? 'max-w-[95vw] h-[95vh] max-h-[95vh]' 
+              : 'max-w-[600px] h-[80vh] max-h-[800px]'
+          }`}>
             <DialogTitle className="sr-only">Invoice AI Assistant Chat</DialogTitle>
-            <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 p-6 flex items-center gap-4 rounded-t-3xl shadow-md">
-              <div className="bg-white/30 rounded-full p-3 shadow-lg">
-                <Bot className="h-10 w-10 text-white" />
+            <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 p-6 flex items-center justify-between rounded-t-3xl shadow-md">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/30 rounded-full p-3 shadow-lg">
+                  <Bot className="h-10 w-10 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
+                  <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
-                <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFullscreen}
+                className="text-white hover:text-white/80 hover:bg-white/20 rounded-full p-2 transition-all duration-200"
+                title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-5 w-5" />
+                ) : (
+                  <Maximize2 className="h-5 w-5" />
+                )}
+              </Button>
             </div>
             <ScrollArea ref={scrollAreaRef} className="flex-grow px-6 py-4 overflow-y-auto">
               <div className="flex flex-col space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`px-4 py-3 rounded-2xl max-w-[80%] shadow-md transition-all duration-200 ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white self-end animate-bounce-in-right' : 'bg-white/80 text-gray-900 self-start animate-bounce-in-left border border-gray-200'}`}
+                    className={`max-w-[80%] transition-all duration-200 ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-purple-500 text-white self-end animate-bounce-in-right px-4 py-3 rounded-2xl shadow-md' : 'self-start animate-bounce-in-left'}`}
                     style={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}
                   >
-                    {msg.text}
+                    {msg.sender === 'user' ? (
+                      <div className="px-4 py-3 rounded-2xl shadow-md">
+                        {msg.text}
+                      </div>
+                    ) : (
+                      typeof msg.text === 'string' ? (
+                        <EnhancedAIResponse text={msg.text} />
+                      ) : (
+                        msg.text
+                      )
+                    )}
                   </div>
                 ))}
                 <div ref={messagesEndRef} />
@@ -378,6 +605,13 @@ ${data.suggested_actions.map((action: any) => `- **${action.action}**: ${action.
                 onClick={() => handleQuickAction('Suggest actions')}
               >
                 Suggest Actions
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl bg-gradient-to-r from-green-100 to-blue-100 text-green-700 font-semibold shadow hover:from-green-200 hover:to-blue-200"
+                onClick={() => handleQuickAction('Show payment charts')}
+              >
+                Payment Charts
               </Button>
             </div>
             <div className="flex items-center px-6 pb-6 pt-2 gap-2">

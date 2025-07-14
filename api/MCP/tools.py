@@ -364,6 +364,9 @@ class InvoiceTools:
         try:
             payments = await self.api_client.list_payments(skip=skip, limit=limit)
             
+            # Prepare chart data
+            chart_data = self._prepare_payment_chart_data(payments)
+            
             return {
                 "success": True,
                 "data": payments,
@@ -371,11 +374,78 @@ class InvoiceTools:
                 "pagination": {
                     "skip": skip,
                     "limit": limit
-                }
+                },
+                "chart_data": chart_data
             }
             
         except Exception as e:
             return {"success": False, "error": f"Failed to list payments: {e}"}
+    
+    def _prepare_payment_chart_data(self, payments: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Prepare payment data for charts"""
+        try:
+            from datetime import datetime
+            from collections import defaultdict
+            
+            # Group payments by date for timeline chart
+            payments_by_date = defaultdict(float)
+            payments_by_method = defaultdict(float)
+            payments_by_invoice = defaultdict(list)
+            
+            for payment in payments:
+                # Date grouping
+                if payment.get('payment_date'):
+                    try:
+                        payment_date = datetime.fromisoformat(str(payment['payment_date'])).strftime('%Y-%m-%d')
+                        payments_by_date[payment_date] += float(payment.get('amount', 0))
+                    except:
+                        pass
+                
+                # Payment method grouping
+                method = payment.get('payment_method', 'unknown')
+                payments_by_method[method] += float(payment.get('amount', 0))
+                
+                # Invoice grouping
+                invoice_id = payment.get('invoice_id')
+                if invoice_id:
+                    payments_by_invoice[invoice_id].append({
+                        'id': payment.get('id'),
+                        'amount': payment.get('amount'),
+                        'date': payment.get('payment_date'),
+                        'method': payment.get('payment_method')
+                    })
+            
+            # Prepare chart datasets
+            timeline_data = [
+                {'date': date, 'amount': amount} 
+                for date, amount in sorted(payments_by_date.items())
+            ]
+            
+            method_data = [
+                {'method': method, 'amount': amount} 
+                for method, amount in payments_by_method.items()
+            ]
+            
+            # Calculate summary stats
+            total_amount = sum(float(p.get('amount', 0)) for p in payments)
+            avg_amount = total_amount / len(payments) if payments else 0
+            
+            return {
+                'timeline': timeline_data,
+                'by_method': method_data,
+                'summary': {
+                    'total_amount': total_amount,
+                    'total_payments': len(payments),
+                    'average_amount': avg_amount,
+                    'date_range': {
+                        'earliest': min(payments_by_date.keys()) if payments_by_date else None,
+                        'latest': max(payments_by_date.keys()) if payments_by_date else None
+                    }
+                }
+            }
+            
+        except Exception as e:
+            return {'error': f'Failed to prepare chart data: {e}'}
     
     async def query_payments(self, query: str) -> Dict[str, Any]:
         """Query payments using natural language (e.g., 'payments yesterday', 'payments this week')"""

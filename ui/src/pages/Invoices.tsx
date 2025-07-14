@@ -47,11 +47,11 @@ const Invoices = () => {
     fetchInvoices();
   }, [statusFilter]);
   
-  const filteredInvoices = invoices.filter(invoice => {
+  const filteredInvoices = (invoices || []).filter(invoice => {
     const matchesSearch = 
       invoice.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (invoice.client_name && invoice.client_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+
     return matchesSearch;
   });
 

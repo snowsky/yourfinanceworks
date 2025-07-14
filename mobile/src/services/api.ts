@@ -514,7 +514,8 @@ class ApiService {
 
   // Payment Methods
   async getPayments(): Promise<Payment[]> {
-    return await this.request<Payment[]>('/payments/');
+    const response = await this.request<{ success: boolean; data: Payment[]; count: number; chart_data: any }>('/payments/');
+    return response.data || [];
   }
 
   async createPayment(paymentData: Partial<Payment>): Promise<Payment> {
@@ -603,9 +604,9 @@ class ApiService {
       });
 
       // Count invoices by status
-      const invoicesPaid = invoices.filter(inv => inv.status === 'paid').length;
-      const invoicesPending = invoices.filter(inv => inv.status === 'pending').length;
-      const invoicesOverdue = invoices.filter(inv => inv.status === 'overdue').length;
+      const invoicesPaid = (invoices || []).filter(inv => inv.status === 'paid').length;
+      const invoicesPending = (invoices || []).filter(inv => inv.status === 'pending').length;
+      const invoicesOverdue = (invoices || []).filter(inv => inv.status === 'overdue').length;
 
       // Calculate trends (current month vs previous month)
       const now = new Date();
@@ -616,7 +617,7 @@ class ApiService {
 
       // Helper function to calculate monthly totals
       const calculateMonthlyTotal = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -628,7 +629,7 @@ class ApiService {
 
       // Helper function to calculate monthly pending
       const calculateMonthlyPending = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -644,7 +645,7 @@ class ApiService {
       // Helper function to calculate monthly clients
       const calculateMonthlyClients = (targetMonth: number, targetYear: number) => {
         const clientIds = new Set();
-        invoices
+        (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -656,7 +657,7 @@ class ApiService {
 
       // Helper function to calculate monthly overdue
       const calculateMonthlyOverdue = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 

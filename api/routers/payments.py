@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from typing import List, Dict, Any
 import logging
 import traceback
 from datetime import datetime, date, timezone
+from collections import defaultdict
 
 from models.database import get_db
-from models.models_per_tenant import Payment, Invoice, Client, User
+from models.models_per_tenant import Invoice, Client, User
 from schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSchema, PaymentWithInvoice
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
@@ -15,9 +18,96 @@ from services.currency_service import CurrencyService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _prepare_payment_chart_data(payments: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Prepare payment data for charts"""
+    try:
+        # Group payments by date for timeline chart
+        payments_by_date = defaultdict(float)
+        payments_by_method = defaultdict(float)
+        
+        for payment in payments:
+            # Date grouping
+            if payment.get('payment_date'):
+                try:
+                    payment_date = payment['payment_date']
+                    if isinstance(payment_date, str):
+                        payment_date = datetime.fromisoformat(payment_date).strftime('%Y-%m-%d')
+                    else:
+                        payment_date = payment_date.strftime('%Y-%m-%d')
+                    payments_by_date[payment_date] += float(payment.get('amount', 0))
+                except Exception as e:
+                    logger.warning(f"Error processing payment date: {e}")
+                    continue
+            
+            # Payment method grouping
+            method = payment.get('payment_method', 'unknown')
+            payments_by_method[method] += float(payment.get('amount', 0))
+        
+        # Prepare chart datasets
+        timeline_data = [
+            {'date': date, 'amount': amount} 
+            for date, amount in sorted(payments_by_date.items())
+        ]
+        
+        method_data = [
+            {'method': method, 'amount': amount} 
+            for method, amount in payments_by_method.items()
+        ]
+        
+        # Calculate summary stats
+        total_amount = sum(float(p.get('amount', 0)) for p in payments)
+        avg_amount = total_amount / len(payments) if payments else 0
+        
+        return {
+            'timeline': timeline_data,
+            'by_method': method_data,
+            'summary': {
+                'total_amount': total_amount,
+                'total_payments': len(payments),
+                'average_amount': avg_amount,
+                'date_range': {
+                    'earliest': min(payments_by_date.keys()) if payments_by_date else None,
+                    'latest': max(payments_by_date.keys()) if payments_by_date else None
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error preparing chart data: {e}")
+        return {
+            'timeline': [],
+            'by_method': [],
+            'summary': {
+                'total_amount': 0,
+                'total_payments': 0,
+                'average_amount': 0,
+                'date_range': {
+                    'earliest': None,
+                    'latest': None
+                }
+            }
+        }
+
+# Create a simple Payment model that matches the actual database schema
+Base = declarative_base()
+
+class Payment(Base):
+    __tablename__ = "payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    amount = Column(Float, nullable=False)
+    currency = Column(String, default="USD", nullable=False)
+    payment_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    payment_method = Column(String, nullable=False, default="system")
+    reference_number = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-@router.get("/", response_model=List[PaymentWithInvoice])
+@router.get("/")
 def read_payments(
     skip: int = 0,
     limit: int = 100,
@@ -25,8 +115,7 @@ def read_payments(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Get payments with invoice and client information
-        # No tenant_id filtering needed since we're in the tenant's database
+        # Get payments with invoice and client information using ORM
         payments = db.query(
             Payment,
             Invoice.number.label('invoice_number'),
@@ -40,11 +129,14 @@ def read_payments(
         # Convert to response format
         result = []
         for payment, invoice_number, client_name in payments:
+            # Use "Unknown User" since we're not tracking user_id in the database
+            user_name = "Unknown User"
+            
             payment_dict = {
                 "id": payment.id,
                 "amount": float(payment.amount),
                 "currency": payment.currency,
-                "payment_date": payment.payment_date.date(),  # Convert to date
+                "payment_date": payment.payment_date.date() if payment.payment_date else None,
                 "payment_method": payment.payment_method,
                 "reference_number": payment.reference_number,
                 "notes": payment.notes,
@@ -53,11 +145,20 @@ def read_payments(
                 "client_name": client_name,
                 "created_at": payment.created_at,
                 "updated_at": payment.updated_at,
-                "status": "completed"  # Add status field
+                "status": "completed",
+                "user_name": user_name
             }
             result.append(payment_dict)
 
-        return result
+        # Prepare chart data
+        chart_data = _prepare_payment_chart_data(result)
+        
+        return {
+            "success": True,
+            "data": result,
+            "count": len(result),
+            "chart_data": chart_data
+        }
     except Exception as e:
         logger.error(f"Error in read_payments: {str(e)}")
         logger.error(traceback.format_exc())
@@ -74,7 +175,6 @@ def read_payment(
 ):
     try:
         # Get payment with invoice and client information
-        # No tenant_id filtering needed since we're in the tenant's database
         payment_tuple = db.query(
             Payment,
             Invoice.number.label('invoice_number'),
@@ -94,11 +194,15 @@ def read_payment(
             )
 
         payment, invoice_number, client_name = payment_tuple
+        
+        # Use "Unknown User" since we're not tracking user_id in the database
+        user_name = "Unknown User"
+        
         payment_dict = {
             "id": payment.id,
             "amount": float(payment.amount),
             "currency": payment.currency,
-            "payment_date": payment.payment_date.date(),  # Convert to date
+            "payment_date": payment.payment_date.date() if payment.payment_date else None,
             "payment_method": payment.payment_method,
             "reference_number": payment.reference_number,
             "notes": payment.notes,
@@ -107,7 +211,8 @@ def read_payment(
             "client_name": client_name,
             "created_at": payment.created_at,
             "updated_at": payment.updated_at,
-            "status": "completed"  # Add status field
+            "status": "completed",
+            "user_name": user_name
         }
         return payment_dict
     except HTTPException:
@@ -128,7 +233,6 @@ def create_payment(
 ):
     try:
         # Get the invoice to determine currency
-        # No tenant_id filtering needed since we're in the tenant's database
         invoice = db.query(Invoice).filter(
             Invoice.id == payment.invoice_id
         ).first()
@@ -160,7 +264,7 @@ def create_payment(
         if isinstance(payment_date, date):
             payment_date = datetime.combine(payment_date, datetime.min.time())
         
-        # No tenant_id needed since each tenant has its own database
+        # Create payment using ORM
         db_payment = Payment(
             amount=float(payment.amount),
             currency=payment_currency,
@@ -170,7 +274,7 @@ def create_payment(
             notes=payment.notes,
             invoice_id=payment.invoice_id,
             created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
         )
         db.add(db_payment)
         db.commit()
@@ -195,7 +299,6 @@ def update_payment(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # No tenant_id filtering needed since we're in the tenant's database
         db_payment = db.query(Payment).filter(
             Payment.id == payment_id
         ).first()
@@ -245,7 +348,6 @@ def delete_payment(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # No tenant_id filtering needed since we're in the tenant's database
         db_payment = db.query(Payment).filter(
             Payment.id == payment_id
         ).first()
@@ -257,6 +359,7 @@ def delete_payment(
         
         db.delete(db_payment)
         db.commit()
+        return None
     except HTTPException:
         raise
     except Exception as e:

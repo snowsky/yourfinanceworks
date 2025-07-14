@@ -70,7 +70,7 @@ const PaymentsScreen: React.FC<PaymentsScreenProps> = ({ onNavigateBack }) => {
   };
 
   const filterPayments = () => {
-    let filtered = payments;
+    let filtered = payments || [];
 
     // Apply search filter
     if (searchQuery.trim()) {

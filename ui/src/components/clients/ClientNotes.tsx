@@ -92,7 +92,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
     setDeleting(true);
     try {
       await crmApi.deleteNoteForClient(clientId, noteToDelete.id);
-      setNotes(notes.filter(note => note.id !== noteToDelete.id));
+      setNotes((notes || []).filter(note => note.id !== noteToDelete.id));
       toast.success("Note deleted successfully.");
     } catch (error) {
       toast.error("Failed to delete note.");

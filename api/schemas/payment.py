@@ -28,6 +28,8 @@ class Payment(PaymentBase):
     created_at: datetime
     updated_at: datetime
     status: str = Field(default="completed", description="Payment status")
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
 
     class Config:
         from_attributes = True

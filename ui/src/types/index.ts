@@ -52,4 +52,20 @@ export interface InvoiceHistoryCreate {
   details?: string;
   previous_values?: Record<string, any>;
   current_values?: Record<string, any>;
+}
+
+export interface Payment {
+  id: number;
+  invoice_id: number;
+  amount: number;
+  currency: string;
+  payment_date: string;
+  payment_method: string;
+  reference_number?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  status: string;
+  user_id?: number;
+  user_name?: string;
 } 

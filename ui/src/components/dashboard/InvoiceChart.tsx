@@ -197,8 +197,8 @@ export function InvoiceChart() {
                     return [formattedValue, categoryName];
                 }}
                 />
-                {Array.from(new Set(chartData.flatMap(item => 
-                  Object.keys(item).filter(key => key.startsWith('paid_') || key.startsWith('pending_') || key.startsWith('partiallyPaid_'))
+                {Array.from(new Set((chartData || []).flatMap(item => 
+                  Object.keys(item || {}).filter(key => key.startsWith('paid_') || key.startsWith('pending_') || key.startsWith('partiallyPaid_'))
                     .map(key => key.split('_')[1])
                 ))).map((currency, currencyIndex) => {
                   // Color palette for different currencies

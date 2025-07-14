@@ -94,11 +94,11 @@ export function CurrencyManager() {
     try {
       // Check if currency is used in invoices
       const invoices = await apiRequest<any[]>('/invoices/');
-      const invoiceCount = invoices.filter(invoice => invoice.currency === currencyCode).length;
+      const invoiceCount = (invoices || []).filter(invoice => invoice.currency === currencyCode).length;
       
       // Check if currency is used in payments
       const payments = await apiRequest<any[]>('/payments/');
-      const paymentCount = payments.filter(payment => payment.currency === currencyCode).length;
+      const paymentCount = (payments || []).filter(payment => payment.currency === currencyCode).length;
       
       const totalCount = invoiceCount + paymentCount;
       return { used: totalCount > 0, count: totalCount };

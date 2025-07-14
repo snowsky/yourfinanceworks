@@ -23,7 +23,6 @@ class AIConfigUpdate(BaseModel):
 
 class AIConfig(AIConfigBase):
     id: int
-    tenant_id: int
     created_at: datetime
     updated_at: datetime
 

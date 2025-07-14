@@ -123,7 +123,7 @@ const App: React.FC = () => {
   };
 
   const handleClientDeleted = (clientId: number) => {
-    setClients(prev => prev.filter(client => client.id !== clientId));
+    setClients(prev => (prev || []).filter(client => client.id !== clientId));
   };
 
   const handleNavigateToLogin = () => {

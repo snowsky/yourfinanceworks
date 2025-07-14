@@ -121,6 +121,20 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     setSelectedHistoryEntry(null);
   };
 
+  // Get current user from localStorage
+  const getCurrentUser = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user.name || user.email || 'Current User';
+      }
+    } catch (error) {
+      console.error('Error parsing user from localStorage:', error);
+    }
+    return 'Current User';
+  };
+
   // Fetch update history for the invoice
   const fetchUpdateHistory = useCallback(async (invoiceId: number) => {
     setLoadingHistory(true);
@@ -130,20 +144,41 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       
       // Get all payments for this invoice
       const allPayments = await paymentApi.getPayments();
-      const invoicePayments = allPayments
+      const invoicePayments = (allPayments || [])
         .filter(payment => payment.invoice_id === invoiceId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+      // Get current user for payment history
+      const currentUser = getCurrentUser();
+
       // Create history entries for payments
-      const paymentHistory = invoicePayments.map(payment => ({
-        id: `payment-${payment.id}`,
-        type: 'payment',
-        action: 'Payment Added',
-        amount: payment.amount,
-        date: payment.created_at,
-        details: `${payment.payment_method} - ${payment.reference_number || 'No reference'}`,
-        notes: payment.notes
-      }));
+      // Create payment history entries with appropriate filtering
+      const paymentHistory = invoicePayments
+        .map(payment => {
+          // Determine the action and details based on how the payment was created
+          let action = 'Payment Added';
+          let details = `${payment.payment_method} - ${payment.reference_number || 'No reference'}`;
+          // Always use current user for payment history entries
+          let userName = currentUser;
+          if (payment.notes && payment.notes.includes('Payment entered via invoice form')) {
+            action = 'Paid Amount Updated';
+            details = `Payment amount changed via invoice form`;
+          } else if (payment.notes && payment.notes.includes('Payment reduced via invoice form')) {
+            action = 'Payment Reduced';
+            details = `Payment amount reduced via invoice form`;
+          }
+          
+          return {
+            id: `payment-${payment.id}`,
+            type: 'payment',
+            action: action,
+            amount: payment.amount,
+            date: payment.created_at,
+            details: details,
+            notes: payment.notes,
+            user_name: userName,
+          };
+        });
 
       // Combine API history with payment history
       const allHistory = [...history, ...paymentHistory]
@@ -895,7 +930,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                 try {
                   // Get all payments for this invoice to determine how to reduce
                   const allPayments = await paymentApi.getPayments();
-                  const invoicePayments = allPayments
+                  const invoicePayments = (allPayments || [])
                     .filter(payment => payment.invoice_id === invoice.id)
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()); // Most recent first
                   
@@ -940,7 +975,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                   if (lastPaymentToModify) {
                     console.log(`Updating payment ${lastPaymentToModify.id} to amount ${lastPaymentToModify.newAmount}`);
                     await paymentApi.updatePayment(lastPaymentToModify.id, {
-                      amount: lastPaymentToModify.newAmount
+                      amount: lastPaymentToModify.newAmount,
+                      notes: "Payment reduced via invoice form"
                     });
                   }
                   

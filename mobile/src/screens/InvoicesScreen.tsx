@@ -61,7 +61,7 @@ const InvoicesScreen: React.FC<InvoicesScreenProps> = ({
     setRefreshing(false);
   };
 
-  const filteredInvoices = invoices.filter((invoice: any) => {
+  const filteredInvoices = (invoices || []).filter((invoice: any) => {
     const matchesSearch = 
       invoice.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invoice.client_name.toLowerCase().includes(searchQuery.toLowerCase());

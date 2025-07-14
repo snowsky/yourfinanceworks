@@ -381,7 +381,8 @@ def delete_custom_currency(
             )
         
         # Check if currency is being used in invoices or payments
-        from models.models import Invoice, Payment
+        from models.models import Invoice
+        from routers.payments import Payment
         invoice_count = db.query(Invoice).filter(Invoice.currency == existing_currency.code).count()
         payment_count = db.query(Payment).filter(Payment.currency == existing_currency.code).count()
         

@@ -184,8 +184,8 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
   };
 
   const removeItem = (index: number) => {
-    if (formData.items.length > 1) {
-      const newItems = formData.items.filter((_, i) => i !== index);
+    if ((formData.items || []).length > 1) {
+      const newItems = (formData.items || []).filter((_, i) => i !== index);
       handleChange('items', newItems);
     }
   };

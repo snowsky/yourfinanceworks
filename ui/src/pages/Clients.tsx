@@ -38,7 +38,7 @@ const Clients = () => {
     fetchClients();
   }, []);
   
-  const filteredClients = clients.filter(client => 
+  const filteredClients = (clients || []).filter(client => 
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -49,7 +49,7 @@ const Clients = () => {
     setDeleting(true);
     try {
       await clientApi.deleteClient(clientToDelete.id);
-      setClients(clients.filter(c => c.id !== clientToDelete.id));
+      setClients((clients || []).filter(c => c.id !== clientToDelete.id));
       toast.success("Client deleted successfully");
     } catch (error) {
       console.error("Failed to delete client:", error);

@@ -73,12 +73,12 @@ export function CurrencySelector({
         console.log('All currencies from API:', apiCurrencies.map(c => ({ code: c.code, is_active: c.is_active })));
         
         // Filter API currencies to only include active ones
-        apiCurrencies = apiCurrencies.filter((c: Currency) => c.is_active);
+        apiCurrencies = (apiCurrencies || []).filter((c: Currency) => c.is_active);
         
         console.log('Active currencies after filtering:', apiCurrencies.map(c => ({ code: c.code, is_active: c.is_active })));
         
         // Use only active fallback currencies
-        const fallbacksToUse = FALLBACK_CURRENCIES.filter(c => c.is_active);
+        const fallbacksToUse = (FALLBACK_CURRENCIES || []).filter(c => c.is_active);
 
         // Combine API currencies with filtered fallback currencies, avoiding duplicates
         const combinedCurrencies = [
@@ -95,7 +95,7 @@ export function CurrencySelector({
       } else {
         console.log('API returned empty currencies, using fallback');
         // If API returns empty or fails, use only active fallback currencies
-        setCurrencies(FALLBACK_CURRENCIES.filter(c => c.is_active));
+        setCurrencies((FALLBACK_CURRENCIES || []).filter(c => c.is_active));
         setUsingFallback(true);
         setError(null);
       }

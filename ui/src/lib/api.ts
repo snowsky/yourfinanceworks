@@ -104,7 +104,6 @@ export interface Settings {
 // AI Configuration types
 export interface AIConfig {
   id: number;
-  tenant_id: number;
   provider_name: string;
   provider_url?: string;
   api_key?: string;
@@ -452,7 +451,10 @@ export const invoiceApi = {
 
 // Payment API methods
 export const paymentApi = {
-  getPayments: () => apiRequest<Payment[]>("/payments/"),
+  getPayments: async () => {
+    const response = await apiRequest<{ success: boolean; data: Payment[]; count: number; chart_data: any }>("/payments/");
+    return response.data || [];
+  },
   getPayment: (id: number) => apiRequest<Payment>(`/payments/${id}`),
   createPayment: (payment: {
     invoice_id: number;
@@ -514,9 +516,9 @@ export const dashboardApi = {
       
       console.log('Final dashboard stats:', { totalIncome, pendingInvoices });
       
-      const invoicesPaid = invoices.filter(invoice => invoice.status === 'paid').length;
-      const invoicesPending = invoices.filter(invoice => invoice.status === 'pending').length;
-      const invoicesOverdue = invoices.filter(invoice => invoice.status === 'overdue').length;
+      const invoicesPaid = (invoices || []).filter(invoice => invoice.status === 'paid').length;
+      const invoicesPending = (invoices || []).filter(invoice => invoice.status === 'pending').length;
+      const invoicesOverdue = (invoices || []).filter(invoice => invoice.status === 'overdue').length;
       
       // Calculate trends by comparing current month vs previous month
       const now = new Date();
@@ -527,7 +529,7 @@ export const dashboardApi = {
       
       // Helper function to calculate total for a specific month
       const calculateMonthlyTotal = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -539,7 +541,7 @@ export const dashboardApi = {
       
       // Helper function to calculate pending for a specific month
       const calculateMonthlyPending = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -555,7 +557,7 @@ export const dashboardApi = {
       // Helper function to calculate client count for a specific month
       const calculateMonthlyClients = (targetMonth: number, targetYear: number) => {
         const clientIds = new Set();
-        invoices
+        (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 
@@ -567,7 +569,7 @@ export const dashboardApi = {
       
       // Helper function to calculate overdue count for a specific month
       const calculateMonthlyOverdue = (targetMonth: number, targetYear: number) => {
-        return invoices
+        return (invoices || [])
           .filter(invoice => {
             const invoiceDate = new Date(invoice.created_at);
             return invoiceDate.getMonth() === targetMonth && 

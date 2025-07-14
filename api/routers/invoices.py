@@ -8,7 +8,8 @@ from datetime import datetime, date, timezone
 from decimal import Decimal
 
 from models.database import get_db
-from models.models_per_tenant import Invoice, Client, User, Payment, InvoiceItem, DiscountRule
+from models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule
+from routers.payments import Payment
 from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate, RecycleBinResponse, DeletedInvoice, RestoreInvoiceRequest
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
@@ -591,7 +592,7 @@ def update_invoice(
                 if item_id not in updated_item_ids:
                     db.delete(item)
         
-        # Create history entry for the update
+        # Create history entry for the update only if there are actual changes
         from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         changes = []
         if invoice.currency and old_currency != invoice.currency:
@@ -607,28 +608,30 @@ def update_invoice(
                 changes.append("Notes removed")
             else:
                 changes.append("Notes updated")
-        history_entry = InvoiceHistoryModel(
-            invoice_id=invoice_id,
-            user_id=current_user.id,
-            action='update',
-            details='; '.join(changes) if changes else 'Invoice details modified',
-            previous_values={
-                'currency': old_currency,
-                'discount_value': old_discount_value,
-                'discount_type': old_discount_type,
-                'amount': old_amount,
-                'notes': old_notes
-            },
-            current_values={
-                'currency': db_invoice.currency,
-                'discount_value': db_invoice.discount_value,
-                'discount_type': db_invoice.discount_type,
-                'amount': db_invoice.amount,
-                'notes': db_invoice.notes
-            }
-        )
         
-        db.add(history_entry)
+        # Only create history entry if there are actual changes
+        if changes:
+            history_entry = InvoiceHistoryModel(
+                invoice_id=invoice_id,
+                user_id=current_user.id,
+                action='update',
+                details='; '.join(changes),
+                previous_values={
+                    'currency': old_currency,
+                    'discount_value': old_discount_value,
+                    'discount_type': old_discount_type,
+                    'amount': old_amount,
+                    'notes': old_notes
+                },
+                current_values={
+                    'currency': db_invoice.currency,
+                    'discount_value': db_invoice.discount_value,
+                    'discount_type': db_invoice.discount_type,
+                    'amount': db_invoice.amount,
+                    'notes': db_invoice.notes
+                }
+            )
+            db.add(history_entry)
         db_invoice.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_invoice)

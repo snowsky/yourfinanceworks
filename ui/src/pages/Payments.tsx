@@ -34,10 +34,10 @@ const Payments = () => {
     fetchPayments();
   }, []);
   
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = (payments || []).filter(payment => {
     const matchesSearch = 
-      payment.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.client_name.toLowerCase().includes(searchQuery.toLowerCase());
+      (payment.invoice_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (payment.client_name || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesMethod = methodFilter === "all" || payment.payment_method === methodFilter;
     
@@ -107,23 +107,23 @@ const Payments = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filteredPayments.length > 0 ? (
-                    filteredPayments.map((payment) => (
+                  ) : (filteredPayments || []).length > 0 ? (
+                    (filteredPayments || []).map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell>{payment.invoice_number}</TableCell>
-                        <TableCell>{payment.client_name}</TableCell>
-                        <TableCell>{new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' })} UTC</TableCell>
+                        <TableCell>{payment.invoice_number || 'N/A'}</TableCell>
+                        <TableCell>{payment.client_name || 'N/A'}</TableCell>
+                        <TableCell>{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
                         <TableCell>
-                          <CurrencyDisplay amount={payment.amount} currency={payment.currency || 'USD'} />
+                          <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
-                            {payment.payment_method}
+                            {payment.payment_method || 'N/A'}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
-                            {payment.status}
+                            {payment.status || 'N/A'}
                           </Badge>
                         </TableCell>
                       </TableRow>

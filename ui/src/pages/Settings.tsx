@@ -418,7 +418,7 @@ const Settings = () => {
     
     try {
       await discountRulesApi.deleteDiscountRule(id);
-      setDiscountRules(discountRules.filter(rule => rule.id !== id));
+      setDiscountRules((discountRules || []).filter(rule => rule.id !== id));
       toast.success("Discount rule deleted successfully!");
     } catch (error) {
       console.error("Failed to delete discount rule:", error);

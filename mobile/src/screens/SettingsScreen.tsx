@@ -226,7 +226,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           onPress: async () => {
             try {
               await apiService.deleteDiscountRule(id);
-              setDiscountRules(prev => prev.filter(rule => rule.id !== id));
+              setDiscountRules(prev => (prev || []).filter(rule => rule.id !== id));
               Alert.alert('Success', 'Discount rule deleted successfully!');
             } catch (error) {
               console.error('Failed to delete discount rule:', error);

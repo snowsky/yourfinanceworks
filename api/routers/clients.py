@@ -7,7 +7,8 @@ import traceback
 from datetime import datetime, timezone
 
 from models.database import get_db
-from models.models_per_tenant import Client, User, Payment, Invoice
+from models.models_per_tenant import Client, User, Invoice
+from routers.payments import Payment
 from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
 

@@ -113,9 +113,11 @@ class Payment(Base):
     notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # NEW: Track who created/updated the payment
 
     # Relationships (no tenant relationship needed)
     invoice = relationship("Invoice", back_populates="payments")
+    user = relationship("User")  # NEW: Relationship to User
 
 class Settings(Base):
     __tablename__ = "settings"

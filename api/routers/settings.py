@@ -10,7 +10,8 @@ from datetime import datetime, timezone, date
 import logging
 
 from models.database import get_db, get_master_db
-from models.models_per_tenant import User, Client, Invoice, Payment, Settings, ClientNote, InvoiceItem
+from models.models_per_tenant import User, Client, Invoice, Settings, ClientNote, InvoiceItem
+from routers.payments import Payment
 from models.models import Tenant, MasterUser
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
