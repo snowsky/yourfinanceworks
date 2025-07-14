@@ -36,4 +36,6 @@ api/.mcp_token
 # Ignore all files under static/logos/
 api/static/logos/*
 # But do not ignore the directory itself
-!api/static/logos/ 
+!api/static/logos/.gitkeep
+# Allow .gitkeep to ensure the directory is tracked
+!api/static/logos/.gitkeep
