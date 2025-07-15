@@ -5,7 +5,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
 from models.database import get_master_db
-from models.models import Tenant, MasterUser
+from models.models import (
+    Tenant, MasterUser, User, Client, ClientNote, Invoice, Payment, Settings, CurrencyRate, DiscountRule, AIConfig
+)
 from models.models_per_tenant import User as TenantUser
 from schemas.user import UserCreate, UserUpdate, UserList, UserRoleUpdate
 from schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
@@ -161,7 +163,19 @@ def delete_tenant_as_super_admin(
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
+    # Manually delete all related data for this tenant
+    master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).delete()
+    master_db.query(User).filter(User.tenant_id == tenant_id).delete()
+    master_db.query(ClientNote).filter(ClientNote.tenant_id == tenant_id).delete()
+    master_db.query(Payment).filter(Payment.tenant_id == tenant_id).delete()
+    master_db.query(Invoice).filter(Invoice.tenant_id == tenant_id).delete()
+    master_db.query(Client).filter(Client.tenant_id == tenant_id).delete()
+    master_db.query(Settings).filter(Settings.tenant_id == tenant_id).delete()
+    master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
+    master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
+    master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
+
     # Delete tenant database first
     success = tenant_db_manager.drop_tenant_database(tenant_id)
     if not success:
@@ -169,11 +183,11 @@ def delete_tenant_as_super_admin(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete tenant database"
         )
-    
+
     # Delete tenant from master database
     master_db.delete(tenant)
     master_db.commit()
-    
+
     return {"message": f"Tenant {tenant.name} deleted successfully"}
 
 # ========== CROSS-TENANT USER MANAGEMENT ==========
@@ -334,6 +348,44 @@ def update_user_role_super_admin(
     
     return {"message": "User role updated successfully"}
 
+@router.put("/users/{user_id}")
+def update_user_info_super_admin(
+    user_id: int,
+    user_update: UserUpdate,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Update a user's info (name, email, etc.) across all systems"""
+    user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update fields in master database
+    for field, value in user_update.dict(exclude_unset=True).items():
+        if field == "password":
+            user.hashed_password = get_password_hash(value)
+        elif hasattr(user, field):
+            setattr(user, field, value)
+    master_db.commit()
+    master_db.refresh(user)
+
+    # Update fields in tenant database
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)()
+        tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == user_id).first()
+        if tenant_user:
+            for field, value in user_update.dict(exclude_unset=True).items():
+                if field == "password":
+                    tenant_user.hashed_password = get_password_hash(value)
+                elif hasattr(tenant_user, field):
+                    setattr(tenant_user, field, value)
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception as e:
+        pass  # Continue even if tenant update fails
+
+    return {"message": "User info updated successfully"}
+
 @router.delete("/users/{user_id}")
 def delete_user_super_admin(
     user_id: int,
@@ -463,3 +515,23 @@ def get_database_overview(
         overview["databases"].append(db_info)
     
     return overview 
+
+@router.post("/promote", response_model=Dict[str, str])
+def promote_user_to_super_admin(
+    data: Dict[str, str],
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Promote a user to super admin by email (super admin only)"""
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    user = master_db.query(MasterUser).filter(MasterUser.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User with email '{email}' not found")
+    if user.is_superuser:
+        return {"message": f"User '{email}' is already a super admin."}
+    user.is_superuser = True
+    user.role = 'admin'
+    master_db.commit()
+    return {"message": f"User '{email}' has been promoted to super admin."} 

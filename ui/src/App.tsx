@@ -21,6 +21,7 @@ import Users from "./pages/Users";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 import AIAssistant from "./components/AIAssistant";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
         </Routes>
       </BrowserRouter>
       <AIAssistant />
+      <Toaster position="top-right" richColors />
     </TooltipProvider>
   </QueryClientProvider>
 );
