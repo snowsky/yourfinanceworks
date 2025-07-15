@@ -55,11 +55,11 @@ CREATE INDEX IF NOT EXISTS idx_tenants_subdomain ON tenants(subdomain);
 CREATE INDEX IF NOT EXISTS idx_master_users_email ON master_users(email);
 CREATE INDEX IF NOT EXISTS idx_master_users_tenant_id ON master_users(tenant_id);
 
--- Insert default tenant if it doesn't exist
-INSERT INTO tenants (name, subdomain, email, default_currency) 
-VALUES ('Default Tenant', 'default', 'admin@default.com', 'USD')
-ON CONFLICT (subdomain) DO NOTHING;
+-- -- Insert default tenant if it doesn't exist
+-- INSERT INTO tenants (name, subdomain, email, default_currency) 
+-- VALUES ('Default Tenant', 'default', 'admin@default.com', 'USD')
+-- ON CONFLICT (subdomain) DO NOTHING;
 
--- Create the tenant_1 database
-SELECT 'CREATE DATABASE tenant_1'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tenant_1')\gexec 
+-- -- Create the tenant_1 database
+-- SELECT 'CREATE DATABASE tenant_1'
+-- WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tenant_1')\gexec 
