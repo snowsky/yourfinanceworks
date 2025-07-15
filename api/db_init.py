@@ -8,6 +8,7 @@ from sqlalchemy.engine.url import make_url
 from models.models import Base, User, Tenant, Client, Invoice, Settings, Payment, Invite, ClientNote, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig, MasterUser
 from models.database import SQLALCHEMY_DATABASE_URL
 from utils.auth import get_password_hash
+from scripts.reset_users_id_sequences import reset_all_users_id_sequences
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -185,8 +186,10 @@ def init_db():
         db.close()
     
     # Run comprehensive migrations after initial setup
-    import subprocess
-    subprocess.run(["python", "scripts/run_all_migrations.py"], check=False)
+    from scripts.run_all_migrations import run_all_migrations
+    run_all_migrations()
+    # Reset users.id sequences for all tenant DBs (redundant if run_all_migrations already does it, but safe)
+    reset_all_users_id_sequences()
     
     logger.info("Database initialized successfully with sample data.")
 

@@ -4,13 +4,36 @@ import { api } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { Loader2, Plus } from "lucide-react";
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -40,6 +63,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: "",
     first_name: "",
@@ -47,16 +71,15 @@ export default function UsersPage() {
     role: "user",
   });
   const [inviting, setInviting] = useState(false);
-  const [activationModal, setActivationModal] = useState<{
-    isOpen: boolean;
-    invite: Invite | null;
-  }>({ isOpen: false, invite: null });
+  const [activationDialogOpen, setActivationDialogOpen] = useState(false);
+  const [activationInvite, setActivationInvite] = useState<Invite | null>(null);
   const [activationForm, setActivationForm] = useState({
     password: "",
     first_name: "",
     last_name: "",
   });
   const [activating, setActivating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get current user id from localStorage
   let currentUserId: number | null = null;
@@ -111,6 +134,7 @@ export default function UsersPage() {
       await api.post("/auth/invite", inviteForm);
       toast.success("Invite sent!");
       setInviteForm({ email: "", first_name: "", last_name: "", role: "user" });
+      setInviteDialogOpen(false);
       fetchInvites();
     } catch (err: any) {
       console.error("Failed to send invite:", err);
@@ -148,22 +172,20 @@ export default function UsersPage() {
     }
   };
 
-  const openActivationModal = (invite: Invite) => {
-    setActivationModal({ isOpen: true, invite });
+  const openActivationDialog = (invite: Invite) => {
+    setActivationInvite(invite);
     setActivationForm({
       password: "",
       first_name: invite.first_name || "",
       last_name: invite.last_name || "",
     });
+    setActivationDialogOpen(true);
   };
 
-  const closeActivationModal = () => {
-    setActivationModal({ isOpen: false, invite: null });
-    setActivationForm({
-      password: "",
-      first_name: "",
-      last_name: "",
-    });
+  const closeActivationDialog = () => {
+    setActivationDialogOpen(false);
+    setActivationInvite(null);
+    setActivationForm({ password: "", first_name: "", last_name: "" });
   };
 
   const handleActivationFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,13 +195,12 @@ export default function UsersPage() {
 
   const handleActivateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activationModal.invite) return;
-    
+    if (!activationInvite) return;
     setActivating(true);
     try {
-      await api.post(`/auth/invites/${activationModal.invite.id}/activate`, activationForm);
+      await api.post(`/auth/invites/${activationInvite.id}/activate`, activationForm);
       toast.success("User activated successfully!");
-      closeActivationModal();
+      closeActivationDialog();
       fetchUsers();
       fetchInvites();
     } catch (err: any) {
@@ -190,193 +211,238 @@ export default function UsersPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="max-w-3xl mx-auto py-8">
-          <h1 className="text-2xl font-bold mb-6">Organization Users</h1>
-          <div className="text-center py-8">Loading...</div>
-        </div>
-      </AppLayout>
-    );
-  }
+  // Filter users by search query
+  const filteredUsers = users.filter(user =>
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    [user.first_name, user.last_name].filter(Boolean).join(" ").toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto py-8">
-        <h1 className="text-2xl font-bold mb-6">Organization Users</h1>
-
-        <section className="mb-10">
-          <h2 className="font-semibold mb-2">Invite User</h2>
-          <form className="flex flex-wrap gap-2 items-end" onSubmit={handleInvite}>
-            <Input
-              name="email"
-              type="email"
-              placeholder="Email"
-              value={inviteForm.email}
-              onChange={handleInviteChange}
-              required
-              className="w-48"
-            />
-            <Input
-              name="first_name"
-              placeholder="First Name"
-              value={inviteForm.first_name}
-              onChange={handleInviteChange}
-              className="w-36"
-            />
-            <Input
-              name="last_name"
-              placeholder="Last Name"
-              value={inviteForm.last_name}
-              onChange={handleInviteChange}
-              className="w-36"
-            />
-            <Select
-              value={inviteForm.role}
-              onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Role" />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="submit" disabled={inviting}>
-              {inviting ? "Inviting..." : "Invite"}
-            </Button>
-          </form>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="font-semibold mb-2">All Invites</h2>
-          <table className="w-full border text-sm">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2 text-left">Email</th>
-                <th className="p-2 text-left">Name</th>
-                <th className="p-2 text-left">Role</th>
-                <th className="p-2 text-left">Status</th>
-                <th className="p-2 text-left">Invited By</th>
-                <th className="p-2 text-left">Expires</th>
-                <th className="p-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(!invites || invites.length === 0) && (
-                <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-400">
-                    No invites found
-                  </td>
-                </tr>
-              )}
-              {invites && invites.map((invite) => {
-                const status = getInviteStatus(invite);
-                return (
-                  <tr key={invite.id} className="border-t">
-                    <td className="p-2">{invite.email}</td>
-                    <td className="p-2">{[invite.first_name, invite.last_name].filter(Boolean).join(" ") || "-"}</td>
-                    <td className="p-2">{invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}</td>
-                    <td className={`p-2 font-semibold ${getStatusColor(status)}`}>{status}</td>
-                    <td className="p-2">{invite.invited_by || "-"}</td>
-                    <td className="p-2">{new Date(invite.expires_at).toLocaleString()}</td>
-                    <td className="p-2">
-                      {status === "Pending" && (
-                        <Button
-                          onClick={() => openActivationModal(invite)}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Activate
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
-
-        <section>
-          <h2 className="font-semibold mb-2">Current Users</h2>
-          <table className="w-full border text-sm">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2 text-left">Email</th>
-                <th className="p-2 text-left">Name</th>
-                <th className="p-2 text-left">Role</th>
-                <th className="p-2 text-left">Status</th>
-                <th className="p-2 text-left">Created</th>
-                <th className="p-2 text-left">Change Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(!users || users.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="text-center py-4 text-gray-400">
-                    No users found
-                  </td>
-                </tr>
-              )}
-              {users && users.map((user) => (
-                <tr key={user.id} className="border-t">
-                  <td className="p-2">{user.email}</td>
-                  <td className="p-2">{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</td>
-                  <td className="p-2">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</td>
-                  <td className="p-2">{user.is_active ? "Active" : "Inactive"}</td>
-                  <td className="p-2">{new Date(user.created_at).toLocaleString()}</td>
-                  <td className="p-2">
-                    <Select
-                      value={user.role}
-                      onValueChange={(role: string) => handleRoleChange(user.id, role)}
-                      disabled={user.id === currentUserId}
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      {/* Activation Modal */}
-      {activationModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold mb-4">
-              Activate User: {activationModal.invite?.email}
-            </h2>
-            <form onSubmit={handleActivateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Password</label>
+      <div className="h-full space-y-6 fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Organization Users</h1>
+            <p className="text-muted-foreground">Manage your organization users and invitations</p>
+          </div>
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="sm:self-end whitespace-nowrap">
+                <Plus className="mr-2 h-4 w-4" /> Invite User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite User</DialogTitle>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={handleInvite}>
                 <Input
-                  type="password"
-                  name="password"
-                  value={activationForm.password}
-                  onChange={handleActivationFormChange}
-                  placeholder="Enter password for user"
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  value={inviteForm.email}
+                  onChange={handleInviteChange}
                   required
                 />
+                <div className="flex gap-2">
+                  <Input
+                    name="first_name"
+                    placeholder="First Name"
+                    value={inviteForm.first_name}
+                    onChange={handleInviteChange}
+                  />
+                  <Input
+                    name="last_name"
+                    placeholder="Last Name"
+                    value={inviteForm.last_name}
+                    onChange={handleInviteChange}
+                  />
+                </div>
+                <Select
+                  value={inviteForm.role}
+                  onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <DialogFooter>
+                  <Button type="submit" disabled={inviting}>
+                    {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Invite
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <Card className="slide-in">
+          <CardHeader className="pb-3">
+            <CardTitle>All Invites</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Invited By</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        <div className="flex justify-center items-center">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          Loading invites...
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (!invites || invites.length === 0) ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        No invites found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    invites.map((invite) => {
+                      const status = getInviteStatus(invite);
+                      return (
+                        <TableRow key={invite.id}>
+                          <TableCell>{invite.email}</TableCell>
+                          <TableCell>{[invite.first_name, invite.last_name].filter(Boolean).join(" ") || "-"}</TableCell>
+                          <TableCell>{invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}</TableCell>
+                          <TableCell className={getStatusColor(status)}>{status}</TableCell>
+                          <TableCell>{invite.invited_by || "-"}</TableCell>
+                          <TableCell>{new Date(invite.expires_at).toLocaleString()}</TableCell>
+                          <TableCell>
+                            {status === "Pending" && (
+                              <Button
+                                onClick={() => openActivationDialog(invite)}
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                Activate
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="slide-in">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
+              <CardTitle>Current Users</CardTitle>
+              <div className="relative max-w-sm">
+                <Input
+                  placeholder="Search users..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">First Name</label>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Change Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                        <div className="flex justify-center items-center">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          Loading users...
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (!filteredUsers || filteredUsers.length === 0) ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</TableCell>
+                        <TableCell>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</TableCell>
+                        <TableCell>{user.is_active ? "Active" : "Inactive"}</TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={user.role}
+                            onValueChange={(role: string) => handleRoleChange(user.id, role)}
+                            disabled={user.id === currentUserId}
+                          >
+                            <SelectTrigger className="w-28">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Activate User: {activationInvite?.email}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleActivateUser} className="space-y-4">
+              <Input
+                type="password"
+                name="password"
+                value={activationForm.password}
+                onChange={handleActivationFormChange}
+                placeholder="Enter password for user"
+                required
+              />
+              <div className="flex gap-2">
                 <Input
                   type="text"
                   name="first_name"
@@ -384,9 +450,6 @@ export default function UsersPage() {
                   onChange={handleActivationFormChange}
                   placeholder="First name"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Last Name</label>
                 <Input
                   type="text"
                   name="last_name"
@@ -395,27 +458,19 @@ export default function UsersPage() {
                   placeholder="Last name"
                 />
               </div>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={closeActivationModal}
-                  disabled={activating}
-                >
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeActivationDialog} disabled={activating}>
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={activating}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {activating ? "Activating..." : "Activate User"}
+                <Button type="submit" disabled={activating} className="bg-green-600 hover:bg-green-700">
+                  {activating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Activate User
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </AppLayout>
   );
 } 

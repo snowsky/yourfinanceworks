@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, text
 from models.database import get_master_db, DATABASE_URL
 from models.models import Tenant
 import logging
+from scripts.reset_users_id_sequences import reset_all_users_id_sequences
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +48,8 @@ def run_all_migrations():
         run_master_database_migrations()
         run_tenant_database_migrations()
         logger.info("All migrations completed successfully!")
+        # Reset users.id sequences for all tenant DBs
+        reset_all_users_id_sequences()
     except Exception as e:
         logger.error(f"Migration failed: {e}")
         raise
