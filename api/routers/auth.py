@@ -215,6 +215,10 @@ def register(user: UserCreate, db: Session = Depends(get_master_db)):
         tenant_id = user.tenant_id
         user_role = user.role or "user"
 
+    # Check if this is the first user in the system
+    user_count = db.query(MasterUser).count()
+    is_first_user = user_count == 0
+
     # Create user in master database
     hashed_password = get_password_hash(user.password)
     db_user = MasterUser(
@@ -223,9 +227,9 @@ def register(user: UserCreate, db: Session = Depends(get_master_db)):
         first_name=user.first_name,
         last_name=user.last_name,
         tenant_id=tenant_id,
-        role=user_role,
+        role="admin" if is_first_user else user_role,
         is_active=user.is_active,
-        is_superuser=user.is_superuser,
+        is_superuser=is_first_user or user.is_superuser,
         is_verified=user.is_verified
     )
 

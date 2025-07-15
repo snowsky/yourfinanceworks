@@ -312,6 +312,16 @@ The AI assistant provides intelligent business insights using your actual data. 
 
 The AI assistant automatically detects the type of query and uses the appropriate tool (MCP for business data, LLM for general questions).
 
+## Super User System
+
+- The first user to sign up in a fresh system is automatically granted super user (system admin) privileges and assigned the 'admin' role.
+- Super users can manage all tenants, users, and databases across the system.
+- All subsequent users will follow the normal role and superuser logic.
+
+### How it works
+- On first registration, if there are no users in the system, the new user is created as a super user and admin by default.
+- This ensures there is always at least one super admin in the system.
+
 ## 🏢 Super User System Usage
 
 The super user system provides comprehensive management capabilities for multi-tenant environments.
