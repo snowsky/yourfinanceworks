@@ -48,43 +48,27 @@ def run_migration():
             db.execute(text("ALTER TABLE invoices ADD COLUMN tenant_id INTEGER"))
             db.execute(text("ALTER TABLE payments ADD COLUMN tenant_id INTEGER"))
             
-            # Step 3: Create default tenant
-            print("🏢 Creating default tenant...")
-            default_tenant = Tenant(
-                name="Default Organization",
-                email="admin@example.com",
-                is_active=True
-            )
-            db.add(default_tenant)
-            db.commit()
-            db.refresh(default_tenant)
-            
-            print(f"✅ Created default tenant with ID: {default_tenant.id}")
-            
-            # Step 4: Update existing records to reference default tenant
-            print("📝 Updating existing records...")
-            
-            # Update users
-            db.execute(text(f"UPDATE users SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
-            
-            # Update clients
-            db.execute(text(f"UPDATE clients SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
-            
-            # Update invoices
-            db.execute(text(f"UPDATE invoices SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
-            
-            # Update payments
-            db.execute(text(f"UPDATE payments SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
-            
-            # Make first user an admin
-            first_user = db.execute(text("SELECT id FROM users LIMIT 1")).fetchone()
-            if first_user:
-                db.execute(text(f"UPDATE users SET role = 'admin' WHERE id = {first_user[0]}"))
-            
-            db.commit()
-            print("✅ Updated existing records")
-            
-            # Step 5: Add NOT NULL constraints (SQLite doesn't support this directly, so we'll skip)
+            # Removed creation of default tenant and updating records to reference it
+            # print("🏢 Creating default tenant...")
+            # default_tenant = Tenant(
+            #     name="Default Organization",
+            #     email="admin@example.com",
+            #     is_active=True
+            # )
+            # db.add(default_tenant)
+            # db.commit()
+            # db.refresh(default_tenant)
+            # print(f"✅ Created default tenant with ID: {default_tenant.id}")
+            # print("📝 Updating existing records...")
+            # db.execute(text(f"UPDATE users SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
+            # db.execute(text(f"UPDATE clients SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
+            # db.execute(text(f"UPDATE invoices SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
+            # db.execute(text(f"UPDATE payments SET tenant_id = {default_tenant.id} WHERE tenant_id IS NULL"))
+            # first_user = db.execute(text("SELECT id FROM users LIMIT 1")).fetchone()
+            # if first_user:
+            #     db.execute(text(f"UPDATE users SET role = 'admin' WHERE id = {first_user[0]}"))
+            # db.commit()
+            # print("✅ Updated existing records")
             print("⚠️  Note: Please manually add NOT NULL constraints to tenant_id columns if needed")
             
         else:

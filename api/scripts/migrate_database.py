@@ -42,13 +42,12 @@ def migrate_database():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            
-            # Create default tenant
-            cursor.execute("""
-                INSERT INTO tenants (name, email, is_active) 
-                VALUES ('Default Company', 'admin@company.com', 1)
-            """)
-            print("Created default tenant")
+            # Removed creation of default tenant
+            # cursor.execute("""
+            #     INSERT INTO tenants (name, email, is_active) 
+            #     VALUES ('Default Company', 'admin@company.com', 1)
+            # """)
+            # print("Created default tenant")
         
         # Check if users table has tenant_id column
         cursor.execute("PRAGMA table_info(users)")
@@ -59,7 +58,7 @@ def migrate_database():
             cursor.execute("ALTER TABLE users ADD COLUMN tenant_id INTEGER DEFAULT 1")
             
             # Update existing users to use default tenant
-            cursor.execute("UPDATE users SET tenant_id = 1 WHERE tenant_id IS NULL")
+            # cursor.execute("UPDATE users SET tenant_id = 1 WHERE tenant_id IS NULL")
             print("Updated existing users to use default tenant")
         
         # Check if users table has role column
@@ -156,28 +155,25 @@ def create_new_database():
         models.Base.metadata.create_all(bind=engine)
         print("New database created successfully!")
         
-        # Create default tenant and user
-        from sqlalchemy.orm import sessionmaker
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        
-        try:
-            # Create default tenant
-            default_tenant = models.Tenant(
-                name="Default Company",
-                email="admin@company.com",
-                is_active=True
-            )
-            session.add(default_tenant)
-            session.commit()
-            
-            print("Default tenant created")
-            
-        except Exception as e:
-            print(f"Error creating default data: {e}")
-            session.rollback()
-        finally:
-            session.close()
+        # Removed creation of default tenant and user
+        # from sqlalchemy.orm import sessionmaker
+        # Session = sessionmaker(bind=engine)
+        # session = Session()
+        # try:
+        #     # Create default tenant
+        #     default_tenant = models.Tenant(
+        #         name="Default Company",
+        #         email="admin@company.com",
+        #         is_active=True
+        #     )
+        #     session.add(default_tenant)
+        #     session.commit()
+        #     print("Default tenant created")
+        # except Exception as e:
+        #     print(f"Error creating default data: {e}")
+        #     session.rollback()
+        # finally:
+        #     session.close()
             
     except ImportError:
         print("SQLAlchemy not available, using raw SQL...")
