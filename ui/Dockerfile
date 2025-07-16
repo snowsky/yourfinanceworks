@@ -2,6 +2,8 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+RUN apk add curl
+
 # Copy package files
 COPY package*.json ./
 

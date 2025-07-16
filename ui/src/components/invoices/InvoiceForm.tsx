@@ -1633,7 +1633,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="status"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>{t('invoices.status')}</FormLabel>
+                          <FormLabel>{t('invoices.status_label')}</FormLabel>
                           <Select
                             onValueChange={(value) => {
                               field.onChange(value);

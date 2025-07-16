@@ -8,6 +8,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 const Login = () => {
   const { t } = useTranslation();
@@ -45,7 +46,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">{t('auth.login')}</CardTitle>
@@ -150,11 +151,14 @@ const Login = () => {
           <div className="text-center text-sm">
             {t('auth.no_account')}{" "}
             <Link to="/signup" className="underline underline-offset-4 hover:text-primary">
-              {t('auth.signup')}
+              {t('auth.signup.homepage')}
             </Link>
           </div>
         </CardContent>
       </Card>
+      <div className="mt-6">
+        <LanguageSwitcher />
+      </div>
     </div>
   );
 };

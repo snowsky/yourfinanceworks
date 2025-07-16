@@ -19,8 +19,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   # API service with multi-tenant support
@@ -61,8 +61,8 @@ services:
       - ./wait-for-it.sh:/wait-for-it.sh
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 5s
+      timeout: 3s
       retries: 3
     command: >
       sh -c "/wait-for-it.sh postgres-master:5432 -- \
@@ -89,8 +89,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 30s
-      timeout: 10s
+      interval: 5s
+      timeout: 3s
       retries: 3
 
   # Ollama AI service

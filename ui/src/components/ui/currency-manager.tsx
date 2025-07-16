@@ -10,6 +10,7 @@ import { Trash2, Edit, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { currencyApi } from '@/lib/api';
 import { apiRequest } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface Currency {
   id: number;
@@ -48,6 +49,8 @@ export function CurrencyManager() {
     decimal_places: 2,
     is_active: true,
   });
+
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchCurrencies();
@@ -192,14 +195,14 @@ export function CurrencyManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Custom Currencies</h3>
+          <h3 className="text-lg font-medium">{t('currency_manager.custom_currencies')}</h3>
           <p className="text-sm text-muted-foreground">
-            Add your own currencies like Bitcoin, Ethereum, or other cryptocurrencies
+            {t('currency_manager.custom_currencies_description')}
           </p>
         </div>
         <Button onClick={openCreateDialog} size="sm">
           <Plus className="h-4 w-4 mr-2" />
-          Add Currency
+          {t('currency_manager.add_currency')}
         </Button>
       </div>
 
