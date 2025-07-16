@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ interface ClientFormProps {
 }
 
 export function ClientForm({ client, isEdit = false }: ClientFormProps) {
+  const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
@@ -55,7 +57,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
           preferred_currency: data.preferred_currency
         };
         await clientApi.updateClient(client.id, updateData);
-        toast.success("Client updated successfully!");
+        toast.success(t('clientForm.updateSuccess'));
       } else {
         // Create new client with required fields including email
         const newClient = {
@@ -68,12 +70,12 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
           preferred_currency: data.preferred_currency
         };
         await clientApi.createClient(newClient);
-        toast.success("Client created successfully!");
+        toast.success(t('clientForm.createSuccess'));
       }
       navigate("/clients"); // Redirect to clients page
     } catch (error) {
       console.error("Failed to save client:", error);
-      toast.error(`Failed to ${isEdit ? 'update' : 'create'} client. Please try again.`);
+      toast.error(t(isEdit ? 'clientForm.updateError' : 'clientForm.createError'));
     } finally {
       setSubmitting(false);
     }
@@ -82,7 +84,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>{isEdit ? "Edit Client" : "Create New Client"}</CardTitle>
+        <CardTitle>{isEdit ? t('clientForm.editClient') : t('clientForm.createNewClient')}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -92,9 +94,9 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t('clientForm.name')}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Client name" />
+                    <Input {...field} placeholder={t('clientForm.namePlaceholder')} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -107,11 +109,11 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t('clientForm.email')}</FormLabel>
                     <FormControl>
                       <Input 
                         {...field} 
-                        placeholder="client@example.com" 
+                        placeholder={t('clientForm.emailPlaceholder')} 
                         type="email" 
                       />
                     </FormControl>
@@ -121,17 +123,17 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               />
             ) : (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t('clientForm.email')}</FormLabel>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
-                    {client?.email || "No email provided"}
+                    {client?.email || t('clientForm.noEmailProvided')}
                   </div>
                   <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    Read Only
+                    {t('clientForm.readOnly')}
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Email cannot be changed once a client is created
+                  {t('clientForm.emailCannotBeChanged')}
                 </p>
               </FormItem>
             )}
@@ -141,9 +143,9 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
+                  <FormLabel>{t('clientForm.phone')}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="(123) 456-7890" />
+                    <Input {...field} placeholder={t('clientForm.phonePlaceholder')} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -155,9 +157,9 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>{t('clientForm.address')}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="123 Main St, City, State, ZIP" />
+                    <Input {...field} placeholder={t('clientForm.addressPlaceholder')} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -169,12 +171,12 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               name="preferred_currency"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Preferred Currency (Optional)</FormLabel>
+                  <FormLabel>{t('clientForm.preferredCurrency')}</FormLabel>
                   <FormControl>
                     <CurrencySelector
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder="Select preferred currency"
+                      placeholder={t('clientForm.selectPreferredCurrency')}
                     />
                   </FormControl>
                   <FormMessage />
@@ -183,12 +185,12 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
             />
 
             <div className="flex justify-end gap-3">
-              <Button variant="outline" type="button" onClick={() => navigate("/clients")}>
-                Cancel
+              <Button variant="outline" type="button" onClick={() => navigate("/clients")}> 
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? "Update Client" : "Create Client"}
+                {isEdit ? t('clientForm.updateClient') : t('clientForm.createClient')}
               </Button>
             </div>
           </form>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { CurrencySelector } from "@/components/ui/currency-selector";
 import { api } from "@/lib/api";
 
 const Settings = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -171,7 +173,7 @@ const Settings = () => {
           setDiscountRules(rules);
         } catch (error) {
           console.error("Failed to fetch discount rules:", error);
-          toast.error("Failed to load discount rules");
+          toast.error(t('settings.failed_to_load_discount_rules'));
         } finally {
           setLoadingDiscountRules(false);
         }
@@ -183,13 +185,13 @@ const Settings = () => {
           setAiConfigs(configs);
         } catch (error) {
           console.error("Failed to fetch AI configs:", error);
-          toast.error("Failed to load AI configurations");
+          toast.error(t('settings.failed_to_load_ai_configurations'));
         } finally {
           setLoadingAiConfigs(false);
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error);
-        toast.error("Failed to load settings");
+        toast.error(t('settings.failed_to_load_settings'));
       } finally {
         setLoading(false);
       }
@@ -242,12 +244,12 @@ const Settings = () => {
 
       const result = await response.json();
       if (result.success) {
-        toast.success(`Test email sent successfully to ${testEmail}`);
+        toast.success(t('settings.test_email_sent_successfully'));
       } else {
-        toast.error(`Failed to send test email: ${result.message}`);
+        toast.error(t('settings.failed_to_send_test_email', { message: result.message }));
       }
     } catch (error) {
-      toast.error("Failed to send test email");
+      toast.error(t('settings.failed_to_send_test_email'));
     }
   };
 
@@ -306,17 +308,17 @@ const Settings = () => {
       if (aiAssistantEnabled) {
         // AI Assistant was enabled
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
-        toast.success("AI Assistant enabled! Look for the sleek gradient bot icon in the bottom-right corner.");
+        toast.success(t('settings.ai_assistant_enabled'));
       } else {
         // AI Assistant was disabled - more aggressive cache clearing
         console.log('Settings: AI Assistant disabled, clearing all related cache');
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
         await queryClient.removeQueries({ queryKey: ['ai-configs'] }); // Remove cached data completely
         await queryClient.resetQueries({ queryKey: ['settings'] }); // Reset settings cache
-        toast.success("AI Assistant disabled.");
+        toast.success(t('settings.ai_assistant_disabled'));
       }
       
-      toast.success("Settings saved successfully!");
+      toast.success(t('settings.settings_saved_successfully'));
       
       // Save email settings separately
       try {
@@ -334,7 +336,7 @@ const Settings = () => {
 
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error("Failed to save settings");
+      toast.error(t('settings.failed_to_save_settings'));
     } finally {
       setSaving(false);
     }
@@ -344,10 +346,10 @@ const Settings = () => {
     setExporting(true);
     try {
       await settingsApi.exportData();
-      toast.success("Data exported successfully!");
+      toast.success(t('settings.data_exported_successfully'));
     } catch (error) {
       console.error("Failed to export data:", error);
-      toast.error("Failed to export data. Please try again.");
+      toast.error(t('settings.failed_to_export_data', { message: 'Please try again.' }));
     } finally {
       setExporting(false);
     }
@@ -357,7 +359,7 @@ const Settings = () => {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.name.endsWith('.sqlite')) {
-        toast.error("Please select a SQLite file (.sqlite extension)");
+        toast.error(t('settings.please_select_sqlite_file'));
         return;
       }
       setSelectedFile(file);
@@ -366,21 +368,21 @@ const Settings = () => {
 
   const handleImportData = async () => {
     if (!selectedFile) {
-      toast.error("Please select a file to import");
+      toast.error(t('settings.please_select_file_to_import'));
       return;
     }
 
     setImporting(true);
     try {
       const result = await settingsApi.importData(selectedFile);
-      toast.success(`Data imported successfully! ${JSON.stringify(result.imported_counts)}`);
+      toast.success(t('settings.data_imported_successfully', { imported_counts: JSON.stringify(result.imported_counts) }));
       setSelectedFile(null);
       // Reset the file input
       const fileInput = document.getElementById('import-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error("Failed to import data:", error);
-      toast.error(`Failed to import data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(t('settings.failed_to_import_data', { error: error instanceof Error ? error.message : 'Unknown error' }));
     } finally {
       setImporting(false);
     }
@@ -401,10 +403,10 @@ const Settings = () => {
         priority: 0,
         currency: "USD",
       });
-      toast.success("Discount rule created successfully!");
+      toast.success(t('settings.discount_rule_created'));
     } catch (error) {
       console.error("Failed to create discount rule:", error);
-      toast.error("Failed to create discount rule");
+      toast.error(t('settings.failed_to_create_discount_rule'));
     }
   };
 
@@ -430,23 +432,23 @@ const Settings = () => {
         priority: 0,
         currency: "USD",
       });
-      toast.success("Discount rule updated successfully!");
+      toast.success(t('settings.discount_rule_updated'));
     } catch (error) {
       console.error("Failed to update discount rule:", error);
-      toast.error("Failed to update discount rule");
+      toast.error(t('settings.failed_to_update_discount_rule'));
     }
   };
 
   const handleDeleteDiscountRule = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this discount rule?")) return;
+    if (!confirm(t('settings.confirm_delete_discount_rule'))) return;
     
     try {
       await discountRulesApi.deleteDiscountRule(id);
       setDiscountRules((discountRules || []).filter(rule => rule.id !== id));
-      toast.success("Discount rule deleted successfully!");
+      toast.success(t('settings.discount_rule_deleted'));
     } catch (error) {
       console.error("Failed to delete discount rule:", error);
-      toast.error("Failed to delete discount rule");
+      toast.error(t('settings.failed_to_delete_discount_rule'));
     }
   };
 
@@ -531,35 +533,35 @@ const Settings = () => {
       if (checked) {
         // AI Assistant was enabled
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
-        toast.success("AI Assistant enabled! Look for the sleek gradient bot icon in the bottom-right corner.");
+        toast.success(t('settings.ai_assistant_enabled'));
       } else {
         // AI Assistant was disabled - aggressive cache clearing
         console.log('AI Assistant: Disabled, clearing all related cache');
         await queryClient.invalidateQueries({ queryKey: ['ai-configs'] });
         await queryClient.removeQueries({ queryKey: ['ai-configs'] });
         await queryClient.resetQueries({ queryKey: ['settings'] });
-        toast.success("AI Assistant disabled.");
+        toast.success(t('settings.ai_assistant_disabled'));
       }
       
     } catch (error) {
       console.error('Failed to save AI Assistant toggle:', error);
       // Revert local state on error
       setAiAssistantEnabled(!checked);
-      toast.error("Failed to save AI Assistant setting");
+      toast.error(t('settings.failed_to_save_ai_assistant_setting'));
     }
   };
 
   const handleCreateAIConfig = async () => {
     try {
       await aiConfigApi.createAIConfig(newAIConfig);
-      toast.success("AI configuration created successfully!");
+      toast.success(t('settings.ai_config_created'));
       setShowAIConfigDialog(false);
       // Refresh AI configs
       const configs = await aiConfigApi.getAIConfigs();
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to create AI config:", error);
-      toast.error("Failed to create AI configuration");
+      toast.error(t('settings.failed_to_create_ai_config'));
     }
   };
 
@@ -568,29 +570,29 @@ const Settings = () => {
     
     try {
       await aiConfigApi.updateAIConfig(editingAIConfig.id, newAIConfig);
-      toast.success("AI configuration updated successfully!");
+      toast.success(t('settings.ai_config_updated'));
       setShowAIConfigDialog(false);
       // Refresh AI configs
       const configs = await aiConfigApi.getAIConfigs();
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to update AI config:", error);
-      toast.error("Failed to update AI configuration");
+      toast.error(t('settings.failed_to_update_ai_config'));
     }
   };
 
   const handleDeleteAIConfig = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this AI configuration?")) return;
+    if (!confirm(t('settings.confirm_delete_ai_config'))) return;
     
     try {
       await aiConfigApi.deleteAIConfig(id);
-      toast.success("AI configuration deleted successfully!");
+      toast.success(t('settings.ai_config_deleted'));
       // Refresh AI configs
       const configs = await aiConfigApi.getAIConfigs();
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to delete AI config:", error);
-      toast.error("Failed to delete AI configuration");
+      toast.error(t('settings.failed_to_delete_ai_config'));
     }
   };
 
@@ -598,29 +600,29 @@ const Settings = () => {
     try {
       const result = await aiConfigApi.testAIConfig(id);
       if (result.success) {
-        toast.success("AI configuration test successful!");
+        toast.success(t('settings.ai_config_test_successful'));
         // Refresh AI configs to show updated tested status
         const configs = await aiConfigApi.getAIConfigs();
         setAiConfigs(configs);
       } else {
-        toast.error(`AI configuration test failed: ${result.message}`);
+        toast.error(t('settings.ai_config_test_failed', { message: result.message }));
       }
     } catch (error) {
       console.error("Failed to test AI config:", error);
-      toast.error("Failed to test AI configuration");
+      toast.error(t('settings.failed_to_test_ai_config'));
     }
   };
 
   const handleMarkAsTested = async (id: number) => {
     try {
       await aiConfigApi.markAsTested(id);
-      toast.success("AI configuration marked as tested!");
+      toast.success(t('settings.ai_config_marked_as_tested'));
       // Refresh AI configs to show updated tested status
       const configs = await aiConfigApi.getAIConfigs();
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to mark AI config as tested:", error);
-      toast.error("Failed to mark AI configuration as tested");
+      toast.error(t('settings.failed_to_mark_ai_config_as_tested'));
     }
   };
 
@@ -725,10 +727,10 @@ const Settings = () => {
       setLogoFile(null);
       setLogoPreview("");
       
-      toast.success('Logo uploaded successfully!');
+      toast.success(t('settings.logo_uploaded_successfully'));
     } catch (error) {
       console.error('Failed to upload logo:', error);
-      toast.error('Failed to upload logo');
+      toast.error(t('settings.failed_to_upload_logo'));
     } finally {
       setUploadingLogo(false);
     }
@@ -749,11 +751,11 @@ const Settings = () => {
       // Update localStorage and state
       localStorage.setItem('user', JSON.stringify(updated));
       setUserProfile(updated);
-      toast.success('Profile updated successfully!');
+      toast.success(t('settings.profile_updated_successfully'));
       // Optionally, trigger a storage event for other tabs/components
       window.dispatchEvent(new StorageEvent('storage', { key: 'user' }));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update profile');
+      toast.error(error?.message || t('settings.failed_to_update_profile'));
     } finally {
       setProfileSaving(false);
     }
@@ -764,7 +766,7 @@ const Settings = () => {
       <AppLayout>
         <div className="h-full flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
-          <p>Loading settings...</p>
+          <p>{t('settings.loading_settings')}</p>
         </div>
       </AppLayout>
     );
@@ -774,30 +776,30 @@ const Settings = () => {
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
         <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your application preferences and configuration</p>
+          <h1 className="text-3xl font-bold">{t('settings.title')}</h1>
+          <p className="text-muted-foreground">{t('settings.description')}</p>
         </div>
 
         <Tabs defaultValue="company" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-            <TabsTrigger value="company" className="text-xs md:text-sm">Company Info</TabsTrigger>
-            <TabsTrigger value="invoices" className="text-xs md:text-sm">Invoice Settings</TabsTrigger>
-            <TabsTrigger value="currencies" className="text-xs md:text-sm">Currencies</TabsTrigger>
-            <TabsTrigger value="discount-rules" className="text-xs md:text-sm">Discount Rules</TabsTrigger>
-            <TabsTrigger value="ai-config" className="text-xs md:text-sm">AI Configuration</TabsTrigger>
-            <TabsTrigger value="email" className="text-xs md:text-sm">Email Settings</TabsTrigger>
-            <TabsTrigger value="export" className="text-xs md:text-sm">Data Management</TabsTrigger>
+            <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
+            <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
+            <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
+            <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
+            <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
+            <TabsTrigger value="email" className="text-xs md:text-sm">{t('settings.tabs.email')}</TabsTrigger>
+            <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="company" className="mt-6">
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>User Profile</CardTitle>
+                <CardTitle>{t('settings.user_profile')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="first_name">First Name</Label>
+                    <Label htmlFor="first_name">{t('settings.first_name')}</Label>
                     <Input
                       id="first_name"
                       name="first_name"
@@ -807,7 +809,7 @@ const Settings = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="last_name">Last Name</Label>
+                    <Label htmlFor="last_name">{t('settings.last_name')}</Label>
                     <Input
                       id="last_name"
                       name="last_name"
@@ -820,19 +822,19 @@ const Settings = () => {
                 <div className="flex justify-end mt-4">
                   <Button onClick={handleProfileSave} disabled={profileSaving}>
                     {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Save Profile
+                    {t('settings.save_profile')}
                   </Button>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Company Information</CardTitle>
+                <CardTitle>{t('settings.company_info')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Company Name</Label>
+                    <Label htmlFor="name">{t('settings.company_name')}</Label>
                     <Input 
                       id="name" 
                       name="name" 
@@ -842,7 +844,7 @@ const Settings = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="tax_id">Tax ID / EIN</Label>
+                    <Label htmlFor="tax_id">{t('settings.tax_id')}</Label>
                     <Input 
                       id="tax_id" 
                       name="tax_id" 
@@ -854,7 +856,7 @@ const Settings = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('settings.company_email')}</Label>
                     <Input 
                       id="email" 
                       name="email" 
@@ -866,7 +868,7 @@ const Settings = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">{t('settings.company_phone')}</Label>
                     <Input 
                       id="phone" 
                       name="phone" 
@@ -877,7 +879,7 @@ const Settings = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="address">{t('settings.company_address')}</Label>
                   <Textarea 
                     id="address" 
                     name="address" 
@@ -888,7 +890,7 @@ const Settings = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="logo">Company Logo</Label>
+                  <Label htmlFor="logo">{t('settings.company_logo')}</Label>
                   <div className="space-y-4">
                     <Input 
                       id="logo" 
@@ -898,12 +900,12 @@ const Settings = () => {
                       onChange={handleLogoFileChange}
                       disabled={uploadingLogo}
                     />
-                    <p className="text-sm text-muted-foreground">Recommended size: 200x200px</p>
+                    <p className="text-sm text-muted-foreground">{t('settings.recommended_size')}</p>
                     
                     {/* Logo Preview */}
                     {(logoPreview || companyInfo.logo) && (
                       <div className="space-y-2">
-                        <Label>Logo Preview</Label>
+                        <Label>{t('settings.logo_preview')}</Label>
                         <div className="flex items-center space-x-4">
                           <img 
                             src={logoPreview || `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${companyInfo.logo}`} 
@@ -923,10 +925,10 @@ const Settings = () => {
                               {uploadingLogo ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Uploading...
+                                  {t('settings.uploading_logo')}
                                 </>
                               ) : (
-                                'Upload Logo'
+                                t('settings.upload_logo')
                               )}
                             </Button>
                           )}
@@ -939,7 +941,7 @@ const Settings = () => {
                 <div className="flex justify-end">
                   <Button onClick={handleSave} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    {saving ? t('settings.saving') : t('settings.save_changes')}
                   </Button>
                 </div>
               </CardContent>
@@ -949,12 +951,12 @@ const Settings = () => {
           <TabsContent value="invoices" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Invoice Settings</CardTitle>
+                <CardTitle>{t('settings.invoice_settings')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="prefix">Invoice Number Prefix</Label>
+                    <Label htmlFor="prefix">{t('settings.invoice_prefix')}</Label>
                     <Input 
                       id="prefix" 
                       name="prefix" 
@@ -964,7 +966,7 @@ const Settings = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="next_number">Next Invoice Number</Label>
+                    <Label htmlFor="next_number">{t('settings.next_invoice_number')}</Label>
                     <Input 
                       id="next_number" 
                       name="next_number" 
@@ -975,7 +977,7 @@ const Settings = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="terms">Default Terms & Conditions</Label>
+                  <Label htmlFor="terms">{t('settings.default_terms')}</Label>
                   <Textarea 
                     id="terms" 
                     name="terms" 
@@ -986,7 +988,7 @@ const Settings = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Default Notes</Label>
+                  <Label htmlFor="notes">{t('settings.default_notes')}</Label>
                   <Textarea 
                     id="notes" 
                     name="notes" 
@@ -999,8 +1001,8 @@ const Settings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="send_copy">Send Me a Copy</Label>
-                      <p className="text-sm text-muted-foreground">Receive a copy of each invoice by email</p>
+                      <Label htmlFor="send_copy">{t('settings.send_copy')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('settings.send_copy_description')}</p>
                     </div>
                     <Switch 
                       id="send_copy" 
@@ -1011,8 +1013,8 @@ const Settings = () => {
                   
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="auto_reminders">Automatic Reminders</Label>
-                      <p className="text-sm text-muted-foreground">Send reminder emails for overdue invoices</p>
+                      <Label htmlFor="auto_reminders">{t('settings.auto_reminders')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('settings.auto_reminders_description')}</p>
                     </div>
                     <Switch 
                       id="auto_reminders" 
@@ -1025,7 +1027,7 @@ const Settings = () => {
                 <div className="flex justify-end">
                   <Button onClick={handleSave} disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    {saving ? t('settings.saving') : t('settings.save_changes')}
                   </Button>
                 </div>
               </CardContent>
@@ -1035,7 +1037,7 @@ const Settings = () => {
           <TabsContent value="currencies" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Currency Management</CardTitle>
+                <CardTitle>{t('settings.currency_management')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <CurrencyManager />
@@ -1047,10 +1049,10 @@ const Settings = () => {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Discount Rules</CardTitle>
+                  <CardTitle>{t('settings.discount_rules')}</CardTitle>
                   <Button onClick={openCreateDialog} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Rule
+                    {t('settings.add_rule')}
                   </Button>
                 </div>
               </CardHeader>
@@ -1058,13 +1060,13 @@ const Settings = () => {
                 {loadingDiscountRules ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span className="text-sm text-muted-foreground">Loading discount rules...</span>
+                    <span className="text-sm text-muted-foreground">{t('settings.loading_discount_rules')}</span>
                   </div>
                 ) : discountRules.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">No discount rules configured yet.</p>
+                    <p className="text-muted-foreground mb-4">{t('settings.no_discount_rules_configured')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Create discount rules to automatically apply discounts based on invoice totals.
+                      {t('settings.create_discount_rules_to_apply_discounts')}
                     </p>
                   </div>
                 ) : (
@@ -1075,17 +1077,17 @@ const Settings = () => {
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-medium">{rule.name}</h4>
                             <Badge variant={rule.is_active ? "default" : "secondary"}>
-                              {rule.is_active ? "Active" : "Inactive"}
+                              {rule.is_active ? t('settings.rule_active') : t('settings.rule_inactive')}
                             </Badge>
-                            <Badge variant="outline">Priority: {rule.priority}</Badge>
+                            <Badge variant="outline">{t('settings.priority')}: {rule.priority}</Badge>
                             {/* Show currency badge */}
                             <Badge variant="secondary">{rule.currency || "USD"}</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {rule.discount_type === "percentage" 
-                              ? `${rule.discount_value}% discount` 
-                              : `$${rule.discount_value} discount`
-                            } when total ≥ ${rule.min_amount}
+                              ? `${rule.discount_value}% ${t('settings.discount')}` 
+                              : `$${rule.discount_value} ${t('settings.discount')}`
+                            } {t('settings.when_total')} ≥ ${rule.min_amount}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1115,15 +1117,15 @@ const Settings = () => {
           <TabsContent value="ai-config" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>AI Configuration</CardTitle>
+                <CardTitle>{t('settings.ai_configuration')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* AI Assistant Toggle */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="ai_assistant">AI Assistant</Label>
-                      <p className="text-sm text-muted-foreground">Enable the AI assistant to help with invoice analysis and suggestions</p>
+                      <Label htmlFor="ai_assistant">{t('settings.ai_assistant')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('settings.ai_assistant_description')}</p>
                     </div>
                     <Switch 
                       id="ai_assistant" 
@@ -1137,12 +1139,12 @@ const Settings = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="text-lg font-semibold">AI Provider Configurations</h3>
-                      <p className="text-sm text-muted-foreground">Configure AI providers for enhanced features</p>
+                      <h3 className="text-lg font-semibold">{t('settings.ai_provider_configurations')}</h3>
+                      <p className="text-sm text-muted-foreground">{t('settings.ai_provider_configurations_description')}</p>
                     </div>
                     <Button onClick={openCreateAIConfigDialog}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Provider
+                      {t('settings.add_provider')}
                     </Button>
                   </div>
                   
@@ -1152,9 +1154,9 @@ const Settings = () => {
                     </div>
                   ) : aiConfigs.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">No AI configurations yet.</p>
+                      <p className="text-muted-foreground">{t('settings.no_ai_configurations')}</p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Add AI providers to enable enhanced features.
+                        {t('settings.add_ai_providers_hint')}
                       </p>
                     </div>
                   ) : (
@@ -1165,20 +1167,20 @@ const Settings = () => {
                             <div className="flex items-center gap-2 mb-2">
                               <h4 className="font-medium">{config.provider_name}</h4>
                               <Badge variant={config.is_active ? "default" : "secondary"}>
-                                {config.is_active ? "Active" : "Inactive"}
+                                {config.is_active ? t('settings.active') : t('settings.inactive')}
                               </Badge>
                               {config.is_default && (
-                                <Badge variant="outline">Default</Badge>
+                                <Badge variant="outline">{t('settings.default')}</Badge>
                               )}
                               {config.tested && (
                                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                  Tested
+                                  {t('settings.tested')}
                                 </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Model: {config.model_name}
-                              {config.provider_url && ` | URL: ${config.provider_url}`}
+                              {t('settings.model')}: {config.model_name}
+                              {config.provider_url && ` | ${t('settings.url')}: ${config.provider_url}`}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1187,7 +1189,7 @@ const Settings = () => {
                               size="sm"
                               onClick={() => handleTestAIConfig(config.id)}
                             >
-                              Test
+                              {t('settings.test')}
                             </Button>
                             {!config.tested && (
                               <Button
@@ -1195,7 +1197,7 @@ const Settings = () => {
                                 size="sm"
                                 onClick={() => handleMarkAsTested(config.id)}
                               >
-                                Mark Tested
+                                {t('settings.mark_tested')}
                               </Button>
                             )}
                             <Button
@@ -1225,13 +1227,13 @@ const Settings = () => {
           <TabsContent value="email" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Email Configuration</CardTitle>
+                <CardTitle>{t('settings.email_configuration')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="email_enabled">Enable Email Service</Label>
-                    <p className="text-sm text-muted-foreground">Enable sending invoices via email</p>
+                    <Label htmlFor="email_enabled">{t('settings.enable_email_service')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('settings.enable_email_service_description')}</p>
                   </div>
                   <Switch 
                     id="email_enabled" 
@@ -1243,22 +1245,22 @@ const Settings = () => {
                 {emailSettings.enabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="provider">Email Provider</Label>
+                      <Label htmlFor="provider">{t('settings.email_provider')}</Label>
                       <Select value={emailSettings.provider} onValueChange={handleEmailProviderChange}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select email provider" />
+                          <SelectValue placeholder={t('settings.select_email_provider')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="aws_ses">AWS SES</SelectItem>
-                          <SelectItem value="azure_email">Azure Email Services</SelectItem>
-                          <SelectItem value="mailgun">Mailgun</SelectItem>
+                          <SelectItem value="aws_ses">{t('settings.aws_ses')}</SelectItem>
+                          <SelectItem value="azure_email">{t('settings.azure_email_services')}</SelectItem>
+                          <SelectItem value="mailgun">{t('settings.mailgun')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="from_name">From Name</Label>
+                        <Label htmlFor="from_name">{t('settings.from_name')}</Label>
                         <Input 
                           id="from_name" 
                           name="from_name" 
@@ -1268,7 +1270,7 @@ const Settings = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="from_email">From Email</Label>
+                        <Label htmlFor="from_email">{t('settings.from_email')}</Label>
                         <Input 
                           id="from_email" 
                           name="from_email" 
@@ -1281,10 +1283,10 @@ const Settings = () => {
 
                     {emailSettings.provider === "aws_ses" && (
                       <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">AWS SES Configuration</h4>
+                        <h4 className="font-medium">{t('settings.aws_ses_configuration')}</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="aws_access_key_id">Access Key ID</Label>
+                            <Label htmlFor="aws_access_key_id">{t('settings.aws_access_key_id')}</Label>
                             <Input 
                               id="aws_access_key_id" 
                               name="aws_access_key_id" 
@@ -1294,7 +1296,7 @@ const Settings = () => {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="aws_secret_access_key">Secret Access Key</Label>
+                            <Label htmlFor="aws_secret_access_key">{t('settings.aws_secret_access_key')}</Label>
                             <Input 
                               id="aws_secret_access_key" 
                               name="aws_secret_access_key" 
@@ -1305,16 +1307,16 @@ const Settings = () => {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="aws_region">AWS Region</Label>
+                          <Label htmlFor="aws_region">{t('settings.aws_region')}</Label>
                           <Select value={emailSettings.aws_region} onValueChange={(value) => setEmailSettings(prev => ({ ...prev, aws_region: value }))}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="us-east-1">US East (N. Virginia)</SelectItem>
-                              <SelectItem value="us-west-2">US West (Oregon)</SelectItem>
-                              <SelectItem value="eu-west-1">EU (Ireland)</SelectItem>
-                              <SelectItem value="ap-southeast-1">Asia Pacific (Singapore)</SelectItem>
+                              <SelectItem value="us-east-1">{t('settings.us_east_virginia')}</SelectItem>
+                              <SelectItem value="us-west-2">{t('settings.us_west_oregon')}</SelectItem>
+                              <SelectItem value="eu-west-1">{t('settings.eu_ireland')}</SelectItem>
+                              <SelectItem value="ap-southeast-1">{t('settings.asia_pacific_singapore')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1323,9 +1325,9 @@ const Settings = () => {
 
                     {emailSettings.provider === "azure_email" && (
                       <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">Azure Email Services Configuration</h4>
+                        <h4 className="font-medium">{t('settings.azure_email_services_configuration')}</h4>
                         <div className="space-y-2">
-                          <Label htmlFor="azure_connection_string">Connection String</Label>
+                          <Label htmlFor="azure_connection_string">{t('settings.azure_connection_string')}</Label>
                           <Input 
                             id="azure_connection_string" 
                             name="azure_connection_string" 
@@ -1339,10 +1341,10 @@ const Settings = () => {
 
                     {emailSettings.provider === "mailgun" && (
                       <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">Mailgun Configuration</h4>
+                        <h4 className="font-medium">{t('settings.mailgun_configuration')}</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="mailgun_api_key">API Key</Label>
+                            <Label htmlFor="mailgun_api_key">{t('settings.mailgun_api_key')}</Label>
                             <Input 
                               id="mailgun_api_key" 
                               name="mailgun_api_key" 
@@ -1352,7 +1354,7 @@ const Settings = () => {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="mailgun_domain">Domain</Label>
+                            <Label htmlFor="mailgun_domain">{t('settings.mailgun_domain')}</Label>
                             <Input 
                               id="mailgun_domain" 
                               name="mailgun_domain" 
@@ -1370,11 +1372,11 @@ const Settings = () => {
                         variant="outline" 
                         onClick={testEmailConfiguration}
                       >
-                        Test Configuration
+                        {t('settings.test_configuration')}
                       </Button>
                       <Button onClick={handleSave} disabled={saving}>
                         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Email Settings
+                        {t('settings.save_email_settings')}
                       </Button>
                     </div>
                   </>
@@ -1389,28 +1391,28 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5" />
-                  Data Management
+                  {t('settings.data_management')}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Backup, restore, and manage your business data with complete control over your information.
+                  {t('settings.data_management_description')}
                 </p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="text-2xl font-bold text-blue-600">📊</div>
-                    <h3 className="font-medium text-blue-900 mt-2">Complete Backup</h3>
-                    <p className="text-sm text-blue-700 mt-1">Export all your business data in one file</p>
+                    <h3 className="font-medium text-blue-900 mt-2">{t('settings.complete_backup')}</h3>
+                    <p className="text-sm text-blue-700 mt-1">{t('settings.complete_backup_description')}</p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="text-2xl font-bold text-green-600">🔄</div>
-                    <h3 className="font-medium text-green-900 mt-2">Easy Restore</h3>
-                    <p className="text-sm text-green-700 mt-1">Restore from previous backups instantly</p>
+                    <h3 className="font-medium text-green-900 mt-2">{t('settings.easy_restore')}</h3>
+                    <p className="text-sm text-green-700 mt-1">{t('settings.easy_restore_description')}</p>
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <div className="text-2xl font-bold text-purple-600">🔒</div>
-                    <h3 className="font-medium text-purple-900 mt-2">Data Control</h3>
-                    <p className="text-sm text-purple-700 mt-1">Your data stays under your control</p>
+                    <h3 className="font-medium text-purple-900 mt-2">{t('settings.data_control')}</h3>
+                    <p className="text-sm text-purple-700 mt-1">{t('settings.data_control_description')}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1421,37 +1423,37 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Download className="h-5 w-5" />
-                  Export Data
+                  {t('settings.export_data')}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Create a complete backup of all your business data including clients, invoices, payments, and settings.
+                  {t('settings.export_data_description')}
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-3">What will be exported:</h4>
+                      <h4 className="font-medium mb-3">{t('settings.what_will_be_exported')}</h4>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span>Client information and contact details</span>
+                          <span>{t('settings.client_information')}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span>Complete invoice history with line items</span>
+                          <span>{t('settings.complete_invoice_history')}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <span>Payment records and transaction history</span>
+                          <span>{t('settings.payment_records')}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          <span>Client notes and CRM data</span>
+                          <span>{t('settings.client_notes')}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                          <span>Company and application settings</span>
+                          <span>{t('settings.company_settings')}</span>
                         </div>
                       </div>
                     </div>
@@ -1459,12 +1461,12 @@ const Settings = () => {
                   
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-3">Export Details:</h4>
+                      <h4 className="font-medium mb-3">{t('settings.export_details')}</h4>
                       <div className="space-y-2 text-sm text-muted-foreground">
-                        <p><strong>Format:</strong> SQLite database (.sqlite)</p>
-                        <p><strong>Compatibility:</strong> Works with database tools and custom applications</p>
-                        <p><strong>Security:</strong> No sensitive authentication data included</p>
-                        <p><strong>Size:</strong> Typically 1-10 MB depending on data volume</p>
+                        <p><strong>{t('settings.format')}:</strong> {t('settings.sqlite_database')}</p>
+                        <p><strong>{t('settings.compatibility')}:</strong> {t('settings.works_with_database_tools')}</p>
+                        <p><strong>{t('settings.security')}:</strong> {t('settings.no_sensitive_authentication_data')}</p>
+                        <p><strong>{t('settings.size')}:</strong> {t('settings.size_description')}</p>
                       </div>
                     </div>
                   </div>
@@ -1480,17 +1482,17 @@ const Settings = () => {
                     {exporting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Export...
+                        {t('settings.creating_export')}
                       </>
                     ) : (
                       <>
                         <Download className="mr-2 h-4 w-4" />
-                        Download Complete Backup
+                        {t('settings.download_complete_backup')}
                       </>
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Export includes all data from your current tenant. File will be downloaded automatically.
+                    {t('settings.export_includes_all_data')}
                   </p>
                 </div>
               </CardContent>
@@ -1501,10 +1503,10 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="h-5 w-5" />
-                  Import Data
+                  {t('settings.import_data')}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Restore your business data from a previously exported backup file.
+                  {t('settings.import_data_description')}
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1512,10 +1514,10 @@ const Settings = () => {
                   <div className="flex items-start gap-3">
                     <div className="text-amber-600 text-lg">⚠️</div>
                     <div>
-                      <h4 className="font-medium text-amber-900 mb-1">Important Warning</h4>
+                      <h4 className="font-medium text-amber-900 mb-1">{t('settings.important_warning')}</h4>
                       <p className="text-sm text-amber-800">
-                        Importing data will <strong>permanently replace</strong> all your current data. 
-                        This action cannot be undone. We strongly recommend creating an export backup first.
+                        {t('settings.importing_data_warning_strong')}
+                        {t('settings.importing_data_warning_cannot_be_undone')}
                       </p>
                     </div>
                   </div>
@@ -1524,9 +1526,9 @@ const Settings = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="import-file" className="text-base font-medium">Select Backup File</Label>
+                      <Label htmlFor="import-file" className="text-base font-medium">{t('settings.select_backup_file')}</Label>
                       <p className="text-sm text-muted-foreground mb-3">
-                        Choose a SQLite file (.sqlite) that was previously exported from this application.
+                        {t('settings.choose_sqlite_file')}
                       </p>
                       <Input
                         id="import-file"
@@ -1540,10 +1542,10 @@ const Settings = () => {
                         <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                           <div className="flex items-center gap-2 text-sm">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="font-medium">File selected:</span>
+                            <span className="font-medium">{t('settings.file_selected')}:</span>
                           </div>
                           <p className="text-sm text-green-700 mt-1">
-                            {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                            {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} {t('settings.mb')})
                           </p>
                         </div>
                       )}
@@ -1552,23 +1554,23 @@ const Settings = () => {
                   
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-3">Import Process:</h4>
+                      <h4 className="font-medium mb-3">{t('settings.import_process')}</h4>
                       <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          <span>File validation and structure check</span>
+                          <span>{t('settings.file_validation_and_structure_check')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          <span>Current data backup and removal</span>
+                          <span>{t('settings.current_data_backup_and_removal')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          <span>Import new data with ID mapping</span>
+                          <span>{t('settings.import_new_data_with_id_mapping')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                          <span>Data integrity verification</span>
+                          <span>{t('settings.data_integrity_verification')}</span>
                         </div>
                       </div>
                     </div>
@@ -1586,12 +1588,12 @@ const Settings = () => {
                       {exporting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating Backup...
+                          {t('settings.creating_backup')}
                         </>
                       ) : (
                         <>
                           <Download className="mr-2 h-4 w-4" />
-                          Backup Current Data First
+                          {t('settings.backup_current_data_first')}
                         </>
                       )}
                     </Button>
@@ -1605,18 +1607,18 @@ const Settings = () => {
                       {importing ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Importing Data...
+                          {t('settings.importing_data')}
                         </>
                       ) : (
                         <>
                           <Upload className="mr-2 h-4 w-4" />
-                          Import & Replace Data
+                          {t('settings.import_and_replace_data')}
                         </>
                       )}
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Recommended: Always create a backup before importing to preserve your current data.
+                    {t('settings.recommended_backup_hint')}
                   </p>
                 </div>
               </CardContent>
@@ -1627,51 +1629,51 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <span className="text-lg">💡</span>
-                  Best Practices & Tips
+                  {t('settings.best_practices_and_tips')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-medium mb-3 text-green-700">✅ Recommended Practices</h4>
+                    <h4 className="font-medium mb-3 text-green-700">{t('settings.recommended_practices')}</h4>
                     <ul className="space-y-2 text-sm text-muted-foreground">
                       <li className="flex items-start gap-2">
                         <span className="text-green-500 mt-0.5">•</span>
-                        <span>Create regular backups (weekly or monthly)</span>
+                        <span>{t('settings.create_regular_backups')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-green-500 mt-0.5">•</span>
-                        <span>Always backup before importing new data</span>
+                        <span>{t('settings.always_backup_before_importing')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-green-500 mt-0.5">•</span>
-                        <span>Store backup files in multiple safe locations</span>
+                        <span>{t('settings.store_backup_files_in_multiple_safe_locations')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-green-500 mt-0.5">•</span>
-                        <span>Test imports in a separate environment first</span>
+                        <span>{t('settings.test_imports_in_a_separate_environment_first')}</span>
                       </li>
                     </ul>
                   </div>
                   
                   <div>
-                    <h4 className="font-medium mb-3 text-blue-700">🔧 Technical Information</h4>
+                    <h4 className="font-medium mb-3 text-blue-700">{t('settings.technical_information')}</h4>
                     <ul className="space-y-2 text-sm text-muted-foreground">
                       <li className="flex items-start gap-2">
                         <span className="text-blue-500 mt-0.5">•</span>
-                        <span>SQLite files can be opened with DB Browser for SQLite</span>
+                        <span>{t('settings.sqlite_files_can_be_opened_with_db_browser')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-500 mt-0.5">•</span>
-                        <span>Data can be used programmatically in custom applications</span>
+                        <span>{t('settings.data_can_be_used_programmatically_in_custom_applications')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-500 mt-0.5">•</span>
-                        <span>Import validates file structure before processing</span>
+                        <span>{t('settings.import_validates_file_structure_before_processing')}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-blue-500 mt-0.5">•</span>
-                        <span>New invoice numbers are generated to avoid conflicts</span>
+                        <span>{t('settings.new_invoice_numbers_are_generated_to_avoid_conflicts')}</span>
                       </li>
                     </ul>
                   </div>
@@ -1686,82 +1688,82 @@ const Settings = () => {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>
-                {editingAIConfig ? "Edit AI Configuration" : "Add AI Configuration"}
+                {editingAIConfig ? t('settings.edit_ai_configuration') : t('settings.add_ai_configuration')}
               </DialogTitle>
               <DialogDescription>
-                Configure an AI provider for enhanced features like invoice analysis and suggestions.
+                {t('settings.configure_ai_provider_for_enhanced_features')}
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="provider_name">Provider</Label>
+                  <Label htmlFor="provider_name">{t('settings.provider')}</Label>
                   <Select
                     value={newAIConfig.provider_name}
                     onValueChange={handleProviderChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select provider" />
+                      <SelectValue placeholder={t('settings.select_provider')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="ollama">Ollama</SelectItem>
-                      <SelectItem value="anthropic">Anthropic</SelectItem>
-                      <SelectItem value="google">Google</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
+                      <SelectItem value="openai">{t('settings.openai')}</SelectItem>
+                      <SelectItem value="ollama">{t('settings.ollama')}</SelectItem>
+                      <SelectItem value="anthropic">{t('settings.anthropic')}</SelectItem>
+                      <SelectItem value="google">{t('settings.google')}</SelectItem>
+                      <SelectItem value="custom">{t('settings.custom')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="model_name">Model</Label>
+                  <Label htmlFor="model_name">{t('settings.model')}</Label>
                   <Input
                     id="model_name"
                     name="model_name"
                     value={newAIConfig.model_name}
                     onChange={handleAIConfigChange}
                     placeholder={
-                      newAIConfig.provider_name === "openai" ? "e.g., gpt-4, gpt-3.5-turbo" :
-                      newAIConfig.provider_name === "ollama" ? "e.g., llama2, llama3.1:8b, codellama" :
-                      newAIConfig.provider_name === "anthropic" ? "e.g., claude-3-sonnet, claude-3-haiku" :
-                      newAIConfig.provider_name === "google" ? "e.g., gemini-pro, gemini-flash" :
-                      "e.g., model-name"
+                      newAIConfig.provider_name === "openai" ? t('settings.openai_model_example') :
+                      newAIConfig.provider_name === "ollama" ? t('settings.ollama_model_example') :
+                      newAIConfig.provider_name === "anthropic" ? t('settings.anthropic_model_example') :
+                      newAIConfig.provider_name === "google" ? t('settings.google_model_example') :
+                      t('settings.model_name_example')
                     }
                   />
                   <p className="text-sm text-muted-foreground">
-                    {newAIConfig.provider_name === "openai" && "Use OpenAI model names like gpt-4, gpt-3.5-turbo"}
-                    {newAIConfig.provider_name === "ollama" && "Use Ollama model names like llama2, llama3.1:8b, codellama (will be prefixed with 'ollama/')"}
-                    {newAIConfig.provider_name === "anthropic" && "Use Anthropic model names like claude-3-sonnet, claude-3-haiku"}
-                    {newAIConfig.provider_name === "google" && "Use Google model names like gemini-pro, gemini-flash"}
-                    {newAIConfig.provider_name === "custom" && "Use your custom model name"}
+                    {newAIConfig.provider_name === "openai" && t('settings.openai_model_hint')}
+                    {newAIConfig.provider_name === "ollama" && t('settings.ollama_model_hint')}
+                    {newAIConfig.provider_name === "anthropic" && t('settings.anthropic_model_hint')}
+                    {newAIConfig.provider_name === "google" && t('settings.google_model_hint')}
+                    {newAIConfig.provider_name === "custom" && t('settings.custom_model_hint')}
                   </p>
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="provider_url">Provider URL (Optional)</Label>
+                <Label htmlFor="provider_url">{t('settings.provider_url_optional')}</Label>
                 <Input
                   id="provider_url"
                   name="provider_url"
                   value={newAIConfig.provider_url}
                   onChange={handleAIConfigChange}
-                  placeholder="https://api.openai.com/v1"
+                  placeholder={t('settings.provider_url_placeholder')}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Leave empty for default endpoints. Required for custom providers.
+                  {t('settings.leave_empty_for_default_endpoints')}
                 </p>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="api_key">API Key</Label>
+                <Label htmlFor="api_key">{t('settings.api_key')}</Label>
                 <Input
                   id="api_key"
                   name="api_key"
                   type="password"
                   value={newAIConfig.api_key}
                   onChange={handleAIConfigChange}
-                  placeholder="Enter your API key"
+                  placeholder={t('settings.enter_api_key')}
                 />
               </div>
               
@@ -1772,7 +1774,7 @@ const Settings = () => {
                     checked={newAIConfig.is_active}
                     onCheckedChange={(checked) => handleAIConfigToggleChange('is_active', checked)}
                   />
-                  <Label htmlFor="is_active">Active</Label>
+                  <Label htmlFor="is_active">{t('settings.active')}</Label>
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -1781,7 +1783,7 @@ const Settings = () => {
                     checked={newAIConfig.is_default}
                     onCheckedChange={(checked) => handleAIConfigToggleChange('is_default', checked)}
                   />
-                  <Label htmlFor="is_default">Default Provider</Label>
+                  <Label htmlFor="is_default">{t('settings.default_provider')}</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -1790,19 +1792,19 @@ const Settings = () => {
                     checked={newAIConfig.tested}
                     onCheckedChange={(checked) => handleAIConfigToggleChange('tested', checked)}
                   />
-                  <Label htmlFor="tested">Mark as Tested</Label>
+                  <Label htmlFor="tested">{t('settings.mark_as_tested')}</Label>
                 </div>
               </div>
             </div>
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAIConfigDialog(false)}>
-                Cancel
+                {t('settings.cancel')}
               </Button>
               <Button
                 onClick={editingAIConfig ? handleUpdateAIConfig : handleCreateAIConfig}
               >
-                {editingAIConfig ? "Update" : "Create"}
+                {editingAIConfig ? t('settings.update') : t('settings.create')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1813,23 +1815,23 @@ const Settings = () => {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>
-                {editingDiscountRule ? "Edit Discount Rule" : "Create Discount Rule"}
+                {editingDiscountRule ? t('settings.edit_discount_rule') : t('settings.create_discount_rule')}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="rule-name">Rule Name</Label>
+                <Label htmlFor="rule-name">{t('settings.rule_name')}</Label>
                 <Input
                   id="rule-name"
                   value={newDiscountRule.name}
                   onChange={(e) => setNewDiscountRule(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., High Value Discount, Bulk Order Discount"
+                  placeholder={t('settings.rule_name_placeholder')}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="min-amount">Minimum Amount</Label>
+                  <Label htmlFor="min-amount">{t('settings.min_amount')}</Label>
                   <Input
                     id="min-amount"
                     type="number"
@@ -1837,26 +1839,26 @@ const Settings = () => {
                     step="0.01"
                     value={newDiscountRule.min_amount}
                     onChange={(e) => setNewDiscountRule(prev => ({ ...prev, min_amount: parseFloat(e.target.value) || 0 }))}
-                    placeholder="0.00"
+                    placeholder={t('settings.min_amount_placeholder')}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
+                  <Label htmlFor="priority">{t('settings.priority')}</Label>
                   <Input
                     id="priority"
                     type="number"
                     min="0"
                     value={newDiscountRule.priority}
                     onChange={(e) => setNewDiscountRule(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
-                    placeholder="0"
+                    placeholder={t('settings.priority_placeholder')}
                   />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="discount-type">Discount Type</Label>
+                  <Label htmlFor="discount-type">{t('settings.discount_type')}</Label>
                   <Select
                     value={newDiscountRule.discount_type}
                     onValueChange={(value: 'percentage' | 'fixed') => 
@@ -1867,16 +1869,14 @@ const Settings = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="percentage">Percentage (%)</SelectItem>
-                      <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                      <SelectItem value="percentage">{t('settings.percentage_discount')}</SelectItem>
+                      <SelectItem value="fixed">{t('settings.fixed_amount_discount')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="discount-value">
-                    {newDiscountRule.discount_type === "percentage" ? "Discount Percentage" : "Discount Amount"}
-                  </Label>
+                  <Label htmlFor="discount-value">{t('settings.discount_value')}</Label>
                   <Input
                     id="discount-value"
                     type="number"
@@ -1884,17 +1884,17 @@ const Settings = () => {
                     step={newDiscountRule.discount_type === "percentage" ? "0.01" : "0.01"}
                     value={newDiscountRule.discount_value}
                     onChange={(e) => setNewDiscountRule(prev => ({ ...prev, discount_value: parseFloat(e.target.value) || 0 }))}
-                    placeholder={newDiscountRule.discount_type === "percentage" ? "5.00" : "50.00"}
+                    placeholder={newDiscountRule.discount_type === "percentage" ? t('settings.percentage_discount_value_placeholder') : t('settings.fixed_amount_discount_value_placeholder')}
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">{t('settings.currency')}</Label>
                 <CurrencySelector
                   value={newDiscountRule.currency || "USD"}
                   onValueChange={(value) => setNewDiscountRule(prev => ({ ...prev, currency: value }))}
-                  placeholder="Select currency"
+                  placeholder={t('settings.currency_placeholder')}
                 />
               </div>
               
@@ -1904,7 +1904,7 @@ const Settings = () => {
                   checked={newDiscountRule.is_active}
                   onCheckedChange={(checked) => setNewDiscountRule(prev => ({ ...prev, is_active: checked }))}
                 />
-                <Label htmlFor="is-active">Active</Label>
+                <Label htmlFor="is-active">{t('settings.active')}</Label>
               </div>
               
               <div className="flex justify-end space-x-2 pt-4">
@@ -1912,12 +1912,12 @@ const Settings = () => {
                   variant="outline"
                   onClick={() => setShowDiscountRuleDialog(false)}
                 >
-                  Cancel
+                  {t('settings.cancel')}
                 </Button>
                 <Button
                   onClick={editingDiscountRule ? handleUpdateDiscountRule : handleCreateDiscountRule}
                 >
-                  {editingDiscountRule ? "Update Rule" : "Create Rule"}
+                  {editingDiscountRule ? t('settings.update_rule') : t('settings.create_rule')}
                 </Button>
               </div>
             </div>

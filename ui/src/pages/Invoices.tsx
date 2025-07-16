@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from '@/lib/utils';
 import { canPerformActions } from "@/utils/auth";
+import { useTranslation } from 'react-i18next';
 
 const formatStatus = (status: string) => {
   return status.split('_').map(word => 
@@ -21,6 +22,7 @@ const formatStatus = (status: string) => {
 };
 
 const Invoices = () => {
+  const { t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,7 +44,7 @@ const Invoices = () => {
         setInvoices(data);
       } catch (error) {
         console.error("Failed to fetch invoices:", error);
-        toast.error("Failed to load invoices");
+        toast.error(t('invoices.errors.load_failed'));
       } finally {
         setLoading(false);
       }
@@ -64,13 +66,13 @@ const Invoices = () => {
       <div className="h-full space-y-6 fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Invoices</h1>
-            <p className="text-muted-foreground">Create and manage your invoices</p>
+            <h1 className="text-3xl font-bold">{t('invoices.title')}</h1>
+            <p className="text-muted-foreground">{t('invoices.description')}</p>
           </div>
           {canPerformAction && (
             <Link to="/invoices/new">
               <Button className="sm:self-end whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" /> New Invoice
+                <Plus className="mr-2 h-4 w-4" /> {t('invoices.new_invoice')}
               </Button>
             </Link>
           )}
@@ -79,12 +81,12 @@ const Invoices = () => {
         <Card className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>Invoice List</CardTitle>
+              <CardTitle>{t('invoices.invoice_list')}</CardTitle>
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search invoices..."
+                    placeholder={t('invoices.search_placeholder')}
                     className="pl-8 w-full sm:w-[200px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -94,15 +96,15 @@ const Invoices = () => {
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full sm:w-[150px]">
-                      <SelectValue placeholder="Filter by status" />
+                      <SelectValue placeholder={t('invoices.filter_by_status')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="partially_paid">Partially Paid</SelectItem>
+                      <SelectItem value="all">{t('invoices.all_statuses')}</SelectItem>
+                      <SelectItem value="draft">{t('invoices.status.draft')}</SelectItem>
+                      <SelectItem value="pending">{t('invoices.status.pending')}</SelectItem>
+                      <SelectItem value="paid">{t('invoices.status.paid')}</SelectItem>
+                      <SelectItem value="overdue">{t('invoices.status.overdue')}</SelectItem>
+                      <SelectItem value="partially_paid">{t('invoices.status.partially_paid')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -114,14 +116,14 @@ const Invoices = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead className="hidden sm:table-cell">Date</TableHead>
-                    <TableHead className="hidden md:table-cell">Due Date</TableHead>
-                    <TableHead className="text-right">Total Paid</TableHead>
-                    <TableHead className="text-right">Outstanding Balance</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead>{t('invoices.table.invoice')}</TableHead>
+                    <TableHead>{t('invoices.table.client')}</TableHead>
+                    <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
+                    <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
+                    <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
+                    <TableHead>{t('invoices.table.status')}</TableHead>
+                    <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -130,7 +132,7 @@ const Invoices = () => {
                       <TableCell colSpan={7} className="h-24 text-center">
                         <div className="flex justify-center items-center">
                           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          Loading invoices...
+                          {t('invoices.loading')}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -186,7 +188,7 @@ const Invoices = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center">
-                        No invoices found.
+                        {t('invoices.no_invoices')}
                       </TableCell>
                     </TableRow>
                   )}

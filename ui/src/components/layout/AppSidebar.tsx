@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { UserProfile } from "./UserProfile";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { 
   BarChart, 
   ChevronLeft, 
@@ -35,6 +37,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
 
@@ -151,28 +154,28 @@ export function AppSidebar() {
   const mainMenuItems = [
     { 
       path: '/', 
-      label: 'Dashboard', 
+      label: t('navigation.dashboard'), 
       icon: <BarChart className="w-5 h-5" /> 
     },
     { 
       path: '/clients', 
-      label: 'Clients', 
+      label: t('navigation.clients'), 
       icon: <Users className="w-5 h-5" /> 
     },
     { 
       path: '/invoices', 
-      label: 'Invoices', 
+      label: t('navigation.invoices'), 
       icon: <FileText className="w-5 h-5" /> 
     },
     { 
       path: '/payments', 
-      label: 'Payments', 
+      label: t('navigation.payments'), 
       icon: <DollarSign className="w-5 h-5" /> 
     },
     // Only show Users menu item for admin users
     ...(isAdminUser ? [{ 
       path: '/users', 
-      label: 'Users', 
+      label: t('navigation.users'), 
       icon: <UserCheck className="w-5 h-5" /> 
     }] : [])
   ];
@@ -181,13 +184,13 @@ export function AppSidebar() {
     // Only show Settings for admin users
     ...(isAdminUser ? [{ 
       path: '/settings', 
-      label: 'Settings', 
+      label: t('navigation.settings'), 
       icon: <Settings className="w-5 h-5" /> 
     }] : []),
     // Only show Super Admin for super users
     ...(isSuperUser ? [{ 
       path: '/super-admin', 
-      label: 'Super Admin', 
+      label: t('navigation.super_admin'), 
       icon: <ShieldCheck className="w-5 h-5" /> 
     }] : [])
   ];
@@ -246,6 +249,9 @@ export function AppSidebar() {
               companyLogo={settings?.company_info?.logo}
             />
           </div>
+          <div className="px-2">
+            <LanguageSwitcher />
+          </div>
           <div className="flex justify-center">
             <Button 
               variant="destructive" 
@@ -254,7 +260,7 @@ export function AppSidebar() {
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Log Out
+              {t('auth.logout')}
             </Button>
           </div>
         </SidebarFooter>

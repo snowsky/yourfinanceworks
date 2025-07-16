@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const ResetPassword: React.FC = () => {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -25,9 +27,9 @@ const ResetPassword: React.FC = () => {
     if (urlToken) {
       setToken(urlToken);
     } else {
-      setError('No reset token provided. Please check your email for the correct link.');
+      setError(t('resetPassword.noToken'));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,20 +38,20 @@ const ResetPassword: React.FC = () => {
 
     // Validate passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('resetPassword.passwordsNotMatch'));
       setIsLoading(false);
       return;
     }
 
     // Validate password strength
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError(t('resetPassword.passwordMinLength'));
       setIsLoading(false);
       return;
     }
 
     if (!token) {
-      setError('No reset token provided. Please check your email for the correct link.');
+      setError(t('resetPassword.noToken'));
       setIsLoading(false);
       return;
     }
@@ -59,12 +61,12 @@ const ResetPassword: React.FC = () => {
       
       if (response.success) {
         setIsSuccess(true);
-        toast.success('Password reset successfully!');
+        toast.success(t('resetPassword.toastSuccess'));
       } else {
-        setError(response.message || 'Failed to reset password. Please try again.');
+        setError(response.message || t('resetPassword.toastError'));
       }
     } catch (error: any) {
-      const errorMessage = error.message || 'An error occurred. Please try again.';
+      const errorMessage = error.message || t('resetPassword.toastUnknownError');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -82,10 +84,10 @@ const ResetPassword: React.FC = () => {
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <CardTitle className="mt-4 text-2xl font-bold text-gray-900">
-                Password Reset Complete
+                {t('resetPassword.successTitle')}
               </CardTitle>
               <CardDescription className="mt-2">
-                Your password has been successfully reset. You can now log in with your new password.
+                {t('resetPassword.successDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -93,7 +95,7 @@ const ResetPassword: React.FC = () => {
                 onClick={() => navigate('/login')}
                 className="w-full"
               >
-                Go to Login
+                {t('resetPassword.goToLogin')}
               </Button>
             </CardContent>
           </Card>
@@ -111,10 +113,10 @@ const ResetPassword: React.FC = () => {
               <AlertCircle className="h-6 w-6 text-blue-600" />
             </div>
             <CardTitle className="mt-4 text-2xl font-bold text-gray-900">
-              Reset Your Password
+              {t('resetPassword.title')}
             </CardTitle>
             <CardDescription className="mt-2">
-              Enter your new password below to complete the reset process.
+              {t('resetPassword.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -127,7 +129,7 @@ const ResetPassword: React.FC = () => {
               
               <div>
                 <Label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  New Password
+                  {t('resetPassword.newPasswordLabel')}
                 </Label>
                 <div className="mt-1 relative">
                   <Input
@@ -136,7 +138,7 @@ const ResetPassword: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
-                    placeholder="Enter new password (min. 6 characters)"
+                    placeholder={t('resetPassword.newPasswordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -156,7 +158,7 @@ const ResetPassword: React.FC = () => {
 
               <div>
                 <Label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm New Password
+                  {t('resetPassword.confirmPasswordLabel')}
                 </Label>
                 <div className="mt-1 relative">
                   <Input
@@ -165,7 +167,7 @@ const ResetPassword: React.FC = () => {
                     type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
-                    placeholder="Confirm new password"
+                    placeholder={t('resetPassword.confirmPasswordPlaceholder')}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />
@@ -189,7 +191,7 @@ const ResetPassword: React.FC = () => {
                   disabled={isLoading || !token}
                   className="w-full"
                 >
-                  {isLoading ? 'Resetting...' : 'Reset Password'}
+                  {isLoading ? t('resetPassword.resetting') : t('resetPassword.resetPasswordButton')}
                 </Button>
                 
                 <Button
@@ -199,7 +201,7 @@ const ResetPassword: React.FC = () => {
                   className="w-full"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Login
+                  {t('resetPassword.backToLogin')}
                 </Button>
               </div>
             </form>
@@ -208,9 +210,9 @@ const ResetPassword: React.FC = () => {
         
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Remember your password?{' '}
+            {t('resetPassword.rememberPassword')}{' '}
             <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign in
+              {t('resetPassword.signIn')}
             </Link>
           </p>
         </div>

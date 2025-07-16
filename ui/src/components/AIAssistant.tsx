@@ -8,8 +8,7 @@ import { Send, Bot, Maximize2, Minimize2, Sparkles, MessageCircle, X } from 'luc
 import { useQuery } from '@tanstack/react-query';
 import { api, aiApi } from '@/lib/api'; // Import both api and aiApi
 import PaymentCharts from './PaymentCharts';
-import { isAdmin, getCurrentUser } from '@/utils/auth';
-import { createSettingsQueryOptions } from '@/utils/query';
+import { useTranslation } from 'react-i18next';
 
 interface Message {
   id: number;
@@ -160,11 +159,12 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 // Separate component for authenticated admin users
 const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>((props, ref) => {
   const { user } = props;
+  const { t } = useTranslation();
   
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(
-    [{ id: 1, sender: 'ai', text: <EnhancedAIResponse text="Hello! I'm your AI Assistant. Look for the sleek gradient bot icon in the bottom right corner to chat with me anytime! 🤖✨" /> }]
+    [{ id: 1, sender: 'ai', text: <EnhancedAIResponse text={t('aiAssistant.welcomeMessage')} /> }]
   );
   const [input, setInput] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -321,7 +321,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     if (!messageText) setInput('');
 
     // Show typing indicator
-    const typingMessage: Message = { id: messages.length + 2, sender: 'ai', text: <EnhancedAIResponse text="Thinking..." /> };
+    const typingMessage: Message = { id: messages.length + 2, sender: 'ai', text: <EnhancedAIResponse text={t('aiAssistant.thinking')} /> };
     setMessages((prev) => [...prev, typingMessage]);
 
     try {
@@ -360,40 +360,40 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div className="bg-white p-3 rounded-lg shadow-sm">
-                      <h4 className="font-semibold text-gray-800 mb-2">📈 Summary</h4>
+                      <h4 className="font-semibold text-gray-800 mb-2">{t('aiAssistant.summary')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span>Total Invoices:</span>
+                          <span>{t('aiAssistant.totalInvoices')}</span>
                           <span className="font-medium">{data.total_invoices}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Paid Invoices:</span>
+                          <span>{t('aiAssistant.paidInvoices')}</span>
                           <span className="font-medium text-green-600">{data.paid_invoices}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Partially Paid:</span>
+                          <span>{t('aiAssistant.partiallyPaid')}</span>
                           <span className="font-medium text-yellow-600">{data.partially_paid_invoices || 0}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Unpaid Invoices:</span>
+                          <span>{t('aiAssistant.unpaidInvoices')}</span>
                           <span className="font-medium text-red-600">{data.unpaid_invoices}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Overdue Invoices:</span>
+                          <span>{t('aiAssistant.overdueInvoices')}</span>
                           <span className="font-medium text-red-600">{data.overdue_invoices}</span>
                         </div>
                       </div>
                     </div>
                     
                     <div className="bg-white p-3 rounded-lg shadow-sm">
-                      <h4 className="font-semibold text-gray-800 mb-2">💰 Revenue</h4>
+                      <h4 className="font-semibold text-gray-800 mb-2">{t('aiAssistant.revenue')}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span>Total Revenue:</span>
+                          <span>{t('aiAssistant.totalRevenue')}</span>
                           <span className="font-medium text-green-600">{formatRevenueByCurrency(data.total_revenue_by_currency)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Outstanding:</span>
+                          <span>{t('aiAssistant.outstanding')}</span>
                           <span className="font-medium text-orange-600">{formatRevenueByCurrency(data.outstanding_revenue_by_currency)}</span>
                         </div>
                       </div>
@@ -475,15 +475,15 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                       <div className="bg-white p-2 rounded text-center">
                         <div className="text-2xl font-bold text-red-600">{data.overdue_count}</div>
-                        <div className="text-xs text-gray-600">Overdue Invoices</div>
+                        <div className="text-xs text-gray-600">{t('aiAssistant.overdueInvoices')}</div>
                       </div>
                       <div className="bg-white p-2 rounded text-center">
                         <div className="text-2xl font-bold text-orange-600">{data.clients_with_balance}</div>
-                        <div className="text-xs text-gray-600">Clients with Balance</div>
+                        <div className="text-xs text-gray-600">{t('aiAssistant.clientsWithBalance')}</div>
                       </div>
                       <div className="bg-white p-2 rounded text-center">
                         <div className="text-2xl font-bold text-blue-600">{data.recent_invoices_count}</div>
-                        <div className="text-xs text-gray-600">Recent Invoices</div>
+                        <div className="text-xs text-gray-600">{t('aiAssistant.recentInvoices')}</div>
                       </div>
                     </div>
                   </div>
@@ -601,8 +601,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       <Bot className="h-8 w-8 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-white drop-shadow">Invoice AI Assistant</h2>
-                      <p className="text-white/80 text-sm mt-1">Ask me anything about your business</p>
+                      <h2 className="text-2xl font-bold text-white drop-shadow">{t('aiAssistant.title')}</h2>
+                      <p className="text-white/80 text-sm mt-1">{t('aiAssistant.askAnything')}</p>
                     </div>
                   </div>
                   <div className="relative flex items-center gap-2 z-20">
@@ -611,7 +611,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       size="sm"
                       onClick={toggleFullscreen}
                       className="text-white hover:text-white/90 hover:bg-white/30 rounded-lg p-2.5 transition-all duration-200 border border-white/20 shadow-lg backdrop-blur-sm"
-                      title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                      title={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
                     >
                       {isFullscreen ? (
                         <Minimize2 className="h-5 w-5 drop-shadow-sm" />
@@ -624,7 +624,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       size="sm"
                       onClick={() => setIsOpen(false)}
                       className="text-white hover:text-white/90 hover:bg-white/30 rounded-lg p-2.5 transition-all duration-200 border border-white/20 shadow-lg backdrop-blur-sm"
-                      title="Close chat"
+                      title={t('aiAssistant.closeChat')}
                     >
                       <X className="h-5 w-5 drop-shadow-sm" />
                     </Button>
@@ -658,28 +658,28 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   <Button
                     variant="outline"
                     className="rounded-xl bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 font-semibold shadow hover:from-blue-200 hover:to-purple-200"
-                    onClick={() => handleQuickAction('Analyze my invoice patterns')}
+                    onClick={() => handleQuickAction(t('aiAssistant.analyzePatterns'))}
                   >
-                    Analyze Patterns
+                    {t('aiAssistant.analyzePatterns')}
                   </Button>
                   <Button
                     variant="outline"
                     className="rounded-xl bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700 font-semibold shadow hover:from-pink-200 hover:to-purple-200"
-                    onClick={() => handleQuickAction('Suggest actions')}
+                    onClick={() => handleQuickAction(t('aiAssistant.suggestActions'))}
                   >
-                    Suggest Actions
+                    {t('aiAssistant.suggestActions')}
                   </Button>
                   <Button
                     variant="outline"
                     className="rounded-xl bg-gradient-to-r from-green-100 to-blue-100 text-green-700 font-semibold shadow hover:from-green-200 hover:to-blue-200"
-                    onClick={() => handleQuickAction('Show payment charts')}
+                    onClick={() => handleQuickAction(t('aiAssistant.showPaymentCharts'))}
                   >
-                    Payment Charts
+                    {t('aiAssistant.paymentCharts')}
                   </Button>
                 </div>
                 <div className="flex items-center px-6 pb-6 pt-2 gap-2 relative z-20">
                   <Input
-                    placeholder="Type your message..."
+                    placeholder={t('aiAssistant.inputPlaceholder')}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={(e) => {

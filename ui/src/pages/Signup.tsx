@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Building2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { authApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 const Signup: React.FC = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -51,7 +53,7 @@ const Signup: React.FC = () => {
       setOrganizationNameStatus({
         checking: false,
         available: false,
-        message: 'Organization name must be at least 2 characters long'
+        message: t('auth.signup.availability.org_min_length')
       });
       return;
     }
@@ -59,7 +61,7 @@ const Signup: React.FC = () => {
     setOrganizationNameStatus({
       checking: true,
       available: null,
-      message: 'Checking availability...'
+      message: t('auth.signup.availability.checking')
     });
 
     try {
@@ -68,14 +70,14 @@ const Signup: React.FC = () => {
         checking: false,
         available: result.available,
         message: result.available 
-          ? '✓ Organization name is available' 
-          : '✗ Organization name is already taken. Please choose a different name or contact your organization admin for an invitation.'
+          ? t('auth.signup.availability.org_available')
+          : t('auth.signup.availability.org_taken')
       });
     } catch (error) {
       setOrganizationNameStatus({
         checking: false,
         available: null,
-        message: 'Error checking availability'
+        message: t('auth.signup.availability.error_checking')
       });
     }
   }, []);
@@ -97,7 +99,7 @@ const Signup: React.FC = () => {
       setEmailStatus({
         checking: false,
         available: false,
-        message: 'Please enter a valid email address'
+        message: t('auth.signup.availability.valid_email')
       });
       return;
     }
@@ -105,7 +107,7 @@ const Signup: React.FC = () => {
     setEmailStatus({
       checking: true,
       available: null,
-      message: 'Checking availability...'
+      message: t('auth.signup.availability.checking')
     });
 
     try {
@@ -114,14 +116,14 @@ const Signup: React.FC = () => {
         checking: false,
         available: result.available,
         message: result.available 
-          ? '✓ Email is available' 
-          : '✗ Email is already registered. Please use a different email or try logging in.'
+          ? t('auth.signup.availability.email_available')
+          : t('auth.signup.availability.email_taken')
       });
     } catch (error) {
       setEmailStatus({
         checking: false,
         available: null,
-        message: 'Error checking availability'
+        message: t('auth.signup.availability.error_checking')
       });
     }
   }, []);
@@ -164,42 +166,42 @@ const Signup: React.FC = () => {
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.signup.validation.passwords_not_match'));
       setLoading(false);
       return;
     }
 
     // Validate password strength
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError(t('auth.signup.validation.password_min_length'));
       setLoading(false);
       return;
     }
 
     // Validate email availability
     if (emailStatus.available === false) {
-      setError('Email is not available. Please use a different email address.');
+      setError(t('auth.signup.validation.email_not_available'));
       setLoading(false);
       return;
     }
 
     // If we're still checking email availability, wait for it to complete
     if (emailStatus.checking) {
-      setError('Please wait while we check email availability.');
+      setError(t('auth.signup.validation.waiting_email_check'));
       setLoading(false);
       return;
     }
 
     // Validate organization name availability
     if (organizationNameStatus.available === false) {
-      setError('Organization name is not available. Please choose a different name.');
+      setError(t('auth.signup.validation.org_not_available'));
       setLoading(false);
       return;
     }
 
     // If we're still checking availability, wait for it to complete
     if (organizationNameStatus.checking) {
-      setError('Please wait while we check organization name availability.');
+      setError(t('auth.signup.validation.waiting_org_check'));
       setLoading(false);
       return;
     }
@@ -211,7 +213,7 @@ const Signup: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(data.user));
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || t('auth.signup.validation.registration_failed'));
     } finally {
       setLoading(false);
     }
@@ -222,10 +224,10 @@ const Signup: React.FC = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
+            {t('auth.signup.title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Start managing your invoices today
+            {t('auth.signup.subtitle')}
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -239,7 +241,7 @@ const Signup: React.FC = () => {
             {/* Organization Name */}
             <div>
               <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700">
-                Organization Name
+                {t('auth.signup.organization_name')}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -257,7 +259,7 @@ const Signup: React.FC = () => {
                       ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
                       : 'border-gray-300'
                   }`}
-                  placeholder="Your company or organization name"
+                  placeholder={t('auth.signup.organization_placeholder')}
                   value={formData.organization_name}
                   onChange={handleChange}
                 />
@@ -287,11 +289,7 @@ const Signup: React.FC = () => {
                   {organizationNameStatus.available === false && organizationNameStatus.message.includes('already taken') && (
                     <div className="mt-2 pt-2 border-t border-red-200">
                       <p className="text-xs text-red-600">
-                        💡 <strong>Tip:</strong> If you're trying to join an existing organization, ask your admin to{' '}
-                        <Link to="/login" className="underline hover:text-red-800">
-                          invite you
-                        </Link>{' '}
-                        instead of creating a new account.
+                        {t('auth.signup.tips.org_taken_tip')}
                       </p>
                     </div>
                   )}
@@ -302,7 +300,7 @@ const Signup: React.FC = () => {
             {/* First Name */}
             <div>
               <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-                First Name
+                {t('auth.signup.first_name')}
               </label>
               <input
                 id="first_name"
@@ -310,7 +308,7 @@ const Signup: React.FC = () => {
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="First name"
+                placeholder={t('auth.signup.first_name_placeholder')}
                 value={formData.first_name}
                 onChange={handleChange}
               />
@@ -319,7 +317,7 @@ const Signup: React.FC = () => {
             {/* Last Name */}
             <div>
               <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-                Last Name
+                {t('auth.signup.last_name')}
               </label>
               <input
                 id="last_name"
@@ -327,7 +325,7 @@ const Signup: React.FC = () => {
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Last name"
+                placeholder={t('auth.signup.last_name_placeholder')}
                 value={formData.last_name}
                 onChange={handleChange}
               />
@@ -336,7 +334,7 @@ const Signup: React.FC = () => {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
+                {t('auth.signup.email_address')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -352,7 +350,7 @@ const Signup: React.FC = () => {
                       ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
                       : 'border-gray-300'
                   }`}
-                  placeholder="Email address"
+                  placeholder={t('auth.signup.email_placeholder')}
                   value={formData.email}
                   onChange={handleChange}
                 />
@@ -382,11 +380,7 @@ const Signup: React.FC = () => {
                   {emailStatus.available === false && emailStatus.message.includes('already registered') && (
                     <div className="mt-2 pt-2 border-t border-red-200">
                       <p className="text-xs text-red-600">
-                        💡 <strong>Tip:</strong> If you already have an account, try{' '}
-                        <Link to="/login" className="underline hover:text-red-800">
-                          logging in
-                        </Link>{' '}
-                        instead.
+                        {t('auth.signup.tips.email_taken_tip')}
                       </p>
                     </div>
                   )}
@@ -397,7 +391,7 @@ const Signup: React.FC = () => {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                {t('auth.signup.password')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -407,7 +401,7 @@ const Signup: React.FC = () => {
                   autoComplete="new-password"
                   required
                   className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Password (min. 6 characters)"
+                  placeholder={t('auth.signup.password_placeholder')}
                   value={formData.password}
                   onChange={handleChange}
                 />
@@ -428,7 +422,7 @@ const Signup: React.FC = () => {
             {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password
+                {t('auth.signup.confirm_password')}
               </label>
               <div className="mt-1 relative">
                 <input
@@ -438,7 +432,7 @@ const Signup: React.FC = () => {
                   autoComplete="new-password"
                   required
                   className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Confirm password"
+                  placeholder={t('auth.signup.confirm_password_placeholder')}
                   value={formData.confirmPassword}
                   onChange={handleChange}
                 />
@@ -463,15 +457,15 @@ const Signup: React.FC = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? t('auth.signup.creating_account') : t('auth.signup.create_account')}
             </button>
           </div>
 
           <div className="text-center">
             <span className="text-sm text-gray-600">
-              Already have an account?{' '}
+              {t('auth.signup.already_have_account')}{' '}
               <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Sign in
+                {t('auth.signup.sign_in')}
               </Link>
             </span>
           </div>
@@ -482,7 +476,7 @@ const Signup: React.FC = () => {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">Or continue with</span>
+                <span className="px-2 bg-gray-50 text-gray-500">{t('auth.signup.or_continue_with')}</span>
               </div>
             </div>
 
@@ -492,7 +486,7 @@ const Signup: React.FC = () => {
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                 onClick={() => {
                   // TODO: Implement Google SSO
-                  alert('Google SSO coming soon!');
+                  alert(t('auth.signup.google_sso_coming_soon'));
                 }}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -501,7 +495,7 @@ const Signup: React.FC = () => {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                <span className="ml-2">Sign up with Google</span>
+                <span className="ml-2">{t('auth.signup.sign_up_with_google')}</span>
               </button>
             </div>
           </div>

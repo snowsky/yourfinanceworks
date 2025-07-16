@@ -73,7 +73,7 @@ class Invoice(InvoiceBase):
 class InvoiceWithClient(Invoice):
     client_name: str
     total_paid: float = 0.0
-    items: List[InvoiceItem] = []
+    items: List[InvoiceItem] = [] 
     custom_fields: Optional[Dict[str, Any]] = Field(default=None, description="Custom fields for the invoice")
 
     class Config:

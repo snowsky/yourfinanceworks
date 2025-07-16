@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { toast } from "sonner";
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,10 +28,10 @@ const Login = () => {
       // Store token and user info
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      toast.success("Logged in successfully!");
+      toast.success(t('auth.login_success'));
       navigate("/dashboard");
     } catch (error: any) {
-      const errorMessage = error.message || "Login failed. Please check your credentials.";
+      const errorMessage = error.message || t('auth.login_error');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -39,16 +41,16 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     // TODO: Implement Google SSO
-    toast.info("Google SSO will be available soon!");
+    toast.info(t('auth.google_sso_coming_soon'));
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Sign in</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">{t('auth.login')}</CardTitle>
           <CardDescription className="text-center">
-            Enter your email and password to access your account
+            {t('auth.login_description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -59,23 +61,23 @@ const Login = () => {
           )}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder={t('auth.email_placeholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.password_placeholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -96,7 +98,7 @@ const Login = () => {
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? t('auth.signing_in') : t('auth.login')}
             </Button>
             
             <div className="text-center">
@@ -104,7 +106,7 @@ const Login = () => {
                 to="/forgot-password" 
                 className="text-sm text-blue-600 hover:text-blue-500"
               >
-                Forgot your password?
+                {t('auth.forgot_password')}
               </Link>
             </div>
           </form>
@@ -114,7 +116,7 @@ const Login = () => {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-background px-2 text-muted-foreground">{t('auth.or_continue_with')}</span>
             </div>
           </div>
           
@@ -142,13 +144,13 @@ const Login = () => {
                 fill="#EA4335"
               />
             </svg>
-            Sign in with Google
+            {t('auth.sign_in_with_google')}
           </Button>
           
           <div className="text-center text-sm">
-            Don't have an account?{" "}
+            {t('auth.no_account')}{" "}
             <Link to="/signup" className="underline underline-offset-4 hover:text-primary">
-              Sign up
+              {t('auth.signup')}
             </Link>
           </div>
         </CardContent>

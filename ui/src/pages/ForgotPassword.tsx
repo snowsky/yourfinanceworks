@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const ForgotPassword: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -25,12 +27,12 @@ const ForgotPassword: React.FC = () => {
       
       if (response.success) {
         setIsSubmitted(true);
-        toast.success('Password reset email sent!');
+        toast.success(t('forgotPassword.toastSuccess'));
       } else {
-        setError('Failed to send password reset email. Please try again.');
+        setError(t('forgotPassword.toastError'));
       }
     } catch (error: any) {
-      const errorMessage = error.message || 'An error occurred. Please try again.';
+      const errorMessage = error.message || t('forgotPassword.toastUnknownError');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -48,16 +50,16 @@ const ForgotPassword: React.FC = () => {
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <CardTitle className="mt-4 text-2xl font-bold text-gray-900">
-                Check Your Email
+                {t('forgotPassword.checkEmailTitle')}
               </CardTitle>
               <CardDescription className="mt-2">
-                We've sent a password reset link to your email address.
+                {t('forgotPassword.checkEmailDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center">
                 <p className="text-sm text-gray-600">
-                  If you don't see the email in your inbox, please check your spam folder.
+                  {t('forgotPassword.checkSpam')}
                 </p>
               </div>
               
@@ -70,7 +72,7 @@ const ForgotPassword: React.FC = () => {
                   variant="outline"
                   className="w-full"
                 >
-                  Send Another Email
+                  {t('forgotPassword.sendAnother')}
                 </Button>
                 
                 <Button
@@ -79,7 +81,7 @@ const ForgotPassword: React.FC = () => {
                   className="w-full"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Login
+                  {t('forgotPassword.backToLogin')}
                 </Button>
               </div>
             </CardContent>
@@ -98,10 +100,10 @@ const ForgotPassword: React.FC = () => {
               <Mail className="h-6 w-6 text-blue-600" />
             </div>
             <CardTitle className="mt-4 text-2xl font-bold text-gray-900">
-              Forgot Password?
+              {t('forgotPassword.title')}
             </CardTitle>
             <CardDescription className="mt-2">
-              Enter your email address and we'll send you a link to reset your password.
+              {t('forgotPassword.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -114,7 +116,7 @@ const ForgotPassword: React.FC = () => {
               
               <div>
                 <Label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email Address
+                  {t('forgotPassword.emailLabel')}
                 </Label>
                 <Input
                   id="email"
@@ -123,7 +125,7 @@ const ForgotPassword: React.FC = () => {
                   autoComplete="email"
                   required
                   className="mt-1"
-                  placeholder="Enter your email address"
+                  placeholder={t('forgotPassword.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -135,7 +137,7 @@ const ForgotPassword: React.FC = () => {
                   disabled={isLoading}
                   className="w-full"
                 >
-                  {isLoading ? 'Sending...' : 'Send Reset Link'}
+                  {isLoading ? t('forgotPassword.sending') : t('forgotPassword.sendResetLink')}
                 </Button>
                 
                 <Button
@@ -145,7 +147,7 @@ const ForgotPassword: React.FC = () => {
                   className="w-full"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Login
+                  {t('forgotPassword.backToLogin')}
                 </Button>
               </div>
             </form>
@@ -154,9 +156,9 @@ const ForgotPassword: React.FC = () => {
         
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
+            {t('forgotPassword.noAccount')}{' '}
             <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign up
+              {t('forgotPassword.signUp')}
             </Link>
           </p>
         </div>

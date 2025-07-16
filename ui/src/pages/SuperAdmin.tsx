@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { useTranslation } from "react-i18next";
 
 interface Tenant {
   id: number;
@@ -50,6 +51,7 @@ interface DatabaseStatus {
 
 const SuperAdminDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   // Check if user is super admin BEFORE any hooks are called
   if (!user?.is_superuser) {
@@ -58,18 +60,18 @@ const SuperAdminDashboard: React.FC = () => {
         <Alert className="max-w-md">
           <ShieldCheck className="h-4 w-4" />
           <AlertDescription>
-            You need super admin access to view this page.
+            {t('superAdmin.need_super_admin_access')}
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  return <SuperAdminDashboardContent user={user} />;
+  return <SuperAdminDashboardContent user={user} t={t} />;
 };
 
 // Separate component for the main dashboard content
-const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
+const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => string }> = ({ user, t }) => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [databases, setDatabases] = useState<DatabaseStatus[]>([]);
@@ -410,7 +412,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
           <Alert className="mb-6" variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <b>Warning:</b> The following tenant email(s) do not exist as users:<br />
+              <b>{t('superAdmin.warning_tenant_email_missing')}:</b><br />
               <ul className="list-disc ml-6 mt-2">
                 {tenantEmailsMissingUsers.map(t => (
                   <li key={t.id}>
@@ -418,13 +420,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                   </li>
                 ))}
               </ul>
-              Please create a user with the same email if you want tenant admins to be able to log in.
+              {t('superAdmin.tenant_admin_login_hint')}
             </AlertDescription>
           </Alert>
         )}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Super Admin Dashboard</h1>
-          <p className="text-gray-600">Manage all tenants, users, and databases</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('superAdmin.dashboard_title')}</h1>
+          <p className="text-gray-600">{t('superAdmin.dashboard_description')}</p>
         </div>
 
         {error && (
@@ -438,11 +440,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
           <Card>
             <CardContent className="p-6">
               <form onSubmit={handlePromote} className="flex flex-col md:flex-row items-center gap-4">
-                <Label htmlFor="promote-email" className="font-medium">Promote User to Super Admin:</Label>
+                <Label htmlFor="promote-email" className="font-medium">{t('superAdmin.promote_user_label')}</Label>
                 <Input
                   id="promote-email"
                   type="email"
-                  placeholder="Enter user email"
+                  placeholder={t('superAdmin.promote_user_placeholder')}
                   value={promoteEmail}
                   onChange={e => {
                     setPromoteEmail(e.target.value);
@@ -452,7 +454,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                   required
                 />
                 <Button type="submit" disabled={promoteLoading || !promoteEmail}>
-                  {promoteLoading ? 'Promoting...' : 'Promote'}
+                  {promoteLoading ? t('superAdmin.promoting_button') : t('superAdmin.promote_button')}
                 </Button>
                 {promoteError && (
                   <div className="text-red-600 text-sm mt-2" role="alert">{promoteError}</div>
@@ -468,12 +470,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Tenants</p>
+                  <p className="text-sm text-gray-600">{t('superAdmin.total_tenants_label')}</p>
                   <p className="text-2xl font-bold">{tenants.length}</p>
                 </div>
                 <Building className="h-8 w-8 text-blue-500" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{activeTenants} active</p>
+              <p className="text-sm text-gray-500 mt-2">{activeTenants} {t('superAdmin.active_tenants')}</p>
             </CardContent>
           </Card>
           
@@ -481,12 +483,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Users</p>
+                  <p className="text-sm text-gray-600">{t('superAdmin.total_users_label')}</p>
                   <p className="text-2xl font-bold">{totalUsers}</p>
                 </div>
                 <Users className="h-8 w-8 text-green-500" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{superUsers} super users</p>
+              <p className="text-sm text-gray-500 mt-2">{superUsers} {t('superAdmin.super_users')}</p>
             </CardContent>
           </Card>
           
@@ -494,12 +496,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Databases</p>
+                  <p className="text-sm text-gray-600">{t('superAdmin.databases_label')}</p>
                   <p className="text-2xl font-bold">{databases.length}</p>
                 </div>
                 <Database className="h-8 w-8 text-purple-500" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{healthyDatabases} healthy</p>
+              <p className="text-sm text-gray-500 mt-2">{healthyDatabases} {t('superAdmin.healthy_databases')}</p>
             </CardContent>
           </Card>
           
@@ -507,9 +509,9 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">System Status</p>
+                  <p className="text-sm text-gray-600">{t('superAdmin.system_status_label')}</p>
                   <p className={`text-2xl font-bold ${systemHealthy ? 'text-green-600' : 'text-red-600'}`}>
-                    {systemHealthy ? 'All systems operational' : `${unhealthyDatabases.length} issue${unhealthyDatabases.length > 1 ? 's' : ''} detected`}
+                    {systemHealthy ? t('superAdmin.all_systems_operational') : `${unhealthyDatabases.length} ${t('superAdmin.issues_detected')}`}
                   </p>
                 </div>
                 {systemHealthy ? (
@@ -525,62 +527,62 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tenants">Tenants</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="databases">Databases</TabsTrigger>
+            <TabsTrigger value="tenants">{t('superAdmin.tenants_tab')}</TabsTrigger>
+            <TabsTrigger value="users">{t('superAdmin.users_tab')}</TabsTrigger>
+            <TabsTrigger value="databases">{t('superAdmin.databases_tab')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="tenants" className="space-y-4">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>Tenants Management</CardTitle>
+                  <CardTitle>{t('superAdmin.tenants_management_title')}</CardTitle>
                   <Dialog open={showCreateTenant} onOpenChange={setShowCreateTenant}>
                     <DialogTrigger asChild>
                       <Button>
                         <Building className="h-4 w-4 mr-2" />
-                        Create Tenant
+                        {t('superAdmin.create_tenant_button')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Create New Tenant</DialogTitle>
+                        <DialogTitle>{t('superAdmin.create_new_tenant_title')}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="tenant-name">Organization Name</Label>
+                          <Label htmlFor="tenant-name">{t('superAdmin.organization_name_label')}</Label>
                           <Input
                             id="tenant-name"
                             value={createTenantForm.name}
                             onChange={(e) => setCreateTenantForm(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="Enter organization name"
+                            placeholder={t('superAdmin.organization_name_placeholder')}
                           />
                         </div>
                         <div>
-                          <Label htmlFor="tenant-email">Email</Label>
+                          <Label htmlFor="tenant-email">{t('superAdmin.email_label')}</Label>
                           <Input
                             id="tenant-email"
                             type="email"
                             value={createTenantForm.email}
                             onChange={(e) => setCreateTenantForm(prev => ({ ...prev, email: e.target.value }))}
-                            placeholder="Enter email"
+                            placeholder={t('superAdmin.email_placeholder')}
                           />
                         </div>
                         <div>
-                          <Label htmlFor="tenant-currency">Default Currency</Label>
+                          <Label htmlFor="tenant-currency">{t('superAdmin.default_currency_label')}</Label>
                           <Select value={createTenantForm.default_currency} onValueChange={(value) => setCreateTenantForm(prev => ({ ...prev, default_currency: value }))}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="USD">USD</SelectItem>
-                              <SelectItem value="EUR">EUR</SelectItem>
-                              <SelectItem value="GBP">GBP</SelectItem>
-                              <SelectItem value="JPY">JPY</SelectItem>
+                              <SelectItem value="USD">{t('superAdmin.currency_usd')}</SelectItem>
+                              <SelectItem value="EUR">{t('superAdmin.currency_eur')}</SelectItem>
+                              <SelectItem value="GBP">{t('superAdmin.currency_gbp')}</SelectItem>
+                              <SelectItem value="JPY">{t('superAdmin.currency_jpy')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button onClick={handleCreateTenant} className="w-full">Create Tenant</Button>
+                        <Button onClick={handleCreateTenant} className="w-full">{t('superAdmin.create_tenant_button')}</Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -590,13 +592,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Users</TableHead>
-                      <TableHead>Currency</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t('superAdmin.name_header')}</TableHead>
+                      <TableHead>{t('superAdmin.email_header')}</TableHead>
+                      <TableHead>{t('superAdmin.users_header')}</TableHead>
+                      <TableHead>{t('superAdmin.currency_header')}</TableHead>
+                      <TableHead>{t('superAdmin.status_header')}</TableHead>
+                      <TableHead>{t('superAdmin.created_at_header')}</TableHead>
+                      <TableHead>{t('superAdmin.actions_header')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -611,7 +613,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                           <TableCell>{tenant.default_currency}</TableCell>
                           <TableCell>
                             <Badge variant={tenant.is_active ? "default" : "secondary"}>
-                              {tenant.is_active ? 'Active' : 'Inactive'}
+                              {tenant.is_active ? t('superAdmin.active_status') : t('superAdmin.inactive_status')}
                             </Badge>
                           </TableCell>
                           <TableCell>{new Date(tenant.created_at).toLocaleDateString()}</TableCell>
@@ -637,54 +639,54 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>Users Management</CardTitle>
+                  <CardTitle>{t('superAdmin.users_management_title')}</CardTitle>
                   <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
                     <DialogTrigger asChild>
                       <Button>
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Create User
+                        {t('superAdmin.create_user_button')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Create New User</DialogTitle>
+                        <DialogTitle>{t('superAdmin.create_new_user_title')}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="user-email">Email</Label>
+                          <Label htmlFor="user-email">{t('superAdmin.email_label')}</Label>
                           <Input
                             id="user-email"
                             type="email"
                             value={createUserForm.email}
                             onChange={(e) => setCreateUserForm(prev => ({ ...prev, email: e.target.value }))}
-                            placeholder="Enter email"
+                            placeholder={t('superAdmin.email_placeholder')}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="user-first-name">First Name</Label>
+                            <Label htmlFor="user-first-name">{t('superAdmin.first_name_label')}</Label>
                             <Input
                               id="user-first-name"
                               value={createUserForm.first_name}
                               onChange={(e) => setCreateUserForm(prev => ({ ...prev, first_name: e.target.value }))}
-                              placeholder="First name"
+                              placeholder={t('superAdmin.first_name_placeholder')}
                             />
                           </div>
                           <div>
-                            <Label htmlFor="user-last-name">Last Name</Label>
+                            <Label htmlFor="user-last-name">{t('superAdmin.last_name_label')}</Label>
                             <Input
                               id="user-last-name"
                               value={createUserForm.last_name}
                               onChange={(e) => setCreateUserForm(prev => ({ ...prev, last_name: e.target.value }))}
-                              placeholder="Last name"
+                              placeholder={t('superAdmin.last_name_placeholder')}
                             />
                           </div>
                         </div>
                         <div>
-                          <Label htmlFor="user-tenant">Tenant</Label>
+                          <Label htmlFor="user-tenant">{t('superAdmin.tenant_label')}</Label>
                           <Select value={createUserForm.tenant_id} onValueChange={(value) => setCreateUserForm(prev => ({ ...prev, tenant_id: value }))}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select tenant" />
+                              <SelectValue placeholder={t('superAdmin.select_tenant_placeholder')} />
                             </SelectTrigger>
                             <SelectContent>
                               {tenants.map(tenant => (
@@ -696,29 +698,29 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                           </Select>
                         </div>
                         <div>
-                          <Label htmlFor="user-role">Role</Label>
+                          <Label htmlFor="user-role">{t('superAdmin.role_label')}</Label>
                           <Select value={createUserForm.role} onValueChange={(value) => setCreateUserForm(prev => ({ ...prev, role: value }))}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
+                              <SelectItem value="admin">{t('superAdmin.role_admin')}</SelectItem>
+                              <SelectItem value="user">{t('superAdmin.role_user')}</SelectItem>
+                              <SelectItem value="viewer">{t('superAdmin.role_viewer')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div>
-                          <Label htmlFor="user-password">Password</Label>
+                          <Label htmlFor="user-password">{t('superAdmin.password_label')}</Label>
                           <Input
                             id="user-password"
                             type="password"
                             value={createUserForm.password}
                             onChange={(e) => setCreateUserForm(prev => ({ ...prev, password: e.target.value }))}
-                            placeholder="Enter password"
+                            placeholder={t('superAdmin.password_placeholder')}
                           />
                         </div>
-                        <Button onClick={handleCreateUser} className="w-full">Create User</Button>
+                        <Button onClick={handleCreateUser} className="w-full">{t('superAdmin.create_user_button')}</Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -728,13 +730,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t('superAdmin.name_header')}</TableHead>
+                      <TableHead>{t('superAdmin.email_header')}</TableHead>
+                      <TableHead>{t('superAdmin.tenant_header')}</TableHead>
+                      <TableHead>{t('superAdmin.role_header')}</TableHead>
+                      <TableHead>{t('superAdmin.status_header')}</TableHead>
+                      <TableHead>{t('superAdmin.created_at_header')}</TableHead>
+                      <TableHead>{t('superAdmin.actions_header')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -743,7 +745,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                         <TableCell className="font-medium">
                           {user.first_name} {user.last_name}
                           {user.is_superuser && (
-                            <Badge variant="outline" className="ml-2">Super</Badge>
+                            <Badge variant="outline" className="ml-2">{t('superAdmin.super_user_badge')}</Badge>
                           )}
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
@@ -755,7 +757,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                         </TableCell>
                         <TableCell>
                           <Badge variant={user.is_active ? "default" : "secondary"}>
-                            {user.is_active ? 'Active' : 'Inactive'}
+                            {user.is_active ? t('superAdmin.active_status') : t('superAdmin.inactive_status')}
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
@@ -780,17 +782,17 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
           <TabsContent value="databases" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Database Management</CardTitle>
+                <CardTitle>{t('superAdmin.database_management_title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Database</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t('superAdmin.tenant_header')}</TableHead>
+                      <TableHead>{t('superAdmin.database_header')}</TableHead>
+                      <TableHead>{t('superAdmin.status_header')}</TableHead>
+                      <TableHead>{t('superAdmin.message_header')}</TableHead>
+                      <TableHead>{t('superAdmin.actions_header')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -811,7 +813,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
                             onClick={() => handleRecreateDatabase(db)}
                           >
                             <Database className="h-4 w-4 mr-2" />
-                            Recreate
+                            {t('superAdmin.recreate_database_button')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -828,32 +830,32 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
       <Dialog open={!!editTenant} onOpenChange={open => { if (!open) setEditTenant(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Tenant</DialogTitle>
+            <DialogTitle>{t('superAdmin.edit_tenant_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-tenant-name">Organization Name</Label>
+              <Label htmlFor="edit-tenant-name">{t('superAdmin.organization_name_label')}</Label>
               <Input id="edit-tenant-name" value={editTenantForm.name} onChange={e => setEditTenantForm(prev => ({ ...prev, name: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="edit-tenant-email">Email</Label>
+              <Label htmlFor="edit-tenant-email">{t('superAdmin.email_label')}</Label>
               <Input id="edit-tenant-email" type="email" value={editTenantForm.email} onChange={e => setEditTenantForm(prev => ({ ...prev, email: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="edit-tenant-currency">Default Currency</Label>
+              <Label htmlFor="edit-tenant-currency">{t('superAdmin.default_currency_label')}</Label>
               <Select value={editTenantForm.default_currency} onValueChange={value => setEditTenantForm(prev => ({ ...prev, default_currency: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                  <SelectItem value="JPY">JPY</SelectItem>
+                  <SelectItem value="USD">{t('superAdmin.currency_usd')}</SelectItem>
+                  <SelectItem value="EUR">{t('superAdmin.currency_eur')}</SelectItem>
+                  <SelectItem value="GBP">{t('superAdmin.currency_gbp')}</SelectItem>
+                  <SelectItem value="JPY">{t('superAdmin.currency_jpy')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleUpdateTenant} className="w-full">Update Tenant</Button>
+            <Button onClick={handleUpdateTenant} className="w-full">{t('superAdmin.update_tenant_button')}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -862,39 +864,39 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
       <Dialog open={!!editUser} onOpenChange={open => { if (!open) setEditUser(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle>{t('superAdmin.edit_user_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-user-first-name">First Name</Label>
+              <Label htmlFor="edit-user-first-name">{t('superAdmin.first_name_label')}</Label>
               <Input id="edit-user-first-name" value={editUserForm.first_name} onChange={e => setEditUserForm(prev => ({ ...prev, first_name: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="edit-user-last-name">Last Name</Label>
+              <Label htmlFor="edit-user-last-name">{t('superAdmin.last_name_label')}</Label>
               <Input id="edit-user-last-name" value={editUserForm.last_name} onChange={e => setEditUserForm(prev => ({ ...prev, last_name: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="edit-user-email">Email</Label>
+              <Label htmlFor="edit-user-email">{t('superAdmin.email_label')}</Label>
               <Input id="edit-user-email" type="email" value={editUserForm.email} onChange={e => setEditUserForm(prev => ({ ...prev, email: e.target.value }))} />
             </div>
             <div>
-              <Label htmlFor="edit-user-role">Role</Label>
+              <Label htmlFor="edit-user-role">{t('superAdmin.role_label')}</Label>
               <Select value={editUserForm.role} onValueChange={value => setEditUserForm(prev => ({ ...prev, role: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="admin">{t('superAdmin.role_admin')}</SelectItem>
+                  <SelectItem value="user">{t('superAdmin.role_user')}</SelectItem>
+                  <SelectItem value="viewer">{t('superAdmin.role_viewer')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="edit-user-password">Password (leave blank to keep unchanged)</Label>
+              <Label htmlFor="edit-user-password">{t('superAdmin.password_label_edit')}</Label>
               <Input id="edit-user-password" type="password" value={editUserForm.password} onChange={e => setEditUserForm(prev => ({ ...prev, password: e.target.value }))} />
             </div>
-            <Button onClick={handleUpdateUser} className="w-full">Update User</Button>
+            <Button onClick={handleUpdateUser} className="w-full">{t('superAdmin.update_user_button')}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -903,13 +905,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
       <Dialog open={!!tenantToDelete} onOpenChange={open => { if (!open) setTenantToDelete(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Tenant</DialogTitle>
+            <DialogTitle>{t('superAdmin.delete_tenant_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>Are you sure you want to delete tenant <b>{tenantToDelete?.name}</b>? This will delete all associated data.</p>
+            <p>{t('superAdmin.delete_tenant_confirmation_text', { tenantName: tenantToDelete?.name || '' })}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setTenantToDelete(null)}>Cancel</Button>
-              <Button variant="destructive" onClick={confirmDeleteTenant}>Delete</Button>
+              <Button variant="secondary" onClick={() => setTenantToDelete(null)}>{t('superAdmin.cancel_button')}</Button>
+              <Button variant="destructive" onClick={confirmDeleteTenant}>{t('superAdmin.delete_button')}</Button>
             </div>
           </div>
         </DialogContent>
@@ -919,13 +921,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
       <Dialog open={!!userToDelete} onOpenChange={open => { if (!open) setUserToDelete(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
+            <DialogTitle>{t('superAdmin.delete_user_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>Are you sure you want to delete user <b>{userToDelete?.email}</b>?</p>
+            <p>{t('superAdmin.delete_user_confirmation_text', { userEmail: userToDelete?.email || '' })}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setUserToDelete(null)}>Cancel</Button>
-              <Button variant="destructive" onClick={confirmDeleteUser}>Delete</Button>
+              <Button variant="secondary" onClick={() => setUserToDelete(null)}>{t('superAdmin.cancel_button')}</Button>
+              <Button variant="destructive" onClick={confirmDeleteUser}>{t('superAdmin.delete_button')}</Button>
             </div>
           </div>
         </DialogContent>
@@ -935,13 +937,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any }> = ({ user }) => {
       <Dialog open={!!dbToRecreate} onOpenChange={open => { if (!open) setDbToRecreate(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Recreate Database</DialogTitle>
+            <DialogTitle>{t('superAdmin.recreate_database_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>Are you sure you want to recreate the database for tenant <b>{dbToRecreate?.tenant_name}</b>? This will <span className="text-red-600 font-bold">DELETE ALL DATA</span> for this tenant.</p>
+            <p>{t('superAdmin.recreate_database_confirmation_text', { tenantName: dbToRecreate?.tenant_name || '' })}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDbToRecreate(null)}>Cancel</Button>
-              <Button variant="destructive" onClick={confirmRecreateDatabase}>Recreate</Button>
+              <Button variant="secondary" onClick={() => setDbToRecreate(null)}>{t('superAdmin.cancel_button')}</Button>
+              <Button variant="destructive" onClick={confirmRecreateDatabase}>{t('superAdmin.recreate_button')}</Button>
             </div>
           </div>
         </DialogContent>

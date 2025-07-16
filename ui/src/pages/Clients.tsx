@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { canPerformActions } from "@/utils/auth";
+import { useTranslation } from 'react-i18next';
 
 const Clients = () => {
+  const { t } = useTranslation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,7 +35,7 @@ const Clients = () => {
         setClients(data);
       } catch (error) {
         console.error("Failed to fetch clients:", error);
-        toast.error("Failed to load clients");
+        toast.error(t('clients.errors.load_failed'));
       } finally {
         setLoading(false);
       }
@@ -54,10 +56,10 @@ const Clients = () => {
     try {
       await clientApi.deleteClient(clientToDelete.id);
       setClients((clients || []).filter(c => c.id !== clientToDelete.id));
-      toast.success("Client deleted successfully");
+      toast.success(t('clients.client_deleted'));
     } catch (error) {
       console.error("Failed to delete client:", error);
-      toast.error("Failed to delete client");
+      toast.error(t('clients.errors.delete_failed'));
     } finally {
       setDeleting(false);
       setClientToDelete(null);
@@ -69,13 +71,13 @@ const Clients = () => {
       <div className="h-full space-y-6 fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Clients</h1>
-            <p className="text-muted-foreground">Manage your client information and balances</p>
+            <h1 className="text-3xl font-bold">{t('clients.title')}</h1>
+            <p className="text-muted-foreground">{t('clients.description')}</p>
           </div>
           {canPerformAction && (
             <Link to="/clients/new">
               <Button className="sm:self-end whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" /> Add Client
+                <Plus className="mr-2 h-4 w-4" /> {t('clients.add_client')}
               </Button>
             </Link>
           )}
@@ -84,11 +86,11 @@ const Clients = () => {
         <Card className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>Client List</CardTitle>
+              <CardTitle>{t('clients.client_list')}</CardTitle>
               <div className="relative max-w-sm">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search clients..."
+                  placeholder={t('clients.search_placeholder')}
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -101,13 +103,13 @@ const Clients = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead className="hidden md:table-cell">Address</TableHead>
-                    <TableHead className="text-right">Total Paid</TableHead>
-                    <TableHead className="text-right">Outstanding Balance</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead>{t('clients.table.name')}</TableHead>
+                    <TableHead>{t('clients.table.email')}</TableHead>
+                    <TableHead>{t('clients.table.phone')}</TableHead>
+                    <TableHead className="hidden md:table-cell">{t('clients.table.address')}</TableHead>
+                    <TableHead className="text-right">{t('clients.table.total_paid')}</TableHead>
+                    <TableHead className="text-right">{t('clients.table.outstanding_balance')}</TableHead>
+                    <TableHead className="w-[100px]">{t('clients.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,7 +118,7 @@ const Clients = () => {
                       <TableCell colSpan={6} className="h-24 text-center">
                         <div className="flex justify-center items-center">
                           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          Loading clients...
+                          {t('clients.loading')}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -160,7 +162,7 @@ const Clients = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        No clients found.
+                        {t('clients.no_clients')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -174,14 +176,14 @@ const Clients = () => {
       <Dialog open={!!clientToDelete} onOpenChange={() => setClientToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
+            <DialogTitle>{t('clients.delete_client')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p>Are you sure you want to delete {clientToDelete?.name}? This action cannot be undone.</p>
+            <p>{t('clients.delete_confirm', { name: clientToDelete?.name })}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClientToDelete(null)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button 
               variant="destructive" 
@@ -189,7 +191,7 @@ const Clients = () => {
               disabled={deleting}
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Delete
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

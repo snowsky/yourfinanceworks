@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { paymentApi, Payment } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { useTranslation } from 'react-i18next';
 
 const Payments = () => {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,7 +27,7 @@ const Payments = () => {
         setPayments(data);
       } catch (error) {
         console.error("Failed to fetch payments:", error);
-        toast.error("Failed to load payments");
+        toast.error(t('payments.errors.load_failed'));
       } finally {
         setLoading(false);
       }
@@ -48,19 +50,19 @@ const Payments = () => {
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
         <div>
-          <h1 className="text-3xl font-bold">Payments</h1>
-          <p className="text-muted-foreground">View and manage payment records</p>
+          <h1 className="text-3xl font-bold">{t('payments.title')}</h1>
+          <p className="text-muted-foreground">{t('payments.description')}</p>
         </div>
         
         <Card className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>Payment List</CardTitle>
+              <CardTitle>{t('payments.payment_list')}</CardTitle>
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search payments..."
+                    placeholder={t('payments.search_placeholder')}
                     className="pl-8 w-full sm:w-[200px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -70,14 +72,14 @@ const Payments = () => {
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={methodFilter} onValueChange={setMethodFilter}>
                     <SelectTrigger className="w-full sm:w-[150px]">
-                      <SelectValue placeholder="Filter by method" />
+                      <SelectValue placeholder={t('payments.filter_by_method')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Methods</SelectItem>
-                      <SelectItem value="credit_card">Credit Card</SelectItem>
-                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
+                      <SelectItem value="all">{t('payments.all_methods')}</SelectItem>
+                      <SelectItem value="credit_card">{t('payments.payment_methods.credit_card')}</SelectItem>
+                      <SelectItem value="bank_transfer">{t('payments.payment_methods.bank_transfer')}</SelectItem>
+                      <SelectItem value="cash">{t('payments.payment_methods.cash')}</SelectItem>
+                      <SelectItem value="system">{t('payments.payment_methods.system')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -89,12 +91,12 @@ const Payments = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t('payments.table.invoice')}</TableHead>
+                    <TableHead>{t('payments.table.client')}</TableHead>
+                    <TableHead>{t('payments.table.date')}</TableHead>
+                    <TableHead>{t('payments.table.amount')}</TableHead>
+                    <TableHead>{t('payments.table.method')}</TableHead>
+                    <TableHead>{t('payments.table.status')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -103,7 +105,7 @@ const Payments = () => {
                       <TableCell colSpan={6} className="h-24 text-center">
                         <div className="flex justify-center items-center">
                           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          Loading payments...
+                          {t('payments.loading')}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -131,7 +133,7 @@ const Payments = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        No payments found
+                        {t('payments.no_payments')}
                       </TableCell>
                     </TableRow>
                   )}

@@ -8,8 +8,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { dashboardApi } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { useTranslation } from 'react-i18next';
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [dashboardStats, setDashboardStats] = useState({
     totalIncome: {},
     pendingInvoices: {},
@@ -68,7 +70,7 @@ const Dashboard = () => {
         setDashboardStats(stats);
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
-        toast.error("Failed to load dashboard data");
+        toast.error(t('dashboard.errors.load_failed'));
       } finally {
         setLoading(false);
       }
@@ -80,6 +82,8 @@ const Dashboard = () => {
         try {
           const user = JSON.parse(userData);
           setUserName(user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.email);
+          console.log('Dashboard userData:', user);
+          console.log('Dashboard userName:', user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.email);
         } catch (error) {
           console.error('Error parsing user data:', error);
         }
@@ -117,43 +121,43 @@ const Dashboard = () => {
       <div className="h-full space-y-6 fade-in">
         <div>
           <h1 className="text-3xl font-bold">
-            {userName ? `Welcome back, ${userName}!` : 'Dashboard'}
+            {userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
           </h1>
           <p className="text-muted-foreground">
-            {tenantName ? `${tenantName} - Overview of your invoicing activity` : 'Overview of your invoicing activity'}
+            {tenantName ? t('dashboard.tenant_overview', { tenant: tenantName }) : t('dashboard.overview')}
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 slide-in">
           <StatCard
-            title="Total Income"
+            title={t('dashboard.stats.total_income')}
             value={formatMultiCurrencyString(dashboardStats.totalIncome)}
             icon={DollarSign}
-            description="Revenue from paid invoices"
+            description={t('dashboard.stats.revenue_description')}
             trend={dashboardStats.trends.income}
             loading={loading}
           />
           <StatCard
-            title="Pending Amount"
+            title={t('dashboard.stats.pending_amount')}
             value={formatMultiCurrencyString(dashboardStats.pendingInvoices)}
             icon={FileText}
-            description="Awaiting payment"
+            description={t('dashboard.stats.pending_description')}
             trend={dashboardStats.trends.pending}
             loading={loading}
           />
           <StatCard
-            title="Total Clients"
+            title={t('dashboard.stats.total_clients')}
             value={dashboardStats.totalClients.toString()}
             icon={Users}
-            description="Active client accounts"
+            description={t('dashboard.stats.clients_description')}
             trend={dashboardStats.trends.clients}
             loading={loading}
           />
           <StatCard
-            title="Overdue Invoices"
+            title={t('dashboard.stats.overdue_invoices')}
             value={dashboardStats.invoicesOverdue.toString()}
             icon={FileText}
-            description="Invoices past due date"
+            description={t('dashboard.stats.overdue_description')}
             trend={dashboardStats.trends.overdue}
             loading={loading}
           />

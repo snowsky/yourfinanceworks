@@ -6,6 +6,7 @@ import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail } 
 import { format, parseISO, isValid } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { PDFDownloadLink } from '@react-pdf/renderer';
+import { useTranslation } from "react-i18next";
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -128,6 +129,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     }
     return [];
   });
+
+  const { t } = useTranslation();
 
   // Update customFields when invoice changes
   useEffect(() => {
@@ -1311,21 +1314,21 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     return (
       <div className="w-full px-6 py-6">
         <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-          <p className="text-lg">No clients found. Please add a client first.</p>
+          <p className="text-lg">{t('invoices.no_clients_found')}</p>
           <Button onClick={() => setShowNewClientDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add New Client
+            {t('invoices.add_new_client')}
           </Button>
         </div>
 
         <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
+              <DialogTitle>{t('invoices.add_new_client')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">{t('invoices.name')}</Label>
                 <Input
                   id="name"
                   value={newClientForm.name}
@@ -1333,7 +1336,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('invoices.email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -1342,7 +1345,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">{t('invoices.phone')}</Label>
                 <Input
                   id="phone"
                   value={newClientForm.phone || ''}
@@ -1350,7 +1353,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{t('invoices.address')}</Label>
                 <Input
                   id="address"
                   value={newClientForm.address || ''}
@@ -1358,19 +1361,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="preferred_currency">Preferred Currency (Optional)</Label>
+                <Label htmlFor="preferred_currency">{t('invoices.preferred_currency')}</Label>
                 <CurrencySelector
                   value={newClientForm.preferred_currency || ''}
                   onValueChange={(val) => setNewClientForm({ ...newClientForm, preferred_currency: val })}
-                  placeholder="Select preferred currency"
+                  placeholder={t('invoices.select_preferred_currency')}
                 />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowNewClientDialog(false)}>
-                Cancel
+                {t('invoices.cancel')}
               </Button>
-              <Button onClick={handleCreateClient}>Add Client</Button>
+              <Button onClick={handleCreateClient}>{t('invoices.add_client')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1387,12 +1390,12 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
             {isEdit && (
               <div className="w-full lg:w-80 order-2 lg:order-1">
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">Update History</h3>
+                  <h3 className="text-lg font-semibold mb-3">{t('invoices.update_history')}</h3>
                   <div className="space-y-3 max-h-96 overflow-y-auto bg-gray-50 p-4 rounded-lg border">
                     {loadingHistory ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                        <span className="text-sm text-muted-foreground">Loading history...</span>
+                        <span className="text-sm text-muted-foreground">{t('invoices.loading_history')}</span>
                       </div>
                     ) : updateHistory.length > 0 ? (
                       updateHistory.map((entry) => (
@@ -1409,9 +1412,9 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                  <Edit className="w-4 h-4 text-orange-600" />
                                )}
                                <span className="font-medium text-sm">
-                                 {entry.action === 'update' ? 'Update' : entry.action === 'creation' ? 'Invoice Created' : entry.action}
+                                 {entry.action === 'update' ? t('invoices.update') : entry.action === 'creation' ? t('invoices.invoice_created') : entry.action}
                                  {entry.user_name && (
-                                   <span className="ml-2 text-xs text-muted-foreground">by {entry.user_name}</span>
+                                   <span className="ml-2 text-xs text-muted-foreground">{t('invoices.by', { user: entry.user_name })}</span>
                                  )}
                                </span>
                              </div>
@@ -1422,7 +1425,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           <div className="text-sm space-y-1">
                             {entry.amount && (
                               <div className="text-muted-foreground">
-                                Amount: <span className="font-medium">${entry.amount.toFixed(2)}</span>
+                                {t('invoices.amount')}: <span className="font-medium">${entry.amount.toFixed(2)}</span>
                               </div>
                             )}
                             {entry.details && (
@@ -1442,7 +1445,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   onClick={() => handleOpenHistoryDetails(entry)}
                                   className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                                 >
-                                  View Details
+                                  {t('invoices.view_details')}
                                 </Button>
                               </div>
                             )}
@@ -1451,7 +1454,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm">No update history available</p>
+                        <p className="text-sm">{t('invoices.no_update_history_available')}</p>
                       </div>
                     )}
                   </div>
@@ -1469,7 +1472,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="client"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Client</FormLabel>
+                          <FormLabel>{t('invoices.client')}</FormLabel>
                           <div className="flex gap-2">
                             <Select
                               disabled={isEdit}
@@ -1478,7 +1481,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select a client" />
+                                  <SelectValue placeholder={t('invoices.select_a_client')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -1496,7 +1499,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                 onClick={() => setShowNewClientDialog(true)}
                               >
                                 <Plus className="h-4 w-4 mr-2" />
-                                New Client
+                                {t('invoices.new_client')}
                               </Button>
                             )}
                           </div>
@@ -1510,7 +1513,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="invoiceNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Invoice Number</FormLabel>
+                          <FormLabel>{t('invoices.invoice_number')}</FormLabel>
                           <FormControl>
                             <Input {...field} disabled={isInvoicePaid} />
                           </FormControl>
@@ -1524,12 +1527,12 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="currency"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Currency</FormLabel>
+                          <FormLabel>{t('invoices.currency')}</FormLabel>
                           <FormControl>
                             <CurrencySelector
                               value={field.value}
                               onValueChange={field.onChange}
-                              placeholder="Select currency"
+                              placeholder={t('invoices.select_currency')}
                               disabled={isInvoicePaid}
                               onCurrenciesLoaded={() => setCurrenciesLoaded(true)}
                             />
@@ -1544,7 +1547,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="date"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Date</FormLabel>
+                          <FormLabel>{t('invoices.date')}</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -1559,7 +1562,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   {field.value ? (
                                     format(field.value, "PPP")
                                   ) : (
-                                    <span>Pick a date</span>
+                                    <span>{t('invoices.pick_a_date')}</span>
                                   )}
                                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
@@ -1587,7 +1590,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="dueDate"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Due Date</FormLabel>
+                          <FormLabel>{t('invoices.due_date')}</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -1602,7 +1605,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   {field.value ? (
                                     format(field.value, "PPP")
                                   ) : (
-                                    <span>Pick a date</span>
+                                    <span>{t('invoices.pick_a_date')}</span>
                                   )}
                                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
@@ -1630,7 +1633,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="status"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Status</FormLabel>
+                          <FormLabel>{t('invoices.status')}</FormLabel>
                           <Select
                             onValueChange={(value) => {
                               field.onChange(value);
@@ -1646,16 +1649,16 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select status">
+                                <SelectValue placeholder={t('invoices.select_status')}>
                                   {field.value && formatStatus(field.value)}
                                 </SelectValue>
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              {isEdit && <SelectItem value="paid">Paid</SelectItem>}
-                              <SelectItem value="partially_paid">Partially Paid</SelectItem>
-                              <SelectItem value="overdue">Overdue</SelectItem>
+                              <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
+                              {isEdit && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
+                              <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
+                              <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -1668,13 +1671,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="paidAmount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Paid Amount</FormLabel>
+                          <FormLabel>{t('invoices.paid_amount')}</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               min="0"
                               step="0.01"
-                              placeholder="Enter paid amount"
+                              placeholder={t('invoices.enter_paid_amount')}
                               {...field}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                 const value = parseFloat(e.target.value) || 0;
@@ -1715,14 +1718,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           </FormControl>
                           <div className="mt-2 space-y-1">
                             <div className="text-sm text-muted-foreground">
-                              Paid Amount: <CurrencyDisplay amount={field.value || 0} currency={form.watch("currency") || invoice?.currency || 'USD'} />
+                              {t('invoices.paid_amount')}: <CurrencyDisplay amount={field.value || 0} currency={form.watch("currency") || invoice?.currency || 'USD'} />
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              Remaining Balance: <CurrencyDisplay amount={Math.max(0, calculateTotal() - (field.value || 0))} currency={form.watch("currency") || invoice?.currency || 'USD'} />
+                              {t('invoices.remaining_balance')}: <CurrencyDisplay amount={Math.max(0, calculateTotal() - (field.value || 0))} currency={form.watch("currency") || invoice?.currency || 'USD'} />
                             </div>
                             {isEdit && (
                               <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                                <strong>Note:</strong> You can increase or decrease the paid amount here. For decreases, the system will automatically remove/modify the most recent payments. For complex payment management, use the Payments section.
+                                <strong>{t('invoices.note')}:</strong> {t('invoices.you_can_increase_or_decrease_paid_amount_here')} {t('invoices.for_decreases_the_system_will_automatically_remove_modify_the_most_recent_payments')} {t('invoices.for_complex_payment_management_use_the_Payments_section')}.
                               </div>
                             )}
                           </div>
@@ -1738,7 +1741,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       name="isRecurring"
                       render={({ field }) => (
                         <FormItem className="space-y-3">
-                          <FormLabel>Invoice Type</FormLabel>
+                          <FormLabel>{t('invoices.invoice_type')}</FormLabel>
                           <FormControl>
                             <RadioGroup
                               onValueChange={(value) => {
@@ -1754,13 +1757,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                 <FormControl>
                                   <RadioGroupItem value="false" />
                                 </FormControl>
-                                <FormLabel className="font-normal">One-time</FormLabel>
+                                <FormLabel className="font-normal">{t('invoices.one_time')}</FormLabel>
                               </FormItem>
                               <FormItem className="flex items-center space-x-2">
                                 <FormControl>
                                   <RadioGroupItem value="true" />
                                 </FormControl>
-                                <FormLabel className="font-normal">Recurring</FormLabel>
+                                <FormLabel className="font-normal">{t('invoices.recurring')}</FormLabel>
                               </FormItem>
                             </RadioGroup>
                           </FormControl>
@@ -1774,18 +1777,18 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         name="recurringFrequency"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Recurring Frequency</FormLabel>
+                            <FormLabel>{t('invoices.recurring_frequency')}</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select frequency" />
+                                  <SelectValue placeholder={t('invoices.select_frequency')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="daily">Daily</SelectItem>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                                <SelectItem value="yearly">Yearly</SelectItem>
+                                <SelectItem value="daily">{t('invoices.daily')}</SelectItem>
+                                <SelectItem value="weekly">{t('invoices.weekly')}</SelectItem>
+                                <SelectItem value="monthly">{t('invoices.monthly')}</SelectItem>
+                                <SelectItem value="yearly">{t('invoices.yearly')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1797,7 +1800,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">Items</h3>
+                      <h3 className="text-lg font-medium">{t('invoices.items')}</h3>
                       <Button
                         type="button"
                         variant="outline"
@@ -1806,16 +1809,16 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         disabled={isInvoicePaid}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Item
+                        {t('invoices.add_item')}
                       </Button>
                     </div>
 
                     {/* Column headers for items */}
                     <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 mb-2">
-                      <div className="col-span-6">Description</div>
-                      <div className="col-span-2">Quantity</div>
-                      <div className="col-span-3">Price</div>
-                      <div className="col-span-1">Actions</div>
+                      <div className="col-span-6">{t('invoices.description')}</div>
+                      <div className="col-span-2">{t('invoices.quantity')}</div>
+                      <div className="col-span-3">{t('invoices.price')}</div>
+                      <div className="col-span-1">{t('invoices.actions')}</div>
                     </div>
 
                     {items.map((item, index) => (
@@ -1828,7 +1831,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                               <FormItem>
                                 <FormControl>
                                   <Input 
-                                    placeholder="Description" 
+                                    placeholder={t('invoices.description')} 
                                     {...field}
                                     key={`desc-${index}`}
                                     value={field.value || ''}
@@ -1854,7 +1857,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   <Input
                                     type="number"
                                     min="1"
-                                    placeholder="Qty"
+                                    placeholder={t('invoices.qty')}
                                     {...field}
                                     disabled={isInvoicePaid}
                                   />
@@ -1875,7 +1878,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                     type="number"
                                     min="0.01"
                                     step="0.01"
-                                    placeholder="Price"
+                                    placeholder={t('invoices.price')}
                                     {...field}
                                     disabled={isInvoicePaid}
                                   />
@@ -1902,14 +1905,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
 
                   {/* Discount Section */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Discount</h3>
+                    <h3 className="text-lg font-medium">{t('invoices.discount')}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="discountType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Discount Type</FormLabel>
+                            <FormLabel>{t('invoices.discount_type')}</FormLabel>
                             <Select 
                               onValueChange={(value) => {
                                 field.onChange(value);
@@ -1923,13 +1926,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select discount type" />
+                                  <SelectValue placeholder={t('invoices.select_discount_type')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                <SelectItem value="fixed">Fixed Amount</SelectItem>
-                                <SelectItem value="rule">Discount Rule</SelectItem>
+                                <SelectItem value="percentage">{t('invoices.percentage')}</SelectItem>
+                                <SelectItem value="fixed">{t('invoices.fixed_amount')}</SelectItem>
+                                <SelectItem value="rule">{t('invoices.discount_rule')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1942,7 +1945,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         name="discountValue"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Discount Value</FormLabel>
+                            <FormLabel>{t('invoices.discount_value')}</FormLabel>
                             <FormControl>
                               {form.watch("discountType") === "rule" ? (
                                 <Select 
@@ -1972,7 +1975,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                   disabled={isInvoicePaid}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select a discount rule" />
+                                    <SelectValue placeholder={t('invoices.select_a_discount_rule')} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {availableDiscountRules
@@ -1986,10 +1989,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                                             value={rule.id.toString()}
                                             disabled={(rule.currency || '').trim().toUpperCase() !== (dropdownCurrency || '').trim().toUpperCase()}
                                           >
-                                            {rule.name} - {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : '$'} (min: ${rule.min_amount})
+                                            {rule.name} - {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : '$'} ({t('invoices.min', { amount: rule.min_amount })})
                                             {(rule.currency || '').trim().toUpperCase() !== (dropdownCurrency || '').trim().toUpperCase() && (
                                               <span style={{ color: '#888', fontSize: '0.85em', marginLeft: 8 }}>
-                                                (Not available for {dropdownCurrency})
+                                                ({t('invoices.not_available_for', { currency: dropdownCurrency })}
                                               </span>
                                             )}
                                           </SelectItem>
@@ -2032,27 +2035,21 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           : "text-orange-600 bg-orange-50 border-orange-200"
                       }`}>
                         <div className="font-medium mb-2">
-                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? "💡 Applied Discount Rule:" : "⚠️ Discount Rule Not Applied:"}
+                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? t('invoices.applied_discount_rule') : t('invoices.discount_rule_not_applied')}
                         </div>
                         <div className="space-y-1">
-                          <div><span className="font-medium">Rule:</span> {appliedDiscountRule.name}</div>
-                          <div><span className="font-medium">Minimum Amount:</span> ${appliedDiscountRule.min_amount.toFixed(2)}</div>
-                          <div><span className="font-medium">Current Subtotal:</span> ${calculateSubtotal().toFixed(2)}</div>
-                          <div><span className="font-medium">Discount:</span> {appliedDiscountRule.discount_value}{appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'}</div>
-                          <div><span className="font-medium">Discount Amount:</span> -${calculateDiscount().toFixed(2)}</div>
+                          <div><span className="font-medium">{t('invoices.rule')}:</span> {appliedDiscountRule.name}</div>
+                          <div><span className="font-medium">{t('invoices.minimum_amount')}:</span> ${appliedDiscountRule.min_amount.toFixed(2)}</div>
+                          <div><span className="font-medium">{t('invoices.current_subtotal')}:</span> ${calculateSubtotal().toFixed(2)}</div>
+                          <div><span className="font-medium">{t('invoices.discount')}:</span> {appliedDiscountRule.discount_value}{appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'}</div>
+                          <div><span className="font-medium">{t('invoices.discount_amount')}:</span> -${calculateDiscount().toFixed(2)}</div>
                         </div>
                         <div className={`text-xs mt-2 pt-2 border-t ${
                           calculateSubtotal() >= appliedDiscountRule.min_amount 
                             ? "text-blue-500 border-blue-200" 
                             : "text-orange-500 border-orange-200"
                         }`}>
-                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? (
-                            !isEdit ? 
-                              "This discount rule was automatically applied based on your invoice subtotal." :
-                              "This discount rule was manually selected from your available rules."
-                          ) : (
-                            `This discount rule requires a minimum subtotal of $${appliedDiscountRule.min_amount.toFixed(2)}. Add more items to qualify for the discount.`
-                          )}
+                          {calculateSubtotal() >= appliedDiscountRule.min_amount ? t('invoices.this_discount_rule_was_automatically_applied_based_on_your_invoice_subtotal') : t('invoices.this_discount_rule_requires_a_minimum_subtotal_of', { amount: appliedDiscountRule.min_amount.toFixed(2) })}
                         </div>
                       </div>
                     )}
@@ -2060,32 +2057,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                     {/* Legacy discount indicator for non-rule discounts */}
                     {form.watch("discountValue") > 0 && form.watch("discountType") !== "rule" && (
                       <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-md border border-blue-200">
-                        <span className="font-medium">💡 Discount Applied:</span> {form.watch("discountValue")}{form.watch("discountType") === "percentage" ? "%" : "$"} discount
+                        <span className="font-medium">{t('invoices.discount_applied')}:</span> {form.watch("discountValue")}{form.watch("discountType") === "percentage" ? "%" : "$"} {t('invoices.discount')}
                       </div>
                     )}
 
                     {/* Summary Section */}
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="text-sm text-gray-600">{t('invoices.subtotal')}:</span>
                         <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">
-                          Discount ({(() => {
-                            const discountType = form.watch("discountType");
-                            const discountValue = form.watch("discountValue") || 0;
-                            // When editing, use the actual invoice discount data if form values are not yet loaded
-                            if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
-                              const actualDiscountType = invoice.discount_type || "percentage";
-                              const actualDiscountValue = invoice.discount_value || 0;
-                              return actualDiscountType === "percentage" ? `${actualDiscountValue}%` : "Fixed";
-                            }
-                            if (discountType === "rule" && appliedDiscountRule) {
-                              return `${appliedDiscountRule.discount_value}${appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'} (Rule)`;
-                            }
-                            return discountType === "percentage" ? `${discountValue}%` : "Fixed";
-                          })()}):
+                          {t('invoices.discount')}: {t('invoices.discount_type', { type: t('invoices.discount_type', { type: form.watch("discountType") }) })} {t('invoices.discount_value', { value: form.watch("discountValue") })}
                         </span>
                         <span className="font-medium text-red-600">${(() => {
                           const discountType = form.watch("discountType");
@@ -2107,7 +2091,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         })()}</span>
                       </div>
                       <div className="border-t pt-2 flex justify-between">
-                        <span className="font-semibold">Total:</span>
+                        <span className="font-semibold">{t('invoices.total')}:</span>
                         <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
                       </div>
                     </div>
@@ -2118,7 +2102,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                     name="notes"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notes</FormLabel>
+                        <FormLabel>{t('invoices.notes')}</FormLabel>
                         <FormControl>
                           <Input {...field} disabled={isInvoicePaid} />
                         </FormControl>
@@ -2128,11 +2112,11 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                   />
 
                   <div className="space-y-4">
-                    <div className="font-semibold">Custom Fields (Optional)</div>
+                    <div className="font-semibold">{t('invoices.custom_fields')}</div>
                     {form.watch("customFields").map((field, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
                         <Input
-                          placeholder="Field Name"
+                          placeholder={t('invoices.field_name')}
                           value={field.key}
                           onChange={e => {
                             const updated = form.getValues("customFields").map((f, i) => i === idx ? { key: e.target.value, value: f.value ?? '' } : { key: f.key ?? '', value: f.value ?? '' });
@@ -2141,7 +2125,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           className="w-1/3"
                         />
                         <Input
-                          placeholder="Field Value"
+                          placeholder={t('invoices.field_value')}
                           value={field.value}
                           onChange={e => {
                             const updated = form.getValues("customFields").map((f, i) => i === idx ? { key: f.key ?? '', value: e.target.value } : { key: f.key ?? '', value: f.value ?? '' });
@@ -2173,7 +2157,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       ])}
                       className="mt-2"
                     >
-                      <Plus className="w-4 h-4 mr-2" /> Add Field
+                      <Plus className="w-4 h-4 mr-2" /> {t('invoices.add_field')}
                     </Button>
                     {form.formState.errors.customFields && (
                       <div className="text-red-500 text-sm mt-1">{form.formState.errors.customFields.message as string}</div>
@@ -2185,7 +2169,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       type="submit"
                     >
                       {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isEdit ? "Update Invoice" : "Create Invoice"}
+                      {isEdit ? t('invoices.update_invoice') : t('invoices.create_invoice')}
                     </Button>
                   </div>
                 </form>
@@ -2194,10 +2178,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
             
             {/* Preview Section - Right Side */}
             <div className="w-full lg:w-96 order-3">
-              <div className="mb-2 font-semibold text-lg">Preview</div>
+              <div className="mb-2 font-semibold text-lg">{t('invoices.preview')}</div>
               <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
                 <div className="h-[500px] overflow-auto">
-                  <React.Suspense fallback={<div className="p-4">Loading preview...</div>}>
+                  <React.Suspense fallback={<div className="p-4">{t('invoices.loading_preview')}</div>}>
                     {previewInvoice && settings && (
                       <PDFDownloadLink 
                         document={
@@ -2211,7 +2195,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       >
                         {({ url, loading }) =>
                           loading ? (
-                            <div className="p-4">Loading preview...</div>
+                            <div className="p-4">{t('invoices.loading_preview')}</div>
                           ) : (
                             <iframe
                               src={url || ''}
@@ -2236,7 +2220,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       fileName={`invoice-${previewInvoice.number}.pdf`}
                     >
                       {({ loading }) =>
-                        loading ? 'Preparing PDF...' : <span className="text-blue-600 hover:underline cursor-pointer">Download PDF</span>
+                        loading ? t('invoices.preparing_pdf') : <span className="text-blue-600 hover:underline cursor-pointer">{t('invoices.download_pdf')}</span>
                       }
                     </PDFDownloadLink>
                   )}
@@ -2255,7 +2239,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                       ) : (
                         <Mail className="h-4 w-4" />
                       )}
-                      {sendingEmail ? 'Sending...' : 'Send Email'}
+                      {sendingEmail ? t('invoices.sending') : t('invoices.send_email')}
                     </Button>
                   )}
                 </div>
@@ -2268,13 +2252,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       <Dialog open={showExcessAmountDialog} onOpenChange={setShowExcessAmountDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Warning</DialogTitle>
+            <DialogTitle>{t('invoices.warning')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p>The paid amount cannot exceed the total invoice amount. The paid amount has been adjusted to match the total amount.</p>
+            <p>{t('invoices.paid_amount_cannot_exceed_total_invoice_amount')}</p>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowExcessAmountDialog(false)}>OK</Button>
+            <Button onClick={() => setShowExcessAmountDialog(false)}>{t('invoices.ok')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2282,11 +2266,11 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Client</DialogTitle>
+            <DialogTitle>{t('invoices.add_new_client')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('invoices.name')}</Label>
               <Input
                 id="name"
                 value={newClientForm.name}
@@ -2294,7 +2278,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('invoices.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -2303,7 +2287,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('invoices.phone')}</Label>
               <Input
                 id="phone"
                 value={newClientForm.phone || ''}
@@ -2311,7 +2295,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('invoices.address')}</Label>
               <Input
                 id="address"
                 value={newClientForm.address || ''}
@@ -2319,19 +2303,19 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="preferred_currency">Preferred Currency (Optional)</Label>
+              <Label htmlFor="preferred_currency">{t('invoices.preferred_currency')}</Label>
               <CurrencySelector
                 value={newClientForm.preferred_currency || ''}
                 onValueChange={(val) => setNewClientForm({ ...newClientForm, preferred_currency: val })}
-                placeholder="Select preferred currency"
+                placeholder={t('invoices.select_preferred_currency')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewClientDialog(false)}>
-              Cancel
+              {t('invoices.cancel')}
             </Button>
-            <Button onClick={handleCreateClient}>Add Client</Button>
+            <Button onClick={handleCreateClient}>{t('invoices.add_client')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
