@@ -20,13 +20,14 @@ from models.models import Tenant, MasterUser
 from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
 from utils.rbac import require_admin
+from utils.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("/")
-def get_settings(
+async def get_settings(
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -62,7 +63,7 @@ def get_settings(
     }
 
 @router.put("/")
-def update_settings(
+async def update_settings(
     settings: Dict[str, Any],
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
@@ -94,10 +95,23 @@ def update_settings(
     master_db.commit()
     master_db.refresh(tenant)
     
+    # Log audit event
+    log_audit_event(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="settings",
+        resource_id=str(tenant.id),
+        resource_name=f"Setting: {tenant.name}",
+        details=settings,
+        status="success"
+    )
+
     return {"message": "Settings updated successfully"}
 
 @router.get("/export-data")
-def export_tenant_data(
+async def export_tenant_data(
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db)
@@ -180,7 +194,7 @@ def export_tenant_data(
         raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
 
 @router.post("/import-data")
-def import_tenant_data(
+async def import_tenant_data(
     file: UploadFile = File(...),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -505,7 +519,7 @@ def import_tenant_data(
         )
 
 @router.post("/upload-logo")
-def upload_company_logo(
+async def upload_company_logo(
     file: UploadFile = File(...),
     current_user: MasterUser = Depends(get_current_user)
 ):

@@ -17,7 +17,7 @@ from utils.rbac import require_admin
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
 @router.get("/check-name-availability")
-def check_organization_name_availability(
+async def check_organization_name_availability(
     name: str,
     master_db: Session = Depends(get_master_db)
 ):
@@ -39,7 +39,7 @@ def check_organization_name_availability(
     }
 
 @router.post("/", response_model=TenantSchema)
-def create_tenant(
+async def create_tenant(
     tenant: TenantCreate,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -75,7 +75,7 @@ def create_tenant(
     return db_tenant
 
 @router.get("/", response_model=List[TenantSchema])
-def list_tenants(
+async def read_tenants(
     skip: int = 0,
     limit: int = 100,
     master_db: Session = Depends(get_master_db),
@@ -91,7 +91,7 @@ def list_tenants(
     return tenants
 
 @router.get("/me", response_model=TenantSchema)
-def get_my_tenant(
+async def read_tenant_me(
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -105,7 +105,7 @@ def get_my_tenant(
     return tenant
 
 @router.get("/{tenant_id}", response_model=TenantSchema)
-def get_tenant(
+async def read_tenant(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -127,9 +127,9 @@ def get_tenant(
     return tenant
 
 @router.put("/{tenant_id}", response_model=TenantSchema)
-def update_tenant(
+async def update_tenant(
     tenant_id: int,
-    tenant_update: TenantUpdate,
+    tenant: TenantUpdate,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -149,17 +149,17 @@ def update_tenant(
         )
     
     # Validate currency code if being updated
-    if tenant_update.default_currency:
+    if tenant.default_currency:
         currency_service = CurrencyService(master_db)
-        if not currency_service.validate_currency_code(tenant_update.default_currency):
+        if not currency_service.validate_currency_code(tenant.default_currency):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid currency code: {tenant_update.default_currency}"
+                detail=f"Invalid currency code: {tenant.default_currency}"
             )
     
     # Check if subdomain already exists (if being updated)
-    if tenant_update.subdomain and tenant_update.subdomain != tenant.subdomain:
-        existing_tenant = master_db.query(Tenant).filter(Tenant.subdomain == tenant_update.subdomain).first()
+    if tenant.subdomain and tenant.subdomain != tenant.subdomain:
+        existing_tenant = master_db.query(Tenant).filter(Tenant.subdomain == tenant.subdomain).first()
         if existing_tenant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -167,7 +167,7 @@ def update_tenant(
             )
     
     # Update tenant
-    for field, value in tenant_update.dict(exclude_unset=True).items():
+    for field, value in tenant.dict(exclude_unset=True).items():
         setattr(tenant, field, value)
     
     master_db.commit()
@@ -175,7 +175,7 @@ def update_tenant(
     return tenant
 
 @router.delete("/{tenant_id}")
-def delete_tenant(
+async def delete_tenant(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -206,9 +206,8 @@ def delete_tenant(
     return {"message": "Tenant deleted successfully"} 
 
 @router.post("/import-sql", response_model=None)
-def import_sql_to_tenant(
+async def import_sql_to_tenant(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
     dry_run: bool = Query(False, description="If true, only validate the SQL file without executing")
@@ -250,12 +249,12 @@ def import_sql_to_tenant(
 
         # Execute all statements in a transaction
         try:
-            with db.begin_nested():  # Ensures rollback on any error
+            with master_db.begin_nested():  # Ensures rollback on any error
                 for idx, stmt in enumerate(statements):
-                    db.execute(stmt)
-            db.commit()
+                    master_db.execute(stmt)
+            master_db.commit()
         except Exception as e:
-            db.rollback()
+            master_db.rollback()
             return {"error": f"SQL import failed at statement {idx+1}: {e}", "statement": statements[idx][:100]}
 
         # Audit log

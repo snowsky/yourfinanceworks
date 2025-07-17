@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -19,6 +19,7 @@ from models.models_per_tenant import User as TenantUser
 from services.tenant_database_manager import tenant_db_manager
 from middleware.tenant_context_middleware import set_tenant_context
 from utils.rbac import require_admin
+from utils.audit import log_audit_event
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -160,7 +161,7 @@ def send_invite_email(email: str, invite_url: str, inviter_name: str, tenant_nam
     return True
 
 @router.post("/register", response_model=Token)
-def register(user: UserCreate, db: Session = Depends(get_master_db)):
+async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     # Check if user already exists
     db_user = db.query(MasterUser).filter(MasterUser.email == user.email).first()
     if db_user:
@@ -289,7 +290,7 @@ def register(user: UserCreate, db: Session = Depends(get_master_db)):
     }
 
 @router.post("/login", response_model=Token)
-def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
+async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
     user = db.query(MasterUser).filter(MasterUser.email == user_credentials.email).first()
 
     if not user:
@@ -323,11 +324,11 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
     }
 
 @router.get("/me", response_model=UserRead)
-def read_users_me(current_user: MasterUser = Depends(get_current_user)):
+async def read_users_me(current_user: MasterUser = Depends(get_current_user)):
     return UserRead.from_orm(current_user)
 
 @router.put("/me", response_model=UserRead)
-def update_current_user(
+async def update_current_user(
     user_update: UserUpdate,
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -367,7 +368,7 @@ def update_current_user(
     return UserRead.from_orm(current_user)
 
 @router.post("/invite", response_model=InviteRead)
-def invite_user(
+async def invite_user(
     invite_data: InviteCreate,
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -437,7 +438,7 @@ def invite_user(
     return invite_response
 
 @router.get("/invites", response_model=List[InviteRead])
-def list_invites(
+async def list_invites(
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -468,7 +469,7 @@ def list_invites(
     return result
 
 @router.post("/accept-invite", response_model=Token)
-def accept_invite(
+async def accept_invite(
     invite_data: InviteAccept,
     db: Session = Depends(get_master_db)
 ):
@@ -537,7 +538,7 @@ def accept_invite(
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 @router.get("/users", response_model=List[UserList])
-def list_users(
+async def list_users(
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -551,7 +552,7 @@ def list_users(
     return users
 
 @router.put("/users/{user_id}/role", response_model=UserList)
-def update_user_role(
+async def update_user_role(
     user_id: int,
     role_update: UserRoleUpdate,
     db: Session = Depends(get_master_db),
@@ -592,7 +593,7 @@ def update_user_role(
     return user
 
 @router.post("/invites/{invite_id}/activate", response_model=UserList)
-def admin_activate_user(
+async def admin_activate_user(
     invite_id: int,
     activation_data: AdminActivateUser,
     db: Session = Depends(get_master_db),
@@ -671,7 +672,7 @@ def admin_activate_user(
     return user
 
 @router.get("/check-email-availability")
-def check_email_availability(
+async def check_email_availability(
     email: str,
     master_db: Session = Depends(get_master_db)
 ):
@@ -702,7 +703,7 @@ def check_email_availability(
     }
 
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
-def request_password_reset(
+async def request_password_reset(
     request: PasswordResetRequest,
     master_db: Session = Depends(get_master_db)
 ):
@@ -776,7 +777,7 @@ def request_password_reset(
     )
 
 @router.post("/reset-password", response_model=PasswordResetResponse)
-def reset_password(
+async def reset_password(
     request: PasswordResetConfirm,
     master_db: Session = Depends(get_master_db)
 ):

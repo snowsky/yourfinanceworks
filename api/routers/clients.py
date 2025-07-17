@@ -12,6 +12,7 @@ from routers.payments import Payment
 from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
 from utils.rbac import require_non_viewer
+from utils.audit import log_audit_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/clients", tags=["clients"])
 
 @router.get("/", response_model=List[ClientSchema])
-def read_clients(
+async def read_clients(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -90,7 +91,7 @@ def read_clients(
         )
 
 @router.get("/{client_id}", response_model=ClientSchema)
-def read_client(
+async def read_client(
     client_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -165,21 +166,19 @@ def read_client(
         )
 
 @router.post("/", response_model=ClientSchema)
-def create_client(
+async def create_client(
     client: ClientCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     # Check if user has permission to create clients
     require_non_viewer(current_user, "create clients")
-    
     try:
         # Check for existing client with same name and email to prevent duplicates
         existing_client = db.query(Client).filter(
             Client.name == client.name,
             Client.email == client.email
         ).first()
-        
         if existing_client:
             raise HTTPException(
                 status_code=400,
@@ -195,11 +194,46 @@ def create_client(
         db.add(db_client)
         db.commit()
         db.refresh(db_client)
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="client",
+            resource_id=str(db_client.id),
+            resource_name=db_client.name,
+            details=client.dict(),
+            status="success"
+        )
         return db_client
-    except HTTPException:
+    except HTTPException as e:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="client",
+            resource_id=None,
+            resource_name=client.name,
+            details=client.dict(),
+            status="error",
+            error_message=str(e.detail) if hasattr(e, 'detail') else str(e)
+        )
         raise
     except Exception as e:
         db.rollback()
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="client",
+            resource_id=None,
+            resource_name=client.name,
+            details=client.dict(),
+            status="error",
+            error_message=str(e)
+        )
         logger.error(f"Error in create_client: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(
@@ -208,7 +242,7 @@ def create_client(
         )
 
 @router.put("/{client_id}", response_model=ClientSchema)
-def update_client(
+async def update_client(
     client_id: int,
     client: ClientUpdate,
     db: Session = Depends(get_db),
@@ -235,15 +269,49 @@ def update_client(
         
         for field, value in update_data.items():
             setattr(db_client, field, value)
-        
         db_client.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_client)
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="client",
+            resource_id=str(db_client.id),
+            resource_name=db_client.name,
+            details=update_data,
+            status="success"
+        )
         return db_client
-    except HTTPException:
+    except HTTPException as e:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="client",
+            resource_id=str(client_id),
+            resource_name=None,
+            details=client.dict(),
+            status="error",
+            error_message=str(e.detail) if hasattr(e, 'detail') else str(e)
+        )
         raise
     except Exception as e:
         db.rollback()
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="client",
+            resource_id=str(client_id),
+            resource_name=None,
+            details=client.dict(),
+            status="error",
+            error_message=str(e)
+        )
         logger.error(f"Error in update_client: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(
@@ -252,7 +320,7 @@ def update_client(
         )
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_client(
+async def delete_client(
     client_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[AIConfigSchema])
-def get_ai_configs(
+async def get_ai_configs(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -25,7 +25,7 @@ def get_ai_configs(
     return configs
 
 @router.post("/", response_model=AIConfigSchema)
-def create_ai_config(
+async def create_ai_config(
     config: AIConfigCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -49,7 +49,7 @@ def create_ai_config(
     return db_config
 
 @router.put("/{config_id}", response_model=AIConfigSchema)
-def update_ai_config(
+async def update_ai_config(
     config_id: int,
     config: AIConfigUpdate,
     current_user: User = Depends(get_current_user),
@@ -83,7 +83,7 @@ def update_ai_config(
     return db_config
 
 @router.delete("/{config_id}")
-def delete_ai_config(
+async def delete_ai_config(
     config_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -103,7 +103,7 @@ def delete_ai_config(
     return {"message": "AI configuration deleted successfully"}
 
 @router.get("/test/{config_id}")
-def test_ai_config(
+async def test_ai_config(
     config_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -195,7 +195,7 @@ def test_ai_config(
         }
 
 @router.post("/mark-tested/{config_id}")
-def mark_config_as_tested(
+async def mark_config_as_tested(
     config_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

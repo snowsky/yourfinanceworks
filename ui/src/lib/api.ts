@@ -210,8 +210,19 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
   try {
     // Get JWT token from localStorage
     const token = localStorage.getItem('token');
-    console.log('API Request - Token:', token ? 'Present' : 'Missing');
-    console.log('API Request - Token value:', token);
+    // Get tenantId from localStorage.user if available
+    let tenantId: string | undefined = undefined;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user && user.tenant_id) {
+          tenantId = String(user.tenant_id);
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing user for tenantId:', e);
+    }
     
     const requestUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     console.log(`Making API request to ${requestUrl}`, options);
@@ -220,6 +231,7 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}, conf
       headers: {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(tenantId && { 'X-Tenant-ID': tenantId }),
         ...options.headers,
       },
     });

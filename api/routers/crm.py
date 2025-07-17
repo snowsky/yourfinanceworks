@@ -12,11 +12,11 @@ from routers.auth import get_current_user
 router = APIRouter(prefix="/crm", tags=["crm"])
 
 @router.post("/clients/{client_id}/notes", response_model=ClientNoteSchema)
-def create_note_for_client(
+async def create_client_note(
     client_id: int,
     note: ClientNoteCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user)
 ):
     # Check if client exists and belongs to the current user's tenant
     db_client = db.query(Client).filter(
@@ -40,7 +40,7 @@ def create_note_for_client(
     return db_note
 
 @router.put("/clients/{client_id}/notes/{note_id}", response_model=ClientNoteSchema)
-def update_note_for_client(
+async def update_client_note(
     client_id: int,
     note_id: int,
     note: ClientNoteCreate,
@@ -73,7 +73,7 @@ def update_note_for_client(
     return db_note
 
 @router.delete("/clients/{client_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_note_for_client(
+async def delete_client_note(
     client_id: int,
     note_id: int,
     db: Session = Depends(get_db),
@@ -101,7 +101,7 @@ def delete_note_for_client(
     db.commit()
 
 @router.get("/clients/{client_id}/notes", response_model=List[ClientNoteSchema])
-def get_notes_for_client(
+async def get_client_notes(
     client_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

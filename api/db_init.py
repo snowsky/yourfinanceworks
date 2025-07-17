@@ -6,11 +6,13 @@ import logging
 from sqlalchemy.engine.url import make_url
 import os
 
-from models.models import Base, User, Tenant, Client, Invoice, Settings, Payment, Invite, ClientNote, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig, MasterUser
-from models.database import SQLALCHEMY_DATABASE_URL, get_master_db
+from models.models import Base, User, Client, Invoice, Settings, Payment, Invite, ClientNote, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig
+from models.models_per_tenant import Base as TenantBase, User as TenantUser
+from models.database import SQLALCHEMY_DATABASE_URL, get_master_db, set_tenant_context
 from utils.auth import get_password_hash
 from scripts.reset_users_id_sequences import reset_all_users_id_sequences
 from scripts.migrate_database import migrate_database
+from services.tenant_database_manager import tenant_db_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +28,82 @@ if make_url(SQLALCHEMY_DATABASE_URL).get_backend_name() == "sqlite":
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
+def sync_users_to_tenant_db(tenant_id: int):
+    """Sync users from master database to tenant database"""
+    try:
+        logger.info(f"Syncing users to tenant database {tenant_id}")
+        
+        # Get master database session
+        master_db = next(get_master_db())
+        
+        try:
+            # Get all users for this tenant from master database
+            from models.models import Tenant, MasterUser
+            master_users = master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).all()
+            
+            if not master_users:
+                logger.info(f"No users found for tenant {tenant_id}")
+                return
+            
+            # Set tenant context
+            set_tenant_context(tenant_id)
+            
+            # Get tenant database session
+            tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
+            tenant_db = tenant_session()
+            
+            try:
+                # Sync each user
+                for master_user in master_users:
+                    # Check if user already exists in tenant database
+                    existing_user = tenant_db.query(TenantUser).filter(TenantUser.id == master_user.id).first()
+                    
+                    if not existing_user:
+                        # Create user in tenant database
+                        tenant_user = TenantUser(
+                            id=master_user.id,  # Use same ID as master user
+                            email=master_user.email,
+                            hashed_password=master_user.hashed_password,
+                            first_name=master_user.first_name,
+                            last_name=master_user.last_name,
+                            role=master_user.role,
+                            is_active=master_user.is_active,
+                            is_superuser=master_user.is_superuser,
+                            is_verified=master_user.is_verified,
+                            google_id=master_user.google_id,
+                            created_at=master_user.created_at,
+                            updated_at=master_user.updated_at
+                        )
+                        
+                        tenant_db.add(tenant_user)
+                        logger.info(f"Created user {master_user.email} in tenant database {tenant_id}")
+                    else:
+                        # Update existing user if needed
+                        existing_user.email = master_user.email
+                        existing_user.hashed_password = master_user.hashed_password
+                        existing_user.first_name = master_user.first_name
+                        existing_user.last_name = master_user.last_name
+                        existing_user.role = master_user.role
+                        existing_user.is_active = master_user.is_active
+                        existing_user.is_superuser = master_user.is_superuser
+                        existing_user.is_verified = master_user.is_verified
+                        existing_user.google_id = master_user.google_id
+                        existing_user.updated_at = datetime.now(timezone.utc)
+                        logger.info(f"Updated user {master_user.email} in tenant database {tenant_id}")
+                
+                tenant_db.commit()
+                logger.info(f"Successfully synced {len(master_users)} users to tenant database {tenant_id}")
+                
+            finally:
+                tenant_db.close()
+                
+        finally:
+            master_db.close()
+            
+    except Exception as e:
+        logger.error(f"Error syncing users to tenant database {tenant_id}: {str(e)}")
+        raise e
 
 def run_migrations():
     """Run all necessary migrations"""
@@ -52,6 +130,8 @@ def init_db():
     else:
         engine = create_engine(SQLALCHEMY_DATABASE_URL)
     
+    
+    
     # Create all tables in the main (master) DB
     Base.metadata.create_all(bind=engine)
 
@@ -60,6 +140,7 @@ def init_db():
 
     # Create all tables for every tenant
     master_db = next(get_master_db())
+    from models.models import Tenant
     tenants = master_db.query(Tenant).all()
     for tenant in tenants:
         print(f"Ensuring tables for tenant {tenant.id}...")
@@ -76,8 +157,26 @@ def init_db():
                 print(f"Created database {db_name}")
         # Now create tables in the tenant DB
         tenant_engine = create_engine(tenant_db_url)
-        Base.metadata.create_all(bind=tenant_engine)
-        print(f"Tables created for tenant {tenant.id}")
+        logger.info(f"Tables to be created for tenant {tenant.id}: {TenantBase.metadata.tables.keys()}")
+        try:
+            TenantBase.metadata.create_all(bind=tenant_engine)
+            print(f"Tables created for tenant {tenant.id}")
+            # Verify if audit_logs table exists
+            from sqlalchemy.inspect import inspect
+            inspector = inspect(tenant_engine)
+            if 'audit_logs' in inspector.get_table_names():
+                logger.info(f"audit_logs table successfully created for tenant {tenant.id}")
+            else:
+                logger.error(f"audit_logs table NOT found for tenant {tenant.id} after create_all")
+        except Exception as e:
+            logger.error(f"Error creating tables for tenant {tenant.id}: {str(e)}")
+        
+        # Sync users from master database to tenant database
+        try:
+            sync_users_to_tenant_db(tenant.id)
+        except Exception as e:
+            logger.error(f"Failed to sync users for tenant {tenant.id}: {str(e)}")
+            # Continue with other tenants even if one fails
     
     # Create session
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -7,6 +7,7 @@ class DiscountRuleBase(BaseModel):
     min_amount: float = Field(..., description="Minimum amount to trigger the rule")
     discount_type: str = Field(default="percentage", description="Type of discount: percentage or fixed")
     discount_value: float = Field(..., description="Discount value (percentage or fixed amount)")
+    currency: str = Field(default="USD", description="Currency for the discount rule")
     is_active: bool = Field(default=True, description="Whether the rule is active")
     priority: int = Field(default=0, description="Priority of the rule (higher = applied first)")
 
@@ -18,13 +19,12 @@ class DiscountRuleUpdate(BaseModel):
     min_amount: Optional[float] = None
     discount_type: Optional[str] = None
     discount_value: Optional[float] = None
+    currency: Optional[str] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
-    currency: Optional[str] = None
 
 class DiscountRule(DiscountRuleBase):
     id: int
-    tenant_id: int
     created_at: datetime
     updated_at: datetime
 
@@ -37,11 +37,15 @@ class DiscountRuleResponse(BaseModel):
     min_amount: float
     discount_type: str
     discount_value: float
+    currency: str
     is_active: bool
     priority: int
     created_at: datetime
     updated_at: datetime
-    currency: str
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+class DiscountCalculationRequest(BaseModel):
+    subtotal: float = Field(..., description="Subtotal amount to calculate discount for")
+    currency: str = Field(default="USD", description="Currency for the calculation") 

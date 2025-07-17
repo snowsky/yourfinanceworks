@@ -9,7 +9,7 @@ from fastapi import HTTPException
 logger = logging.getLogger(__name__)
 
 # Get database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./invoice_app.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
@@ -50,18 +50,17 @@ def get_master_db():
 def get_db():
     """
     Get database session - routes to tenant database if context exists,
-    otherwise uses master database for backward compatibility
+    otherwise raises an error for tenant-specific endpoints
     """
     tenant_id = current_tenant_id.get()
     
     if tenant_id is None:
-        # Fallback to master database for backward compatibility
-        logger.warning("No tenant context found, using master database")
-        db = SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
+        # Instead of falling back, raise an error
+        logger.error("No tenant context found, refusing to use master database for tenant-specific endpoint")
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant context required for this operation. Please ensure you are sending the correct tenant information."
+        )
     else:
         # Import here to avoid circular imports
         from services.tenant_database_manager import tenant_db_manager

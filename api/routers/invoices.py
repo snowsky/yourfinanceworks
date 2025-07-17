@@ -15,6 +15,7 @@ from routers.auth import get_current_user
 from services.currency_service import CurrencyService
 from utils.invoice import generate_invoice_number
 from utils.rbac import require_non_viewer, require_admin
+from utils.audit import log_audit_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +31,7 @@ def make_aware(dt):
     return dt
 
 @router.post("/", response_model=InvoiceSchema)
-def create_invoice(
+async def create_invoice(
     invoice: InvoiceCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -40,6 +41,14 @@ def create_invoice(
     require_non_viewer(current_user, "create invoices")
     
     try:
+        # Validate that the client exists
+        client = db.query(Client).filter(Client.id == invoice.client_id).first()
+        if not client:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Client with ID {invoice.client_id} not found. Please create a client first."
+            )
+        
         # Generate unique invoice number
         # No tenant_id needed since we're in the tenant's database
         invoice_number = generate_invoice_number(db)
@@ -118,6 +127,20 @@ def create_invoice(
         
         db.commit()
         db.refresh(db_invoice)
+        
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="invoice",
+            resource_id=str(db_invoice.id),
+            resource_name=f"Invoice {db_invoice.number}",
+            details=invoice.dict(),
+            status="success"
+        )
+        
         return db_invoice
     except HTTPException:
         db.rollback()
@@ -132,7 +155,7 @@ def create_invoice(
         )
 
 @router.get("/", response_model=List[InvoiceWithClient])
-def read_invoices(
+async def read_invoices(
     skip: int = 0,
     limit: int = 100,
     status_filter: Optional[str] = None,
@@ -197,7 +220,7 @@ def read_invoices(
 # Recycle Bin Endpoints (must come before /{invoice_id} route)
 
 @router.get("/recycle-bin", response_model=List[DeletedInvoice])
-def get_deleted_invoices(
+async def get_deleted_invoices(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -247,7 +270,7 @@ def get_deleted_invoices(
         )
 
 @router.post("/recycle-bin/empty", response_model=dict)
-def empty_recycle_bin(
+async def empty_recycle_bin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -297,7 +320,7 @@ def empty_recycle_bin(
         )
 
 @router.post("/{invoice_id}/restore", response_model=RecycleBinResponse)
-def restore_invoice(
+async def restore_invoice(
     invoice_id: int,
     restore_request: RestoreInvoiceRequest = RestoreInvoiceRequest(),
     db: Session = Depends(get_db),
@@ -359,7 +382,7 @@ def restore_invoice(
         )
 
 @router.delete("/{invoice_id}/permanent", response_model=RecycleBinResponse)
-def permanently_delete_invoice(
+async def permanently_delete_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -419,7 +442,7 @@ def permanently_delete_invoice(
         )
 
 @router.get("/{invoice_id}", response_model=InvoiceWithClient)
-def read_invoice(
+async def read_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -505,7 +528,7 @@ def read_invoice(
         )
 
 @router.put("/{invoice_id}", response_model=InvoiceSchema)
-def update_invoice(
+async def update_invoice(
     invoice_id: int,
     invoice: InvoiceUpdate,
     db: Session = Depends(get_db),
@@ -724,7 +747,7 @@ def update_invoice(
         )
 
 @router.delete("/{invoice_id}", response_model=RecycleBinResponse)
-def delete_invoice(
+async def delete_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -778,7 +801,7 @@ def delete_invoice(
         )
 
 @router.post("/{invoice_id}/send-email")
-def send_invoice_email(
+async def send_invoice_email(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -796,7 +819,7 @@ def send_invoice_email(
     }
 
 @router.get("/stats/total-income", response_model=dict)
-def get_total_income(
+async def get_total_income(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -820,7 +843,7 @@ def get_total_income(
         )
 
 @router.post("/calculate-discount")
-def calculate_discount(
+async def calculate_discount(
     subtotal: float,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -872,7 +895,7 @@ def calculate_discount(
         ) 
 
 @router.get("/{invoice_id}/history")
-def get_invoice_history(
+async def get_invoice_history(
     invoice_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -921,7 +944,7 @@ def get_invoice_history(
         raise HTTPException(status_code=500, detail="Failed to fetch invoice history")
 
 @router.post("/{invoice_id}/history", response_model=InvoiceHistory)
-def create_invoice_history_entry(
+async def create_invoice_history_entry(
     invoice_id: int,
     history_entry: InvoiceHistoryCreate,
     db: Session = Depends(get_db),

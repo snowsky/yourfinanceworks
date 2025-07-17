@@ -54,7 +54,8 @@
     "users": "Users",
     "super_admin": "Super Admin",
     "logout": "Logout",
-    "profile": "Profile"
+    "profile": "Profile",
+    "audit_log": "Audit Log"
   },
   "auth": {
     "login": "Login",
@@ -1132,5 +1133,82 @@
     "custom_currencies": "Custom Currencies",
     "custom_currencies_description": "Add your own currencies like Bitcoin, Ethereum, or other cryptocurrencies",
     "add_currency": "Add Currency"
+  },
+  "auditLog": {
+    "title": "Audit Log",
+    "description": "View and manage audit logs",
+    "new_log": "New Log",
+    "edit_log": "Edit Log",
+    "log_date": "Log Date",
+    "log_type": "Log Type",
+    "log_action": "Action",
+    "log_details": "Details",
+    "log_created": "Log created successfully",
+    "log_updated": "Log updated successfully",
+    "log_deleted": "Log deleted successfully",
+    "confirm_delete": "Are you sure you want to delete this log?",
+    "no_logs": "No logs found",
+    "log_list": "Log List",
+    "search_placeholder": "Search logs...",
+    "filter_by_type": "Filter by Type",
+    "all_types": "All Types",
+    "loading": "Loading logs...",
+    "log_types": {
+      "user_login": "User Login",
+      "user_logout": "User Logout",
+      "user_created": "User Created",
+      "user_updated": "User Updated",
+      "user_deleted": "User Deleted",
+      "invoice_created": "Invoice Created",
+      "invoice_updated": "Invoice Updated",
+      "invoice_deleted": "Invoice Deleted",
+      "payment_created": "Payment Created",
+      "payment_updated": "Payment Updated",
+      "payment_deleted": "Payment Deleted",
+      "client_created": "Client Created",
+      "client_updated": "Client Updated",
+      "client_deleted": "Client Deleted",
+      "setting_updated": "Setting Updated",
+      "system_error": "System Error"
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "action": "Action",
+      "details": "Details",
+      "actions": "Actions"
+    },
+    "errors": {
+      "load_failed": "Failed to load logs"
+    },
+    "reload": "Reload",
+    "filters": {
+      "action": "Action",
+      "status": "Status",
+      "user": "User",
+      "resource_type": "Resource Type",
+      "start_date": "Start Date",
+      "end_date": "End Date",
+      "all_actions": "All Actions",
+      "all_statuses": "All Statuses",
+      "all_users": "All Users",
+      "all_resources": "All Resources",
+      "select_date": "Select date"
+    },
+    "details": {
+      "title": "Audit Log Details",
+      "user": "User",
+      "action": "Action",
+      "resource_type": "Resource Type",
+      "status": "Status",
+      "resource_id": "Resource ID",
+      "resource_name": "Resource Name",
+      "timestamp": "Timestamp",
+      "ip_address": "IP Address",
+      "user_agent": "User Agent",
+      "error_message": "Error Message",
+      "details": "Details",
+      "copy_json": "Copy JSON"
+    }
   }
 }

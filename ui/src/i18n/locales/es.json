@@ -54,7 +54,8 @@
     "users": "Usuarios",
     "super_admin": "Super Administrador",
     "logout": "Cerrar Sesión",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "audit_log": "Registro de Auditoría"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -1145,5 +1146,82 @@
     "custom_currencies": "Monedas Personalizadas",
     "custom_currencies_description": "Agrega tus propias monedas como Bitcoin, Ethereum u otras criptomonedas",
     "add_currency": "Agregar Moneda"
+  },
+  "auditLog": {
+    "title": "Registro de Auditoría",
+    "description": "Ver y gestionar los registros de auditoría",
+    "new_log": "Nuevo Registro",
+    "edit_log": "Editar Registro",
+    "log_date": "Fecha del Registro",
+    "log_type": "Tipo de Registro",
+    "log_action": "Acción",
+    "log_details": "Detalles",
+    "log_created": "Registro creado exitosamente",
+    "log_updated": "Registro actualizado exitosamente",
+    "log_deleted": "Registro eliminado exitosamente",
+    "confirm_delete": "¿Estás seguro de que quieres eliminar este registro?",
+    "no_logs": "No se encontraron registros",
+    "log_list": "Lista de Registros",
+    "search_placeholder": "Buscar registros...",
+    "filter_by_type": "Filtrar por Tipo",
+    "all_types": "Todos los Tipos",
+    "loading": "Cargando registros...",
+    "log_types": {
+      "user_login": "Inicio de Sesión de Usuario",
+      "user_logout": "Cierre de Sesión de Usuario",
+      "user_created": "Usuario Creado",
+      "user_updated": "Usuario Actualizado",
+      "user_deleted": "Usuario Eliminado",
+      "invoice_created": "Factura Creada",
+      "invoice_updated": "Factura Actualizada",
+      "invoice_deleted": "Factura Eliminada",
+      "payment_created": "Pago Creado",
+      "payment_updated": "Pago Actualizado",
+      "payment_deleted": "Pago Eliminado",
+      "client_created": "Cliente Creado",
+      "client_updated": "Cliente Actualizado",
+      "client_deleted": "Cliente Eliminado",
+      "setting_updated": "Configuración Actualizada",
+      "system_error": "Error del Sistema"
+    },
+    "table": {
+      "date": "Fecha",
+      "type": "Tipo",
+      "action": "Acción",
+      "details": "Detalles",
+      "actions": "Acciones"
+    },
+    "errors": {
+      "load_failed": "Error al cargar registros"
+    },
+    "reload": "Recargar",
+    "filters": {
+      "action": "Acción",
+      "status": "Estado",
+      "user": "Usuario",
+      "resource_type": "Tipo de Recurso",
+      "start_date": "Fecha de Inicio",
+      "end_date": "Fecha de Fin",
+      "all_actions": "Todas las Acciones",
+      "all_statuses": "Todos los Estados",
+      "all_users": "Todos los Usuarios",
+      "all_resources": "Todos los Recursos",
+      "select_date": "Seleccionar fecha"
+    },
+    "details": {
+      "title": "Detalles del Registro de Auditoría",
+      "user": "Usuario",
+      "action": "Acción",
+      "resource_type": "Tipo de Recurso",
+      "status": "Estado",
+      "resource_id": "ID del Recurso",
+      "resource_name": "Nombre del Recurso",
+      "timestamp": "Marca de Tiempo",
+      "ip_address": "Dirección IP",
+      "user_agent": "Agente de Usuario",
+      "error_message": "Mensaje de Error",
+      "details": "Detalles",
+      "copy_json": "Copiar JSON"
+    }
   }
 } 

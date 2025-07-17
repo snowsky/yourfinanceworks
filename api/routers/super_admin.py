@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from models.database import get_master_db
 from models.models import (
@@ -15,8 +16,13 @@ from routers.auth import get_current_user
 from services.tenant_database_manager import tenant_db_manager
 from utils.auth import get_password_hash
 from utils.rbac import require_superuser
+from utils.audit import log_audit_event
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
+
+# Add the request model for the promote endpoint
+class PromoteUserRequest(BaseModel):
+    email: str
 
 def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
     """Require that the current user is a superuser"""
@@ -30,7 +36,7 @@ def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
 # ========== TENANT MANAGEMENT ==========
 
 @router.get("/tenants", response_model=List[TenantSchema])
-def list_all_tenants(
+async def get_tenants(
     skip: int = 0,
     limit: int = 100,
     master_db: Session = Depends(get_master_db),
@@ -57,7 +63,7 @@ def list_all_tenants(
     return enriched_tenants
 
 @router.get("/tenants/{tenant_id}/stats")
-def get_tenant_stats(
+async def get_tenant_stats(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -98,7 +104,7 @@ def get_tenant_stats(
     }
 
 @router.post("/tenants", response_model=TenantSchema)
-def create_tenant_as_super_admin(
+async def create_tenant(
     tenant: TenantCreate,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -134,9 +140,9 @@ def create_tenant_as_super_admin(
     return db_tenant
 
 @router.put("/tenants/{tenant_id}", response_model=TenantSchema)
-def update_tenant_as_super_admin(
+async def update_tenant(
     tenant_id: int,
-    tenant_update: TenantUpdate,
+    tenant: TenantUpdate,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
@@ -146,7 +152,7 @@ def update_tenant_as_super_admin(
         raise HTTPException(status_code=404, detail="Tenant not found")
     
     # Update tenant fields
-    for field, value in tenant_update.dict(exclude_unset=True).items():
+    for field, value in tenant.dict(exclude_unset=True).items():
         setattr(tenant, field, value)
     
     master_db.commit()
@@ -154,7 +160,7 @@ def update_tenant_as_super_admin(
     return tenant
 
 @router.delete("/tenants/{tenant_id}")
-def delete_tenant_as_super_admin(
+async def delete_tenant(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -193,18 +199,19 @@ def delete_tenant_as_super_admin(
 # ========== CROSS-TENANT USER MANAGEMENT ==========
 
 @router.get("/users", response_model=List[Dict[str, Any]])
-def list_all_users(
+async def get_users(
     skip: int = 0,
     limit: int = 100,
-    tenant_id: Optional[int] = None,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
     """List all users across all tenants or from a specific tenant"""
     query = master_db.query(MasterUser)
     
-    if tenant_id:
-        query = query.filter(MasterUser.tenant_id == tenant_id)
+    # The original code had tenant_id here, but the new code doesn't.
+    # Assuming the intent was to list all users across all tenants.
+    # If a specific tenant_id is needed, it should be passed as a query parameter.
+    # For now, removing the filter to list all users.
     
     users = query.offset(skip).limit(limit).all()
     
@@ -223,7 +230,7 @@ def list_all_users(
     return enriched_users
 
 @router.get("/users/{user_id}")
-def get_user_details(
+async def get_user(
     user_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -243,21 +250,20 @@ def get_user_details(
     return user_dict
 
 @router.post("/users", response_model=Dict[str, Any])
-def create_user_for_tenant(
-    user_data: UserCreate,
-    tenant_id: int,
+async def create_user(
+    user: UserCreate,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
     """Create a new user for a specific tenant"""
     # Check if tenant exists
-    tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    tenant = master_db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
     
     # Check if user already exists
     existing_user = master_db.query(MasterUser).filter(
-        MasterUser.email == user_data.email
+        MasterUser.email == user.email
     ).first()
     if existing_user:
         raise HTTPException(
@@ -266,14 +272,14 @@ def create_user_for_tenant(
         )
     
     # Create user in master database
-    hashed_password = get_password_hash(user_data.password)
+    hashed_password = get_password_hash(user.password)
     master_user = MasterUser(
-        email=user_data.email,
+        email=user.email,
         hashed_password=hashed_password,
-        first_name=user_data.first_name,
-        last_name=user_data.last_name,
-        role=user_data.role,
-        tenant_id=tenant_id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        role=user.role,
+        tenant_id=user.tenant_id,
         is_verified=True
     )
     
@@ -283,15 +289,15 @@ def create_user_for_tenant(
     
     # Create user in tenant database
     try:
-        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)()
         
         tenant_user = TenantUser(
             id=master_user.id,  # Use same ID as master
-            email=user_data.email,
+            email=user.email,
             hashed_password=hashed_password,
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-            role=user_data.role,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            role=user.role,
             is_verified=True
         )
         
@@ -312,10 +318,23 @@ def create_user_for_tenant(
     user_dict.pop('_sa_instance_state', None)
     user_dict['tenant_name'] = tenant.name
     
+    # Log audit event
+    log_audit_event(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="user",
+        resource_id=str(master_user.id),
+        resource_name=f"{master_user.first_name} {master_user.last_name}",
+        details=user.dict(),
+        status="success"
+    )
+    
     return user_dict
 
 @router.put("/users/{user_id}/role")
-def update_user_role_super_admin(
+async def update_user_role(
     user_id: int,
     role_update: UserRoleUpdate,
     master_db: Session = Depends(get_master_db),
@@ -349,7 +368,7 @@ def update_user_role_super_admin(
     return {"message": "User role updated successfully"}
 
 @router.put("/users/{user_id}")
-def update_user_info_super_admin(
+async def update_user(
     user_id: int,
     user_update: UserUpdate,
     master_db: Session = Depends(get_master_db),
@@ -387,7 +406,7 @@ def update_user_info_super_admin(
     return {"message": "User info updated successfully"}
 
 @router.delete("/users/{user_id}")
-def delete_user_super_admin(
+async def delete_user(
     user_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -423,12 +442,25 @@ def delete_user_super_admin(
     master_db.delete(user)
     master_db.commit()
     
+    # Log audit event
+    log_audit_event(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="user",
+        resource_id=str(user_id),
+        resource_name=f"{user.first_name} {user.last_name}",
+        details={"deleted_user_email": user.email},
+        status="success"
+    )
+    
     return {"message": "User deleted successfully"}
 
 # ========== DATABASE OPERATIONS ==========
 
 @router.get("/tenants/{tenant_id}/database/status")
-def get_tenant_database_status(
+async def get_tenant_database_status(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -462,7 +494,7 @@ def get_tenant_database_status(
         }
 
 @router.post("/tenants/{tenant_id}/database/recreate")
-def recreate_tenant_database(
+async def recreate_tenant_database(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
@@ -482,7 +514,7 @@ def recreate_tenant_database(
     return {"message": f"Database for tenant {tenant.name} recreated successfully"}
 
 @router.get("/database/overview")
-def get_database_overview(
+async def get_database_overview(
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
@@ -517,21 +549,18 @@ def get_database_overview(
     return overview 
 
 @router.post("/promote", response_model=Dict[str, str])
-def promote_user_to_super_admin(
-    data: Dict[str, str],
+async def promote_to_super_admin(
+    request: PromoteUserRequest,  # Accept email in request body
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
     """Promote a user to super admin by email (super admin only)"""
-    email = data.get("email")
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-    user = master_db.query(MasterUser).filter(MasterUser.email == email).first()
+    user = master_db.query(MasterUser).filter(MasterUser.email == request.email).first()
     if not user:
-        raise HTTPException(status_code=404, detail=f"User with email '{email}' not found")
+        raise HTTPException(status_code=404, detail=f"User with email '{request.email}' not found")
     if user.is_superuser:
-        return {"message": f"User '{email}' is already a super admin."}
+        return {"message": f"User '{request.email}' is already a super admin."}
     user.is_superuser = True
     user.role = 'admin'
     master_db.commit()
-    return {"message": f"User '{email}' has been promoted to super admin."} 
+    return {"message": f"User '{request.email}' has been promoted to super admin."} 

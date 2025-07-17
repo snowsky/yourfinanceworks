@@ -201,36 +201,19 @@ async def suggest_actions(
         }
 
 @router.post("/chat")
-async def chat_with_ai(
-    request: dict,
+async def ai_chat(
+    message: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Chat with AI using configured provider and MCP tools"""
     try:
-        message = request.get("message", "")
-        config_id = request.get("config_id")
-        
-        if not message:
-            return {
-                "success": False,
-                "error": "Message is required"
-            }
-        
         # Get AI configuration
-        if config_id:
-            # No tenant_id filtering needed since we're in the tenant's database
-            ai_config = db.query(AIConfig).filter(
-                AIConfig.id == config_id,
-                AIConfig.is_active == True
-            ).first()
-        else:
-            # Get default active configuration
-            # No tenant_id filtering needed since we're in the tenant's database
-            ai_config = db.query(AIConfig).filter(
-                AIConfig.is_default == True,
-                AIConfig.is_active == True
-            ).first()
+        # No tenant_id filtering needed since we're in the tenant's database
+        ai_config = db.query(AIConfig).filter(
+            AIConfig.is_default == True,
+            AIConfig.is_active == True
+        ).first()
         
         if not ai_config:
             return {

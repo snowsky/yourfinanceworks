@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/currency", tags=["currency"])
 
 @router.get("/supported", response_model=CurrencyListResponse)
-def get_supported_currencies(
+async def get_supported_currencies(
     active_only: bool = Query(True, description="Return only active currencies"),
     db: Session = Depends(get_db)
 ):
@@ -36,7 +36,7 @@ def get_supported_currencies(
         )
 
 @router.get("/rates", response_model=ExchangeRateListResponse)
-def get_exchange_rates(
+async def get_exchange_rates(
     base_currency: Optional[str] = Query(None, description="Filter by base currency"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -62,7 +62,7 @@ def get_exchange_rates(
         )
 
 @router.post("/rates", response_model=CurrencyRate)
-def create_or_update_exchange_rate(
+async def create_or_update_exchange_rate(
     rate_data: CurrencyRateCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -115,7 +115,7 @@ def create_or_update_exchange_rate(
         )
 
 @router.put("/rates/{rate_id}", response_model=CurrencyRate)
-def update_exchange_rate(
+async def update_exchange_rate(
     rate_id: int,
     rate_update: CurrencyRateUpdate,
     db: Session = Depends(get_db),
@@ -165,7 +165,7 @@ def update_exchange_rate(
         )
 
 @router.post("/convert", response_model=CurrencyConversion)
-def convert_currency(
+async def convert_currency(
     amount: float = Query(..., description="Amount to convert"),
     from_currency: str = Query(..., description="Source currency code"),
     to_currency: str = Query(..., description="Target currency code"),
@@ -221,7 +221,7 @@ def convert_currency(
         )
 
 @router.delete("/rates/{rate_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_exchange_rate(
+async def delete_exchange_rate(
     rate_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -254,7 +254,7 @@ def delete_exchange_rate(
         ) 
 
 @router.post("/custom", response_model=SupportedCurrency)
-def create_custom_currency(
+async def create_custom_currency(
     currency_data: SupportedCurrencyCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -305,7 +305,7 @@ def create_custom_currency(
         )
 
 @router.put("/custom/{currency_id}", response_model=SupportedCurrency)
-def update_custom_currency(
+async def update_custom_currency(
     currency_id: int,
     currency_update: SupportedCurrencyUpdate,
     db: Session = Depends(get_db),
@@ -360,7 +360,7 @@ def update_custom_currency(
         )
 
 @router.delete("/custom/{currency_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_custom_currency(
+async def delete_custom_currency(
     currency_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

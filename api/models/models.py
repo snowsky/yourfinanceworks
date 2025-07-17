@@ -329,8 +329,9 @@ class AIConfig(Base):
     model_name = Column(String, nullable=False)  # e.g., "gpt-4", "llama2"
     is_active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)  # Only one default per tenant
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    tested = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
-    # Relationship
+    # Relationships
     tenant = relationship("Tenant", back_populates="ai_configs") 

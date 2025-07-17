@@ -13,6 +13,7 @@ from models.models_per_tenant import Invoice, Client, User
 from schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSchema, PaymentWithInvoice
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
+from utils.audit import log_audit_event
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -108,7 +109,7 @@ class Payment(Base):
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 @router.get("/")
-def read_payments(
+async def read_payments(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -168,7 +169,7 @@ def read_payments(
         )
 
 @router.get("/{payment_id}", response_model=PaymentWithInvoice)
-def read_payment(
+async def read_payment(
     payment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -226,7 +227,7 @@ def read_payment(
         )
 
 @router.post("/", response_model=PaymentSchema)
-def create_payment(
+async def create_payment(
     payment: PaymentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -279,20 +280,44 @@ def create_payment(
         db.add(db_payment)
         db.commit()
         db.refresh(db_payment)
+        
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="payment",
+            resource_id=str(db_payment.id),
+            resource_name=f"Payment for Invoice #{db_payment.invoice.number}",
+            details=payment.dict(),
+            status="success"
+        )
+        
         return db_payment
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"Error in create_payment: {str(e)}")
-        logger.error(traceback.format_exc())
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="payment",
+            resource_id=None,
+            resource_name=None,
+            details=payment.dict(),
+            status="error",
+            error_message=str(e)
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create payment: {str(e)}"
         )
 
 @router.put("/{payment_id}", response_model=PaymentSchema)
-def update_payment(
+async def update_payment(
     payment_id: int,
     payment: PaymentUpdate,
     db: Session = Depends(get_db),
@@ -342,7 +367,7 @@ def update_payment(
         )
 
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_payment(
+async def delete_payment(
     payment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

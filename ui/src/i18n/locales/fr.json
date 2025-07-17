@@ -54,7 +54,8 @@
     "users": "Utilisateurs",
     "super_admin": "Super Administrateur",
     "logout": "Déconnexion",
-    "profile": "Profil"
+    "profile": "Profil",
+    "audit_log": "Journal d'Audit"
   },
   "auth": {
     "login": "Connexion",
@@ -1143,5 +1144,82 @@
     "custom_currencies": "Devises personnalisées",
     "custom_currencies_description": "Ajoutez vos propres devises comme Bitcoin, Ethereum ou d'autres cryptomonnaies",
     "add_currency": "Ajouter une devise"
+  },
+  "auditLog": {
+    "title": "Journal d'audit",
+    "description": "Voir et gérer les journaux d'audit",
+    "new_log": "Nouveau journal",
+    "edit_log": "Modifier le journal",
+    "log_date": "Date du journal",
+    "log_type": "Type de journal",
+    "log_action": "Action",
+    "log_details": "Détails",
+    "log_created": "Journal créé avec succès",
+    "log_updated": "Journal mis à jour avec succès",
+    "log_deleted": "Journal supprimé avec succès",
+    "confirm_delete": "Êtes-vous sûr de vouloir supprimer ce journal ?",
+    "no_logs": "Aucun journal trouvé",
+    "log_list": "Liste des journaux",
+    "search_placeholder": "Rechercher dans les journaux...",
+    "filter_by_type": "Filtrer par type",
+    "all_types": "Tous les types",
+    "loading": "Chargement des journaux...",
+    "log_types": {
+      "user_login": "Connexion utilisateur",
+      "user_logout": "Déconnexion utilisateur",
+      "user_created": "Utilisateur créé",
+      "user_updated": "Utilisateur mis à jour",
+      "user_deleted": "Utilisateur supprimé",
+      "invoice_created": "Facture créée",
+      "invoice_updated": "Facture mise à jour",
+      "invoice_deleted": "Facture supprimée",
+      "payment_created": "Paiement créé",
+      "payment_updated": "Paiement mis à jour",
+      "payment_deleted": "Paiement supprimé",
+      "client_created": "Client créé",
+      "client_updated": "Client mis à jour",
+      "client_deleted": "Client supprimé",
+      "setting_updated": "Paramètre mis à jour",
+      "system_error": "Erreur système"
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "action": "Action",
+      "details": "Détails",
+      "actions": "Actions"
+    },
+    "errors": {
+      "load_failed": "Échec du chargement des journaux"
+    },
+    "reload": "Recharger",
+    "filters": {
+      "action": "Action",
+      "status": "Statut",
+      "user": "Utilisateur",
+      "resource_type": "Type de ressource",
+      "start_date": "Date de début",
+      "end_date": "Date de fin",
+      "all_actions": "Toutes les actions",
+      "all_statuses": "Tous les statuts",
+      "all_users": "Tous les utilisateurs",
+      "all_resources": "Toutes les ressources",
+      "select_date": "Sélectionner la date"
+    },
+    "details": {
+      "title": "Détails du journal d'audit",
+      "user": "Utilisateur",
+      "action": "Action",
+      "resource_type": "Type de ressource",
+      "status": "Statut",
+      "resource_id": "ID de la ressource",
+      "resource_name": "Nom de la ressource",
+      "timestamp": "Horodatage",
+      "ip_address": "Adresse IP",
+      "user_agent": "Agent utilisateur",
+      "error_message": "Message d'erreur",
+      "details": "Détails",
+      "copy_json": "Copier le JSON"
+    }
   }
 } 

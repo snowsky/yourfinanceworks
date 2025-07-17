@@ -26,7 +26,7 @@ def init_ai_config_tenants():
         tenants = master_db.query(Tenant).filter(Tenant.is_active == True).all()
         
         logger.info(f"Found {len(tenants)} active tenants")
-        
+
         for tenant in tenants:
             try:
                 # Construct tenant database URL

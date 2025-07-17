@@ -26,7 +26,8 @@ import {
   Settings, 
   Users,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  ListChecks // <-- Add icon for audit log
 } from "lucide-react";
 import { API_BASE_URL, settingsApi } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
@@ -177,6 +178,12 @@ export function AppSidebar() {
       path: '/users', 
       label: t('navigation.users'), 
       icon: <UserCheck className="w-5 h-5" /> 
+    }] : []),
+    // Only show Audit Log for admin or superuser
+    ...((isAdminUser || isSuperUser) ? [{
+      path: '/audit-log',
+      label: t('navigation.audit_log'),
+      icon: <ListChecks className="w-5 h-5" />
     }] : [])
   ];
 

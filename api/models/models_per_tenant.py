@@ -221,56 +221,21 @@ class AIConfig(Base):
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-# Master database models (for tenant management)
-class Tenant(Base):
-    __tablename__ = "tenants"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    subdomain = Column(String, unique=True, nullable=True, index=True)  # Optional subdomain
-    is_active = Column(Boolean, default=True, nullable=False)
-    
-    # Company details
-    email = Column(String, nullable=True)
-    phone = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    tax_id = Column(String, nullable=True)
-    company_logo_url = Column(String, nullable=True)
-    enable_ai_assistant = Column(Boolean, default=False)
-    
-    # Currency settings
-    default_currency = Column(String, default="USD", nullable=False)
-    
-    # Database information
-    database_name = Column(String, nullable=True)  # Name of the tenant's database
-    
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
 
-# User model for master database (tenant management)
-class MasterUser(Base):
-    __tablename__ = "master_users"
-    
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_superuser = Column(Boolean, default=False, nullable=False)
-    is_verified = Column(Boolean, default=False, nullable=False)
-    
-    # Tenant relationship
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
-    # User role within tenant
-    role = Column(String, default="user")  # admin, user, viewer
-    
-    # Additional user fields
-    first_name = Column(String, nullable=True)
-    last_name = Column(String, nullable=True)
-    google_id = Column(String, unique=True, nullable=True)  # For Google SSO
-    
+    user_id = Column(Integer, nullable=False)  # ID of the user who performed the action
+    user_email = Column(String, nullable=False)  # Email for easier querying
+    action = Column(String, nullable=False)  # CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+    resource_type = Column(String, nullable=False)  # user, client, invoice, payment, settings, etc.
+    resource_id = Column(String, nullable=True)  # ID of the affected resource
+    resource_name = Column(String, nullable=True)  # Human-readable name of the resource
+    details = Column(JSON, nullable=True)  # Additional details about the action
+    ip_address = Column(String, nullable=True)  # IP address of the user
+    user_agent = Column(String, nullable=True)  # User agent string
+    status = Column(String, default="success", nullable=False)  # success, error, warning
+    error_message = Column(String, nullable=True)  # Error message if status is error
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
-    # Relationships
-    tenant = relationship("Tenant") 
+
+ 
