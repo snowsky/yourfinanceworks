@@ -15,7 +15,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 min-h-screen p-6 md:p-8 overflow-auto">
           {children}
         </main>
-        <Toaster position="top-right" richColors />
+        <Toaster position="bottom-center" richColors />
       </div>
     </SidebarProvider>
   );
