@@ -27,6 +27,7 @@ import { CurrencySelector } from "@/components/ui/currency-selector";
 import { apiRequest } from "@/lib/api";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
+import { getErrorMessage } from '@/lib/api';
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -359,10 +360,10 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     } catch (error) {
       console.error("Failed to create client:", error);
       if (error instanceof Error && error.message.includes('Authentication failed')) {
-        toast.error("Please log in again to create a client");
+        toast.error(getErrorMessage(error, t));
         navigate('/login');
       } else {
-        toast.error("Failed to create client. Please try again.");
+        toast.error(getErrorMessage(error, t));
       }
     }
   };
@@ -1106,14 +1107,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                   
                 } catch (reductionError) {
                   console.error("Failed to reduce payment:", reductionError);
-                  toast.error("Failed to reduce payment. Please use the Payments section for manual adjustments.");
+                  toast.error(getErrorMessage(reductionError, t));
                   form.setValue("paidAmount", currentPaidAmount);
                 }
               }
             } catch (paymentError) {
               console.error("Failed to handle payment:", paymentError);
               console.error("Payment error details:", paymentError);
-              toast.error("Invoice updated but failed to record payment changes. Please add payment separately.");
+              toast.error(getErrorMessage(paymentError, t));
             }
           } else {
             console.log("No change in payment amount, skipping payment processing");

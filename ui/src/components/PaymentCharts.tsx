@@ -210,7 +210,7 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Recent Payments
+            {t('dashboard.paymentMethodsDistribution')}
           </CardTitle>
         </CardHeader>
         <CardContent>

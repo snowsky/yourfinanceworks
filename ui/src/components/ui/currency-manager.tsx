@@ -9,7 +9,7 @@ import { Badge } from './badge';
 import { Trash2, Edit, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { currencyApi } from '@/lib/api';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getErrorMessage } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 
 interface Currency {
@@ -63,7 +63,7 @@ export function CurrencyManager() {
       setCurrencies(response.currencies || []);
     } catch (error) {
       console.error('Failed to fetch currencies:', error);
-      toast.error('Failed to load currencies');
+      toast.error(getErrorMessage(error, t));
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export function CurrencyManager() {
       fetchCurrencies();
     } catch (error: any) {
       console.error('Failed to create currency:', error);
-      toast.error(error.message || 'Failed to create currency');
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -127,7 +127,7 @@ export function CurrencyManager() {
       fetchCurrencies();
     } catch (error: any) {
       console.error('Failed to update currency:', error);
-      toast.error(error.message || 'Failed to update currency');
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -142,7 +142,7 @@ export function CurrencyManager() {
       fetchCurrencies();
     } catch (error: any) {
       console.error('Failed to delete currency:', error);
-      toast.error(error.message || 'Failed to delete currency');
+      toast.error(getErrorMessage(error, t));
     }
   };
 

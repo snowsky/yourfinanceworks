@@ -9,6 +9,7 @@ import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
+import { getErrorMessage } from '@/lib/api';
 
 const Login = () => {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ const Login = () => {
       toast.success(t('auth.login_success'));
       navigate("/dashboard");
     } catch (error: any) {
-      const errorMessage = error.message || t('auth.login_error');
+      const errorMessage = getErrorMessage(error, t);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

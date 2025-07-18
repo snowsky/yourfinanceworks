@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { clientApi, Client } from "@/lib/api";
+import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -35,7 +35,7 @@ const Clients = () => {
         setClients(data);
       } catch (error) {
         console.error("Failed to fetch clients:", error);
-        toast.error(t('clients.errors.load_failed'));
+        toast.error(getErrorMessage(error, t));
       } finally {
         setLoading(false);
       }
@@ -59,7 +59,7 @@ const Clients = () => {
       toast.success(t('clients.client_deleted'));
     } catch (error) {
       console.error("Failed to delete client:", error);
-      toast.error(t('clients.errors.delete_failed'));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setDeleting(false);
       setClientToDelete(null);

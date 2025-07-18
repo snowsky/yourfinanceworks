@@ -10,6 +10,11 @@ from models.database import get_db
 from routers.auth import get_current_user
 from models.models_per_tenant import User, Invoice, Client, AIConfig
 from models.models import Tenant
+from constants.recommendation_codes import (
+    CONSIDER_STRICTER_PAYMENT_TERMS,
+    REVIEW_PAYMENT_TERMS_SLOW_CLIENTS,
+    START_CREATING_INVOICES,
+)
 
 router = APIRouter(
     prefix="/ai",
@@ -84,17 +89,17 @@ async def analyze_patterns(
         # Calculate total outstanding and total revenue across all currencies
         total_outstanding = sum(outstanding_revenue_by_currency.values())
         total_revenue = sum(total_revenue_by_currency.values())
-        
+
         if total_outstanding > total_revenue * 0.3:
-            recommendations.append("Consider implementing stricter payment terms")
+            recommendations.append(CONSIDER_STRICTER_PAYMENT_TERMS)
         if slowest_paying_clients:
-            recommendations.append("Review payment terms for slow-paying clients")
+            recommendations.append(REVIEW_PAYMENT_TERMS_SLOW_CLIENTS)
         if total_invoices == 0:
-            recommendations.append("Start creating invoices to track your business")
-        
+            recommendations.append(START_CREATING_INVOICES)
+
         # Debug logging
         print(f"Analyze patterns debug: total_invoices={total_invoices}, paid={paid_invoices}, partially_paid={partially_paid_invoices}, total_revenue_by_currency={total_revenue_by_currency}")
-        
+
         return {
             "success": True,
             "data": {

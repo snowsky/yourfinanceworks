@@ -21,6 +21,7 @@ from routers.auth import get_current_user
 from utils.invoice import generate_invoice_number
 from utils.rbac import require_admin
 from utils.audit import log_audit_event
+from constants.error_codes import FAILED_TO_IMPORT_DATA
 
 logger = logging.getLogger(__name__)
 
@@ -515,7 +516,7 @@ async def import_tenant_data(
                 logger.error(f"Error during import for tenant {current_user.tenant_id}: {str(import_error)}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Failed to import data: {str(import_error)}"
+                    detail=FAILED_TO_IMPORT_DATA
                 )
             finally:
                 db.close()
@@ -527,7 +528,7 @@ async def import_tenant_data(
         logger.error(f"Error importing data for tenant {current_user.tenant_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to import data: {str(e)}"
+            detail=FAILED_TO_IMPORT_DATA
         )
 
 @router.post("/upload-logo")

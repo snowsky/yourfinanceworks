@@ -16,6 +16,7 @@ from services.currency_service import CurrencyService
 from utils.invoice import generate_invoice_number
 from utils.rbac import require_non_viewer, require_admin
 from utils.audit import log_audit_event
+from constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -151,7 +152,7 @@ async def create_invoice(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create invoice: {str(e)}"
+            detail=FAILED_TO_CREATE_INVOICE
         )
 
 @router.get("/", response_model=List[InvoiceWithClient])
@@ -524,7 +525,7 @@ async def read_invoice(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch invoice: {str(e)}"
+            detail=FAILED_TO_FETCH_INVOICE
         )
 
 @router.put("/{invoice_id}", response_model=InvoiceSchema)

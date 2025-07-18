@@ -12,6 +12,7 @@ from schemas.email import (
 from routers.auth import get_current_user
 from services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from utils.pdf_generator import generate_invoice_pdf
+from constants.error_codes import FAILED_TO_SEND_EMAIL
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,7 @@ async def send_invoice_email(
         logger.error(f"Error sending invoice email: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send invoice email: {str(e)}"
+            detail=FAILED_TO_SEND_EMAIL
         )
 
 @router.post("/test", response_model=EmailResponse)

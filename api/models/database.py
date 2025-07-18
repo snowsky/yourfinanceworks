@@ -7,6 +7,7 @@ import logging
 from fastapi import HTTPException
 from pydantic import ValidationError
 from fastapi.exceptions import RequestValidationError
+from constants.error_codes import TENANT_CONTEXT_REQUIRED
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def get_db():
         logger.error("This usually indicates a session expiry or missing authentication token")
         raise HTTPException(
             status_code=401,
-            detail="Tenant context required for this operation. Please ensure you are sending the correct tenant information."
+            detail=TENANT_CONTEXT_REQUIRED
         )
     else:
         # Import here to avoid circular imports

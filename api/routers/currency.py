@@ -13,6 +13,7 @@ from schemas.currency import (
     CurrencyRateCreate, CurrencyRateUpdate, ExchangeRateListResponse,
     CurrencyConversion
 )
+from constants.error_codes import INVALID_CURRENCY_CODE, AMOUNT_MUST_BE_POSITIVE, EXCHANGE_RATE_MUST_BE_POSITIVE, NO_EXCHANGE_RATE_FOUND
 
 logger = logging.getLogger(__name__)
 
@@ -75,25 +76,25 @@ async def create_or_update_exchange_rate(
         if not currency_service.validate_currency_code(rate_data.from_currency):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid from_currency: {rate_data.from_currency}"
+                detail=INVALID_CURRENCY_CODE
             )
         
         if not currency_service.validate_currency_code(rate_data.to_currency):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid to_currency: {rate_data.to_currency}"
+                detail=INVALID_CURRENCY_CODE
             )
         
         if rate_data.from_currency == rate_data.to_currency:
             raise HTTPException(
                 status_code=400,
-                detail="From and to currencies cannot be the same"
+                detail=INVALID_CURRENCY_CODE
             )
         
         if rate_data.rate <= 0:
             raise HTTPException(
                 status_code=400,
-                detail="Exchange rate must be positive"
+                detail=EXCHANGE_RATE_MUST_BE_POSITIVE
             )
         
         exchange_rate = currency_service.update_exchange_rate(
@@ -111,7 +112,7 @@ async def create_or_update_exchange_rate(
         logger.error(f"Error creating/updating exchange rate: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Failed to create/update exchange rate"
+            detail=NO_EXCHANGE_RATE_FOUND
         )
 
 @router.put("/rates/{rate_id}", response_model=CurrencyRate)
@@ -178,7 +179,7 @@ async def convert_currency(
         if amount <= 0:
             raise HTTPException(
                 status_code=400,
-                detail="Amount must be positive"
+                detail=AMOUNT_MUST_BE_POSITIVE
             )
         
         currency_service = CurrencyService(db)
@@ -187,13 +188,13 @@ async def convert_currency(
         if not currency_service.validate_currency_code(from_currency):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid from_currency: {from_currency}"
+                detail=INVALID_CURRENCY_CODE
             )
         
         if not currency_service.validate_currency_code(to_currency):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid to_currency: {to_currency}"
+                detail=INVALID_CURRENCY_CODE
             )
         
         conversion = currency_service.convert_currency(
@@ -207,7 +208,7 @@ async def convert_currency(
         if conversion is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"No exchange rate found for {from_currency} to {to_currency}"
+                detail=NO_EXCHANGE_RATE_FOUND
             )
         
         return conversion
@@ -217,7 +218,7 @@ async def convert_currency(
         logger.error(f"Error converting currency: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Failed to convert currency"
+            detail=NO_EXCHANGE_RATE_FOUND
         )
 
 @router.delete("/rates/{rate_id}", status_code=status.HTTP_204_NO_CONTENT)

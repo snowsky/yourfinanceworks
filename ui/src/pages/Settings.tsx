@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { CurrencyManager } from "@/components/ui/currency-manager";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { api } from "@/lib/api";
+import { getErrorMessage } from '@/lib/api';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -336,7 +337,7 @@ const Settings = () => {
 
     } catch (error) {
       console.error("Failed to save settings:", error);
-      toast.error(t('settings.failed_to_save_settings'));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setSaving(false);
     }
@@ -349,7 +350,7 @@ const Settings = () => {
       toast.success(t('settings.data_exported_successfully'));
     } catch (error) {
       console.error("Failed to export data:", error);
-      toast.error(t('settings.failed_to_export_data', { message: 'Please try again.' }));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setExporting(false);
     }
@@ -382,7 +383,7 @@ const Settings = () => {
       if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error("Failed to import data:", error);
-      toast.error(t('settings.failed_to_import_data', { error: error instanceof Error ? error.message : 'Unknown error' }));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setImporting(false);
     }
@@ -406,7 +407,7 @@ const Settings = () => {
       toast.success(t('settings.discount_rule_created'));
     } catch (error) {
       console.error("Failed to create discount rule:", error);
-      toast.error(t('settings.failed_to_create_discount_rule'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -547,7 +548,7 @@ const Settings = () => {
       console.error('Failed to save AI Assistant toggle:', error);
       // Revert local state on error
       setAiAssistantEnabled(!checked);
-      toast.error(t('settings.failed_to_save_ai_assistant_setting'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -561,7 +562,7 @@ const Settings = () => {
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to create AI config:", error);
-      toast.error(t('settings.failed_to_create_ai_config'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -577,7 +578,7 @@ const Settings = () => {
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to update AI config:", error);
-      toast.error(t('settings.failed_to_update_ai_config'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -592,7 +593,7 @@ const Settings = () => {
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to delete AI config:", error);
-      toast.error(t('settings.failed_to_delete_ai_config'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -609,7 +610,7 @@ const Settings = () => {
       }
     } catch (error) {
       console.error("Failed to test AI config:", error);
-      toast.error(t('settings.failed_to_test_ai_config'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -622,7 +623,7 @@ const Settings = () => {
       setAiConfigs(configs);
     } catch (error) {
       console.error("Failed to mark AI config as tested:", error);
-      toast.error(t('settings.failed_to_mark_ai_config_as_tested'));
+      toast.error(getErrorMessage(error, t));
     }
   };
 
@@ -755,7 +756,7 @@ const Settings = () => {
       // Optionally, trigger a storage event for other tabs/components
       window.dispatchEvent(new StorageEvent('storage', { key: 'user' }));
     } catch (error: any) {
-      toast.error(error?.message || t('settings.failed_to_update_profile'));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setProfileSaving(false);
     }

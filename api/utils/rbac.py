@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from typing import List, Union
 from models.models_per_tenant import User
 from models.models import MasterUser
+from constants.error_codes import ONLY_SUPERUSERS, ROLE_NOT_ALLOWED
 
 
 def require_roles(
@@ -21,10 +22,9 @@ def require_roles(
         HTTPException: 403 Forbidden if user doesn't have required role
     """
     if user.role not in required_roles:
-        role_list = ", ".join(required_roles)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only users with roles [{role_list}] can {action}. Your role: {user.role}"
+            detail=ROLE_NOT_ALLOWED
         )
 
 
@@ -70,7 +70,7 @@ def require_superuser(user: Union[User, MasterUser], action: str = "perform this
     if not user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only superusers can {action}. Current user is not a superuser."
+            detail=ONLY_SUPERUSERS
         )
 
 

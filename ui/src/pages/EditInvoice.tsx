@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
-import { invoiceApi, Invoice } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
@@ -36,7 +36,7 @@ const EditInvoice = () => {
         setInvoice(data);
       } catch (error) {
         console.error("Failed to fetch invoice:", error);
-        toast.error(t('invoices.invoiceLoadFailed'));
+        toast.error(getErrorMessage(error, t));
         setError(true);
       } finally {
         setLoading(false);

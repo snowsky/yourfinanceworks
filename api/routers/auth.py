@@ -22,6 +22,7 @@ from services.tenant_database_manager import tenant_db_manager
 from middleware.tenant_context_middleware import set_tenant_context
 from utils.rbac import require_admin
 from utils.audit import log_audit_event, log_audit_event_master
+from constants.error_codes import USER_NOT_FOUND, INCORRECT_PASSWORD, INACTIVE_USER, TENANT_CONTEXT_REQUIRED
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -135,7 +136,7 @@ def get_current_user(
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail=TENANT_CONTEXT_REQUIRED,
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -312,20 +313,20 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User does not exist. Please sign up first.",
+            detail=USER_NOT_FOUND,
         )
 
     if not verify_password(user_credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password",
+            detail=INCORRECT_PASSWORD,
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
+            detail=INACTIVE_USER
         )
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

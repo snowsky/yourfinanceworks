@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -363,6 +364,22 @@ export async function apiRequest<T>(
     toast.error(`Request failed: ${errorMessage}`);
     throw error;
   }
+}
+
+// Helper to get i18n error message from backend error code
+export function getErrorMessage(error: any, t: (key: string) => string): string {
+  if (error?.response?.data?.detail) {
+    const code = error.response.data.detail;
+    // Try to map to i18n error code
+    const i18nMsg = t(`errors.${code}`);
+    if (i18nMsg && i18nMsg !== `errors.${code}`) {
+      return i18nMsg;
+    }
+    // Fallback to code if not found
+    return code;
+  }
+  // Fallback to generic error
+  return t('errors.unknown_error');
 }
 
 // Client API methods

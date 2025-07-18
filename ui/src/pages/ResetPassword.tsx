@@ -8,6 +8,7 @@ import { Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { getErrorMessage } from '@/lib/api';
 
 const ResetPassword: React.FC = () => {
   const { t } = useTranslation();
@@ -66,7 +67,7 @@ const ResetPassword: React.FC = () => {
         setError(response.message || t('resetPassword.toastError'));
       }
     } catch (error: any) {
-      const errorMessage = error.message || t('resetPassword.toastUnknownError');
+      const errorMessage = getErrorMessage(error, t);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

@@ -414,7 +414,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       {data.recommendations.map((rec: string, index: number) => (
                         <li key={index} className="flex items-start">
                           <span className="text-green-600 mr-2">•</span>
-                          <span>{rec}</span>
+                          <span>{t(`recommendations.${rec}`)}</span>
                         </li>
                       ))}
                     </ul>
@@ -422,7 +422,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                 </div>
               </div>
             );
-            
+
             setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: analysisComponent }]);
           } else {
             throw new Error('Failed to analyze patterns');
@@ -455,7 +455,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   <h3 className="text-lg font-bold text-pink-900 mb-3 flex items-center">
                     🎯 Suggested Actions
                   </h3>
-                  
+
                   <div className="space-y-3 mb-4">
                     {data.suggested_actions.map((action: any, index: number) => (
                       <div key={index} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-pink-400">
@@ -477,7 +477,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg border border-blue-200">
                     <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
                       📈 Quick Summary

@@ -163,7 +163,8 @@
       "load_failed": "Error al cargar datos del panel"
     },
     "startCreatingInvoices": "Comienza a crear facturas para hacer un seguimiento de tu negocio",
-    "paymentMethodsDistribution": "Distribución de métodos de pago"
+    "paymentMethodsDistribution": "Distribución de métodos de pago",
+    "recentPayments": "Pagos Recientes"
   },
   "invoices": {
     "title": "Facturas",
@@ -739,13 +740,33 @@
     "failedToCancelInvite": "Error al cancelar la invitación"
   },
   "errors": {
-    "network_error": "Error de red. Por favor verifica tu conexión.",
-    "server_error": "Error del servidor. Por favor intenta más tarde.",
-    "unauthorized": "No estás autorizado para realizar esta acción.",
-    "forbidden": "Acceso denegado.",
-    "not_found": "Recurso no encontrado.",
-    "validation_error": "Por favor verifica tu entrada e intenta de nuevo.",
-    "unknown_error": "Ocurrió un error desconocido."
+    "USER_NOT_FOUND": "El usuario no existe. Por favor regístrese primero.",
+    "INCORRECT_PASSWORD": "Contraseña incorrecta.",
+    "INACTIVE_USER": "Su cuenta está inactiva.",
+    "EMAIL_ALREADY_REGISTERED": "Este correo electrónico ya está registrado.",
+    "INVALID_CREDENTIALS": "Credenciales inválidas. Inténtalo de nuevo.",
+    "TENANT_CONTEXT_REQUIRED": "Se requiere contexto de inquilino. Por favor inicie sesión de nuevo.",
+    "NOT_AUTHORIZED": "No está autorizado para realizar esta acción.",
+    "CLIENT_ALREADY_EXISTS": "Ya existe un cliente con este nombre y correo electrónico.",
+    "CLIENT_NOT_FOUND": "Cliente no encontrado.",
+    "FAILED_TO_CREATE_CLIENT": "No se pudo crear el cliente. Inténtalo de nuevo.",
+    "FAILED_TO_UPDATE_CLIENT": "No se pudo actualizar el cliente. Inténtalo de nuevo.",
+    "FAILED_TO_FETCH_CLIENTS": "No se pudieron obtener los clientes. Inténtalo de nuevo.",
+    "FAILED_TO_FETCH_CLIENT": "No se pudo obtener el cliente. Inténtalo de nuevo.",
+    "FAILED_TO_CREATE_INVOICE": "No se pudo crear la factura. Inténtalo de nuevo.",
+    "FAILED_TO_FETCH_INVOICE": "No se pudo obtener la factura. Inténtalo de nuevo.",
+    "FAILED_TO_CREATE_PAYMENT": "No se pudo crear el pago. Inténtalo de nuevo.",
+    "FAILED_TO_FETCH_PAYMENTS": "No se pudieron obtener los pagos. Inténtalo de nuevo.",
+    "FAILED_TO_SEND_EMAIL": "No se pudo enviar el correo electrónico. Inténtalo de nuevo.",
+    "FAILED_TO_IMPORT_DATA": "No se pudo importar los datos. Inténtalo de nuevo.",
+    "SUBDOMAIN_EXISTS": "Este subdominio ya existe.",
+    "INVALID_CURRENCY_CODE": "Código de moneda inválido.",
+    "AMOUNT_MUST_BE_POSITIVE": "La cantidad debe ser positiva.",
+    "EXCHANGE_RATE_MUST_BE_POSITIVE": "La tasa de cambio debe ser positiva.",
+    "NO_EXCHANGE_RATE_FOUND": "No se encontró tasa de cambio para las monedas seleccionadas.",
+    "ONLY_SUPERUSERS": "Solo los superusuarios pueden realizar esta acción.",
+    "ONLY_ADMINS": "Solo los administradores pueden realizar esta acción.",
+    "ROLE_NOT_ALLOWED": "Su rol no permite esta acción."
   },
   "validation": {
     "required": "Este campo es requerido",
@@ -1246,5 +1267,10 @@
       "details": "Detalles",
       "copy_json": "Copiar JSON"
     }
+  },
+  "recommendations": {
+    "CONSIDER_STRICTER_PAYMENT_TERMS": "Considere implementar condiciones de pago más estrictas.",
+    "REVIEW_PAYMENT_TERMS_SLOW_CLIENTS": "Revise las condiciones de pago para los clientes que pagan lentamente.",
+    "START_CREATING_INVOICES": "Comience a crear facturas para hacer un seguimiento de su negocio."
   }
 } 

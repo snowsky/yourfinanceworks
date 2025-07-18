@@ -14,6 +14,7 @@ from schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSche
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
 from utils.audit import log_audit_event
+from constants.error_codes import FAILED_TO_CREATE_PAYMENT, FAILED_TO_FETCH_PAYMENTS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -165,7 +166,7 @@ async def read_payments(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch payments: {str(e)}"
+            detail=FAILED_TO_FETCH_PAYMENTS
         )
 
 @router.get("/{payment_id}", response_model=PaymentWithInvoice)
@@ -313,7 +314,7 @@ async def create_payment(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create payment: {str(e)}"
+            detail=FAILED_TO_CREATE_PAYMENT
         )
 
 @router.put("/{payment_id}", response_model=PaymentSchema)

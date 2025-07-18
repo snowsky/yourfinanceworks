@@ -162,7 +162,6 @@
     "errors": {
       "load_failed": "Failed to load dashboard data"
     },
-    "startCreatingInvoices": "Start creating invoices to track your business",
     "paymentMethodsDistribution": "Payment Methods Distribution"
   },
   "invoices": {
@@ -733,13 +732,33 @@
     "failedToCancelInvite": "Failed to cancel invite"
   },
   "errors": {
-    "network_error": "Network error. Please check your connection.",
-    "server_error": "Server error. Please try again later.",
-    "unauthorized": "You are not authorized to perform this action.",
-    "forbidden": "Access denied.",
-    "not_found": "Resource not found.",
-    "validation_error": "Please check your input and try again.",
-    "unknown_error": "An unknown error occurred."
+    "USER_NOT_FOUND": "User does not exist. Please sign up first.",
+    "INCORRECT_PASSWORD": "Incorrect password.",
+    "INACTIVE_USER": "Your account is inactive.",
+    "EMAIL_ALREADY_REGISTERED": "This email is already registered.",
+    "INVALID_CREDENTIALS": "Invalid credentials. Please try again.",
+    "TENANT_CONTEXT_REQUIRED": "Tenant context required. Please log in again.",
+    "NOT_AUTHORIZED": "You are not authorized to perform this action.",
+    "CLIENT_ALREADY_EXISTS": "A client with this name and email already exists.",
+    "CLIENT_NOT_FOUND": "Client not found.",
+    "FAILED_TO_CREATE_CLIENT": "Failed to create client. Please try again.",
+    "FAILED_TO_UPDATE_CLIENT": "Failed to update client. Please try again.",
+    "FAILED_TO_FETCH_CLIENTS": "Failed to fetch clients. Please try again.",
+    "FAILED_TO_FETCH_CLIENT": "Failed to fetch client. Please try again.",
+    "FAILED_TO_CREATE_INVOICE": "Failed to create invoice. Please try again.",
+    "FAILED_TO_FETCH_INVOICE": "Failed to fetch invoice. Please try again.",
+    "FAILED_TO_CREATE_PAYMENT": "Failed to create payment. Please try again.",
+    "FAILED_TO_FETCH_PAYMENTS": "Failed to fetch payments. Please try again.",
+    "FAILED_TO_SEND_EMAIL": "Failed to send email. Please try again.",
+    "FAILED_TO_IMPORT_DATA": "Failed to import data. Please try again.",
+    "SUBDOMAIN_EXISTS": "This subdomain already exists.",
+    "INVALID_CURRENCY_CODE": "Invalid currency code.",
+    "AMOUNT_MUST_BE_POSITIVE": "Amount must be positive.",
+    "EXCHANGE_RATE_MUST_BE_POSITIVE": "Exchange rate must be positive.",
+    "NO_EXCHANGE_RATE_FOUND": "No exchange rate found for the selected currencies.",
+    "ONLY_SUPERUSERS": "Only superusers can perform this action.",
+    "ONLY_ADMINS": "Only admins can perform this action.",
+    "ROLE_NOT_ALLOWED": "Your role does not permit this action."
   },
   "validation": {
     "required": "This field is required",
@@ -1155,8 +1174,12 @@
     "clientsWithBalance": "Clients with Balance",
     "recentInvoices": "Recent Invoices",
     "invoicePatternAnalysis": "Invoice Pattern Analysis",
-    "recommendations": "Recommendations",
-    "review_business_processes": "Review your invoicing and payment collection processes"
+    "recommendations": "Recommendations"
+  },
+  "recommendations": {
+    "CONSIDER_STRICTER_PAYMENT_TERMS": "Consider implementing stricter payment terms.",
+    "REVIEW_PAYMENT_TERMS_SLOW_CLIENTS": "Review payment terms for slow-paying clients.",
+    "START_CREATING_INVOICES": "Start creating invoices to track your business."
   },
   "currency_manager": {
     "custom_currencies": "Custom Currencies",

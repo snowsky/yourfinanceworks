@@ -13,6 +13,7 @@ from schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
 from routers.auth import get_current_user
 from services.currency_service import CurrencyService
 from utils.rbac import require_admin
+from constants.error_codes import ONLY_SUPERUSERS, SUBDOMAIN_EXISTS, INVALID_CURRENCY_CODE, NOT_AUTHORIZED
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -48,7 +49,7 @@ async def create_tenant(
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only superusers can create tenants"
+            detail=ONLY_SUPERUSERS
         )
     
     # Check if subdomain already exists
@@ -57,7 +58,7 @@ async def create_tenant(
         if existing_tenant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Subdomain already exists"
+                detail=SUBDOMAIN_EXISTS
             )
     
     # Validate currency code (using master database)
@@ -65,7 +66,7 @@ async def create_tenant(
     if not currency_service.validate_currency_code(tenant.default_currency):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid currency code: {tenant.default_currency}"
+            detail=INVALID_CURRENCY_CODE
         )
     
     db_tenant = Tenant(**tenant.dict())
@@ -115,7 +116,7 @@ async def read_tenant(
     if not current_user.is_superuser and current_user.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this tenant"
+            detail=NOT_AUTHORIZED
         )
     
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
@@ -138,7 +139,7 @@ async def update_tenant(
     if not current_user.is_superuser and current_user.tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this tenant"
+            detail=NOT_AUTHORIZED
         )
     
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
@@ -154,7 +155,7 @@ async def update_tenant(
         if not currency_service.validate_currency_code(tenant.default_currency):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid currency code: {tenant.default_currency}"
+                detail=INVALID_CURRENCY_CODE
             )
     
     # Check if subdomain already exists (if being updated)
@@ -163,7 +164,7 @@ async def update_tenant(
         if existing_tenant:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Subdomain already exists"
+                detail=SUBDOMAIN_EXISTS
             )
     
     # Update tenant
@@ -184,7 +185,7 @@ async def delete_tenant(
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only superusers can delete tenants"
+            detail=ONLY_SUPERUSERS
         )
     
     # Users cannot delete their own tenant

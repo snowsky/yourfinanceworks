@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ClientForm } from "@/components/clients/ClientForm";
-import { clientApi, Client } from "@/lib/api";
+import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { ClientNotes } from "@/components/clients/ClientNotes";
@@ -29,7 +29,7 @@ const EditClient = () => {
         setClient(data);
       } catch (error) {
         console.error("Failed to fetch client:", error);
-        toast.error(t('editClient.loadClientError'));
+        toast.error(getErrorMessage(error, t));
         setError(true);
       } finally {
         setLoading(false);

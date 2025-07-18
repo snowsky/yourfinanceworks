@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
+import { getErrorMessage } from '@/lib/api';
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -115,7 +116,7 @@ export default function UsersPage() {
       setInvites(Array.isArray(res) ? res : []);
     } catch (e: any) {
       console.error("Failed to load invites:", e);
-      toast.error(t('users.failedToLoadInvites'));
+      toast.error(getErrorMessage(e, t));
       setInvites([]); // Set empty array on error
     }
   };
@@ -141,7 +142,7 @@ export default function UsersPage() {
       fetchInvites();
     } catch (err: any) {
       console.error("Failed to send invite:", err);
-      toast.error(err?.response?.data?.detail || t('users.failedToSendInvite'));
+      toast.error(getErrorMessage(err, t));
     } finally {
       setInviting(false);
     }
@@ -154,7 +155,7 @@ export default function UsersPage() {
       fetchUsers();
     } catch (err: any) {
       console.error("Failed to update role:", err);
-      toast.error(err?.response?.data?.detail || t('users.failedToUpdateRole'));
+      toast.error(getErrorMessage(err, t));
     }
   };
 
@@ -208,7 +209,7 @@ export default function UsersPage() {
       fetchInvites();
     } catch (err: any) {
       console.error("Failed to activate user:", err);
-      toast.error(err?.response?.data?.detail || t('users.failedToActivateUser'));
+      toast.error(getErrorMessage(err, t));
     } finally {
       setActivating(false);
     }
@@ -226,7 +227,7 @@ export default function UsersPage() {
       fetchInvites();
     } catch (err: any) {
       console.error("Failed to cancel invite:", err);
-      toast.error(err?.response?.data?.detail || t('users.failedToCancelInvite'));
+      toast.error(getErrorMessage(err, t));
     } finally {
       setCancelling(false);
     }

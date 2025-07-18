@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { clientApi, Client } from "@/lib/api";
+import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const formSchema = z.object({
@@ -75,7 +75,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
       navigate("/clients"); // Redirect to clients page
     } catch (error) {
       console.error("Failed to save client:", error);
-      toast.error(t(isEdit ? 'clientForm.updateError' : 'clientForm.createError'));
+      toast.error(getErrorMessage(error, t));
     } finally {
       setSubmitting(false);
     }

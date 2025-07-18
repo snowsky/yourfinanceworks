@@ -13,6 +13,7 @@ from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
 from utils.rbac import require_non_viewer
 from utils.audit import log_audit_event
+from constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +88,7 @@ async def read_clients(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch clients: {str(e)}"
+            detail=FAILED_TO_FETCH_CLIENTS
         )
 
 @router.get("/{client_id}", response_model=ClientSchema)
@@ -115,7 +116,7 @@ async def read_client(
         if client_tuple is None:
             raise HTTPException(
                 status_code=404,
-                detail="Client not found"
+                detail=CLIENT_NOT_FOUND
             )
 
         client, total_paid = client_tuple
@@ -162,7 +163,7 @@ async def read_client(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch client: {str(e)}"
+            detail=FAILED_TO_FETCH_CLIENT
         )
 
 @router.post("/", response_model=ClientSchema)
@@ -182,7 +183,7 @@ async def create_client(
         if existing_client:
             raise HTTPException(
                 status_code=400,
-                detail=f"Client with name '{client.name}' and email '{client.email}' already exists"
+                detail=CLIENT_ALREADY_EXISTS
             )
         
         # No tenant_id needed since each tenant has its own database
@@ -238,7 +239,7 @@ async def create_client(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create client: {str(e)}"
+            detail=FAILED_TO_CREATE_CLIENT
         )
 
 @router.put("/{client_id}", response_model=ClientSchema)
@@ -259,7 +260,7 @@ async def update_client(
         if db_client is None:
             raise HTTPException(
                 status_code=404,
-                detail="Client not found"
+                detail=CLIENT_NOT_FOUND
             )
         
         # Update client fields, excluding email
@@ -316,7 +317,7 @@ async def update_client(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update client: {str(e)}"
+            detail=FAILED_TO_UPDATE_CLIENT
         )
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -332,7 +333,7 @@ async def delete_client(
         if db_client is None:
             raise HTTPException(
                 status_code=404,
-                detail="Client not found"
+                detail=CLIENT_NOT_FOUND
             )
         
         # Check if client has associated invoices
@@ -359,5 +360,5 @@ async def delete_client(
         logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete client: {str(e)}"
+            detail=FAILED_TO_FETCH_CLIENTS
         ) 

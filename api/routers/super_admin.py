@@ -17,6 +17,7 @@ from services.tenant_database_manager import tenant_db_manager
 from utils.auth import get_password_hash
 from utils.rbac import require_superuser
 from utils.audit import log_audit_event
+from constants.error_codes import USER_NOT_FOUND, ONLY_SUPERUSERS, FAILED_TO_IMPORT_DATA
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
 
@@ -238,7 +239,7 @@ async def get_user(
     """Get detailed information about a specific user"""
     user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
     
     # Get tenant information
     tenant = master_db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
@@ -311,7 +312,7 @@ async def create_user(
         master_db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user in tenant database: {str(e)}"
+            detail=FAILED_TO_IMPORT_DATA
         )
     
     user_dict = master_user.__dict__.copy()

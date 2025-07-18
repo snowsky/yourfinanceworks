@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { crmApi, ClientNote } from "@/lib/api";
+import { crmApi, ClientNote, getErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Edit, Save, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useTranslation } from 'react-i18next';
 
 interface ClientNotesProps {
   clientId: number;
@@ -21,6 +22,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
   const [updating, setUpdating] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<ClientNote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -29,7 +31,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
         const data = await crmApi.getNotesForClient(clientId);
         setNotes(data);
       } catch (error) {
-        toast.error("Failed to load client notes.");
+        toast.error(getErrorMessage(error, t));
       } finally {
         setLoading(false);
       }
@@ -49,7 +51,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
       setNewNote("");
       toast.success("Note added successfully.");
     } catch (error) {
-      toast.error("Failed to add note.");
+      toast.error(getErrorMessage(error, t));
     } finally {
       setSubmitting(false);
     }
@@ -75,7 +77,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
       setEditingText("");
       toast.success("Note updated successfully.");
     } catch (error) {
-      toast.error("Failed to update note.");
+      toast.error(getErrorMessage(error, t));
     } finally {
       setUpdating(false);
     }
@@ -95,7 +97,7 @@ export function ClientNotes({ clientId }: ClientNotesProps) {
       setNotes((notes || []).filter(note => note.id !== noteToDelete.id));
       toast.success("Note deleted successfully.");
     } catch (error) {
-      toast.error("Failed to delete note.");
+      toast.error(getErrorMessage(error, t));
     } finally {
       setDeleting(false);
       setNoteToDelete(null);
