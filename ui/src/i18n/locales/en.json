@@ -447,12 +447,6 @@
       "es": "Spanish",
       "fr": "French"
     },
-    "theme": "Theme",
-    "themes": {
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    },
     "settings_saved": "Settings saved successfully",
     "settings_error": "Failed to save settings",
     "tabs": {

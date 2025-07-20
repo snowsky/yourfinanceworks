@@ -448,16 +448,8 @@
       "es": "Español",
       "fr": "Francés"
     },
-    "theme": "Tema",
-    "themes": {
-      "light": "Claro",
-      "dark": "Oscuro",
-      "system": "Sistema"
-    },
     "settings_saved": "Configuración guardada exitosamente",
     "settings_error": "Error al guardar la configuración",
-    "save_changes": "Guardar Cambios",
-    "saving": "Guardando...",
     "tabs": {
       "company": "Info de Empresa",
       "invoices": "Config. de Facturas",

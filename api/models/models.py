@@ -16,6 +16,7 @@ class MasterUser(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    theme = Column(String, default="system")
     
     # Tenant relationship
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
@@ -117,6 +118,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    theme = Column(String, default="system")
     
     # Tenant relationship
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)

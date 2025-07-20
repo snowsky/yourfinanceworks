@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     is_superuser: bool = False
     is_verified: bool = False
     role: str = "user"  # admin, user, viewer
+    theme: Optional[str] = "system"
 
 class UserCreate(UserBase):
     password: str
@@ -25,6 +26,7 @@ class UserUpdate(BaseModel):
     is_verified: Optional[bool] = None
     role: Optional[str] = None
     password: Optional[str] = None
+    theme: Optional[str] = None
 
 class UserRead(UserBase):
     id: int

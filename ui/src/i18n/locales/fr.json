@@ -449,12 +449,6 @@
       "es": "Espagnol",
       "fr": "Français"
     },
-    "theme": "Thème",
-    "themes": {
-      "light": "Clair",
-      "dark": "Sombre",
-      "system": "Système"
-    },
     "settings_saved": "Paramètres enregistrés avec succès",
     "settings_error": "Échec de l'enregistrement des paramètres",
     "tabs": {

@@ -31,7 +31,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 security = HTTPBearer()
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -359,8 +359,12 @@ async def update_current_user(
     if user_update.last_name is not None:
         current_user.last_name = user_update.last_name
         updated = True
+    if user_update.theme is not None:
+        current_user.theme = user_update.theme
+        updated = True
     if not updated:
         raise HTTPException(status_code=400, detail="No updatable fields provided.")
+    db.add(current_user)
     db.commit()
     db.refresh(current_user)
 
@@ -377,6 +381,8 @@ async def update_current_user(
                 tenant_user.first_name = user_update.first_name
             if user_update.last_name is not None:
                 tenant_user.last_name = user_update.last_name
+            if user_update.theme is not None:
+                tenant_user.theme = user_update.theme
             tenant_db.commit()
             tenant_db.refresh(tenant_user)
     finally:

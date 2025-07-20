@@ -34,7 +34,7 @@ import {
 import { API_BASE_URL, settingsApi } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
 import { createSettingsQueryOptions } from "@/utils/query";
-import { Switch } from '@/components/ui/switch';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -44,22 +44,28 @@ export function AppSidebar() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
-  const [darkMode, setDarkMode] = useState(() => {
+  const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      return localStorage.getItem('theme') || 'system';
     }
-    return false;
+    return 'system';
   });
 
   useEffect(() => {
-    if (darkMode) {
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
+    } else if (theme === 'light') {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    } else {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
-  }, [darkMode]);
+    localStorage.setItem('theme', theme);
+    // Optionally: update user profile theme in backend here
+  }, [theme]);
 
   // Get current user data from localStorage
   const user = getCurrentUser();
@@ -275,19 +281,23 @@ export function AppSidebar() {
               companyLogo={settings?.company_info?.logo}
             />
           </div>
-          <div className="px-2">
+          <div className="px-2 flex items-center gap-2">
             <LanguageSwitcher />
-          </div>
-          <div className="flex items-center gap-3 px-2">
-            <Switch
-              checked={darkMode}
-              onCheckedChange={setDarkMode}
-              id="dark-mode-toggle"
-            />
-            {darkMode ? <Moon className="h-5 w-5 text-yellow-400" /> : <Sun className="h-5 w-5 text-blue-500" />}
-            <label htmlFor="dark-mode-toggle" className="text-sm cursor-pointer select-none">
-              {t('navigation.dark_mode')}
-            </label>
+            {/* Dark mode toggle button */}
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t('navigation.dark_mode')}
+              title={t('navigation.dark_mode')}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="ml-2"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </Button>
           </div>
           <div className="flex justify-center">
             <Button 

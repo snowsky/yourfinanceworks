@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS master_users (
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     is_superuser BOOLEAN DEFAULT FALSE NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE NOT NULL,
+    theme VARCHAR(50) DEFAULT 'system',
     tenant_id INTEGER REFERENCES tenants(id) NOT NULL,
     role VARCHAR(50) DEFAULT 'user',
     first_name VARCHAR(255),

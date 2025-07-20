@@ -139,6 +139,8 @@ def init_db():
     # Create all tables in the main (master) DB
     Base.metadata.create_all(bind=engine)
 
+    
+
     # Run recent migration logic before post-setup steps
     migrate_database()
 
@@ -165,9 +167,19 @@ def init_db():
         try:
             TenantBase.metadata.create_all(bind=tenant_engine)
             print(f"Tables created for tenant {tenant.id}")
-            # Verify if audit_logs table exists
+            
+            # Add the 'theme' column to 'users' table in tenant DB if it doesn't exist
             from sqlalchemy import inspect
             inspector = inspect(tenant_engine)
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            if 'theme' not in columns:
+                try:
+                    tenant_engine.execute('ALTER TABLE users ADD COLUMN theme VARCHAR(255) DEFAULT \'system\'')
+                    logger.info(f"Successfully added 'theme' column to 'users' table for tenant {tenant.id}.")
+                except Exception as e:
+                    logger.error(f"Error adding 'theme' column to 'users' table for tenant {tenant.id}: {e}")
+
+            # Verify if audit_logs table exists
             if 'audit_logs' in inspector.get_table_names():
                 logger.info(f"audit_logs table successfully created for tenant {tenant.id}")
             else:
