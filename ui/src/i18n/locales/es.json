@@ -55,7 +55,8 @@
     "super_admin": "Super Administrador",
     "logout": "Cerrar Sesión",
     "profile": "Perfil",
-    "audit_log": "Registro de Auditoría"
+    "audit_log": "Registro de Auditoría",
+    "dark_mode": "Modo oscuro"
   },
   "auth": {
     "login": "Iniciar Sesión",

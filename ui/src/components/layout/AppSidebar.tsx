@@ -27,11 +27,14 @@ import {
   Users,
   UserCheck,
   ShieldCheck,
-  ListChecks // <-- Add icon for audit log
+  ListChecks,
+  Moon,
+  Sun
 } from "lucide-react";
 import { API_BASE_URL, settingsApi } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
 import { createSettingsQueryOptions } from "@/utils/query";
+import { Switch } from '@/components/ui/switch';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -41,6 +44,22 @@ export function AppSidebar() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark' || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   // Get current user data from localStorage
   const user = getCurrentUser();
@@ -258,6 +277,17 @@ export function AppSidebar() {
           </div>
           <div className="px-2">
             <LanguageSwitcher />
+          </div>
+          <div className="flex items-center gap-3 px-2">
+            <Switch
+              checked={darkMode}
+              onCheckedChange={setDarkMode}
+              id="dark-mode-toggle"
+            />
+            {darkMode ? <Moon className="h-5 w-5 text-yellow-400" /> : <Sun className="h-5 w-5 text-blue-500" />}
+            <label htmlFor="dark-mode-toggle" className="text-sm cursor-pointer select-none">
+              {t('navigation.dark_mode')}
+            </label>
           </div>
           <div className="flex justify-center">
             <Button 

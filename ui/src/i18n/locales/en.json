@@ -55,7 +55,8 @@
     "super_admin": "Super Admin",
     "logout": "Logout",
     "profile": "Profile",
-    "audit_log": "Audit Log"
+    "audit_log": "Audit Log",
+    "dark_mode": "Dark Mode"
   },
   "auth": {
     "login": "Login",
@@ -162,7 +163,8 @@
     "errors": {
       "load_failed": "Failed to load dashboard data"
     },
-    "paymentMethodsDistribution": "Payment Methods Distribution"
+    "paymentMethodsDistribution": "Payment Methods Distribution",
+    "startCreatingInvoices": "Start creating invoices to track your business"
   },
   "invoices": {
     "title": "Invoices",

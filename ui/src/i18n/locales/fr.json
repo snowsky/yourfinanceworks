@@ -55,7 +55,8 @@
     "super_admin": "Super Administrateur",
     "logout": "Déconnexion",
     "profile": "Profil",
-    "audit_log": "Journal d'Audit"
+    "audit_log": "Journal d'Audit",
+    "dark_mode": "Mode sombre"
   },
   "auth": {
     "login": "Connexion",
