@@ -60,6 +60,7 @@ export interface Invoice {
   discount_value?: number;
   subtotal?: number;
   custom_fields?: Record<string, any>;
+  show_discount_in_pdf?: boolean; // New property added
 }
 
 export interface Payment {
@@ -546,6 +547,7 @@ export const invoiceApi = {
         discount_value: apiResponse.discount_value,
         subtotal: apiResponse.subtotal,
         custom_fields: apiResponse.custom_fields,
+        show_discount_in_pdf: apiResponse.show_discount_in_pdf || false, // Map show_discount_in_pdf from API response
       };
       
       console.log("Mapped invoice object:", invoice);
@@ -925,4 +927,4 @@ export const superAdminApi = {
       body: JSON.stringify({ email }),
     }, { skipTenant: true });
   },
-}; 
+};

@@ -6,6 +6,8 @@ import logging
 import traceback
 from datetime import datetime, date, timezone
 from decimal import Decimal
+from fastapi.responses import StreamingResponse
+from utils.pdf_generator import generate_invoice_pdf
 
 from models.database import get_db
 from models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule
@@ -58,13 +60,8 @@ async def create_invoice(
         currency_service = CurrencyService(db)
         
         # Determine invoice currency
-        invoice_currency = invoice.currency
-        if not invoice_currency or invoice_currency == "USD":
-            # Use client's preferred currency or tenant default
-            # No tenant_id needed since we're in the tenant's database
-            invoice_currency = currency_service.get_client_preferred_currency(
-                invoice.client_id
-            )
+        client_preferred_currency = currency_service.get_client_preferred_currency(invoice.client_id)
+        invoice_currency = client_preferred_currency if client_preferred_currency else invoice.currency
         
         # Validate currency
         if not currency_service.validate_currency_code(invoice_currency):
@@ -74,7 +71,7 @@ async def create_invoice(
             )
         
         # No tenant_id needed since each tenant has its own database
-        logger.info(f"[DEBUG] Received custom_fields: {invoice.custom_fields}")
+        logger.debug(f"[DEBUG] Received custom_fields: {invoice.custom_fields}")
         db_invoice = Invoice(
             number=invoice_number,
             amount=float(invoice.amount),
@@ -87,7 +84,8 @@ async def create_invoice(
             updated_at=datetime.now(timezone.utc),
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
-            custom_fields=invoice.custom_fields
+            custom_fields=invoice.custom_fields,
+            show_discount_in_pdf=invoice.show_discount_in_pdf
         )
         
         # Calculate subtotal from items
@@ -220,7 +218,8 @@ async def read_invoices(
                 "discount_type": invoice.discount_type,
                 "discount_value": float(invoice.discount_value) if invoice.discount_value else 0,
                 "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
-                "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {}
+                "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
+                "show_discount_in_pdf": invoice.show_discount_in_pdf
             }
             result.append(invoice_dict)
 
@@ -271,7 +270,8 @@ async def get_deleted_invoices(
                 "deleted_at": invoice.deleted_at,
                 "deleted_by": invoice.deleted_by,
                 "deleted_by_username": invoice.deleted_by_user.email if invoice.deleted_by_user else None,
-                "items": []  # Add items if needed
+                "items": [],  # Add items if needed
+                "show_discount_in_pdf": invoice.show_discount_in_pdf
             }
             result.append(invoice_dict)
         
@@ -566,7 +566,8 @@ async def read_invoice(
             "discount_value": float(invoice.discount_value) if invoice.discount_value else 0,
             "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
-            "items": items_data
+            "items": items_data,
+            "show_discount_in_pdf": invoice.show_discount_in_pdf
         }
         logger.info(f"[DEBUG] Final invoice_dict response - custom_fields: {invoice_dict.get('custom_fields')}")
         logger.info(f"[DEBUG] Final invoice_dict response - custom_fields type: {type(invoice_dict.get('custom_fields'))}")
@@ -590,7 +591,7 @@ async def update_invoice(
     current_user: User = Depends(get_current_user)
 ):
     logger.info("Invoice update endpoint called")
-    logger.info(f"[DEBUG] Received custom_fields in update: {invoice.custom_fields}")
+    logger.debug(f"[DEBUG] Received custom_fields in update: {invoice.custom_fields}")
     # Check if user has permission to update invoices
     require_non_viewer(current_user, "update invoices")
     
@@ -616,6 +617,7 @@ async def update_invoice(
         old_amount = db_invoice.amount
         old_notes = db_invoice.notes
         old_custom_fields = db_invoice.custom_fields
+        old_show_discount_in_pdf = db_invoice.show_discount_in_pdf
 
         # Update invoice fields
         update_data = invoice.dict(exclude_unset=True)
@@ -705,6 +707,8 @@ async def update_invoice(
         if invoice.custom_fields is not None and old_custom_fields != invoice.custom_fields:
             changes.append("Custom fields updated")
             logger.info(f"[DEBUG] Custom fields changed from {old_custom_fields} to {invoice.custom_fields}")
+        if invoice.show_discount_in_pdf is not None and old_show_discount_in_pdf != invoice.show_discount_in_pdf:
+            changes.append(f"Show discount in PDF changed from {old_show_discount_in_pdf} to {invoice.show_discount_in_pdf}")
         
         # Only create history entry if there are actual changes
         if changes:
@@ -725,7 +729,8 @@ async def update_invoice(
                     'discount_value': db_invoice.discount_value,
                     'discount_type': db_invoice.discount_type,
                     'amount': db_invoice.amount,
-                    'notes': db_invoice.notes
+                    'notes': db_invoice.notes,
+                    'show_discount_in_pdf': db_invoice.show_discount_in_pdf
                 }
             )
             db.add(history_entry)
@@ -797,7 +802,8 @@ async def update_invoice(
                 "discount_type": db_invoice.discount_type,
                 "discount_value": float(db_invoice.discount_value) if db_invoice.discount_value else 0,
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
-                "items": items_data
+                "items": items_data,
+                "show_discount_in_pdf": db_invoice.show_discount_in_pdf
             }
             return invoice_dict
         else:
@@ -818,7 +824,8 @@ async def update_invoice(
                 "discount_type": db_invoice.discount_type,
                 "discount_value": float(db_invoice.discount_value) if db_invoice.discount_value else 0,
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
-                "items": [] # No items if no changes
+                "items": [], # No items if no changes
+                "show_discount_in_pdf": db_invoice.show_discount_in_pdf
             }
     except HTTPException:
         raise
@@ -1087,3 +1094,58 @@ async def create_invoice_history_entry(
             status_code=500,
             detail="Failed to create invoice history entry"
         ) 
+
+@router.get("/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Download or preview the invoice PDF, respecting the invoice's show_discount_in_pdf field."""
+    # Fetch invoice, client, and company/tenant info
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    client = db.query(Client).filter(Client.id == invoice.client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    # Optionally fetch tenant/company info if available
+    company_data = {"name": "Your Company"}
+    # Prepare invoice data
+    invoice_data = {
+        'id': invoice.id,
+        'number': invoice.number,
+        'date': invoice.created_at.strftime('%Y-%m-%d') if invoice.created_at else '',
+        'due_date': invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '',
+        'amount': float(invoice.amount),
+        'subtotal': float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
+        'discount_type': invoice.discount_type,
+        'discount_value': float(invoice.discount_value) if invoice.discount_value else 0,
+        'paid_amount': 0,  # Optionally calculate from payments
+        'status': invoice.status,
+        'notes': invoice.notes or '',
+        'items': [item.__dict__ for item in invoice.items] if invoice.items else []
+    }
+    client_data = {
+        'id': client.id,
+        'name': client.name,
+        'email': client.email,
+        'phone': client.phone or '',
+        'address': client.address or ''
+    }
+    # Generate PDF using the invoice's show_discount_in_pdf field
+    pdf_bytes = generate_invoice_pdf(
+        invoice_data=invoice_data,
+        client_data=client_data,
+        company_data=company_data,
+        items=invoice.items,
+        db=db,
+        show_discount=invoice.show_discount_in_pdf
+    )
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename=invoice-{invoice.number}.pdf"
+        }
+    ) 

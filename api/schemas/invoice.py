@@ -37,6 +37,7 @@ class InvoiceBase(BaseModel):
     discount_value: Optional[float] = Field(0.0, description="Discount value (percentage or fixed amount)")
     subtotal: Optional[float] = Field(None, description="Subtotal before discount")
     custom_fields: Optional[Dict[str, Any]] = None
+    show_discount_in_pdf: Optional[bool] = True
 
 class InvoiceCreate(InvoiceBase):
     items: List[InvoiceItemCreate]
@@ -55,6 +56,7 @@ class InvoiceUpdate(BaseModel):
     discount_value: Optional[float] = Field(None, description="Discount value (percentage or fixed amount)")
     subtotal: Optional[float] = Field(None, description="Subtotal before discount")
     custom_fields: Optional[Dict[str, Any]] = None
+    show_discount_in_pdf: Optional[bool] = None
 
 class Invoice(InvoiceBase):
     id: int

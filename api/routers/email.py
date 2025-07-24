@@ -139,13 +139,15 @@ async def send_invoice_email(
         pdf_content = None
         if request.include_pdf:
             try:
+                # Use the request value if provided, otherwise use the invoice's field
+                show_discount = request.show_discount_in_pdf if request.show_discount_in_pdf is not None else getattr(invoice, 'show_discount_in_pdf', True)
                 pdf_content = generate_invoice_pdf(
                     invoice_data=invoice_data,
                     client_data=client_data,
                     company_data=company_data,
                     items=invoice.items, # Pass items to PDF generator
                     db=db,
-                    show_discount=request.show_discount_in_pdf
+                    show_discount=show_discount
                 )
             except Exception as e:
                 logger.error(f"Failed to generate PDF: {str(e)}")

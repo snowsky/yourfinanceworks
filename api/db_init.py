@@ -174,10 +174,21 @@ def init_db():
             columns = [col['name'] for col in inspector.get_columns('users')]
             if 'theme' not in columns:
                 try:
-                    tenant_engine.execute('ALTER TABLE users ADD COLUMN theme VARCHAR(255) DEFAULT \'system\'')
+                    with tenant_engine.connect() as connection:
+                        connection.execute(text("ALTER TABLE users ADD COLUMN theme VARCHAR(255) DEFAULT 'system'"))
+                        connection.commit()
                     logger.info(f"Successfully added 'theme' column to 'users' table for tenant {tenant.id}.")
                 except Exception as e:
                     logger.error(f"Error adding 'theme' column to 'users' table for tenant {tenant.id}: {e}")
+
+            # Add the 'show_discount_in_pdf' column to 'invoices' table in tenant DB if it doesn't exist
+            columns = [col['name'] for col in inspector.get_columns('invoices')]
+            if 'show_discount_in_pdf' not in columns:
+                try:
+                    tenant_engine.execute(text('ALTER TABLE invoices ADD COLUMN show_discount_in_pdf BOOLEAN DEFAULT TRUE NOT NULL'))
+                    logger.info(f"Successfully added 'show_discount_in_pdf' column to 'invoices' table for tenant {tenant.id}.")
+                except Exception as e:
+                    logger.error(f"Error adding 'show_discount_in_pdf' column to 'invoices' table for tenant {tenant.id}: {e}")
 
             # Verify if audit_logs table exists
             if 'audit_logs' in inspector.get_table_names():

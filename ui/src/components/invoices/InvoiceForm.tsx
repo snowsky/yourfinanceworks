@@ -414,6 +414,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       discountType: "percentage", // Will be overridden by form reset logic if discount rule is found
       discountValue: invoice?.discount_value || 0,
       customFields: customFields,
+      showDiscountInPdf: invoice?.show_discount_in_pdf || false,
     },
   });
 
@@ -952,6 +953,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
               if (key.trim()) acc[key.trim()] = value;
               return acc;
             }, {}),
+            show_discount_in_pdf: data.showDiscountInPdf,
           };
           
           console.log("Custom fields from form data:", data.customFields);
@@ -1276,6 +1278,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
           custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
+          show_discount_in_pdf: data.showDiscountInPdf,
         };
         console.log("Invoice data being sent:", invoiceData);
         
@@ -2243,6 +2246,7 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                         <InvoicePDF 
                           invoice={previewInvoice} 
                           companyName={settings.company_info?.name || "Your Company"} 
+                          showDiscount={form.watch("showDiscountInPdf")}
                         />
                       } 
                       fileName={`invoice-${previewInvoice.number}.pdf`}
