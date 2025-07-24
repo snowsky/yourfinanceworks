@@ -1483,7 +1483,14 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
                           <div className="flex gap-2">
                             <Select
                               disabled={isEdit}
-                              onValueChange={field.onChange}
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Set currency to client's preferred currency when client is selected
+                                const selectedClient = clients.find(c => c.id.toString() === value);
+                                if (selectedClient?.preferred_currency && !isEdit) {
+                                  form.setValue("currency", selectedClient.preferred_currency);
+                                }
+                              }}
                               defaultValue={field.value}
                             >
                               <FormControl>

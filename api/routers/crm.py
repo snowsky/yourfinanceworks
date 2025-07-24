@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import status
 
 from models.database import get_db
-from models.models import ClientNote, User, Client
+from models.models_per_tenant import ClientNote, User, Client
 from schemas.crm import ClientNoteCreate, ClientNote as ClientNoteSchema
 from routers.auth import get_current_user
 
@@ -18,11 +18,8 @@ async def create_client_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if client exists and belongs to the current user's tenant
-    db_client = db.query(Client).filter(
-        Client.id == client_id,
-        Client.tenant_id == current_user.tenant_id
-    ).first()
+    # Check if client exists
+    db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
 
@@ -30,7 +27,6 @@ async def create_client_note(
         **note.dict(),
         client_id=client_id,
         user_id=current_user.id,
-        tenant_id=current_user.tenant_id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
@@ -47,19 +43,15 @@ async def update_client_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Check if client exists and belongs to the current user's tenant
-    db_client = db.query(Client).filter(
-        Client.id == client_id,
-        Client.tenant_id == current_user.tenant_id
-    ).first()
+    # Check if client exists
+    db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    # Check if note exists and belongs to the client and tenant
+    # Check if note exists and belongs to the client
     db_note = db.query(ClientNote).filter(
         ClientNote.id == note_id,
-        ClientNote.client_id == client_id,
-        ClientNote.tenant_id == current_user.tenant_id
+        ClientNote.client_id == client_id
     ).first()
     if not db_note:
         raise HTTPException(status_code=404, detail="Note not found")
@@ -79,19 +71,15 @@ async def delete_client_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Check if client exists and belongs to the current user's tenant
-    db_client = db.query(Client).filter(
-        Client.id == client_id,
-        Client.tenant_id == current_user.tenant_id
-    ).first()
+    # Check if client exists
+    db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    # Check if note exists and belongs to the client and tenant
+    # Check if note exists and belongs to the client
     db_note = db.query(ClientNote).filter(
         ClientNote.id == note_id,
-        ClientNote.client_id == client_id,
-        ClientNote.tenant_id == current_user.tenant_id
+        ClientNote.client_id == client_id
     ).first()
     if not db_note:
         raise HTTPException(status_code=404, detail="Note not found")
@@ -106,11 +94,8 @@ async def get_client_notes(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Check if client exists and belongs to the current user's tenant
-    db_client = db.query(Client).filter(
-        Client.id == client_id,
-        Client.tenant_id == current_user.tenant_id
-    ).first()
+    # Check if client exists
+    db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
 
