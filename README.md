@@ -16,7 +16,7 @@ A modern, multi-tenant invoice management system built with FastAPI and React, w
 - **Email Delivery** - Send invoices directly to clients via email with PDF attachments
 - **Responsive Design** - Modern UI that works on desktop and mobile
 
-### 📱 Mobile App Support
+### 📱 Mobile App Support (Under Development)
 - **iOS & Android Apps** - Native mobile applications with full feature parity
 - **Cross-Platform** - Single codebase for both iOS and Android
 - **Offline Support** - Basic offline functionality with data caching
