@@ -17,6 +17,8 @@ import apiService, { Settings, DiscountRule, DiscountRuleCreate, DiscountRuleUpd
 
 interface SettingsScreenProps {
   onNavigateBack: () => void;
+  onNavigateToUsers: () => void;
+  onNavigateToAuditLog: () => void;
   onSignOut: () => void;
 }
 
@@ -53,6 +55,8 @@ interface EmailSettings {
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onNavigateBack,
+  onNavigateToUsers,
+  onNavigateToAuditLog,
   onSignOut,
 }) => {
   const [loading, setLoading] = useState(true);
@@ -140,11 +144,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         invoice_settings: invoiceSettings
       };
       
-      await apiService.updateSettings(settingsData);
+      console.log('Saving settings:', settingsData);
+      const result = await apiService.updateSettings(settingsData);
+      console.log('Settings save result:', result);
       Alert.alert('Success', 'Settings saved successfully!');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      Alert.alert('Error', 'Failed to save settings');
+      Alert.alert('Error', `Failed to save settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -610,6 +616,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {activeTab === 'discounts' && renderDiscountRules()}
 
         <View style={styles.section}>
+          <TouchableOpacity style={styles.settingItem} onPress={onNavigateToUsers}>
+            <View style={styles.settingIcon}>
+              <Ionicons name="people-outline" size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingText}>User Management</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.settingItem} onPress={onNavigateToAuditLog}>
+            <View style={styles.settingIcon}>
+              <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingText}>Audit Log</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+          
           <TouchableOpacity
             style={[styles.settingItem, styles.logoutButton]}
             onPress={handleSignOut}
@@ -857,6 +883,11 @@ const styles = StyleSheet.create({
   },
   settingContent: {
     flex: 1,
+  },
+  settingText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
   },
   logoutButton: {
     justifyContent: 'flex-start',

@@ -78,6 +78,7 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
   const [showClientModal, setShowClientModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDueDateModal, setShowDueDateModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [currentDateField, setCurrentDateField] = useState<'date' | 'due_date'>('date');
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState(propClients);
@@ -99,6 +100,13 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
         ]);
         setSettings(settingsData);
         setDiscountRules(discountRulesData);
+        
+        // Auto-generate invoice number
+        if (settingsData?.invoice_settings) {
+          const { prefix, next_number } = settingsData.invoice_settings;
+          const invoiceNumber = `${prefix}${next_number}`;
+          setFormData(prev => ({ ...prev, number: invoiceNumber }));
+        }
       } catch (error) {
         console.error('Failed to load settings:', error);
       }
@@ -463,12 +471,18 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Currency</Text>
-          <View style={styles.currencySelector}>
-            <Text style={styles.currencySymbol}>
-              {getCurrencySymbol(formData.currency)}
-            </Text>
-            <Text style={styles.currencyCode}>{formData.currency}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.selector}
+            onPress={() => setShowCurrencyModal(true)}
+          >
+            <View style={styles.currencyDisplay}>
+              <Text style={styles.currencySymbol}>
+                {getCurrencySymbol(formData.currency)}
+              </Text>
+              <Text style={styles.currencyCode}>{formData.currency}</Text>
+            </View>
+            <Ionicons name="chevron-down" size={20} color="#6B7280" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.formGroup}>
@@ -572,6 +586,159 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
       </ScrollView>
 
       {renderAddClientModal()}
+      
+      {/* Client Selection Modal */}
+      <Modal
+        visible={showClientModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowClientModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Client</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {clients.map((client) => (
+                <TouchableOpacity
+                  key={client.id}
+                  style={styles.clientOption}
+                  onPress={() => {
+                    handleChange('client_id', client.id);
+                    setShowClientModal(false);
+                  }}
+                >
+                  <Text style={styles.clientName}>{client.name}</Text>
+                  <Text style={styles.clientEmail}>{client.email}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={() => setShowClientModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Date Selection Modal */}
+      <Modal
+        visible={showDateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Date</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
+              value={formData.date}
+              onChangeText={(text) => handleChange('date', text)}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={styles.saveButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Due Date Selection Modal */}
+      <Modal
+        visible={showDueDateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDueDateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Due Date</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
+              value={formData.due_date}
+              onChangeText={(text) => handleChange('due_date', text)}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setShowDueDateModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
+                onPress={() => setShowDueDateModal(false)}
+              >
+                <Text style={styles.saveButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Currency Selection Modal */}
+      <Modal
+        visible={showCurrencyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCurrencyModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCurrencyModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Currency</Text>
+              <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              {['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY'].map(currency => (
+                <TouchableOpacity
+                  key={currency}
+                  style={[
+                    styles.statusOption,
+                    formData.currency === currency && styles.statusOptionSelected
+                  ]}
+                  onPress={() => {
+                    handleChange('currency', currency);
+                    setShowCurrencyModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.statusOptionText,
+                    formData.currency === currency && styles.statusOptionTextSelected
+                  ]}>{currency}</Text>
+                  {formData.currency === currency && (
+                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -812,22 +979,49 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 20,
-    width: '90%',
-    maxWidth: 400,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#333',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  statusOptionSelected: {
+    backgroundColor: '#f0f9ff',
+  },
+  statusOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  statusOptionTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -847,6 +1041,32 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#374151',
     fontWeight: '600',
+  },
+  clientOption: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  clientEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  currencyDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currencyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
 });
 

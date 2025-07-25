@@ -125,6 +125,7 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDueDateModal, setShowDueDateModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [currentDateField, setCurrentDateField] = useState<'date' | 'dueDate'>('date');
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState(propClients);
@@ -591,9 +592,13 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
           {/* Currency */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Currency</Text>
-            <View style={styles.currencyContainer}>
-              <Text style={styles.currencyText}>{formData.currency}</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setShowCurrencyModal(true)}
+            >
+              <Text style={styles.selectorText}>{formData.currency}</Text>
+              <Ionicons name="chevron-down" size={16} color="#666" />
+            </TouchableOpacity>
           </View>
 
           {/* Invoice Date */}
@@ -768,6 +773,56 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
       {renderAddClientModal()}
       {renderDateSelector()}
       {renderStatusSelector()}
+      
+      {/* Currency Selection Modal */}
+      <Modal
+        visible={showCurrencyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCurrencyModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCurrencyModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Currency</Text>
+              <TouchableOpacity onPress={() => setShowCurrencyModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              {['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY'].map(currency => (
+                <TouchableOpacity
+                  key={currency}
+                  style={[
+                    styles.statusOption,
+                    formData.currency === currency && styles.statusOptionSelected
+                  ]}
+                  onPress={() => {
+                    handleChange('currency', currency);
+                    setShowCurrencyModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.statusOptionText,
+                    formData.currency === currency && styles.statusOptionTextSelected
+                  ]}>{currency}</Text>
+                  {formData.currency === currency && (
+                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

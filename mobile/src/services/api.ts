@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // For development, use your computer's IP address instead of localhost
 // You can find your IP with: ifconfig (Mac/Linux) or ipconfig (Windows)
 const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.0.225:8000/api' // Replace with your actual IP address
+  ? 'http://10.0.0.211:8000/api/v1' // Use your computer's IP address
   : 'https://your-production-api.com/api'; // Replace with your production URL
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
@@ -524,12 +524,22 @@ class ApiService {
 
   // Invoice Methods
   async getInvoices(statusFilter?: string): Promise<Invoice[]> {
-    const params = statusFilter ? `?status=${statusFilter}` : '';
-    return await this.request<Invoice[]>(`/invoices/${params}`);
+    const params = statusFilter ? `?status_filter=${statusFilter}` : '';
+    const response = await this.request<any[]>(`/invoices/${params}`);
+    return response.map(invoice => ({
+      ...invoice,
+      items: invoice.items || [],
+      currency: invoice.currency || 'USD'
+    }));
   }
 
   async getInvoice(invoiceId: number): Promise<Invoice> {
-    return await this.request<Invoice>(`/invoices/${invoiceId}`);
+    const response = await this.request<any>(`/invoices/${invoiceId}`);
+    return {
+      ...response,
+      items: response.items || [],
+      currency: response.currency || 'USD'
+    };
   }
 
   async createInvoice(invoiceData: CreateInvoiceData): Promise<Invoice> {
@@ -540,10 +550,15 @@ class ApiService {
   }
 
   async updateInvoice(invoiceId: number, invoiceData: UpdateInvoiceData): Promise<Invoice> {
-    return await this.request<Invoice>(`/invoices/${invoiceId}`, {
+    const response = await this.request<any>(`/invoices/${invoiceId}`, {
       method: 'PUT',
       body: JSON.stringify(invoiceData),
     });
+    return {
+      ...response,
+      items: response.items || [],
+      currency: response.currency || 'USD'
+    };
   }
 
   async deleteInvoice(invoiceId: number): Promise<void> {

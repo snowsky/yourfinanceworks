@@ -17,9 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => Promise<void>;
   onNavigateToSignup: () => void;
+  onNavigateToForgotPassword: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, onNavigateToForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -116,6 +117,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup }
               <Text style={styles.buttonText}>Sign in</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.forgotPasswordContainer}>
+            <TouchableOpacity onPress={onNavigateToForgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -279,6 +286,15 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   signupLink: {
+    fontSize: 14,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
+  },
+  forgotPasswordContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
     fontSize: 14,
     color: '#007AFF',
     textDecorationLine: 'underline',

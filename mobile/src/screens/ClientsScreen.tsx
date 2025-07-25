@@ -18,6 +18,8 @@ import apiService, { Client, CreateClientData } from '../services/api';
 interface ClientsScreenProps {
   clients: Client[];
   onNavigateBack: () => void;
+  onNavigateToNewClient: () => void;
+  onNavigateToEditClient: (client: Client) => void;
   onClientAdded: (client: Client) => void;
   onClientUpdated: (client: Client) => void;
   onClientDeleted: (clientId: number) => void;
@@ -26,6 +28,8 @@ interface ClientsScreenProps {
 const ClientsScreen: React.FC<ClientsScreenProps> = ({
   clients,
   onNavigateBack,
+  onNavigateToNewClient,
+  onNavigateToEditClient,
   onClientAdded,
   onClientUpdated,
   onClientDeleted,
@@ -275,7 +279,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Clients</Text>
-        <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addButton}>
+        <TouchableOpacity onPress={onNavigateToNewClient} style={styles.addButton}>
           <Ionicons name="add" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
@@ -289,7 +293,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({
             <Text style={styles.emptyStateSubtext}>Add your first client to get started</Text>
             <TouchableOpacity
               style={styles.emptyStateButton}
-              onPress={() => setShowAddModal(true)}
+              onPress={onNavigateToNewClient}
             >
               <Text style={styles.emptyStateButtonText}>Add Client</Text>
             </TouchableOpacity>
@@ -318,7 +322,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({
               <View style={styles.clientActions}>
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => openEditModal(client)}
+                  onPress={() => onNavigateToEditClient(client)}
                 >
                   <Ionicons name="pencil" size={20} color="#007AFF" />
                 </TouchableOpacity>

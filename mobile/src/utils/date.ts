@@ -1,29 +1,35 @@
 import { parseISO, format, isValid } from 'date-fns';
 
 export const formatDate = (date: string | Date): string => {
-  let dateObj: Date;
+  if (!date) return new Date().toLocaleDateString();
   
-  if (typeof date === 'string') {
-    // Append 'Z' if no timezone information is present to ensure it's parsed as UTC
-    const utcDateString = date.endsWith('Z') || date.includes('+') || date.includes('-') 
-                          ? date 
-                          : date + 'Z';
-    dateObj = parseISO(utcDateString);
-  } else {
-    dateObj = date;
+  try {
+    let dateObj: Date;
+    
+    if (typeof date === 'string') {
+      // Handle YYYY-MM-DD format
+      if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = date.split('-').map(Number);
+        dateObj = new Date(year, month - 1, day);
+      } else {
+        dateObj = new Date(date);
+      }
+    } else {
+      dateObj = date;
+    }
+
+    if (!isValid(dateObj)) {
+      return new Date().toLocaleDateString();
+    }
+
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return new Date().toLocaleDateString();
   }
-
-  if (!isValid(dateObj)) return "Invalid Date";
-
-  // Format to UTC date string, e.g., Jul 11, 2025 UTC
-  const utcString = dateObj.toLocaleDateString('en-US', { 
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit'
-  });
-  
-  return `${utcString} UTC`;
 };
 
 export const formatDateTime = (date: string | Date): string => {

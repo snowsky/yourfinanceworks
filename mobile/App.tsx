@@ -8,22 +8,29 @@ import InvoicesScreen from './src/screens/InvoicesScreen';
 import NewInvoiceScreen from './src/screens/NewInvoiceScreen';
 import EditInvoiceScreen from './src/screens/EditInvoiceScreen';
 import ClientsScreen from './src/screens/ClientsScreen';
+import NewClientScreen from './src/screens/NewClientScreen';
+import EditClientScreen from './src/screens/EditClientScreen';
 import PaymentsScreen from './src/screens/PaymentsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import UsersScreen from './src/screens/UsersScreen';
+import AuditLogScreen from './src/screens/AuditLogScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import apiService, { User, Client, Invoice, CreateInvoiceData, UpdateInvoiceData, InvoiceItemCreate, InvoiceItemUpdate } from './src/services/api';
 
-type Screen = 'login' | 'signup' | 'dashboard' | 'invoices' | 'newInvoice' | 'editInvoice' | 'clients' | 'payments' | 'settings';
+type Screen = 'login' | 'signup' | 'forgotPassword' | 'resetPassword' | 'dashboard' | 'invoices' | 'newInvoice' | 'editInvoice' | 'clients' | 'newClient' | 'editClient' | 'payments' | 'settings' | 'users' | 'auditLog';
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<number | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [resetToken, setResetToken] = useState<string>('');
   const [user, setUser] = useState<User | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Check authentication status on app start
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -51,8 +58,14 @@ const App: React.FC = () => {
         apiService.getClients(),
         apiService.getInvoices(),
       ]);
+      
+      // Fetch detailed invoice data with items
+      const detailedInvoices = await Promise.all(
+        invoicesData.map(inv => apiService.getInvoice(inv.id))
+      );
+      
       setClients(clientsData);
-      setInvoices(invoicesData);
+      setInvoices(detailedInvoices);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -72,6 +85,15 @@ const App: React.FC = () => {
 
   const handleNavigateToSignup = () => {
     setCurrentScreen('signup');
+  };
+
+  const handleNavigateToForgotPassword = () => {
+    setCurrentScreen('forgotPassword');
+  };
+
+  const handleNavigateToResetPassword = (token: string) => {
+    setResetToken(token);
+    setCurrentScreen('resetPassword');
   };
 
   const handleNavigateToInvoices = () => {
@@ -94,6 +116,23 @@ const App: React.FC = () => {
     setCurrentScreen('newInvoice');
   };
 
+  const handleNavigateToNewClient = () => {
+    setCurrentScreen('newClient');
+  };
+
+  const handleNavigateToEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setCurrentScreen('editClient');
+  };
+
+  const handleNavigateToUsers = () => {
+    setCurrentScreen('users');
+  };
+
+  const handleNavigateToAuditLog = () => {
+    setCurrentScreen('auditLog');
+  };
+
   const handleNavigateToEditInvoice = (invoiceId: number) => {
     setSelectedInvoice(invoiceId);
     setCurrentScreen('editInvoice');
@@ -110,6 +149,15 @@ const App: React.FC = () => {
   const handleNavigateBackFromEditInvoice = () => {
     setSelectedInvoice(null);
     setCurrentScreen('invoices');
+  };
+
+  const handleNavigateBackFromNewClient = () => {
+    setCurrentScreen('clients');
+  };
+
+  const handleNavigateBackFromEditClient = () => {
+    setSelectedClient(null);
+    setCurrentScreen('clients');
   };
 
   const handleClientAdded = (newClient: Client) => {
@@ -139,6 +187,8 @@ const App: React.FC = () => {
       setIsAuthenticated(false);
       setCurrentScreen('login');
       setSelectedInvoice(null);
+      setSelectedClient(null);
+      setResetToken('');
       setUser(null);
       setClients([]);
       setInvoices([]);
@@ -181,10 +231,7 @@ const App: React.FC = () => {
     notes: string;
   }) => {
     try {
-      // Calculate total amount from items
       const totalAmount = formData.items.reduce((sum, item) => sum + item.amount, 0);
-      
-      // Convert due_date string to ISO format for backend
       const dueDate = new Date(formData.dueDate).toISOString();
       
       const invoiceData: CreateInvoiceData = {
@@ -229,10 +276,7 @@ const App: React.FC = () => {
     notes: string;
   }) => {
     try {
-      // Calculate total amount from items
       const totalAmount = formData.items.reduce((sum, item) => sum + item.amount, 0);
-      
-      // Convert due_date string to ISO format for backend
       const dueDate = new Date(formData.dueDate).toISOString();
       
       const invoiceData: UpdateInvoiceData = {
@@ -250,25 +294,7 @@ const App: React.FC = () => {
         })),
       };
       
-      console.log('App: Sending update request:', {
-        invoiceId,
-        invoiceData,
-        notes: invoiceData.notes,
-        items: invoiceData.items,
-        itemDescriptions: invoiceData.items.map(item => ({
-          id: item.id,
-          description: item.description,
-          descriptionLength: item.description.length,
-          descriptionType: typeof item.description
-        }))
-      });
-      
       const updatedInvoice = await apiService.updateInvoice(invoiceId, invoiceData);
-      console.log('App: Received updated invoice:', {
-        id: updatedInvoice.id,
-        notes: updatedInvoice.notes,
-        fullResponse: updatedInvoice
-      });
       setInvoices(prev => prev.map(invoice => 
         invoice.id === invoiceId ? updatedInvoice : invoice
       ));
@@ -289,12 +315,26 @@ const App: React.FC = () => {
           <LoginScreen
             onLogin={handleLogin}
             onNavigateToSignup={handleNavigateToSignup}
+            onNavigateToForgotPassword={handleNavigateToForgotPassword}
           />
         );
       case 'signup':
         return (
           <SignupScreen
             onSignup={handleSignup}
+            onNavigateToLogin={handleNavigateToLogin}
+          />
+        );
+      case 'forgotPassword':
+        return (
+          <ForgotPasswordScreen
+            onNavigateToLogin={handleNavigateToLogin}
+          />
+        );
+      case 'resetPassword':
+        return (
+          <ResetPasswordScreen
+            token={resetToken}
             onNavigateToLogin={handleNavigateToLogin}
           />
         );
@@ -331,7 +371,29 @@ const App: React.FC = () => {
           <ClientsScreen
             clients={clients}
             onNavigateBack={handleNavigateBack}
+            onNavigateToNewClient={handleNavigateToNewClient}
+            onNavigateToEditClient={handleNavigateToEditClient}
             onClientAdded={handleClientAdded}
+            onClientUpdated={handleClientUpdated}
+            onClientDeleted={handleClientDeleted}
+          />
+        );
+      case 'newClient':
+        return (
+          <NewClientScreen
+            onNavigateBack={handleNavigateBackFromNewClient}
+            onClientAdded={handleClientAdded}
+          />
+        );
+      case 'editClient':
+        if (!selectedClient) {
+          setCurrentScreen('clients');
+          return null;
+        }
+        return (
+          <EditClientScreen
+            client={selectedClient}
+            onNavigateBack={handleNavigateBackFromEditClient}
             onClientUpdated={handleClientUpdated}
             onClientDeleted={handleClientDeleted}
           />
@@ -364,7 +426,21 @@ const App: React.FC = () => {
         return (
           <SettingsScreen
             onNavigateBack={handleNavigateBack}
+            onNavigateToUsers={handleNavigateToUsers}
+            onNavigateToAuditLog={handleNavigateToAuditLog}
             onSignOut={handleSignOut}
+          />
+        );
+      case 'users':
+        return (
+          <UsersScreen
+            onNavigateBack={handleNavigateBack}
+          />
+        );
+      case 'auditLog':
+        return (
+          <AuditLogScreen
+            onNavigateBack={handleNavigateBack}
           />
         );
       default:
@@ -372,6 +448,7 @@ const App: React.FC = () => {
           <LoginScreen
             onLogin={handleLogin}
             onNavigateToSignup={handleNavigateToSignup}
+            onNavigateToForgotPassword={handleNavigateToForgotPassword}
           />
         );
     }
@@ -412,4 +489,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App; 
+export default App;

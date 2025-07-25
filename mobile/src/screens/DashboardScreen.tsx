@@ -84,17 +84,30 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const fetchDashboardData = async () => {
     try {
-      const [stats, invoices] = await Promise.all([
+      const [stats, invoicesList] = await Promise.all([
         apiService.getDashboardStats(),
         apiService.getInvoices()
       ]);
       
+      // Fetch detailed invoice data for recent invoices
+      const recentInvoiceIds = invoicesList.slice(0, 5);
+      const detailedInvoices = await Promise.all(
+        recentInvoiceIds.map(inv => apiService.getInvoice(inv.id))
+      );
+      
+      console.log('Fetched detailed invoices:', detailedInvoices.map(inv => ({
+        id: inv.id,
+        items: JSON.stringify(inv.items),
+        currency: inv.currency,
+        amount: inv.amount
+      })));
+      
       setDashboardStats(stats);
-      setRecentInvoices(invoices.slice(0, 5)); // Get last 5 invoices
+      setRecentInvoices(detailedInvoices);
       
       // Determine primary currency from invoices
-      if (invoices.length > 0) {
-        const currencyCounts = invoices.reduce((acc, invoice) => {
+      if (invoicesList.length > 0) {
+        const currencyCounts = invoicesList.reduce((acc, invoice) => {
           const currency = invoice.currency || 'USD';
           acc[currency] = (acc[currency] || 0) + 1;
           return acc;
@@ -122,8 +135,37 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
+    try {
+      const [stats, invoicesList] = await Promise.all([
+        apiService.getDashboardStats(),
+        apiService.getInvoices()
+      ]);
+      
+      // Fetch detailed invoice data for recent invoices
+      const recentInvoiceIds = invoicesList.slice(0, 5);
+      const detailedInvoices = await Promise.all(
+        recentInvoiceIds.map(inv => apiService.getInvoice(inv.id))
+      );
+      
+      setDashboardStats(stats);
+      setRecentInvoices(detailedInvoices);
+      
+      if (invoicesList.length > 0) {
+        const currencyCounts = invoicesList.reduce((acc, invoice) => {
+          const currency = invoice.currency || 'USD';
+          acc[currency] = (acc[currency] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        const mostCommonCurrency = Object.entries(currencyCounts)
+          .sort(([,a], [,b]) => b - a)[0]?.[0] || 'USD';
+        setPrimaryCurrency(mostCommonCurrency);
+      }
+    } catch (error) {
+      console.error('Failed to refresh dashboard data:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -135,6 +177,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     };
 
     initializeDashboard();
+    
+    // Set up interval to refresh data every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const StatCard = ({ title, value, icon, description, color }: {

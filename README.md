@@ -534,9 +534,21 @@ docker-compose exec api python scripts/create_super_user.py
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+## Licensing
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is dual-licensed under two options:
+
+1. **GNU General Public License v3 (GPLv3)**:
+   - Free to use, modify, and distribute under the terms of the GPLv3.
+   - Requires that derivative works be licensed under GPLv3 and source code be shared.
+   - Ideal for open source projects and community use.
+   - See [LICENSE-GPLv3.txt](LICENSE-GPLv3.txt) for the full license text.
+
+2. **Commercial License**:
+   - Available for proprietary use, allowing integration into closed-source software without GPLv3 obligations.
+   - Suitable for businesses or commercial applications.
+   - To obtain a commercial license, contact us at [email@example.com].
+   - See [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt) for more information.
 
 ## 🆘 Support
 
