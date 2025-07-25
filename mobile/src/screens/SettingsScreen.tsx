@@ -278,7 +278,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>{t('common.email')}</Text>
+        <Text style={styles.label}>{t('auth.email')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.email}
@@ -624,9 +624,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <Ionicons name="language-outline" size={20} color="#3B82F6" />
             </View>
             <View style={styles.settingContent}>
-              <Text style={styles.settingText}>{t('settings.language')}</Text>
+              <Text style={styles.settingText}>Language</Text>
             </View>
-            <LanguageSwitcher style={{ marginLeft: 'auto' }} />
+            <View style={{ flex: 1 }}>
+              <LanguageSwitcher />
+            </View>
           </View>
           
           <TouchableOpacity style={styles.settingItem} onPress={onNavigateToUsers}>

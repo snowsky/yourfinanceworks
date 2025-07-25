@@ -1,97 +1,175 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Menu, Button, Divider } from 'react-native-paper';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 
-interface LanguageSwitcherProps {
-  style?: any;
-}
+const languages = [
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+];
 
-const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ style }) => {
-  const { t, i18n } = useTranslation();
-  const [visible, setVisible] = React.useState(false);
-
-  const openMenu = () => setVisible(true);
-  const closeMenu = () => setVisible(false);
-
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-    closeMenu();
-  };
-
-  const languages = [
-    { code: 'en', name: t('settings.languages.en'), flag: '🇺🇸' },
-    { code: 'es', name: t('settings.languages.es'), flag: '🇪🇸' },
-    { code: 'fr', name: t('settings.languages.fr'), flag: '🇫🇷' },
-  ];
+const LanguageSwitcher: React.FC = () => {
+  const { i18n } = useTranslation();
+  const [showModal, setShowModal] = useState(false);
 
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
+  
+  console.log('LanguageSwitcher rendering, current language:', i18n.language, currentLanguage);
+  console.log('i18n object:', i18n);
+  console.log('Available languages:', languages);
+
+  const handleLanguageChange = async (languageCode: string) => {
+    try {
+      console.log('Changing language to:', languageCode);
+      await i18n.changeLanguage(languageCode);
+      console.log('Language changed successfully to:', i18n.language);
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error changing language:', error);
+    }
+  };
 
   return (
-    <View style={[styles.container, style]}>
-      <Menu
-        visible={visible}
-        onDismiss={closeMenu}
-        anchor={
-          <Button
-            mode="outlined"
-            onPress={openMenu}
-            icon={() => <Icon name="language" size={20} color="#666" />}
-            contentStyle={styles.buttonContent}
-            labelStyle={styles.buttonLabel}
-          >
-            {currentLanguage.flag} {currentLanguage.name}
-          </Button>
-        }
-        contentStyle={styles.menuContent}
+    <View>
+      <TouchableOpacity
+        style={styles.selector}
+        onPress={() => setShowModal(true)}
       >
-        {languages.map((language, index) => (
-          <React.Fragment key={language.code}>
-            <Menu.Item
-              onPress={() => changeLanguage(language.code)}
-              title={`${language.flag} ${language.name}`}
-              titleStyle={[
-                styles.menuItemTitle,
-                i18n.language === language.code && styles.activeLanguage
-              ]}
-            />
-            {index < languages.length - 1 && <Divider />}
-          </React.Fragment>
-        ))}
-      </Menu>
+        <View style={styles.currentLanguage}>
+          <Text style={styles.flag}>{currentLanguage.flag}</Text>
+          <Text style={styles.languageName}>{currentLanguage.name}</Text>
+        </View>
+        <Ionicons name="chevron-down" size={20} color="#6B7280" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={showModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Language</Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              {languages.map(language => (
+                <TouchableOpacity
+                  key={language.code}
+                  style={[
+                    styles.languageOption,
+                    i18n.language === language.code && styles.languageOptionSelected
+                  ]}
+                  onPress={() => handleLanguageChange(language.code)}
+                >
+                  <View style={styles.languageInfo}>
+                    <Text style={styles.flag}>{language.flag}</Text>
+                    <Text style={[
+                      styles.languageOptionText,
+                      i18n.language === language.code && styles.languageOptionTextSelected
+                    ]}>
+                      {language.name}
+                    </Text>
+                  </View>
+                  {i18n.language === language.code && (
+                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-  },
-  buttonContent: {
+  selector: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  buttonLabel: {
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  menuContent: {
-    backgroundColor: 'white',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     borderRadius: 8,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    padding: 12,
   },
-  menuItemTitle: {
+  currentLanguage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flag: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  languageName: {
     fontSize: 16,
+    color: '#111827',
   },
-  activeLanguage: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: '#333',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  languageOptionSelected: {
+    backgroundColor: '#f0f9ff',
+  },
+  languageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  languageOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  languageOptionTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
 

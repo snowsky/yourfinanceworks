@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import apiService, { DashboardStats, Invoice } from '../services/api';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import { formatDate } from '../utils/date';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 interface DashboardScreenProps {
   onNavigateToInvoices: () => void;
@@ -35,6 +37,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSignOut,
   user,
 }) => {
+  const { t } = useTranslation();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalIncome: {},
     pendingInvoices: {},
@@ -252,7 +255,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -270,7 +273,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.welcomeText}>
-                {userName ? `Welcome back, ${userName}!` : 'Dashboard'}
+                {userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
               </Text>
               <Text style={styles.subtitle}>
                 {tenantName ? `${tenantName} - Overview of your invoicing activity` : 'Overview of your invoicing activity'}
@@ -278,65 +281,65 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </View>
             <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={styles.signOutText}>Sign Out</Text>
+              <Text style={styles.signOutText}>{t('auth.logout')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.statsGrid}>
           <StatCard
-            title="Total Income"
+            title={t('dashboard.total_income')}
             value={formatMultiCurrencyString(dashboardStats.totalIncome)}
             icon="cash-outline"
-            description="Revenue from paid invoices"
+            description={t('dashboard.revenue_from_paid')}
             color="#10B981"
           />
           <StatCard
-            title="Pending Amount"
+            title={t('dashboard.pending_amount')}
             value={formatMultiCurrencyString(dashboardStats.pendingInvoices)}
             icon="document-text-outline"
-            description="Awaiting payment"
+            description={t('dashboard.awaiting_payment')}
             color="#F59E0B"
           />
           <StatCard
-            title="Total Clients"
+            title={t('dashboard.total_clients')}
             value={dashboardStats.totalClients.toString()}
             icon="people-outline"
-            description="Active client accounts"
+            description={t('dashboard.active_clients')}
             color="#3B82F6"
           />
           <StatCard
-            title="Overdue Invoices"
+            title={t('dashboard.overdue_invoices')}
             value={dashboardStats.invoicesOverdue.toString()}
             icon="alert-circle-outline"
-            description="Invoices past due date"
+            description={t('dashboard.past_due_invoices')}
             color="#EF4444"
           />
         </View>
 
         <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>{t('dashboard.quick_actions')}</Text>
           <View style={styles.quickActionsGrid}>
             <QuickAction
-              title="New Invoice"
+              title={t('invoices.new_invoice')}
               icon="add-circle-outline"
               onPress={onNavigateToInvoices}
               color="#10B981"
             />
             <QuickAction
-              title="Add Client"
+              title={t('clients.add_client')}
               icon="person-add-outline"
               onPress={onNavigateToClients}
               color="#3B82F6"
             />
             <QuickAction
-              title="Record Payment"
+              title={t('payments.record_payment')}
               icon="card-outline"
               onPress={onNavigateToPayments}
               color="#F59E0B"
             />
             <QuickAction
-              title="Settings"
+              title={t('settings.title')}
               icon="settings-outline"
               onPress={onNavigateToSettings}
               color="#6B7280"
@@ -347,9 +350,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {recentInvoices.length > 0 && (
           <View style={styles.recentInvoicesSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Invoices</Text>
+              <Text style={styles.sectionTitle}>{t('dashboard.recent_invoices')}</Text>
               <TouchableOpacity onPress={onNavigateToInvoices}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>{t('common.view_all')}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.recentInvoicesList}>
@@ -359,6 +362,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </View>
           </View>
         )}
+        
+        <View style={styles.languageRow}>
+          <LanguageSwitcher />
+        </View>
       </ScrollView>
     </View>
   );
@@ -390,6 +397,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+  },
+  languageRow: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
   },
   headerTop: {
     flexDirection: 'row',

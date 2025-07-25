@@ -3,10 +3,10 @@ import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import translation files from UI folder
-import en from '../../../ui/src/i18n/locales/en.json';
-import es from '../../../ui/src/i18n/locales/es.json';
-import fr from '../../../ui/src/i18n/locales/fr.json';
+// Import translation files via symbolic link
+import en from './locales/en.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
 
 const resources = {
   en: {
@@ -33,7 +33,7 @@ const languageDetector = {
       }
       
       // Fall back to device locale
-      const deviceLanguage = Localization.locale.split('-')[0];
+      const deviceLanguage = Localization.locale?.split('-')[0] || 'en';
       callback(deviceLanguage);
     } catch (error) {
       console.error('Error detecting language:', error);
@@ -65,6 +65,14 @@ i18n
     react: {
       useSuspense: false,
     },
+  })
+  .then(() => {
+    console.log('i18n initialized successfully');
+    console.log('Current language:', i18n.language);
+    console.log('Available resources:', Object.keys(resources));
+  })
+  .catch((error) => {
+    console.error('i18n initialization failed:', error);
   });
 
 export default i18n;

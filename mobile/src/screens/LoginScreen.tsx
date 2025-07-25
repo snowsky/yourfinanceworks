@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -21,6 +23,7 @@ interface LoginScreenProps {
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, onNavigateToForgotPassword }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -56,9 +59,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, 
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Sign in</Text>
+          <Text style={styles.title}>{t('auth.login')}</Text>
           <Text style={styles.subtitle}>
-            Enter your email and password to access your account
+            {t('auth.login_description')}
           </Text>
         </View>
 
@@ -70,12 +73,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, 
           )}
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('auth.email')}</Text>
             <TextInput
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your email"
+              placeholder={t('auth.email_placeholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -83,7 +86,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, 
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t('auth.password')}</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[styles.input, styles.passwordInput]}
@@ -114,7 +117,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, 
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+              <Text style={styles.buttonText}>{t('auth.login')}</Text>
             )}
           </TouchableOpacity>
 
@@ -144,6 +147,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onNavigateToSignup, 
               <Text style={styles.signupLink}>Sign up</Text>
             </TouchableOpacity>
           </View>
+          
+          <View style={styles.languageContainer}>
+            <LanguageSwitcher />
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -159,6 +166,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
+  },
+  languageContainer: {
+    alignItems: 'center',
+    marginTop: 20,
   },
   header: {
     alignItems: 'center',

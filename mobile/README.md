@@ -29,7 +29,7 @@ The i18n system uses:
 - `i18next` and `react-i18next` for translation management
 - `expo-localization` for device language detection
 - `@react-native-async-storage/async-storage` for persistent storage
-- Shared translation files from `../ui/src/i18n/locales/` for consistency
+- Sync script to copy translation files from `ui/src/i18n/locales/`
 
 ### Adding New Languages
 
@@ -69,17 +69,22 @@ const { t } = useTranslation();
    cd mobile
    ```
 
-2. **Install dependencies**:
+2. **Sync translation files**:
+   ```bash
+   npm run sync-translations
+   ```
+
+3. **Install dependencies**:
    ```bash
    npm install
    ```
 
-3. **Start development server**:
+4. **Start development server**:
    ```bash
    npm start
    ```
 
-4. **Run on device/simulator**:
+5. **Run on device/simulator**:
    ```bash
    # iOS (macOS only)
    npm run ios
@@ -139,12 +144,20 @@ src/
 
 ## 🌐 Translation Management
 
-The mobile app shares translation files with the web UI located at:
-- `ui/src/i18n/locales/en.json`
-- `ui/src/i18n/locales/es.json`
-- `ui/src/i18n/locales/fr.json`
+The mobile app syncs translation files from the web UI using a sync script:
+- Source: `ui/src/i18n/locales/`
+- Target: `mobile/src/i18n/locales/`
+- Files: `en.json`, `es.json`, `fr.json`
 
-This ensures consistency between web and mobile applications.
+Sync translations with:
+```bash
+npm run sync-translations
+```
+
+This approach ensures:
+- **Single source of truth** for translations in the UI folder
+- **Metro bundler compatibility** (no symbolic link issues)
+- **Easy synchronization** with a simple npm script
 
 ## 📦 Building for Production
 
