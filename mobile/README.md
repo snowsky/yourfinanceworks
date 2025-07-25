@@ -1,328 +1,186 @@
-# Invoice App Mobile
+# Invoice Management Mobile App
 
-A React Native mobile application that adapts the web UI components from the main invoice management system.
+A React Native mobile application for invoice management with full internationalization support.
 
-## Overview
+## 🌍 Multi-Language Support
 
-This mobile app takes the existing web UI components from the `ui/` folder and adapts them for mobile use with React Native. The app provides a native mobile experience while maintaining the same design language and functionality as the web version.
+The mobile app now includes comprehensive internationalization (i18n) support with the same translations as the web UI.
 
-## Web UI Adaptation
+### Supported Languages
+- **English (en)** - Default language
+- **Spanish (es)** - Español  
+- **French (fr)** - Français
 
-### How We Adapted the Web Components
+### Features
+- **Automatic Language Detection** - Detects device language on first launch
+- **Persistent Language Selection** - Saves user's language preference using AsyncStorage
+- **Language Switcher** - Easy language switching in Settings screen
+- **Shared Translations** - Reuses translation files from the web UI for consistency
 
-The mobile app successfully adapts the web UI components by:
+### How to Use
 
-1. **Component Structure**: Each web component has been recreated as a React Native component with equivalent functionality
-2. **Design Language**: Maintains the same visual design, colors, and layout patterns
-3. **User Experience**: Preserves the same user flows and interactions
-4. **Data Models**: Uses the same data structures and API endpoints
+1. **Automatic Detection**: The app automatically detects your device language on first launch
+2. **Manual Selection**: Go to Settings → Language to change the language manually
+3. **Persistent Storage**: Your language preference is saved and restored on app restart
 
-### Adapted Screens
+### Implementation Details
 
-#### 1. Login Screen (`LoginScreen.tsx`)
-**Web Source**: `ui/src/pages/Login.tsx`
+The i18n system uses:
+- `i18next` and `react-i18next` for translation management
+- `expo-localization` for device language detection
+- `@react-native-async-storage/async-storage` for persistent storage
+- Shared translation files from `../ui/src/i18n/locales/` for consistency
 
-**Adaptations**:
-- Converted HTML form to React Native `TextInput` components
-- Replaced CSS classes with StyleSheet objects
-- Added mobile-specific features like keyboard handling
-- Maintained the same visual design with cards and buttons
-- Preserved Google SSO button (placeholder for future implementation)
+### Adding New Languages
 
-**Key Features**:
-- Email and password input with validation
-- Show/hide password toggle
-- Loading states with activity indicators
-- Error handling and display
-- Navigation to signup screen
+To add a new language:
+1. Add the translation file to `ui/src/i18n/locales/`
+2. Update the language list in `src/components/LanguageSwitcher.tsx`
+3. The mobile app will automatically use the new translations
 
-#### 2. Signup Screen (`SignupScreen.tsx`)
-**Web Source**: `ui/src/pages/Signup.tsx`
+### Translation Keys
 
-**Adaptations**:
-- Converted HTML form to React Native `TextInput` components
-- Replaced CSS classes with StyleSheet objects
-- Added comprehensive form validation
-- Maintained the same visual design with cards and buttons
-- Preserved Google SSO button (placeholder for future implementation)
-
-**Key Features**:
-- Complete registration form with all required fields
-- Organization name, first name, last name, email, password, confirm password
-- Real-time form validation with error messages
-- Password strength validation (minimum 6 characters)
-- Password confirmation matching
-- Email format validation
-- Show/hide password toggles for both password fields
-- Loading states with activity indicators
-- Navigation back to login screen
-
-#### 3. Dashboard Screen (`DashboardScreen.tsx`)
-**Web Source**: `ui/src/pages/Index.tsx`
-
-**Adaptations**:
-- Converted grid layout to mobile-friendly card layout
-- Replaced chart components with simplified stat cards
-- Added quick action buttons for navigation
-- Maintained the same color scheme and typography
-- Added pull-to-refresh functionality
-
-**Key Features**:
-- Financial overview cards (Total Income, Pending Amount, etc.)
-- Quick action buttons for main features
-- Recent activity list
-- Loading states and error handling
-- Responsive design for different screen sizes
-
-#### 4. Invoices Screen (`InvoicesScreen.tsx`)
-**Web Source**: `ui/src/pages/Invoices.tsx`
-
-**Adaptations**:
-- Converted table layout to card-based list
-- Replaced search and filter UI with mobile-optimized components
-- Maintained the same data structure and status handling
-- Added mobile navigation patterns
-
-**Key Features**:
-- Invoice list with detailed cards
-- Search functionality
-- Status filtering with modal picker (All Statuses, Paid, Pending, Overdue, Draft)
-- Pull-to-refresh
-- Navigation to edit/create invoices
-
-#### 5. New Invoice Screen (`NewInvoiceScreen.tsx`)
-**Web Source**: `ui/src/pages/NewInvoice.tsx` and `ui/src/components/invoices/InvoiceForm.tsx`
-
-**Adaptations**:
-- Converted complex web form to mobile-optimized interface
-- Replaced date pickers with mobile-friendly selectors
-- Maintained all form validation and business logic
-- Added real-time calculations and summary
-
-**Key Features**:
-- Complete invoice creation form
-- Client selection with modal picker
-- Invoice details (number, dates, currency, status)
-- Dynamic invoice items with add/remove functionality
-- Real-time calculations (subtotal, total, outstanding)
-- Payment amount tracking
-- Form validation with error messages
-- Invoice summary with financial breakdown
-- Mobile-optimized keyboard handling
-
-## Architecture
-
-### Screen Management
-The app uses a simple state-based navigation system in `App.tsx`:
+The mobile app uses the same translation keys as the web UI. Common patterns:
 
 ```typescript
-type Screen = 'login' | 'signup' | 'dashboard' | 'invoices' | 'newInvoice' | 'clients' | 'payments' | 'settings';
+// Basic usage
+const { t } = useTranslation();
+<Text>{t('common.save')}</Text>
+
+// With variables
+<Text>{t('dashboard.welcome', { name: userName })}</Text>
+
+// Nested keys
+<Text>{t('settings.company_info')}</Text>
 ```
 
-### Component Structure
-```
-src/
-├── screens/
-│   ├── LoginScreen.tsx      # Adapted from web Login.tsx
-│   ├── SignupScreen.tsx     # Adapted from web Signup.tsx
-│   ├── DashboardScreen.tsx  # Adapted from web Index.tsx
-│   ├── InvoicesScreen.tsx   # Adapted from web Invoices.tsx
-│   └── NewInvoiceScreen.tsx # Adapted from web NewInvoice.tsx + InvoiceForm.tsx
-```
-
-### Data Flow
-- Mock data is used for demonstration (replace with actual API calls)
-- Same data models as web version
-- Consistent error handling patterns
-- **State Management**: Invoices are managed at the App level and passed down to screens
-- **Real-time Updates**: New invoices are immediately added to the list after creation
-
-## Key Differences from Web Version
-
-### 1. Navigation
-- **Web**: React Router with URL-based navigation
-- **Mobile**: State-based navigation with screen transitions
-
-### 2. Layout
-- **Web**: CSS Grid and Flexbox with responsive breakpoints
-- **Mobile**: Flexbox-based layouts optimized for mobile screens
-
-### 3. Interactions
-- **Web**: Mouse and keyboard interactions
-- **Mobile**: Touch gestures, pull-to-refresh, mobile-optimized buttons
-
-### 4. Components
-- **Web**: HTML elements with CSS classes
-- **Mobile**: React Native components with StyleSheet objects
-
-## Setup and Installation
+## 🚀 Setup
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
+- Node.js 18+
 - Expo CLI
-- iOS Simulator (for iOS) or Android Emulator (for Android)
+- iOS Simulator (for iOS development on macOS)
+- Android Studio (for Android development)
 
-### Installation Steps
+### Installation
 
-1. **Install Dependencies**:
+1. **Navigate to mobile directory**:
    ```bash
    cd mobile
+   ```
+
+2. **Install dependencies**:
+   ```bash
    npm install
    ```
 
-2. **Start the Development Server**:
+3. **Start development server**:
    ```bash
    npm start
    ```
 
-3. **Run on Simulator/Device**:
-   - Press `i` for iOS Simulator
-   - Press `a` for Android Emulator
-   - Scan QR code with Expo Go app on your device
-
-### Troubleshooting
-
-#### Common Issues:
-
-1. **Metro Bundler Errors**:
+4. **Run on device/simulator**:
    ```bash
-   npx expo start --clear
+   # iOS (macOS only)
+   npm run ios
+   
+   # Android
+   npm run android
    ```
 
-2. **iOS Simulator Issues**:
-   ```bash
-   npx expo run:ios
-   ```
+### Dependencies Added for i18n
 
-3. **Android Emulator Issues**:
-   ```bash
-   npx expo run:android
-   ```
-
-## Development Guidelines
-
-### Adding New Screens
-
-1. **Create the Screen Component**:
-   ```typescript
-   // src/screens/NewScreen.tsx
-   import React from 'react';
-   import { View, Text, StyleSheet } from 'react-native';
-   
-   interface NewScreenProps {
-     // Define props
-   }
-   
-   const NewScreen: React.FC<NewScreenProps> = ({ /* props */ }) => {
-     return (
-       <View style={styles.container}>
-         <Text>New Screen</Text>
-       </View>
-     );
-   };
-   
-   const styles = StyleSheet.create({
-     container: {
-       flex: 1,
-       backgroundColor: '#f5f5f5',
-     },
-   });
-   
-   export default NewScreen;
-   ```
-
-2. **Add to App.tsx**:
-   ```typescript
-   // Add screen type
-   type Screen = 'login' | 'dashboard' | 'invoices' | 'newScreen';
-   
-   // Add navigation handler
-   const handleNavigateToNewScreen = () => {
-     setCurrentScreen('newScreen');
-   };
-   
-   // Add to renderScreen function
-   case 'newScreen':
-     return <NewScreen /* props */ />;
-   ```
-
-### Styling Guidelines
-
-1. **Use StyleSheet.create()** for all styles
-2. **Follow the color scheme** from the web version:
-   - Primary: `#007AFF`
-   - Success: `#10B981`
-   - Warning: `#F59E0B`
-   - Error: `#EF4444`
-   - Gray: `#6B7280`
-
-3. **Maintain consistency** with web component spacing and typography
-
-### API Integration
-
-To integrate with the actual backend:
-
-1. **Replace mock data** with API calls
-2. **Add authentication** with token storage
-3. **Implement error handling** for network requests
-4. **Add loading states** for async operations
-
-Example API integration:
-```typescript
-// services/api.ts
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-});
-
-export const invoiceApi = {
-  getInvoices: async () => {
-    const response = await api.get('/invoices');
-    return response.data;
-  },
-  // Add more API methods
-};
+```json
+{
+  "expo-localization": "~16.0.0",
+  "i18next": "^23.7.16",
+  "react-i18next": "^14.0.0"
+}
 ```
 
-## Future Enhancements
+## 📱 Features
 
-### Planned Features
-1. **Complete Navigation**: Implement React Navigation for better screen management
-2. **Authentication**: Full integration with backend auth system
-3. **Offline Support**: Cache data for offline usage
-4. **Push Notifications**: Invoice reminders and updates
-5. **Camera Integration**: Scan receipts and documents
-6. **PDF Generation**: Generate and view invoices on mobile
+- **Multi-language Support** - English, Spanish, and French
+- **Invoice Management** - Create, edit, and manage invoices
+- **Client Management** - Add and manage client information
+- **Payment Tracking** - Track payments and invoice status
+- **Settings Management** - Configure company and invoice settings
+- **User Management** - Manage organization users
+- **Audit Logging** - Track system activities
+- **Responsive Design** - Optimized for mobile devices
 
-### Additional Screens to Adapt
-- Client management screen
-- Payment tracking screen
-- Settings screen
-- Invoice creation/editing forms
-- User profile screen
+## 🔧 Development
 
-## Contributing
+### File Structure
 
-When contributing to the mobile app:
+```
+src/
+├── i18n/
+│   └── index.ts              # i18n configuration
+├── components/
+│   └── LanguageSwitcher.tsx  # Language selection component
+├── screens/                  # App screens
+├── services/                 # API services
+└── utils/
+    └── i18n.ts              # Legacy i18n (redirects to new setup)
+```
 
-1. **Follow the adaptation pattern** established by existing screens
-2. **Maintain design consistency** with the web version
-3. **Test on both iOS and Android** simulators
-4. **Update this README** when adding new features
-5. **Use TypeScript** for all new components
+### Key Components
 
-## Support
+- **LanguageSwitcher**: Dropdown component for language selection
+- **i18n/index.ts**: Main i18n configuration with AsyncStorage persistence
+- **Settings Screen**: Includes language switcher and translated content
 
-For issues and questions:
-1. Check the troubleshooting section above
-2. Review the web UI source code for reference
-3. Ensure all dependencies are properly installed
-4. Clear Metro cache if experiencing build issues
+### Testing Languages
 
----
+1. Change device language in simulator/device settings
+2. Use the language switcher in the Settings screen
+3. Restart the app to test persistence
 
-The mobile app successfully demonstrates how to adapt web UI components to React Native while maintaining the same user experience and design language. 
+## 🌐 Translation Management
+
+The mobile app shares translation files with the web UI located at:
+- `ui/src/i18n/locales/en.json`
+- `ui/src/i18n/locales/es.json`
+- `ui/src/i18n/locales/fr.json`
+
+This ensures consistency between web and mobile applications.
+
+## 📦 Building for Production
+
+```bash
+# Build for iOS
+eas build --platform ios --profile production
+
+# Build for Android
+eas build --platform android --profile production
+
+# Submit to app stores
+eas submit --platform ios
+eas submit --platform android
+```
+
+## 🔍 Troubleshooting
+
+### Language Not Changing
+1. Check if AsyncStorage is working properly
+2. Restart the app after language change
+3. Verify translation keys exist in all language files
+
+### Missing Translations
+1. Check if the key exists in all language files
+2. Verify the key path is correct
+3. Check console for i18next warnings
+
+### Performance Issues
+1. Ensure translations are not loaded synchronously
+2. Check for memory leaks in language switching
+3. Monitor AsyncStorage usage
+
+## 🤝 Contributing
+
+When adding new features:
+1. Add translation keys to all language files in the UI folder
+2. Use `useTranslation` hook for all user-facing text
+3. Test with all supported languages
+4. Update this README if adding new i18n features

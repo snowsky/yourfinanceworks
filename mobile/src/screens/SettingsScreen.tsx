@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import apiService, { Settings, DiscountRule, DiscountRuleCreate, DiscountRuleUpdate } from '../services/api';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 interface SettingsScreenProps {
   onNavigateBack: () => void;
@@ -59,6 +61,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onNavigateToAuditLog,
   onSignOut,
 }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('company');
@@ -262,57 +265,57 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const renderCompanyInfo = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Company Information</Text>
+      <Text style={styles.sectionTitle}>{t('settings.company_info')}</Text>
       
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Company Name</Text>
+        <Text style={styles.label}>{t('settings.company_name')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.name}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, name: text }))}
-          placeholder="Enter company name"
+          placeholder={t('settings.company_name')}
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t('common.email')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.email}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, email: text }))}
-          placeholder="Enter email"
+          placeholder={t('auth.email_placeholder')}
           keyboardType="email-address"
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Phone</Text>
+        <Text style={styles.label}>{t('clients.client_phone')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.phone}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, phone: text }))}
-          placeholder="Enter phone number"
+          placeholder={t('clients.client_phone')}
           keyboardType="phone-pad"
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Tax ID / EIN</Text>
+        <Text style={styles.label}>{t('settings.tax_id')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.tax_id}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, tax_id: text }))}
-          placeholder="Enter tax ID"
+          placeholder={t('settings.tax_id')}
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Address</Text>
+        <Text style={styles.label}>{t('clients.client_address')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={companyInfo.address}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, address: text }))}
-          placeholder="Enter address"
+          placeholder={t('clients.client_address')}
           multiline
           numberOfLines={3}
         />
@@ -322,10 +325,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const renderInvoiceSettings = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Invoice Settings</Text>
+      <Text style={styles.sectionTitle}>{t('settings.invoice_settings')}</Text>
       
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Invoice Number Prefix</Text>
+        <Text style={styles.label}>{t('settings.invoice_prefix')}</Text>
         <TextInput
           style={styles.input}
           value={invoiceSettings.prefix}
@@ -335,7 +338,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Next Invoice Number</Text>
+        <Text style={styles.label}>{t('settings.next_invoice_number')}</Text>
         <TextInput
           style={styles.input}
           value={invoiceSettings.next_number}
@@ -346,24 +349,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Default Terms & Conditions</Text>
+        <Text style={styles.label}>{t('settings.default_terms')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={invoiceSettings.terms}
           onChangeText={(text) => setInvoiceSettings(prev => ({ ...prev, terms: text }))}
-          placeholder="Enter default terms"
+          placeholder={t('settings.default_terms')}
           multiline
           numberOfLines={4}
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Default Notes</Text>
+        <Text style={styles.label}>{t('settings.default_notes')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={invoiceSettings.notes || ''}
           onChangeText={(text) => setInvoiceSettings(prev => ({ ...prev, notes: text }))}
-          placeholder="Enter default notes"
+          placeholder={t('settings.default_notes')}
           multiline
           numberOfLines={2}
         />
@@ -372,8 +375,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <View style={styles.switchGroup}>
         <View style={styles.switchItem}>
           <View style={styles.switchContent}>
-            <Text style={styles.switchLabel}>Send Me a Copy</Text>
-            <Text style={styles.switchDescription}>Receive a copy of each invoice by email</Text>
+            <Text style={styles.switchLabel}>{t('settings.send_copy')}</Text>
+            <Text style={styles.switchDescription}>{t('settings.send_copy_description')}</Text>
           </View>
           <Switch
             value={invoiceSettings.send_copy}
@@ -383,8 +386,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         <View style={styles.switchItem}>
           <View style={styles.switchContent}>
-            <Text style={styles.switchLabel}>Automatic Reminders</Text>
-            <Text style={styles.switchDescription}>Send reminder emails for overdue invoices</Text>
+            <Text style={styles.switchLabel}>{t('settings.auto_reminders')}</Text>
+            <Text style={styles.switchDescription}>{t('settings.auto_reminders_description')}</Text>
           </View>
           <Switch
             value={invoiceSettings.auto_reminders}
@@ -398,7 +401,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const renderDiscountRules = () => (
     <View style={styles.tabContent}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Discount Rules</Text>
+        <Text style={styles.sectionTitle}>{t('settings.discount_rules')}</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
@@ -407,7 +410,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           }}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add Rule</Text>
+          <Text style={styles.addButtonText}>{t('settings.tabs.add_rule')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -443,8 +446,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {discountRules.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="pricetag-outline" size={48} color="#9CA3AF" />
-          <Text style={styles.emptyStateText}>No discount rules configured</Text>
-          <Text style={styles.emptyStateSubtext}>Add discount rules to automatically apply discounts to invoices</Text>
+          <Text style={styles.emptyStateText}>{t('settings.no_discount_rules_configured')}</Text>
+          <Text style={styles.emptyStateSubtext}>{t('settings.create_discount_rules_to_apply_discounts')}</Text>
         </View>
       )}
     </View>
@@ -460,11 +463,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>
-            {editingDiscountRule ? 'Edit Discount Rule' : 'Add Discount Rule'}
+            {editingDiscountRule ? t('settings.tabs.edit_discount_rule') : t('settings.tabs.create_discount_rule')}
           </Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Rule Name</Text>
+            <Text style={styles.label}>{t('settings.tabs.rule_name')}</Text>
             <TextInput
               style={styles.input}
               value={editingDiscountRule ? editingDiscountRule.name : newDiscountRule.name}
@@ -475,12 +478,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                    setNewDiscountRule((prev: DiscountRuleCreate) => ({ ...prev, name: text }));
                  }
                }}
-              placeholder="Enter rule name"
+              placeholder={t('settings.rule_name_placeholder')}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Minimum Amount</Text>
+            <Text style={styles.label}>{t('settings.tabs.min_amount')}</Text>
             <TextInput
               style={styles.input}
               value={String(editingDiscountRule ? editingDiscountRule.min_amount : newDiscountRule.min_amount)}
@@ -498,7 +501,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Discount Type</Text>
+            <Text style={styles.label}>{t('settings.tabs.discount_type')}</Text>
             <View style={styles.radioGroup}>
               <TouchableOpacity
                 style={[
@@ -513,7 +516,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                    }
                  }}
               >
-                <Text style={styles.radioButtonText}>Percentage</Text>
+                <Text style={styles.radioButtonText}>{t('settings.tabs.discount_type_percentage')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -528,13 +531,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                    }
                  }}
               >
-                <Text style={styles.radioButtonText}>Fixed Amount</Text>
+                <Text style={styles.radioButtonText}>{t('settings.tabs.discount_type_fixed')}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Discount Value</Text>
+            <Text style={styles.label}>{t('settings.tabs.discount_value')}</Text>
             <TextInput
               style={styles.input}
               value={String(editingDiscountRule ? editingDiscountRule.discount_value : newDiscountRule.discount_value)}
@@ -556,7 +559,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               style={[styles.button, styles.cancelButton]}
               onPress={() => setShowDiscountRuleModal(false)}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -564,7 +567,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={editingDiscountRule ? handleUpdateDiscountRule : handleCreateDiscountRule}
             >
               <Text style={styles.saveButtonText}>
-                {editingDiscountRule ? 'Update' : 'Create'}
+                {editingDiscountRule ? t('common.update') : t('settings.create')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -577,7 +580,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading settings...</Text>
+        <Text style={styles.loadingText}>{t('settings.loading')}</Text>
       </View>
     );
   }
@@ -590,7 +593,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
           <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{t('settings.title')}</Text>
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -599,15 +602,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {saving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
       </View>
 
       <View style={styles.tabBar}>
-        <TabButton title="Company" value="company" icon="business-outline" />
-        <TabButton title="Invoices" value="invoices" icon="document-text-outline" />
-        <TabButton title="Discounts" value="discounts" icon="pricetag-outline" />
+        <TabButton title={t('settings.tabs.company')} value="company" icon="business-outline" />
+        <TabButton title={t('settings.tabs.invoices')} value="invoices" icon="document-text-outline" />
+        <TabButton title={t('settings.tabs.discount_rules')} value="discounts" icon="pricetag-outline" />
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -616,12 +619,22 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {activeTab === 'discounts' && renderDiscountRules()}
 
         <View style={styles.section}>
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <Ionicons name="language-outline" size={20} color="#3B82F6" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingText}>{t('settings.language')}</Text>
+            </View>
+            <LanguageSwitcher style={{ marginLeft: 'auto' }} />
+          </View>
+          
           <TouchableOpacity style={styles.settingItem} onPress={onNavigateToUsers}>
             <View style={styles.settingIcon}>
               <Ionicons name="people-outline" size={20} color="#3B82F6" />
             </View>
             <View style={styles.settingContent}>
-              <Text style={styles.settingText}>User Management</Text>
+              <Text style={styles.settingText}>{t('users.title')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -631,7 +644,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
             </View>
             <View style={styles.settingContent}>
-              <Text style={styles.settingText}>Audit Log</Text>
+              <Text style={styles.settingText}>{t('auditLog.title')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -644,7 +657,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             </View>
             <View style={styles.settingContent}>
-              <Text style={styles.logoutText}>Sign Out</Text>
+              <Text style={styles.logoutText}>{t('auth.logout')}</Text>
             </View>
           </TouchableOpacity>
         </View>
