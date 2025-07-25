@@ -517,9 +517,40 @@ docker-compose exec api python scripts/create_super_user.py
 # - Super Admin: http://localhost:8080/super-admin
 ```
 
+## 🧪 Testing
+
+Comprehensive unit testing is available for both API and UI components.
+
+### Quick Test Commands
+
+```bash
+# Run all tests (API + UI)
+./run-tests.sh
+
+# API tests only
+cd api && ./run-tests.sh
+
+# UI tests only
+cd ui && ./run-tests.sh
+```
+
+### Test Coverage
+
+- **API Tests**: pytest with FastAPI TestClient
+- **UI Tests**: Vitest with React Testing Library
+- **Coverage Reports**: Generated in `api/htmlcov/` and `ui/coverage/`
+
+### Test Structure
+
+- **API**: `api/tests/` - Authentication, clients, invoices, payments
+- **UI**: `ui/src/components/__tests__/` - Component and utility tests
+
+For detailed testing information, see [TESTING.md](TESTING.md).
+
 ## 📚 Documentation
 
 - [API Documentation](http://localhost:8000/docs) - Interactive API docs
+- [Testing Guide](TESTING.md) - Comprehensive testing documentation
 - [Mobile App Guide](mobile/README.md) - Mobile app setup and usage
 - [Backend API](api/README.md) - Backend development guide
 - [Frontend Guide](ui/README.md) - Frontend development guide
