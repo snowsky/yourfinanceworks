@@ -491,7 +491,7 @@ POST /api/v1/email/send-invoice
    ```
 
 5. **Access the application**:
-   - Web: http://localhost:5173
+   - Web: http://localhost:8080
    - API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
 

@@ -53,7 +53,7 @@ const App = () => (
         </Routes>
       </BrowserRouter>
       <AIAssistant />
-      <Toaster position="top-right" richColors />
+      <Toaster position="bottom-center" richColors />
     </TooltipProvider>
   </QueryClientProvider>
 );
