@@ -290,7 +290,7 @@ export function AppSidebar() {
               aria-label={t('navigation.dark_mode')}
               title={t('navigation.dark_mode')}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="ml-2"
+              className="ml-2 border-sidebar-border bg-sidebar hover:bg-sidebar-accent text-sidebar-foreground hover:text-white"
             >
               {theme === 'dark' ? (
                 <Sun className="w-5 h-5" />

@@ -32,17 +32,17 @@ This document describes the minimal Slack integration that allows users to manag
 
 ## 🏗️ Architecture
 
-The Slack integration is built with minimal code and leverages existing MCP (Model Context Protocol) tools:
+The Slack integration is built with minimal code and uses direct database access:
 
 ```
-Slack → FastAPI Router → Command Parser → MCP Tools → Invoice API
+Slack → FastAPI Router → Command Parser → Service Layer → Database
 ```
 
 ### Components
 
 1. **SlackCommandParser** - Parses natural language commands into structured operations
 2. **SlackInvoiceBot** - Main bot logic that processes commands and formats responses
-3. **MCP Integration** - Uses existing MCP tools for all invoice/client operations
+3. **Service Layer Integration** - Uses existing services for all invoice/client operations
 4. **FastAPI Router** - Handles Slack webhooks and events
 
 ## 📦 Installation & Setup
@@ -97,18 +97,7 @@ Add these Bot Token Scopes:
 - **Slash Commands**: `https://your-domain.com/api/v1/slack/commands`
 - **Event Subscriptions**: `https://your-domain.com/api/v1/slack/events`
 
-### 5. Create Bot User Account
-
-Create a user account in your invoice app for the bot:
-
-```bash
-# Using the API or web interface
-Email: slack-bot@yourcompany.com
-Password: secure_bot_password
-Role: admin (recommended for full access)
-```
-
-### 6. Configure Environment Variables
+### 5. Configure Environment Variables
 
 Add to your `.env` file:
 
@@ -116,21 +105,18 @@ Add to your `.env` file:
 # Slack Integration
 SLACK_VERIFICATION_TOKEN=your_verification_token
 SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_BOT_EMAIL=slack-bot@yourcompany.com
-SLACK_BOT_PASSWORD=secure_bot_password
 
 # Optional
 SLACK_SIGNING_SECRET=your_signing_secret
 ```
 
-### 7. Deploy & Test
+### 6. Deploy & Test
 
 #### Using Docker
 ```bash
 # Add Slack variables to your .env file:
 echo "SLACK_VERIFICATION_TOKEN=your_token" >> .env
-echo "SLACK_BOT_EMAIL=slack-bot@yourcompany.com" >> .env
-echo "SLACK_BOT_PASSWORD=bot_password" >> .env
+echo "SLACK_BOT_TOKEN=xoxb-your-bot-token" >> .env
 
 # Restart to load new environment variables
 docker-compose restart api
@@ -219,14 +205,14 @@ Response:
 ### Common Issues
 
 1. **Bot not responding**
-   - Check if bot user account exists and has correct permissions
-   - Verify environment variables are set correctly
+   - Verify SLACK_VERIFICATION_TOKEN is set correctly
    - Check application logs
+   - Ensure webhook URLs are accessible
 
-2. **Authentication errors**
-   - Verify SLACK_BOT_EMAIL and SLACK_BOT_PASSWORD are correct
-   - Ensure bot user account is active
-   - Check if MCP tools are working independently
+2. **Database connection errors**
+   - Check if database is accessible
+   - Verify tenant configuration
+   - Check service layer functionality
 
 3. **Command parsing issues**
    - Commands are case-insensitive

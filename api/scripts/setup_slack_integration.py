@@ -16,8 +16,6 @@ def create_slack_env_template():
 # Slack Integration Configuration
 SLACK_VERIFICATION_TOKEN=your_slack_verification_token_here
 SLACK_BOT_TOKEN=xoxb-your-bot-token-here
-SLACK_BOT_EMAIL=slack-bot@yourcompany.com
-SLACK_BOT_PASSWORD=your_bot_password_here
 
 # Optional: Slack App Configuration
 SLACK_CLIENT_ID=your_slack_client_id
@@ -63,6 +61,7 @@ def create_slack_app_manifest():
                     "channels:read",
                     "groups:read",
                     "im:read",
+                    "im:history",
                     "mpim:read"
                 ]
             }
@@ -114,6 +113,7 @@ def print_setup_instructions():
      * channels:read
      * groups:read
      * im:read
+     * im:history
      * mpim:read
    
    - In "Slash Commands", create:
@@ -130,19 +130,13 @@ def print_setup_instructions():
    - Verification Token (from Basic Information)
    - Signing Secret (from Basic Information)
 
-4. CREATE BOT USER ACCOUNT:
-   - Create a user account in your invoice app for the bot
-   - Use email like: slack-bot@yourcompany.com
-   - Give it appropriate permissions (admin recommended)
-
-5. CONFIGURE ENVIRONMENT:
+4. CONFIGURE ENVIRONMENT:
    - Edit .env.slack with your credentials
    - Add to your main .env file:
      SLACK_VERIFICATION_TOKEN=your_token
-     SLACK_BOT_EMAIL=slack-bot@yourcompany.com
-     SLACK_BOT_PASSWORD=bot_password
+     SLACK_BOT_TOKEN=xoxb-your-bot-token
 
-6. DEPLOY & TEST:
+5. DEPLOY & TEST:
    - Deploy your app with Slack integration
    - Install the Slack app to your workspace
    - Test with: /invoice help

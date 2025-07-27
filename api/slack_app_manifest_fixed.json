@@ -1,0 +1,51 @@
+{
+  "display_information": {
+    "name": "Invoice Bot",
+    "description": "Manage invoices and clients directly from Slack",
+    "background_color": "#2c3e50"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Invoice Bot",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/invoice",
+        "url": "https://monster-humane-currently.ngrok-free.app/api/v1/slack/commands",
+        "description": "Manage invoices and clients",
+        "usage_hint": "create client John Doe, email: john@example.com"
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "commands",
+        "chat:write",
+        "app_mentions:read",
+        "channels:read",
+        "groups:read",
+        "im:read",
+        "im:history",
+        "mpim:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://monster-humane-currently.ngrok-free.app/api/v1/slack/events",
+      "bot_events": [
+        "app_mention",
+        "message.im"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://monster-humane-currently.ngrok-free.app/api/v1/slack/interactive"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

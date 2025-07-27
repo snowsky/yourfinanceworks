@@ -55,6 +55,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
+    lng: 'en', // Set English as default language
     fallbackLng: 'en',
     debug: __DEV__,
 

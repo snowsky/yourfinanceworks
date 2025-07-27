@@ -38,7 +38,7 @@ class Client(Base):
     # No tenant_id needed since each tenant has its own database
     
     name = Column(String, index=True)
-    email = Column(String, nullable=True)
+    email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
     balance = Column(Float, default=0.0)

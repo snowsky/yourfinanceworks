@@ -22,7 +22,7 @@ from routers import (
     ai_config, # Add the new AI config router
     super_admin, # Add the new super admin router
     audit_log, # Add the new audit log router
-    slack, # Add the new Slack router
+    slack_simplified, # Add the new simplified Slack router
     notifications # Add the new notifications router
 )
 from models.database import engine
@@ -96,7 +96,7 @@ app.include_router(discount_rules.router, prefix="/api/v1")
 app.include_router(ai.router, prefix="/api/v1") # Include the new AI router
 app.include_router(ai_config.router, prefix="/api/v1") # Include the new AI config router
 app.include_router(audit_log.router, prefix="/api/v1") # Include the new audit log router
-app.include_router(slack.router, prefix="/api/v1") # Include the new Slack router
+app.include_router(slack_simplified.router, prefix="/api/v1") # Include the new simplified Slack router
 app.include_router(notifications.router, prefix="/api/v1") # Include the new notifications router
 
 @app.get("/")

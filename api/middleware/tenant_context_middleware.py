@@ -17,6 +17,16 @@ ALGORITHM = "HS256"
 async def tenant_context_middleware(request: Request, call_next):
     clear_tenant_context()
     logger.debug(f"Request received: {request.method} {request.url}")
+    
+    # Skip tenant context for Slack endpoints
+    if request.url.path.startswith("/api/v1/slack/"):
+        logger.info(f"Skipping tenant context for Slack endpoint: {request.url.path}")
+        return await call_next(request)
+    
+    # Also skip for health endpoints and auth endpoints
+    if request.url.path in ["/health", "/", "/docs", "/openapi.json"] or request.url.path.startswith("/api/v1/auth/"):
+        return await call_next(request)
+    
     try:
         # Extract tenant context from authentication token
         try:
