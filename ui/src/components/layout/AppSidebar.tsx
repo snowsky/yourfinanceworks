@@ -29,7 +29,8 @@ import {
   ShieldCheck,
   ListChecks,
   Moon,
-  Sun
+  Sun,
+  Trash2
 } from "lucide-react";
 import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
@@ -352,6 +353,7 @@ export function AppSidebar() {
       label: t('navigation.payments'), 
       icon: <DollarSign className="w-5 h-5" /> 
     },
+
     // Only show Users menu item for admin users
     ...(isAdminUser ? [{ 
       path: '/users', 

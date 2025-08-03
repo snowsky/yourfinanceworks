@@ -592,6 +592,19 @@ export const invoiceApi = {
   deleteInvoice: (id: number) => 
     apiRequest(`/invoices/${id}`, { method: 'DELETE' }),
   
+  // Recycle bin methods
+  getDeletedInvoices: () => 
+    apiRequest<any[]>('/invoices/recycle-bin'),
+  restoreInvoice: (id: number, newStatus: string = 'draft') => 
+    apiRequest(`/invoices/${id}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ new_status: newStatus }),
+    }),
+  permanentlyDeleteInvoice: (id: number) => 
+    apiRequest(`/invoices/${id}/permanent`, { method: 'DELETE' }),
+  emptyRecycleBin: () => 
+    apiRequest('/invoices/recycle-bin/empty', { method: 'POST' }),
+  
   // Invoice history methods
   getInvoiceHistory: (invoiceId: number) => 
     apiRequest<InvoiceHistory[]>(`/invoices/${invoiceId}/history`),

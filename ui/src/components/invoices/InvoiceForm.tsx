@@ -506,20 +506,25 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
       currentDiscountValue: form.getValues("discountValue")
     });
     
-    if (invoice && isEdit && availableDiscountRules.length > 0 && !isRefreshingForm) {
+    if (invoice && isEdit && !isRefreshingForm) {
       // Check if form is already correctly set to avoid unnecessary resets
       const currentDiscountType = form.getValues("discountType");
       const currentDiscountValue = form.getValues("discountValue");
+      const currentCurrency = form.getValues("currency");
       
       console.log("Form reset check - current values:", {
         currentDiscountType,
         currentDiscountValue,
+        currentCurrency,
         invoiceDiscountValue: invoice.discount_value,
-        invoiceDiscountType: invoice.discount_type
+        invoiceDiscountType: invoice.discount_type,
+        invoiceCurrency: invoice.currency
       });
       
-      // Always check for discount rules when editing an invoice with a discount value
-      const shouldReset = currentDiscountValue !== (invoice.discount_value || 0) || 
+      // Always reset form when editing to ensure all values are properly set
+      // This includes currency, discount values, and other invoice data
+      const shouldReset = currentCurrency !== (invoice.currency || "USD") ||
+        currentDiscountValue !== (invoice.discount_value || 0) || 
         (invoice.discount_value && invoice.discount_value > 0 && currentDiscountType !== "rule");
       
       if (shouldReset) {
@@ -528,7 +533,8 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           discount_type: invoice.discount_type,
           discount_value: invoice.discount_value,
           subtotal: invoice.subtotal,
-          amount: invoice.amount
+          amount: invoice.amount,
+          currency: invoice.currency
         });
         console.log("Available discount rules:", availableDiscountRules);
         
@@ -626,10 +632,12 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
           console.log("Setting individual form values...");
           form.setValue("discountType", formData.discountType);
           form.setValue("discountValue", formData.discountValue);
+          form.setValue("currency", formData.currency);
           console.log("Individual form values set");
           console.log("Form values after setting:", {
             discountType: form.getValues("discountType"),
-            discountValue: form.getValues("discountValue")
+            discountValue: form.getValues("discountValue"),
+            currency: form.getValues("currency")
           });
         }, 100);
       }

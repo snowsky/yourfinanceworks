@@ -357,7 +357,9 @@
     "search_placeholder": "Buscar clientes...",
     "loading": "Cargando clientes...",
     "delete_client": "Eliminar Cliente",
-    "delete_confirm": "¿Estás seguro de que quieres eliminar {name}? Esta acción no se puede deshacer.",
+    "delete_confirm": "¿Estás seguro de que quieres eliminar {{name}}? Esta acción no se puede deshacer.",
+    "delete_success": "Cliente eliminado exitosamente",
+    "delete_error": "Error al eliminar cliente",
     "table": {
       "name": "Nombre",
       "email": "Correo",
@@ -769,6 +771,7 @@
     "NOT_AUTHORIZED": "No está autorizado para realizar esta acción.",
     "CLIENT_ALREADY_EXISTS": "Ya existe un cliente con este nombre y correo electrónico.",
     "CLIENT_NOT_FOUND": "Cliente no encontrado.",
+    "CLIENT_HAS_INVOICES": "No se puede eliminar el cliente porque tiene facturas asociadas. Por favor, elimina todas las facturas de este cliente primero.",
     "FAILED_TO_CREATE_CLIENT": "No se pudo crear el cliente. Inténtalo de nuevo.",
     "FAILED_TO_UPDATE_CLIENT": "No se pudo actualizar el cliente. Inténtalo de nuevo.",
     "FAILED_TO_FETCH_CLIENTS": "No se pudieron obtener los clientes. Inténtalo de nuevo.",

@@ -39,6 +39,9 @@ export function CurrencySelector({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Debug logging
+  console.log("CurrencySelector render - value:", value, "loading:", loading, "currencies count:", currencies.length);
+
   useEffect(() => {
     const fetchCurrencies = async () => {
       setLoading(true);
@@ -46,6 +49,7 @@ export function CurrencySelector({
         const data = await currencyApi.getSupportedCurrencies();
         if (data && data.length > 0) {
           setCurrencies(data);
+          console.log("Currencies loaded:", data.length, "currencies");
         } else {
           setError('No currencies available from API.');
         }
@@ -69,9 +73,10 @@ export function CurrencySelector({
   };
 
   if (loading) {
+    console.log("CurrencySelector loading state - value:", value);
     return (
       <div className={className}>
-        <Select disabled>
+        <Select value={value} onValueChange={onValueChange} disabled>
           <SelectTrigger>
             <SelectValue placeholder="Loading currencies..." />
           </SelectTrigger>
@@ -80,6 +85,7 @@ export function CurrencySelector({
     );
   }
 
+  console.log("CurrencySelector loaded state - value:", value, "active currencies:", activeCurrencies.length);
   return (
     <div className={className}>
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>

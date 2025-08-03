@@ -74,6 +74,8 @@ services:
       sh -c "/wait-for-it.sh postgres-master:5432 -- \
         echo 'Initializing database and running migrations...' && \
         python db_init.py && \
+        echo 'Setting up Alembic migrations...' && \
+        python scripts/manage_migrations.py setup || echo 'Migration setup completed or already done' && \
         echo 'Starting API server...' && \
         uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 

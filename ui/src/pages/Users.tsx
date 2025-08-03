@@ -98,11 +98,12 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const res = await api.get("/auth/users");
+      console.log("Fetched users from API:", res);
       // The API returns the array directly, not wrapped in a data property
       setUsers(Array.isArray(res) ? res : []);
     } catch (e: any) {
       console.error("Failed to load users:", e);
-      toast.error(t('users.failedToLoadUsers'));
+      toast.error(getErrorMessage(e, t));
       setUsers([]); // Set empty array on error
     } finally {
       setLoading(false);
@@ -166,7 +167,9 @@ export default function UsersPage() {
 
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
+      console.log("Updating role for user", userId, "to", newRole);
       await api.put(`/auth/users/${userId}/role`, { role: newRole });
+      console.log("Role update successful");
       toast.success(t('users.roleUpdated'));
       fetchUsers();
     } catch (err: any) {

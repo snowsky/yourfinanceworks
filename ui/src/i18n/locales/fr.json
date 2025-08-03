@@ -358,7 +358,9 @@
     "search_placeholder": "Rechercher des clients...",
     "loading": "Chargement des clients...",
     "delete_client": "Supprimer le Client",
-    "delete_confirm": "Êtes-vous sûr de vouloir supprimer {name} ? Cette action ne peut pas être annulée.",
+    "delete_confirm": "Êtes-vous sûr de vouloir supprimer {{name}} ? Cette action ne peut pas être annulée.",
+    "delete_success": "Client supprimé avec succès",
+    "delete_error": "Échec de la suppression du client",
     "table": {
       "name": "Nom",
       "email": "E-mail",
@@ -753,6 +755,7 @@
     "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à effectuer cette action.",
     "CLIENT_ALREADY_EXISTS": "Un client avec ce nom et cet e-mail existe déjà.",
     "CLIENT_NOT_FOUND": "Client non trouvé.",
+    "CLIENT_HAS_INVOICES": "Impossible de supprimer le client car il a des factures associées. Veuillez d'abord supprimer toutes les factures de ce client.",
     "FAILED_TO_CREATE_CLIENT": "Échec de la création du client. Veuillez réessayer.",
     "FAILED_TO_UPDATE_CLIENT": "Échec de la mise à jour du client. Veuillez réessayer.",
     "FAILED_TO_FETCH_CLIENTS": "Échec de la récupération des clients. Veuillez réessayer.",
