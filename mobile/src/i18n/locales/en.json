@@ -1114,7 +1114,6 @@
     "first_name_placeholder": "First name",
     "last_name_label": "Last Name",
     "last_name_placeholder": "Last name",
-    "tenant_label": "Tenant",
     "select_tenant_placeholder": "Select tenant",
     "role_label": "Role",
     "role_admin": "Admin",

@@ -27,6 +27,8 @@ const Login = () => {
 
     try {
       const data = await authApi.login(email, password);
+      // Clear any previous tenant selection
+      localStorage.removeItem('selected_tenant_id');
       // Store token and user info
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));

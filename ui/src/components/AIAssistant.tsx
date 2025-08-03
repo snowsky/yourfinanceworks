@@ -144,13 +144,13 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       setIsAdminUser(adminStatus);
       setAuthInitialized(true);
       
-      console.log('AI Assistant: Auth status update', { 
-        hasToken: !!token, 
-        hasUser: !!currentUser, 
-        authStatus, 
-        adminStatus,
-        shouldShow: authStatus && adminStatus 
-      });
+      // console.log('AI Assistant: Auth status update', { 
+      //   hasToken: !!token, 
+      //   hasUser: !!currentUser, 
+      //   authStatus, 
+      //   adminStatus,
+      //   shouldShow: authStatus && adminStatus 
+      // });
     };
     
     checkAuth();
@@ -159,7 +159,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     const handleStorageChange = (e: StorageEvent) => {
       // If token is removed, immediately hide AI assistant
       if (e.key === 'token' && !e.newValue) {
-        console.log('AI Assistant: Token removed, hiding assistant');
+        // console.log('AI Assistant: Token removed, hiding assistant');
         setIsAuthenticated(false);
         setUser(null);
         setIsAdminUser(false);
@@ -167,7 +167,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       }
       // If user data is removed, hide assistant
       if (e.key === 'user' && !e.newValue) {
-        console.log('AI Assistant: User data removed, hiding assistant');
+        // console.log('AI Assistant: User data removed, hiding assistant');
         setIsAuthenticated(false);
         setUser(null);
         setIsAdminUser(false);
@@ -175,7 +175,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       }
       // If token or user is added (login), immediately check auth
       if ((e.key === 'token' && e.newValue) || (e.key === 'user' && e.newValue)) {
-        console.log('AI Assistant: Login detected, checking auth');
+        // console.log('AI Assistant: Login detected, checking auth');
         setTimeout(checkAuth, 100); // Small delay to ensure both token and user are set
         return;
       }
@@ -187,7 +187,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     
     // Listen for logout events
     const handleLogout = () => {
-      console.log('AI Assistant: Logout event received, hiding assistant');
+      // console.log('AI Assistant: Logout event received, hiding assistant');
       setIsAuthenticated(false);
       setUser(null);
       setIsAdminUser(false);
@@ -203,14 +203,14 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       // If either token or user data is missing, hide the assistant
       if (!token || !userStr) {
         if (isAuthenticated) { // Only log if state changes
-          console.log('AI Assistant: Auth check interval - hiding due to missing credentials');
+          // console.log('AI Assistant: Auth check interval - hiding due to missing credentials');
           setIsAuthenticated(false);
           setUser(null);
           setIsAdminUser(false);
         }
       } else if (!isAuthenticated) {
         // If credentials exist but we think user is not authenticated, recheck
-        console.log('AI Assistant: Auth check interval - credentials found, rechecking auth');
+        // console.log('AI Assistant: Auth check interval - credentials found, rechecking auth');
         checkAuth();
       }
     }, 1000);
@@ -229,16 +229,16 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 
   // Return the appropriate component based on authentication state
   if (!isAuthenticated || !isAdminUser) {
-    console.log('AI Assistant: Not rendering - auth check failed', { 
-      isAuthenticated, 
-      isAdminUser,
-      authInitialized,
-      reason: !isAuthenticated ? 'not authenticated' : 'not admin user'
-    });
+    // console.log('AI Assistant: Not rendering - auth check failed', { 
+    //   isAuthenticated, 
+    //   isAdminUser,
+    //   authInitialized,
+    //   reason: !isAuthenticated ? 'not authenticated' : 'not admin user'
+    // });
     return null;
   }
 
-  console.log('AI Assistant: Rendering for authenticated admin user');
+  // console.log('AI Assistant: Rendering for authenticated admin user');
   return <AuthenticatedAIAssistant user={user} ref={ref} />;
 });
 
@@ -277,7 +277,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       if (query.state.error && 
           (query.state.error.message.includes('403') || 
            query.state.error.message.includes('Authentication failed'))) {
-        console.log('AI Assistant: Stopping refetch due to authentication error');
+        // console.log('AI Assistant: Stopping refetch due to authentication error');
         return false;
       }
       // Only refetch if AI assistant is not explicitly disabled
@@ -286,7 +286,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     },
     retry: (failureCount, error) => {
       if (error.message.includes('403') || error.message.includes('Authentication failed')) {
-        console.log('AI Assistant: Not retrying due to authentication error');
+        // console.log('AI Assistant: Not retrying due to authentication error');
         return false;
       }
       return failureCount < 3;
@@ -727,7 +727,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       }
     } catch (error) {
       console.error("Error getting AI response:", error);
-      const errorMessage = "Sorry, I encountered an error. Please try again or check your AI configuration.";
+      const errorMessage = t("aiAssistant.error_message");
       setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={errorMessage} /> }]);
     }
   };

@@ -16,7 +16,7 @@ from routers.auth import get_current_user
 from services.tenant_database_manager import tenant_db_manager
 from utils.auth import get_password_hash
 from utils.rbac import require_superuser
-from utils.audit import log_audit_event
+from utils.audit import log_audit_event, log_audit_event_master
 from constants.error_codes import USER_NOT_FOUND, ONLY_SUPERUSERS, FAILED_TO_IMPORT_DATA
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
@@ -724,9 +724,64 @@ async def promote_to_super_admin(
         raise HTTPException(status_code=404, detail=f"User with email '{request.email}' not found")
     if user.is_superuser:
         return {"message": f"User '{request.email}' is already a super admin."}
+    
+    # Store old role and superuser status for audit logging
+    old_role = user.role
+    old_is_superuser = user.is_superuser
+    
     user.is_superuser = True
     user.role = 'admin'
     master_db.commit()
+    
+    # Log audit event in master database
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="PROMOTE",
+        resource_type="user_superuser",
+        resource_id=str(user.id),
+        resource_name=f"Super admin promotion for {user.email}",
+        details={
+            "promoted_user_id": user.id,
+            "promoted_user_email": user.email,
+            "old_role": old_role,
+            "new_role": "admin",
+            "old_is_superuser": old_is_superuser,
+            "new_is_superuser": True,
+            "promoted_by": current_user.email
+        },
+        tenant_id=current_user.tenant_id,
+        status="success"
+    )
+    
+    # Also log audit event in tenant database for visibility in regular audit log
+    try:
+        tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        log_audit_event(
+            db=tenant_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="PROMOTE",
+            resource_type="user_superuser",
+            resource_id=str(user.id),
+            resource_name=f"Super admin promotion for {user.email}",
+            details={
+                "promoted_user_id": user.id,
+                "promoted_user_email": user.email,
+                "old_role": old_role,
+                "new_role": "admin",
+                "old_is_superuser": old_is_superuser,
+                "new_is_superuser": True,
+                "promoted_by": current_user.email
+            },
+            status="success"
+        )
+        tenant_db.close()
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Failed to log promotion to tenant audit log: {e}")
+    
     return {"message": f"User '{request.email}' has been promoted to super admin."} 
 
 @router.post("/demote", response_model=Dict[str, str])
@@ -745,8 +800,14 @@ async def demote_super_admin(
     super_admin_count = master_db.query(MasterUser).filter(MasterUser.is_superuser == True).count()
     if super_admin_count <= 1:
         raise HTTPException(status_code=400, detail="Cannot demote the last remaining super admin.")
+    
+    # Store old values for audit logging
+    old_role = user.role
+    old_is_superuser = user.is_superuser
+    
     user.is_superuser = False
     master_db.commit()
+    
     # Also update in tenant DB if user exists there
     try:
         tenant_id = user.tenant_id
@@ -760,4 +821,54 @@ async def demote_super_admin(
         tenant_session.close()
     except Exception as e:
         pass  # Ignore tenant DB errors
+    
+    # Log audit event in master database
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DEMOTE",
+        resource_type="user_superuser",
+        resource_id=str(user.id),
+        resource_name=f"Super admin demotion for {user.email}",
+        details={
+            "demoted_user_id": user.id,
+            "demoted_user_email": user.email,
+            "old_role": old_role,
+            "new_role": user.role,
+            "old_is_superuser": old_is_superuser,
+            "new_is_superuser": False,
+            "demoted_by": current_user.email
+        },
+        tenant_id=current_user.tenant_id,
+        status="success"
+    )
+    
+    # Also log audit event in tenant database for visibility in regular audit log
+    try:
+        tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        log_audit_event(
+            db=tenant_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DEMOTE",
+            resource_type="user_superuser",
+            resource_id=str(user.id),
+            resource_name=f"Super admin demotion for {user.email}",
+            details={
+                "demoted_user_id": user.id,
+                "demoted_user_email": user.email,
+                "old_role": old_role,
+                "new_role": user.role,
+                "old_is_superuser": old_is_superuser,
+                "new_is_superuser": False,
+                "demoted_by": current_user.email
+            },
+            status="success"
+        )
+        tenant_db.close()
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Failed to log demotion to tenant audit log: {e}")
+    
     return {"message": f"User '{request.email}' has been demoted from super admin."} 

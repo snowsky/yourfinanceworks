@@ -792,6 +792,12 @@ class ApiService {
   async getStoredUser(): Promise<User | null> {
     return await this.getUser();
   }
+
+  async getTenantInfo(): Promise<{ id: number; name: string; default_currency: string; [key: string]: any }> {
+    return await this.request('/tenants/me', { 
+      method: 'GET' 
+    });
+  }
 }
 
 const apiService = new ApiService();

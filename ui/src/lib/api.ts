@@ -301,6 +301,7 @@ export async function apiRequest<T>(
         // Only log out on 401 (unauthorized) - token is invalid/expired
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('selected_tenant_id');
         // Show toast and redirect to login
         toast.error('Session expired. Please log in again.');
         // Use window.location.replace for reliability
@@ -315,6 +316,7 @@ export async function apiRequest<T>(
           // This is a session/tenant context issue - log out the user
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          localStorage.removeItem('selected_tenant_id');
           toast.error('Session expired. Please log in again.');
           window.location.replace('/login');
           throw new Error('Session expired. Please log in again.');
@@ -330,6 +332,7 @@ export async function apiRequest<T>(
         // This is a session/tenant context issue - log out the user
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('selected_tenant_id');
         toast.error('Session expired. Please log in again.');
         window.location.replace('/login');
         throw new Error('Session expired. Please log in again.');
@@ -469,7 +472,7 @@ export const authApi = {
     apiRequest<any>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
-    }),
+    }, { isLogin: true }),
   checkOrganizationNameAvailability: (name: string) =>
     apiRequest<{ available: boolean; name: string }>(`/tenants/check-name-availability?name=${encodeURIComponent(name)}`, {
       method: 'GET',
@@ -928,6 +931,24 @@ export const aiApi = {
       method: 'POST',
       body: JSON.stringify({ message, config_id: configId }),
     }),
+};
+
+// Tenant API methods
+export const tenantApi = {
+  getTenantInfo: () => apiRequest<{
+    id: number;
+    name: string;
+    default_currency: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    tax_id?: string;
+    company_logo_url?: string;
+    enable_ai_assistant: boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  }>("/tenants/me", { method: 'GET' }, { skipTenant: true }),
 };
 
 // Generic API client for direct calls

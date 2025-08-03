@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from models.database import get_db, get_master_db
 from models.models_per_tenant import Client, User, Invoice
-from models.models import MasterUser
+from models.models import MasterUser, Tenant
 from routers.payments import Payment
 from schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
 from routers.auth import get_current_user
@@ -189,9 +189,29 @@ async def create_client(
                 detail=CLIENT_ALREADY_EXISTS
             )
         
+        # Prepare client data
+        client_data = client.dict()
+        
+        # If no preferred_currency is provided, use tenant's default currency
+        if not client_data.get('preferred_currency'):
+            try:
+                # Get tenant's default currency from master database
+                master_db = next(get_master_db())
+                try:
+                    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+                    if tenant and tenant.default_currency:
+                        client_data['preferred_currency'] = tenant.default_currency
+                    else:
+                        client_data['preferred_currency'] = 'USD'  # Fallback
+                finally:
+                    master_db.close()
+            except Exception as e:
+                logger.warning(f"Failed to get tenant default currency: {e}")
+                client_data['preferred_currency'] = 'USD'  # Fallback
+        
         # No tenant_id needed since each tenant has its own database
         db_client = Client(
-            **client.dict(),
+            **client_data,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )

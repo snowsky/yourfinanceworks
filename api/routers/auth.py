@@ -1405,7 +1405,7 @@ async def remove_user_from_organization(
             raise HTTPException(status_code=404, detail="User not found in this organization")
         
         # Cannot remove user from their primary tenant
-        raise HTTPException(status_code=400, detail="Cannot remove user from their primary organization")
+        raise HTTPException(status_code=400, detail="Cannot remove user from their home organization")
     
     # Get user details for logging
     user = db.query(MasterUser).filter(MasterUser.id == user_id).first()

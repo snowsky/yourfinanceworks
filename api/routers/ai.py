@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import asyncio
 import httpx
 
-from models.database import get_master_db, set_tenant_context
+from models.database import get_master_db, get_db, set_tenant_context
 from routers.auth import get_current_user
 from models.models import MasterUser, Tenant, Settings
 from models.models_per_tenant import Invoice, Client, AIConfig, AIChatHistory
@@ -27,6 +27,7 @@ router = APIRouter(
 
 @router.get("/analyze-patterns", summary="Analyze invoice patterns and trends")
 async def analyze_patterns(
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -124,6 +125,7 @@ async def analyze_patterns(
     
 @router.get("/suggest-actions", summary="Suggest actionable items based on invoice analysis")
 async def suggest_actions(
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
@@ -209,6 +211,7 @@ async def suggest_actions(
 async def ai_chat(
     message: str,
     config_id: int,
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """

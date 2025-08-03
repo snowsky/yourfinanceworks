@@ -319,10 +319,10 @@ const Settings = () => {
         enable_ai_assistant: aiAssistantEnabled
       };
       
-      console.log('Settings: Saving AI Assistant state', {
-        currentState: aiAssistantEnabled,
-        settingsData: settingsData.enable_ai_assistant
-      });
+      // console.log('Settings: Saving AI Assistant state', {
+      //   currentState: aiAssistantEnabled,
+      //   settingsData: settingsData.enable_ai_assistant
+      // });
       
       // Send to API
       await settingsApi.updateSettings(settingsData);

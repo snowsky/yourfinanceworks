@@ -43,11 +43,7 @@ interface NewInvoiceFormData {
 }
 
 interface NewInvoiceScreenProps {
-  clients: Array<{
-    id: number;
-    name: string;
-    email: string;
-  }>;
+  clients: Client[];
   onSaveInvoice: (formData: CreateInvoiceData) => Promise<void>;
   onNavigateBack: () => void;
 }
@@ -83,23 +79,26 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState(propClients);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
-  const [addClientForm, setAddClientForm] = useState({ name: '', email: '', phone: '', address: '', preferred_currency: 'USD' });
+  const [addClientForm, setAddClientForm] = useState({ name: '', email: '', phone: '', address: '', preferred_currency: '' });
   const [addClientLoading, setAddClientLoading] = useState(false);
   const [addClientError, setAddClientError] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
+  const [tenantInfo, setTenantInfo] = useState<{ default_currency: string } | null>(null);
   const [appliedDiscountRule, setAppliedDiscountRule] = useState<DiscountRule | null>(null);
 
   // Load settings and discount rules
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [settingsData, discountRulesData] = await Promise.all([
+        const [settingsData, discountRulesData, tenantData] = await Promise.all([
           apiService.getSettings(),
-          apiService.getDiscountRules()
+          apiService.getDiscountRules(),
+          apiService.getTenantInfo()
         ]);
         setSettings(settingsData);
         setDiscountRules(discountRulesData);
+        setTenantInfo(tenantData);
         
         // Auto-generate invoice number
         if (settingsData?.invoice_settings) {
@@ -113,6 +112,26 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
     };
     loadSettings();
   }, []);
+
+  // Update addClientForm when tenant info is loaded
+  useEffect(() => {
+    if (tenantInfo && tenantInfo.default_currency) {
+      setAddClientForm(prev => ({
+        ...prev,
+        preferred_currency: tenantInfo.default_currency
+      }));
+    }
+  }, [tenantInfo]);
+
+  // Ensure correct currency when modal opens
+  useEffect(() => {
+    if (showAddClientModal && tenantInfo) {
+      setAddClientForm(prev => ({
+        ...prev,
+        preferred_currency: tenantInfo.default_currency || 'USD'
+      }));
+    }
+  }, [showAddClientModal, tenantInfo]);
 
   const handleChange = (field: keyof NewInvoiceFormData, value: any) => {
     setFormData(prev => ({
@@ -278,13 +297,28 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
     setAddClientError(null);
 
     try {
-      const newClient = await apiService.createClient(addClientForm);
+      // Ensure preferred_currency is set before creating client
+      const clientData = {
+        ...addClientForm,
+        preferred_currency: addClientForm.preferred_currency || tenantInfo?.default_currency || 'USD'
+      };
+      console.log("Creating client with data:", clientData);
+      
+      const newClient = await apiService.createClient(clientData);
+      console.log("Created client:", newClient);
+      
       setClients(prev => [...prev, newClient]);
       setShowAddClientModal(false);
-      setAddClientForm({ name: '', email: '', phone: '', address: '', preferred_currency: 'USD' });
+      setAddClientForm({ name: '', email: '', phone: '', address: '', preferred_currency: tenantInfo?.default_currency || 'USD' });
       
       // Auto-select the new client
       handleChange('client_id', newClient.id);
+      
+      // Set currency to client's preferred currency when client is created
+      if (newClient.preferred_currency) {
+        console.log("Setting currency to newly created client's preferred currency:", newClient.preferred_currency);
+        handleChange('currency', newClient.preferred_currency);
+      }
     } catch (error: any) {
       setAddClientError(error.message || 'Failed to create client');
     } finally {
@@ -604,6 +638,13 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
                   style={styles.clientOption}
                   onPress={() => {
                     handleChange('client_id', client.id);
+                    
+                    // Set currency to client's preferred currency when client is selected
+                    if (client.preferred_currency) {
+                      console.log("Setting currency to selected client's preferred currency:", client.preferred_currency);
+                      handleChange('currency', client.preferred_currency);
+                    }
+                    
                     setShowClientModal(false);
                   }}
                 >

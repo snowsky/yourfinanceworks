@@ -1119,7 +1119,6 @@
     "first_name_placeholder": "Nombre",
     "last_name_label": "Apellido",
     "last_name_placeholder": "Apellido",
-    "tenant_label": "Inquilino",
     "select_tenant_placeholder": "Selecciona un inquilino",
     "role_label": "Rol",
     "role_admin": "Administrador",

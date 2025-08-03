@@ -19,7 +19,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { isAdmin } from "@/utils/auth";
-import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule } from "@/lib/api";
+import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -104,12 +104,13 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     email: "",
     phone: "",
     address: "",
-    preferred_currency: "USD",
+    preferred_currency: "",
   });
   const [settings, setSettings] = useState<Settings | null>(null);
   const [updateHistory, setUpdateHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isRecurring, setIsRecurring] = useState(invoice?.is_recurring || false);
+  const [tenantInfo, setTenantInfo] = useState<{ default_currency: string } | null>(null);
 
 
   const [itemKeyCounter, setItemKeyCounter] = useState(0);
@@ -252,17 +253,20 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         // Get current user role using utility function
         const isAdminUser = isAdmin();
         
-        // Fetch clients and discount rules (always)
-        const [clientsData, discountRulesData] = await Promise.all([
+        // Fetch clients, discount rules, and tenant info (always)
+        const [clientsData, discountRulesData, tenantData] = await Promise.all([
           clientApi.getClients(),
-          discountRulesApi.getDiscountRules()
+          discountRulesApi.getDiscountRules(),
+          tenantApi.getTenantInfo()
         ]);
         console.log("Clients data loaded:", clientsData);
         clientsData.forEach(client => {
           console.log(`Client ${client.name}: preferred_currency=${client.preferred_currency}`);
         });
+        console.log("Tenant data loaded:", tenantData);
         setClients(clientsData);
         setAvailableDiscountRules(discountRulesData);
+        setTenantInfo(tenantData);
         
         // Only fetch settings for admin users
         if (isAdminUser) {
@@ -339,13 +343,33 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
     }
   }, [invoice]);
 
+  // Update newClientForm when tenant info is loaded
+  useEffect(() => {
+    if (tenantInfo && tenantInfo.default_currency) {
+      setNewClientForm(prev => ({
+        ...prev,
+        preferred_currency: tenantInfo.default_currency
+      }));
+    }
+  }, [tenantInfo]);
+
+  // Ensure correct currency when dialog opens
+  useEffect(() => {
+    if (showNewClientDialog && tenantInfo) {
+      setNewClientForm(prev => ({
+        ...prev,
+        preferred_currency: tenantInfo.default_currency || "USD"
+      }));
+    }
+  }, [showNewClientDialog, tenantInfo]);
+
   const resetNewClientForm = () => {
     setNewClientForm({
       name: "",
       email: "",
       phone: "",
       address: "",
-      preferred_currency: "USD",
+      preferred_currency: tenantInfo?.default_currency || "USD",
     });
   };
 
@@ -359,13 +383,28 @@ export function InvoiceForm({ invoice, isEdit = false }: InvoiceFormProps) {
         return;
       }
 
-      const newClient = await clientApi.createClient({
+      // Ensure preferred_currency is set before creating client
+      const clientData = {
         ...newClientForm,
+        preferred_currency: newClientForm.preferred_currency || tenantInfo?.default_currency || "USD",
         balance: 0,
         paid_amount: 0,
-      });
+      };
+      console.log("Creating client with data:", clientData);
+      
+      const newClient = await clientApi.createClient(clientData);
+      console.log("Created client:", newClient);
       setClients([...clients, newClient]);
       form.setValue("client", newClient.id.toString());
+      
+      // Defer currency update to avoid React warning
+      if (newClient.preferred_currency && !isEdit) {
+        console.log("Setting currency to newly created client's preferred currency:", newClient.preferred_currency);
+        setTimeout(() => {
+          form.setValue("currency", newClient.preferred_currency);
+        }, 0);
+      }
+      
       setShowNewClientDialog(false);
       resetNewClientForm();
       toast.success("Client created successfully!");

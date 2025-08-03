@@ -143,5 +143,6 @@ export const canAccess = (feature: string, allowedRoles: UserRole[]): boolean =>
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('selected_tenant_id');
   window.location.href = '/login';
 }; 

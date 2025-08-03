@@ -208,6 +208,8 @@ const Signup: React.FC = () => {
 
     try {
       const data = await authApi.register(formData);
+      // Clear any previous tenant selection
+      localStorage.removeItem('selected_tenant_id');
       // Store token and user info
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));

@@ -1124,7 +1124,6 @@
     "first_name_placeholder": "Prénom",
     "last_name_label": "Nom",
     "last_name_placeholder": "Nom",
-    "tenant_label": "Locataire",
     "select_tenant_placeholder": "Sélectionnez un locataire",
     "role_label": "Rôle",
     "role_admin": "Administrateur",
