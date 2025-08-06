@@ -170,8 +170,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate }: Invoic
     if (invoice) {
       console.log("🔍 INITIALIZING attachmentInfo from invoice:", {
         has_attachment: invoice.has_attachment,
-        attachment_filename: invoice.attachment_filename,
-        attachment_path: invoice.attachment_path
+        attachment_filename: invoice.attachment_filename
       });
       setAttachmentInfo({
         has_attachment: invoice.has_attachment || !!invoice.attachment_filename,
@@ -487,8 +486,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate }: Invoic
       console.log("[DEBUG] Form initialized with invoice data:", invoice);
       console.log("[DEBUG] Attachment info:", {
         has_attachment: invoice.has_attachment,
-        attachment_filename: invoice.attachment_filename,
-        attachment_path: invoice.attachment_path
+        attachment_filename: invoice.attachment_filename
       });
       console.log("[DEBUG] Form currency default:", form.getValues("currency"));
       console.log("Form initialized with invoice data:");
