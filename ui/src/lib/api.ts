@@ -258,10 +258,15 @@ export async function apiRequest<T>(
       }
     }
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` }),
       ...extraHeaders,
     };
+    
+    // Only set Content-Type for non-FormData requests
+    // FormData requests need the browser to set Content-Type with boundary
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
     if (!config.skipTenant && tenantId) {
       headers['X-Tenant-ID'] = tenantId;
       console.log(`🔄 API Request: ${requestUrl} with X-Tenant-ID: ${tenantId}`);

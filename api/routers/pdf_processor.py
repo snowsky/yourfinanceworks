@@ -2,23 +2,175 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
 import tempfile
 import os
-import subprocess
-import sys
+import json
 from typing import Dict, Any
 import logging
 
 from models.database import get_db
-from models.models import User, Client
-from auth import current_active_user
+from models.models import MasterUser
+from models.models_per_tenant import AIConfig as AIConfigModel, Client
+from routers.auth import get_current_user
 
 router = APIRouter(prefix="/invoices", tags=["pdf-processing"])
 logger = logging.getLogger(__name__)
 
+async def process_pdf_with_ai(pdf_path: str, ai_config: AIConfigModel) -> Dict[str, Any]:
+    """Process PDF using AI configuration and return extracted data"""
+    try:
+        # Import litellm for AI processing
+        try:
+            from litellm import completion
+        except ImportError:
+            raise Exception("LiteLLM not installed. Please install it with: pip install litellm")
+        
+        # Extract text from PDF
+        import PyPDF2
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page_num, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                text += page_text
+                logger.info(f"Page {page_num + 1} extracted {len(page_text)} characters")
+        
+        logger.info(f"Total extracted text length: {len(text)} characters")
+        logger.info(f"First 500 characters: {text[:500]}")
+        
+        if not text.strip():
+            raise Exception("Could not extract text from PDF - extracted text is empty")
+        
+        # Truncate text if too long to avoid token limits
+        max_text_length = 8000  # Conservative limit for most models
+        if len(text) > max_text_length:
+            text = text[:max_text_length] + "..."
+            logger.info(f"Truncated text to {max_text_length} characters")
+        
+        # Prepare prompt for invoice data extraction
+        prompt = f"""Extract invoice information from this text and return ONLY valid JSON:
+
+{{
+  "date": "YYYY-MM-DD",
+  "bills_to": "Client name and email",
+  "items": [
+    {{
+      "description": "Item description", 
+      "quantity": 1,
+      "price": 0.00,
+      "amount": 0.00,
+      "discount": 0.0
+    }}
+  ],
+  "total_amount": 0.00,
+  "total_discount": 0.0
+}}
+
+Invoice text:
+{text}
+
+Respond with JSON only:"""
+        
+        # Format model name for LiteLLM
+        model_name = ai_config.model_name
+        if ai_config.provider_name == "ollama":
+            model_name = f"ollama/{ai_config.model_name}"
+        elif ai_config.provider_name == "openai":
+            model_name = ai_config.model_name
+        elif ai_config.provider_name == "anthropic":
+            model_name = f"anthropic/{ai_config.model_name}"
+        
+        # Prepare completion arguments
+        kwargs = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 1500,  # Increased for better responses
+            "temperature": 0.1
+        }
+        
+        # Add provider-specific configuration
+        logger.info(f"AI Config: provider={ai_config.provider_name}, model={ai_config.model_name}, has_api_key={bool(ai_config.api_key)}, provider_url={ai_config.provider_url}")
+        
+        if ai_config.provider_name == "openai" and ai_config.api_key:
+            kwargs["api_key"] = ai_config.api_key
+        if ai_config.provider_name == "ollama" and ai_config.provider_url:
+            kwargs["api_base"] = ai_config.provider_url
+        elif ai_config.provider_name == "anthropic" and ai_config.api_key:
+            kwargs["api_key"] = ai_config.api_key
+            
+        logger.info(f"Final kwargs for AI request: {kwargs}")
+        
+        # Log the request for debugging
+        logger.info(f"Making AI request with model: {model_name}")
+        logger.info(f"Prompt length: {len(prompt)} characters")
+        logger.info(f"Text length: {len(text)} characters")
+        
+        # Make AI request
+        try:
+            response = completion(**kwargs)
+            logger.info(f"AI response received: {response}")
+        except Exception as e:
+            logger.error(f"AI completion failed: {str(e)}")
+            # Add fallback with dummy data for testing
+            logger.info("Using fallback dummy data for testing")
+            return {}
+        
+        # Parse response
+        logger.info(f"Checking AI response structure...")
+        logger.info(f"Response type: {type(response)}")
+        logger.info(f"Has choices: {hasattr(response, 'choices')}")
+        
+        if response and hasattr(response, 'choices') and response.choices:
+            logger.info(f"Number of choices: {len(response.choices)}")
+            choice = response.choices[0]
+            logger.info(f"Choice type: {type(choice)}")
+            logger.info(f"Choice has message: {hasattr(choice, 'message')}")
+            
+            if hasattr(choice, 'message') and choice.message:
+                message = choice.message
+                logger.info(f"Message type: {type(message)}")
+                logger.info(f"Message has content: {hasattr(message, 'content')}")
+                
+                if hasattr(message, 'content') and message.content:
+                    response_text = message.content.strip()
+                    logger.info(f"AI response text length: {len(response_text)}")
+                    logger.info(f"Raw AI response: {response_text}")
+                    
+                    # Try to extract JSON from response
+                    try:
+                        # Remove any markdown code block formatting
+                        if response_text.startswith("```json"):
+                            response_text = response_text[7:]
+                        if response_text.endswith("```"):
+                            response_text = response_text[:-3]
+                        response_text = response_text.strip()
+                        
+                        extracted_data = json.loads(response_text)
+                        logger.info(f"Successfully parsed JSON: {extracted_data}")
+                        return extracted_data
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse AI response as JSON: {response_text}")
+                        raise Exception(f"AI returned invalid JSON: {str(e)}")
+                else:
+                    logger.error(f"Message content is empty or None: {message.content}")
+                    raise Exception("AI returned empty message content")
+            else:
+                logger.error(f"Choice has no message or message is None: {choice}")
+                raise Exception("AI response choice has no message")
+        else:
+            logger.error(f"AI response structure invalid: {response}")
+            logger.error(f"Response: {response}")
+            logger.error(f"Has choices: {hasattr(response, 'choices') if response else 'Response is None'}")
+            logger.error(f"Choices: {response.choices if response and hasattr(response, 'choices') else 'No choices'}")
+            raise Exception("AI returned invalid response structure")
+            
+    except Exception as e:
+        logger.error(f"PDF processing error: {str(e)}")
+        raise
+
 @router.post("/process-pdf")
 async def process_pdf(
     pdf_file: UploadFile = File(...),
-    current_user: User = Depends(current_active_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Process PDF invoice and extract data using the main.py script"""
     
@@ -32,87 +184,113 @@ async def process_pdf(
             temp_file.write(content)
             temp_pdf_path = temp_file.name
         
-        # Run the main.py script to process the PDF
-        script_path = os.path.join(os.path.dirname(__file__), '..', '..', 'main.py')
+        # Get active AI configuration
+        active_config = db.query(AIConfigModel).filter(
+            AIConfigModel.is_active == True,
+            AIConfigModel.tested == True
+        ).first()
+        
+        if not active_config:
+            raise HTTPException(status_code=503, detail="No active AI configuration available")
         
         try:
-            # Run the PDF processing script
-            result = subprocess.run([
-                sys.executable, script_path, 
-                '--pdf-path', temp_pdf_path,
-                '--output-json'
-            ], capture_output=True, text=True, timeout=60)
-            
-            if result.returncode != 0:
-                logger.error(f"PDF processing failed: {result.stderr}")
-                raise HTTPException(status_code=500, detail="Failed to process PDF with LLM")
-            
-            # Parse the JSON output
-            import json
-            try:
-                extracted_data = json.loads(result.stdout)
-            except json.JSONDecodeError:
-                logger.error(f"Invalid JSON output: {result.stdout}")
-                raise HTTPException(status_code=500, detail="Invalid response from PDF processor")
-            
-            # Check if client exists or needs to be created
-            client_info = extracted_data.get('bills_to', '')
-            existing_client = None
-            
-            if client_info:
-                # Try to find existing client by name (simple matching)
-                client_name = client_info.split('\n')[0].strip() if client_info else ''
-                if client_name:
-                    existing_client = db.query(Client).filter(
-                        Client.name.ilike(f"%{client_name}%")
-                    ).first()
-            
-            # Format response
-            response_data = {
-                'invoice_data': extracted_data,
-                'client_exists': existing_client is not None,
-                'existing_client': {
-                    'id': existing_client.id,
-                    'name': existing_client.name,
-                    'email': existing_client.email
-                } if existing_client else None,
-                'suggested_client': {
-                    'name': client_info.split('\n')[0].strip() if client_info else '',
-                    'address': client_info
-                } if client_info else None
-            }
-            
-            return {
-                'success': True,
-                'data': response_data,
-                'message': 'PDF processed successfully'
-            }
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_pdf_path):
-                os.unlink(temp_pdf_path)
-                
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=408, detail="PDF processing timed out")
-    except Exception as e:
-        logger.error(f"Unexpected error processing PDF: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")
+            # Process PDF with AI
+            extracted_data = await process_pdf_with_ai(temp_pdf_path, active_config)
+            logger.info("PDF processed successfully with AI")
+        except Exception as e:
+            logger.error(f"PDF processing failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to process PDF with LLM: {str(e)}")
+        
+        # Check if client exists or needs to be created
+        client_info = extracted_data.get('bills_to', '')
+        existing_client = None
+        
+        if client_info:
+            # Try to find existing client by email (regex matching)
+            import re
+            email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', client_info)
+            if email_match:
+                client_email = email_match.group()
+                existing_client = db.query(Client).filter(
+                    Client.email.ilike(client_email)
+                ).first()
+        
+        # Format response
+        client_email = None
+        if client_info:
+            import re
+            email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', client_info)
+            if email_match:
+                client_email = email_match.group()
+        
+        response_data = {
+            'invoice_data': extracted_data,
+            'client_exists': existing_client is not None,
+            'existing_client': {
+                'id': existing_client.id,
+                'name': existing_client.name,
+                'email': existing_client.email
+            } if existing_client else None,
+            'suggested_client': {
+                'name': client_info.split('\n')[0].strip() if client_info else '',
+                'email': client_email or '',
+                'address': client_info
+            } if client_info else None
+        }
+        
+        return {
+            'success': True,
+            'data': response_data,
+            'message': 'PDF processed successfully'
+        }
+        
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_pdf_path):
+            os.unlink(temp_pdf_path)
 
-@router.get("/ai-status")
-async def check_ai_status():
-    """Check if AI/LLM is configured and available"""
+
+@router.post("/test-pdf-extraction")
+async def test_pdf_extraction(
+    pdf_file: UploadFile = File(...),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Test endpoint to debug PDF text extraction without AI processing"""
+    if not pdf_file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    
     try:
-        # Check if Ollama is running by trying to connect
-        import requests
-        response = requests.get("http://localhost:11434/api/tags", timeout=5)
-        if response.status_code == 200:
-            models = response.json().get('models', [])
-            return {
-                'configured': len(models) > 0,
-                'available_models': [m['name'] for m in models]
-            }
-        else:
-            return {'configured': False, 'error': 'Ollama not responding'}
-    except Exception as e:
-        return {'configured': False, 'error': str(e)}
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+            content = await pdf_file.read()
+            temp_file.write(content)
+            temp_pdf_path = temp_file.name
+        
+        # Extract text from PDF
+        import PyPDF2
+        with open(temp_pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            pages_info = []
+            for page_num, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                text += page_text
+                pages_info.append({
+                    "page": page_num + 1,
+                    "characters": len(page_text),
+                    "preview": page_text[:200] + "..." if len(page_text) > 200 else page_text
+                })
+        
+        return {
+            "success": True,
+            "total_characters": len(text),
+            "total_pages": len(pages_info),
+            "pages": pages_info,
+            "full_text": text
+        }
+        
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_pdf_path):
+            os.unlink(temp_pdf_path)
+

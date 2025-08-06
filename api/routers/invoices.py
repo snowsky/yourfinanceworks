@@ -508,6 +508,30 @@ async def permanently_delete_invoice(
             detail=f"Failed to permanently delete invoice: {str(e)}"
         )
 
+@router.get("/ai-status")
+async def get_ai_status(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Check if AI/LLM is configured and available for PDF processing"""
+    try:
+        from models.models_per_tenant import AIConfig as AIConfigModel
+        
+        # Check if there's at least one active and tested AI configuration
+        active_config = db.query(AIConfigModel).filter(
+            AIConfigModel.is_active == True,
+            AIConfigModel.tested == True
+        ).first()
+        
+        return {
+            "configured": active_config is not None
+        }
+    except Exception as e:
+        logger.error(f"Error checking AI status: {str(e)}")
+        return {
+            "configured": False
+        }
+
 @router.get("/{invoice_id}", response_model=InvoiceWithClient)
 async def read_invoice(
     invoice_id: int,
@@ -1110,6 +1134,7 @@ async def get_invoice_history(
 async def create_invoice_history_entry(
     invoice_id: int,
     history_entry: InvoiceHistoryCreate,
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Create a new history entry for an invoice"""
@@ -1152,29 +1177,7 @@ async def create_invoice_history_entry(
             detail="Failed to create invoice history entry"
         )
 
-@router.get("/ai-status")
-async def get_ai_status(
-    db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
-):
-    """Check if AI/LLM is configured and available for PDF processing"""
-    try:
-        from models.models_per_tenant import AIConfig as AIConfigModel
-        
-        # Check if there's at least one active and tested AI configuration
-        active_config = db.query(AIConfigModel).filter(
-            AIConfigModel.is_active == True,
-            AIConfigModel.tested == True
-        ).first()
-        
-        return {
-            "configured": active_config is not None
-        }
-    except Exception as e:
-        logger.error(f"Error checking AI status: {str(e)}")
-        return {
-            "configured": False
-        }
+
 
 @router.get("/{invoice_id}/pdf")
 async def download_invoice_pdf(

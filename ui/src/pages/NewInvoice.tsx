@@ -22,20 +22,23 @@ const NewInvoice = () => {
       let clientId = null;
       
       // Check if client exists or create new one
-      if (!pdfData.client_exists && pdfData.suggested_client) {
+      if (pdfData.client_exists && pdfData.existing_client) {
+        // Use existing client
+        clientId = pdfData.existing_client.id;
+        toast.success(`Using existing client: ${pdfData.existing_client.name}`);
+      } else if (!pdfData.client_exists && pdfData.suggested_client) {
+        // Create new client
         const newClient = await clientApi.createClient({
           name: pdfData.suggested_client.name,
-          email: '',
+          email: pdfData.suggested_client.email || '',
           phone: '',
-          address: pdfData.suggested_client.address,
+          address: pdfData.suggested_client.address || '',
           preferred_currency: 'USD',
           balance: 0,
           paid_amount: 0,
         });
         clientId = newClient.id;
         toast.success(`Created new client: ${newClient.name}`);
-      } else if (pdfData.existing_client) {
-        clientId = pdfData.existing_client.id;
       }
 
       // Prepare initial data from PDF extraction
@@ -47,7 +50,7 @@ const NewInvoice = () => {
       })) || [{ description: '', quantity: 1, price: 0 }];
 
       setInitialData({
-        client: clientId?.toString(),
+        client: clientId?.toString() || '',
         items: formattedItems,
         notes: `Imported from PDF: ${pdfFile.name}`,
         date: invoiceData.date ? new Date(invoiceData.date) : new Date(),

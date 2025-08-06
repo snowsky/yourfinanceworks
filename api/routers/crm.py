@@ -19,7 +19,12 @@ async def create_client_note(
     note: ClientNoteCreate,
     current_user: MasterUser = Depends(get_current_user)
 ):
-    # Manually set tenant context and get tenant database    try:
+    # Manually set tenant context and get tenant database
+    set_tenant_context(current_user.tenant_id)
+    SessionLocal = tenant_db_manager.get_tenant_session(current_user.tenant_id)
+    db = SessionLocal()
+    
+    try:
         # Check if client exists
         db_client = db.query(Client).filter(Client.id == client_id).first()
         if not db_client:
@@ -35,14 +40,23 @@ async def create_client_note(
         db.add(db_note)
         db.commit()
         db.refresh(db_note)
-        return db_note@router.put("/clients/{client_id}/notes/{note_id}", response_model=ClientNoteSchema)
+        return db_note
+    finally:
+        db.close()
+
+@router.put("/clients/{client_id}/notes/{note_id}", response_model=ClientNoteSchema)
 async def update_client_note(
     client_id: int,
     note_id: int,
     note: ClientNoteCreate,
     current_user: MasterUser = Depends(get_current_user)
 ):
-    # Manually set tenant context and get tenant database    try:
+    # Manually set tenant context and get tenant database
+    set_tenant_context(current_user.tenant_id)
+    SessionLocal = tenant_db_manager.get_tenant_session(current_user.tenant_id)
+    db = SessionLocal()
+    
+    try:
         # Check if client exists
         db_client = db.query(Client).filter(Client.id == client_id).first()
         if not db_client:
@@ -62,13 +76,22 @@ async def update_client_note(
         
         db.commit()
         db.refresh(db_note)
-        return db_note@router.delete("/clients/{client_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+        return db_note
+    finally:
+        db.close()
+
+@router.delete("/clients/{client_id}/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_client_note(
     client_id: int,
     note_id: int,
     current_user: MasterUser = Depends(get_current_user)
 ):
-    # Manually set tenant context and get tenant database    try:
+    # Manually set tenant context and get tenant database
+    set_tenant_context(current_user.tenant_id)
+    SessionLocal = tenant_db_manager.get_tenant_session(current_user.tenant_id)
+    db = SessionLocal()
+    
+    try:
         # Check if client exists
         db_client = db.query(Client).filter(Client.id == client_id).first()
         if not db_client:
@@ -84,12 +107,21 @@ async def delete_client_note(
 
         # Delete the note
         db.delete(db_note)
-        db.commit()@router.get("/clients/{client_id}/notes", response_model=List[ClientNoteSchema])
+        db.commit()
+    finally:
+        db.close()
+
+@router.get("/clients/{client_id}/notes", response_model=List[ClientNoteSchema])
 async def get_client_notes(
     client_id: int,
     current_user: MasterUser = Depends(get_current_user)
 ):
-    # Manually set tenant context and get tenant database    try:
+    # Manually set tenant context and get tenant database
+    set_tenant_context(current_user.tenant_id)
+    SessionLocal = tenant_db_manager.get_tenant_session(current_user.tenant_id)
+    db = SessionLocal()
+    
+    try:
         # Check if client exists
         db_client = db.query(Client).filter(Client.id == client_id).first()
         if not db_client:
@@ -97,3 +129,5 @@ async def get_client_notes(
 
         notes = db.query(ClientNote).filter(ClientNote.client_id == client_id).all()
         return notes
+    finally:
+        db.close()
