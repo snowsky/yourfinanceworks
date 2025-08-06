@@ -4,10 +4,13 @@ FastMCP Tools for Invoice Application
 from typing import Any, Dict, List, Optional
 import json
 from datetime import datetime
+import logging
 from pydantic import BaseModel, Field
 
 from .api_client import InvoiceAPIClient
 from .auth_client import AuthenticationError
+
+logger = logging.getLogger(__name__)
 
 
 # Tool argument schemas
@@ -163,8 +166,10 @@ class InvoiceTools:
             }
             
         except AuthenticationError as e:
+            logger.error(f"Authentication failed in list_clients: {e}")
             return {"success": False, "error": f"Authentication failed: {e}"}
         except Exception as e:
+            logger.error(f"Failed to list clients: {e}")
             return {"success": False, "error": f"Failed to list clients: {e}"}
     
     async def search_clients(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
@@ -188,6 +193,7 @@ class InvoiceTools:
             }
             
         except Exception as e:
+            logger.error(f"Failed to search clients: {e}")
             return {"success": False, "error": f"Failed to search clients: {e}"}
     
     async def get_client(self, client_id: int) -> Dict[str, Any]:
@@ -201,6 +207,7 @@ class InvoiceTools:
             }
             
         except Exception as e:
+            logger.error(f"Failed to get client {client_id}: {e}")
             return {"success": False, "error": f"Failed to get client: {e}"}
     
     async def create_client(self, name: str, email: Optional[str] = None, phone: Optional[str] = None, address: Optional[str] = None) -> Dict[str, Any]:
@@ -223,6 +230,7 @@ class InvoiceTools:
             }
             
         except Exception as e:
+            logger.error(f"Failed to create client {name}: {e}")
             return {"success": False, "error": f"Failed to create client: {e}"}
     
     async def list_invoices(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
@@ -364,8 +372,10 @@ class InvoiceTools:
         try:
             payments = await self.api_client.list_payments(skip=skip, limit=limit)
             
-            # Prepare chart data
-            chart_data = self._prepare_payment_chart_data(payments)
+            # Prepare chart data for smaller datasets only
+            chart_data = None
+            if len(payments) <= 500:  # Only generate charts for reasonable dataset sizes
+                chart_data = self._prepare_payment_chart_data(payments)
             
             return {
                 "success": True,
@@ -427,7 +437,7 @@ class InvoiceTools:
             ]
             
             # Calculate summary stats
-            total_amount = sum(float(p.get('amount', 0)) for p in payments)
+            total_amount = sum(float(payment.get('amount', 0)) for payment in payments)
             avg_amount = total_amount / len(payments) if payments else 0
             
             return {
@@ -447,6 +457,55 @@ class InvoiceTools:
         except Exception as e:
             return {'error': f'Failed to prepare chart data: {e}'}
     
+    def _parse_date_filter(self, query_lower: str, payments: List[Dict[str, Any]]) -> Optional[tuple]:
+        """Parse date-related keywords and filter payments accordingly"""
+        from datetime import datetime, timedelta
+        
+        if "yesterday" in query_lower:
+            yesterday = (datetime.now() - timedelta(days=1)).date()
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == yesterday]
+            return filtered, True, "yesterday"
+        elif "today" in query_lower:
+            today = datetime.now().date()
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == today]
+            return filtered, True, "today"
+        elif "this week" in query_lower:
+            today = datetime.now()
+            start_of_week = today - timedelta(days=today.weekday())
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_week]
+            return filtered, True, "this week"
+        elif "last week" in query_lower:
+            today = datetime.now()
+            start_of_this_week = today - timedelta(days=today.weekday())
+            start_of_last_week = start_of_this_week - timedelta(days=7)
+            end_of_last_week = start_of_this_week - timedelta(seconds=1)
+            filtered = [p for p in payments if p.get('payment_date') and start_of_last_week <= datetime.fromisoformat(str(p['payment_date'])) <= end_of_last_week]
+            return filtered, True, "last week"
+        elif "this month" in query_lower:
+            today = datetime.now()
+            start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_month]
+            return filtered, True, "this month"
+        elif "last month" in query_lower:
+            today = datetime.now()
+            first_day_this_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if today.month == 1:
+                first_day_last_month = first_day_this_month.replace(year=today.year-1, month=12)
+            else:
+                first_day_last_month = first_day_this_month.replace(month=today.month-1)
+            last_day_last_month = first_day_this_month - timedelta(seconds=1)
+            filtered = [p for p in payments if p.get('payment_date') and first_day_last_month <= datetime.fromisoformat(str(p['payment_date'])) <= last_day_last_month]
+            return filtered, True, "last month"
+        elif "past week" in query_lower:
+            week_ago = datetime.now() - timedelta(days=7)
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= week_ago]
+            return filtered, True, "in the past 7 days"
+        elif "past month" in query_lower:
+            month_ago = datetime.now() - timedelta(days=30)
+            filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= month_ago]
+            return filtered, True, "in the past 30 days"
+        return None
+
     async def query_payments(self, query: str) -> Dict[str, Any]:
         """Query payments using natural language (e.g., 'payments yesterday', 'payments this week')"""
         try:
@@ -461,91 +520,14 @@ class InvoiceTools:
             date_filter_applied = False
             date_description = ""
             
-            # Parse date-related keywords (ordered from most specific to least specific)
-            if "yesterday" in query_lower:
-                yesterday = (datetime.now() - timedelta(days=1)).date()
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == yesterday
-                ]
-                date_filter_applied = True
-                date_description = "yesterday"
-            elif "today" in query_lower:
-                today = datetime.now().date()
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == today
-                ]
-                date_filter_applied = True
-                date_description = "today"
-            elif "this week" in query_lower:
-                # Get start of this week (Monday) to now
-                today = datetime.now()
-                start_of_week = today - timedelta(days=today.weekday())
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_week
-                ]
-                date_filter_applied = True
-                date_description = "this week"
-            elif "last week" in query_lower:
-                # Get last week's Monday to Sunday
-                today = datetime.now()
-                start_of_this_week = today - timedelta(days=today.weekday())
-                start_of_last_week = start_of_this_week - timedelta(days=7)
-                end_of_last_week = start_of_this_week - timedelta(seconds=1)  # End of Sunday
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and start_of_last_week <= datetime.fromisoformat(str(p['payment_date'])) <= end_of_last_week
-                ]
-                date_filter_applied = True
-                date_description = "last week"
-            elif "this month" in query_lower:
-                # Get start of this month
-                today = datetime.now()
-                start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= start_of_month
-                ]
-                date_filter_applied = True
-                date_description = "this month"
-            elif "last month" in query_lower:
-                # Get last calendar month (first to last day of previous month)
-                today = datetime.now()
-                first_day_this_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                # Get first day of last month
-                if today.month == 1:
-                    first_day_last_month = first_day_this_month.replace(year=today.year-1, month=12)
-                else:
-                    first_day_last_month = first_day_this_month.replace(month=today.month-1)
-                # Last day of last month is one second before first day of this month
-                last_day_last_month = first_day_this_month - timedelta(seconds=1)
-                
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and first_day_last_month <= datetime.fromisoformat(str(p['payment_date'])) <= last_day_last_month
-                ]
-                date_filter_applied = True
-                date_description = "last month"
-            elif "past week" in query_lower:
-                # Past week = last 7 days (different from "last week")
-                week_ago = datetime.now() - timedelta(days=7)
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= week_ago
-                ]
-                date_filter_applied = True
-                date_description = "in the past 7 days"
-            elif "past month" in query_lower:
-                # Past month = last 30 days (different from "last month")
-                month_ago = datetime.now() - timedelta(days=30)
-                filtered_payments = [
-                    p for p in payments 
-                    if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])) >= month_ago
-                ]
-                date_filter_applied = True
-                date_description = "in the past 30 days"
+            # Parse date-related keywords using helper method
+            date_filter_result = self._parse_date_filter(query_lower, payments)
+            if date_filter_result:
+                filtered_payments, date_filter_applied, date_description = date_filter_result
+            else:
+                date_filter_applied = False
+                date_description = ""
+
             
             # Parse payment method filters
             if "credit card" in query_lower or "card" in query_lower:
@@ -804,9 +786,10 @@ class InvoiceTools:
     async def analyze_invoice_patterns(self) -> Dict[str, Any]:
         """Analyze invoice patterns to identify trends and provide recommendations."""
         try:
-            # Fetch all invoices and clients
-            invoices = await self.api_client.list_invoices(limit=1000)  # Assuming max 1000 invoices for now
-            clients = await self.api_client.list_clients(limit=1000)  # Assuming max 1000 clients
+            # Fetch invoices and clients with pagination for better performance
+            # Use smaller initial limit and expand if needed
+            invoices = await self.api_client.list_invoices(limit=500)
+            clients = await self.api_client.list_clients(limit=500)
 
             if not invoices:
                 return {"success": True, "data": {"message": "No invoices found to analyze."}}

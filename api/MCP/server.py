@@ -52,13 +52,17 @@ async def lifespan(app: FastMCP) -> AsyncIterator[None]:
     
     try:
         # Initialize API client and tools
-        server_context.api_client = InvoiceAPIClient(
-            base_url=args.api_url,
-            email=args.email,
-            password=args.password
-        )
-        server_context.tools = InvoiceTools(server_context.api_client)
-        logger.info(f"Initialized API client for {args.api_url}")
+        try:
+            server_context.api_client = InvoiceAPIClient(
+                base_url=args.api_url,
+                email=args.email,
+                password=args.password
+            )
+            server_context.tools = InvoiceTools(server_context.api_client)
+            logger.info(f"Initialized API client for {args.api_url}")
+        except Exception as e:
+            logger.error(f"Failed to initialize API client: {e}")
+            raise
         
         yield
         
@@ -378,6 +382,10 @@ async def create_discount_rule(name: str, discount_type: str, discount_value: fl
     if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     
+    # Validate discount_type
+    if discount_type not in ["percentage", "fixed"]:
+        return {"success": False, "error": "discount_type must be either 'percentage' or 'fixed'"}
+    
     return await server_context.tools.create_discount_rule(name=name, discount_type=discount_type, discount_value=discount_value, min_amount=min_amount, max_discount=max_discount, priority=priority, is_active=is_active, currency=currency)
 
 # CRM Tools
@@ -529,7 +537,8 @@ def main():
 # Legacy compatibility functions - deprecated but kept for backwards compatibility
 def main_sync():
     """Legacy sync entry point - use main() instead"""
-    logger.warning("main_sync() is deprecated, use main() instead")
+    import warnings
+    warnings.warn("main_sync() is deprecated, use main() instead", DeprecationWarning, stacklevel=2)
     main()
 
 if __name__ == "__main__":

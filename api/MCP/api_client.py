@@ -2,11 +2,14 @@
 API Client for Invoice Application MCP integration
 """
 from typing import List, Dict, Any, Optional
-import httpx
+from httpx import AsyncClient, HTTPStatusError
 from datetime import datetime, timezone
+import logging
 
 from .auth_client import InvoiceAPIAuthClient, AuthenticationError
 from .config import config
+
+logger = logging.getLogger(__name__)
 
 
 class InvoiceAPIClient:
@@ -15,7 +18,7 @@ class InvoiceAPIClient:
     def __init__(self, base_url: str = None, email: str = None, password: str = None):
         self.base_url = base_url or config.API_BASE_URL
         self.auth_client = InvoiceAPIAuthClient(base_url, email, password)
-        self._client = httpx.AsyncClient(timeout=config.REQUEST_TIMEOUT)
+        self._client = AsyncClient(timeout=config.REQUEST_TIMEOUT)
     
     async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make authenticated request to the API"""
@@ -32,11 +35,15 @@ class InvoiceAPIClient:
             response.raise_for_status()
             return response.json()
             
-        except httpx.HTTPStatusError as e:
+        except HTTPStatusError as e:
             if e.response.status_code == 401:
                 raise AuthenticationError("Authentication failed - check credentials")
+            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
             raise Exception(f"API request failed: {e.response.status_code} - {e.response.text}")
+        except AuthenticationError:
+            raise
         except Exception as e:
+            logger.error(f"Request error: {e}")
             raise Exception(f"Request error: {e}")
     
     # Client Management Methods
@@ -57,28 +64,46 @@ class InvoiceAPIClient:
     
     async def search_clients(self, query: str, skip: int = 0, limit: int = None) -> List[Dict[str, Any]]:
         """Search clients by name, email, or other fields"""
-        # Get all clients and filter locally since the API doesn't have search endpoint
-        clients = await self.list_clients(skip=0, limit=config.MAX_PAGE_SIZE)
-        
+        limit = limit or config.DEFAULT_PAGE_SIZE
         query_lower = query.lower()
         filtered_clients = []
+        current_skip = 0
+        batch_size = min(100, config.MAX_PAGE_SIZE)
         
-        for client in clients:
-            # Search in name, email, phone, and address
-            searchable_fields = [
-                client.get('name', ''),
-                client.get('email', ''),
-                client.get('phone', ''),
-                client.get('address', '')
-            ]
+        # Process clients in batches with early termination
+        while len(filtered_clients) < skip + limit:
+            batch = await self.list_clients(skip=current_skip, limit=batch_size)
+            if not batch:
+                break
+                
+            for client in batch:
+                # Optimized field access with early exit
+                name = client.get('name', '')
+                if query_lower in name.lower():
+                    filtered_clients.append(client)
+                    continue
+                    
+                email = client.get('email', '')
+                if email and query_lower in email.lower():
+                    filtered_clients.append(client)
+                    continue
+                    
+                phone = client.get('phone', '')
+                if phone and query_lower in phone.lower():
+                    filtered_clients.append(client)
+                    continue
+                    
+                address = client.get('address', '')
+                if address and query_lower in address.lower():
+                    filtered_clients.append(client)
             
-            if any(query_lower in str(field).lower() for field in searchable_fields if field):
-                filtered_clients.append(client)
+            current_skip += batch_size
+            
+            # Early termination if we have enough results
+            if len(filtered_clients) >= skip + limit:
+                break
         
-        # Apply pagination to filtered results
-        limit = limit or config.DEFAULT_PAGE_SIZE
-        end_idx = skip + limit
-        return filtered_clients[skip:end_idx]
+        return filtered_clients[skip:skip + limit]
     
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new client"""
@@ -93,7 +118,8 @@ class InvoiceAPIClient:
         try:
             await self._make_request("DELETE", f"/clients/{client_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to delete client {client_id}: {e}")
             return False
     
     # Invoice Management Methods
@@ -114,29 +140,51 @@ class InvoiceAPIClient:
     
     async def search_invoices(self, query: str, skip: int = 0, limit: int = None) -> List[Dict[str, Any]]:
         """Search invoices by number, client name, status, or other fields"""
-        # Get all invoices and filter locally since the API doesn't have search endpoint
-        invoices = await self.list_invoices(skip=0, limit=config.MAX_PAGE_SIZE)
-        
+        limit = limit or config.DEFAULT_PAGE_SIZE
         query_lower = query.lower()
         filtered_invoices = []
+        current_skip = 0
+        batch_size = min(100, config.MAX_PAGE_SIZE)
         
-        for invoice in invoices:
-            # Search in number, client_name, status, and notes
-            searchable_fields = [
-                invoice.get('number', ''),
-                invoice.get('client_name', ''),
-                invoice.get('status', ''),
-                invoice.get('notes', ''),
-                str(invoice.get('amount', ''))
-            ]
+        # Process invoices in batches with early termination
+        while len(filtered_invoices) < skip + limit:
+            batch = await self.list_invoices(skip=current_skip, limit=batch_size)
+            if not batch:
+                break
+                
+            for invoice in batch:
+                # Optimized field access with early exit
+                number = invoice.get('number', '')
+                if query_lower in number.lower():
+                    filtered_invoices.append(invoice)
+                    continue
+                    
+                client_name = invoice.get('client_name', '')
+                if client_name and query_lower in client_name.lower():
+                    filtered_invoices.append(invoice)
+                    continue
+                    
+                status = invoice.get('status', '')
+                if status and query_lower in status.lower():
+                    filtered_invoices.append(invoice)
+                    continue
+                    
+                notes = invoice.get('notes', '')
+                if notes and query_lower in notes.lower():
+                    filtered_invoices.append(invoice)
+                    continue
+                    
+                amount = str(invoice.get('amount', ''))
+                if amount and query_lower in amount.lower():
+                    filtered_invoices.append(invoice)
             
-            if any(query_lower in str(field).lower() for field in searchable_fields if field):
-                filtered_invoices.append(invoice)
+            current_skip += batch_size
+            
+            # Early termination if we have enough results
+            if len(filtered_invoices) >= skip + limit:
+                break
         
-        # Apply pagination to filtered results
-        limit = limit or config.DEFAULT_PAGE_SIZE
-        end_idx = skip + limit
-        return filtered_invoices[skip:end_idx]
+        return filtered_invoices[skip:skip + limit]
     
     async def create_invoice(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new invoice"""
@@ -151,7 +199,8 @@ class InvoiceAPIClient:
         try:
             await self._make_request("DELETE", f"/invoices/{invoice_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to delete invoice {invoice_id}: {e}")
             return False
     
     # Currency Management Methods
@@ -222,7 +271,8 @@ class InvoiceAPIClient:
         try:
             await self._make_request("DELETE", f"/discount-rules/{rule_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to delete discount rule {rule_id}: {e}")
             return False
     
     # CRM Methods
@@ -285,7 +335,8 @@ class InvoiceAPIClient:
                     due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00')).date()
                     if due_date < current_date:
                         overdue_invoices.append(invoice)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Failed to parse due date for invoice {invoice.get('id')}: {e}")
                     continue
         
         return overdue_invoices

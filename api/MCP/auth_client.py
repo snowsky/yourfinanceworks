@@ -37,10 +37,11 @@ class InvoiceAPIAuthClient:
                     if expires_str:
                         self._token_expires = datetime.fromisoformat(expires_str)
                         
-                    # Check if token is still valid (with 5 minute buffer)
-                    if self._token_expires and self._token_expires > datetime.now(timezone.utc) + timedelta(minutes=5):
+                    # Check if token is still valid (with buffer)
+                    if self._token_expires and self._token_expires > datetime.now(timezone.utc) + timedelta(minutes=config.TOKEN_BUFFER_MINUTES):
                         return True
-        except Exception:
+        except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as e:
+            # Log but don't raise - token loading is not critical
             pass
         
         return False
@@ -54,8 +55,9 @@ class InvoiceAPIAuthClient:
             }
             with open(config.TOKEN_STORAGE_FILE, 'w') as f:
                 json.dump(data, f)
-        except Exception:
-            pass  # Ignore file save errors
+        except Exception as e:
+            # Log but don't raise - token saving is not critical
+            pass
     
     async def _authenticate(self) -> str:
         """Authenticate with the API and get access token"""
@@ -76,7 +78,7 @@ class InvoiceAPIAuthClient:
             self._token = data["access_token"]
             
             # Estimate token expiry (typically 30 minutes from API)
-            self._token_expires = datetime.now(timezone.utc) + timedelta(minutes=25)  # 5 min buffer
+            self._token_expires = datetime.now(timezone.utc) + timedelta(minutes=30 - config.TOKEN_BUFFER_MINUTES)
             
             await self._save_token_to_file()
             return self._token

@@ -60,10 +60,7 @@ def test_tools_class():
             'get_clients_with_outstanding_balance', 'get_overdue_invoices', 'get_invoice_stats'
         ]
         
-        missing_methods = []
-        for method in expected_methods:
-            if not hasattr(tools, method):
-                missing_methods.append(method)
+        missing_methods = [method for method in expected_methods if not hasattr(tools, method)]
         
         if missing_methods:
             print(f"❌ Missing methods: {missing_methods}")
@@ -87,7 +84,7 @@ def test_api_client():
         client = InvoiceAPIClient(
             base_url="http://localhost:8000/api",
             email="test@example.com",
-            password="testpass"
+            password="secure_test_password"
         )
         
         # Check for expected methods
@@ -102,10 +99,7 @@ def test_api_client():
             'send_invoice_email', 'test_email_configuration'
         ]
         
-        missing_methods = []
-        for method in expected_methods:
-            if not hasattr(client, method):
-                missing_methods.append(method)
+        missing_methods = [method for method in expected_methods if not hasattr(client, method)]
         
         if missing_methods:
             print(f"❌ Missing API client methods: {missing_methods}")

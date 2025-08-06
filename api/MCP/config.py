@@ -23,6 +23,9 @@ class MCPConfig:
     # Pagination defaults
     DEFAULT_PAGE_SIZE: int = int(os.getenv("DEFAULT_PAGE_SIZE", "100"))
     MAX_PAGE_SIZE: int = int(os.getenv("MAX_PAGE_SIZE", "1000"))
+    
+    # Token expiration buffer (minutes)
+    TOKEN_BUFFER_MINUTES: int = 5
 
 # Global config instance
 config = MCPConfig() 
