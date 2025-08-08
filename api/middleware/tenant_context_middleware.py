@@ -6,13 +6,17 @@ from models.database import set_tenant_context, clear_tenant_context, get_master
 from models.models import MasterUser, user_tenant_association
 from services.tenant_database_manager import tenant_db_manager
 from services.analytics_service import analytics_service
-import jwt
+from jose import jwt, JWTError
 import os
 import time
 
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+SECRET_KEY = os.getenv("SECRET_KEY") or ("dev-insecure-key" if DEBUG else None)
+if not SECRET_KEY:
+    # Fail early if running in production without SECRET_KEY
+    raise RuntimeError("SECRET_KEY must be set in the environment for production use")
 ALGORITHM = "HS256"
 
 # Function-based middleware for tenant context
@@ -145,7 +149,7 @@ async def tenant_context_middleware(request: Request, call_next):
                     content={"detail": "Invalid or expired token. Please log in again."}
                 )
 
-        except jwt.InvalidTokenError as e:
+        except JWTError as e:
             logger.error(f"Invalid JWT token: {e}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,

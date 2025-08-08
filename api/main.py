@@ -52,14 +52,41 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Middleware
+# CORS Middleware (tightened with env-driven configuration)
+# ALLOWED_ORIGINS can be a comma-separated list, e.g. "http://localhost:8080,https://app.example.com"
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+debug_mode = os.getenv("DEBUG", "False").lower() == "true"
+
+if allowed_origins_env:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+else:
+    # In DEBUG, fall back to permissive wildcard. In production, default to no origins.
+    allowed_origins = ["*"] if debug_mode else []
+
+# Credentials cannot be used with wildcard origins per CORS spec
+allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "False").lower() == "true"
+if allow_credentials and (not allowed_origins or "*" in allowed_origins):
+    # Override to safe default when wildcard is used
+    allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    # Content-Security-Policy is context-dependent; set a conservative default for API responses
+    response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+    return response
 
 # Serve static files (e.g., for company logos)
 static_dir = os.path.join(os.path.dirname(__file__), "static")

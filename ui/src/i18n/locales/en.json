@@ -553,6 +553,8 @@
     "creating_export": "Creating export...",
     "download_complete_backup": "Download Complete Backup",
     "export_includes_all_data": "Export includes all clients, invoices, payments, notes, and settings.",
+    "data_exported_successfully": "Data exported successfully",
+    "data_imported_successfully": "Data imported successfully",
     "import_data": "Import Data",
     "import_data_description": "Import a previously exported SQLite backup file to restore your data.",
     "important_warning": "Important Warning",

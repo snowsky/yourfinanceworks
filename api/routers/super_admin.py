@@ -356,6 +356,13 @@ async def get_user(
     user_dict['tenant_name'] = tenant.name if tenant else "Unknown"
     user_dict['tenant_ids'] = [str(membership.tenant_id) for membership in tenant_memberships]
     user_dict['primary_tenant_id'] = str(user.tenant_id)
+    # Map per-tenant roles for the UI (default to 'user' if missing)
+    tenant_roles: Dict[str, str] = {}
+    for membership in tenant_memberships:
+        tid = str(membership.tenant_id)
+        role_value = getattr(membership, 'role', None) or 'user'
+        tenant_roles[tid] = role_value
+    user_dict['tenant_roles'] = tenant_roles
     
     return user_dict
 
@@ -374,6 +381,8 @@ async def create_user(
     
     tenant_ids = [int(tid) for tid in user_data['tenant_ids']]
     primary_tenant_id = int(user_data['primary_tenant_id'])
+    # Optional per-tenant roles mapping coming from UI
+    provided_tenant_roles: Dict[str, str] = user_data.get('tenant_roles', {}) or {}
     
     # Validate primary tenant is in tenant list
     if primary_tenant_id not in tenant_ids:
@@ -396,12 +405,13 @@ async def create_user(
     
     # Create user in master database
     hashed_password = get_password_hash(user_data['password'])
+    primary_role = provided_tenant_roles.get(str(primary_tenant_id), user_data.get('role', 'user'))
     master_user = MasterUser(
         email=user_data['email'],
         hashed_password=hashed_password,
         first_name=user_data['first_name'],
         last_name=user_data['last_name'],
-        role=user_data.get('role', 'user'),
+        role=primary_role,
         tenant_id=int(user_data['primary_tenant_id']),
         is_verified=True
     )
@@ -410,13 +420,14 @@ async def create_user(
     master_db.commit()
     master_db.refresh(master_user)
     
-    # Add user to tenant memberships
+    # Add user to tenant memberships (respect per-tenant roles if provided)
     for tenant_id in tenant_ids:
+        role_for_tenant = provided_tenant_roles.get(str(tenant_id), user_data.get('role', 'user'))
         membership = master_db.execute(
             user_tenant_association.insert().values(
                 user_id=master_user.id,
                 tenant_id=tenant_id,
-                role=user_data.get('role', 'user')
+                role=role_for_tenant
             )
         )
         
@@ -430,7 +441,7 @@ async def create_user(
                 hashed_password=hashed_password,
                 first_name=user_data['first_name'],
                 last_name=user_data['last_name'],
-                role=user_data.get('role', 'user'),
+                role=role_for_tenant,
                 is_verified=True
             )
             
@@ -505,8 +516,14 @@ async def update_user(
     if 'password' in user_data and user_data['password']:
         user.hashed_password = get_password_hash(user_data['password'])
     
+    # Normalize primary tenant id and optionally align master role with per-tenant role
+    provided_tenant_roles_update: Dict[str, str] = user_data.get('tenant_roles', {}) or {}
     if 'primary_tenant_id' in user_data:
         user.tenant_id = int(user_data['primary_tenant_id'])
+        # If a specific role is provided for the primary tenant, sync it to master user.role
+        maybe_primary_role = provided_tenant_roles_update.get(str(user.tenant_id))
+        if maybe_primary_role:
+            user.role = maybe_primary_role
     
     # Handle tenant memberships if provided
     if 'tenant_ids' in user_data:
@@ -519,15 +536,26 @@ async def update_user(
             )
         )
         
-        # Add new memberships
+        # Add new memberships respecting per-tenant roles if provided
         for tenant_id in tenant_ids:
+            role_for_tenant = provided_tenant_roles_update.get(str(tenant_id), user_data.get('role', 'user'))
             master_db.execute(
                 user_tenant_association.insert().values(
                     user_id=user_id,
                     tenant_id=tenant_id,
-                    role=user_data.get('role', 'user')
+                    role=role_for_tenant
                 )
             )
+            # Also update role in each tenant database if user exists
+            try:
+                tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+                tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == user_id).first()
+                if tenant_user:
+                    tenant_user.role = role_for_tenant
+                    tenant_session.commit()
+                tenant_session.close()
+            except Exception:
+                pass
     
     master_db.commit()
     master_db.refresh(user)

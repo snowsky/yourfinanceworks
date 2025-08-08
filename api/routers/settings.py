@@ -86,7 +86,12 @@ async def update_settings(
     # Update tenant info from company_info
     company_info = settings.get("company_info", {})
     if company_info:
-        tenant.name = company_info.get("name", tenant.name)
+        # Validate and normalize company name consistency with signup rules (min 2 chars)
+        if "name" in company_info and company_info["name"] is not None:
+            new_name = str(company_info["name"]).strip()
+            if len(new_name) < 2:
+                raise HTTPException(status_code=400, detail="Organization name must be at least 2 characters long")
+            tenant.name = new_name
         
         tenant.phone = company_info.get("phone", tenant.phone)
         tenant.address = company_info.get("address", tenant.address)
@@ -235,7 +240,7 @@ async def import_tenant_data(
     from sqlalchemy import create_engine, inspect
     from sqlalchemy.orm import sessionmaker
     from models.models_per_tenant import (
-        User, Client, ClientNote, Invoice, Payment, Settings, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig
+        User, Client, ClientNote, Invoice, Payment, Settings, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig, EmailNotificationSettings
     )
     from services.tenant_database_manager import tenant_db_manager
     try:
@@ -290,6 +295,8 @@ async def import_tenant_data(
                 db.query(CurrencyRate).delete()
                 db.query(SupportedCurrency).delete()
                 db.query(AIConfig).delete()
+                # Delete notification settings before users to avoid FK violations
+                db.query(EmailNotificationSettings).delete()
                 db.query(User).filter(User.is_superuser == False).delete()  # Don't delete superusers
                 old_to_new_user_ids = {}
                 old_to_new_client_ids = {}
@@ -393,7 +400,40 @@ async def import_tenant_data(
                             db.add(new_payment)
                             payment_count += 1
                     imported_counts['payments'] = payment_count
-                # 5. InvoiceItems
+                # 5. Email Notification Settings (map user IDs)
+                if 'email_notification_settings' in tables:
+                    notif_rows = import_db.query(EmailNotificationSettings).all()
+                    for row in notif_rows:
+                        new_user_id = old_to_new_user_ids.get(row.user_id)
+                        if not new_user_id:
+                            continue
+                        new_row = EmailNotificationSettings(
+                            user_id=new_user_id,
+                            user_created=row.user_created,
+                            user_updated=row.user_updated,
+                            user_deleted=row.user_deleted,
+                            user_login=row.user_login,
+                            client_created=row.client_created,
+                            client_updated=row.client_updated,
+                            client_deleted=row.client_deleted,
+                            invoice_created=row.invoice_created,
+                            invoice_updated=row.invoice_updated,
+                            invoice_deleted=row.invoice_deleted,
+                            invoice_sent=row.invoice_sent,
+                            invoice_paid=row.invoice_paid,
+                            invoice_overdue=row.invoice_overdue,
+                            payment_created=row.payment_created,
+                            payment_updated=row.payment_updated,
+                            payment_deleted=row.payment_deleted,
+                            settings_updated=row.settings_updated,
+                            notification_email=row.notification_email,
+                            daily_summary=row.daily_summary,
+                            weekly_summary=row.weekly_summary,
+                        )
+                        db.add(new_row)
+                    imported_counts['email_notification_settings'] = len(notif_rows)
+
+                # 6. InvoiceItems
                 if 'invoice_items' in tables:
                     invoice_items = import_db.query(InvoiceItem).all()
                     item_count = 0

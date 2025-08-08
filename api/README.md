@@ -71,6 +71,22 @@ The API will be available at http://localhost:8000, and the API documentation at
 FastAPI provides automatic API documentation using Swagger UI. 
 Access it at http://localhost:8000/docs when the server is running.
 
+## Security configuration
+
+Environment variables (recommended to set via Docker or your process manager):
+
+- SECRET_KEY (required in production): Secret for signing JWTs. In development, set DEBUG=True to allow a temporary default.
+- DEBUG (default: False): Enables dev-friendly defaults (e.g., permissive CORS when origins not provided).
+- ALLOWED_ORIGINS: Comma-separated list of allowed origins for CORS, e.g. http://localhost:8080,https://app.example.com. If omitted and DEBUG=True, * is allowed.
+- ALLOW_CORS_CREDENTIALS (default: False): If True, allows credentials with CORS. Must not be used with wildcard origins.
+- MAX_LOGIN_ATTEMPTS (default: 5): Per-email login attempts in RATE_LIMIT_WINDOW_SECONDS.
+- MAX_RESET_ATTEMPTS (default: 5): Per-email password reset requests in RATE_LIMIT_WINDOW_SECONDS.
+- RATE_LIMIT_WINDOW_SECONDS (default: 60): Sliding window for the above rate limits.
+
+File uploads:
+- Attachments are saved under attachments/tenant_<id>/invoices/ with sanitized filenames.
+- Max upload size enforced at 10 MB. PDFs are validated for %PDF header.
+
 ## Development
 
 To contribute to this project:

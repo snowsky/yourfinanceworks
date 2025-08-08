@@ -11,6 +11,7 @@ from utils.pdf_generator import generate_invoice_pdf
 import os
 import shutil
 from pathlib import Path
+import re
 
 from models.database import get_db
 from models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule
@@ -1271,17 +1272,42 @@ async def upload_invoice_attachment(
                 detail="File type not allowed. Supported types: PDF, DOC, DOCX, JPG, PNG"
             )
         
-        # Create attachments directory
-        attachments_dir = Path("attachments/invoices")
+        # Enforce max file size (e.g., 10 MB)
+        MAX_BYTES = 10 * 1024 * 1024
+        contents = await file.read()
+        if len(contents) > MAX_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail="File too large. Maximum size is 10 MB"
+            )
+        # Reset file to allow saving later
+        await file.seek(0)
+        
+        # Basic content sniffing for PDFs (starts with %PDF)
+        if file.content_type == 'application/pdf':
+            header_bytes = contents[:4]
+            if header_bytes != b'%PDF':
+                raise HTTPException(status_code=400, detail="Invalid PDF file")
+        
+        # Create tenant-scoped attachments directory
+        from models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+        tenant_folder = f"tenant_{tenant_id}" if tenant_id else "tenant_unknown"
+        attachments_dir = Path("attachments") / tenant_folder / "invoices"
         attachments_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate filename with invoice ID and original filename
-        # Extract file extension from original filename or content type
+        # Sanitize filename and ensure safe extension
         original_name = file.filename or "attachment"
-        name_without_ext = os.path.splitext(original_name)[0]
-        file_extension = os.path.splitext(original_name)[1] or allowed_types[file.content_type]
+        # Remove any path components and unsafe characters
+        base_name = os.path.basename(original_name)
+        base_name = re.sub(r"[^A-Za-z0-9._-]", "_", base_name)
+        name_without_ext = os.path.splitext(base_name)[0][:100]
+        # Prefer extension from content type; fallback to sanitized original
+        ext_from_ct = allowed_types[file.content_type]
+        ext_from_name = os.path.splitext(base_name)[1].lower()
+        file_extension = ext_from_ct if ext_from_ct else (ext_from_name if ext_from_name in allowed_types.values() else ".bin")
         
-        # Create filename in format: invoice_id_uploaded_filename.ext
+        # Create filename in format: invoice_<id>_<sanitized>.ext
         filename = f"invoice_{invoice_id}_{name_without_ext}{file_extension}"
         file_path = attachments_dir / filename
         
@@ -1293,7 +1319,7 @@ async def upload_invoice_attachment(
             except Exception as e:
                 logger.warning(f"Failed to remove old attachment: {e}")
         
-        # Save file
+        # Save file safely (we already validated size via in-memory read cap)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         

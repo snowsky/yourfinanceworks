@@ -27,6 +27,7 @@ ui/*.tsbuildinfo
 ui/next-env.d.ts
 
 
+api/.coverage
 api/venv
 api/**/__pycache__
 api/.env

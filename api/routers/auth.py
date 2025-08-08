@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
+from collections import defaultdict, deque
+import time
 import os
 import secrets
 import hashlib
@@ -29,9 +31,26 @@ from constants.error_codes import USER_NOT_FOUND, INCORRECT_PASSWORD, INACTIVE_U
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 # JWT settings
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+# Enforce SECRET_KEY in non-debug environments
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+SECRET_KEY = os.getenv("SECRET_KEY") or ("dev-insecure-key" if DEBUG else None)
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be set in the environment for production use")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Simple in-memory rate limiting (per email) to deter brute-force attacks
+# Note: For multi-instance deployments, replace with a shared store (e.g., Redis)
+LOGIN_ATTEMPTS: Dict[str, deque] = defaultdict(deque)
+PASSWORD_RESET_ATTEMPTS: Dict[str, deque] = defaultdict(deque)
+MAX_LOGIN_ATTEMPTS = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+MAX_RESET_ATTEMPTS = int(os.getenv("MAX_RESET_ATTEMPTS", "5"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+
+def _prune_attempts(attempts: deque, window_seconds: int) -> None:
+    cutoff = time.time() - window_seconds
+    while attempts and attempts[0] < cutoff:
+        attempts.popleft()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 security = HTTPBearer()
@@ -202,7 +221,7 @@ def send_invite_email(email: str, invite_url: str, inviter_name: str, tenant_nam
     # For now, just print to console
     return True
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=Token, status_code=201)
 async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     logger = logging.getLogger("registration")
     logger.info(f"Starting registration for {user.email}")
@@ -346,6 +365,16 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
+    # Rate limit by email
+    email_key = (user_credentials.email or "").lower().strip()
+    attempts = LOGIN_ATTEMPTS[email_key]
+    _prune_attempts(attempts, RATE_LIMIT_WINDOW_SECONDS)
+    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again later."
+        )
+    attempts.append(time.time())
     user = db.query(MasterUser).filter(MasterUser.email == user_credentials.email).first()
 
     if not user:
@@ -1240,6 +1269,17 @@ async def request_password_reset(
     master_db: Session = Depends(get_master_db)
 ):
     """Request a password reset for a user"""
+    # Rate limit by email
+    email_key = (request.email or "").lower().strip()
+    attempts = PASSWORD_RESET_ATTEMPTS[email_key]
+    _prune_attempts(attempts, RATE_LIMIT_WINDOW_SECONDS)
+    if len(attempts) >= MAX_RESET_ATTEMPTS:
+        # Return success but do not proceed
+        return PasswordResetResponse(
+            message="If the email address exists in our system, you will receive a password reset email shortly.",
+            success=True
+        )
+    attempts.append(time.time())
     user = master_db.query(MasterUser).filter(
         func.lower(MasterUser.email) == func.lower(request.email.strip())
     ).first()

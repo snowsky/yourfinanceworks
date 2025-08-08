@@ -547,6 +547,8 @@
     "creating_export": "Creando exportación...",
     "download_complete_backup": "Descargar Respaldo Completo",
     "export_includes_all_data": "La exportación incluye todos los clientes, facturas, pagos, notas y configuraciones.",
+    "data_exported_successfully": "Datos exportados exitosamente",
+    "data_imported_successfully": "Datos importados exitosamente",
     "import_data": "Importar Datos",
     "import_data_description": "Importa un archivo de respaldo SQLite previamente exportado para restaurar tus datos.",
     "important_warning": "Advertencia Importante",
