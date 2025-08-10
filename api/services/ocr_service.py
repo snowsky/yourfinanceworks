@@ -7,6 +7,13 @@ from typing import Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 
+def _resolve_log_level(name: str) -> int:
+    try:
+        return getattr(logging, (name or "INFO").upper(), logging.INFO)
+    except Exception:
+        return logging.INFO
+
+logging.basicConfig(level=_resolve_log_level(os.getenv("LOG_LEVEL", "INFO")))
 logger = logging.getLogger(__name__)
 def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
     """Heuristic parser for plain OCR text to extract likely fields."""

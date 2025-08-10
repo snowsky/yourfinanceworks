@@ -11,8 +11,21 @@ from services.ocr_service import process_attachment_inline
 from models.database import set_tenant_context
 from services.tenant_database_manager import tenant_db_manager
 
+def _resolve_log_level(name: str) -> int:
+    name = (name or "INFO").upper()
+    return {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+        "NOTSET": logging.NOTSET,
+    }.get(name, logging.INFO)
+
+log_level = _resolve_log_level(os.getenv("LOG_LEVEL", "INFO"))
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger.info(f"OCR worker log level set to {logging.getLevelName(log_level)}")
 
 
 def _get_consumer():
