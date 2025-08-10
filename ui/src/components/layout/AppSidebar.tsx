@@ -353,6 +353,11 @@ export function AppSidebar() {
       label: t('navigation.payments'), 
       icon: <DollarSign className="w-5 h-5" /> 
     },
+    { 
+      path: '/expenses', 
+      label: 'Expenses', 
+      icon: <DollarSign className="w-5 h-5" /> 
+    },
 
     // Only show Users menu item for admin users
     ...(isAdminUser ? [{ 

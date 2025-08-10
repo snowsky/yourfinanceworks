@@ -103,6 +103,7 @@ class Invoice(Base):
     payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
     deleted_by_user = relationship("User", foreign_keys=[deleted_by])
+    expenses = relationship("Expense", back_populates="invoice")
 
 class Payment(Base):
     __tablename__ = "payments"
@@ -124,6 +125,52 @@ class Payment(Base):
     # Relationships (no tenant relationship needed)
     invoice = relationship("Invoice", back_populates="payments")
     user = relationship("User")  # NEW: Relationship to User
+
+class Expense(Base):
+    __tablename__ = "expenses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # No tenant_id needed since each tenant has its own database
+
+    amount = Column(Float, nullable=False)
+    currency = Column(String, default="USD", nullable=False)
+    expense_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    category = Column(String, nullable=False)
+    vendor = Column(String, nullable=True)
+    tax_rate = Column(Float, nullable=True)
+    tax_amount = Column(Float, nullable=True)
+    total_amount = Column(Float, nullable=True)
+    payment_method = Column(String, nullable=True)
+    reference_number = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="recorded")
+    notes = Column(String, nullable=True)
+    receipt_path = Column(String, nullable=True)
+    receipt_filename = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = relationship("User")
+    invoice = relationship("Invoice", back_populates="expenses")
+
+class ExpenseAttachment(Base):
+    __tablename__ = "expense_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    expense_id = Column(Integer, ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String, nullable=False)
+    content_type = Column(String, nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    file_path = Column(String, nullable=False)
+    uploaded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    expense = relationship("Expense")
+    uploader = relationship("User")
 
 class Settings(Base):
     __tablename__ = "settings"

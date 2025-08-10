@@ -19,7 +19,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { isAdmin } from "@/utils/auth";
-import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL } from "@/lib/api";
+import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL, expenseApi, Expense } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -116,6 +116,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isRecurring, setIsRecurring] = useState(invoice?.is_recurring || false);
   const [tenantInfo, setTenantInfo] = useState<{ default_currency: string } | null>(null);
+  const [unlinkedExpenses, setUnlinkedExpenses] = useState<Expense[]>([]);
+  const [linkExpenseId, setLinkExpenseId] = useState<string | undefined>(undefined);
 
 
   const [itemKeyCounter, setItemKeyCounter] = useState(0);
@@ -364,6 +366,13 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             enable_ai_assistant: false
           });
         }
+        // Load unlinked expenses for optional linking on create
+        try {
+          const list = await expenseApi.getExpensesFiltered({ unlinkedOnly: true });
+          // Extra safety: filter out any already-linked expenses in case backend returns stale data
+          const onlyUnlinked = (list || []).filter(e => e.invoice_id == null);
+          setUnlinkedExpenses(onlyUnlinked);
+        } catch {}
       } catch (error) {
         console.error("Failed to fetch data:", error);
         toast.error("Failed to load data");
@@ -1477,6 +1486,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         
         // Create new invoice
         const newInvoice = await invoiceApi.createInvoice(invoiceData);
+        // Optionally link a chosen unlinked expense to this new invoice
+        if (linkExpenseId) {
+          try {
+            await expenseApi.updateExpense(Number(linkExpenseId), { invoice_id: newInvoice.id } as any);
+          } catch (e) {
+            console.error('Failed to link expense on create:', e);
+          }
+        }
         
         // Handle attachment upload if there's an attachment
         if (invoiceAttachment && newInvoice.id) {
@@ -2400,6 +2417,26 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       </FormItem>
                     )}
                   />
+
+                  {!isEdit && (
+                    <div>
+                      <FormItem>
+                        <FormLabel>Link an Expense (optional)</FormLabel>
+                        <Select value={linkExpenseId} onValueChange={setLinkExpenseId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select unlinked expense" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {unlinkedExpenses.map((e) => (
+                              <SelectItem key={e.id} value={String(e.id)}>
+                                #{e.id} · {e.category} · {e.amount} {e.currency}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    </div>
+                  )}
 
                   <div className="space-y-4">
                     <div className="font-semibold">{t('invoices.custom_fields')}</div>

@@ -1,5 +1,4 @@
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -65,6 +64,15 @@ export interface Invoice {
   attachment_filename?: string;
 }
 
+export const linkApi = {
+  // Simple invoice list for selectors
+  getInvoicesBasic: async () => {
+    const list = await invoiceApi.getInvoices();
+    // Map to minimal data
+    return list.map(inv => ({ id: inv.id, number: inv.number, client_name: inv.client_name, amount: inv.amount, status: inv.status }));
+  },
+};
+
 export interface Payment {
   id: number;
   invoice_id: number;
@@ -80,6 +88,35 @@ export interface Payment {
   tenant_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Expense {
+  id: number;
+  amount: number;
+  currency?: string;
+  expense_date: string;
+  category: string;
+  vendor?: string;
+  tax_rate?: number;
+  tax_amount?: number;
+  total_amount?: number;
+  payment_method?: string;
+  reference_number?: string;
+  status: string;
+  notes?: string;
+  receipt_filename?: string;
+  attachments_count?: number;
+  invoice_id?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseAttachmentMeta {
+  id: number;
+  filename: string;
+  content_type?: string;
+  size_bytes?: number;
+  uploaded_at?: string;
 }
 
 // Add settings types
@@ -754,6 +791,89 @@ export const paymentApi = {
     apiRequest(`/payments/${id}`, {
       method: 'DELETE',
     }),
+};
+
+// Expense API methods
+export const expenseApi = {
+  getExpenses: async (category?: string) => {
+    const query = category && category !== 'all' ? `?category=${encodeURIComponent(category)}` : '';
+    return apiRequest<Expense[]>(`/expenses/${query}`);
+  },
+  getExpensesFiltered: async (opts: { category?: string; invoiceId?: number; unlinkedOnly?: boolean } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+    if (typeof opts.invoiceId === 'number') params.set('invoice_id', String(opts.invoiceId));
+    if (opts.unlinkedOnly) params.set('unlinked_only', 'true');
+    const qs = params.toString();
+    const url = `/expenses/${qs ? `?${qs}` : ''}`;
+    return apiRequest<Expense[]>(url);
+  },
+  getExpense: (id: number) => apiRequest<Expense>(`/expenses/${id}`),
+  createExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'receipt_filename'>) =>
+    apiRequest<Expense>(`/expenses/`, {
+      method: 'POST',
+      body: JSON.stringify(expense),
+    }),
+  updateExpense: (id: number, expense: Partial<Expense>) =>
+    apiRequest<Expense>(`/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(expense),
+    }),
+  deleteExpense: (id: number) => apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
+  uploadReceipt: async (expenseId: number, file: File) => {
+    const token = localStorage.getItem('token');
+    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.tenant_id?.toString();
+      } catch { return undefined; }
+    })();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${token}`,
+    };
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+    const uploadUrl = `${API_BASE_URL}/expenses/${expenseId}/upload-receipt`;
+    const response = await fetch(uploadUrl, { method: 'POST', headers, body: formData });
+    if (!response.ok) {
+      const errorText = await response.text();
+      try { throw new Error(JSON.parse(errorText).detail || 'Failed to upload receipt'); }
+      catch { throw new Error(errorText || 'Failed to upload receipt'); }
+    }
+    return response.json();
+  },
+  listAttachments: async (expenseId: number) => {
+    return apiRequest<ExpenseAttachmentMeta[]>(`/expenses/${expenseId}/attachments`);
+  },
+  deleteAttachment: async (expenseId: number, attachmentId: number) => {
+    return apiRequest(`/expenses/${expenseId}/attachments/${attachmentId}`, { method: 'DELETE' });
+  },
+  downloadAttachmentBlob: async (expenseId: number, attachmentId: number): Promise<Blob> => {
+    const token = localStorage.getItem('token');
+    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.tenant_id?.toString();
+      } catch { return undefined; }
+    })();
+
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download`;
+    const resp = await fetch(url, { headers });
+    if (!resp.ok) {
+      const text = await resp.text();
+      try { throw new Error(JSON.parse(text).detail || 'Failed to download'); }
+      catch { throw new Error(text || 'Failed to download'); }
+    }
+    return await resp.blob();
+  },
 };
 
 // Dashboard API

@@ -18,6 +18,9 @@ import NewInvoice from "./pages/NewInvoice";
 import NewInvoiceManual from "./pages/NewInvoiceManual";
 import EditInvoice from "./pages/EditInvoice";
 import Payments from "./pages/Payments";
+import ExpensesNew from "./pages/ExpensesNew";
+import ExpensesEdit from "./pages/ExpensesEdit";
+import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import Users from "./pages/Users";
 import SuperAdmin from "./pages/SuperAdmin";
@@ -50,6 +53,9 @@ const App = () => (
           <Route path="/invoices/new-manual" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoiceManual /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/invoices/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInvoice /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+          <Route path="/expenses/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesNew /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/expenses/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/expenses" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Expenses /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><TenantProtectedRoute requirePrimaryTenant={true}><Settings /></TenantProtectedRoute></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/super-admin" element={<ProtectedRoute><TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute></ProtectedRoute>} />

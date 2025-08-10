@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
-import { invoiceApi, Invoice, getErrorMessage } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense } from "@/lib/api";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
@@ -14,6 +18,9 @@ const EditInvoice = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [linkedExpenses, setLinkedExpenses] = useState<Expense[]>([]);
+  const [availableExpenses, setAvailableExpenses] = useState<Expense[]>([]);
+  const [linkSelect, setLinkSelect] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -41,6 +48,12 @@ const EditInvoice = () => {
         }
         
         setInvoice(data);
+        try {
+          const expenses = await expenseApi.getExpensesFiltered({ invoiceId: data.id });
+          setLinkedExpenses(expenses);
+          const unlinked = await expenseApi.getExpensesFiltered({ unlinkedOnly: true });
+          setAvailableExpenses(unlinked);
+        } catch {}
       } catch (error) {
         console.error("Failed to fetch invoice:", error);
         toast.error(getErrorMessage(error, t));
@@ -104,6 +117,106 @@ const EditInvoice = () => {
             setInvoice(updatedInvoice);
           }}
         />
+
+        <Card className="slide-in">
+          <CardHeader>
+            <CardTitle>Linked Expenses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 mb-4">
+              <Select value={linkSelect} onValueChange={setLinkSelect}>
+                <SelectTrigger className="w-[360px]">
+                  <SelectValue placeholder="Select an unlinked expense to attach" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableExpenses.map(e => (
+                    <SelectItem key={e.id} value={String(e.id)}>
+                      #{e.id} · {e.category} · {e.amount} {e.currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                disabled={!linkSelect}
+                onClick={async () => {
+                  try {
+                    if (!linkSelect) return;
+                    const expId = Number(linkSelect);
+                    const updated = await expenseApi.updateExpense(expId, { invoice_id: invoice!.id } as any);
+                    // Optimistic local update
+                    setLinkedExpenses(prev => [updated, ...prev.filter(e => e.id !== updated.id)]);
+                    setAvailableExpenses(prev => prev.filter(e => e.id !== updated.id));
+                    // Then refresh from server
+                    try {
+                      const [linked, unlinked] = await Promise.all([
+                        expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
+                        expenseApi.getExpensesFiltered({ unlinkedOnly: true })
+                      ]);
+                      setLinkedExpenses(linked);
+                      setAvailableExpenses(unlinked);
+                    } catch {}
+                    setLinkSelect(undefined);
+                    toast.success('Expense linked');
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Failed to link expense');
+                  }
+                }}
+              >
+                Link Expense
+              </Button>
+            </div>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {linkedExpenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">No expenses linked</TableCell>
+                    </TableRow>
+                  ) : linkedExpenses.map(e => (
+                    <TableRow key={e.id}>
+                      <TableCell>#{e.id}</TableCell>
+                      <TableCell>{e.category}</TableCell>
+                      <TableCell>{e.vendor || '—'}</TableCell>
+                      <TableCell>{e.amount} {e.currency}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={async () => {
+                          try {
+                            // Use null to explicitly clear the link on the backend
+                            const updated = await expenseApi.updateExpense(e.id, { invoice_id: null } as any);
+                            // Optimistic local update
+                            setLinkedExpenses(prev => prev.filter(x => x.id !== updated.id));
+                            setAvailableExpenses(prev => [updated, ...prev.filter(x => x.id !== updated.id)]);
+                            // Then refresh from server
+                            try {
+                              const [linked, unlinked] = await Promise.all([
+                                expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
+                                expenseApi.getExpensesFiltered({ unlinkedOnly: true })
+                              ]);
+                              setLinkedExpenses(linked);
+                              setAvailableExpenses(unlinked);
+                            } catch {}
+                            toast.success('Expense unlinked');
+                          } catch (err: any) {
+                            toast.error(err?.message || 'Failed to unlink');
+                          }
+                        }}>Unlink</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );

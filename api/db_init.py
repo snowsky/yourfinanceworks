@@ -218,6 +218,24 @@ def init_db():
                 except Exception as e:
                     logger.error(f"Error creating email_notification_settings table for tenant {tenant.id}: {e}")
             
+            # Ensure expenses.invoice_id column exists for expense->invoice linking
+            try:
+                expense_columns = [col['name'] for col in inspector.get_columns('expenses')]
+                if 'invoice_id' not in expense_columns:
+                    with tenant_engine.connect() as connection:
+                        connection.execute(text("ALTER TABLE expenses ADD COLUMN invoice_id INTEGER"))
+                        # Add FK if invoices table exists
+                        invoice_columns = [col['name'] for col in inspector.get_columns('invoices')]
+                        if 'id' in invoice_columns:
+                            try:
+                                connection.execute(text("ALTER TABLE expenses ADD CONSTRAINT fk_expenses_invoice_id FOREIGN KEY (invoice_id) REFERENCES invoices(id)"))
+                            except Exception as fk_err:
+                                logger.warning(f"Could not add FK for expenses.invoice_id in tenant {tenant.id}: {fk_err}")
+                        connection.commit()
+                    logger.info(f"Added expenses.invoice_id column for tenant {tenant.id}")
+            except Exception as e:
+                logger.error(f"Error ensuring expenses.invoice_id for tenant {tenant.id}: {e}")
+            
             # Verify if audit_logs table exists
             if 'audit_logs' in inspector.get_table_names():
                 logger.info(f"audit_logs table successfully created for tenant {tenant.id}")
