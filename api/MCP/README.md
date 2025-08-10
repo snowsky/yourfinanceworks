@@ -31,6 +31,7 @@ graph TB
     subgraph "Available MCP Tools"
         CLIENT_TOOLS["Client Management<br/>• list_clients<br/>• search_clients<br/>• get_client<br/>• create_client"]
         INVOICE_TOOLS["Invoice Management<br/>• list_invoices<br/>• search_invoices<br/>• get_invoice<br/>• create_invoice"]
+        EXPENSE_TOOLS["Expense Management<br/>• list_expenses<br/>• get_expense<br/>• create_expense<br/>• update_expense<br/>• delete_expense<br/>• upload_expense_receipt<br/>• list_expense_attachments<br/>• delete_expense_attachment"]
         ANALYTICS["Analytics<br/>• get_clients_with_outstanding_balance<br/>• get_overdue_invoices<br/>• get_invoice_stats"]
     end
     
@@ -46,6 +47,7 @@ graph TB
     MCP --> CLIENT_TOOLS
     MCP --> INVOICE_TOOLS
     MCP --> ANALYTICS
+    MCP --> EXPENSE_TOOLS
     
     TOOLS -.-> CLIENT_TOOLS
     TOOLS -.-> INVOICE_TOOLS
@@ -585,6 +587,79 @@ Convert amount from one currency to another using current or historical exchange
 ```
 
 ### Payment Management Tools
+### Expense Tools
+
+#### `list_expenses`
+List expenses with optional filters and pagination.
+
+Parameters:
+- `skip` (int, optional): Number of records to skip (default: 0)
+- `limit` (int, optional): Max records to return (default: 100)
+- `category` (string, optional): Filter by category
+- `invoice_id` (int, optional): Filter by linked invoice id
+- `unlinked_only` (bool, optional): Only expenses not linked to any invoice
+
+#### `get_expense`
+Get a single expense by ID.
+
+Parameters:
+- `expense_id` (int): Expense ID
+
+#### `create_expense`
+Create a new expense.
+
+Parameters:
+- `amount` (float): Expense amount before tax
+- `currency` (string): Currency code (e.g., USD)
+- `expense_date` (string): ISO date (YYYY-MM-DD)
+- `category` (string): Expense category
+- `vendor` (string, optional)
+- `tax_rate` (float, optional)
+- `tax_amount` (float, optional)
+- `total_amount` (float, optional)
+- `payment_method` (string, optional)
+- `reference_number` (string, optional)
+- `status` (string, optional)
+- `notes` (string, optional)
+- `invoice_id` (int, optional)
+
+#### `update_expense`
+Update fields of an existing expense.
+
+Parameters:
+- `expense_id` (int): ID of the expense to update
+- Other fields same as `create_expense`, all optional
+
+#### `delete_expense`
+Delete an expense by ID.
+
+Parameters:
+- `expense_id` (int): ID to delete
+
+#### `upload_expense_receipt`
+Upload an attachment file for an expense.
+
+Parameters:
+- `expense_id` (int)
+- `file_path` (string): Absolute path to local file to upload
+- `filename` (string, optional): Override filename
+- `content_type` (string, optional): Explicit MIME type
+
+Notes: Up to 5 attachments per expense. Allowed types: PDF, JPG, PNG. Max 10 MB as enforced by backend.
+
+#### `list_expense_attachments`
+List attachments for an expense.
+
+Parameters:
+- `expense_id` (int)
+
+#### `delete_expense_attachment`
+Delete an attachment of an expense.
+
+Parameters:
+- `expense_id` (int)
+- `attachment_id` (int)
+
 
 #### `list_payments`
 List all payments with pagination support.

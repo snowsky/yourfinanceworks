@@ -5,6 +5,8 @@ from typing import List, Dict, Any, Optional
 from httpx import AsyncClient, HTTPStatusError
 from datetime import datetime, timezone
 import logging
+import os
+import mimetypes
 
 from .auth_client import InvoiceAPIAuthClient, AuthenticationError
 from .config import config
@@ -247,6 +249,110 @@ class InvoiceAPIClient:
     async def get_payment(self, payment_id: int) -> Dict[str, Any]:
         """Get a specific payment by ID"""
         return await self._make_request("GET", f"/payments/{payment_id}")
+    
+    # Expense Management Methods
+    async def list_expenses(
+        self,
+        skip: int = 0,
+        limit: int = None,
+        category: Optional[str] = None,
+        invoice_id: Optional[int] = None,
+        unlinked_only: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """List expenses with optional filters"""
+        limit = limit or config.DEFAULT_PAGE_SIZE
+        limit = min(limit, config.MAX_PAGE_SIZE)
+
+        params: Dict[str, Any] = {"skip": skip, "limit": limit}
+        if category is not None:
+            params["category"] = category
+        if invoice_id is not None:
+            params["invoice_id"] = invoice_id
+        if unlinked_only:
+            params["unlinked_only"] = True
+
+        return await self._make_request("GET", "/expenses/", params=params)
+
+    async def get_expense(self, expense_id: int) -> Dict[str, Any]:
+        """Get a specific expense by ID"""
+        return await self._make_request("GET", f"/expenses/{expense_id}")
+
+    async def create_expense(self, expense_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new expense"""
+        return await self._make_request("POST", "/expenses/", json=expense_data)
+
+    async def update_expense(self, expense_id: int, expense_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update an existing expense"""
+        return await self._make_request("PUT", f"/expenses/{expense_id}", json=expense_data)
+
+    async def delete_expense(self, expense_id: int) -> bool:
+        """Delete an expense by ID"""
+        try:
+            await self._make_request("DELETE", f"/expenses/{expense_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete expense {expense_id}: {e}")
+            return False
+
+    async def upload_expense_receipt(
+        self,
+        expense_id: int,
+        file_path: str,
+        filename: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Upload a receipt/attachment file for a given expense"""
+        headers = await self.auth_client.get_auth_headers()
+        # httpx requires no Content-Type header set for multipart; remove if present
+        headers.pop("Content-Type", None)
+
+        final_filename = filename or os.path.basename(file_path)
+        final_content_type = content_type or (mimetypes.guess_type(final_filename)[0] or "application/octet-stream")
+
+        with open(file_path, "rb") as fp:
+            files = {"file": (final_filename, fp, final_content_type)}
+            resp = await self._client.post(
+                url=f"{self.base_url}/expenses/{expense_id}/upload-receipt",
+                headers=headers,
+                files=files,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def list_expense_attachments(self, expense_id: int) -> List[Dict[str, Any]]:
+        """List attachments for an expense"""
+        return await self._make_request("GET", f"/expenses/{expense_id}/attachments")
+
+    async def delete_expense_attachment(self, expense_id: int, attachment_id: int) -> bool:
+        """Delete an attachment for an expense"""
+        try:
+            await self._make_request("DELETE", f"/expenses/{expense_id}/attachments/{attachment_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete expense attachment {attachment_id} for expense {expense_id}: {e}")
+            return False
+
+    async def download_expense_attachment(
+        self, expense_id: int, attachment_id: int
+    ) -> Dict[str, Any]:
+        """Download an expense attachment and return raw content with metadata"""
+        headers = await self.auth_client.get_auth_headers()
+        resp = await self._client.get(
+            url=f"{self.base_url}/expenses/{expense_id}/attachments/{attachment_id}/download",
+            headers=headers,
+        )
+        resp.raise_for_status()
+        content = resp.content
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        disposition = resp.headers.get("content-disposition", "")
+        filename = None
+        if "filename=" in disposition:
+            # naive parse for filename="..."
+            try:
+                filename = disposition.split("filename=")[1].strip().strip('"')
+            except Exception:
+                filename = None
+        return {"content": content, "content_type": content_type, "filename": filename}
     
     # Settings Methods
     async def get_settings(self) -> Dict[str, Any]:
