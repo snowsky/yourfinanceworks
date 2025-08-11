@@ -39,7 +39,7 @@ const EditInvoice = () => {
         console.log("🔍 EDIT INVOICE - Attachment data:", {
           has_attachment: data.has_attachment,
           attachment_filename: data.attachment_filename,
-          attachment_path: data.attachment_path
+          // attachment_path is not part of Invoice; use filename/has_attachment
         });
         
         // Check if items exists and has content
@@ -112,8 +112,7 @@ const EditInvoice = () => {
             console.log("🔍 EDIT INVOICE - Invoice updated via callback:", updatedInvoice);
             console.log("🔍 EDIT INVOICE - Updated attachment info:", {
               has_attachment: updatedInvoice.has_attachment,
-              attachment_filename: updatedInvoice.attachment_filename,
-              attachment_path: updatedInvoice.attachment_path
+              attachment_filename: updatedInvoice.attachment_filename
             });
             setInvoice(updatedInvoice);
           }}

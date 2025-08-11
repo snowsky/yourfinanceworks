@@ -74,6 +74,7 @@ export function AppSidebar() {
   const user = getCurrentUser();
   const userRole = user?.role || 'user';
   const isAdminUser = userRole === 'admin';
+  const showAnalytics = (user as any)?.show_analytics !== false;
   const [isSuperUser, setIsSuperUser] = useState(false);
   
   // Organization switching state
@@ -141,6 +142,9 @@ export function AppSidebar() {
     return settings?.company_info?.name || 'InvoiceApp';
   })();
   const companyLogoUrl = settings?.company_info?.logo;
+  // Normalize tenant id types for safe comparisons
+  const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+  const isPrimaryTenant = currentOrgId === userTenantIdStr;
 
   // Debug logging
   useEffect(() => {
@@ -167,12 +171,16 @@ export function AppSidebar() {
       console.log('🏢 Fetching organizations for user:', user.email);
       
       try {
+        type Org = { id: number; name: string };
+        type MeResponse = { organizations?: Org[] };
         const response = await apiRequest('/auth/me', {}, { skipTenant: true });
-        console.log('📋 User organizations response:', response);
+        const me = response as MeResponse;
+        const orgs = me.organizations ?? [];
+        console.log('📋 User organizations response:', me);
         
-        if (response.organizations && response.organizations.length > 0) {
-          console.log(`✅ User has access to ${response.organizations.length} organizations:`, response.organizations);
-          setUserOrganizations(response.organizations);
+        if (orgs.length > 0) {
+          console.log(`✅ User has access to ${orgs.length} organizations:`, orgs);
+          setUserOrganizations(orgs);
           
           // Use selected tenant from localStorage or default to user's primary tenant
           let selectedTenantId = localStorage.getItem('selected_tenant_id');
@@ -184,7 +192,7 @@ export function AppSidebar() {
             console.log('🏠 Using user primary tenant:', selectedTenantId);
           } else {
             // Verify user has access to the selected tenant
-            const hasAccess = response.organizations.some(org => org.id.toString() === selectedTenantId);
+            const hasAccess = orgs.some(org => org.id.toString() === selectedTenantId);
             if (!hasAccess) {
               console.warn(`⚠️ User doesn't have access to tenant ${selectedTenantId}, resetting to primary tenant`);
               localStorage.removeItem('selected_tenant_id');
@@ -336,27 +344,27 @@ export function AppSidebar() {
   const mainMenuItems = [
     { 
       path: '/', 
-      label: t('navigation.dashboard'), 
+      label: t('navigation.dashboard'),
       icon: <BarChart className="w-5 h-5" /> 
     },
     { 
       path: '/clients', 
-      label: t('navigation.clients'), 
+      label: t('navigation.clients'),
       icon: <Users className="w-5 h-5" /> 
     },
     { 
       path: '/invoices', 
-      label: t('navigation.invoices'), 
+      label: t('navigation.invoices'),
       icon: <FileText className="w-5 h-5" /> 
     },
     { 
       path: '/payments', 
-      label: t('navigation.payments'), 
+      label: t('navigation.payments'),
       icon: <DollarSign className="w-5 h-5" /> 
     },
     { 
       path: '/expenses', 
-      label: t('navigation.expenses'), 
+      label: t('navigation.expenses'),
       icon: <DollarSign className="w-5 h-5" /> 
     },
 
@@ -368,7 +376,7 @@ export function AppSidebar() {
       icon: <ListChecks className="w-5 h-5" />
     }] : []),
     // Only show Analytics for admin or superuser if user has enabled it
-    ...((isAdminUser || isSuperUser) && user?.show_analytics !== false ? [{
+    ...((isAdminUser || isSuperUser) && showAnalytics ? [{
       path: '/analytics',
       label: 'Analytics',
       icon: <BarChart className="w-5 h-5" />
@@ -377,7 +385,7 @@ export function AppSidebar() {
 
   const settingsMenuItems = [
     // Only show Settings for admin users in their owned organization
-    ...(isAdminUser && (currentOrgId === user?.tenant_id?.toString() || currentOrgId === user?.tenant_id) ? [{ 
+    ...(isAdminUser && isPrimaryTenant ? [{ 
       path: '/settings', 
       label: t('navigation.settings'), 
       icon: <Settings className="w-5 h-5" /> 
@@ -389,7 +397,7 @@ export function AppSidebar() {
       icon: <UserCheck className="w-5 h-5" />
     }] : []),
     // Only show Super Admin for super users in their primary tenant
-    ...(user?.is_superuser && (currentOrgId === user?.tenant_id?.toString() || currentOrgId === user?.tenant_id) ? [{ 
+    ...(user?.is_superuser && isPrimaryTenant ? [{ 
       path: '/super-admin', 
       label: t('navigation.super_admin'), 
       icon: <ShieldCheck className="w-5 h-5" /> 

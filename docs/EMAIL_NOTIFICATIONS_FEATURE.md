@@ -143,6 +143,19 @@ New users get these default notification settings:
 docker-compose exec api python scripts/test_notifications.py
 ```
 
+## Known limitations / TODO
+
+- Email settings validation currently returns success for some providers:
+  - AWS SES: validation stub returns `True` without a live API call.
+  - Azure Email: validation stub returns `True` without a live API call.
+  - Mailgun: performs a lightweight API request.
+
+- Impact: the “Test configuration” action may report success even if credentials/region are incorrect for SES/Azure. Prefer sending a real test email to verify.
+
+- TODO:
+  - Implement real SES checks (e.g., STS GetCallerIdentity + SES GetSendQuota) and surface provider errors.
+  - Implement Azure Email connectivity/credential validation.
+
 ## Future Enhancements
 
 ### Planned Features

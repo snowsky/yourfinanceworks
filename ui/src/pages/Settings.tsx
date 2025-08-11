@@ -161,8 +161,8 @@ const Settings = () => {
         
         // Update user profile with any settings that might affect it
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-        if (currentUser && settings.user_profile) {
-          const updatedUser = { ...currentUser, ...settings.user_profile };
+        if (currentUser) {
+          const updatedUser = { ...currentUser };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           setUserProfile(updatedUser);
         }
@@ -184,7 +184,19 @@ const Settings = () => {
 
         // Try to fetch email settings
         try {
-          const emailData = await api.get('/email/config');
+          type EmailConfig = {
+            provider: string;
+            from_name: string;
+            from_email: string;
+            enabled: boolean;
+            aws_access_key_id?: string;
+            aws_secret_access_key?: string;
+            aws_region?: string;
+            azure_connection_string?: string;
+            mailgun_api_key?: string;
+            mailgun_domain?: string;
+          };
+          const emailData = await api.get<EmailConfig>('/email/config');
           setEmailSettings({
             provider: emailData.provider || emailSettings.provider,
             from_name: emailData.from_name || emailSettings.from_name,
@@ -228,7 +240,29 @@ const Settings = () => {
         // Fetch notification settings
         try {
           setLoadingNotifications(true);
-          const notifData = await api.get('/notifications/settings');
+          type NotificationSettingsResponse = {
+            user_created?: boolean;
+            user_updated?: boolean;
+            user_deleted?: boolean;
+            user_login?: boolean;
+            client_created?: boolean;
+            client_updated?: boolean;
+            client_deleted?: boolean;
+            invoice_created?: boolean;
+            invoice_updated?: boolean;
+            invoice_deleted?: boolean;
+            invoice_sent?: boolean;
+            invoice_paid?: boolean;
+            invoice_overdue?: boolean;
+            payment_created?: boolean;
+            payment_updated?: boolean;
+            payment_deleted?: boolean;
+            settings_updated?: boolean;
+            notification_email?: string;
+            daily_summary?: boolean;
+            weekly_summary?: boolean;
+          };
+          const notifData = await api.get<NotificationSettingsResponse>('/notifications/settings');
           setNotificationSettings({
             user_created: notifData.user_created || false,
             user_updated: notifData.user_updated || false,
@@ -300,7 +334,7 @@ const Settings = () => {
     if (!testEmail) return;
 
     try {
-      const result = await api.post('/email/test', { test_email: testEmail });
+      const result = await api.post<{ success: boolean; message: string }>('/email/test', { test_email: testEmail });
       if (result.success) {
         toast.success(t('settings.test_email_sent_successfully'));
       } else {
@@ -382,7 +416,7 @@ const Settings = () => {
       try {
         await api.put('/email/config', emailSettings);
       } catch (error) {
-        console.log("Failed to save email settings:", error);
+        toast.error(getErrorMessage(error, t));
       }
 
     } catch (error) {
@@ -2285,7 +2319,6 @@ const Settings = () => {
                           <CurrencySelector
                             value={newDiscountRule.currency || "USD"}
                             onValueChange={(value) => setNewDiscountRule(prev => ({ ...prev, currency: value }))}
-                            includeInactive={true}
                           />
                         </div>
               

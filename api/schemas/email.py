@@ -38,6 +38,7 @@ class EmailConfig(BaseModel):
     from_name: str
     from_email: EmailStr
     enabled: bool = False
+    aws_session_token: Optional[str] = None
     
     # Provider-specific settings
     aws_access_key_id: Optional[str] = None

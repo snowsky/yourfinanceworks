@@ -2495,7 +2495,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   </div>
 
                   {/* Attachment Section */}
-                  {console.log("🔍 RENDERING ATTACHMENT SECTION")}
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="attachment" className="text-base font-medium">
@@ -2508,11 +2507,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            console.log("🔍 FILE INPUT CHANGE EVENT:", {
-                              files: e.target.files,
-                              fileCount: e.target.files?.length,
-                              selectedFile: file
-                            });
                             if (file) {
                               console.log("🔍 FILE SELECTED:", {
                                 name: file.name,
@@ -2534,15 +2528,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       </div>
                     </div>
 
-                    {/* Show existing attachment if available */}
-                    {console.log("🔍 ATTACHMENT CHECK:", { 
-                      isEdit, 
-                      attachmentInfo, 
-                      invoice_has_attachment: invoice?.has_attachment, 
-                      invoice_filename: invoice?.attachment_filename,
-                      preview_has_attachment: previewInvoice?.has_attachment,
-                      preview_filename: previewInvoice?.attachment_filename
-                    })}
                     {isEdit && (
                       attachmentInfo?.has_attachment || 
                       attachmentInfo?.filename || 

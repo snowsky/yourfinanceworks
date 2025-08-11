@@ -153,7 +153,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       Alert.alert('Success', 'Settings saved successfully!');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      Alert.alert('Error', `Failed to save settings: ${error.message}`);
+      Alert.alert('Error', `Failed to save settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }

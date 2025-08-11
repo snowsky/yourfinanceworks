@@ -267,16 +267,20 @@ async def get_email_configuration(
         if not email_settings or not email_settings.value:
             # Return default configuration
             return EmailConfig(
-            provider="aws_ses",
-            enabled=False,
-            from_name="Your Company",
-            from_email="noreply@example.com"
-        )
-    
-        config_data = email_settings.value
-    
+                provider="aws_ses",
+                enabled=False,
+                from_name="Your Company",
+                from_email="noreply@example.com"
+            )
+
+        config_data = email_settings.value or {}
+
+        # Ensure all required fields are included with sensible defaults
         return EmailConfig(
             provider=config_data.get('provider', 'aws_ses'),
+            from_name=config_data.get('from_name', 'Your Company'),
+            from_email=config_data.get('from_email', 'noreply@example.com'),
+            enabled=bool(config_data.get('enabled', False)),
             aws_access_key_id=config_data.get('aws_access_key_id'),
             aws_secret_access_key=config_data.get('aws_secret_access_key'),
             aws_region=config_data.get('aws_region'),

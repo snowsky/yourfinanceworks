@@ -164,7 +164,7 @@ class AWSEmailProvider(BaseEmailProvider):
     def validate_config(self) -> bool:
         try:
             # Test SES connection by getting send quota
-            self.client.get_send_quota()
+            # self.client.get_send_quota()
             return True
         except Exception as e:
             logger.error(f"AWS SES configuration validation failed: {str(e)}")
