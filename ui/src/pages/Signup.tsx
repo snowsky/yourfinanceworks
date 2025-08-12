@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Building2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { authApi, API_BASE_URL } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 
 const Signup: React.FC = () => {
@@ -487,8 +487,9 @@ const Signup: React.FC = () => {
                 type="button"
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                 onClick={() => {
-                  // TODO: Implement Google SSO
-                  alert(t('auth.signup.google_sso_coming_soon'));
+                  const next = encodeURIComponent('/dashboard');
+                  const url = `${API_BASE_URL}/auth/google/login?next=${next}`;
+                  window.location.href = url;
                 }}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">

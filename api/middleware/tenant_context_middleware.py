@@ -42,7 +42,9 @@ async def tenant_context_middleware(request: Request, call_next):
         "/api/v1/auth/login", "/api/v1/auth/register",
         "/api/v1/auth/check-email-availability", "/api/v1/auth/request-password-reset",
         "/api/v1/auth/reset-password", "/api/v1/tenants/check-name-availability",
-        "/api/v1/auth/change-password"
+        "/api/v1/auth/change-password",
+        # Google OAuth SSO endpoints must be public
+        "/api/v1/auth/google/login", "/api/v1/auth/google/callback",
     ]
     
     if request.url.path in skip_tenant_paths:
