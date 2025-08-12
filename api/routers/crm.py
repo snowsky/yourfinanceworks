@@ -10,6 +10,7 @@ from models.models_per_tenant import ClientNote, Client
 from schemas.crm import ClientNoteCreate, ClientNote as ClientNoteSchema
 from routers.auth import get_current_user
 from services.tenant_database_manager import tenant_db_manager
+from utils.audit import log_audit_event
 
 router = APIRouter(prefix="/crm", tags=["crm"])
 
@@ -40,6 +41,18 @@ async def create_client_note(
         db.add(db_note)
         db.commit()
         db.refresh(db_note)
+        # Audit log
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="client_note",
+            resource_id=str(db_note.id),
+            resource_name=f"Client {client_id} Note",
+            details=note.model_dump(),
+            status="success",
+        )
         return db_note
     finally:
         db.close()
@@ -76,6 +89,18 @@ async def update_client_note(
         
         db.commit()
         db.refresh(db_note)
+        # Audit log update
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="client_note",
+            resource_id=str(db_note.id),
+            resource_name=f"Client {client_id} Note",
+            details={"note": note.note},
+            status="success",
+        )
         return db_note
     finally:
         db.close()
@@ -108,6 +133,18 @@ async def delete_client_note(
         # Delete the note
         db.delete(db_note)
         db.commit()
+        # Audit log delete
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DELETE",
+            resource_type="client_note",
+            resource_id=str(db_note.id),
+            resource_name=f"Client {client_id} Note",
+            details={"message": "Client note deleted"},
+            status="success",
+        )
     finally:
         db.close()
 

@@ -12,8 +12,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
+  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { UserProfile } from "./UserProfile";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
@@ -40,6 +43,7 @@ import { Building } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function AppSidebar() {
+  const { state } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -457,13 +461,47 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar>
-        <SidebarHeader className="py-6 px-2 border-b border-sidebar-border">
-          <div className="flex items-center justify-center text-center">
-            {companyLogoUrl ? (
-              <img src={companyLogoUrl} alt={companyName} className="h-8 max-w-[160px] object-contain" />
-            ) : (
-              <span className="text-xl font-bold text-white">{companyName}</span>
-            )}
+        <SidebarHeader className="py-6 px-4 border-b border-sidebar-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              {/* If you later store a profile image URL on the user, set it here */}
+              <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
+              <AvatarFallback className="bg-sidebar-foreground/20 text-white text-sm font-medium">
+                {(() => {
+                  const first = (user?.first_name || '').trim();
+                  const last = (user?.last_name || '').trim();
+                  const name = `${first} ${last}`.trim() || (user?.email?.split('@')[0] || 'User');
+                  const parts = name.split(' ').filter(Boolean);
+                  const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
+                  return initials.toUpperCase();
+                })()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold text-white">
+                {(() => {
+                  const first = (user?.first_name || '').trim();
+                  const last = (user?.last_name || '').trim();
+                  const name = `${first} ${last}`.trim();
+                  return name || (user?.email?.split('@')[0] || 'User');
+                })()}
+              </span>
+              <span className="text-xs text-sidebar-foreground/60 truncate max-w-[160px]">
+                {user?.email}
+              </span>
+            </div>
+            </div>
+            <SidebarTrigger>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                aria-label="Toggle sidebar"
+                className="text-sidebar-foreground hover:text-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </SidebarTrigger>
           </div>
         </SidebarHeader>
         <SidebarContent className="pt-6">
@@ -576,18 +614,15 @@ export function AppSidebar() {
             </Button>
           </div>
         </SidebarFooter>
+        {/* Always-available thin rail to toggle when sidebar is hidden */}
+        <SidebarRail />
       </Sidebar>
-      <div className="fixed top-4 left-4 z-50">
-        <SidebarTrigger>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className={`rounded-full ${!open ? 'bg-white shadow-md' : 'bg-transparent border-none'}`}
-          >
-            <ChevronLeft className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
-          </Button>
-        </SidebarTrigger>
-      </div>
+      {/* Floating toggle shown when sidebar is hidden (desktop) */}
+      {state === 'collapsed' && (
+        <div className="fixed top-4 left-2 z-50 hidden md:block">
+          <SidebarTrigger className="rounded-full bg-white shadow-md hover:bg-gray-100" />
+        </div>
+      )}
     </>
   );
 }

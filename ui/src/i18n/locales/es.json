@@ -818,7 +818,8 @@
     "NO_EXCHANGE_RATE_FOUND": "No se encontró tasa de cambio para las monedas seleccionadas.",
     "ONLY_SUPERUSERS": "Solo los superusuarios pueden realizar esta acción.",
     "ONLY_ADMINS": "Solo los administradores pueden realizar esta acción.",
-    "ROLE_NOT_ALLOWED": "Su rol no permite esta acción."
+    "ROLE_NOT_ALLOWED": "Su rol no permite esta acción.",
+    "EXPENSE_LINKED_TO_INVOICE": "No se puede eliminar este gasto porque está vinculado a una factura. Por favor primero quite el vínculo a la factura."
   },
   "validation": {
     "required": "Este campo es requerido",

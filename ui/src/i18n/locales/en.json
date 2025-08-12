@@ -805,7 +805,8 @@
     "NO_EXCHANGE_RATE_FOUND": "No exchange rate found for the selected currencies.",
     "ONLY_SUPERUSERS": "Only superusers can perform this action.",
     "ONLY_ADMINS": "Only admins can perform this action.",
-    "ROLE_NOT_ALLOWED": "Your role does not permit this action."
+    "ROLE_NOT_ALLOWED": "Your role does not permit this action.",
+    "EXPENSE_LINKED_TO_INVOICE": "Cannot delete this expense because it is linked to an invoice. Please remove the invoice link first."
   },
   "validation": {
     "required": "This field is required",

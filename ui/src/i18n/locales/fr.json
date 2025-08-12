@@ -801,7 +801,8 @@
     "NO_EXCHANGE_RATE_FOUND": "Aucun taux de change trouvé pour les devises sélectionnées.",
     "ONLY_SUPERUSERS": "Seuls les superutilisateurs peuvent effectuer cette action.",
     "ONLY_ADMINS": "Seuls les administrateurs peuvent effectuer cette action.",
-    "ROLE_NOT_ALLOWED": "Votre rôle ne permet pas cette action."
+    "ROLE_NOT_ALLOWED": "Votre rôle ne permet pas cette action.",
+    "EXPENSE_LINKED_TO_INVOICE": "Impossible de supprimer cette dépense car elle est liée à une facture. Veuillez d'abord supprimer le lien avec la facture."
   },
   "validation": {
     "required": "Ce champ est requis",

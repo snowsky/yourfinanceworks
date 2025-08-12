@@ -19,6 +19,7 @@ from services.currency_service import CurrencyService
 from utils.rbac import require_non_viewer
 from utils.audit import log_audit_event
 from services.ocr_service import queue_or_process_attachment, cancel_ocr_tasks_for_expense
+from constants.error_codes import EXPENSE_LINKED_TO_INVOICE
 
 
 logging.basicConfig(level=logging.INFO)
@@ -255,6 +256,9 @@ async def delete_expense(
         db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not db_expense:
             raise HTTPException(status_code=404, detail="Expense not found")
+        # Prevent deleting an expense that is linked to an invoice
+        if getattr(db_expense, "invoice_id", None) is not None:
+            raise HTTPException(status_code=400, detail=EXPENSE_LINKED_TO_INVOICE)
         # If there is a saved receipt, try to remove it from disk
         # Remove any legacy single receipt file if present
         if db_expense.receipt_path and os.path.exists(db_expense.receipt_path):
