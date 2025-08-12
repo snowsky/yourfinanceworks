@@ -39,9 +39,10 @@ async def tenant_context_middleware(request: Request, call_next):
     # Skip tenant context for specific endpoints that don't need it or handle it manually
     skip_tenant_paths = [
         "/health", "/", "/docs", "/openapi.json",
-        "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/me",
+        "/api/v1/auth/login", "/api/v1/auth/register",
         "/api/v1/auth/check-email-availability", "/api/v1/auth/request-password-reset",
-        "/api/v1/auth/reset-password", "/api/v1/tenants/check-name-availability"
+        "/api/v1/auth/reset-password", "/api/v1/tenants/check-name-availability",
+        "/api/v1/auth/change-password"
     ]
     
     if request.url.path in skip_tenant_paths:
@@ -160,6 +161,27 @@ async def tenant_context_middleware(request: Request, call_next):
             logger.error(f"Error extracting tenant context: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
+        # Enforce forced password reset if required
+        try:
+            forced_reset_required = bool(user and getattr(user, "must_reset_password", False))
+            if forced_reset_required:
+                allowed_paths_when_forced = {
+                    "/api/v1/auth/change-password",
+                    "/api/v1/auth/me",
+                    "/api/v1/auth/logout",
+                }
+                path = request.url.path
+                if (path not in skip_tenant_paths) and (path not in allowed_paths_when_forced):
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={
+                            "detail": "Password reset required",
+                            "code": "PASSWORD_RESET_REQUIRED"
+                        }
+                    )
+        except Exception:
+            pass
+
         # Ensure tenant context is set before proceeding
         current_tenant = get_tenant_context()
         logger.info(f"Current tenant context before handler: {current_tenant}")

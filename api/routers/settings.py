@@ -30,7 +30,8 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("/")
 async def get_settings(
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get tenant settings (using tenant info as settings)"""
     # Only admins can view settings
@@ -45,6 +46,25 @@ async def get_settings(
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
         
+        # Get invoice settings from tenant database
+        invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
+        
+        # Default invoice settings
+        default_invoice_settings = {
+            "prefix": "INV-",
+            "next_number": "0001",
+            "terms": "",
+            "notes": "",
+            "send_copy": True,
+            "auto_reminders": True
+        }
+        
+        # Use stored settings or defaults
+        if invoice_settings_record and invoice_settings_record.value:
+            invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}
+        else:
+            invoice_settings = default_invoice_settings
+        
         # Return tenant info formatted as settings
         return {
             "company_info": {
@@ -55,14 +75,7 @@ async def get_settings(
                 "tax_id": tenant.tax_id or "",
                 "logo": tenant.company_logo_url or ""
             },
-            "invoice_settings": {
-                "prefix": "INV-",
-                "next_number": "0001",
-                "terms": "",
-                "notes": "",
-                "send_copy": True,
-                "auto_reminders": True
-            },
+            "invoice_settings": invoice_settings,
             "enable_ai_assistant": tenant.enable_ai_assistant or False
         }
     finally:
@@ -72,6 +85,7 @@ async def get_settings(
 async def update_settings(
     settings: Dict[str, Any],
     master_db: Session = Depends(get_master_db),
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update tenant settings"""
@@ -101,6 +115,43 @@ async def update_settings(
     # Update AI assistant setting
     if "enable_ai_assistant" in settings:
         tenant.enable_ai_assistant = settings["enable_ai_assistant"]
+    
+    # Update invoice settings in tenant database
+    invoice_settings = settings.get("invoice_settings", {})
+    if invoice_settings:
+        # Get or create invoice settings record
+        invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
+        
+        if invoice_settings_record:
+            # Update existing record
+            current_value = invoice_settings_record.value or {}
+            updated_value = {**current_value, **invoice_settings}
+            invoice_settings_record.value = updated_value
+            invoice_settings_record.updated_at = datetime.now(timezone.utc)
+        else:
+            # Create new record
+            invoice_settings_record = Settings(
+                key="invoice_settings",
+                value=invoice_settings,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            db.add(invoice_settings_record)
+        
+        db.commit()
+        
+        # Log audit event in tenant DB for invoice settings
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="invoice_settings",
+            resource_id="1",
+            resource_name="Invoice Settings",
+            details=invoice_settings,
+            status="success"
+        )
     
     master_db.commit()
     master_db.refresh(tenant)

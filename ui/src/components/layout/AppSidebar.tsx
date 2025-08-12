@@ -73,13 +73,22 @@ export function AppSidebar() {
   // Get current user data from localStorage
   const user = getCurrentUser();
   const userRole = user?.role || 'user';
-  const isAdminUser = userRole === 'admin';
+  const [effectiveRole, setEffectiveRole] = useState<string>(userRole);
+  const [roleLoading, setRoleLoading] = useState(true);
+  const isAdminEffective = effectiveRole === 'admin';
   const showAnalytics = (user as any)?.show_analytics !== false;
   const [isSuperUser, setIsSuperUser] = useState(false);
-  
+
   // Organization switching state
   const [userOrganizations, setUserOrganizations] = useState([]);
-  const [currentOrgId, setCurrentOrgId] = useState(user?.tenant_id?.toString() || '');
+  const initialOrgId = (() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('selected_tenant_id');
+      if (stored) return stored;
+    }
+    return user?.tenant_id?.toString() || '';
+  })();
+  const [currentOrgId, setCurrentOrgId] = useState(initialOrgId);
   const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
   
   // Check super admin status via API
@@ -89,22 +98,23 @@ export function AppSidebar() {
         setIsSuperUser(false);
         return;
       }
-      
+
       const isInPrimaryTenant = currentOrgId === user?.tenant_id?.toString();
       setIsSuperUser(user.is_superuser && isInPrimaryTenant);
     };
-    
+
     checkSuperAdminStatus();
   }, [currentOrgId, user?.is_superuser, user?.tenant_id]);
   
   console.log('Sidebar: User check:', { 
     user, 
     userRole, 
-    isAdminUser,
+    effectiveRole,
+    isAdminEffective,
     isSuperUser,
     currentOrgId,
     primaryTenant: user?.tenant_id?.toString(),
-    shouldFetchSettings: isAdminUser 
+    shouldFetchSettings: isAdminEffective 
   });
 
   // Get company name from settings with moderate refetching (only for admin users)
@@ -121,7 +131,7 @@ export function AppSidebar() {
     refetchOnReconnect: true,
     refetchIntervalInBackground: false,
     staleTime: 0,
-    enabled: isAdminUser, // Only fetch settings for admin users
+    enabled: (!roleLoading && isAdminEffective), // Only fetch settings after role is known and admin in current org
     retry: (failureCount, error: any) => {
       // Don't retry on authentication/authorization errors
       if (error?.message?.includes('403') || error?.message?.includes('401')) {
@@ -130,6 +140,42 @@ export function AppSidebar() {
       return failureCount < 3;
     },
   });
+
+  // Fetch effective role for current organization (uses X-Tenant-ID header automatically)
+  useEffect(() => {
+    const fetchEffectiveRole = async () => {
+      setRoleLoading(true);
+      try {
+        // Ensure X-Tenant-ID header reflects currentOrgId by stashing it before the call
+        if (typeof window !== 'undefined' && currentOrgId) {
+          localStorage.setItem('selected_tenant_id', currentOrgId);
+        }
+        const me: any = await apiRequest('/auth/me');
+        if (me && me.role) {
+          setEffectiveRole(me.role);
+          
+          // Update localStorage with the effective role for this organization
+          // so that auth utility functions use the correct role
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          if (currentUser && currentUser.role !== me.role) {
+            console.log(`🔄 Role updated: ${currentUser.role} → ${me.role} for org ${currentOrgId}`);
+            const updatedUser = { ...currentUser, role: me.role };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            
+            // Trigger auth refresh for other components
+            window.dispatchEvent(new CustomEvent('auth-updated'));
+          }
+        } else {
+          setEffectiveRole(userRole);
+        }
+      } catch {
+        setEffectiveRole(userRole);
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+    fetchEffectiveRole();
+  }, [currentOrgId, userRole]);
 
   // Get company name from current organization or settings
   const companyName = (() => {
@@ -159,7 +205,7 @@ export function AppSidebar() {
       timestamp: new Date().toISOString()
     });
   }, [settings, companyName, forceUpdate, userOrganizations, currentOrgId]);
-  
+
   // Fetch user's organizations
   useEffect(() => {
     const fetchUserOrganizations = async () => {
@@ -167,9 +213,9 @@ export function AppSidebar() {
         console.log('No user ID available, skipping organization fetch');
         return;
       }
-      
+
       console.log('🏢 Fetching organizations for user:', user.email);
-      
+
       try {
         type Org = { id: number; name: string };
         type MeResponse = { organizations?: Org[] };
@@ -177,15 +223,15 @@ export function AppSidebar() {
         const me = response as MeResponse;
         const orgs = me.organizations ?? [];
         console.log('📋 User organizations response:', me);
-        
+
         if (orgs.length > 0) {
           console.log(`✅ User has access to ${orgs.length} organizations:`, orgs);
           setUserOrganizations(orgs);
-          
+
           // Use selected tenant from localStorage or default to user's primary tenant
           let selectedTenantId = localStorage.getItem('selected_tenant_id');
           console.log('🔍 Selected tenant from localStorage:', selectedTenantId);
-          
+
           // If no selected tenant, default to user's primary tenant
           if (!selectedTenantId) {
             selectedTenantId = user.tenant_id?.toString();
@@ -201,10 +247,10 @@ export function AppSidebar() {
               console.log('✅ User has access to selected tenant:', selectedTenantId);
             }
           }
-          
+
           console.log(`🎯 Setting current org ID to: ${selectedTenantId}`);
           setCurrentOrgId(selectedTenantId || user.tenant_id?.toString() || '');
-          
+
           // Store the selected tenant if not already stored
           if (selectedTenantId && !localStorage.getItem('selected_tenant_id')) {
             localStorage.setItem('selected_tenant_id', selectedTenantId);
@@ -370,13 +416,13 @@ export function AppSidebar() {
 
     // Users moved under Settings; remove from main nav
     // Only show Audit Log for admin or superuser
-    ...((isAdminUser || isSuperUser) ? [{
+    ...((!roleLoading && (isAdminEffective || isSuperUser)) ? [{
       path: '/audit-log',
       label: t('navigation.audit_log'),
       icon: <ListChecks className="w-5 h-5" />
     }] : []),
     // Only show Analytics for admin or superuser if user has enabled it
-    ...((isAdminUser || isSuperUser) && showAnalytics ? [{
+    ...((!roleLoading && (isAdminEffective || isSuperUser) && showAnalytics) ? [{
       path: '/analytics',
       label: 'Analytics',
       icon: <BarChart className="w-5 h-5" />
@@ -385,19 +431,19 @@ export function AppSidebar() {
 
   const settingsMenuItems = [
     // Only show Settings for admin users in their owned organization
-    ...(isAdminUser && isPrimaryTenant ? [{ 
+    ...((!roleLoading && isAdminEffective && isPrimaryTenant) ? [{ 
       path: '/settings', 
       label: t('navigation.settings'), 
       icon: <Settings className="w-5 h-5" /> 
     }] : []),
     // Users is now a sub-entry under Settings for admins
-    ...(isAdminUser ? [{
+    ...((!roleLoading && isAdminEffective) ? [{
       path: '/users',
       label: t('navigation.users'),
       icon: <UserCheck className="w-5 h-5" />
     }] : []),
     // Only show Super Admin for super users in their primary tenant
-    ...(user?.is_superuser && isPrimaryTenant ? [{ 
+    ...((user?.is_superuser && isPrimaryTenant) ? [{ 
       path: '/super-admin', 
       label: t('navigation.super_admin'), 
       icon: <ShieldCheck className="w-5 h-5" /> 

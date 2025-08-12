@@ -15,6 +15,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    must_reset_password = Column(Boolean, default=False, nullable=False)
     
     # User role within tenant (no tenant_id needed since each tenant has its own database)
     role = Column(String, default="user")  # admin, user, viewer

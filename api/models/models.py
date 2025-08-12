@@ -28,6 +28,7 @@ class MasterUser(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    must_reset_password = Column(Boolean, default=False, nullable=False)
     theme = Column(String, default="system")
     show_analytics = Column(Boolean, default=False)  # Show/hide analytics menu
     

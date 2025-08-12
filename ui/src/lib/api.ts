@@ -542,7 +542,7 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, new_password: newPassword }),
     }),
-  activateUser: (inviteId: number, activationData: { password: string; first_name?: string; last_name?: string }) =>
+  activateUser: (inviteId: number, activationData: { password?: string; first_name?: string; last_name?: string }) =>
     apiRequest<any>(`/auth/invites/${inviteId}/activate`, {
       method: 'POST',
       body: JSON.stringify(activationData),

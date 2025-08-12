@@ -87,6 +87,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
   const [showCreateTenant, setShowCreateTenant] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [selectedTenantForUsers, setSelectedTenantForUsers] = useState<Tenant | null>(null);
   const [createTenantForm, setCreateTenantForm] = useState({ name: '', email: '', default_currency: 'USD' });
   const [createUserForm, setCreateUserForm] = useState({ email: '', first_name: '', last_name: '', role: 'user', password: '', tenant_ids: [], primary_tenant_id: '', tenant_roles: {} });
   const [promoteEmail, setPromoteEmail] = useState('');
@@ -115,9 +116,10 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (tenantId?: number) => {
     try {
-      const data = await apiRequest<User[]>('/super-admin/users', {}, { skipTenant: true });
+      const url = tenantId ? `/super-admin/users?tenant_id=${tenantId}` : '/super-admin/users';
+      const data = await apiRequest<User[]>(url, {}, { skipTenant: true });
       setUsers(data);
     } catch (err) {
       setError('Failed to fetch users');
@@ -144,7 +146,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
       setCreateTenantForm({ name: '', email: '', default_currency: 'USD' });
       toast.success('Organization created successfully');
       fetchTenants();
-      fetchUsers(); // Refresh users list to show the auto-created admin user
+      fetchUsers(selectedTenantForUsers?.id); // Refresh users list to show the auto-created admin user
       fetchDatabaseOverview(); // Refresh databases list to show the new tenant database
     } catch (err: any) {
       const errorMessage = err?.detail || err?.message || 'Failed to create organization';
@@ -162,7 +164,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
       setShowCreateUser(false);
       setCreateUserForm({ email: '', first_name: '', last_name: '', role: 'user', password: '', tenant_ids: [], primary_tenant_id: '', tenant_roles: {} });
       toast.success('User created successfully');
-      fetchUsers();
+      fetchUsers(selectedTenantForUsers?.id);
     } catch (err: any) {
       const errorMessage = err?.detail || err?.message || 'Failed to create user';
       toast.error(errorMessage);
@@ -184,7 +186,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
       // Remove tenant from state
       setTenants(prev => prev.filter(t => t.id !== tenantToDelete.id));
       // Refresh users and databases lists
-      fetchUsers();
+      fetchUsers(selectedTenantForUsers?.id);
       fetchDatabaseOverview();
     } catch (err) {
       toast.error('Failed to delete tenant');
@@ -204,7 +206,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
       }, { skipTenant: true });
       toast.success('User deleted successfully');
       setUserToDelete(null);
-      fetchUsers();
+      fetchUsers(selectedTenantForUsers?.id);
     } catch (err) {
       toast.error('Failed to delete user');
       setUserToDelete(null);
@@ -250,7 +252,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
         toast.success(data.message || 'User promoted to super admin!');
         setPromoteEmail('');
         setPromoteError(null);
-        fetchUsers();
+        fetchUsers(selectedTenantForUsers?.id);
       } else {
         const errorMsg =
           (response.status === 404 && 'User does not exist') ||
@@ -342,7 +344,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
       if (!response.ok) throw new Error('Failed to update user');
       setEditUser(null);
       toast.success('User updated successfully');
-      fetchUsers();
+      fetchUsers(selectedTenantForUsers?.id);
     } catch (err) {
       toast.error('Failed to update user');
     }
@@ -351,12 +353,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchTenants(), fetchUsers(), fetchDatabaseOverview()]);
+      await Promise.all([fetchTenants(), fetchUsers(selectedTenantForUsers?.id), fetchDatabaseOverview()]);
       setLoading(false);
     };
     
     loadData();
-  }, []);
+  }, [selectedTenantForUsers]);
 
   if (loading) {
     return (
@@ -632,7 +634,22 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>{t('superAdmin.users_management_title')}</CardTitle>
-                  <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Label>Filter by Organization:</Label>
+                      <Select value={selectedTenantForUsers?.id?.toString() || 'all'} onValueChange={(value) => setSelectedTenantForUsers(value === 'all' ? null : tenants.find(t => t.id.toString() === value) || null)}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Organizations</SelectItem>
+                          {tenants.map(tenant => (
+                            <SelectItem key={tenant.id} value={tenant.id.toString()}>{tenant.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
                     <DialogTrigger asChild>
                       <Button>
                         <UserPlus className="h-4 w-4 mr-2" />
@@ -749,6 +766,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
                       </div>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -812,7 +830,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
                                       method: 'PATCH'
                                     }, { skipTenant: true });
                                     toast.success(`User ${user.is_active ? 'disabled' : 'enabled'} successfully`);
-                                    fetchUsers();
+                                    fetchUsers(selectedTenantForUsers?.id);
                                   } catch (err) {
                                     toast.error('Failed to toggle user status');
                                   }
@@ -835,7 +853,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string) => stri
                                     try {
                                       await superAdminApi.demoteSuperAdmin(user.email);
                                       toast.success(t('superAdmin.remove_super_admin_success'));
-                                      fetchUsers();
+                                      fetchUsers(selectedTenantForUsers?.id);
                                     } catch (err: any) {
                                       toast.error(err?.message || t('superAdmin.remove_super_admin_failed'));
                                     }

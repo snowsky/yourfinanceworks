@@ -766,6 +766,7 @@
     "loadingUsers": "Loading users...",
     "noUsersFound": "No users found",
     "enterPasswordForUserPlaceholder": "Enter password for user",
+    "optionalPasswordHint": "Optional: leave blank to send an invite email and require the user to set a password on first login.",
     "pending": "Pending",
     "accepted": "Accepted",
     "expired": "Expired",
@@ -1165,6 +1166,7 @@
   },
   "superAdmin": {
     "role_header": "Role",
+    "organization_header": "Organization",
     "need_super_admin_access": "You need super admin access to view this page.",
     "warning_tenant_email_missing": "Warning: The following tenant email(s) do not exist as users",
     "tenant_admin_login_hint": "Please create a user with the same email if you want tenant admins to be able to log in.",

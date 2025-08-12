@@ -258,6 +258,11 @@ export default function UsersPage() {
     [user.first_name, user.last_name].filter(Boolean).join(" ").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Sort users by email (case-insensitive)
+  const sortedUsers = [...filteredUsers].sort((a, b) =>
+    a.email.localeCompare(b.email, undefined, { sensitivity: 'base' })
+  );
+
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
@@ -445,7 +450,7 @@ export default function UsersPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => (
+                    sortedUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</TableCell>
@@ -491,8 +496,8 @@ export default function UsersPage() {
                 value={activationForm.password}
                 onChange={handleActivationFormChange}
                 placeholder={t('users.enterPasswordForUserPlaceholder')}
-                required
               />
+              <p className="text-xs text-muted-foreground">{t('users.optionalPasswordHint') || 'Optional: leave blank to send an invite email and require the user to set a password on first login.'}</p>
               <div className="flex gap-2">
                 <Input
                   type="text"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from typing import List, Optional, Dict, Any
@@ -24,6 +24,11 @@ router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
 # Add the request model for the promote endpoint
 class PromoteUserRequest(BaseModel):
     email: str
+
+class SuperAdminResetPasswordRequest(BaseModel):
+    new_password: str
+    confirm_password: str
+    force_reset_on_login: bool = False
 
 def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
     """Require that the current user is a superuser in their primary tenant"""
@@ -303,31 +308,50 @@ async def toggle_tenant_status(
 async def get_users(
     skip: int = 0,
     limit: int = 100,
+    tenant_id: Optional[int] = Query(None),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(require_super_admin)
 ):
-    """List all users across all tenants or from a specific tenant"""
+    """List users. If tenant_id is provided, compute role for that tenant; otherwise show role for each user's primary tenant."""
     query = master_db.query(MasterUser)
-    
-    # The original code had tenant_id here, but the new code doesn't.
-    # Assuming the intent was to list all users across all tenants.
-    # If a specific tenant_id is needed, it should be passed as a query parameter.
-    # For now, removing the filter to list all users.
-    
-    users = query.offset(skip).limit(limit).all()
-    
-    # Enrich with tenant information
-    enriched_users = []
+
+    if tenant_id:
+        # Users whose primary tenant matches
+        primary_users = query.filter(MasterUser.tenant_id == tenant_id).all()
+        # Users with membership in the tenant
+        membership_rows = master_db.execute(
+            user_tenant_association.select().where(user_tenant_association.c.tenant_id == tenant_id)
+        ).fetchall()
+        member_ids = {row.user_id for row in membership_rows}
+        users_map = {u.id: u for u in primary_users}
+        if member_ids:
+            extra_users = master_db.query(MasterUser).filter(MasterUser.id.in_(list(member_ids))).all()
+            for u in extra_users:
+                users_map[u.id] = u
+        users = list(users_map.values())
+    else:
+        users = query.offset(skip).limit(limit).all()
+
+    enriched_users: List[Dict[str, Any]] = []
     for user in users:
         user_dict = user.__dict__.copy()
         user_dict.pop('_sa_instance_state', None)
-        
-        # Add tenant information
-        tenant = master_db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+
+        target_tenant_id = tenant_id or user.tenant_id
+        tenant = master_db.query(Tenant).filter(Tenant.id == target_tenant_id).first()
         user_dict['tenant_name'] = tenant.name if tenant else "Unknown"
-        
+
+        # Effective role for the target tenant from association; fallback to user's primary role
+        membership = master_db.execute(
+            user_tenant_association.select().where(
+                user_tenant_association.c.user_id == user.id,
+                user_tenant_association.c.tenant_id == target_tenant_id
+            )
+        ).first()
+        user_dict['role'] = getattr(membership, 'role', None) or user.role or 'user'
+
         enriched_users.append(user_dict)
-    
+
     return enriched_users
 
 @router.get("/users/{user_id}")
@@ -461,39 +485,8 @@ async def create_user(
     
     return user_dict
 
-@router.put("/users/{user_id}/role")
-async def update_user_role(
-    user_id: int,
-    role_update: UserRoleUpdate,
-    master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
-):
-    """Update a user's role across all systems"""
-    user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Update role in master database
-    user.role = role_update.role
-    master_db.commit()
-    master_db.refresh(user)
-    
-    # Update role in tenant database
-    try:
-        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)()
-        tenant_user = tenant_session.query(TenantUser).filter(
-            TenantUser.id == user_id
-        ).first()
-        
-        if tenant_user:
-            tenant_user.role = role_update.role
-            tenant_session.commit()
-        
-        tenant_session.close()
-    except Exception as e:
-        pass  # Continue even if tenant update fails
-    
-    return {"message": "User role updated successfully"}
+# Removed global role update endpoint - use tenant-specific endpoint instead
+# PUT /super-admin/tenants/{tenant_id}/users/{user_id}/role
 
 @router.put("/users/{user_id}")
 async def update_user(
@@ -648,6 +641,137 @@ async def toggle_user_status(
     
     status_text = "enabled" if user.is_active else "disabled"
     return {"message": f"User {user.email} {status_text} successfully"}
+
+# ========== PASSWORD MANAGEMENT ==========
+
+@router.post("/users/{user_id}/reset-password")
+async def super_admin_reset_password(
+    user_id: int,
+    payload: SuperAdminResetPasswordRequest,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Super admin sets a new password for any user and optionally forces reset on next login."""
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+
+    user.hashed_password = get_password_hash(payload.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    user.is_verified = True
+    user.must_reset_password = bool(payload.force_reset_on_login)
+    master_db.commit()
+
+    # Sync to tenant DB
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)()
+        from models.models_per_tenant import User as TenantUser
+        tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == user.id).first()
+        if tenant_user:
+            tenant_user.hashed_password = get_password_hash(payload.new_password)
+            tenant_user.updated_at = datetime.now(timezone.utc)
+            tenant_user.must_reset_password = bool(payload.force_reset_on_login)
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception:
+        pass
+
+    # Audit
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="user_password",
+        resource_id=str(user.id),
+        resource_name=f"Password reset for {user.email}",
+        details={"force_reset_on_login": payload.force_reset_on_login},
+        tenant_id=current_user.tenant_id,
+        status="success"
+    )
+
+    return {"message": "Password updated"}
+
+# ========== CROSS-TENANT USER ROLE MANAGEMENT ==========
+
+@router.put("/tenants/{tenant_id}/users/{user_id}/role")
+async def super_admin_update_user_role_for_tenant(
+    tenant_id: int,
+    user_id: int,
+    role_update: UserRoleUpdate,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Super admin: update a user's role within a specific tenant (membership and tenant DB)."""
+    # Validate tenant and user exist
+    tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    target_user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+
+    # Upsert membership with role
+    from models.models import user_tenant_association
+    existing_membership = master_db.execute(
+        user_tenant_association.select().where(
+            user_tenant_association.c.user_id == user_id,
+            user_tenant_association.c.tenant_id == tenant_id
+        )
+    ).first()
+
+    if existing_membership:
+        master_db.execute(
+            user_tenant_association.update()
+            .where(
+                user_tenant_association.c.user_id == user_id,
+                user_tenant_association.c.tenant_id == tenant_id
+            )
+            .values(role=role_update.role, is_active=True)
+        )
+    else:
+        master_db.execute(
+            user_tenant_association.insert().values(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                role=role_update.role,
+                is_active=True
+            )
+        )
+    master_db.commit()
+
+    # Update in tenant database
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+        from models.models_per_tenant import User as TenantUser
+        tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == user_id).first()
+        if tenant_user:
+            tenant_user.role = role_update.role
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception:
+        pass
+
+    # Audit
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="user_role",
+        resource_id=str(user_id),
+        resource_name=f"Role update for user {target_user.email} in tenant {tenant_id}",
+        details={"tenant_id": tenant_id, "new_role": role_update.role},
+        tenant_id=current_user.tenant_id,
+        status="success"
+    )
+
+    return {"message": "User role updated for tenant"}
 
 # ========== DATABASE OPERATIONS ==========
 

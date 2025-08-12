@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -21,6 +21,7 @@ from models.database import get_db, get_master_db
 from models.models import User, Tenant, MasterUser, Invite, PasswordResetToken, Settings  # Add PasswordResetToken, Settings import
 from schemas.user import UserCreate, UserLogin, Token, UserRead, UserUpdate, InviteCreate, InviteRead, InviteAccept, UserList, UserRoleUpdate, AdminActivateUser
 from schemas.password_reset import PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse
+from pydantic import BaseModel
 from services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from utils.auth import verify_password, get_password_hash
 from models.models_per_tenant import User as TenantUser
@@ -172,6 +173,11 @@ def authenticate_user(db: Session, email: str, password: str):
         return False
     return user
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_master_db)
@@ -217,6 +223,27 @@ def get_current_user(
                         is_active=user.is_active,
                         is_superuser=user.is_superuser,
                         is_verified=user.is_verified,
+                        must_reset_password=bool(getattr(tenant_user, 'must_reset_password', False)),
+                        theme=user.theme,
+                        google_id=user.google_id,
+                        created_at=user.created_at,
+                        updated_at=user.updated_at
+                    )
+                    return user_copy
+                else:
+                    # Not a member of this tenant: treat as viewer for UI/permissions
+                    user_copy = MasterUser(
+                        id=user.id,
+                        email=user.email,
+                        hashed_password=user.hashed_password,
+                        first_name=user.first_name,
+                        last_name=user.last_name,
+                        role='viewer',
+                        tenant_id=current_tenant_id,
+                        is_active=user.is_active,
+                        is_superuser=user.is_superuser,
+                        is_verified=user.is_verified,
+                        must_reset_password=bool(getattr(user, 'must_reset_password', False)),
                         theme=user.theme,
                         google_id=user.google_id,
                         created_at=user.created_at,
@@ -590,6 +617,40 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db
         "user": UserRead.model_validate(user)
     }
 
+@router.post("/change-password", response_model=PasswordResetResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Allow a logged-in user to change their password and clear must_reset_password."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=401, detail=INCORRECT_PASSWORD)
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.updated_at = datetime.now(timezone.utc)
+    current_user.must_reset_password = False
+    db.commit()
+
+    # Also update tenant DB
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == current_user.id).first()
+        if tenant_user:
+            tenant_user.hashed_password = get_password_hash(payload.new_password)
+            tenant_user.updated_at = datetime.now(timezone.utc)
+            tenant_user.must_reset_password = False
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception:
+        pass
+
+    return PasswordResetResponse(message="Password changed successfully.", success=True)
+
 @router.get("/me", response_model=UserRead)
 async def read_users_me(current_user: MasterUser = Depends(get_current_user), db: Session = Depends(get_master_db)):
     # Get user's organizations
@@ -680,30 +741,66 @@ async def invite_user(
     # Check if current user is admin
     require_admin(current_user, "invite users")
     
-    # Check if user already exists
-    existing_user = db.query(MasterUser).filter(
-        MasterUser.email == invite_data.email,
-        MasterUser.tenant_id == current_user.tenant_id
+    # Normalize email for comparisons
+    invite_email = (invite_data.email or "").strip()
+    if not invite_email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    # Check if a master user with this email already exists globally
+    existing_master_user = db.query(MasterUser).filter(
+        func.lower(MasterUser.email) == func.lower(invite_email)
     ).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="User already exists in this organization")
+
+    if existing_master_user:
+        # If the user already has membership in this tenant or primary tenant matches, block inviting again
+        from models.models import user_tenant_association
+        membership = db.execute(
+            user_tenant_association.select().where(
+                user_tenant_association.c.user_id == existing_master_user.id,
+                user_tenant_association.c.tenant_id == current_user.tenant_id
+            )
+        ).first()
+        if membership or existing_master_user.tenant_id == current_user.tenant_id:
+            raise HTTPException(status_code=400, detail="User already exists in this organization")
     
     # Check if invite already exists and is not expired
     existing_invite = db.query(Invite).filter(
-        Invite.email == invite_data.email,
+        func.lower(Invite.email) == func.lower(invite_email),
         Invite.tenant_id == current_user.tenant_id,
         Invite.is_accepted == False,
         Invite.expires_at > datetime.now(timezone.utc)
     ).first()
     if existing_invite:
         raise HTTPException(status_code=400, detail="User already has a valid pending invite that has not expired")
+
+    # Prevent re-inviting if a previously accepted invite exists for this tenant/email
+    accepted_invite = db.query(Invite).filter(
+        func.lower(Invite.email) == func.lower(invite_email),
+        Invite.tenant_id == current_user.tenant_id,
+        Invite.is_accepted == True
+    ).first()
+    if accepted_invite:
+        raise HTTPException(status_code=400, detail="User already accepted an invite for this organization")
+
+    # Also check direct existence in tenant database by email as a safeguard
+    try:
+        tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        try:
+            tenant_user_exists = tenant_db.query(TenantUser).filter(func.lower(TenantUser.email) == func.lower(invite_email)).first()
+            if tenant_user_exists:
+                raise HTTPException(status_code=400, detail="User already exists in this organization")
+        finally:
+            tenant_db.close()
+    except Exception:
+        # If tenant DB lookup fails, continue; master checks above are sufficient
+        pass
     
     # If there's an expired invite, we can create a new one (this will create a duplicate, but that's okay)
     # Alternatively, we could update the existing expired invite, but creating new is simpler
     
     # Create invite
     invite = Invite(
-        email=invite_data.email,
+        email=invite_email,
         first_name=invite_data.first_name,
         last_name=invite_data.last_name,
         role=invite_data.role,
@@ -717,13 +814,44 @@ async def invite_user(
     db.commit()
     db.refresh(invite)
     
-    # Send invite email
-    invite_url = f"/accept-invite?token={invite.token}"
+    # Send invite email via configured provider if available, otherwise fallback to console
+    invite_path = f"/accept-invite?token={invite.token}"
     inviter_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
     tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     tenant_name = tenant.name if tenant else "Organization"
-    
-    send_invite_email(invite_data.email, invite_url, inviter_name, tenant_name)
+    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+    accept_url = f"{ui_base}{invite_path}"
+
+    # Try tenant-configured email service
+    email_service = get_email_service_for_tenant(db, current_user.tenant_id)
+    if email_service and tenant:
+        try:
+            # From details from settings
+            email_settings = db.query(Settings).filter(
+                Settings.tenant_id == current_user.tenant_id,
+                Settings.key == "email_config"
+            ).first()
+            email_config_data = email_settings.value if email_settings else {}
+            from_name = email_config_data.get('from_name', tenant_name)
+            from_email = email_config_data.get('from_email', 'noreply@invoiceapp.com')
+            invitee_name = (invite.first_name or "") + (" " + invite.last_name if invite.last_name else "")
+
+            email_service.send_invitation_email(
+                invitee_email=invite.email,
+                invitee_name=invitee_name.strip() or invite.email,
+                accept_url=accept_url,
+                company_name=tenant_name,
+                inviter_name=inviter_name,
+                from_name=from_name,
+                from_email=from_email,
+                role=invite.role
+            )
+        except Exception:
+            # Fallback to console
+            send_invite_email(invite.email, accept_url, inviter_name, tenant_name)
+    else:
+        # Fallback to console
+        send_invite_email(invite.email, accept_url, inviter_name, tenant_name)
     
     # Log audit event in master database
     log_audit_event_master(
@@ -905,10 +1033,15 @@ async def accept_invite(
     
     hashed_password = get_password_hash(invite_data.password)
     
-    # If user role is admin, create in both master and tenant databases
-    # Otherwise, create only in tenant database
-    if invite.role == "admin":
-        # Create admin user in master database
+    # Create or reuse a master user record for all invited roles, and mirror in tenant DB
+    existing_master_user = db.query(MasterUser).filter(
+        func.lower(MasterUser.email) == func.lower(invite.email)
+    ).first()
+
+    if existing_master_user:
+        master_user = existing_master_user
+        # Do not modify existing global password or primary tenant here
+    else:
         master_user = MasterUser(
             email=invite.email,
             hashed_password=hashed_password,
@@ -917,81 +1050,67 @@ async def accept_invite(
             role=invite.role,
             tenant_id=invite.tenant_id,
             is_verified=True,
-            is_superuser=False  # Tenant admin, not super admin
+            is_superuser=False
         )
-        
         db.add(master_user)
         db.commit()
         db.refresh(master_user)
-        
-        # Create admin user in tenant database with same ID
-        set_tenant_context(invite.tenant_id)
-        tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
-        
-        try:
+
+    # Ensure membership association exists
+    from models.models import user_tenant_association
+    # Ensure membership exists (avoid duplicate insert if already a member)
+    existing_membership = db.execute(
+        user_tenant_association.select().where(
+            user_tenant_association.c.user_id == master_user.id,
+            user_tenant_association.c.tenant_id == invite.tenant_id
+        )
+    ).first()
+    if not existing_membership:
+        db.execute(
+            user_tenant_association.insert().values(
+                user_id=master_user.id,
+                tenant_id=invite.tenant_id,
+                role=invite.role
+            )
+        )
+        db.commit()
+
+    # Create tenant user with the same ID
+    set_tenant_context(invite.tenant_id)
+    tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
+    try:
+        existing_tenant_user = tenant_db.query(TenantUser).filter(
+            TenantUser.email == invite.email
+        ).first()
+        if not existing_tenant_user:
             tenant_user = TenantUser(
-                id=master_user.id,  # Use same ID as master user
+                id=master_user.id,
                 email=invite.email,
-                hashed_password=hashed_password,
+                hashed_password=master_user.hashed_password,
                 first_name=invite_data.first_name or invite.first_name,
                 last_name=invite_data.last_name or invite.last_name,
                 role=invite.role,
                 is_verified=True,
                 is_superuser=False
             )
-            
             tenant_db.add(tenant_user)
             tenant_db.commit()
-            tenant_db.refresh(tenant_user)
-            
-            # Use master user for response
-            user = master_user
-            
-        except Exception as e:
-            # If tenant user creation fails, rollback master user creation
-            db.delete(master_user)
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant admin user: {str(e)}"
-            )
-        finally:
-            tenant_db.close()
-    else:
-        # For regular users, create only in tenant database
-        set_tenant_context(invite.tenant_id)
-        tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
-        
-        try:
-            tenant_user = TenantUser(
-                email=invite.email,
-                hashed_password=hashed_password,
-                first_name=invite_data.first_name or invite.first_name,
-                last_name=invite_data.last_name or invite.last_name,
-                role=invite.role,
-                is_verified=True
-            )
-            
-            tenant_db.add(tenant_user)
-            tenant_db.commit()
-            tenant_db.refresh(tenant_user)
-            
-            # Create a temporary user object for response (matching UserList schema)
-            user = type('User', (), {
-                'id': tenant_user.id,
-                'email': tenant_user.email,
-                'first_name': tenant_user.first_name,
-                'last_name': tenant_user.last_name,
-                'role': tenant_user.role,
-                'is_active': tenant_user.is_active,
-                'is_superuser': tenant_user.is_superuser,
-                'is_verified': tenant_user.is_verified,
-                'created_at': tenant_user.created_at,
-                'tenant_id': invite.tenant_id  # For response compatibility
-            })()
-            
-        finally:
-            tenant_db.close()
+        else:
+            # Update role if needed to reflect the invited role
+            try:
+                if existing_tenant_user.role != invite.role:
+                    existing_tenant_user.role = invite.role
+                    tenant_db.commit()
+            except Exception:
+                pass
+        user = master_user
+    except Exception as e:
+        # If tenant user creation fails, rollback master user to avoid inconsistent state
+        db.delete(master_user)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to create tenant user: {str(e)}")
+    finally:
+        tenant_db.close()
     
     # Mark invite as accepted
     invite.is_accepted = True
@@ -1055,7 +1174,9 @@ async def list_users(
     require_admin(current_user, "view users")
     
     from models.database import get_tenant_context
-    current_tenant_id = get_tenant_context() or current_user.tenant_id
+    current_tenant_id = get_tenant_context()
+    if not current_tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant context required")
     
     # Get all users who have access to this tenant via association table
     from models.models import user_tenant_association
@@ -1120,6 +1241,7 @@ async def list_users(
 async def update_user_role(
     user_id: int,
     role_update: UserRoleUpdate,
+    tenant_id: Optional[int] = Query(None),
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -1129,41 +1251,118 @@ async def update_user_role(
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot update your own role")
     
-    # Find user in master database
-    user = db.query(MasterUser).filter(
-        MasterUser.id == user_id,
-        MasterUser.tenant_id == current_user.tenant_id
-    ).first()
+    # Resolve current tenant context (must be provided via X-Tenant-ID or explicit tenant_id query)
+    from models.database import get_tenant_context
+    current_tenant_id = tenant_id or get_tenant_context()
+    if not current_tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant context required")
+
+    # Authorization: require super admin or admin in the target tenant
+    if not current_user.is_superuser:
+        try:
+            auth_tenant_db = tenant_db_manager.get_tenant_session(current_tenant_id)()
+            try:
+                me_in_tenant = auth_tenant_db.query(TenantUser).filter(TenantUser.id == current_user.id).first()
+                if not me_in_tenant or me_in_tenant.role != 'admin':
+                    raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED")
+            finally:
+                auth_tenant_db.close()
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=403, detail="ROLE_NOT_ALLOWED")
+
+    # Find user in master database (by id only), then ensure membership in current tenant
+    user = db.query(MasterUser).filter(MasterUser.id == user_id).first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Prevent demotion of the organization owner (creator) by non-super-admins
+    # A tenant's owner is the master user whose primary tenant_id equals the current tenant
+    is_target_owner_of_current_tenant = (user.tenant_id == current_tenant_id)
+    if is_target_owner_of_current_tenant and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Cannot change role of the organization owner")
+    
+    # Ensure membership in current tenant and update role in association table
+    from models.models import user_tenant_association
+    membership = db.execute(
+        user_tenant_association.select().where(
+            user_tenant_association.c.user_id == user_id,
+            user_tenant_association.c.tenant_id == current_tenant_id
+        )
+    ).first()
+    if not membership:
+        db.execute(
+            user_tenant_association.insert().values(
+                user_id=user_id,
+                tenant_id=current_tenant_id,
+                role=role_update.role,
+                is_active=True
+            )
+        )
+    else:
+        # Update existing membership role
+        logger.info(f"Updating EXISTING membership for user {user_id} in tenant {current_tenant_id} to role {role_update.role}")
+        db.execute(
+            user_tenant_association.update()
+            .where(
+                user_tenant_association.c.user_id == user_id,
+                user_tenant_association.c.tenant_id == current_tenant_id
+            )
+            .values(role=role_update.role, is_active=True)
+        )
+    db.commit()
+
     # Store old role for audit logging
     old_role = user.role
     logger.info(f"Updating role for user {user.email} (ID: {user_id}) from '{old_role}' to '{role_update.role}'")
     
-    # Update role in master database
-    user.role = role_update.role
-    db.commit()
-    db.refresh(user)
-    logger.info(f"Updated role in master database for user {user.email}")
-    
-    # Update role in tenant database
+    # Update role in tenant database only; reflect in response
     try:
-        tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        tenant_db = tenant_db_manager.get_tenant_session(current_tenant_id)()
         try:
             tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == user_id).first()
-            
             if tenant_user:
                 tenant_user.role = role_update.role
                 tenant_db.commit()
                 logger.info(f"Updated role in tenant database for user {user.email}")
             else:
-                logger.warning(f"User {user.email} not found in tenant database")
+                # Create tenant user mirror if missing
+                new_tenant_user = TenantUser(
+                    id=user.id,
+                    email=user.email,
+                    hashed_password=user.hashed_password,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    role=role_update.role,
+                    is_verified=user.is_verified,
+                    is_superuser=False
+                )
+                tenant_db.add(new_tenant_user)
+                tenant_db.commit()
         finally:
             tenant_db.close()
     except Exception as e:
         logger.error(f"Failed to update role in tenant database for user {user.email}: {e}")
+
+    # Create a copy of the user object for response with the tenant role
+    # Don't modify the original user object to avoid any accidental persistence
+    response_user = MasterUser(
+        id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        role=role_update.role,  # Use the tenant role for response
+        is_active=user.is_active,
+        is_superuser=user.is_superuser,
+        is_verified=user.is_verified,
+        tenant_id=user.tenant_id,
+        theme=user.theme,
+        google_id=user.google_id,
+        created_at=user.created_at,
+        updated_at=user.updated_at
+    )
     
     # Log audit event in master database
     log_audit_event_master(
@@ -1181,12 +1380,12 @@ async def update_user_role(
             "new_role": role_update.role,
             "updated_by": current_user.email
         },
-        tenant_id=current_user.tenant_id,
+        tenant_id=current_tenant_id,
         status="success"
     )
     
     # Log audit event in tenant database as well
-    tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+    tenant_db = tenant_db_manager.get_tenant_session(current_tenant_id)()
     try:
         log_audit_event(
             db=tenant_db,
@@ -1208,7 +1407,7 @@ async def update_user_role(
     finally:
         tenant_db.close()
     
-    return user
+    return response_user
 
 @router.post("/invites/{invite_id}/activate", response_model=UserList)
 async def admin_activate_user(
@@ -1243,7 +1442,14 @@ async def admin_activate_user(
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
     
-    hashed_password = get_password_hash(activation_data.password)
+    # Determine password strategy
+    generated_temp_password: Optional[str] = None
+    if activation_data.password and len(activation_data.password) >= 6:
+        hashed_password = get_password_hash(activation_data.password)
+    else:
+        # Generate a secure temporary password and force reset on first login
+        generated_temp_password = secrets.token_urlsafe(12)
+        hashed_password = get_password_hash(generated_temp_password)
     
     # Mark invite as accepted
     invite.is_accepted = True
@@ -1252,10 +1458,14 @@ async def admin_activate_user(
     # Commit invite changes
     db.commit()
     
-    # If user role is admin, create in both master and tenant databases
-    # Otherwise, create only in tenant database
-    if invite.role == "admin":
-        # Create admin user in master database
+    # Create or reuse a master user record
+    existing_master_user = db.query(MasterUser).filter(
+        func.lower(MasterUser.email) == func.lower(invite.email)
+    ).first()
+    if existing_master_user:
+        master_user = existing_master_user
+        # Do not change global password for an existing user when activating
+    else:
         master_user = MasterUser(
             email=invite.email,
             hashed_password=hashed_password,
@@ -1264,107 +1474,113 @@ async def admin_activate_user(
             role=invite.role,
             tenant_id=invite.tenant_id,
             is_verified=True,
-            is_superuser=False  # Tenant admin, not super admin
+            is_superuser=False
         )
-        
         db.add(master_user)
         db.commit()
         db.refresh(master_user)
-        
-        # Create admin user in tenant database with same ID
-        set_tenant_context(invite.tenant_id)
-        tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
-        
+        # Require password reset for newly created users
         try:
-            # Check if user already exists in tenant database
-            existing_tenant_user = tenant_db.query(TenantUser).filter(
-                TenantUser.email == invite.email
-            ).first()
-            
-            if not existing_tenant_user:
-                tenant_user = TenantUser(
-                    id=master_user.id,  # Use same ID as master user
-                    email=invite.email,
-                    hashed_password=hashed_password,
-                    first_name=activation_data.first_name or invite.first_name,
-                    last_name=activation_data.last_name or invite.last_name,
-                    role=invite.role,
-                    is_verified=True,
-                    is_superuser=False
-                )
-                
-                tenant_db.add(tenant_user)
-                tenant_db.commit()
-            
-            # Use master user for response
-            user = master_user
-            
-        except Exception as e:
-            # If tenant user creation fails, rollback master user creation
-            db.delete(master_user)
+            master_user.must_reset_password = True
             db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create tenant admin user: {str(e)}"
+        except Exception:
+            db.rollback()
+
+    # Ensure membership association exists
+    from models.models import user_tenant_association
+    # Ensure membership exists
+    existing_membership = db.execute(
+        user_tenant_association.select().where(
+            user_tenant_association.c.user_id == master_user.id,
+            user_tenant_association.c.tenant_id == invite.tenant_id
+        )
+    ).first()
+    if not existing_membership:
+        db.execute(
+            user_tenant_association.insert().values(
+                user_id=master_user.id,
+                tenant_id=invite.tenant_id,
+                role=invite.role
             )
-        finally:
-            tenant_db.close()
-    else:
-        # For regular users, create only in tenant database
-        set_tenant_context(invite.tenant_id)
-        tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
-        
-        try:
-            # Check if user already exists in tenant database
-            existing_tenant_user = tenant_db.query(TenantUser).filter(
-                TenantUser.email == invite.email
-            ).first()
-            
-            if not existing_tenant_user:
-                tenant_user = TenantUser(
-                    email=invite.email,
-                    hashed_password=hashed_password,
-                    first_name=activation_data.first_name or invite.first_name,
-                    last_name=activation_data.last_name or invite.last_name,
-                    role=invite.role,
-                    is_verified=True
-                )
-                
-                tenant_db.add(tenant_user)
-                tenant_db.commit()
-                tenant_db.refresh(tenant_user)
-                
-                # Create a temporary user object for response (matching UserList schema)
-                user = type('User', (), {
-                    'id': tenant_user.id,
-                    'email': tenant_user.email,
-                    'first_name': tenant_user.first_name,
-                    'last_name': tenant_user.last_name,
-                    'role': tenant_user.role,
-                    'is_active': tenant_user.is_active,
-                    'is_superuser': tenant_user.is_superuser,
-                    'is_verified': tenant_user.is_verified,
-                    'created_at': tenant_user.created_at,
-                    'tenant_id': invite.tenant_id  # For response compatibility
-                })()
-            else:
-                # Return existing user
-                user = type('User', (), {
-                    'id': existing_tenant_user.id,
-                    'email': existing_tenant_user.email,
-                    'first_name': existing_tenant_user.first_name,
-                    'last_name': existing_tenant_user.last_name,
-                    'role': existing_tenant_user.role,
-                    'is_active': existing_tenant_user.is_active,
-                    'is_superuser': existing_tenant_user.is_superuser,
-                    'is_verified': existing_tenant_user.is_verified,
-                    'created_at': existing_tenant_user.created_at,
-                    'tenant_id': invite.tenant_id  # For response compatibility
-                })()
-        finally:
-            tenant_db.close()
+        )
+        db.commit()
+
+    # Create tenant user with the same ID
+    set_tenant_context(invite.tenant_id)
+    tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
+    try:
+        existing_tenant_user = tenant_db.query(TenantUser).filter(
+            TenantUser.email == invite.email
+        ).first()
+        if not existing_tenant_user:
+            tenant_user = TenantUser(
+                id=master_user.id,
+                email=invite.email,
+                hashed_password=master_user.hashed_password,
+                first_name=activation_data.first_name or invite.first_name,
+                last_name=activation_data.last_name or invite.last_name,
+                role=invite.role,
+                is_verified=True,
+                is_superuser=False
+            )
+            tenant_db.add(tenant_user)
+            tenant_db.commit()
+        else:
+            # Update role if needed to reflect the invited role
+            try:
+                if existing_tenant_user.role != invite.role:
+                    existing_tenant_user.role = invite.role
+                    tenant_db.commit()
+            except Exception:
+                pass
+
+        # Ensure return user object
+        user = master_user
+
+        # If we generated a temp password for a new user, optionally email them a set-password/accept link
+        if generated_temp_password:
+            try:
+                # Reuse invite accept link already generated earlier in this handler; build if missing
+                ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+                accept_path = f"/accept-invite?token={invite.token}"
+                accept_url = f"{ui_base}{accept_path}"
+                tenant = db.query(Tenant).filter(Tenant.id == invite.tenant_id).first()
+                email_service = get_email_service_for_tenant(db, invite.tenant_id)
+                if email_service and tenant:
+                    email_settings = db.query(Settings).filter(
+                        Settings.tenant_id == invite.tenant_id,
+                        Settings.key == "email_config"
+                    ).first()
+                    email_config_data = email_settings.value if email_settings else {}
+                    from_name = email_config_data.get('from_name', tenant.name)
+                    from_email = email_config_data.get('from_email', 'noreply@invoiceapp.com')
+                    inviter = db.query(MasterUser).filter(MasterUser.id == invite.invited_by_id).first()
+                    inviter_name = (f"{inviter.first_name or ''} {inviter.last_name or ''}").strip() or (inviter.email if inviter else tenant.name)
+                    invitee_name = (activation_data.first_name or invite.first_name or "") + (" " + (activation_data.last_name or invite.last_name) if (activation_data.last_name or invite.last_name) else "")
+                    email_service.send_invitation_email(
+                        invitee_email=invite.email,
+                        invitee_name=invitee_name.strip() or invite.email,
+                        accept_url=accept_url,
+                        company_name=tenant.name,
+                        inviter_name=inviter_name,
+                        from_name=from_name,
+                        from_email=from_email,
+                        role=invite.role
+                    )
+            except Exception:
+                pass
+    except Exception as e:
+        # If tenant user creation fails, rollback master user to avoid inconsistent state
+        db.delete(master_user)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to create tenant user: {str(e)}")
+    finally:
+        tenant_db.close()
     
-    # Log audit event in master database
+    # Log audit event in master database (sanitize activation_data)
+    activation_details = activation_data.dict()
+    if 'password' in activation_details:
+        activation_details.pop('password', None)
     log_audit_event_master(
         db=db,
         user_id=current_user.id,
@@ -1377,14 +1593,14 @@ async def admin_activate_user(
             "invite_id": invite.id,
             "activated_email": invite.email,
             "role": invite.role,
-            "activation_data": activation_data.dict()
+            "activation_data": activation_details
         },
         tenant_id=current_user.tenant_id,
         status="success"
     )
     
-    # Log audit event in tenant database as well
-    tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+    # Log audit event in tenant database as well (sanitize activation_data)
+    tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
     try:
         log_audit_event(
             db=tenant_db,
@@ -1398,7 +1614,7 @@ async def admin_activate_user(
                 "invite_id": invite.id,
                 "activated_email": invite.email,
                 "role": invite.role,
-                "activation_data": activation_data.dict()
+                "activation_data": activation_details
             },
             status="success"
         )

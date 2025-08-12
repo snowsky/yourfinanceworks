@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     is_active: bool = True
     is_superuser: bool = False
     is_verified: bool = False
+    must_reset_password: bool = False
     role: str = "user"  # admin, user, viewer
     theme: Optional[str] = "system"
 
@@ -31,6 +32,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     is_verified: Optional[bool] = None
+    must_reset_password: Optional[bool] = None
     role: Optional[str] = None
     password: Optional[str] = None
     theme: Optional[str] = None
@@ -96,6 +98,6 @@ class UserRoleUpdate(BaseModel):
     role: str  # admin, user, viewer 
 
 class AdminActivateUser(BaseModel):
-    password: str
+    password: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None 

@@ -363,6 +363,34 @@ class EmailService:
             logger.error(f"Failed to send password reset email: {str(e)}")
             return False
 
+    def send_invitation_email(
+        self,
+        invitee_email: str,
+        invitee_name: str,
+        accept_url: str,
+        company_name: str = "Invoice Management System",
+        inviter_name: str = "",
+        from_name: str = "Invoice Management System",
+        from_email: str = "noreply@invoiceapp.com",
+        role: str = "user"
+    ) -> bool:
+        """Send an invitation email with an accept link"""
+        try:
+            message = self._create_invitation_message(
+                invitee_email=invitee_email,
+                invitee_name=invitee_name or invitee_email,
+                accept_url=accept_url,
+                company_name=company_name,
+                inviter_name=inviter_name or company_name,
+                from_name=from_name,
+                from_email=from_email,
+                role=role
+            )
+            return self.provider.send_email(message)
+        except Exception as e:
+            logger.error(f"Failed to send invitation email: {str(e)}")
+            return False
+
     def _create_password_reset_message(
         self,
         user_email: str,
@@ -510,6 +538,90 @@ class EmailService:
             company_name=company_name,
             user_name=user_name,
             reset_url=reset_url
+        )
+
+    def _create_invitation_message(
+        self,
+        invitee_email: str,
+        invitee_name: str,
+        accept_url: str,
+        company_name: str,
+        inviter_name: str,
+        from_name: str,
+        from_email: str,
+        role: str
+    ) -> EmailMessage:
+        """Create invitation email message"""
+        html_template = Template("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset=\"UTF-8\">
+            <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+            <title>You're Invited</title>
+            <style>
+                body { font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:20px; }
+                .container { max-width:600px; margin:0 auto; background:#fff; padding:30px; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+                .title { font-size:20px; margin:0 0 20px; }
+                .message { color:#555; line-height:1.6; }
+                .button { display:inline-block; background:#16a34a; color:#fff; padding:12px 24px; text-decoration:none; border-radius:6px; margin-top:20px; }
+                .footer { margin-top:30px; color:#999; font-size:12px; }
+            </style>
+        </head>
+        <body>
+            <div class=\"container\">
+                <h1 class=\"title\">{{ inviter_name }} invited you to join {{ company_name }}</h1>
+                <div class=\"message\">
+                    <p>Hello {{ invitee_name }},</p>
+                    <p>You've been invited to join <strong>{{ company_name }}</strong> as a <strong>{{ role }}</strong>.</p>
+                    <p>Click the button below to accept your invitation and set up your account.</p>
+                    <p><a href=\"{{ accept_url }}\" class=\"button\">Accept Invitation</a></p>
+                    <p>If the button doesn't work, copy and paste this link into your browser:<br/>
+                    <span style=\"word-break: break-all; background:#f8f9fa; padding:8px; border-radius:4px; display:inline-block;\">{{ accept_url }}</span></p>
+                </div>
+                <div class=\"footer\">&copy; {{ company_name }}</div>
+            </div>
+        </body>
+        </html>
+        """)
+
+        text_template = Template("""
+        {{ inviter_name }} invited you to join {{ company_name }}
+
+        Hello {{ invitee_name }},
+
+        You've been invited to join {{ company_name }} as a {{ role }}.
+        Accept your invitation: {{ accept_url }}
+
+        If the link doesn't work, copy and paste it into your browser.
+
+        --
+        {{ company_name }}
+        """)
+
+        html_body = html_template.render(
+            inviter_name=inviter_name,
+            invitee_name=invitee_name,
+            company_name=company_name,
+            accept_url=accept_url,
+            role=role
+        )
+        text_body = text_template.render(
+            inviter_name=inviter_name,
+            invitee_name=invitee_name,
+            company_name=company_name,
+            accept_url=accept_url,
+            role=role
+        )
+
+        return EmailMessage(
+            subject=f"You're invited to join {company_name}",
+            from_name=from_name,
+            from_email=from_email,
+            to_name=invitee_name,
+            to_email=invitee_email,
+            html_body=html_body,
+            text_body=text_body
         )
         
         text_body = text_template.render(
