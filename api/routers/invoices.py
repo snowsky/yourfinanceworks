@@ -39,6 +39,22 @@ def make_aware(dt):
         return dt.replace(tzinfo=timezone.utc)
     return dt
 
+def normalize_to_midnight_naive(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normalize a datetime to naive midnight (no tzinfo) to avoid timezone shifts on clients.
+
+    If dt is timezone-aware, its date component is used.
+    If dt is naive, its date component is used.
+    """
+    if dt is None:
+        return None
+    return datetime(dt.year, dt.month, dt.day)
+
+def normalize_to_midnight_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normalize to midnight UTC (tz-aware). Suitable for timestamptz columns like created_at."""
+    if dt is None:
+        return None
+    return datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
+
 @router.post("/", response_model=InvoiceSchema, status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     invoice: InvoiceCreate,
@@ -78,17 +94,21 @@ async def create_invoice(
         
         # No tenant_id needed since each tenant has its own database
         logger.debug(f"[DEBUG] Received custom_fields: {invoice.custom_fields}")
+        # Normalize incoming dates to avoid off-by-one issues
+        incoming_due_date = normalize_to_midnight_naive(invoice.due_date) if invoice.due_date else None
+        incoming_created_at = normalize_to_midnight_utc(invoice.date) if getattr(invoice, 'date', None) else None
+
         db_invoice = Invoice(
             number=invoice_number,
             amount=float(invoice.amount),
             currency=invoice_currency,
-            due_date=invoice.due_date,
+            due_date=incoming_due_date,
             status=invoice.status,
             # Persist description into notes field for backward compatibility
             notes=invoice.description or invoice.notes,
             client_id=invoice.client_id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=incoming_created_at or datetime.now(timezone.utc),
+            updated_at=incoming_created_at or datetime.now(timezone.utc),
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             custom_fields=invoice.custom_fields,
@@ -123,10 +143,31 @@ async def create_invoice(
 
         # Ensure due_date default if not provided
         if db_invoice.due_date is None:
-            db_invoice.due_date = (datetime.now(timezone.utc) + timedelta(days=30))
+            default_due = datetime.now(timezone.utc) + timedelta(days=30)
+            # Store as naive midnight to avoid timezone shifts
+            db_invoice.due_date = normalize_to_midnight_naive(default_due)
 
         db.add(db_invoice)
         db.flush()  # Get the invoice ID
+
+        # If an initial paid_amount is provided OR status is paid, create a payment record
+        initial_paid = float(getattr(invoice, 'paid_amount', 0) or 0)
+        should_create_payment = initial_paid > 0 or (invoice.status == 'paid')
+        payment_amount = initial_paid if initial_paid > 0 else (float(db_invoice.amount) if invoice.status == 'paid' else 0)
+        if should_create_payment and payment_amount > 0:
+            try:
+                pay = Payment(
+                    invoice_id=db_invoice.id,
+                    amount=payment_amount,
+                    currency=db_invoice.currency,
+                    payment_date=normalize_to_midnight_utc(db_invoice.created_at) or datetime.now(timezone.utc),
+                    payment_method="system",
+                    reference_number=f"AUTO-{db_invoice.number}",
+                    notes="Auto-created from invoice creation"
+                )
+                db.add(pay)
+            except Exception:
+                logger.warning("Failed to create auto payment on invoice creation", exc_info=True)
         logger.info(f"[DEBUG] Saved custom_fields in DB: {db_invoice.custom_fields}")
         
         # Create invoice items
@@ -936,6 +977,33 @@ async def update_invoice(
                             status_code=400,
                             detail=f"Invalid currency code: {value}"
                         )
+                elif key == 'due_date' and value is not None:
+                    # Normalize due_date to naive midnight to avoid timezone shifts
+                    value = normalize_to_midnight_naive(value)
+                elif key == 'date' and value is not None:
+                    # Map invoice.date to created_at for persistence
+                    db_invoice.created_at = normalize_to_midnight_utc(value)
+                    db_invoice.updated_at = db_invoice.created_at
+                    continue  # don't setattr a non-existent column 'date'
+                elif key == 'paid_amount' and value is not None:
+                    # Create a payment adjustment if allowed
+                    if db_invoice.status == "paid":
+                        # Already paid invoices cannot be modified except status; skip
+                        continue
+                    try:
+                        pay = Payment(
+                            invoice_id=db_invoice.id,
+                            amount=float(value),
+                            currency=db_invoice.currency,
+                            payment_date=datetime.now(timezone.utc),
+                            payment_method="manual",
+                            reference_number=f"ADJ-{db_invoice.number}-{int(datetime.now(timezone.utc).timestamp())}",
+                            notes="Manual paid amount update via invoice API"
+                        )
+                        db.add(pay)
+                    except Exception:
+                        logger.warning("Failed to create payment from paid_amount update", exc_info=True)
+                    continue
                 setattr(db_invoice, key, value)
         
         logger.info(f"[DEBUG] After setting fields, custom_fields in DB: {db_invoice.custom_fields}")

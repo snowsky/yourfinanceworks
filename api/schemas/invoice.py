@@ -26,7 +26,10 @@ class InvoiceItem(InvoiceItemBase):
 class InvoiceBase(BaseModel):
     amount: float = Field(..., description="Total amount of the invoice")
     currency: str = Field("USD", description="Currency code for the invoice")
+    # Optional invoice date provided by client (used to set created_at server-side)
+    date: Optional[datetime] = Field(None, description="Invoice date; will be stored as created_at")
     due_date: Optional[datetime] = Field(None, description="Due date of the invoice")
+    paid_amount: Optional[float] = Field(0.0, description="Sum of payments at creation time (backend will create a payment entry if provided)")
     status: str = Field("draft", description="Status of the invoice (draft, sent, paid, etc.)")
     description: Optional[str] = Field(None, description="Short description of the invoice")
     notes: Optional[str] = Field(None, description="Additional notes for the invoice")
@@ -45,7 +48,10 @@ class InvoiceCreate(InvoiceBase):
 class InvoiceUpdate(BaseModel):
     amount: Optional[float] = Field(None, description="Total amount of the invoice")
     currency: Optional[str] = Field(None, description="Currency code for the invoice")
+    # Allow updating invoice date (mapped to created_at on server)
+    date: Optional[datetime] = Field(None, description="Invoice date; will update created_at")
     due_date: Optional[datetime] = Field(None, description="Due date of the invoice")
+    paid_amount: Optional[float] = Field(None, description="Update paid amount (will create payment record). For already paid invoices, only status changes are allowed.")
     status: Optional[str] = Field(None, description="Status of the invoice (draft, sent, paid, etc.)")
     notes: Optional[str] = Field(None, description="Additional notes for the invoice")
     client_id: Optional[int] = Field(None, description="ID of the client this invoice belongs to")

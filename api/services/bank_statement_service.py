@@ -18,9 +18,9 @@ try:
 except ImportError:
     pd = None
 
-# LangChain imports - optional
+# LangChain imports - optional (updated to langchain_community to avoid deprecation warnings)
 try:
-    from langchain.document_loaders import (
+    from langchain_community.document_loaders import (
         PyPDFLoader, 
         PyMuPDFLoader, 
         PDFMinerLoader,
@@ -34,8 +34,8 @@ try:
     from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
     from langchain.chains import LLMChain
     from langchain.callbacks.base import BaseCallbackHandler
-    from langchain.llms import Ollama
-    from langchain.chat_models import ChatOllama
+    from langchain_community.llms import Ollama
+    from langchain_community.chat_models import ChatOllama
     from langchain.schema import HumanMessage, SystemMessage, AIMessage
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -80,9 +80,18 @@ except ImportError:
     
     LANGCHAIN_AVAILABLE = False
 
-# Pydantic models for structured output - optional
+# Pydantic models for structured output - optional (migrate to field_validator)
 try:
-    from pydantic import BaseModel, Field, validator
+    from pydantic import BaseModel, Field
+    try:
+        # Pydantic v2
+        from pydantic import field_validator
+        _HAS_FIELD_VALIDATOR = True
+    except ImportError:
+        # Pydantic v1 fallback
+        from pydantic import validator  # type: ignore
+        field_validator = None  # type: ignore
+        _HAS_FIELD_VALIDATOR = False
     from typing import List as TypingList
     PYDANTIC_AVAILABLE = True
 except ImportError:
@@ -100,6 +109,7 @@ except ImportError:
         def decorator(func):
             return func
         return decorator
+    field_validator = validator  # type: ignore
     
     TypingList = List
     PYDANTIC_AVAILABLE = False
@@ -123,26 +133,55 @@ class TransactionModel(BaseModel):
     transaction_type: str = Field(description="Type of transaction: 'debit' or 'credit'")
     balance: Optional[float] = Field(default=None, description="Account balance after transaction")
     category: Optional[str] = Field(default=None, description="Transaction category")
-    
-    @validator('transaction_type')
-    def validate_transaction_type(cls, v):
-        if v.lower() not in ['debit', 'credit']:
-            return 'debit' if v else 'credit'
-        return v.lower()
-    
-    @validator('date')
-    def validate_date(cls, v):
-        try:
-            from datetime import datetime
-            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
-                try:
-                    dt = datetime.strptime(v, fmt)
-                    return dt.strftime('%Y-%m-%d')
-                except ValueError:
-                    continue
-            return v
-        except:
-            return v
+
+    # Use pydantic v2 field_validator if available, else v1 validator
+    if 'field_validator' in globals() and field_validator:  # type: ignore
+        @field_validator('transaction_type', mode='before')  # type: ignore
+        @classmethod
+        def validate_transaction_type(cls, v):
+            try:
+                vv = (v or '').lower()
+                if vv not in ['debit', 'credit']:
+                    return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '+' else 'debit')
+                return vv
+            except Exception:
+                return 'debit'
+
+        @field_validator('date', mode='before')  # type: ignore
+        @classmethod
+        def validate_date(cls, v):
+            try:
+                from datetime import datetime
+                s = str(v)
+                for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
+                    try:
+                        dt = datetime.strptime(s, fmt)
+                        return dt.strftime('%Y-%m-%d')
+                    except ValueError:
+                        continue
+                return s
+            except Exception:
+                return v
+    else:
+        @validator('transaction_type')  # type: ignore
+        def validate_transaction_type_v1(cls, v):  # type: ignore
+            if (v or '').lower() not in ['debit', 'credit']:
+                return 'debit' if v else 'credit'
+            return (v or '').lower()
+
+        @validator('date')  # type: ignore
+        def validate_date_v1(cls, v):  # type: ignore
+            try:
+                from datetime import datetime
+                for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
+                    try:
+                        dt = datetime.strptime(v, fmt)
+                        return dt.strftime('%Y-%m-%d')
+                    except ValueError:
+                        continue
+                return v
+            except Exception:
+                return v
 
 
 class TransactionListModel(BaseModel):

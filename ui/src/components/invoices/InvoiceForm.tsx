@@ -510,6 +510,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       customFields: customFields,
       showDiscountInPdf: invoice?.show_discount_in_pdf || false,
     },
+    mode: "onChange"
   });
 
   // Apply initial data from PDF import into the new invoice form (one-time)
@@ -540,11 +541,24 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       }
       if (initialData.date instanceof Date && !isNaN(initialData.date.getTime())) {
         form.setValue('date', initialData.date);
+        appliedSomething = true;
+      }
+      if (initialData.dueDate instanceof Date && !isNaN(initialData.dueDate.getTime())) {
+        form.setValue('dueDate', initialData.dueDate);
+        appliedSomething = true;
+      } else if (initialData.date instanceof Date && !isNaN(initialData.date.getTime())) {
         try {
           const next = new Date(initialData.date);
           next.setDate(next.getDate() + 30);
           form.setValue('dueDate', next);
         } catch {}
+      }
+      if (typeof initialData.status === 'string') {
+        form.setValue('status', initialData.status as any);
+        appliedSomething = true;
+      }
+      if (typeof initialData.paidAmount === 'number') {
+        form.setValue('paidAmount', initialData.paidAmount);
         appliedSomething = true;
       }
     }
@@ -556,6 +570,10 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
     if (appliedSomething) {
       hasAppliedInitialDataRef.current = true;
+      console.log('Applied initial data - form values:', {
+        date: form.getValues('date'),
+        dueDate: form.getValues('dueDate')
+      });
       form.trigger();
     }
   }, [initialData, attachment, isEdit, form]);
@@ -1462,7 +1480,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
           client_id: Number(data.client),
           client_name: selectedClient?.name || '',
           client_email: selectedClient?.email || '',
-          date: format(data.date, "yyyy-MM-dd'T'HH:mm:ss"),
+          date: formattedDate,
           due_date: formattedDueDate,
           amount: totalAmount,
           subtotal: subtotal,
@@ -1487,6 +1505,13 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         
         // Create new invoice
         const newInvoice = await invoiceApi.createInvoice(invoiceData);
+        console.log("Created invoice with dates:", {
+          sent_date: formattedDate,
+          sent_due_date: formattedDueDate,
+          received_date: newInvoice.date,
+          received_due_date: newInvoice.due_date
+        });
+        
         // Optionally link a chosen unlinked expense to this new invoice
         if (linkExpenseId) {
           try {
@@ -1741,6 +1766,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               disabled={isInvoicePaid}
                               onValueChange={(value) => {
                                 field.onChange(value);
+                                // Trigger validation immediately after setting value
+                                form.trigger("client");
                                 // Set currency to client's preferred currency when client is selected
                                 const selectedClient = clients.find(c => c.id.toString() === value);
                                 console.log("🎯 Client selected:", value);
@@ -1757,6 +1784,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                   console.log("❌ Not setting currency - preferred_currency:", selectedClient?.preferred_currency, "isEdit:", isEdit);
                                 }
                               }}
+                              value={field.value}
                               defaultValue={field.value}
                             >
                               <FormControl>

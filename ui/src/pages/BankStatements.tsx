@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,8 +11,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi } from '@/lib/api';
+import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -28,7 +30,22 @@ export default function BankStatements() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
   const readOnly = detail?.status === 'processing';
+
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const clientList = await clientApi.getClients();
+        setClients(clientList);
+      } catch (e) {
+        console.error('Failed to load clients:', e);
+      }
+    };
+    loadClients();
+  }, []);
 
   // Calculate totals
   const totalIncome = rows.filter(r => r.transaction_type === 'credit').reduce((sum, r) => sum + r.amount, 0);
@@ -100,6 +117,36 @@ export default function BankStatements() {
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create expense');
     }
+  };
+
+  const createInvoiceFromTransaction = (rowIndex: number) => {
+    const transaction = rows[rowIndex];
+    if (transaction.transaction_type !== 'credit') {
+      toast.error('Can only create invoices from credit transactions');
+      return;
+    }
+
+    // Normalize transaction date as UTC midnight, then build local Date objects for form controls
+    const [y, m, d] = transaction.date.split('-').map(n => parseInt(n, 10));
+    const utcMidnightMs = Date.UTC(y, (m || 1) - 1, d || 1);
+    const transactionDate = new Date(utcMidnightMs);
+    const dueDateLocal = new Date(utcMidnightMs);
+    dueDateLocal.setUTCDate(dueDateLocal.getUTCDate() + 30);
+
+    setInvoiceInitialData({
+      date: transactionDate,
+      dueDate: dueDateLocal,
+      status: 'paid',
+      paidAmount: transaction.amount,
+      notes: `Created from bank statement: ${detail?.original_filename}`,
+      items: [{
+        description: transaction.description,
+        quantity: 1,
+        price: transaction.amount,
+      }],
+      client: ''
+    });
+    setShowInvoiceForm(true);
   };
 
   const loadList = async () => {
@@ -328,7 +375,7 @@ export default function BankStatements() {
           </DialogContent>
         </Dialog>
 
-        {selected && (
+        {selected && !showInvoiceForm && (
           <Card className="slide-in">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">
@@ -443,17 +490,30 @@ export default function BankStatements() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          {r.transaction_type === 'debit' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => createExpenseFromTransaction(idx)}
-                              disabled={readOnly}
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Expense
-                            </Button>
-                          )}
+                          <div className="flex gap-1">
+                            {r.transaction_type === 'debit' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => createExpenseFromTransaction(idx)}
+                                disabled={readOnly}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Expense
+                              </Button>
+                            )}
+                            {r.transaction_type === 'credit' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => createInvoiceFromTransaction(idx)}
+                                disabled={readOnly}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Invoice
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -465,6 +525,32 @@ export default function BankStatements() {
                   </TableBody>
                 </Table>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {showInvoiceForm && (
+          <Card className="slide-in">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" onClick={() => { setShowInvoiceForm(false); setInvoiceInitialData(null); }}>
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                  <CardTitle>Create Invoice from Transaction</CardTitle>
+                </div>
+                <p className="text-muted-foreground text-sm">Create invoice from bank statement transaction</p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <InvoiceForm 
+                initialData={invoiceInitialData}
+                onInvoiceUpdate={() => {
+                  setShowInvoiceForm(false);
+                  setInvoiceInitialData(null);
+                  toast.success('Invoice created successfully!');
+                }}
+              />
             </CardContent>
           </Card>
         )}

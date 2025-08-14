@@ -11,11 +11,17 @@ export function formatDateTime(dateString: string | Date | undefined): string {
 
   let date: Date;
   if (typeof dateString === 'string') {
-    // Append 'Z' if no timezone information is present to ensure it's parsed as UTC
-    const utcDateString = dateString.endsWith('Z') || dateString.includes('+') || dateString.includes('-') 
-                          ? dateString 
-                          : dateString + 'Z';
-    date = parseISO(utcDateString);
+    // Handle date-only strings (YYYY-MM-DD) explicitly as UTC midnight to avoid TZ shifts
+    const dateOnlyMatch = dateString.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [y, m, d] = dateString.split('-').map((n) => parseInt(n, 10));
+      date = new Date(Date.UTC(y, m - 1, d));
+    } else {
+      // If no explicit timezone in ISO string (no 'Z' and no +/- offset), treat it as UTC
+      const hasExplicitTz = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(dateString);
+      const normalized = hasExplicitTz ? dateString : `${dateString}Z`;
+      date = parseISO(normalized);
+    }
   } else {
     date = dateString;
   }
@@ -41,11 +47,17 @@ export function formatDate(dateString: string | Date | undefined): string {
 
   let date: Date;
   if (typeof dateString === 'string') {
-    // Append 'Z' if no timezone information is present to ensure it's parsed as UTC
-    const utcDateString = dateString.endsWith('Z') || dateString.includes('+') || dateString.includes('-') 
-                          ? dateString 
-                          : dateString + 'Z';
-    date = parseISO(utcDateString);
+    // Handle date-only strings (YYYY-MM-DD) explicitly as UTC midnight to avoid TZ shifts
+    const dateOnlyMatch = dateString.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [y, m, d] = dateString.split('-').map((n) => parseInt(n, 10));
+      date = new Date(Date.UTC(y, m - 1, d));
+    } else {
+      // If no explicit timezone in ISO string (no 'Z' and no +/- offset), treat it as UTC
+      const hasExplicitTz = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(dateString);
+      const normalized = hasExplicitTz ? dateString : `${dateString}Z`;
+      date = parseISO(normalized);
+    }
   } else {
     date = dateString;
   }

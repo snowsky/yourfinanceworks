@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from contextlib import asynccontextmanager
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -48,10 +49,24 @@ except Exception as e:
     logger.error(f"Traceback: {traceback.format_exc()}")
     # Don't raise the exception to allow the app to start even if DB init fails
 
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    # Startup logic can go here if needed
+    try:
+        yield
+    finally:
+        # Shutdown: flush Kafka producers
+        try:
+            from services.ocr_service import flush_all_producers
+            flush_all_producers(10.0)
+        except Exception:
+            pass
+
 app = FastAPI(
     title="Invoice API",
     description="API for the Invoice Management System",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=app_lifespan
 )
 
 # CORS Middleware (tightened with env-driven configuration)
@@ -142,13 +157,7 @@ def read_root():
 def health_check():
     return {"status": "healthy"}
 
-@app.on_event("shutdown")
-def _flush_kafka_on_shutdown():
-    try:
-        from services.ocr_service import flush_all_producers
-        flush_all_producers(10.0)
-    except Exception:
-        pass
+# Moved shutdown handling to lifespan above to avoid deprecation warnings
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
