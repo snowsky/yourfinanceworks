@@ -8,7 +8,7 @@ import argparse
 import logging
 import sys
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncIterator
+from typing import Optional, AsyncIterator, List
 from datetime import datetime
 
 from fastmcp import FastMCP
@@ -464,6 +464,43 @@ async def delete_expense_attachment(expense_id: int, attachment_id: int) -> dict
     if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
     return await server_context.tools.delete_expense_attachment(expense_id=expense_id, attachment_id=attachment_id)
+
+# Bank Statement Management Tools
+
+@mcp.tool()
+async def list_bank_statements() -> dict:
+    """List all bank statements with their processing status and metadata."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.list_bank_statements()
+
+@mcp.tool()
+async def get_bank_statement(statement_id: int) -> dict:
+    """Get a specific bank statement with all its transactions."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.get_bank_statement(statement_id=statement_id)
+
+@mcp.tool()
+async def reprocess_bank_statement(statement_id: int) -> dict:
+    """Reprocess a bank statement to extract transactions again."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.reprocess_bank_statement(statement_id=statement_id)
+
+@mcp.tool()
+async def update_bank_statement_meta(statement_id: int, notes: Optional[str] = None, labels: Optional[List[str]] = None) -> dict:
+    """Update bank statement metadata like notes and labels."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.update_bank_statement_meta(statement_id=statement_id, notes=notes, labels=labels)
+
+@mcp.tool()
+async def delete_bank_statement(statement_id: int) -> dict:
+    """Delete a bank statement and its associated file."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.delete_bank_statement(statement_id=statement_id)
 # Settings Tools
 
 @mcp.tool()
@@ -615,6 +652,11 @@ Available Tools:
   - upload_expense_receipt: Upload a receipt for an expense
   - list_expense_attachments: List attachments for an expense
   - delete_expense_attachment: Delete an attachment for an expense
+  - list_bank_statements: List all bank statements
+  - get_bank_statement: Get bank statement with transactions
+  - reprocess_bank_statement: Reprocess a bank statement
+  - update_bank_statement_meta: Update bank statement metadata
+  - delete_bank_statement: Delete a bank statement
   - get_clients_with_outstanding_balance: Get clients with unpaid invoices
   - get_overdue_invoices: Get invoices past their due date
   - get_invoice_stats: Get overall invoice statistics

@@ -93,6 +93,14 @@ The complete list of available tools now includes:
 **Invoice Management:**
 - `list_invoices`, `search_invoices`, `get_invoice`, `create_invoice`
 
+**Expense Management:**
+- `list_expenses`, `get_expense`, `create_expense`, `update_expense`, `delete_expense`
+- `upload_expense_receipt`, `list_expense_attachments`, `delete_expense_attachment`
+
+**Bank Statement Management:**
+- `list_bank_statements`, `get_bank_statement`, `reprocess_bank_statement`
+- `update_bank_statement_meta`, `delete_bank_statement`
+
 **Analytics:**
 - `get_clients_with_outstanding_balance`, `get_overdue_invoices`, `get_invoice_stats`
 

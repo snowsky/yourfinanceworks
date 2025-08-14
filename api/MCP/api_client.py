@@ -354,6 +354,61 @@ class InvoiceAPIClient:
                 filename = None
         return {"content": content, "content_type": content_type, "filename": filename}
     
+    # Bank Statement Management Methods
+    async def list_bank_statements(self) -> List[Dict[str, Any]]:
+        """List all bank statements"""
+        return await self._make_request("GET", "/bank-statements/")
+    
+    async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Get a specific bank statement with transactions"""
+        return await self._make_request("GET", f"/bank-statements/{statement_id}")
+    
+    async def upload_bank_statements(self, files_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Upload bank statement files"""
+        return await self._make_request("POST", "/bank-statements/upload", json={"files": files_data})
+    
+    async def reprocess_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Reprocess a bank statement"""
+        return await self._make_request("POST", f"/bank-statements/{statement_id}/reprocess")
+    
+    async def update_bank_statement_meta(self, statement_id: int, meta_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update bank statement metadata"""
+        return await self._make_request("PUT", f"/bank-statements/{statement_id}", json=meta_data)
+    
+    async def replace_bank_statement_transactions(self, statement_id: int, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Replace bank statement transactions"""
+        return await self._make_request("PUT", f"/bank-statements/{statement_id}/transactions", json={"transactions": transactions})
+    
+    async def delete_bank_statement(self, statement_id: int) -> bool:
+        """Delete a bank statement"""
+        try:
+            await self._make_request("DELETE", f"/bank-statements/{statement_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete bank statement {statement_id}: {e}")
+            return False
+    
+    async def download_bank_statement_file(self, statement_id: int, inline: bool = False) -> Dict[str, Any]:
+        """Download bank statement file"""
+        headers = await self.auth_client.get_auth_headers()
+        params = {"inline": inline} if inline else {}
+        resp = await self._client.get(
+            url=f"{self.base_url}/bank-statements/{statement_id}/file",
+            headers=headers,
+            params=params,
+        )
+        resp.raise_for_status()
+        content = resp.content
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        disposition = resp.headers.get("content-disposition", "")
+        filename = None
+        if "filename=" in disposition:
+            try:
+                filename = disposition.split("filename=")[1].strip().strip('"')
+            except Exception:
+                filename = None
+        return {"content": content, "content_type": content_type, "filename": filename}
+    
     # Settings Methods
     async def get_settings(self) -> Dict[str, Any]:
         """Get tenant settings"""

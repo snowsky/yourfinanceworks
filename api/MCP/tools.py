@@ -528,6 +528,59 @@ class InvoiceTools:
         except Exception as e:
             return {"success": False, "error": f"Failed to delete expense attachment: {e}"}
     
+    # Bank Statement Management
+    async def list_bank_statements(self) -> Dict[str, Any]:
+        """List all bank statements"""
+        try:
+            statements = await self.api_client.list_bank_statements()
+            return {
+                "success": True,
+                "data": statements.get("statements", []),
+                "count": len(statements.get("statements", []))
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to list bank statements: {e}"}
+    
+    async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Get a specific bank statement with transactions"""
+        try:
+            statement = await self.api_client.get_bank_statement(statement_id)
+            return {"success": True, "data": statement.get("statement", {})}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get bank statement: {e}"}
+    
+    async def reprocess_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Reprocess a bank statement"""
+        try:
+            result = await self.api_client.reprocess_bank_statement(statement_id)
+            return {"success": True, "data": result, "message": "Bank statement reprocessing started"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to reprocess bank statement: {e}"}
+    
+    async def update_bank_statement_meta(self, statement_id: int, notes: Optional[str] = None, labels: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Update bank statement metadata"""
+        try:
+            meta_data = {}
+            if notes is not None:
+                meta_data["notes"] = notes
+            if labels is not None:
+                meta_data["labels"] = labels
+            
+            result = await self.api_client.update_bank_statement_meta(statement_id, meta_data)
+            return {"success": True, "data": result.get("statement", {}), "message": "Bank statement updated"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to update bank statement: {e}"}
+    
+    async def delete_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Delete a bank statement"""
+        try:
+            ok = await self.api_client.delete_bank_statement(statement_id)
+            if not ok:
+                return {"success": False, "error": "Failed to delete bank statement"}
+            return {"success": True, "message": "Bank statement deleted"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to delete bank statement: {e}"}
+    
     # Currency Management
     async def list_currencies(self, active_only: bool = True) -> Dict[str, Any]:
         """List supported currencies"""
