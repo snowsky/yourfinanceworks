@@ -419,7 +419,7 @@ export function AppSidebar() {
     },
     { 
       path: '/bank-statements', 
-      label: 'Bank Statements',
+      label: t('navigation.bank_statements'),
       icon: <FileText className="w-5 h-5" /> 
     },
 

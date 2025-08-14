@@ -113,10 +113,15 @@ Keys are organized hierarchically:
 ### Navigation
 - `navigation.dashboard` - Dashboard menu
 - `navigation.invoices` - Invoices menu
+- `navigation.expenses` - Expenses menu
+- `navigation.bank_statements` - Bank Statements menu
 - `navigation.clients` - Clients menu
 - `navigation.payments` - Payments menu
 - `navigation.settings` - Settings menu
 - `navigation.users` - Users menu
+- `navigation.super_admin` - Super Admin menu
+- `navigation.audit_log` - Audit Log menu
+- `navigation.analytics` - Analytics menu
 
 ### Authentication
 - `auth.login` - Login button
