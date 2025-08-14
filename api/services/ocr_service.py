@@ -260,7 +260,7 @@ async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None) -
         from ollama_ocr import OCRProcessor  # type: ignore
 
         model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
-        base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434/api/generate"
+        base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
         logger.info(f"Starting OCR: file={file_path} model={model_name} base_url={base_url}")
         ocr = OCRProcessor(model_name=model_name, base_url=base_url)
         prompt = custom_prompt or (

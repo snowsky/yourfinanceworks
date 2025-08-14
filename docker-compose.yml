@@ -199,10 +199,9 @@ services:
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       # Logging
-      # - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_LEVEL=DEBUG
-      - LLM_API_BASE=http://host.docker.internal:11434/api/generate
-      - OLLAMA_API_BASE=http://host.docker.internal:11434/api/generate # OLLAMA_API_BASE is used by Ollama service
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
       - LLM_MODEL_INVOICES=gpt-oss:latest
       - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
       - LLM_MODEL_EXPENSES=llama3.2-vision:11b

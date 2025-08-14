@@ -1,24 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, text
 from typing import Dict, Any
 import tempfile
 import os
 import shutil
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 import logging
-import uuid
 from PIL import Image
 import io
-from fastapi.concurrency import run_in_threadpool
 
 from models.database import get_db, get_master_db, set_tenant_context
 from models.models_per_tenant import User, Client, Invoice, Settings, ClientNote, InvoiceItem
-from routers.payments import Payment
 from models.models import Tenant, MasterUser
 from routers.auth import get_current_user
-from utils.invoice import generate_invoice_number
 from utils.rbac import require_admin
 from utils.audit import log_audit_event
 from constants.error_codes import FAILED_TO_IMPORT_DATA
@@ -200,7 +195,6 @@ async def export_tenant_data(
     """Export tenant data to a real SQLite file"""
     require_admin(current_user, "export data")
     import sqlalchemy
-    import sqlite3
     from sqlalchemy.orm import sessionmaker
     from models.models_per_tenant import (
         Base as TenantBase, User, Client, ClientNote, Invoice, Payment, Settings, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig
