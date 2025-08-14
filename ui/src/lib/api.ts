@@ -144,6 +144,8 @@ export interface BankStatementSummary {
   file_path: string;
   status: string;
   extracted_count: number;
+  labels?: string[] | null;
+  notes?: string | null;
   created_at?: string;
 }
 
@@ -191,6 +193,16 @@ export const bankStatementApi = {
       { method: 'GET' }
     );
     return data.statement;
+  },
+
+  updateMeta: async (
+    statementId: number,
+    updates: { labels?: string[] | null; notes?: string | null }
+  ): Promise<{ success: boolean; statement: BankStatementSummary }> => {
+    return apiRequest<{ success: boolean; statement: BankStatementSummary }>(
+      `/bank-statements/${statementId}`,
+      { method: 'PUT', body: JSON.stringify(updates) }
+    );
   },
 
   replaceTransactions: async (

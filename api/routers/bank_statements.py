@@ -161,6 +161,8 @@ async def list_bank_statements(
                 "file_path": s.file_path,
                 "status": s.status,
                 "extracted_count": s.extracted_count,
+                "labels": getattr(s, 'labels', None),
+                "notes": getattr(s, 'notes', None),
                 "created_at": s.created_at.isoformat() if s.created_at else None,
             }
             for s in rows
@@ -206,6 +208,8 @@ async def get_bank_statement(
             "file_path": s.file_path,
             "status": s.status,
             "extracted_count": s.extracted_count,
+            "labels": getattr(s, 'labels', None),
+            "notes": getattr(s, 'notes', None),
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "transactions": [
                 {
@@ -268,6 +272,74 @@ async def reprocess_bank_statement(
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to enqueue reprocess task")
     return {"success": True, "message": "Reprocessing started"}
+
+
+@router.put("/{statement_id}", response_model=Dict[str, Any])
+async def update_bank_statement_meta(
+    statement_id: int,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Update metadata for a bank statement: notes and label."""
+    require_non_viewer(current_user, "edit bank statement")
+    try:
+        from models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    s = (
+        db.query(BankStatement)
+        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id)
+        .first()
+    )
+    if not s:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    try:
+        if "notes" in payload:
+            s.notes = payload.get("notes")
+        if "labels" in payload:
+            v = payload.get("labels")
+            if v in (None, ""):
+                s.labels = None
+            elif not isinstance(v, list):
+                raise HTTPException(status_code=400, detail="labels must be an array of strings")
+            else:
+                cleaned: list[str] = []
+                for item in v:
+                    if not isinstance(item, str):
+                        continue
+                    text = item.strip()
+                    if not text:
+                        continue
+                    if text not in cleaned:
+                        cleaned.append(text)
+                    if len(cleaned) >= 10:
+                        break
+                s.labels = cleaned
+        db.commit()
+        db.refresh(s)
+        return {
+            "success": True,
+            "statement": {
+                "id": s.id,
+                "original_filename": s.original_filename,
+                "stored_filename": s.stored_filename,
+                "file_path": s.file_path,
+                "status": s.status,
+                "extracted_count": s.extracted_count,
+                "labels": getattr(s, 'labels', None),
+                "notes": getattr(s, 'notes', None),
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update statement: {e}")
 
 
 @router.put("/{statement_id}/transactions", response_model=Dict[str, Any])

@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -35,6 +36,8 @@ export default function BankStatements() {
   const [clients, setClients] = useState<any[]>([]);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
+  const [statementNotes, setStatementNotes] = useState<string>('');
+  const [statementLabels, setStatementLabels] = useState<string[]>([]);
   const readOnly = detail?.status === 'processing';
 
   const formatStatus = (value?: string | null) => {
@@ -207,6 +210,8 @@ export default function BankStatements() {
     try {
       const s = await bankStatementApi.get(id);
       setDetail(s);
+      setStatementLabels(Array.isArray((s as any).labels) ? ((s as any).labels as string[]).slice(0, 10) : []);
+      setStatementNotes(s.notes || '');
       setRows((s.transactions || []).map(t => ({
         id: (t as any).id,
         date: t.date,
@@ -264,6 +269,25 @@ export default function BankStatements() {
       await loadList();
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save transactions');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const saveMeta = async () => {
+    if (!selected) return;
+    try {
+      setDetailLoading(true);
+      const updates = {
+        labels: (statementLabels || []).filter((x) => (x || '').trim()).slice(0, 10),
+        notes: statementNotes || null,
+      };
+      const resp = await bankStatementApi.updateMeta(selected, updates);
+      setDetail(prev => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [] } : prev);
+      await loadList();
+      toast.success('Statement updated');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update statement');
     } finally {
       setDetailLoading(false);
     }
@@ -333,6 +357,7 @@ export default function BankStatements() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Filename</TableHead>
+                      <TableHead>Labels</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Transactions</TableHead>
                       <TableHead>Uploaded</TableHead>
@@ -343,6 +368,9 @@ export default function BankStatements() {
                     {statements.map((s) => (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium">{s.original_filename}</TableCell>
+                        <TableCell className="max-w-[280px] whitespace-nowrap text-muted-foreground overflow-hidden text-ellipsis">
+                          {Array.isArray((s as any).labels) && (s as any).labels.length > 0 ? (s as any).labels.join(', ') : '-'}
+                        </TableCell>
                         <TableCell>{formatStatus(s.status)}</TableCell>
                         <TableCell>{s.extracted_count}</TableCell>
                         <TableCell>{s.created_at ? format(new Date(s.created_at), 'PP p') : ''}</TableCell>
@@ -382,7 +410,7 @@ export default function BankStatements() {
                     ))}
                     {statements.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">No statements yet</TableCell>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">No statements yet</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -461,10 +489,37 @@ export default function BankStatements() {
                   <FileText className="w-4 h-4 mr-1" /> Export CSV
                 </Button>
                 <Button variant="outline" onClick={addEmptyRow} disabled={readOnly}>Add Row</Button>
-                 <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
+                <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
               </div>
             </CardHeader>
             <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-muted-foreground">Labels (up to 10)</label>
+                  <Input
+                    value={statementLabels.join(', ')}
+                    onChange={(e) => {
+                      const parts = e.target.value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10);
+                      setStatementLabels(parts);
+                    }}
+                    placeholder="Comma-separated labels"
+                    disabled={readOnly}
+                  />
+                </div>
+                <div className="md:col-span-2 flex flex-col gap-2">
+                  <label className="text-sm text-muted-foreground">Notes</label>
+                  <Textarea
+                    value={statementNotes}
+                    onChange={(e) => setStatementNotes(e.target.value)}
+                    placeholder="Add any notes about this statement"
+                    rows={3}
+                    disabled={readOnly}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={saveMeta} disabled={readOnly || detailLoading} className="w-full md:w-auto">{detailLoading ? 'Saving…' : 'Save Details'}</Button>
+                </div>
+              </div>
               {rows.length > 0 && (
                 <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
                   <div className="text-center">

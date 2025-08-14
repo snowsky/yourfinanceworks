@@ -317,6 +317,7 @@ class BankStatement(Base):
     status = Column(String, default="processed", nullable=False)  # uploaded|processing|processed|failed
     extracted_count = Column(Integer, default=0, nullable=False)
     notes = Column(Text, nullable=True)
+    labels = Column(JSON, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
