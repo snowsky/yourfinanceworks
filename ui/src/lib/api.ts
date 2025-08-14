@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 
+// API base URL comes from env var. Set VITE_API_URL in your environment.
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 // Type definitions
@@ -133,8 +134,24 @@ export interface BankTransactionEntry {
   category?: string | null;
 }
 
+export interface BankStatementSummary {
+  id: number;
+  original_filename: string;
+  stored_filename: string;
+  file_path: string;
+  status: string;
+  extracted_count: number;
+  created_at?: string;
+}
+
+export interface BankStatementDetail extends BankStatementSummary {
+  transactions: (BankTransactionEntry & { id?: number })[];
+}
+
 export const bankStatementApi = {
-  uploadAndExtract: async (files: File[]): Promise<{ success: boolean; count: number; transactions: BankTransactionEntry[] }> => {
+  uploadAndExtract: async (
+    files: File[]
+  ): Promise<{ success: boolean; statements: BankStatementSummary[] }> => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
@@ -155,6 +172,77 @@ export const bankStatementApi = {
       catch { throw new Error(text || 'Failed to process bank statements'); }
     }
     return JSON.parse(text);
+  },
+
+  list: async (): Promise<BankStatementSummary[]> => {
+    const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[] }>(
+      '/bank-statements',
+      { method: 'GET' }
+    );
+    return data.statements;
+  },
+
+  get: async (statementId: number): Promise<BankStatementDetail> => {
+    const data = await apiRequest<{ success: boolean; statement: BankStatementDetail }>(
+      `/bank-statements/${statementId}`,
+      { method: 'GET' }
+    );
+    return data.statement;
+  },
+
+  replaceTransactions: async (
+    statementId: number,
+    transactions: BankTransactionEntry[]
+  ): Promise<{ success: boolean; updated_count: number }> => {
+    return apiRequest<{ success: boolean; updated_count: number }>(
+      `/bank-statements/${statementId}/transactions`,
+      { method: 'PUT', body: JSON.stringify({ transactions }) }
+    );
+  },
+
+  // Build URLs for preview/download (relative if API_BASE_URL is relative)
+  fileUrl: (statementId: number, inline = true): string => {
+    const base = API_BASE_URL.replace(/\/$/, '');
+    return `${base}/bank-statements/${statementId}/file${inline ? '?inline=true' : ''}`;
+  },
+
+  fetchFileBlob: async (
+    statementId: number,
+    inline = true
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const token = localStorage.getItem('token');
+    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
+    })();
+    const base = API_BASE_URL.replace(/\/$/, '');
+    const url = `${base}/bank-statements/${statementId}/file${inline ? '?inline=true' : ''}`;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+    const resp = await fetch(url, { method: 'GET', headers });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(text || `Failed to fetch file (${resp.status})`);
+    }
+    const cd = resp.headers.get('content-disposition') || '';
+    const ct = resp.headers.get('content-type') || '';
+    let filename = `statement-${statementId}.pdf`;
+    try {
+      const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+      const raw = decodeURIComponent((m?.[1] || m?.[2] || '').trim());
+      if (raw) filename = raw;
+    } catch { /* noop */ }
+    const blob = await resp.blob();
+    const type = ct || blob.type || 'application/pdf';
+    const pdfBlob = blob.type === type ? blob : new Blob([blob], { type });
+    return { blob: pdfBlob, filename };
+  },
+
+  delete: async (statementId: number): Promise<void> => {
+    await apiRequest<{ success: boolean }>(
+      `/bank-statements/${statementId}`,
+      { method: 'DELETE' }
+    );
   },
 };
 
@@ -318,10 +406,6 @@ export async function apiRequest<T>(
     }
     
     const requestUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-    console.log(`🔍 API REQUEST DEBUG - URL: ${requestUrl}`);
-    console.log(`🔍 API REQUEST DEBUG - Method: ${options.method || 'GET'}`);
-    console.log(`🔍 API REQUEST DEBUG - Body: ${options.body ? 'Present' : 'None'}`);
-    console.log(`Making API request to ${requestUrl}`, options);
     let extraHeaders: Record<string, string> = {};
     if (options.headers) {
       if (options.headers instanceof Headers) {

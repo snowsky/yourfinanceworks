@@ -116,6 +116,24 @@ def init_db():
     
     # Create all tables in the main (master) DB
     Base.metadata.create_all(bind=engine)
+    # Ensure critical columns exist on fresh/empty DBs (idempotent)
+    try:
+        from sqlalchemy import text as _text
+        with engine.begin() as conn:
+            conn.execute(_text(
+                """
+                ALTER TABLE master_users
+                ADD COLUMN IF NOT EXISTS must_reset_password BOOLEAN NOT NULL DEFAULT FALSE;
+                """
+            ))
+            conn.execute(_text(
+                """
+                ALTER TABLE master_users
+                ADD COLUMN IF NOT EXISTS show_analytics BOOLEAN NOT NULL DEFAULT FALSE;
+                """
+            ))
+    except Exception as e:
+        logger.warning(f"Master column ensure skipped: {e}")
     
     # Create analytics table in master DB
     from models.analytics import Base as AnalyticsBase

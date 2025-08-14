@@ -4,6 +4,7 @@ import os
 import signal
 import sys
 from typing import Optional
+from types import SimpleNamespace
 
 from datetime import datetime, timezone
 
@@ -33,39 +34,43 @@ logger.info(f"OCR worker log level set to {logging.getLevelName(log_level)}")
 
 def _get_consumer():
     bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
-    topic = os.getenv("KAFKA_OCR_TOPIC", "expenses_ocr")
+    expense_topic = os.getenv("KAFKA_OCR_TOPIC", "expenses_ocr")
+    bank_topic = os.getenv("KAFKA_BANK_TOPIC", "bank_statements_ocr")
+    invoice_topic = os.getenv("KAFKA_INVOICE_TOPIC", "invoices_ocr")
     group = os.getenv("KAFKA_OCR_GROUP", "invoice-app-ocr")
     if not bootstrap:
         logger.error("KAFKA_BOOTSTRAP_SERVERS not set; cannot start OCR consumer")
-        return None, topic
+        return None, (expense_topic, bank_topic)
     try:
         from confluent_kafka import Consumer  # type: ignore
         # Try to ensure topic exists before subscribing (consumer subscription won't auto-create)
         try:
             from confluent_kafka.admin import AdminClient, NewTopic  # type: ignore
 
-            def ensure_topic_exists() -> None:
+            def ensure_topic_exists(topic_name: str) -> None:
                 try:
                     admin = AdminClient({"bootstrap.servers": bootstrap})
                     md = admin.list_topics(timeout=5)
-                    if topic in md.topics and not md.topics[topic].error:
-                        logger.debug(f"Kafka topic '{topic}' already exists")
+                    if topic_name in md.topics and not md.topics[topic_name].error:
+                        logger.debug(f"Kafka topic '{topic_name}' already exists")
                         return
                     partitions = int(os.getenv("KAFKA_OCR_TOPIC_PARTITIONS", "1"))
                     replication_factor = int(os.getenv("KAFKA_OCR_TOPIC_RF", "1"))
-                    new_topic = NewTopic(topic=topic, num_partitions=partitions, replication_factor=replication_factor)
+                    new_topic = NewTopic(topic=topic_name, num_partitions=partitions, replication_factor=replication_factor)
                     fs = admin.create_topics([new_topic])
-                    fut = fs.get(topic)
+                    fut = fs.get(topic_name)
                     try:
                         fut.result(timeout=10)
-                        logger.info(f"Created Kafka topic '{topic}' (partitions={partitions}, rf={replication_factor})")
+                        logger.info(f"Created Kafka topic '{topic_name}' (partitions={partitions}, rf={replication_factor})")
                     except Exception as e:
                         # If topic exists due to race, ignore; otherwise log warning
-                        logger.warning(f"Topic creation for '{topic}' may have failed or already exists: {e}")
+                        logger.warning(f"Topic creation for '{topic_name}' may have failed or already exists: {e}")
                 except Exception as e:
-                    logger.warning(f"Unable to ensure Kafka topic '{topic}': {e}")
+                    logger.warning(f"Unable to ensure Kafka topic '{topic_name}': {e}")
 
-            ensure_topic_exists()
+            ensure_topic_exists(expense_topic)
+            ensure_topic_exists(bank_topic)
+            ensure_topic_exists(invoice_topic)
         except Exception as e:
             logger.debug(f"Kafka Admin client not available or failed: {e}")
 
@@ -80,16 +85,17 @@ def _get_consumer():
             "session.timeout.ms": int(os.getenv("KAFKA_SESSION_TIMEOUT_MS", "45000")),
         }
         consumer = Consumer(conf)
-        return consumer, topic
+        return consumer, (expense_topic, bank_topic, invoice_topic)
     except Exception as e:
         logger.error(f"Failed to initialize Kafka consumer: {e}")
-        return None, topic
+        return None, (expense_topic, bank_topic)
 
 
 def main() -> int:
-    consumer, topic = _get_consumer()
+    consumer, topics = _get_consumer()
     if not consumer:
         return 1
+    expense_topic, bank_topic, invoice_topic = topics
     try:
         # On startup, scan all tenants for queued expenses and requeue them
         logger.info("Startup scan: requeue queued expenses if any")
@@ -135,7 +141,7 @@ def main() -> int:
                 db.close()
     except Exception as e:
         logger.warning(f"Startup requeue scan failed: {e}")
-    consumer.subscribe([topic])
+    consumer.subscribe([expense_topic, bank_topic, invoice_topic])
 
     running = True
 
@@ -147,7 +153,7 @@ def main() -> int:
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    logger.info(f"OCR consumer running on topic={topic}")
+    logger.info(f"OCR consumer running on topics={[expense_topic, bank_topic, invoice_topic]}")
     while running:
         msg = consumer.poll(timeout=1.0)
         if msg is None:
@@ -158,9 +164,6 @@ def main() -> int:
             continue
         try:
             payload = json.loads(msg.value().decode("utf-8"))
-            expense_id = int(payload.get("expense_id"))
-            attachment_id = int(payload.get("attachment_id"))
-            file_path = str(payload.get("file_path"))
             tenant_id: Optional[int] = payload.get("tenant_id")
             attempt = int(payload.get("attempt", 0))
 
@@ -183,103 +186,211 @@ def main() -> int:
             SessionLocalTenant = tenant_db_manager.get_tenant_session(int(tenant_id))
             db = SessionLocalTenant()
             try:
-                # Skip if expense was manually overridden in the meantime
-                from models.models_per_tenant import Expense
-                exp = db.query(Expense).filter(Expense.id == expense_id).first()
-                if not exp:
-                    # Commit because the referenced expense no longer exists
-                    logger.warning(f"Expense {expense_id} not found; committing and skipping")
-                    try:
-                        consumer.commit(message=msg, asynchronous=False)
-                    except Exception:
-                        pass
-                elif exp.manual_override:
-                    # Commit because we should not retry if user manually overrided it
-                    logger.info(f"Expense {expense_id} manually overridden; committing and skipping OCR application")
-                    try:
-                        consumer.commit(message=msg, asynchronous=False)
-                    except Exception:
-                        pass
-                else:
-                    # Mark as processing and process
-                    try:
-                        exp.analysis_status = "processing"
-                        exp.updated_at = datetime.now(timezone.utc)
-                        db.commit()
-                    except Exception:
-                        db.rollback()
-                    # Process with OCR
-                    import asyncio
-                    asyncio.get_event_loop().run_until_complete(
-                        process_attachment_inline(db, expense_id, attachment_id, file_path)
-                    )
-                    # Refresh status and commit offset only if parsed as done
-                    try:
-                        db.refresh(exp)
-                    except Exception:
-                        pass
-                    if getattr(exp, "analysis_status", None) == "done":
+                topic_name = msg.topic()
+                logger.info(f"Kafka message received on topic={topic_name}: keys={list(payload.keys())}")
+                # Handle expenses (existing path)
+                if topic_name == expense_topic:
+                    from models.models_per_tenant import Expense
+                    expense_id = int(payload.get("expense_id"))
+                    attachment_id = int(payload.get("attachment_id"))
+                    file_path = str(payload.get("file_path"))
+                    exp = db.query(Expense).filter(Expense.id == expense_id).first()
+                    if not exp:
+                        # Commit because the referenced expense no longer exists
+                        logger.warning(f"Expense {expense_id} not found; committing and skipping")
                         try:
                             consumer.commit(message=msg, asynchronous=False)
-                            logger.info(f"Committed Kafka offset for expense_id={expense_id} (done)")
-                        except Exception as e:
-                            logger.error(f"Failed to commit Kafka offset: {e}")
-                        try:
-                            from services.ocr_service import publish_ocr_result
-                            publish_ocr_result(expense_id, tenant_id, status="done")
                         except Exception:
-                            logger.error(f"Failed to publish OCR result for expense_id={expense_id}")
                             pass
-                    elif getattr(exp, "analysis_status", None) == "failed":
-                        # Retry with backoff and DLQ after max attempts
-                        MAX_ATTEMPTS = int(os.getenv("KAFKA_OCR_MAX_ATTEMPTS", "5"))
-                        if attempt + 1 >= MAX_ATTEMPTS:
-                            logger.warning(f"OCR failed for expense_id={expense_id}. Sending to DLQ after {attempt+1} attempts.")
+                    elif exp.manual_override:
+                        # Commit because we should not retry if user manually overrided it
+                        logger.info(f"Expense {expense_id} manually overridden; committing and skipping OCR application")
+                        try:
+                            consumer.commit(message=msg, asynchronous=False)
+                        except Exception:
+                            pass
+                    else:
+                        # Mark as processing and process
+                        try:
+                            exp.analysis_status = "processing"
+                            exp.updated_at = datetime.now(timezone.utc)
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                        # Process with OCR
+                        import asyncio
+                        asyncio.get_event_loop().run_until_complete(
+                            process_attachment_inline(db, expense_id, attachment_id, file_path)
+                        )
+                        # Refresh status and commit offset only if parsed as done
+                        try:
+                            db.refresh(exp)
+                        except Exception:
+                            pass
+                        if getattr(exp, "analysis_status", None) == "done":
                             try:
-                                from confluent_kafka import Producer  # type: ignore
-                                from services.ocr_service import _get_kafka_producer
-                                producer, _ = _get_kafka_producer()
-                                if producer:
-                                    dlq_topic = os.getenv("KAFKA_OCR_DLQ_TOPIC", "expenses_ocr_dlq")
-                                    dlq_event = {
-                                        "tenant_id": tenant_id,
-                                        "expense_id": expense_id,
-                                        "attachment_id": attachment_id,
-                                        "file_path": file_path,
-                                        "attempt": attempt + 1,
-                                        "ts": datetime.now(timezone.utc).isoformat(),
-                                    }
-                                    producer.produce(dlq_topic, key=str(expense_id), value=json.dumps(dlq_event).encode("utf-8"))
-                                    producer.flush(1.0)
-                                # Commit the failed message since we moved it to DLQ
-                                try:
-                                    consumer.commit(message=msg, asynchronous=False)
-                                except Exception:
-                                    pass
-                                try:
-                                    from services.ocr_service import publish_ocr_result
-                                    publish_ocr_result(expense_id, tenant_id, status="failed", details={"dlq": True})
-                                except Exception:
-                                    pass
+                                consumer.commit(message=msg, asynchronous=False)
+                                logger.info(f"Committed Kafka offset for expense_id={expense_id} (done)")
                             except Exception as e:
-                                logger.error(f"Failed to publish to DLQ: {e}")
+                                logger.error(f"Failed to commit Kafka offset: {e}")
+                            try:
+                                from services.ocr_service import publish_ocr_result
+                                publish_ocr_result(expense_id, tenant_id, status="done")
+                            except Exception:
+                                logger.error(f"Failed to publish OCR result for expense_id={expense_id}")
+                                pass
+                        elif getattr(exp, "analysis_status", None) == "failed":
+                            # Retry with backoff and DLQ after max attempts
+                            MAX_ATTEMPTS = int(os.getenv("KAFKA_OCR_MAX_ATTEMPTS", "5"))
+                            if attempt + 1 >= MAX_ATTEMPTS:
+                                logger.warning(f"OCR failed for expense_id={expense_id}. Sending to DLQ after {attempt+1} attempts.")
+                                try:
+                                    from confluent_kafka import Producer  # type: ignore
+                                    from services.ocr_service import _get_kafka_producer
+                                    producer, _ = _get_kafka_producer()
+                                    if producer:
+                                        dlq_topic = os.getenv("KAFKA_OCR_DLQ_TOPIC", "expenses_ocr_dlq")
+                                        dlq_event = {
+                                            "tenant_id": tenant_id,
+                                            "expense_id": expense_id,
+                                            "attachment_id": attachment_id,
+                                            "file_path": file_path,
+                                            "attempt": attempt + 1,
+                                            "ts": datetime.now(timezone.utc).isoformat(),
+                                        }
+                                        producer.produce(dlq_topic, key=str(expense_id), value=json.dumps(dlq_event).encode("utf-8"))
+                                        producer.flush(1.0)
+                                    # Commit the failed message since we moved it to DLQ
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
+                                    try:
+                                        from services.ocr_service import publish_ocr_result
+                                        publish_ocr_result(expense_id, tenant_id, status="failed", details={"dlq": True})
+                                    except Exception:
+                                        pass
+                                except Exception as e:
+                                    logger.error(f"Failed to publish to DLQ: {e}")
+                            else:
+                                # Requeue with incremented attempt and simple time-based backoff (client-side)
+                                try:
+                                    backoff_ms = min(60000, 1000 * (2 ** attempt))
+                                    logger.warning(f"Requeueing expense_id={expense_id} attempt={attempt+1} after backoff_ms={backoff_ms}")
+                                    from time import sleep
+                                    sleep(backoff_ms / 1000.0)
+                                    from services.ocr_service import publish_ocr_task
+                                    payload.update({"attempt": attempt + 1})
+                                    publish_ocr_task(payload)
+                                    # Commit the current message so we don't tight-loop
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
+                                except Exception as e:
+                                    logger.error(f"Failed to requeue message: {e}")
+                # Handle bank statements via LLM+regex extractor
+                elif topic_name == bank_topic:
+                    try:
+                        from models.models_per_tenant import BankStatement, BankStatementTransaction, AIConfig as AIConfigModel
+                        from services.bank_statement_service import process_bank_pdf_with_llm
+                        statement_id = int(payload.get("statement_id"))
+                        file_path = str(payload.get("file_path"))
+                        logger.info(f"Processing bank statement: id={statement_id} tenant_id={tenant_id} file={file_path}")
+                        stmt = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
+                        if not stmt:
+                            try:
+                                consumer.commit(message=msg, asynchronous=False)
+                            except Exception:
+                                pass
                         else:
-                            # Requeue with incremented attempt and simple time-based backoff (client-side)
-                            try:
-                                backoff_ms = min(60000, 1000 * (2 ** attempt))
-                                logger.warning(f"Requeueing expense_id={expense_id} attempt={attempt+1} after backoff_ms={backoff_ms}")
-                                from time import sleep
-                                sleep(backoff_ms / 1000.0)
-                                from services.ocr_service import publish_ocr_task
-                                payload.update({"attempt": attempt + 1})
-                                publish_ocr_task(payload)
-                                # Commit the current message so we don't tight-loop
+                            # Fetch active AI config for tenant, if any
+                            ai_row = db.query(AIConfigModel).filter(
+                                AIConfigModel.is_active == True,
+                                AIConfigModel.tested == True
+                            ).first()
+                            ai_conf = None
+                            if ai_row:
+                                ai_conf = {
+                                    "provider_name": ai_row.provider_name,
+                                    "provider_url": ai_row.provider_url,
+                                    "api_key": ai_row.api_key,
+                                    "model_name": ai_row.model_name,
+                                }
+                            txns = process_bank_pdf_with_llm(file_path, ai_conf)
+                            logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
+                            # Replace
+                            db.query(BankStatementTransaction).filter(BankStatementTransaction.statement_id == statement_id).delete()
+                            count = 0
+                            from datetime import datetime as _dt
+                            for t in txns:
                                 try:
-                                    consumer.commit(message=msg, asynchronous=False)
+                                    dt = _dt.fromisoformat(t.get("date", "")).date()
                                 except Exception:
-                                    pass
-                            except Exception as e:
-                                logger.error(f"Failed to requeue message: {e}")
+                                    dt = _dt.utcnow().date()
+                                db.add(BankStatementTransaction(
+                                    statement_id=statement_id,
+                                    date=dt,
+                                    description=t.get("description", ""),
+                                    amount=float(t.get("amount", 0)),
+                                    transaction_type=(t.get("transaction_type") if t.get("transaction_type") in ("debit", "credit") else ("debit" if float(t.get("amount", 0)) < 0 else "credit")),
+                                    balance=(float(t["balance"]) if t.get("balance") is not None else None),
+                                    category=t.get("category"),
+                                ))
+                                count += 1
+                            stmt.status = "processed"
+                            stmt.extracted_count = count
+                            db.commit()
+                            logger.info(f"Bank statement processed: id={statement_id} count={count}")
+                            try:
+                                consumer.commit(message=msg, asynchronous=False)
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        db.rollback()
+                        logger.error(f"Failed processing bank statement: {e}")
+                # Handle invoice OCR
+                elif topic_name == invoice_topic:
+                    try:
+                        # Pull AI config and process invoice using existing PDF processor route logic
+                        from models.models_per_tenant import AIConfig as AIConfigModel
+                        from routers.pdf_processor import process_pdf_with_ai  # uses LiteLLM and active config
+                        # Expect payload to include a temp file path and a generated task_id
+                        task_id = str(payload.get("task_id"))
+                        file_path = str(payload.get("file_path"))
+                        # Load AI config
+                        ai_row = db.query(AIConfigModel).filter(
+                            AIConfigModel.is_active == True,
+                            AIConfigModel.tested == True
+                        ).first()
+                        if not ai_row:
+                            # Fallback to environment configuration
+                            model_name = os.getenv("LLM_MODEL_INVOICES") or os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
+                            provider_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE")
+                            api_key = os.getenv("LLM_API_KEY")
+                            provider_name = "ollama" if os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or os.getenv("OLLAMA_MODEL") else "openai"
+                            ai_conf = SimpleNamespace(
+                                provider_name=provider_name,
+                                provider_url=provider_url,
+                                api_key=api_key,
+                                model_name=model_name,
+                                is_active=True,
+                                tested=True,
+                            )
+                        else:
+                            ai_conf = ai_row  # reuse model instance
+                        # Run extraction
+                        import asyncio
+                        data = asyncio.get_event_loop().run_until_complete(process_pdf_with_ai(file_path, ai_conf))
+                        # Publish result
+                        from services.ocr_service import publish_invoice_result
+                        publish_invoice_result(task_id, tenant_id, {"invoice_data": data})
+                        try:
+                            consumer.commit(message=msg, asynchronous=False)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        logger.error(f"Failed processing invoice OCR: {e}")
             finally:
                 db.close()
         except Exception as e:

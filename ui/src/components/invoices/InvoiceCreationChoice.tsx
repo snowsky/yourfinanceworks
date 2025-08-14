@@ -58,6 +58,7 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCr
         toast.info('LLM not configured. Proceeding with manual invoice creation with PDF attached.');
         onManualCreate(selectedFile);
         return;
+        // toast.info('No stored AI config. Trying env-based model on the server...');
       }
 
       // Process PDF with LLM
@@ -71,7 +72,8 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCr
 
       if (response.success) {
         toast.success('PDF processed successfully!');
-        onPdfImport(response.data, selectedFile);
+        const payload = (response?.data?.invoice_data) ?? response?.data ?? response;
+        onPdfImport(payload, selectedFile);
       } else {
         throw new Error(response.message || 'Failed to process PDF');
       }

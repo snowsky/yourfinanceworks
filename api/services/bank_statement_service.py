@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
+import json as _json
 
 
 @dataclass
@@ -86,12 +87,33 @@ def _normalize_date(value: str) -> str:
         return value
 
 
+def build_bank_transactions_prompt(text: str) -> str:
+    # Aligned to test-main.py prompt with explicit example and clarity for local models
+    return (
+        "You are a financial data extraction expert. Extract bank transactions from the text below.\n\n"
+        "RULES:\n"
+        "1. Look for dates, descriptions, and amounts\n"
+        "2. Amounts with '-' or in parentheses are debits (money out)\n"
+        "3. Positive amounts are credits (money in)\n"
+        "4. Convert dates to YYYY-MM-DD format\n"
+        "5. Extract merchant names clearly\n"
+        "6. Only extract actual transactions, not headers or summaries\n\n"
+        "TEXT:\n"
+        f"{text}\n\n"
+        "Return ONLY a JSON array like this example:\n"
+        "[\n"
+        "  {\"date\": \"2024-01-15\", \"description\": \"GROCERY STORE\", \"amount\": -45.67, \"transaction_type\": \"debit\", \"balance\": 1234.56},\n"
+        "  {\"date\": \"2024-01-16\", \"description\": \"SALARY DEPOSIT\", \"amount\": 2500.00, \"transaction_type\": \"credit\", \"balance\": 3689.89}\n"
+        "]\n\nJSON:"
+    )
+
+
 def _regex_extract_transactions(text: str) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
-    # Common bank statement patterns: date description amount [balance]
+    # Patterns aligned with test-main fallback, slightly more tolerant with $ and commas
     patterns = [
-        r"(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<desc>[^\d\n]+?)\s+(?P<amount>-?\$?\d[\d,]*\.?\d*)\s*(?P<bal>\$?\d[\d,]*\.?\d*)?",
-        r"(?P<date>\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(?P<desc>[^\d\n]+?)\s+(?P<amount>-?\$?\d[\d,]*\.?\d*)\s*(?P<bal>\$?\d[\d,]*\.?\d*)?",
+        r"(?P<date>\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(?P<desc>[^$\d-]+?)\s+(?P<amount>[-$]?\d[\d,]*\.?\d*)",
+        r"(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<desc>[^$\d-]+?)\s+(?P<amount>[-$]?\d[\d,]*\.?\d*)",
     ]
     for pat in patterns:
         for m in re.finditer(pat, text, flags=re.MULTILINE):
@@ -100,23 +122,13 @@ def _regex_extract_transactions(text: str) -> List[Dict[str, Any]]:
                 desc = re.sub(r"\s+", " ", m.group("desc").strip())
                 amount_raw = (m.group("amount") or "0").replace("$", "").replace(",", "")
                 amount = float(amount_raw)
-                bal_group = m.group("bal")
-                balance = None
-                if bal_group:
-                    try:
-                        balance = float(bal_group.replace("$", "").replace(",", ""))
-                    except Exception:
-                        balance = None
                 tx_type = "debit" if amount < 0 else "credit"
-                results.append(
-                    {
-                        "date": date,
-                        "description": desc,
-                        "amount": amount,
-                        "transaction_type": tx_type,
-                        "balance": balance,
-                    }
-                )
+                results.append({
+                    "date": date,
+                    "description": desc,
+                    "amount": amount,
+                    "transaction_type": tx_type,
+                })
             except Exception:
                 continue
     return results
@@ -159,18 +171,7 @@ class BankStatementExtractor:
             return None
 
     def _build_extraction_prompt(self, text: str) -> str:
-        return (
-            "You are a financial data extraction expert. Extract bank transactions from the text below.\n\n"
-            "RULES:\n"
-            "1. Look for dates, descriptions, and amounts\n"
-            "2. Amounts with '-' or in parentheses are debits (money out)\n"
-            "3. Positive amounts are credits (money in)\n"
-            "4. Convert dates to YYYY-MM-DD format\n"
-            "5. Only extract actual transactions, not headers or summaries\n\n"
-            "Return ONLY a JSON array like: \n"
-            "[{\"date\": \"2024-01-15\", \"description\": \"GROCERY STORE\", \"amount\": -45.67, \"transaction_type\": \"debit\", \"balance\": 1234.56}]\n\n"
-            f"TEXT:\n{text}\n\nJSON:"
-        )
+        return build_bank_transactions_prompt(text)
 
     def _parse_llm_json(self, content: str) -> List[Dict[str, Any]]:
         # Strip code fences if present
@@ -192,17 +193,29 @@ class BankStatementExtractor:
 
     def extract_from_pdf(self, pdf_path: str) -> List[Dict[str, Any]]:
         pages = self._pdf_loader.load(pdf_path)
-        combined = "\n\n".join([re.sub(r"\s+", " ", p or "") for p in pages])
+        combined_raw = "\n\n".join([p or "" for p in pages])
 
+        # Preprocess/clean text similar to test-main
+        def preprocess_text(text: str) -> str:
+            t = text
+            t = re.sub(r"Page\s+\d+\s+of\s+\d+", " ", t)
+            t = re.sub(r"Statement Period:.*?\n", " ", t)
+            t = re.sub(r"Account Summary.*?\n", " ", t)
+            t = re.sub(r"\s+", " ", t)
+            return t.strip()
+
+        combined = preprocess_text(combined_raw)
+
+        # If Ollama direct chat available, try once on entire text (capped)
         if self._ollama_available:
-            prompt = self._build_extraction_prompt(combined[:15000])  # cap tokens
+            prompt = self._build_extraction_prompt(combined[:12000])
             resp = self._ollama_chat(prompt)
             if resp:
                 items = self._parse_llm_json(resp)
                 if items:
                     return items
 
-        # Fallback
+        # Chunk and attempt extraction per chunk via regex (LiteLLM path is handled in process function)
         return _regex_extract_transactions(combined)
 
     def extract_from_files(self, files: List[str]) -> List[Dict[str, Any]]:
@@ -267,5 +280,167 @@ class BankStatementExtractor:
 def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, Any]]:
     extractor = BankStatementExtractor()
     return extractor.extract_from_files(pdf_paths)
+
+
+def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """LLM-based extraction with chunking and regex fallback.
+    ai_config (optional): {
+      provider_name: 'openai'|'ollama'|'anthropic'|..., model_name: str, provider_url?: str, api_key?: str
+    }
+    """
+    # Load text using best-effort loader (pdfplumber/pymupdf/pypdf fallback)
+    try:
+        pages = SimplePDFLoader().load(pdf_path)
+        raw_text = "\n\n".join([p or "" for p in pages])
+        # Preprocess similar to test-main
+        text = re.sub(r"Page\s+\d+\s+of\s+\d+", " ", raw_text)
+        text = re.sub(r"Statement Period:.*?\n", " ", text)
+        text = re.sub(r"Account Summary.*?\n", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+    except Exception:
+        text = ""
+
+    if not text.strip():
+        return extract_transactions_from_pdf_paths([pdf_path])
+
+    # Try LiteLLM
+    try:
+        from litellm import completion  # type: ignore
+    except Exception:
+        return extract_transactions_from_pdf_paths([pdf_path])
+
+    # We'll process in chunks with small overlap as in test-main
+    try:
+        # Build provider/model from AI config or env
+        def build_kwargs(model_name: str) -> Dict[str, Any]:
+            return {
+                "model": model_name,
+                "max_tokens": 1500,
+                "temperature": 0.1,
+            }
+
+        def sanitize_ollama_base(url: Optional[str]) -> Optional[str]:
+            if not url:
+                return url
+            # Strip trailing /api/* paths if present
+            m = re.match(r"^(https?://[^/]+)(/api.*)?$", url.strip())
+            return m.group(1) if m else url.strip()
+
+        if ai_config:
+            provider = (ai_config.get("provider_name") or "").lower()
+            model_name = ai_config.get("model_name") or "gpt-oss:latest"
+            if provider == "ollama":
+                # litellm expects "ollama/<model>"
+                model = f"ollama/{model_name}"
+            elif provider == "anthropic":
+                model = f"anthropic/{model_name}"
+            else:
+                model = model_name
+            base_kwargs = build_kwargs(model)
+            if ai_config.get("provider_url"):
+                base_kwargs["api_base"] = sanitize_ollama_base(ai_config.get("provider_url"))
+            if ai_config.get("api_key"):
+                base_kwargs["api_key"] = ai_config.get("api_key")
+        else:
+            model_name = os.getenv("LLM_MODEL_BANK_STATEMENTS", os.getenv("OLLAMA_MODEL", "gpt-oss:latest"))
+            provider_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE")
+            # If Ollama URL present, use ollama/<model> provider and sanitize base
+            if provider_url:
+                model = f"ollama/{model_name}"
+                base_kwargs = build_kwargs(model)
+                base_kwargs["api_base"] = sanitize_ollama_base(provider_url)
+            else:
+                base_kwargs = build_kwargs(model_name)
+            api_key = os.getenv("LLM_API_KEY")
+            if api_key:
+                base_kwargs["api_key"] = api_key
+
+        # Chunk text and run per chunk (aligned with test-main defaults)
+        max_len = 3000
+        overlap = 150
+        chunks: List[str] = []
+        i = 0
+        while i < len(text):
+            chunk = text[i:i + max_len]
+            if not chunk.strip():
+                break
+            chunks.append(chunk)
+            i += max_len - overlap
+
+        aggregated: List[Dict[str, Any]] = []
+        for chunk in chunks:
+            prompt = build_bank_transactions_prompt(chunk)
+            kwargs = {**base_kwargs, "messages": [{"role": "user", "content": prompt}]}
+            resp = completion(**kwargs)
+            content = None
+            if resp and hasattr(resp, 'choices') and resp.choices:
+                choice = resp.choices[0]
+                if hasattr(choice, 'message') and getattr(choice, 'message') is not None:
+                    content = choice.message.content if hasattr(choice.message, 'content') else None
+            if not content:
+                # Try regex fallback for this chunk if no content
+                aggregated.extend(_regex_extract_transactions(chunk))
+                continue
+
+            s = re.sub(r"```json\s*|```", "", content.strip())
+            data = None
+            try:
+                data = _json.loads(s)
+            except Exception:
+                m = re.search(r"\[[\s\S]*?\]", s)
+                if m:
+                    try:
+                        data = _json.loads(m.group(0))
+                    except Exception:
+                        data = None
+            if not isinstance(data, list):
+                # Regex fallback on chunk content
+                aggregated.extend(_regex_extract_transactions(chunk))
+                continue
+
+            for it in data:
+                try:
+                    date = _normalize_date(str(it.get("date", "")))
+                    desc = str(it.get("description", "")).strip() or "Unknown"
+                    try:
+                        amount = float(it.get("amount", 0))
+                    except Exception:
+                        amount = float(str(it.get("amount", 0)).replace("$", "").replace(",", ""))
+                    tx_type = str(it.get("transaction_type", "")).lower() or ("debit" if amount < 0 else "credit")
+                    bal_val = it.get("balance", None)
+                    try:
+                        balance = float(bal_val) if bal_val is not None else None
+                    except Exception:
+                        balance = None
+                    aggregated.append({
+                        "date": date,
+                        "description": desc,
+                        "amount": amount,
+                        "transaction_type": "debit" if tx_type not in ("debit", "credit") else tx_type,
+                        "balance": balance,
+                        "category": it.get("category"),
+                    })
+                except Exception:
+                    continue
+
+        if not aggregated:
+            return extract_transactions_from_pdf_paths([pdf_path])
+
+        # Dedup and sort aggregated
+        seen = set()
+        uniq: List[Dict[str, Any]] = []
+        for it in aggregated:
+            key = (it["date"], it["description"], round(float(it["amount"]), 2))
+            if key in seen:
+                continue
+            seen.add(key)
+            uniq.append(it)
+        try:
+            uniq.sort(key=lambda x: x["date"])  # YYYY-MM-DD
+        except Exception:
+            pass
+        return uniq
+    except Exception:
+        return extract_transactions_from_pdf_paths([pdf_path])
 
 

@@ -303,6 +303,47 @@ class AuditLog(Base):
     error_message = Column(String, nullable=True)  # Error message if status is error
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+# --- Bank Statements ---
+
+class BankStatement(Base):
+    __tablename__ = "bank_statements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=False)
+
+    original_filename = Column(String, nullable=False)
+    stored_filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    status = Column(String, default="processed", nullable=False)  # uploaded|processing|processed|failed
+    extracted_count = Column(Integer, default=0, nullable=False)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    transactions = relationship("BankStatementTransaction", back_populates="statement", cascade="all, delete-orphan")
+
+
+class BankStatementTransaction(Base):
+    __tablename__ = "bank_statement_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    statement_id = Column(Integer, ForeignKey("bank_statements.id", ondelete="CASCADE"), nullable=False)
+
+    date = Column(Date, nullable=False)
+    description = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    transaction_type = Column(String, nullable=False)  # debit|credit
+    balance = Column(Float, nullable=True)
+    category = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    statement = relationship("BankStatement", back_populates="transactions")
+
 class AIChatHistory(Base):
     __tablename__ = "ai_chat_history"
     id = Column(Integer, primary_key=True)

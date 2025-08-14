@@ -15,6 +15,9 @@ def _resolve_log_level(name: str) -> int:
 
 logging.basicConfig(level=_resolve_log_level(os.getenv("LOG_LEVEL", "INFO")))
 logger = logging.getLogger(__name__)
+
+# Keep producers alive across calls so messages can be delivered before process exit
+_PRODUCER_CACHE: dict[str, dict[str, any]] = {}
 def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
     """Heuristic parser for plain OCR text to extract likely fields."""
     import re
@@ -84,7 +87,12 @@ def _get_kafka_producer():
             "bootstrap.servers": bootstrap,
             "client.id": os.getenv("KAFKA_CLIENT_ID", "invoice-app-api"),
         }
+        key = f"{bootstrap}|{topic}"
+        cached = _PRODUCER_CACHE.get(key)
+        if cached:
+            return cached["producer"], topic
         producer = Producer(conf)
+        _PRODUCER_CACHE[key] = {"producer": producer, "topic": topic}
         logger.info(f"Initialized Kafka producer to {bootstrap}, topic={topic}")
         return producer, topic
     except Exception as e:
@@ -105,11 +113,107 @@ def publish_ocr_task(message: Dict[str, Any]) -> bool:
         )
         headers = [("attempt", str(attempt))]
         producer.produce(topic, value=payload, key=str(message.get("expense_id")), headers=headers)
-        producer.flush(1.0)
+        producer.flush(10.0)
         logger.info(f"Published OCR task to Kafka topic={topic} expense_id={message.get('expense_id')}")
         return True
     except Exception as e:
         logger.error(f"Failed to publish OCR task: {e}")
+        return False
+
+
+def _get_kafka_producer_for(env_name: str, default_topic: str):
+    """Return a Kafka producer and a topic for a specific stream based on env var name."""
+    bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+    topic = os.getenv(env_name, default_topic)
+    if not bootstrap:
+        logger.info("Kafka disabled: KAFKA_BOOTSTRAP_SERVERS not set; will use inline processing")
+        return None, topic
+    try:
+        from confluent_kafka import Producer  # type: ignore
+        conf = {
+            "bootstrap.servers": bootstrap,
+            "client.id": os.getenv("KAFKA_CLIENT_ID", "invoice-app-api"),
+        }
+        key = f"{bootstrap}|{topic}"
+        cached = _PRODUCER_CACHE.get(key)
+        if cached:
+            return cached["producer"], topic
+        producer = Producer(conf)
+        _PRODUCER_CACHE[key] = {"producer": producer, "topic": topic}
+        logger.info(f"Initialized Kafka producer to {bootstrap}, topic={topic}")
+        return producer, topic
+    except Exception as e:
+        logger.warning(f"Kafka not available ({e}); will fallback to inline processing.")
+        return None, topic
+
+
+def publish_bank_statement_task(message: Dict[str, Any]) -> bool:
+    """Publish a bank statement extraction task to Kafka if available. Returns True if published.
+    Expected message keys: tenant_id, statement_id, file_path, attempt (optional)
+    """
+    producer, topic = _get_kafka_producer_for("KAFKA_BANK_TOPIC", "bank_statements_ocr")
+    if not producer:
+        logger.error("Kafka producer unavailable for bank statements. Check KAFKA_BOOTSTRAP_SERVERS.")
+        return False
+    try:
+        payload = json.dumps(message).encode("utf-8")
+        key = str(message.get("statement_id") or "")
+        attempt = int(message.get("attempt", 0))
+        headers = [("attempt", str(attempt))]
+        try:
+            producer.produce(topic, value=payload, key=key, headers=headers)
+        except TypeError as e:
+            # Older client may not support headers
+            logger.debug(f"Produce with headers failed, retrying without headers: {e}")
+            producer.produce(topic, value=payload, key=key)
+        remaining = producer.flush(10.0)
+        if remaining == 0:
+            logger.info(f"Published bank statement task to Kafka topic={topic} statement_id={message.get('statement_id')}")
+            return True
+        logger.error(f"Kafka flush returned remaining={remaining} for bank topic={topic} key={key}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to publish bank statement task: {e}", exc_info=True)
+        return False
+
+
+def publish_invoice_task(message: Dict[str, Any]) -> bool:
+    """Publish an invoice OCR task to Kafka. Expected keys: tenant_id, task_id, file_path."""
+    producer, topic = _get_kafka_producer_for("KAFKA_INVOICE_TOPIC", "invoices_ocr")
+    if not producer:
+        return False
+    try:
+        payload = json.dumps(message).encode("utf-8")
+        key = str(message.get("task_id") or "")
+        attempt = int(message.get("attempt", 0))
+        headers = [("attempt", str(attempt))]
+        producer.produce(topic, value=payload, key=key, headers=headers)
+        producer.flush(10.0)
+        logger.info(f"Published invoice task to Kafka topic={topic} task_id={message.get('task_id')}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to publish invoice task: {e}")
+        return False
+
+
+def publish_invoice_result(task_id: str, tenant_id: Optional[int], data: Dict[str, Any]) -> bool:
+    """Publish invoice OCR result keyed by task_id."""
+    producer, _ = _get_kafka_producer_for("KAFKA_INVOICE_RESULT_TOPIC", "invoices_ocr_result")
+    if not producer:
+        return False
+    try:
+        topic = os.getenv("KAFKA_INVOICE_RESULT_TOPIC", "invoices_ocr_result")
+        event = {
+            "task_id": task_id,
+            "tenant_id": tenant_id,
+            "data": data,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+        producer.produce(topic, key=str(task_id), value=json.dumps(event).encode("utf-8"))
+        producer.flush(10.0)
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to publish invoice result event: {e}")
         return False
 
 
@@ -128,11 +232,20 @@ def publish_ocr_result(expense_id: int, tenant_id: Optional[int], status: str, d
             **({"details": details} if details else {}),
         }
         producer.produce(topic, key=str(expense_id), value=json.dumps(event).encode("utf-8"))
-        producer.flush(1.0)
+        producer.flush(10.0)
         return True
     except Exception as e:
         logger.warning(f"Failed to publish OCR result event: {e}")
         return False
+
+
+def flush_all_producers(timeout_sec: float = 10.0) -> None:
+    """Flush all cached Kafka producers. Call this on shutdown."""
+    for entry in list(_PRODUCER_CACHE.values()):
+        try:
+            entry["producer"].flush(timeout_sec)
+        except Exception:
+            pass
 
 
 def cancel_ocr_tasks_for_expense(expense_id: int) -> None:
@@ -146,8 +259,8 @@ async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None) -
     try:
         from ollama_ocr import OCRProcessor  # type: ignore
 
-        model_name = os.getenv("OCR_MODEL", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
-        base_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434/api/generate")
+        model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
+        base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434/api/generate"
         logger.info(f"Starting OCR: file={file_path} model={model_name} base_url={base_url}")
         ocr = OCRProcessor(model_name=model_name, base_url=base_url)
         prompt = custom_prompt or (
@@ -210,9 +323,13 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         logger.info(f"Expense {expense_id} manually overridden during OCR; not applying result.")
         return
     try:
-        expense.analysis_result = result
         expense.analysis_updated_at = datetime.now(timezone.utc)
         if "error" in result:
+            # Persist error payload as a dict
+            try:
+                expense.analysis_result = {"error": str(result.get("error"))}
+            except Exception:
+                expense.analysis_result = {"error": "unknown"}
             expense.analysis_status = "failed"
             expense.analysis_error = str(result.get("error"))
         else:
@@ -325,6 +442,11 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             if notes:
                 expense.notes = str(notes)
 
+            # Persist normalized extraction as dict
+            try:
+                expense.analysis_result = extracted if isinstance(extracted, dict) else {"items": extracted}
+            except Exception:
+                expense.analysis_result = extracted
             expense.analysis_status = "done"
             try:
                 mapped_preview = {

@@ -142,5 +142,13 @@ def read_root():
 def health_check():
     return {"status": "healthy"}
 
+@app.on_event("shutdown")
+def _flush_kafka_on_shutdown():
+    try:
+        from services.ocr_service import flush_all_producers
+        flush_all_producers(10.0)
+    except Exception:
+        pass
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -60,6 +60,8 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
+      - KAFKA_BANK_TOPIC=bank_statements_ocr
+      - LLM_API_BASE=http://host.docker.internal:11434
     ports:
       - "8000:8000"
     depends_on:
@@ -197,9 +199,13 @@ services:
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       # Logging
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - OLLAMA_API_URL=http://host.docker.internal:11434/api/generate
-      - OCR_MODEL=llama3.2-vision:11b
+      # - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL=DEBUG
+      - LLM_API_BASE=http://host.docker.internal:11434/api/generate
+      - OLLAMA_API_BASE=http://host.docker.internal:11434/api/generate # OLLAMA_API_BASE is used by Ollama service
+      - LLM_MODEL_INVOICES=gpt-oss:latest
+      - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
     depends_on:
       kafka:
         condition: service_healthy

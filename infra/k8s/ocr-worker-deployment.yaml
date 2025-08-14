@@ -47,9 +47,9 @@ spec:
               value: invoice-app-ocr
             - name: LOG_LEVEL
               value: INFO
-            - name: OLLAMA_API_URL
+            - name: OLLAMA_API_BASE
               value: http://host.docker.internal:11434/api/generate
-            - name: OCR_MODEL
+            - name: LLM_MODEL_EXPENSES
               value: llama3.2-vision:11b
           command: ["python","-m","workers.ocr_consumer"]
 
