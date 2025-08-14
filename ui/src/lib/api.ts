@@ -231,7 +231,7 @@ export const bankStatementApi = {
   fetchFileBlob: async (
     statementId: number,
     inline = true
-  ): Promise<{ blob: Blob; filename: string }> => {
+  ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
@@ -256,8 +256,8 @@ export const bankStatementApi = {
     } catch { /* noop */ }
     const blob = await resp.blob();
     const type = ct || blob.type || 'application/pdf';
-    const pdfBlob = blob.type === type ? blob : new Blob([blob], { type });
-    return { blob: pdfBlob, filename };
+    const normalizedBlob = blob.type === type ? blob : new Blob([blob], { type });
+    return { blob: normalizedBlob, filename, contentType: type };
   },
 
   delete: async (statementId: number): Promise<void> => {

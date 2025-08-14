@@ -2226,6 +2226,14 @@ const Settings = () => {
               <Button variant="outline" onClick={() => setShowAIConfigDialog(false)}>
                 {t('settings.cancel')}
               </Button>
+              {editingAIConfig && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleTestAIConfig(editingAIConfig.id)}
+                >
+                  {t('settings.test')}
+                </Button>
+              )}
               <Button
                 onClick={editingAIConfig ? handleUpdateAIConfig : handleCreateAIConfig}
               >

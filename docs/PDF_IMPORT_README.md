@@ -49,7 +49,7 @@ When creating a new invoice, users now see two options:
 3. **Dependencies**
    - LangChain for PDF processing
    - Ollama for LLM integration
-   - PyPDF2 for PDF text extraction
+   - pypdf for PDF text extraction
 
 ### Frontend Components
 

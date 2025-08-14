@@ -187,11 +187,28 @@ class TenantDatabaseManager:
             currency = SupportedCurrency(**currency_data)
             db_session.add(currency)
     
+    def tenant_database_exists(self, tenant_id: int) -> bool:
+        """Check if a tenant database exists"""
+        try:
+            db_name = f"tenant_{tenant_id}"
+            with self.master_engine.connect() as conn:
+                result = conn.execute(text(
+                    f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'"
+                ))
+                return result.fetchone() is not None
+        except Exception as e:
+            logger.error(f"Failed to check if tenant database exists for tenant {tenant_id}: {e}")
+            return False
+    
     def get_tenant_engine(self, tenant_id: int) -> Engine:
         """Get or create database engine for a tenant"""
         tenant_key = f"tenant_{tenant_id}"
         
         if tenant_key not in self.tenant_engines:
+            # Check if tenant database exists before creating connection
+            if not self.tenant_database_exists(tenant_id):
+                raise ValueError(f"Tenant database does not exist for tenant {tenant_id}")
+            
             tenant_url = self.get_tenant_database_url(tenant_id)
             
             self.tenant_engines[tenant_key] = create_engine(
@@ -217,6 +234,9 @@ class TenantDatabaseManager:
         tenant_key = f"tenant_{tenant_id}"
         
         if tenant_key not in self.tenant_sessions:
+            # Check if tenant database exists before creating session
+            if not self.tenant_database_exists(tenant_id):
+                raise ValueError(f"Tenant database does not exist for tenant {tenant_id}")
             self.get_tenant_engine(tenant_id)  # This will create both engine and session
         
         return self.tenant_sessions[tenant_key]
@@ -275,6 +295,34 @@ class TenantDatabaseManager:
                 return [row[0] for row in result.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get tenant databases: {e}")
+            return []
+    
+    def get_existing_tenant_ids(self) -> list:
+        """Get list of tenant IDs that have both master record and database"""
+        try:
+            # Get tenant IDs from master database
+            master_session_factory = self.master_session
+            if master_session_factory is None:
+                return []
+            
+            master_db = master_session_factory()
+            try:
+                tenant_rows = master_db.execute(text("SELECT id FROM tenants WHERE is_active = TRUE")).fetchall()
+                master_tenant_ids = [row[0] for row in tenant_rows]
+            finally:
+                master_db.close()
+            
+            # Filter to only those with existing databases
+            existing_tenant_ids = []
+            for tenant_id in master_tenant_ids:
+                if self.tenant_database_exists(tenant_id):
+                    existing_tenant_ids.append(tenant_id)
+                else:
+                    logger.warning(f"Tenant {tenant_id} exists in master but database is missing")
+            
+            return existing_tenant_ids
+        except Exception as e:
+            logger.error(f"Failed to get existing tenant IDs: {e}")
             return []
     
     def close_all_connections(self):

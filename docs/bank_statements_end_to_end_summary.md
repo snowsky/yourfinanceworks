@@ -42,7 +42,7 @@ This document summarizes the implementation of the bank statements feature (one 
 ### PDF Extraction & LLM
 
 - `api/services/bank_statement_service.py`
-  - Loader: `SimplePDFLoader` tries `pdfplumber`, `pymupdf`, `pypdf`, then falls back to `PyPDF2`
+  - Loader: `SimplePDFLoader` tries `pdfplumber`, `pymupdf`, `pypdf`, then falls back to `pypdf`
   - Preprocessing: remove page headers/noise and collapse whitespace
   - Prompt: clear rules and JSON-only output with examples (aligned for local models)
   - Two paths:

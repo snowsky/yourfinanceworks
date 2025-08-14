@@ -29,9 +29,9 @@ reportlab==4.4.3  # PDF generation for email attachments
 litellm==1.75.0  # Unified interface for multiple LLM providers
 langchain==0.3.27  # LangChain for PDF processing
 langchain-community==0.3.27  # LangChain community components
-pypdf2==3.0.1  # PDF processing
+pypdf==6.0.0  # Modern PDF processing (successor to PyPDF2)
 ollama==0.5.1  # Ollama client
-ollama-ocr==0.1.6  # OCR processor (example)  # Avoids heavy cv builds
+ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
 
 # Security fix for HTTP Request Smuggling vulnerability
 h11==0.16.0

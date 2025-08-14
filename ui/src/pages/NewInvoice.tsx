@@ -87,8 +87,8 @@ const NewInvoice = () => {
       }
 
       // Prepare initial data from PDF extraction
-      const invoiceData = pdfData.invoice_data;
-      const formattedItems = invoiceData.items?.map((item: any) => ({
+      const invoiceData = pdfData.invoice_data || pdfData;
+      const formattedItems = invoiceData?.items?.map((item: any) => ({
         description: item.description || '',
         quantity: item.quantity || 1,
         price: item.price || 0,
@@ -98,7 +98,7 @@ const NewInvoice = () => {
         client: clientId?.toString() || '',
         items: formattedItems,
         notes: `Imported from PDF: ${pdfFile.name}`,
-        date: invoiceData.date ? new Date(invoiceData.date) : new Date(),
+        date: invoiceData?.date ? new Date(invoiceData.date) : new Date(),
       });
       
       setAttachment(pdfFile);

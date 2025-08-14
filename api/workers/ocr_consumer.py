@@ -100,23 +100,18 @@ def main() -> int:
         # On startup, scan all tenants for queued expenses and requeue them
         logger.info("Startup scan: requeue queued expenses if any")
         # Fetch tenant IDs from master
-        master_session_factory = tenant_db_manager.master_session
-        if master_session_factory is not None:
-            master_db: Session = master_session_factory()
-            try:
-                tenant_rows = master_db.execute(text("SELECT id FROM tenants WHERE is_active = TRUE")).fetchall()
-                tenant_ids: List[int] = [row[0] for row in tenant_rows]
-            finally:
-                master_db.close()
-        else:
-            tenant_ids = []
+        tenant_ids: List[int] = tenant_db_manager.get_existing_tenant_ids()
         # For each tenant, look for queued expenses and requeue using latest attachment
         for tid in tenant_ids:
             try:
                 set_tenant_context(tid)
             except Exception:
                 continue
-            SessionLocalTenant = tenant_db_manager.get_tenant_session(tid)
+            try:
+                SessionLocalTenant = tenant_db_manager.get_tenant_session(tid)
+            except ValueError as e:
+                logger.warning(f"Skipping tenant {tid}: {e}")
+                continue
             db = SessionLocalTenant()
             try:
                 from models.models_per_tenant import Expense, ExpenseAttachment
@@ -183,7 +178,15 @@ def main() -> int:
                 except Exception:
                     pass
                 continue
-            SessionLocalTenant = tenant_db_manager.get_tenant_session(int(tenant_id))
+            try:
+                SessionLocalTenant = tenant_db_manager.get_tenant_session(int(tenant_id))
+            except ValueError as e:
+                logger.warning(f"Skipping message for tenant {tenant_id}: {e}")
+                try:
+                    consumer.commit(message=msg, asynchronous=False)
+                except Exception:
+                    pass
+                continue
             db = SessionLocalTenant()
             try:
                 topic_name = msg.topic()

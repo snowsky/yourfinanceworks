@@ -260,9 +260,14 @@ async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None) -
         from ollama_ocr import OCRProcessor  # type: ignore
 
         model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
-        base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
-        logger.info(f"Starting OCR: file={file_path} model={model_name} base_url={base_url}")
-        ocr = OCRProcessor(model_name=model_name, base_url=base_url)
+        # Configure the complete endpoint URL for ollama-ocr library
+        # If OLLAMA_OCR_ENDPOINT is set, use it directly, otherwise construct from base URL
+        ocr_endpoint = os.getenv("OLLAMA_OCR_ENDPOINT")
+        if not ocr_endpoint:
+            base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
+            ocr_endpoint = f"{base_url}/api/generate"  # Default Ollama endpoint
+        logger.info(f"Starting OCR: file={file_path} model={model_name} endpoint={ocr_endpoint}")
+        ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
         prompt = custom_prompt or (
             "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
             "Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes. "

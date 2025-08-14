@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 
 @router.post("/upload", response_model=Dict[str, Any])
 async def upload_bank_statements(
-    files: List[UploadFile] = File(..., description="Up to 12 PDF bank statements"),
+    files: List[UploadFile] = File(..., description="Up to 12 PDF or CSV bank statements"),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    """Accept up to 12 PDF files, create one BankStatement per file, store extracted transactions, and return created statements."""
+    """Accept up to 12 PDF/CSV files, create one BankStatement per file, enqueue processing, and return created statements."""
     require_non_viewer(current_user, "upload bank statements")
 
     if not files:
@@ -37,7 +37,7 @@ async def upload_bank_statements(
     if len(files) > 12:
         raise HTTPException(status_code=400, detail="Maximum of 12 files are allowed")
 
-    allowed_types = {"application/pdf"}
+    allowed_types = {"application/pdf", "text/csv", "application/vnd.ms-excel"}
 
     # Save to tenant-scoped folder
     try:
@@ -57,7 +57,7 @@ async def upload_bank_statements(
     try:
         for f in files:
             if f.content_type not in allowed_types:
-                raise HTTPException(status_code=400, detail="Only PDF files are supported")
+                raise HTTPException(status_code=400, detail="Only PDF or CSV files are supported")
             contents = await f.read()
             if len(contents) > 20 * 1024 * 1024:
                 raise HTTPException(status_code=400, detail="Each file must be <= 20 MB")
@@ -68,7 +68,11 @@ async def upload_bank_statements(
             name = "".join(ch for ch in name if ch.isalnum() or ch in (".", "_", "-"))
             stem, _ext = os.path.splitext(name)
             unique = uuid.uuid4().hex
-            stored_filename = f"bs_{stem[:100]}_{unique}.pdf"
+            ext = (_ext.lower() if _ext else ".pdf")
+            if ext not in (".pdf", ".csv"):
+                # Normalize unknown extensions to .pdf for storage but keep original filename for display
+                ext = ".pdf"
+            stored_filename = f"bs_{stem[:100]}_{unique}{ext}"
             out_path = base_dir / stored_filename
             with open(out_path, "wb") as out:
                 shutil.copyfileobj(f.file, out)
@@ -494,12 +498,17 @@ async def download_bank_statement_file(
     if not s.file_path or not os.path.exists(s.file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
+    # Infer content type based on extension
+    _name = s.original_filename or "statement.pdf"
+    _ext = os.path.splitext(_name)[1].lower()
+    media_type = "application/pdf" if _ext != ".csv" else "text/csv"
+
     headers = None
     if inline:
-        headers = {"Content-Disposition": f"inline; filename=\"{s.original_filename}\""}
-        return FileResponse(path=s.file_path, media_type="application/pdf", headers=headers)
+        headers = {"Content-Disposition": f"inline; filename=\"{_name}\""}
+        return FileResponse(path=s.file_path, media_type=media_type, headers=headers)
     # Attachment with filename
-    return FileResponse(path=s.file_path, media_type="application/pdf", filename=s.original_filename)
+    return FileResponse(path=s.file_path, media_type=media_type, filename=_name)
 
 
 @router.delete("/{statement_id}", response_model=Dict[str, Any])

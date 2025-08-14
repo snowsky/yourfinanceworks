@@ -34,6 +34,8 @@ export default function BankStatements() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
@@ -298,11 +300,21 @@ export default function BankStatements() {
   // DRY helpers for preview/download
   const handlePreview = async (id: number) => {
     try {
-      const { blob } = await bankStatementApi.fetchFileBlob(id, true);
+      const { blob, contentType } = await bankStatementApi.fetchFileBlob(id, true);
+      const type = contentType || blob.type || 'application/pdf';
+      setPreviewType(type);
       if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
-      const objectUrl = URL.createObjectURL(blob);
-      setPreviewObjectUrl(objectUrl);
-      setPreviewUrl(objectUrl);
+      if (type.includes('text/csv')) {
+        const text = await blob.text();
+        setPreviewText(text);
+        setPreviewUrl(null);
+        setPreviewObjectUrl(null);
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        setPreviewObjectUrl(objectUrl);
+        setPreviewUrl(objectUrl);
+        setPreviewText(null);
+      }
       setPreviewOpen(true);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to preview file');
@@ -331,17 +343,17 @@ export default function BankStatements() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Bank Statements</h1>
-            <p className="text-muted-foreground">Each entry is a PDF. Open to view or edit its transactions.</p>
+            <p className="text-muted-foreground">Each entry is a PDF or CSV. Open to view or edit its transactions.</p>
           </div>
           {!selected && (
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <Upload className="w-4 h-4" />
-                <input type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => {
+                <input type="file" accept=".pdf,.csv,application/pdf,text/csv,application/vnd.ms-excel" multiple className="hidden" onChange={(e) => {
                   const list = Array.from(e.target.files || []).slice(0, 12);
                   setFiles(list);
                 }} />
-                {files.length > 0 ? `${files.length} file(s)` : 'Select PDFs'}
+                {files.length > 0 ? `${files.length} file(s)` : 'Select PDFs or CSVs'}
               </label>
               <Button onClick={onUpload} disabled={loading || files.length === 0}>{loading ? 'Processing...' : 'Upload'}</Button>
             </div>
@@ -424,10 +436,14 @@ export default function BankStatements() {
 
         <Dialog open={previewOpen} onOpenChange={(open) => {
           setPreviewOpen(open);
-          if (!open && previewObjectUrl) {
-            URL.revokeObjectURL(previewObjectUrl);
+          if (!open) {
+            if (previewObjectUrl) {
+              URL.revokeObjectURL(previewObjectUrl);
+            }
             setPreviewObjectUrl(null);
             setPreviewUrl(null);
+            setPreviewText(null);
+            setPreviewType(null);
           }
         }}>
           <DialogContent className="max-w-5xl w-full h-[80vh] flex flex-col">
@@ -435,11 +451,16 @@ export default function BankStatements() {
               <DialogTitle>Statement Preview</DialogTitle>
             </DialogHeader>
             <div className="w-full flex-1 min-h-0 mt-2">
-              {previewUrl && (
+              {previewText && (
+                <div className="w-full h-full overflow-auto rounded-md border p-3 bg-muted/40 whitespace-pre text-xs font-mono">
+                  {previewText}
+                </div>
+              )}
+              {!previewText && previewUrl && (
                 <>
-                  <embed src={previewUrl} type="application/pdf" className="w-full h-full rounded-md border" />
+                  <embed src={previewUrl} type={previewType || 'application/pdf'} className="w-full h-full rounded-md border" />
                   <div className="mt-2 text-xs text-muted-foreground">
-                    If the preview is blank, your browser may not support inline PDF viewing.{' '}
+                    If the preview is blank, your browser may not support inline viewing.{' '}
                     <a className="underline" href={previewUrl} target="_blank" rel="noopener noreferrer">Open in a new tab</a> or use Download.
                   </div>
                 </>

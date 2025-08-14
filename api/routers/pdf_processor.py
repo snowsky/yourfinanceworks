@@ -25,9 +25,9 @@ async def process_pdf_with_ai(pdf_path: str, ai_config: AIConfigModel) -> Dict[s
             raise Exception("LiteLLM not installed. Please install it with: pip install litellm")
 
         # Extract text from PDF
-        import PyPDF2
+        from pypdf import PdfReader
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = PdfReader(file)
             text = ""
             for page_num, page in enumerate(pdf_reader.pages):
                 page_text = page.extract_text()

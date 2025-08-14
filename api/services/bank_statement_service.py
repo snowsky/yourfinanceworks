@@ -29,7 +29,8 @@ try:
         PDFMinerLoader,
         PyPDFium2Loader,
         PDFPlumberLoader,
-        UnstructuredPDFLoader
+        UnstructuredPDFLoader,
+        CSVLoader,
     )
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain.schema import Document
@@ -247,7 +248,7 @@ class BankTransactionExtractor:
         # Initialize callback handler
         self.callback_handler = OllamaCallbackHandler()
         
-        # Initialize Ollama LLM
+        # Initialize Ollama LLM with proper endpoint
         self.llm = ChatOllama(
             model=model_name,
             base_url=ollama_base_url,
@@ -284,6 +285,15 @@ class BankTransactionExtractor:
                 }
             except: pass
             
+            # CSV loader
+            try:
+                # Note: CSVLoader loads rows as Documents with page_content as a string
+                self.csv_loader_available = True
+            except:  # pragma: no cover - defensive
+                self.csv_loader_available = False
+        else:
+            self.csv_loader_available = False
+
             try:
                 self.pdf_loaders['pymupdf'] = {
                     'class': PyMuPDFLoader,
@@ -468,6 +478,61 @@ JSON:"""
                 continue
         
         raise Exception(f"All PDF loaders failed. Last error: {last_error}")
+
+    def load_csv_with_langchain(self, csv_path: str) -> List[Document]:
+        """Load CSV using LangChain CSVLoader or graceful fallbacks.
+
+        Returns a list of Documents where page_content contains CSV text suitable for prompting.
+        """
+        csv_path = Path(csv_path)
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+        # Prefer LangChain CSVLoader when available
+        if LANGCHAIN_AVAILABLE:
+            try:
+                loader = CSVLoader(
+                    file_path=str(csv_path),
+                    csv_args={"delimiter": ",", "quotechar": '"'},
+                    encoding="utf-8"
+                )
+                docs = loader.load()
+                # If CSVLoader returns many row-docs, concatenate into chunk-friendly documents
+                if docs:
+                    # Join all rows into a single CSV text block to leverage the existing prompt
+                    header = None
+                    lines = []
+                    for d in docs:
+                        content = (d.page_content or "").strip()
+                        if not content:
+                            continue
+                        # CSVLoader usually formats as "column: value" per field; keep as-is
+                        lines.append(content)
+                    combined = "\n".join(lines)
+                    return [Document(page_content=combined, metadata={"source": str(csv_path)})]
+            except Exception as e:
+                logger.warning(f"CSVLoader failed, falling back: {e}")
+
+        # Fallback 1: pandas to read and stringify
+        try:
+            if pd is not None:
+                df = pd.read_csv(str(csv_path))
+                combined = df.to_csv(index=False)
+                return [Document(page_content=combined, metadata={"source": str(csv_path)})]
+        except Exception as e:
+            logger.warning(f"pandas CSV read failed, falling back: {e}")
+
+        # Fallback 2: builtin csv module
+        import csv
+        try:
+            with open(csv_path, "r", encoding="utf-8", newline="") as f:
+                reader = csv.reader(f)
+                rows = [",".join(row) for row in reader]
+                combined = "\n".join(rows)
+                return [Document(page_content=combined, metadata={"source": str(csv_path)})]
+        except Exception as e:
+            logger.error(f"Failed to load CSV: {e}")
+            return []
     
     def preprocess_documents(self, documents: List[Document]) -> List[Document]:
         """Preprocess documents with cleaning and chunking"""
@@ -818,6 +883,56 @@ JSON:"""
         except Exception as e:
             logger.error(f"Error processing PDF: {e}")
             return pd.DataFrame() if pd else []
+
+    def process_csv(self,
+                    csv_path: str,
+                    categorize: bool = True,
+                    save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
+        """Process a CSV bank export using the same extraction prompt flow."""
+        logger.info(f"Processing bank CSV with Ollama: {csv_path}")
+        logger.info(f"Using model: {self.model_name}")
+
+        try:
+            # Load CSV
+            documents = self.load_csv_with_langchain(csv_path)
+            if not documents:
+                logger.error("CSV load produced no documents")
+                return pd.DataFrame() if pd else []
+
+            # For CSV, skip heavy PDF-specific cleaning; still chunk
+            full_text = "\n\n".join([(d.page_content or "").strip() for d in documents if (d.page_content or "").strip()])
+            chunks = self.text_splitter.split_text(full_text)
+            processed_docs = [Document(page_content=c, metadata={"chunk": i, "source": str(csv_path)}) for i, c in enumerate(chunks) if c.strip()]
+
+            if save_debug:
+                debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([f"CHUNK {i+1}:\n{doc.page_content}" for i, doc in enumerate(processed_docs)])
+                with open("ollama_debug_chunks.txt", "w", encoding="utf-8") as f:
+                    f.write(debug_text)
+                logger.info("Debug chunks saved to ollama_debug_chunks.txt")
+
+            # Extract transactions
+            transactions = self.extract_transactions_from_documents(processed_docs)
+
+            if not transactions:
+                logger.info("No transactions found from CSV text")
+                return pd.DataFrame() if pd else []
+
+            # Categorize
+            if categorize:
+                transactions = self.categorize_transactions(transactions)
+
+            # Validate/clean
+            result = self.validate_and_clean_data(transactions)
+            self._print_performance_stats()
+
+            if pd and hasattr(result, '__len__'):
+                logger.info(f"Successfully processed {len(result)} CSV transactions")
+            else:
+                logger.info(f"Successfully processed {len(result) if isinstance(result, list) else 'unknown'} CSV transactions")
+            return result
+        except Exception as e:
+            logger.error(f"Error processing CSV: {e}")
+            return pd.DataFrame() if pd else []
     
     def _print_performance_stats(self):
         """Print Ollama performance statistics"""
@@ -834,7 +949,7 @@ def _normalize_date(value: str) -> str:
     value = value.strip()
     
     # Standard date formats from test-main.py validator
-    fmts = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']
+    fmts = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d', '%Y%m%d']
     for fmt in fmts:
         try:
             dt = datetime.strptime(value, fmt)
@@ -916,55 +1031,142 @@ def _preprocess_bank_text(raw_text: str) -> str:
     return text.strip()
 
 
-def _create_text_chunks(text: str, chunk_size: int = 3000, overlap: int = 150) -> List[str]:
-    """Legacy function - use BankTransactionExtractor.text_splitter instead"""
-    if len(text) <= chunk_size:
-        return [text]
-    
-    chunks = []
-    i = 0
-    while i < len(text):
-        chunk = text[i:i + chunk_size]
-        if not chunk.strip():
-            break
-        chunks.append(chunk)
-        i += chunk_size - overlap
-    
-    return chunks
-
-
-def _parse_llm_response(response: str) -> List[Dict[str, Any]]:
-    """Legacy function - use BankTransactionExtractor._parse_ollama_response instead"""
+def _normalize_column_name(name: str) -> str:
+    """Normalize CSV column names by removing spaces, punctuation, and lowercasing.
+    Example: 'Date Posted' -> 'dateposted', 'Transaction Amount' -> 'transactionamount'
+    """
     try:
-        # Clean response
-        response = response.strip()
-        response = re.sub(r'```json\s*', '', response)
-        response = re.sub(r'```\s*', '', response)
-        
-        # Find JSON patterns
-        json_patterns = [
-            r'\[[\s\S]*?\]',  # JSON array
-            r'\{[\s\S]*?\}',  # Single JSON object
-        ]
-        
-        for pattern in json_patterns:
-            matches = re.findall(pattern, response)
-            for match in matches:
-                try:
-                    data = json.loads(match)
-                    if isinstance(data, list):
-                        return data
-                    elif isinstance(data, dict):
-                        return [data]
-                except json.JSONDecodeError:
-                    continue
-        
-        return []
-        
-    except Exception as e:
-        logger.debug(f"Error parsing LLM response: {e}")
-        return []
+        import re as _re
+        return _re.sub(r"[^a-z0-9]", "", (name or "").strip().lower())
+    except Exception:
+        return (name or "").strip().lower()
 
+
+def _parse_csv_file_basic(csv_path: str) -> List[Dict[str, Any]]:
+    """Robust CSV fallback parser for bank exports with possible preambles.
+
+    - Skips preamble lines before the real header
+    - Handles common header variants: Date Posted, Transaction Amount, Transaction Type, Description
+    - Converts YYYYMMDD to YYYY-MM-DD
+    - Parses amounts, handling '$' and comma separators
+    - Infers transaction_type from amount sign if missing
+    - Skips obviously invalid/empty rows
+    """
+    import csv as _csv
+    rows: List[Dict[str, Any]] = []
+    try:
+        # Read all lines first to locate the header row
+        with open(csv_path, "r", encoding="utf-8", newline="") as f:
+            lines = [ln.rstrip("\n\r") for ln in f]
+
+        # Find header index: line with at least 3 commas and includes expected keywords
+        header_idx = -1
+        for i, ln in enumerate(lines):
+            if not ln or ln.strip() == "":
+                continue
+            comma_count = ln.count(",")
+            if comma_count < 2:
+                continue
+            probe = [c.strip().lower() for c in ln.split(",")]
+            joined = ",".join(probe)
+            if ("date" in joined or "posted" in joined) and ("amount" in joined or "description" in joined):
+                header_idx = i
+                break
+
+        if header_idx == -1:
+            return []
+
+        header = lines[header_idx]
+        data_lines = lines[header_idx:]
+        reader = _csv.DictReader(data_lines)
+
+        # Build a map from normalized header to actual keys
+        norm_to_key: Dict[str, str] = {}
+        for key in reader.fieldnames or []:
+            norm_to_key[_normalize_column_name(key)] = key
+
+        # Helper to get column by synonyms
+        def key_for(*candidates: str) -> Optional[str]:
+            for cand in candidates:
+                if cand in norm_to_key:
+                    return norm_to_key[cand]
+            return None
+
+        date_key = key_for("date", "dateposted", "transactiondate", "transdate")
+        desc_key = key_for("description", "details", "memo", "payee", "narration")
+        amt_key = key_for("amount", "transactionamount", "value", "amt")
+        type_key = key_for("transactiontype", "type", "creditdebit", "debitcredit")
+        bal_key = key_for("balance", "runningbalance")
+
+        import re as _re
+        for r in reader:
+            try:
+                raw_date = (r.get(date_key) if date_key else "") or ""
+                raw_desc = (r.get(desc_key) if desc_key else "") or ""
+                raw_amt = (r.get(amt_key) if amt_key else "")
+                raw_type = (r.get(type_key) if type_key else "")
+                raw_bal = (r.get(bal_key) if bal_key else "")
+
+                # Skip empty lines
+                if not raw_date and not raw_desc and not raw_amt and not raw_type:
+                    continue
+
+                # Normalize date (support YYYYMMDD too)
+                dt = _normalize_date(str(raw_date).strip())
+                # Require strict YYYY-MM-DD to avoid counting stray lines
+                if not dt or not _re.match(r"^\d{4}-\d{2}-\d{2}$", dt):
+                    # If date cannot be normalized, skip
+                    continue
+
+                # Parse amount (required)
+                if raw_amt in (None, ""):
+                    # Require an amount field to avoid counting stray lines
+                    continue
+                try:
+                    amt_val = float(str(raw_amt).replace(",", "").replace("$", "").strip())
+                except Exception:
+                    # If amount cannot be parsed, skip this row
+                    logger.warning(f"Could not parse amount: {raw_amt}")
+                    continue
+
+                # If amount is zero but type suggests direction, keep but still validate description
+                desc_text = str(raw_desc).strip()
+                if not desc_text:
+                    # Require a description to reduce false positives
+                    logger.warning(f"No description found for amount: {raw_amt}")
+                    continue
+
+                # Balance (optional)
+                bal_val = None
+                if raw_bal not in (None, ""):
+                    try:
+                        bal_val = float(str(raw_bal).replace(",", "").replace("$", "").strip())
+                    except Exception:
+                        logger.warning(f"Could not parse balance: {raw_bal}")
+                        bal_val = None
+
+                # Transaction type
+                tx_type = str(raw_type or "").strip().lower()
+                if tx_type not in ("debit", "credit"):
+                    tx_type = "debit" if amt_val < 0 else "credit"
+
+                rows.append({
+                    "date": dt,
+                    "description": desc_text,
+                    "amount": amt_val,
+                    "transaction_type": tx_type,
+                    "balance": bal_val,
+                })
+            except Exception:
+                continue
+
+        # Deduplicate and sort
+        if rows:
+            rows = _clean_and_deduplicate_transactions(rows)
+        return rows
+    except Exception as e:
+        logger.error(f"CSV basic parse failed: {e}")
+        return []
 
 def _clean_and_deduplicate_transactions(transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Legacy function - use BankTransactionExtractor.validate_and_clean_data instead"""
@@ -1031,21 +1233,26 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
             logger.info("Falling back to legacy regex extraction")
             # Fallback to simple PDF loading and regex extraction
             try:
-                # Simple fallback PDF loader
-                try:
-                    import PyPDF2
-                except ImportError:
-                    logger.error("PyPDF2 not available for fallback extraction")
-                    raise BankLLMUnavailableError("LLM not reachable and fallback unavailable")
-                    
-                texts = []
-                with open(pdf_path, "rb") as f:
-                    reader = PyPDF2.PdfReader(f)
-                    for page in reader.pages:
-                        texts.append(page.extract_text() or "")
-                raw_text = "\n\n".join(texts)
-                text = _preprocess_bank_text(raw_text)
-                txns = _enhanced_regex_extraction(text)
+                from pathlib import Path as _P
+                ext = _P(pdf_path).suffix.lower()
+                if ext == ".csv":
+                    # Robust CSV fallback parser that skips preamble lines
+                    txns = _parse_csv_file_basic(pdf_path)
+                else:
+                    # Simple fallback PDF loader
+                    try:
+                        from pypdf import PdfReader
+                    except ImportError:
+                        logger.error("pypdf not available for fallback extraction")
+                        raise BankLLMUnavailableError("LLM not reachable and fallback unavailable")
+                    texts = []
+                    with open(pdf_path, "rb") as f:
+                        reader = PdfReader(f)
+                        for page in reader.pages:
+                            texts.append(page.extract_text() or "")
+                    raw_text = "\n\n".join(texts)
+                    text = _preprocess_bank_text(raw_text)
+                    txns = _enhanced_regex_extraction(text)
                 if not txns:
                     # Signal to caller to retry later
                     raise BankLLMUnavailableError("LLM not reachable; no transactions via fallback")
@@ -1056,13 +1263,18 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 logger.error(f"Fallback extraction also failed: {fallback_e}")
                 raise BankLLMUnavailableError("LLM not reachable and fallback failed")
         
-        # Process PDF using the new extractor
-        df = extractor.process_pdf(
-            pdf_path,
-            loader_names=['pymupdf', 'pdfplumber', 'pdfium2', 'pypdf'],
-            categorize=True,
-            save_debug=False
-        )
+        # Dispatch based on file extension (supports PDF and CSV)
+        from pathlib import Path as _P
+        _ext = _P(pdf_path).suffix.lower()
+        if _ext == ".csv":
+            df = extractor.process_csv(pdf_path, categorize=True, save_debug=False)
+        else:
+            df = extractor.process_pdf(
+                pdf_path,
+                loader_names=['pymupdf', 'pdfplumber', 'pdfium2', 'pypdf'],
+                categorize=True,
+                save_debug=False
+            )
         
         # Convert pandas DataFrame back to list of dicts for compatibility
         if not df.empty:
@@ -1079,20 +1291,25 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
         logger.error(f"Processing failed: {e}")
         # Final fallback to regex extraction
         try:
-            try:
-                import PyPDF2
-            except ImportError:
-                logger.error("PyPDF2 not available for final fallback extraction")
-                return []
-                
-            texts = []
-            with open(pdf_path, "rb") as f:
-                reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
-                    texts.append(page.extract_text() or "")
-            raw_text = "\n\n".join(texts)
-            text = _preprocess_bank_text(raw_text)
-            return _enhanced_regex_extraction(text)
+            from pathlib import Path as _P
+            _ext = _P(pdf_path).suffix.lower()
+            if _ext == ".csv":
+                # Robust CSV fallback
+                return _parse_csv_file_basic(pdf_path)
+            else:
+                try:
+                    from pypdf import PdfReader
+                except ImportError:
+                    logger.error("pypdf not available for final fallback extraction")
+                    return []
+                texts = []
+                with open(pdf_path, "rb") as f:
+                    reader = PdfReader(f)
+                    for page in reader.pages:
+                        texts.append(page.extract_text() or "")
+                raw_text = "\n\n".join(texts)
+                text = _preprocess_bank_text(raw_text)
+                return _enhanced_regex_extraction(text)
         except Exception as final_e:
             logger.error(f"Final fallback extraction failed: {final_e}")
             return []
@@ -1134,14 +1351,14 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
                 # Fallback to regex extraction for this file
                 try:
                     try:
-                        import PyPDF2
+                        from pypdf import PdfReader
                     except ImportError:
-                        logger.error(f"PyPDF2 not available for {pdf_path}")
+                        logger.error(f"pypdf not available for {pdf_path}")
                         continue
                         
                     texts = []
                     with open(pdf_path, "rb") as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = PdfReader(f)
                         for page in reader.pages:
                             texts.append(page.extract_text() or "")
                     raw_text = "\n\n".join(texts)
@@ -1158,14 +1375,14 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
         for pdf_path in pdf_paths:
             try:
                 try:
-                    import PyPDF2
+                    from pypdf import PdfReader
                 except ImportError:
-                    logger.error(f"PyPDF2 not available for {pdf_path}")
+                    logger.error(f"pypdf not available for {pdf_path}")
                     continue
                     
                 texts = []
                 with open(pdf_path, "rb") as f:
-                    reader = PyPDF2.PdfReader(f)
+                    reader = PdfReader(f)
                     for page in reader.pages:
                         texts.append(page.extract_text() or "")
                 raw_text = "\n\n".join(texts)
@@ -1243,6 +1460,8 @@ def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
             return False
         data = resp.json() or {}
         models = [m.get("name") for m in (data.get("models") or [])]
-        return model_name in models if models else True
+        # Consider reachable only if the target model is explicitly present.
+        # If the models list is empty or the model is missing, treat as unreachable to avoid false positives.
+        return model_name in models
     except Exception:
         return False
