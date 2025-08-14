@@ -1498,7 +1498,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
           })),
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
-          custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
+          custom_fields: (() => {
+            const cf = Object.keys(customFieldsObj).length > 0 ? { ...customFieldsObj } : {} as Record<string, string>;
+            // If creating from a bank transaction, pass the transaction id to allow backend linking
+            if (initialData && typeof (initialData as any).bank_transaction_id !== 'undefined') {
+              cf['bank_transaction_id'] = String((initialData as any).bank_transaction_id);
+            }
+            return Object.keys(cf).length > 0 ? cf : undefined;
+          })(),
           show_discount_in_pdf: data.showDiscountInPdf,
         };
         console.log("Invoice data being sent:", invoiceData);

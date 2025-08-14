@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -19,6 +19,8 @@ const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
 ];
 
+type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null };
+
 export default function BankStatements() {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ export default function BankStatements() {
   const [selected, setSelected] = useState<number | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<BankStatementDetail | null>(null);
-  const [rows, setRows] = useState<BankTransactionEntry[]>([]);
+  const [rows, setRows] = useState<BankRow[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
@@ -34,6 +36,11 @@ export default function BankStatements() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
   const readOnly = detail?.status === 'processing';
+
+  const formatStatus = (value?: string | null) => {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
 
   useEffect(() => {
     const loadClients = async () => {
@@ -90,6 +97,10 @@ export default function BankStatements() {
       toast.error('Can only create expenses from debit transactions');
       return;
     }
+    if ((transaction as any).expense_id) {
+      toast.error('An expense has already been created for this transaction');
+      return;
+    }
 
     try {
       // Map bank transaction categories to expense categories
@@ -112,8 +123,28 @@ export default function BankStatements() {
         status: 'completed'
       };
 
-      await expenseApi.createExpense(expenseData);
+      const created = await expenseApi.createExpense(expenseData as any);
       toast.success('Expense created successfully');
+
+      // Link this transaction to the created expense to prevent duplicates
+      const updatedRows: BankRow[] = rows.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r);
+      setRows(updatedRows);
+      if (selected) {
+        try {
+          const cleaned = updatedRows.map(r => ({
+            ...r,
+            balance: r.balance === undefined ? null : r.balance,
+            category: r.category || null,
+            invoice_id: r.invoice_id ?? null,
+            expense_id: r.expense_id ?? null,
+          }));
+          await bankStatementApi.replaceTransactions(selected, cleaned);
+          // Reload to confirm persisted link
+          await openStatement(selected);
+        } catch (linkErr: any) {
+          console.error('Failed to persist expense link:', linkErr);
+        }
+      }
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create expense');
     }
@@ -123,6 +154,12 @@ export default function BankStatements() {
     const transaction = rows[rowIndex];
     if (transaction.transaction_type !== 'credit') {
       toast.error('Can only create invoices from credit transactions');
+      return;
+    }
+
+    // Prevent duplicate invoice creation if already linked
+    if ((transaction as any).invoice_id) {
+      toast.error('An invoice has already been created for this transaction');
       return;
     }
 
@@ -144,7 +181,9 @@ export default function BankStatements() {
         quantity: 1,
         price: transaction.amount,
       }],
-      client: ''
+      client: '',
+      // Pass through the bank transaction id to backend for linkage
+      bank_transaction_id: (transaction as any).id || undefined,
     });
     setShowInvoiceForm(true);
   };
@@ -169,12 +208,15 @@ export default function BankStatements() {
       const s = await bankStatementApi.get(id);
       setDetail(s);
       setRows((s.transactions || []).map(t => ({
+        id: (t as any).id,
         date: t.date,
         description: t.description,
         amount: t.amount,
         transaction_type: (t.transaction_type === 'debit' || t.transaction_type === 'credit') ? t.transaction_type : (t.amount < 0 ? 'debit' : 'credit'),
         balance: t.balance ?? null,
         category: t.category ?? null,
+        invoice_id: (t as any).invoice_id ?? null,
+        expense_id: (t as any).expense_id ?? null,
       })));
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statement');
@@ -213,6 +255,7 @@ export default function BankStatements() {
         ...r,
         balance: r.balance === undefined ? null : r.balance,
         category: r.category || null,
+        invoice_id: r.invoice_id ?? null,
       }));
       await bankStatementApi.replaceTransactions(selected, cleaned);
       toast.success('Transactions saved');
@@ -300,7 +343,7 @@ export default function BankStatements() {
                     {statements.map((s) => (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium">{s.original_filename}</TableCell>
-                        <TableCell>{s.status}</TableCell>
+                        <TableCell>{formatStatus(s.status)}</TableCell>
                         <TableCell>{s.extracted_count}</TableCell>
                         <TableCell>{s.created_at ? format(new Date(s.created_at), 'PP p') : ''}</TableCell>
                         <TableCell className="text-right flex gap-2 justify-end">
@@ -397,11 +440,28 @@ export default function BankStatements() {
                 <Button variant="outline" onClick={() => selected && handleDownload(selected, detail?.original_filename)}>
                   <Download className="w-4 h-4 mr-1" /> Download
                 </Button>
+                {(detail?.status === 'failed' || (detail?.status === 'processed' && (detail?.extracted_count || 0) === 0)) && (
+                  <Button
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!selected) return;
+                      try {
+                        await bankStatementApi.reprocess(selected);
+                        toast.success('Reprocessing started');
+                        await openStatement(selected);
+                      } catch (e: any) {
+                        toast.error(e?.message || 'Failed to start reprocessing');
+                      }
+                    }}
+                  >
+                    Process again
+                  </Button>
+                )}
                 <Button variant="outline" onClick={exportToCSV} disabled={rows.length === 0}>
                   <FileText className="w-4 h-4 mr-1" /> Export CSV
                 </Button>
                 <Button variant="outline" onClick={addEmptyRow} disabled={readOnly}>Add Row</Button>
-                <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
+                 <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -427,18 +487,21 @@ export default function BankStatements() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>ID</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Balance</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Expense</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map((r, idx) => (
                       <TableRow key={idx}>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{(r as any).id ?? ''}</TableCell>
                         <TableCell>
                           <Popover>
                             <PopoverTrigger asChild>
@@ -489,29 +552,73 @@ export default function BankStatements() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                          {Boolean((r as any).expense_id) ? `#${(r as any).expense_id}` : '-'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {r.transaction_type === 'debit' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => createExpenseFromTransaction(idx)}
-                                disabled={readOnly}
-                              >
-                                <Plus className="w-3 h-3 mr-1" />
-                                Expense
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => createExpenseFromTransaction(idx)}
+                                  disabled={readOnly || Boolean((r as any).expense_id)}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  {Boolean((r as any).expense_id) ? `Expense #${(r as any).expense_id}` : 'Expense'}
+                                </Button>
+                                {Boolean((r as any).expense_id) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(String((r as any).expense_id));
+                                        toast.success(`Copied Expense ID ${(r as any).expense_id}`);
+                                      } catch (e) {
+                                        toast.error('Failed to copy Expense ID');
+                                      }
+                                    }}
+                                  >
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    Copy Expense ID
+                                  </Button>
+                                )}
+                              </>
                             )}
                             {r.transaction_type === 'credit' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => createInvoiceFromTransaction(idx)}
-                                disabled={readOnly}
-                              >
-                                <Plus className="w-3 h-3 mr-1" />
-                                Invoice
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => createInvoiceFromTransaction(idx)}
+                                  disabled={readOnly || Boolean((r as any).invoice_id)}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  {Boolean((r as any).invoice_id) ? 'Invoice linked' : 'Invoice'}
+                                </Button>
+                                {Boolean((r as any).invoice_id) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      try {
+                                        const invId = Number((r as any).invoice_id);
+                                        const inv = await invoiceApi.getInvoice(invId);
+                                        const toCopy = inv.number || String(invId);
+                                        await navigator.clipboard.writeText(toCopy);
+                                        toast.success(`Copied Invoice No ${toCopy}`);
+                                      } catch (e) {
+                                        toast.error('Failed to copy Invoice ID');
+                                      }
+                                    }}
+                                  >
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    Copy Invoice ID
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </TableCell>
@@ -545,10 +652,14 @@ export default function BankStatements() {
             <CardContent>
               <InvoiceForm 
                 initialData={invoiceInitialData}
-                onInvoiceUpdate={() => {
+                onInvoiceUpdate={async () => {
                   setShowInvoiceForm(false);
                   setInvoiceInitialData(null);
                   toast.success('Invoice created successfully!');
+                  // Refresh the statement to reflect the linked invoice_id
+                  if (selected) {
+                    await openStatement(selected);
+                  }
                 }}
               />
             </CardContent>

@@ -337,12 +337,17 @@ class BankStatementTransaction(Base):
     transaction_type = Column(String, nullable=False)  # debit|credit
     balance = Column(Float, nullable=True)
     category = Column(String, nullable=True)
+    # Optional link to an invoice created from this transaction (prevents duplicates)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    # Optional link to an expense created from this transaction (prevents duplicates)
+    expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     statement = relationship("BankStatement", back_populates="transactions")
+    # Note: No explicit relationship to Invoice to avoid circular import in some tooling environments
 
 class AIChatHistory(Base):
     __tablename__ = "ai_chat_history"

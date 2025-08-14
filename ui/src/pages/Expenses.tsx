@@ -485,6 +485,7 @@ const Expenses = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
+                    <TableHead>ID</TableHead>
                     <TableHead>{t('expenses.table.date')}</TableHead>
                     <TableHead>{t('expenses.table.category')}</TableHead>
                     <TableHead>{t('expenses.table.vendor')}</TableHead>
@@ -520,6 +521,7 @@ const Expenses = () => {
                             aria-label={`Select expense ${e.id}`}
                           />
                         </TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>
                         <TableCell>{e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
                         <TableCell>{e.category}</TableCell>
                         <TableCell>{e.vendor || '—'}</TableCell>

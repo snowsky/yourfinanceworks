@@ -126,12 +126,15 @@ export interface ExpenseAttachmentMeta {
 }
 
 export interface BankTransactionEntry {
+  id?: number;
   date: string;
   description: string;
   amount: number;
   transaction_type: 'debit' | 'credit';
   balance?: number | null;
   category?: string | null;
+  invoice_id?: number | null;
+  expense_id?: number | null;
 }
 
 export interface BankStatementSummary {
@@ -145,7 +148,7 @@ export interface BankStatementSummary {
 }
 
 export interface BankStatementDetail extends BankStatementSummary {
-  transactions: (BankTransactionEntry & { id?: number })[];
+  transactions: BankTransactionEntry[];
 }
 
 export const bankStatementApi = {
@@ -197,6 +200,13 @@ export const bankStatementApi = {
     return apiRequest<{ success: boolean; updated_count: number }>(
       `/bank-statements/${statementId}/transactions`,
       { method: 'PUT', body: JSON.stringify({ transactions }) }
+    );
+  },
+
+  reprocess: async (statementId: number): Promise<{ success: boolean; message: string }> => {
+    return apiRequest<{ success: boolean; message: string }>(
+      `/bank-statements/${statementId}/reprocess`,
+      { method: 'POST' }
     );
   },
 

@@ -293,7 +293,7 @@ def main() -> int:
                 elif topic_name == bank_topic:
                     try:
                         from models.models_per_tenant import BankStatement, BankStatementTransaction, AIConfig as AIConfigModel
-                        from services.bank_statement_service import process_bank_pdf_with_llm
+                        from services.bank_statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
                         statement_id = int(payload.get("statement_id"))
                         file_path = str(payload.get("file_path"))
                         logger.info(f"Processing bank statement: id={statement_id} tenant_id={tenant_id} file={file_path}")
@@ -317,8 +317,93 @@ def main() -> int:
                                     "api_key": ai_row.api_key,
                                     "model_name": ai_row.model_name,
                                 }
-                            txns = process_bank_pdf_with_llm(file_path, ai_conf)
-                            logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
+                            # Retry up to 5 times on LLM errors with incremental backoff
+                            attempts = int(payload.get("attempt", 0))
+                            max_attempts = int(os.getenv("BANK_LLM_MAX_ATTEMPTS", "5"))
+                            backoff_base_ms = int(os.getenv("BANK_LLM_BACKOFF_BASE_MS", "2000"))
+                            # Pre-check LLM availability to distinguish outages from valid zero-transaction statements
+                            llm_ok = is_bank_llm_reachable(ai_conf)
+                            try:
+                                txns = process_bank_pdf_with_llm(file_path, ai_conf)
+                                logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
+                            except BankLLMUnavailableError as llm_err:
+                                if attempts + 1 >= max_attempts:
+                                    logger.error(f"Bank LLM unavailable after {attempts+1} attempts for statement_id={statement_id}: {llm_err}")
+                                    # Mark statement as failed and commit offset
+                                    try:
+                                        stmt.status = "failed"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
+                                    continue
+                                # Requeue with backoff
+                                from time import sleep
+                                delay_ms = min(60000, backoff_base_ms * (attempts + 1))
+                                logger.warning(f"LLM unavailable, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms}ms")
+                                sleep(delay_ms / 1000.0)
+                                from services.ocr_service import publish_bank_statement_task
+                                payload.update({"attempt": attempts + 1})
+                                publish_bank_statement_task(payload)
+                                # Mark current as failed processing attempt and commit so we don't tight-loop
+                                try:
+                                    stmt.status = "processing"
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                                try:
+                                    consumer.commit(message=msg, asynchronous=False)
+                                except Exception:
+                                    pass
+                                continue
+
+                            # If extraction returned zero transactions and LLM was reachable, accept as processed with 0
+                            # Otherwise, treat as failure/retry
+                            if not txns and not llm_ok:
+                                if attempts + 1 >= max_attempts:
+                                    logger.error(f"No transactions extracted after {attempts+1} attempts for statement_id={statement_id}; marking failed")
+                                    try:
+                                        stmt.status = "failed"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
+                                    continue
+                                from time import sleep
+                                delay_ms = min(60000, backoff_base_ms * (attempts + 1))
+                                logger.warning(f"Zero transactions extracted, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms}ms")
+                                sleep(delay_ms / 1000.0)
+                                from services.ocr_service import publish_bank_statement_task
+                                payload.update({"attempt": attempts + 1})
+                                publish_bank_statement_task(payload)
+                                try:
+                                    stmt.status = "processing"
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                                try:
+                                    consumer.commit(message=msg, asynchronous=False)
+                                except Exception:
+                                    pass
+                                continue
+                            if not txns and llm_ok:
+                                logger.info(f"LLM reachable but no transactions found for statement_id={statement_id}; marking processed with 0")
+                                db.query(BankStatementTransaction).filter(BankStatementTransaction.statement_id == statement_id).delete()
+                                stmt.status = "processed"
+                                stmt.extracted_count = 0
+                                db.commit()
+                                try:
+                                    consumer.commit(message=msg, asynchronous=False)
+                                except Exception:
+                                    pass
+                                continue
+
                             # Replace
                             db.query(BankStatementTransaction).filter(BankStatementTransaction.statement_id == statement_id).delete()
                             count = 0

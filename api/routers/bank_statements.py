@@ -216,11 +216,58 @@ async def get_bank_statement(
                     "transaction_type": t.transaction_type,
                     "balance": t.balance,
                     "category": t.category,
+                    "invoice_id": getattr(t, 'invoice_id', None),
+                    "expense_id": getattr(t, 'expense_id', None),
                 }
                 for t in txns
             ],
         },
     }
+
+
+@router.post("/{statement_id}/reprocess", response_model=Dict[str, Any])
+async def reprocess_bank_statement(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Requeue or inline-process a bank statement again.
+    Always publishes a new Kafka task; UI can call this when previous attempt failed.
+    """
+    require_non_viewer(current_user, "reprocess bank statement")
+    try:
+        from models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    s = (
+        db.query(BankStatement)
+        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id)
+        .first()
+    )
+    if not s:
+        raise HTTPException(status_code=404, detail="Statement not found")
+
+    # Mark as processing again
+    try:
+        s.status = "processing"
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    # Publish Kafka task
+    ok = publish_bank_statement_task({
+        "tenant_id": tenant_id,
+        "statement_id": statement_id,
+        "file_path": s.file_path,
+        "ts": datetime.utcnow().isoformat(),
+    })
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to enqueue reprocess task")
+    return {"success": True, "message": "Reprocessing started"}
 
 
 @router.put("/{statement_id}/transactions", response_model=Dict[str, Any])
@@ -252,7 +299,7 @@ async def replace_bank_statement_transactions(
         raise HTTPException(status_code=400, detail="transactions must be an array")
 
     try:
-        # Delete existing
+        # Replace transactions: simple strategy but preserve invoice links if provided
         db.query(BankStatementTransaction).filter(BankStatementTransaction.statement_id == s.id).delete()
 
         count = 0
@@ -261,7 +308,7 @@ async def replace_bank_statement_transactions(
                 dt = datetime.fromisoformat(t.get("date", "")).date()
             except Exception:
                 dt = datetime.utcnow().date()
-            db.add(BankStatementTransaction(
+            new_txn = BankStatementTransaction(
                 statement_id=s.id,
                 date=dt,
                 description=t.get("description", ""),
@@ -269,7 +316,18 @@ async def replace_bank_statement_transactions(
                 transaction_type=(t.get("transaction_type") if t.get("transaction_type") in ("debit", "credit") else ("debit" if float(t.get("amount", 0)) < 0 else "credit")),
                 balance=(float(t["balance"]) if t.get("balance") not in (None, "") else None),
                 category=t.get("category") or None,
-            ))
+            )
+            inv_id = t.get("invoice_id")
+            try:
+                new_txn.invoice_id = int(inv_id) if inv_id not in (None, "") else None
+            except Exception:
+                new_txn.invoice_id = None
+            exp_id = t.get("expense_id")
+            try:
+                new_txn.expense_id = int(exp_id) if exp_id not in (None, "") else None
+            except Exception:
+                new_txn.expense_id = None
+            db.add(new_txn)
             count += 1
 
         s.extracted_count = count

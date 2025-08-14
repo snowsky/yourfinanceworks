@@ -11,7 +11,7 @@ import uuid
 import shutil
 
 from models.database import get_db
-from models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice
+from models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
 from models.models import MasterUser
 from routers.auth import get_current_user
 from schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema
@@ -166,6 +166,15 @@ async def create_expense(
         db.add(db_expense)
         db.commit()
         db.refresh(db_expense)
+
+        # If this expense was created from a bank statement transaction, link it to prevent duplicates
+        try:
+            # Heuristic: when created from BankStatements UI, the note includes filename; but we prefer explicit linking
+            # Support linking via a custom header-like context in the future; for now rely on UI passing back linkage separately
+            # Here we do nothing unless an explicit transaction id is provided via hidden field in the future.
+            pass
+        except Exception:
+            pass
 
         log_audit_event(
             db=db,

@@ -11,6 +11,9 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 logger = logging.getLogger(__name__)
+# Custom error to signal LLM unavailability to callers that want to retry
+class BankLLMUnavailableError(Exception):
+    pass
 
 # Optional imports with fallbacks
 try:
@@ -990,7 +993,11 @@ def _clean_and_deduplicate_transactions(transactions: List[Dict[str, Any]]) -> L
 
 
 def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    """Enhanced LLM-based extraction using BankTransactionExtractor from test-main.py"""
+    """Enhanced LLM-based extraction using BankTransactionExtractor from test-main.py
+
+    Raises BankLLMUnavailableError if LLM is unavailable and fallback extraction yields no transactions,
+    so callers can implement retries/backoff.
+    """
     logger.info(f"Processing bank PDF: {pdf_path}")
     
     try:
@@ -1029,7 +1036,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                     import PyPDF2
                 except ImportError:
                     logger.error("PyPDF2 not available for fallback extraction")
-                    return []
+                    raise BankLLMUnavailableError("LLM not reachable and fallback unavailable")
                     
                 texts = []
                 with open(pdf_path, "rb") as f:
@@ -1038,10 +1045,16 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                         texts.append(page.extract_text() or "")
                 raw_text = "\n\n".join(texts)
                 text = _preprocess_bank_text(raw_text)
-                return _enhanced_regex_extraction(text)
+                txns = _enhanced_regex_extraction(text)
+                if not txns:
+                    # Signal to caller to retry later
+                    raise BankLLMUnavailableError("LLM not reachable; no transactions via fallback")
+                return txns
+            except BankLLMUnavailableError:
+                raise
             except Exception as fallback_e:
                 logger.error(f"Fallback extraction also failed: {fallback_e}")
-                return []
+                raise BankLLMUnavailableError("LLM not reachable and fallback failed")
         
         # Process PDF using the new extractor
         df = extractor.process_pdf(
@@ -1203,3 +1216,33 @@ class BankStatementExtractor:
 
     def extract_from_files(self, files: List[str]) -> List[Dict[str, Any]]:
         return extract_transactions_from_pdf_paths(files)
+
+
+def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
+    """Lightweight reachability check for the bank LLM endpoint/model.
+
+    Returns True if the configured base URL responds and the model appears among tags.
+    """
+    try:
+        model_name = "gpt-oss:latest"
+        base_url = "http://localhost:11434"
+
+        if ai_config:
+            model_name = ai_config.get("model_name", model_name)
+            if ai_config.get("provider_url"):
+                url = ai_config.get("provider_url")
+                if url:
+                    m = re.match(r"^(https?://[^/]+)(/api.*)?$", url.strip())
+                    base_url = m.group(1) if m else url.strip()
+        else:
+            model_name = os.getenv("OLLAMA_MODEL", model_name)
+            base_url = os.getenv("LLM_API_BASE", base_url)
+
+        resp = requests.get(f"{base_url}/api/tags", timeout=3)
+        if resp.status_code != 200:
+            return False
+        data = resp.json() or {}
+        models = [m.get("name") for m in (data.get("models") or [])]
+        return model_name in models if models else True
+    except Exception:
+        return False

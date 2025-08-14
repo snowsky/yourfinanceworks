@@ -150,6 +150,25 @@ async def create_invoice(
         db.add(db_invoice)
         db.flush()  # Get the invoice ID
 
+        # Optionally link to a bank statement transaction to prevent duplicates
+        try:
+            txn_id = None
+            # Support passing link via custom_fields: { bank_transaction_id: <id> }
+            cf = getattr(invoice, 'custom_fields', None)
+            if isinstance(cf, dict):
+                txn_id = cf.get('bank_transaction_id') or cf.get('bank_statement_transaction_id') or cf.get('transaction_id')
+            if txn_id:
+                from models.models_per_tenant import BankStatementTransaction
+                txn = db.query(BankStatementTransaction).filter(BankStatementTransaction.id == int(txn_id)).first()
+                if txn is not None:
+                    if getattr(txn, 'invoice_id', None):
+                        # Already linked – treat as idempotent and return created invoice; UI should block earlier
+                        logger.info(f"Bank txn {txn_id} already linked to invoice {txn.invoice_id}")
+                    else:
+                        txn.invoice_id = db_invoice.id
+        except Exception:
+            logger.warning("Failed to link bank statement transaction to invoice", exc_info=True)
+
         # If an initial paid_amount is provided OR status is paid, create a payment record
         initial_paid = float(getattr(invoice, 'paid_amount', 0) or 0)
         should_create_payment = initial_paid > 0 or (invoice.status == 'paid')
