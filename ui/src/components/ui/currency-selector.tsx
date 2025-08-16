@@ -40,14 +40,11 @@ export function CurrencySelector({
   const [currencies, setCurrencies] = useState<Currency[]>(FALLBACK_CURRENCIES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  console.log(`💰 CurrencySelector - Value: "${value}" (effective: "${effectiveValue}"), Loading: ${loading}, Currencies: ${currencies.length}`);
-
-
-
-
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    
     const fetchCurrencies = async () => {
       setLoading(true);
       try {
@@ -62,6 +59,7 @@ export function CurrencySelector({
         setError('API unavailable - using default currencies');
       } finally {
         setLoading(false);
+        hasLoadedRef.current = true;
         if (onCurrenciesLoaded) {
           onCurrenciesLoaded();
         }
@@ -69,7 +67,7 @@ export function CurrencySelector({
     };
 
     fetchCurrencies();
-  }, [onCurrenciesLoaded]);
+  }, []);
 
   const activeCurrencies = currencies.filter(c => c.is_active);
 

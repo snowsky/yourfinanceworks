@@ -7,6 +7,10 @@
     "edit": "Editar",
     "add": "Agregar",
     "remove": "Quitar",
+    "labels": "Etiquetas",
+    "page_size": "Tamaño de página",
+    "select_currency": "Seleccionar moneda",
+    "select_category": "Seleccionar categoría",
     "close": "Cerrar",
     "back": "Atrás",
     "next": "Siguiente",
@@ -966,7 +970,11 @@
     },
     "attachments": "Adjuntos",
     "no_attachments": "Sin adjuntos",
-    "download": "Descargar"
+    "download": "Descargar",
+    "filter_by_label": "Filtrar por etiqueta",
+    "unlinked_only": "Solo no vinculados",
+    "results": "resultados",
+    "bulk_label_placeholder": "Etiqueta"
   },
   "email": {
     "subject": "Asunto",

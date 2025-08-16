@@ -7,6 +7,10 @@
     "edit": "Edit",
     "add": "Add",
     "remove": "Remove",
+    "labels": "Labels",
+    "page_size": "Page size",
+    "select_currency": "Select currency",
+    "select_category": "Select category",
     "close": "Close",
     "back": "Back",
     "next": "Next",
@@ -957,7 +961,11 @@
     },
     "attachments": "Attachments",
     "no_attachments": "No attachments",
-    "download": "Download"
+    "download": "Download",
+    "filter_by_label": "Filter by label",
+    "unlinked_only": "Unlinked only",
+    "results": "results",
+    "bulk_label_placeholder": "Label"
   },
   "email": {
     "subject": "Subject",

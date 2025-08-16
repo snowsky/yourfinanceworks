@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, BarChart as BarChartIcon } from "lucide-react";
 import { invoiceApi, Invoice } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
@@ -97,9 +97,14 @@ export function InvoiceChart() {
   };
 
   return (
-    <Card className="col-span-2 shadow-sm hover:shadow-md transition-shadow">
-      <CardHeader>
-        <CardTitle>Invoice Overview</CardTitle>
+    <Card className="col-span-2 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent hover:shadow-lg transition-all duration-300">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-semibold flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <BarChartIcon className="h-5 w-5 text-primary" />
+          </div>
+          Invoice Overview
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (

@@ -118,7 +118,7 @@ const NewInvoice = () => {
           <div>
             <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
             <p className="text-muted-foreground">
-              {fromBankStatement ? 'Create invoice from bank statement transaction' : t("invoices.description")}
+              {fromBankStatement ? 'Create invoice from bank statement transaction' : 'Choose between Quick Create for fast entry or Guided Create for step-by-step assistance'}
             </p>
           </div>
           

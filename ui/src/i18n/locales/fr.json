@@ -7,6 +7,10 @@
     "edit": "Modifier",
     "add": "Ajouter",
     "remove": "Retirer",
+    "labels": "Étiquettes",
+    "page_size": "Taille de page",
+    "select_currency": "Sélectionner la devise",
+    "select_category": "Sélectionner la catégorie",
     "close": "Fermer",
     "back": "Retour",
     "next": "Suivant",
@@ -949,7 +953,11 @@
     },
     "attachments": "Pièces jointes",
     "no_attachments": "Aucune pièce jointe",
-    "download": "Télécharger"
+    "download": "Télécharger",
+    "filter_by_label": "Filtrer par étiquette",
+    "unlinked_only": "Non liés seulement",
+    "results": "résultats",
+    "bulk_label_placeholder": "Étiquette"
   },
   "email": {
     "subject": "Objet",

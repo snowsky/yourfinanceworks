@@ -1112,12 +1112,27 @@ async def update_invoice(
             try:
                 old_client = db.query(Client).filter(Client.id == old_client_id).first()
                 new_client = db.query(Client).filter(Client.id == invoice.client_id).first()
-                old_client_name = old_client.name if old_client else str(old_client_id)
-                new_client_name = new_client.name if new_client else str(invoice.client_id)
-                changes.append(f"Client changed from {old_client_name} to {new_client_name}")
-            except Exception as _e:
+                
+                # Format client info as "Name (email)" or fallback to ID
+                if old_client:
+                    old_client_info = f"{old_client.name}"
+                    if old_client.email:
+                        old_client_info += f" ({old_client.email})"
+                else:
+                    old_client_info = f"Client ID {old_client_id}"
+                
+                if new_client:
+                    new_client_info = f"{new_client.name}"
+                    if new_client.email:
+                        new_client_info += f" ({new_client.email})"
+                else:
+                    new_client_info = f"Client ID {invoice.client_id}"
+                
+                changes.append(f"Client changed from {old_client_info} to {new_client_info}")
+            except Exception as e:
                 # Fallback to IDs if names cannot be resolved
-                changes.append(f"Client changed from {old_client_id} to {invoice.client_id}")
+                print(f"Error resolving client names: {e}")
+                changes.append(f"Client changed from Client ID {old_client_id} to Client ID {invoice.client_id}")
         
         # Only create history entry if there are actual changes
         if changes and len(changes) > 0:

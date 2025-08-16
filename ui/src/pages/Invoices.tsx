@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy } from "lucide-react";
+import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from '@/lib/utils';
 import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
+import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 
 const formatStatus = (status: string) => {
   return status.split('_').map(word => 
@@ -46,6 +47,7 @@ const Invoices = () => {
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [deletedInvoices, setDeletedInvoices] = useState<DeletedInvoice[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
@@ -378,112 +380,132 @@ const Invoices = () => {
                       <SelectItem value="partially_paid">{t('invoices.status.partially_paid')}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <div className="flex border rounded-md">
+                    <Button
+                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('cards')}
+                      className="rounded-r-none border-r-0"
+                    >
+                      <Grid3X3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'table' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('table')}
+                      className="rounded-l-none"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('invoices.table.invoice')}</TableHead>
-                    <TableHead>{t('invoices.table.client')}</TableHead>
-                    <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
-                    <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
-                    <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
-                    <TableHead>{t('invoices.table.status')}</TableHead>
-                    <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        <div className="flex justify-center items-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          {t('invoices.loading')}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredInvoices.length > 0 ? (
-                    filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">
-                          <span className="inline-flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                            {invoice.number}
-                          </span>
-                        </TableCell>
-                        <TableCell>{invoice.client_name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
-                        <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
-                            <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              invoice.status === 'paid' ? 'default' : 
-                              invoice.status === 'pending' ? 'secondary' : 
-                              invoice.status === 'draft' ? 'outline' :
-                              'destructive'
-                            }
-                            className={
-                              invoice.status === 'paid' ? 'bg-green-100 text-green-800 hover:bg-green-100' : 
-                              invoice.status === 'pending' ? 'bg-orange-100 text-orange-800 hover:bg-orange-100' : 
-                              invoice.status === 'draft' ? 'bg-gray-100 text-gray-800 hover:bg-gray-100' :
-                              'bg-red-100 text-red-800 hover:bg-red-100'
-                            }
-                          >
-                            {formatStatus(invoice.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {canPerformAction && (
-                            <div className="flex gap-1">
-                              <Link to={`/invoices/edit/${invoice.id}`}>
-                                <Button variant="ghost" size="icon">
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </Link>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleCloneInvoice(invoice.id)}
-                                title="Clone invoice"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleDeleteInvoice(invoice.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+            {loading ? (
+              <div className="flex justify-center items-center h-24">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                {t('invoices.loading')}
+              </div>
+            ) : filteredInvoices.length > 0 ? (
+              viewMode === 'cards' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {filteredInvoices.map((invoice) => (
+                    <InvoiceCard
+                      key={invoice.id}
+                      invoice={invoice}
+                      onClone={handleCloneInvoice}
+                      onDelete={handleDeleteInvoice}
+                      canPerformActions={canPerformAction}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('invoices.table.invoice')}</TableHead>
+                        <TableHead>{t('invoices.table.client')}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
+                        <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
+                        <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
+                        <TableHead>{t('invoices.table.status')}</TableHead>
+                        <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        {t('invoices.no_invoices')}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInvoices.map((invoice) => (
+                        <TableRow key={invoice.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">
+                            <span className="inline-flex items-center">
+                              <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                              {invoice.number}
+                            </span>
+                          </TableCell>
+                          <TableCell>{invoice.client_name}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-medium' : 'text-success font-medium'}>
+                              <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={
+                              invoice.status === 'paid' ? 'status-paid' : 
+                              invoice.status === 'pending' ? 'status-pending' : 
+                              invoice.status === 'overdue' ? 'status-overdue' :
+                              invoice.status === 'partially_paid' ? 'status-partially-paid' :
+                              'bg-muted/50 text-muted-foreground'
+                            }>
+                              {formatStatus(invoice.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {canPerformAction && (
+                              <div className="flex gap-1">
+                                <Link to={`/invoices/edit/${invoice.id}`}>
+                                  <Button variant="ghost" size="icon">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => handleCloneInvoice(invoice.id)}
+                                  title="Clone invoice"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => handleDeleteInvoice(invoice.id)}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">{t('invoices.no_invoices')}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

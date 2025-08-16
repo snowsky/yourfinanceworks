@@ -17,11 +17,26 @@ interface InvoiceHistoryDetailsModalProps {
     created_at: string;
     user_name?: string;
   };
+  clients?: Array<{
+    id: number;
+    name: string;
+    email?: string;
+  }>;
 }
 
-const formatValue = (key: string, value: any): string => {
+const formatValue = (key: string, value: any, clients?: Array<{id: number; name: string; email?: string}>): string => {
   if (value === null || value === undefined || value === '') {
     return 'Not set';
+  }
+  
+  // Handle client_id by resolving to name and email
+  if (key === 'client_id' && clients) {
+    const client = clients.find(c => c.id === value);
+    if (client) {
+      return client.email ? `${client.name} (${client.email})` : client.name;
+    } else {
+      return `Client ID ${value}`;
+    }
   }
   
   switch (key) {
@@ -77,12 +92,14 @@ const getFieldLabel = (key: string): string => {
       return 'Discount Value';
     case 'notes':
       return 'Notes';
+    case 'client_id':
+      return 'Client';
     default:
       return key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
   }
 };
 
-export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry }: InvoiceHistoryDetailsModalProps) {
+export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry, clients }: InvoiceHistoryDetailsModalProps) {
   const { previous_values, current_values, action, details, created_at, user_name } = historyEntry;
   
   // Get all changed fields
@@ -158,7 +175,7 @@ export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry }: Invo
                           <div className="flex-1">
                             <div className="text-muted-foreground mb-1">Previous:</div>
                             <div className="bg-red-50 border border-red-200 rounded px-2 py-1 text-red-800">
-                              {formatValue(field, previousValue)}
+                              {formatValue(field, previousValue, clients)}
                             </div>
                           </div>
                           
@@ -167,7 +184,7 @@ export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry }: Invo
                           <div className="flex-1">
                             <div className="text-muted-foreground mb-1">Current:</div>
                             <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-green-800">
-                              {formatValue(field, currentValue)}
+                              {formatValue(field, currentValue, clients)}
                             </div>
                           </div>
                         </div>

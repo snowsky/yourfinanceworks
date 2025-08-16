@@ -168,7 +168,7 @@ const Dashboard = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 slide-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 slide-in">
           <StatCard
             title={t('dashboard.stats.total_income')}
             value={formatMultiCurrencyString(dashboardStats.totalIncome)}
@@ -176,6 +176,8 @@ const Dashboard = () => {
             description={t('dashboard.stats.revenue_description')}
             trend={dashboardStats.trends.income}
             loading={loading}
+            variant="success"
+            onClick={() => console.log('Navigate to income details')}
           />
           <StatCard
             title={t('dashboard.stats.pending_amount')}
@@ -184,6 +186,8 @@ const Dashboard = () => {
             description={t('dashboard.stats.pending_description')}
             trend={dashboardStats.trends.pending}
             loading={loading}
+            variant="warning"
+            onClick={() => console.log('Navigate to pending invoices')}
           />
           <StatCard
             title={t('dashboard.stats.total_clients')}
@@ -192,6 +196,8 @@ const Dashboard = () => {
             description={t('dashboard.stats.clients_description')}
             trend={dashboardStats.trends.clients}
             loading={loading}
+            variant="default"
+            onClick={() => console.log('Navigate to clients')}
           />
           <StatCard
             title={t('dashboard.stats.overdue_invoices')}
@@ -200,6 +206,8 @@ const Dashboard = () => {
             description={t('dashboard.stats.overdue_description')}
             trend={dashboardStats.trends.overdue}
             loading={loading}
+            variant="destructive"
+            onClick={() => console.log('Navigate to overdue invoices')}
           />
         </div>
         

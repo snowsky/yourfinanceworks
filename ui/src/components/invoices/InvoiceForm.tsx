@@ -2,11 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail } from "lucide-react";
+import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail, User, Calculator, Settings } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useTranslation } from "react-i18next";
+import { MultiStepInvoiceForm } from "./MultiStepInvoiceForm";
+import { SmartClientSelector } from "./SmartClientSelector";
+import { InlineValidation, useInlineValidation } from "./InlineValidation";
+import { AutoSaveIndicator, useAutoSave } from "./AutoSaveIndicator";
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -19,7 +23,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { isAdmin } from "@/utils/auth";
-import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, Settings, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL, expenseApi, Expense } from "@/lib/api";
+import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL, expenseApi, Expense } from "@/lib/api";
+import type { Settings } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { TemplateSelector } from "./TemplateSelector";
@@ -100,6 +105,26 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Form mode state - only for new invoices
+  const [formMode, setFormMode] = useState<'quick' | 'guided'>('quick');
+  
+  // Multi-step form state
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  
+  // Inline validation
+  const { validationMessages, addValidation, clearValidations, setValidationMessages } = useInlineValidation();
+  
+  // Auto-save for drafts (only for new invoices)
+  const autoSaveDraft = useCallback(async (data: any) => {
+    if (!isEdit) {
+      localStorage.setItem('invoice_draft', JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [isEdit]);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [showExcessAmountDialog, setShowExcessAmountDialog] = useState(false);
@@ -162,25 +187,16 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
   // Update customFields when invoice changes
   useEffect(() => {
-    console.log("[DEBUG] customFields useEffect triggered");
-    console.log("[DEBUG] invoice:", invoice);
-    console.log("[DEBUG] invoice?.custom_fields:", invoice?.custom_fields);
-    console.log("[DEBUG] typeof invoice?.custom_fields:", typeof invoice?.custom_fields);
-    console.log("[DEBUG] invoice keys:", invoice ? Object.keys(invoice) : "no invoice");
-    console.log("[DEBUG] Full invoice object:", JSON.stringify(invoice, null, 2));
-    
     if (invoice?.custom_fields && typeof invoice.custom_fields === 'object') {
       const newCustomFields = Object.entries(invoice.custom_fields).map(([key, value]) => ({ 
         key: key || '', 
         value: value !== undefined && value !== null ? String(value) : '' 
       }));
       setCustomFields(newCustomFields);
-      console.log("[DEBUG] Updated customFields from invoice:", newCustomFields);
     } else {
       setCustomFields([]);
-      console.log("[DEBUG] Reset customFields to empty array");
     }
-  }, [invoice]);
+  }, [invoice?.custom_fields]);
 
   // Open and prefill the Create Client modal on init when requested
   useEffect(() => {
@@ -508,7 +524,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       currency: invoice?.currency || "USD",
       date: invoice ? safeParseDateString(invoice.date || invoice.created_at) : new Date(),
       dueDate: invoice ? safeParseDateString(invoice.due_date) : new Date(new Date().setDate(new Date().getDate() + 30)),
-      status: isValidInvoiceStatus(invoice?.status || "pending") ? invoice?.status || "pending" : "pending",
+      status: invoice ? (isValidInvoiceStatus(invoice.status) ? invoice.status : "pending") : "pending",
       paidAmount: invoice?.paid_amount || 0,
       items: safeItems,
       notes: invoice?.notes || "",
@@ -521,6 +537,51 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     },
     mode: "onChange"
   });
+  
+  // Load draft on component mount for new invoices
+  useEffect(() => {
+    if (!isEdit) {
+      const draft = localStorage.getItem('invoice_draft');
+      if (draft) {
+        try {
+          const parsedDraft = JSON.parse(draft);
+          // Only load draft if it's recent (within 24 hours)
+          const draftAge = new Date().getTime() - new Date(parsedDraft.timestamp).getTime();
+          if (draftAge < 24 * 60 * 60 * 1000) {
+            Object.keys(parsedDraft).forEach(key => {
+              if (key !== 'timestamp' && parsedDraft[key] !== undefined) {
+                let value = parsedDraft[key];
+                
+                // Parse date strings back to Date objects
+                if ((key === 'date' || key === 'dueDate') && typeof value === 'string') {
+                  try {
+                    value = new Date(value);
+                    // Validate the date
+                    if (isNaN(value.getTime())) {
+                      console.warn(`Invalid date in draft for ${key}:`, parsedDraft[key]);
+                      return; // Skip invalid dates
+                    }
+                  } catch (error) {
+                    console.warn(`Failed to parse date in draft for ${key}:`, parsedDraft[key]);
+                    return; // Skip unparseable dates
+                  }
+                }
+                
+                form.setValue(key as any, value);
+              }
+            });
+            addValidation({ type: "info", message: "Draft loaded from previous session" });
+          }
+        } catch (error) {
+          console.error('Failed to load draft:', error);
+        }
+      }
+    }
+  }, [isEdit, form, addValidation]);
+
+  // Auto-save setup after form is initialized
+  const formData = form.watch();
+  const { status: autoSaveStatus, lastSaved } = useAutoSave(formData, autoSaveDraft, 3000);
 
   // Apply initial data from PDF import into the new invoice form (one-time)
   useEffect(() => {
@@ -548,18 +609,50 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         form.setValue('notes', initialData.notes);
         appliedSomething = true;
       }
-      if (initialData.date instanceof Date && !isNaN(initialData.date.getTime())) {
-        form.setValue('date', initialData.date);
-        appliedSomething = true;
+      // Handle date - support both Date objects and strings
+      if (initialData.date) {
+        let dateValue: Date;
+        if (initialData.date instanceof Date) {
+          dateValue = initialData.date;
+        } else {
+          try {
+            dateValue = new Date(initialData.date);
+          } catch {
+            dateValue = new Date(); // fallback to current date
+          }
+        }
+        if (!isNaN(dateValue.getTime())) {
+          form.setValue('date', dateValue);
+          appliedSomething = true;
+        }
       }
-      if (initialData.dueDate instanceof Date && !isNaN(initialData.dueDate.getTime())) {
-        form.setValue('dueDate', initialData.dueDate);
-        appliedSomething = true;
-      } else if (initialData.date instanceof Date && !isNaN(initialData.date.getTime())) {
+      
+      // Handle dueDate - support both Date objects and strings
+      if (initialData.dueDate) {
+        let dueDateValue: Date;
+        if (initialData.dueDate instanceof Date) {
+          dueDateValue = initialData.dueDate;
+        } else {
+          try {
+            dueDateValue = new Date(initialData.dueDate);
+          } catch {
+            dueDateValue = new Date(); // fallback
+            dueDateValue.setDate(dueDateValue.getDate() + 30);
+          }
+        }
+        if (!isNaN(dueDateValue.getTime())) {
+          form.setValue('dueDate', dueDateValue);
+          appliedSomething = true;
+        }
+      } else if (initialData.date) {
+        // Generate due date from invoice date if not provided
         try {
-          const next = new Date(initialData.date);
-          next.setDate(next.getDate() + 30);
-          form.setValue('dueDate', next);
+          const dateValue = initialData.date instanceof Date ? initialData.date : new Date(initialData.date);
+          if (!isNaN(dateValue.getTime())) {
+            const dueDateValue = new Date(dateValue);
+            dueDateValue.setDate(dueDateValue.getDate() + 30);
+            form.setValue('dueDate', dueDateValue);
+          }
         } catch {}
       }
       if (typeof initialData.status === 'string') {
@@ -795,57 +888,99 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     }
   }, [invoice]);
 
-  // Update preview when form values change
+  // Real-time validation with debouncing
   useEffect(() => {
     const subscription = form.watch((value) => {
-      // Debug discount type changes
-      if (value.discountType) {
-        console.log("Form discount type changed:", {
-          newType: value.discountType,
-          newValue: value.discountValue,
-          appliedRule: appliedDiscountRule?.name
-        });
-      }
+      // Debounce validation to prevent excessive updates
+      const timeoutId = setTimeout(() => {
+        clearValidations();
+        
+        // Client validation
+        if (!value.client) {
+          addValidation({ type: "error", message: "Please select a client" });
+        }
+        
+        // Items validation
+        if (!value.items || value.items.length === 0) {
+          addValidation({ type: "error", message: "At least one item is required" });
+        } else {
+          const invalidItems = value.items.filter(item => 
+            !item.description || item.quantity <= 0 || item.price <= 0
+          );
+          if (invalidItems.length > 0) {
+            addValidation({ type: "warning", message: `${invalidItems.length} item(s) need attention` });
+          }
+        }
+        
+        // Amount validation
+        const total = calculateTotal(value.items);
+        if (total <= 0) {
+          addValidation({ type: "error", message: "Invoice total must be greater than 0" });
+        }
+        
+        // Due date validation
+        if (value.dueDate && value.date && value.dueDate < value.date) {
+          addValidation({ type: "warning", message: "Due date is before invoice date" });
+        }
+        
+        // Success validation
+        if (value.client && value.items?.length > 0 && total > 0) {
+          addValidation({ type: "success", message: "Invoice is ready to be created" });
+        }
+      }, 300);
       
-      const selectedClient = clients.find(c => c.id.toString() === value.client);
-      const itemsWithAmount = (value.items || previewInvoice?.items || []).map(item => ({
-        description: item.description || '',
-        quantity: Number(item.quantity) || 1,
-        price: Number(item.price) || 0,
-        amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
-        id: item.id
-      }));
-      const updatedPreview: Invoice = {
-        ...previewInvoice,
-        number: value.invoiceNumber || previewInvoice?.number || '',
-        client_name: selectedClient?.name || '',
-        client_email: selectedClient?.email || '',
-        date: value.date ? format(value.date, 'yyyy-MM-dd') : previewInvoice?.date || '',
-        due_date: value.dueDate ? format(value.dueDate, 'yyyy-MM-dd') : previewInvoice?.due_date || '',
-        status: value.status || previewInvoice?.status || 'pending',
-        notes: value.notes || previewInvoice?.notes || '',
-        currency: value.currency || previewInvoice?.currency || 'USD',
-        items: itemsWithAmount,
-        subtotal: itemsWithAmount.reduce((sum, item) => sum + item.amount, 0), // Subtotal is always pre-discount
-        discount_type: value.discountType || previewInvoice?.discount_type || "percentage",
-        discount_value: Number(value.discountValue) || previewInvoice?.discount_value || 0,
-        amount: (() => {
-          const subtotal = itemsWithAmount.reduce((sum, item) => sum + item.amount, 0);
-          const discountType = value.discountType || previewInvoice?.discount_type || "percentage";
-          const discountValue = Number(value.discountValue) || previewInvoice?.discount_value || 0;
-          const discount = discountType === "percentage" 
-            ? (subtotal * discountValue) / 100
-            : Math.min(discountValue, subtotal);
-          return Math.max(0, subtotal - discount);
-        })(),
-        client_id: Number(value.client) || previewInvoice?.client_id || 0,
-        id: previewInvoice?.id || 0,
-        paid_amount: Number(value.paidAmount) || previewInvoice?.paid_amount || 0,
-      };
-      setPreviewInvoice(updatedPreview);
+      return () => clearTimeout(timeoutId);
     });
     return () => subscription.unsubscribe();
-  }, [form, clients, previewInvoice]);
+  }, [form, addValidation, clearValidations]);
+  
+  // Update preview when form values change with debouncing
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      // Debounce preview updates to prevent excessive re-renders
+      const timeoutId = setTimeout(() => {
+        const selectedClient = clients.find(c => c.id.toString() === value.client);
+        const itemsWithAmount = (value.items || previewInvoice?.items || []).map(item => ({
+          description: item.description || '',
+          quantity: Number(item.quantity) || 1,
+          price: Number(item.price) || 0,
+          amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
+          id: item.id
+        }));
+        const updatedPreview: Invoice = {
+          ...previewInvoice,
+          number: value.invoiceNumber || previewInvoice?.number || '',
+          client_name: selectedClient?.name || '',
+          client_email: selectedClient?.email || '',
+          date: value.date ? format(value.date, 'yyyy-MM-dd') : previewInvoice?.date || '',
+          due_date: value.dueDate ? format(value.dueDate, 'yyyy-MM-dd') : previewInvoice?.due_date || '',
+          status: value.status || previewInvoice?.status || 'pending',
+          notes: value.notes || previewInvoice?.notes || '',
+          currency: value.currency || previewInvoice?.currency || 'USD',
+          items: itemsWithAmount,
+          subtotal: itemsWithAmount.reduce((sum, item) => sum + item.amount, 0),
+          discount_type: value.discountType || previewInvoice?.discount_type || "percentage",
+          discount_value: Number(value.discountValue) || previewInvoice?.discount_value || 0,
+          amount: (() => {
+            const subtotal = itemsWithAmount.reduce((sum, item) => sum + item.amount, 0);
+            const discountType = value.discountType || previewInvoice?.discount_type || "percentage";
+            const discountValue = Number(value.discountValue) || previewInvoice?.discount_value || 0;
+            const discount = discountType === "percentage" 
+              ? (subtotal * discountValue) / 100
+              : Math.min(discountValue, subtotal);
+            return Math.max(0, subtotal - discount);
+          })(),
+          client_id: Number(value.client) || previewInvoice?.client_id || 0,
+          id: previewInvoice?.id || 0,
+          paid_amount: Number(value.paidAmount) || previewInvoice?.paid_amount || 0,
+        };
+        setPreviewInvoice(updatedPreview);
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, clients]);
 
   // Auto-apply discount rules when subtotal changes
   useEffect(() => {
@@ -889,7 +1024,199 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
   const items = form.watch("items");
   const currentStatus = form.watch("status");
+  // For new invoices, isInvoicePaid should always be false
   const isInvoicePaid = isEdit && currentStatus === "paid";
+  
+  // Debug logging removed - issue identified
+  
+  // Calculation functions - moved here to avoid lexical declaration errors
+  const calculateSubtotal = (itemsToUse?: any[]) => {
+    const currentItems = itemsToUse || items;
+    
+    // When editing, use the actual invoice data if form values are not yet loaded
+    if (isEdit && invoice && (!currentItems || currentItems.length === 0 || currentItems[0]?.quantity === 0)) {
+      const subtotal = invoice.items.reduce((sum, item) => {
+        const quantity = item.quantity || 0;
+        const price = item.price || 0;
+        return sum + quantity * price;
+      }, 0);
+      return subtotal;
+    }
+    
+    const subtotal = currentItems.reduce((sum, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const price = Number(item.price) || 0;
+      const itemTotal = quantity * price;
+      return sum + itemTotal;
+    }, 0);
+    return subtotal;
+  };
+
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const discountType = form.watch("discountType");
+    const discountValue = form.watch("discountValue") || 0;
+    
+    // When editing, use the actual invoice discount data if form values are not yet loaded
+    if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
+      const actualDiscountType = invoice.discount_type || "percentage";
+      const actualDiscountValue = invoice.discount_value || 0;
+      
+      if (actualDiscountType === "percentage") {
+        const discount = (subtotal * actualDiscountValue) / 100;
+        return discount;
+      } else {
+        const discount = Math.min(actualDiscountValue, subtotal);
+        return discount;
+      }
+    }
+    
+    // Handle discount rule type
+    if (discountType === "rule" && appliedDiscountRule) {
+      // Check if subtotal meets minimum amount requirement
+      if (subtotal < appliedDiscountRule.min_amount) {
+        return 0;
+      }
+      
+      if (appliedDiscountRule.discount_type === "percentage") {
+        const discount = (subtotal * appliedDiscountRule.discount_value) / 100;
+        return discount;
+      } else {
+        const discount = Math.min(appliedDiscountRule.discount_value, subtotal);
+        return discount;
+      }
+    }
+    
+    if (discountType === "percentage") {
+      const discount = (subtotal * discountValue) / 100;
+      return discount;
+    } else {
+      const discount = Math.min(discountValue, subtotal);
+      return discount;
+    }
+  };
+
+  const calculateTotal = (itemsToUse?: any[]) => {
+    const subtotal = calculateSubtotal(itemsToUse);
+    const discount = calculateDiscount();
+    const total = Math.max(0, subtotal - discount);
+    return total;
+  };
+  
+  // Multi-step form configuration
+  const steps = [
+    {
+      id: "client",
+      title: "Client Info",
+      description: "Select client and basic details",
+      icon: <User className="h-4 w-4" />
+    },
+    {
+      id: "items",
+      title: "Invoice Items",
+      description: "Add products or services",
+      icon: <FileText className="h-4 w-4" />
+    },
+    {
+      id: "calculations",
+      title: "Calculations",
+      description: "Discounts and totals",
+      icon: <Calculator className="h-4 w-4" />
+    },
+    {
+      id: "settings",
+      title: "Final Settings",
+      description: "Notes and attachments",
+      icon: <Settings className="h-4 w-4" />
+    }
+  ];
+  
+  // Step validation
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!form.getValues("client") && !!form.getValues("invoiceNumber");
+      case 2:
+        const items = form.getValues("items");
+        return items.length > 0 && items.every(item => 
+          item.description && item.quantity > 0 && item.price > 0
+        );
+      case 3:
+        return calculateTotal() > 0;
+      case 4:
+        return true; // Final step is always valid
+      default:
+        return false;
+    }
+  };
+  
+  // Update completed steps
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      const newCompletedSteps: number[] = [];
+      
+      // Step validation logic inline to avoid dependency issues
+      for (let i = 1; i <= 4; i++) {
+        let isValid = false;
+        switch (i) {
+          case 1:
+            isValid = !!value.client && !!value.invoiceNumber;
+            break;
+          case 2:
+            const items = value.items || [];
+            isValid = items.length > 0 && items.every(item => 
+              item.description && item.quantity > 0 && item.price > 0
+            );
+            break;
+          case 3:
+            // Calculate total inline to avoid dependency issues
+            const itemsSubtotal = (value.items || []).reduce((sum, item) => 
+              sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
+            const discountType = value.discountType || "percentage";
+            const discountValue = Number(value.discountValue) || 0;
+            const discount = discountType === "percentage" 
+              ? (itemsSubtotal * discountValue) / 100
+              : discountValue;
+            const total = Math.max(0, itemsSubtotal - discount);
+            isValid = total > 0;
+            break;
+          case 4:
+          default:
+            isValid = false;
+            break;
+        }
+        
+        if (isValid) {
+          newCompletedSteps.push(i);
+        }
+      }
+      setCompletedSteps(newCompletedSteps);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, []);
+  
+  const canProceedToNextStep = validateStep(currentStep);
+  
+  const handleStepChange = (step: number) => {
+    if (step <= currentStep || completedSteps.includes(step - 1)) {
+      setCurrentStep(step);
+    }
+  };
+  
+  const handleNext = () => {
+    if (currentStep < 4 && canProceedToNextStep) {
+      setCurrentStep(currentStep + 1);
+    } else if (currentStep === 4) {
+      form.handleSubmit(onSubmit)();
+    }
+  };
+  
+  const handlePrevious = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
   const addItem = () => {
     const currentItems = form.getValues("items");
@@ -914,26 +1241,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     }
   };
 
-  const calculateSubtotal = () => {
-    // When editing, use the actual invoice data if form values are not yet loaded
-    if (isEdit && invoice && (!items || items.length === 0 || items[0].quantity === 0)) {
-      const subtotal = invoice.items.reduce((sum, item) => {
-        const quantity = item.quantity || 0;
-        const price = item.price || 0;
-        return sum + quantity * price;
-      }, 0);
-      console.log("calculateSubtotal - using invoice data:", subtotal);
-      return subtotal;
-    }
-    
-    const subtotal = items.reduce((sum, item) => {
-      const quantity = item.quantity || 0;
-      const price = item.price || 0;
-      return sum + quantity * price;
-    }, 0);
-    console.log("calculateSubtotal - using form data:", subtotal);
-    return subtotal;
-  };
+  // calculateSubtotal moved above - removed duplicate
 
   // Function to automatically apply discount rules
   const applyDiscountRules = async (subtotal: number) => {
@@ -958,70 +1266,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     return 0;
   };
 
-  const calculateDiscount = () => {
-    const subtotal = calculateSubtotal();
-    const discountType = form.watch("discountType");
-    const discountValue = form.watch("discountValue") || 0;
-    
-    console.log("calculateDiscount - subtotal:", subtotal, "discountType:", discountType, "discountValue:", discountValue);
-    
-    // When editing, use the actual invoice discount data if form values are not yet loaded
-    if (isEdit && invoice && discountValue === 0 && invoice.discount_value) {
-      const actualDiscountType = invoice.discount_type || "percentage";
-      const actualDiscountValue = invoice.discount_value || 0;
-      
-      console.log("calculateDiscount - using invoice data:", actualDiscountType, actualDiscountValue);
-      
-      if (actualDiscountType === "percentage") {
-        const discount = (subtotal * actualDiscountValue) / 100;
-        console.log("calculateDiscount - percentage discount:", discount);
-        return discount;
-      } else {
-        const discount = Math.min(actualDiscountValue, subtotal);
-        console.log("calculateDiscount - fixed discount:", discount);
-        return discount;
-      }
-    }
-    
-    // Handle discount rule type
-    if (discountType === "rule" && appliedDiscountRule) {
-      // Check if subtotal meets minimum amount requirement
-      if (subtotal < appliedDiscountRule.min_amount) {
-        console.log("calculateDiscount - rule not applied, subtotal below minimum:", {
-          subtotal,
-          min_amount: appliedDiscountRule.min_amount,
-          rule_name: appliedDiscountRule.name
-        });
-        return 0;
-      }
-      
-      if (appliedDiscountRule.discount_type === "percentage") {
-        const discount = (subtotal * appliedDiscountRule.discount_value) / 100;
-        console.log("calculateDiscount - rule percentage discount:", discount);
-        return discount;
-      } else {
-        const discount = Math.min(appliedDiscountRule.discount_value, subtotal);
-        console.log("calculateDiscount - rule fixed discount:", discount);
-        return discount;
-      }
-    }
-    
-    if (discountType === "percentage") {
-      const discount = (subtotal * discountValue) / 100;
-      console.log("calculateDiscount - form percentage discount:", discount);
-      return discount;
-    } else {
-      const discount = Math.min(discountValue, subtotal);
-      console.log("calculateDiscount - form fixed discount:", discount);
-      return discount;
-    }
-  };
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const discount = calculateDiscount();
-    return Math.max(0, subtotal - discount);
-  };
+  // calculateDiscount and calculateTotal moved above - removed duplicates
 
   const sendInvoiceEmail = async () => {
     const invoiceId = invoice?.id || previewInvoice?.id;
@@ -1589,10 +1834,16 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     }
   }, [currenciesLoaded, invoice, form]);
 
-  // Keep customFields state in sync with form
+  // Keep customFields state in sync with form (with change detection)
   useEffect(() => {
-    form.setValue("customFields", customFields);
-  }, [customFields]);
+    const currentFormFields = form.getValues("customFields") || [];
+    const currentFieldsStr = JSON.stringify(currentFormFields);
+    const newFieldsStr = JSON.stringify(customFields);
+    
+    if (currentFieldsStr !== newFieldsStr) {
+      form.setValue("customFields", customFields);
+    }
+  }, [customFields, form]);
 
   if (loading) {
     return (
@@ -1685,13 +1936,898 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     );
   }
 
+  // Render step content
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Client Information</h3>
+              {!isEdit && <AutoSaveIndicator status={autoSaveStatus} lastSaved={lastSaved} />}
+            </div>
+            
+            <InlineValidation messages={validationMessages.filter(msg => 
+              msg.message.includes('client') || msg.message.includes('Client')
+            )} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="client"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.client')}</FormLabel>
+                    <FormControl>
+                      <SmartClientSelector
+                        clients={clients}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        onCreateNew={() => setShowNewClientDialog(true)}
+                        placeholder={t('invoices.select_a_client')}
+                        disabled={isInvoicePaid}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="invoiceNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.invoice_number')}</FormLabel>
+                    <FormControl>
+                      <Input {...field} disabled={isInvoicePaid} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.currency')}</FormLabel>
+                    <FormControl>
+                      <CurrencySelector
+                        value={field.value || ""}
+                        onValueChange={field.onChange}
+                        placeholder="Select currency"
+                        disabled={isInvoicePaid}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>{t('invoices.date')}</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            disabled={isInvoicePaid}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>{t('invoices.pick_a_date')}</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date("1900-01-01")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>{t('invoices.due_date')}</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                            disabled={isInvoicePaid}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>{t('invoices.pick_a_date')}</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date("1900-01-01")}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        );
+        
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Invoice Items</h3>
+            
+            <InlineValidation messages={validationMessages.filter(msg => 
+              msg.message.includes('item') || msg.message.includes('Item')
+            )} />
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">{t('invoices.items')}</h4>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addItem}
+                  disabled={isInvoicePaid}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('invoices.add_item')}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 mb-2">
+                <div className="col-span-6">{t('invoices.item_description')}</div>
+                <div className="col-span-2">{t('invoices.quantity')}</div>
+                <div className="col-span-3">{t('invoices.price')}</div>
+                <div className="col-span-1">{t('invoices.actions')}</div>
+              </div>
+
+              {items.map((item, index) => (
+                <div key={item.id ? `existing-${item.id}` : `new-${itemKeyCounter}-${index}`} className="grid grid-cols-12 gap-4 items-start">
+                  <div className="col-span-6">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.description`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input 
+                              placeholder={t('invoices.item_description')} 
+                              {...field}
+                              value={field.value || ''}
+                              disabled={isInvoicePaid}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.quantity`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder={t('invoices.qty')}
+                              {...field}
+                              disabled={isInvoicePaid}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.price`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              placeholder={t('invoices.price')}
+                              {...field}
+                              disabled={isInvoicePaid}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(index)}
+                      disabled={items.length === 1 || isInvoicePaid}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Calculations & Discounts</h3>
+            
+            <InlineValidation messages={validationMessages.filter(msg => 
+              msg.message.includes('total') || msg.message.includes('amount')
+            )} />
+            
+            {/* Discount Section - simplified for step 3 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="discountType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.discount_type')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isInvoicePaid}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('invoices.select_discount_type')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="percentage">{t('invoices.percentage')}</SelectItem>
+                        <SelectItem value="fixed">{t('invoices.fixed_amount')}</SelectItem>
+                        <SelectItem value="rule">{t('invoices.discount_rule')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="discountValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.discount_value')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        disabled={isInvoicePaid}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            {/* Summary Section */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">{t('invoices.subtotal')}:</span>
+                <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">{t('invoices.discount')}:</span>
+                <span className="font-medium text-red-600">-${calculateDiscount().toFixed(2)}</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between">
+                <span className="font-semibold">{t('invoices.total')}:</span>
+                <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Final Settings</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.status_label')}</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('invoices.select_status')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
+                        {isEdit && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
+                        <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
+                        <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="paidAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('invoices.paid_amount')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder={t('invoices.enter_paid_amount')}
+                        {...field}
+                        disabled={isInvoicePaid}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('invoices.notes')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} disabled={isInvoicePaid} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            {/* Attachment Section */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="attachment" className="text-base font-medium">
+                  {t('invoices.attachment')}
+                </Label>
+                <div className="mt-2">
+                  <Input
+                    id="attachment"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setInvoiceAttachment(file);
+                      } else {
+                        setInvoiceAttachment(null);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t('invoices.supported_formats')}: PDF, DOC, DOCX, JPG, PNG
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="w-full px-6 py-6 space-y-6">
-      <Card>
-        <CardContent>
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Update History Section - Left Side */}
-            {isEdit && (
+      {/* Form mode selector for new invoices */}
+      {!isEdit && (
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
+            <button
+              type="button"
+              onClick={() => setFormMode('quick')}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-md transition-all",
+                formMode === 'quick'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              ⚡ Quick Create
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormMode('guided')}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-md transition-all",
+                formMode === 'guided'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              🧭 Guided Create
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Use guided form for new invoices when selected, quick form otherwise */}
+      {!isEdit && formMode === 'guided' ? (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <MultiStepInvoiceForm
+              currentStep={currentStep}
+              totalSteps={4}
+              onStepChange={handleStepChange}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              canProceed={canProceedToNextStep}
+              steps={steps}
+              completedSteps={completedSteps}
+            >
+              {renderStepContent()}
+            </MultiStepInvoiceForm>
+          </form>
+        </Form>
+      ) : !isEdit ? (
+        // Quick Create Form (Single Page)
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Invoice - Quick Mode</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <InlineValidation messages={validationMessages} className="mb-4" />
+                {!isEdit && <AutoSaveIndicator status={autoSaveStatus} lastSaved={lastSaved} />}
+                
+                {/* Client and Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="client"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('invoices.client')}</FormLabel>
+                        <div className="flex gap-2">
+                          <SmartClientSelector
+                            clients={clients}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              form.trigger("client");
+                              const selectedClient = clients.find(c => c.id.toString() === value);
+                              if (selectedClient?.preferred_currency && !isInvoicePaid) {
+                                form.setValue("currency", selectedClient.preferred_currency);
+                              }
+                            }}
+                            onCreateNew={() => setShowNewClientDialog(true)}
+                            placeholder={t('invoices.select_a_client')}
+                            disabled={isInvoicePaid}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowNewClientDialog(true)}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {t('invoices.new_client')}
+                          </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="invoiceNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('invoices.invoice_number')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('invoices.currency')}</FormLabel>
+                        <FormControl>
+                          <CurrencySelector
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            placeholder="Select currency"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>{t('invoices.date')}</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>{t('invoices.pick_a_date')}</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="dueDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>{t('invoices.due_date')}</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>{t('invoices.pick_a_date')}</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('invoices.status_label')}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('invoices.select_status')} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
+                            <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
+                            <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Invoice Items */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">{t('invoices.items')}</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addItem}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t('invoices.add_item')}
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 mb-2">
+                    <div className="col-span-6">{t('invoices.item_description')}</div>
+                    <div className="col-span-2">{t('invoices.quantity')}</div>
+                    <div className="col-span-3">{t('invoices.price')}</div>
+                    <div className="col-span-1">{t('invoices.actions')}</div>
+                  </div>
+
+                  {items.map((item, index) => (
+                    <div key={item.id ? `existing-${item.id}` : `new-${itemKeyCounter}-${index}`} className="grid grid-cols-12 gap-4 items-start">
+                      <div className="col-span-6">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.description`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input 
+                                  placeholder={t('invoices.item_description')} 
+                                  {...field}
+                                  value={field.value || ''}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  placeholder={t('invoices.qty')}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  placeholder={t('invoices.price')}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(index)}
+                          disabled={items.length === 1}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Discount and Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">{t('invoices.discount')}</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="discountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('invoices.discount_type')}</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={t('invoices.select_discount_type')} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="percentage">{t('invoices.percentage')}</SelectItem>
+                                <SelectItem value="fixed">{t('invoices.fixed_amount')}</SelectItem>
+                                <SelectItem value="rule">{t('invoices.discount_rule')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="discountValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('invoices.discount_value')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">{t('invoices.subtotal')}:</span>
+                      <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">{t('invoices.discount')}:</span>
+                      <span className="font-medium text-red-600">-${calculateDiscount().toFixed(2)}</span>
+                    </div>
+                    <div className="border-t pt-2 flex justify-between">
+                      <span className="font-semibold">{t('invoices.total')}:</span>
+                      <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes and Attachment */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('invoices.notes')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="attachment">{t('invoices.attachment')}</Label>
+                    <Input
+                      id="attachment"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        setInvoiceAttachment(file || null);
+                      }}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {t('invoices.supported_formats')}: PDF, DOC, DOCX, JPG, PNG
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4">
+                  <Button type="button" variant="outline" onClick={() => navigate('/invoices')}>
+                    {t('invoices.cancel')}
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {t('invoices.create_invoice')}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent>
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Update History Section - Left Side */}
               <div className="w-full lg:w-80 order-2 lg:order-1">
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">{t('invoices.update_history')}</h3>
@@ -1704,24 +2840,24 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     ) : updateHistory.length > 0 ? (
                       updateHistory.map((entry) => (
                         <div key={entry.id} className="bg-white dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 shadow-sm">
-                                                     <div className="flex items-start justify-between mb-2">
-                             <div className="flex items-center gap-2">
-                               {entry.type === 'payment' && (
-                                 <DollarSign className="w-4 h-4 text-green-600" />
-                               )}
-                               {entry.type === 'creation' && (
-                                 <FileText className="w-4 h-4 text-blue-600" />
-                               )}
-                               {entry.type === 'update' && (
-                                 <Edit className="w-4 h-4 text-orange-600" />
-                               )}
-                               <span className="font-medium text-sm">
-                                 {entry.action === 'update' ? t('invoices.update') : entry.action === 'creation' ? t('invoices.invoice_created') : entry.action}
-                                 {entry.user_name && (
-                                   <span className="ml-2 text-xs text-muted-foreground">{t('invoices.by', { user: entry.user_name })}</span>
-                                 )}
-                               </span>
-                             </div>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {entry.type === 'payment' && (
+                                <DollarSign className="w-4 h-4 text-green-600" />
+                              )}
+                              {entry.type === 'creation' && (
+                                <FileText className="w-4 h-4 text-blue-600" />
+                              )}
+                              {entry.type === 'update' && (
+                                <Edit className="w-4 h-4 text-orange-600" />
+                              )}
+                              <span className="font-medium text-sm">
+                                {entry.action === 'update' ? t('invoices.update') : entry.action === 'creation' ? t('invoices.invoice_created') : entry.action}
+                                {entry.user_name && (
+                                  <span className="ml-2 text-xs text-muted-foreground">{t('invoices.by', { user: entry.user_name })}</span>
+                                )}
+                              </span>
+                            </div>
                             <span className="text-xs text-muted-foreground">
                               {formatDateTime((entry as any).date || (entry as any).created_at)}
                             </span>
@@ -1740,7 +2876,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 {entry.notes}
                               </div>
                             )}
-                            {/* View Details Link - Only show for entries with previous/current values */}
                             {(entry.previous_values || entry.current_values) && (
                               <div className="pt-2 border-t border-gray-200">
                                 <Button
@@ -1764,13 +2899,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   </div>
                 </div>
               </div>
-            )}
-            
-            {/* Main Form Section */}
-            <div className="flex-1 order-1 lg:order-2">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              
+              {/* Main Form Section - Edit Mode */}
+              <div className="flex-1 order-1 lg:order-2">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                    <InlineValidation messages={validationMessages} className="mb-4" />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <FormField
                       control={form.control}
                       name="client"
@@ -1778,44 +2914,21 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                         <FormItem>
                           <FormLabel>{t('invoices.client')}</FormLabel>
                           <div className="flex gap-2">
-                            <Select
-                              disabled={isInvoicePaid}
+                            <SmartClientSelector
+                              clients={clients}
+                              value={field.value}
                               onValueChange={(value) => {
                                 field.onChange(value);
-                                // Trigger validation immediately after setting value
                                 form.trigger("client");
-                                // Set currency to client's preferred currency when client is selected
                                 const selectedClient = clients.find(c => c.id.toString() === value);
-                                console.log("🎯 Client selected:", value);
-                                console.log("🎯 Selected client data:", selectedClient);
-                                console.log("🎯 Client preferred currency:", selectedClient?.preferred_currency);
-                                console.log("🎯 Is edit mode:", isEdit);
-                                console.log("🎯 Current form currency before update:", form.getValues("currency"));
-                                
                                 if (selectedClient?.preferred_currency && !isInvoicePaid) {
-                                  console.log("✅ Setting invoice currency to client's preferred:", selectedClient.preferred_currency);
                                   form.setValue("currency", selectedClient.preferred_currency);
-                                  console.log("✅ Form currency after setValue:", form.getValues("currency"));
-                                } else {
-                                  console.log("❌ Not setting currency - preferred_currency:", selectedClient?.preferred_currency, "isEdit:", isEdit);
                                 }
                               }}
-                              value={field.value}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={t('invoices.select_a_client')} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {clients.map((client) => (
-                                  <SelectItem key={client.id} value={client.id.toString()}>
-                                    {client.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onCreateNew={() => setShowNewClientDialog(true)}
+                              placeholder={t('invoices.select_a_client')}
+                              disabled={isInvoicePaid}
+                            />
                             {!isInvoicePaid && (
                               <Button
                                 type="button"
@@ -2773,109 +3886,123 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     )}
                   </div>
 
-                  <div className="flex justify-end gap-4">
+                    <div className="flex justify-end gap-4">
+                      <Button type="submit">
+                        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {t('invoices.update_invoice')}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </div>
+              
+              {/* Preview Section - Right Side */}
+              <div className="w-full lg:w-96 order-3">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold text-lg">{t('invoices.preview')}</div>
+                    <TemplateSelector 
+                      value={selectedTemplate} 
+                      onChange={(template) => {
+                        setSelectedTemplate(template);
+                        setPreviewKey(prev => prev + 1);
+                      }} 
+                    />
+                  </div>
+                </div>
+                <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                  <div className="h-[500px] overflow-auto">
+                    <React.Suspense fallback={<div className="p-4">{t('invoices.loading_preview')}</div>}>
+                      {previewInvoice && settings && (
+                        <PDFDownloadLink 
+                          document={
+                            <InvoicePDF 
+                              invoice={previewInvoice} 
+                              companyName={settings.company_info?.name || "Your Company"} 
+                              showDiscount={form.watch("showDiscountInPdf")}
+                              template={selectedTemplate}
+                            />
+                          } 
+                          fileName={`invoice-${previewInvoice.number}.pdf`}
+                          key={`${previewKey}-${selectedTemplate}`}
+                        >
+                          {({ url, loading }) =>
+                            loading ? (
+                              <div className="p-4">{t('invoices.loading_preview')}</div>
+                            ) : (
+                              <iframe
+                                src={url || ''}
+                                title="Invoice PDF Preview"
+                                className="w-full h-[480px] border-none"
+                              />
+                            )
+                          }
+                        </PDFDownloadLink>
+                      )}
+                    </React.Suspense>
+                  </div>
+                  <div className="p-2 border-t flex justify-between items-center">
+                    {previewInvoice && settings ? (
+                      <div className="flex items-center gap-2">
+                        <PDFDownloadLink 
+                          document={
+                            <InvoicePDF 
+                              invoice={previewInvoice} 
+                              companyName={settings.company_info?.name || "Your Company"} 
+                              showDiscount={form.watch("showDiscountInPdf")}
+                              template={selectedTemplate}
+                            />
+                          } 
+                          fileName={`invoice-${previewInvoice.number}.pdf`}
+                        >
+                          {({ loading }) =>
+                            loading ? t('invoices.preparing_pdf') : <span className="text-blue-600 hover:underline cursor-pointer">{t('invoices.download_pdf')}</span>
+                          }
+                        </PDFDownloadLink>
+                        <span className="text-xs text-gray-500">({selectedTemplate})</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 text-sm">{t('invoices.save_invoice_first')}</span>
+                    )}
+                    
                     <Button
-                      type="submit"
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={sendInvoiceEmail}
+                      disabled={sendingEmail || (!(invoice?.id || previewInvoice?.id))}
+                      className="flex items-center gap-2 bg-green-100 border-green-300"
                     >
-                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isEdit ? t('invoices.update_invoice') : t('invoices.create_invoice')}
+                      {sendingEmail ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
+                      {sendingEmail ? t('invoices.sending') : t('invoices.send_email')}
                     </Button>
                   </div>
-                </form>
-              </Form>
-            </div>
-            
-            {/* Preview Section - Right Side */}
-            <div className="w-full lg:w-96 order-3">
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-lg">{t('invoices.preview')}</div>
-                  <TemplateSelector 
-                    value={selectedTemplate} 
-                    onChange={(template) => {
-                      setSelectedTemplate(template);
-                      setPreviewKey(prev => prev + 1); // Force preview refresh
-                    }} 
-                  />
-                </div>
-              </div>
-              <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
-                <div className="h-[500px] overflow-auto">
-                  <React.Suspense fallback={<div className="p-4">{t('invoices.loading_preview')}</div>}>
-                    {previewInvoice && settings && (
-                      <PDFDownloadLink 
-                        document={
-                          <InvoicePDF 
-                            invoice={previewInvoice} 
-                            companyName={settings.company_info?.name || "Your Company"} 
-                            showDiscount={form.watch("showDiscountInPdf")}
-                            template={selectedTemplate}
-                          />
-                        } 
-                        fileName={`invoice-${previewInvoice.number}.pdf`}
-                        key={`${previewKey}-${selectedTemplate}`}
-                      >
-                        {({ url, loading }) =>
-                          loading ? (
-                            <div className="p-4">{t('invoices.loading_preview')}</div>
-                          ) : (
-                            <iframe
-                              src={url || ''}
-                              title="Invoice PDF Preview"
-                              className="w-full h-[480px] border-none"
-                            />
-                          )
-                        }
-                      </PDFDownloadLink>
-                    )}
-                  </React.Suspense>
-                </div>
-                <div className="p-2 border-t flex justify-between items-center">
-                  {previewInvoice && settings ? (
-                    <div className="flex items-center gap-2">
-                      <PDFDownloadLink 
-                        document={
-                          <InvoicePDF 
-                            invoice={previewInvoice} 
-                            companyName={settings.company_info?.name || "Your Company"} 
-                            showDiscount={form.watch("showDiscountInPdf")}
-                            template={selectedTemplate}
-                          />
-                        } 
-                        fileName={`invoice-${previewInvoice.number}.pdf`}
-                      >
-                        {({ loading }) =>
-                          loading ? t('invoices.preparing_pdf') : <span className="text-blue-600 hover:underline cursor-pointer">{t('invoices.download_pdf')}</span>
-                        }
-                      </PDFDownloadLink>
-                      <span className="text-xs text-gray-500">({selectedTemplate})</span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 text-sm">{t('invoices.save_invoice_first')}</span>
-                  )}
-                  
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={sendInvoiceEmail}
-                    disabled={sendingEmail || (!(invoice?.id || previewInvoice?.id))}
-                    className="flex items-center gap-2 bg-green-100 border-green-300"
-                  >
-                    {sendingEmail ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Mail className="h-4 w-4" />
-                    )}
-                    {sendingEmail ? t('invoices.sending') : t('invoices.send_email')}
-                  </Button>
                 </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Clear draft on successful submission */}
+      {!isEdit && (
+        <script>
+          {`
+            if (typeof window !== 'undefined') {
+              window.addEventListener('beforeunload', () => {
+                if (!${submitting}) {
+                  localStorage.removeItem('invoice_draft');
+                }
+              });
+            }
+          `}
+        </script>
+      )}
+      
       {/* Attachment Preview Modal */}
       <Dialog open={attachmentPreview.open} onOpenChange={(o) => {
         if (!o && attachmentPreview.url) URL.revokeObjectURL(attachmentPreview.url);
@@ -2980,7 +4107,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                 value={newClientForm.preferred_currency || 'USD'}
                 onValueChange={(val) => setNewClientForm({ ...newClientForm, preferred_currency: val })}
                 placeholder={t('invoices.select_preferred_currency')}
-                onCurrenciesLoaded={() => setCurrenciesLoaded(true)}
               />
             </div>
           </div>
@@ -3002,6 +4128,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
           open={showHistoryDetailsModal}
           onClose={handleCloseHistoryDetails}
           historyEntry={selectedHistoryEntry}
+          clients={clients}
         />
       )}
     </div>

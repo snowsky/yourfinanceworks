@@ -171,7 +171,7 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCr
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              {t('invoices.enter_invoice_details_manually')}
+              Create invoices with Quick Create (single page) or Guided Create (step-by-step)
             </p>
 
             <div className="space-y-3">
