@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 import uuid
 import shutil
+import sqlalchemy as sa
 
 from models.database import get_db
 from models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
@@ -58,7 +59,7 @@ async def list_expenses(
             query = query.filter(Expense.invoice_id == invoice_id)
         if unlinked_only:
             query = query.filter(Expense.invoice_id.is_(None))
-        expenses = query.order_by(Expense.expense_date.desc()).offset(skip).limit(limit).all()
+        expenses = query.order_by(Expense.id.desc()).offset(skip).limit(limit).all()
         # Add attachment count for preview
         try:
             for ex in expenses:
@@ -535,64 +536,60 @@ async def list_expense_attachments(
     ]
 
 
-@router.post("/requeue-queued")
-async def requeue_queued_expenses(
-    expense_id: Optional[int] = None,
+@router.post("/{expense_id}/reprocess")
+async def reprocess_expense(
+    expense_id: int,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    """Scan for expenses with analysis_status='queued' and re-publish OCR tasks.
-
-    - If expense_id is provided, only attempts requeue for that expense when in queued status.
-    - For each matching expense, uses the most recent attachment to re-trigger analysis.
-    """
-    require_non_viewer(current_user, "requeue expenses for OCR")
+    """Reprocess expense OCR analysis for pending/queued expenses."""
+    require_non_viewer(current_user, "reprocess expenses")
     try:
+        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        if not expense:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        
+        if expense.analysis_status not in ["pending", "queued", "failed"]:
+            raise HTTPException(status_code=400, detail=f"Cannot reprocess expense with status: {expense.analysis_status}")
+        
+        # Find the most recent attachment
+        att = (
+            db.query(ExpenseAttachment)
+            .filter(ExpenseAttachment.expense_id == expense_id)
+            .order_by(ExpenseAttachment.uploaded_at.desc())
+            .first()
+        )
+        if not att or not getattr(att, "file_path", None):
+            raise HTTPException(status_code=400, detail="No attachment found to reprocess")
+        
         from models.database import get_tenant_context
         tenant_id = get_tenant_context()
-
-        q = db.query(Expense).filter(Expense.analysis_status == "queued")
-        if expense_id is not None:
-            q = q.filter(Expense.id == int(expense_id))
-        items = q.all()
-        total = len(items)
-        success = 0
-        skipped_no_attachment = 0
-        failed = 0
-
-        for exp in items:
-            # Find the most recent attachment
-            att = (
-                db.query(ExpenseAttachment)
-                .filter(ExpenseAttachment.expense_id == exp.id)
-                .order_by(ExpenseAttachment.uploaded_at.desc())
-                .first()
-            )
-            if not att or not getattr(att, "file_path", None):
-                skipped_no_attachment += 1
-                continue
-            try:
-                queue_or_process_attachment(
-                    db=db,
-                    tenant_id=tenant_id,
-                    expense_id=exp.id,
-                    attachment_id=att.id,
-                    file_path=str(att.file_path),
-                )
-                success += 1
-            except Exception as e:
-                logger.error(f"Failed to requeue expense {exp.id}: {e}")
-                failed += 1
-
-        return {
-            "total_candidates": total,
-            "requeued": success,
-            "skipped_no_attachment": skipped_no_attachment,
-            "failed": failed,
-        }
+        
+        # Reset status and requeue
+        expense.analysis_status = "queued"
+        expense.analysis_error = None
+        expense.manual_override = False
+        expense.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        
+        queue_or_process_attachment(
+            db=db,
+            tenant_id=tenant_id,
+            expense_id=expense_id,
+            attachment_id=att.id,
+            file_path=str(att.file_path),
+        )
+        
+        return {"message": "Expense reprocessing started", "status": "queued"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to requeue queued expenses: {e}")
-        raise HTTPException(status_code=500, detail="Failed to requeue queued expenses")
+        db.rollback()
+        logger.error(f"Failed to reprocess expense {expense_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reprocess expense")
+
+
+
 
 @router.delete("/{expense_id}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_expense_attachment(

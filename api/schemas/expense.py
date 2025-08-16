@@ -21,7 +21,7 @@ class ExpenseBase(BaseModel):
     invoice_id: Optional[int] = Field(None, description="Linked invoice ID (one expense -> at most one invoice)")
     # OCR/AI analysis flags
     imported_from_attachment: Optional[bool] = Field(False, description="Whether this expense originated from an uploaded file")
-    analysis_status: Optional[str] = Field("not_started", description="OCR analysis status: not_started|queued|processing|done|failed|cancelled")
+    analysis_status: Optional[str] = Field("not_started", description="OCR analysis status: not_started|pending|queued|processing|done|failed|cancelled")
     analysis_result: Optional[dict] = Field(None, description="Raw analysis payload from OCR/LLM")
     analysis_error: Optional[str] = Field(None, description="Error message if analysis failed")
     manual_override: Optional[bool] = Field(False, description="True if user manually edited; stops further analysis")

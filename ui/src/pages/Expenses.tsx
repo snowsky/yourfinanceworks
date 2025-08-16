@@ -251,12 +251,12 @@ const Expenses = () => {
 
   const handleRequeue = async (expenseId: number) => {
     try {
-      await api.post(`/expenses/requeue-queued?expense_id=${expenseId}`);
-      toast.success('Requeued for analysis');
+      await expenseApi.reprocessExpense(expenseId);
+      toast.success('Expense reprocessing started');
       const data = await expenseApi.getExpenses(categoryFilter);
       setExpenses(data);
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to requeue');
+      toast.error(e?.message || 'Failed to reprocess expense');
     }
   };
 
@@ -599,7 +599,7 @@ const Expenses = () => {
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
-                          {e.analysis_status === 'queued' && canPerformActions() && (
+                          {e.analysis_status && e.analysis_status !== 'done' && canPerformActions() && (
                             <Button variant="ghost" size="sm" className="ml-2" onClick={() => handleRequeue(e.id)}>
                               {t('expenses.process_again', { defaultValue: 'Process Again' })}
                             </Button>

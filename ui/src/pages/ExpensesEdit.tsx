@@ -142,7 +142,36 @@ export default function ExpensesEdit() {
 
         <Card className="slide-in">
           <CardHeader>
-            <CardTitle>Details</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Details</CardTitle>
+              {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await expenseApi.reprocessExpense(Number(id));
+                      toast.success('Expense reprocessing started');
+                      // Refresh the expense data
+                      const exp = await expenseApi.getExpense(Number(id));
+                      setForm(exp);
+                    } catch (e: any) {
+                      toast.error(e?.message || 'Failed to reprocess expense');
+                    }
+                  }}
+                >
+                  Process Again
+                </Button>
+              )}
+            </div>
+            {(form as any)?.analysis_status && (
+              <div className="text-sm text-muted-foreground">
+                Analysis Status: <span className="capitalize">{(form as any).analysis_status}</span>
+                {(form as any)?.analysis_error && (
+                  <span className="text-red-600 ml-2">({(form as any).analysis_error})</span>
+                )}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

@@ -1103,6 +1103,10 @@ export const expenseApi = {
     }
     return await resp.blob();
   },
+  reprocessExpense: (expenseId: number) =>
+    apiRequest<{ message: string; status: string }>(`/expenses/${expenseId}/reprocess`, {
+      method: 'POST',
+    }),
 };
 
 // Dashboard API
