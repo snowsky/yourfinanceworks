@@ -659,7 +659,7 @@ const Expenses = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                         No expenses yet
                       </TableCell>
                     </TableRow>
