@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { HelpCenter } from "@/components/onboarding/HelpCenter";
 import { 
   BarChart, 
   ChevronLeft, 
@@ -400,27 +401,32 @@ export function AppSidebar() {
     { 
       path: '/clients', 
       label: t('navigation.clients'),
-      icon: <Users className="w-5 h-5" /> 
+      icon: <Users className="w-5 h-5" />,
+      tourId: 'nav-clients'
     },
     { 
       path: '/invoices', 
       label: t('navigation.invoices'),
-      icon: <FileText className="w-5 h-5" /> 
+      icon: <FileText className="w-5 h-5" />,
+      tourId: 'nav-invoices'
     },
     { 
       path: '/payments', 
       label: t('navigation.payments'),
-      icon: <DollarSign className="w-5 h-5" /> 
+      icon: <DollarSign className="w-5 h-5" />,
+      tourId: 'nav-payments'
     },
     { 
       path: '/expenses', 
       label: t('navigation.expenses'),
-      icon: <DollarSign className="w-5 h-5" /> 
+      icon: <DollarSign className="w-5 h-5" />,
+      tourId: 'nav-expenses'
     },
     { 
       path: '/bank-statements', 
       label: t('navigation.bank_statements'),
-      icon: <FileText className="w-5 h-5" /> 
+      icon: <FileText className="w-5 h-5" />,
+      tourId: 'nav-bank-statements'
     },
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
@@ -431,7 +437,8 @@ export function AppSidebar() {
     ...((!roleLoading && isAdminEffective && isPrimaryTenant) ? [{ 
       path: '/settings', 
       label: t('navigation.settings'), 
-      icon: <Settings className="w-5 h-5" /> 
+      icon: <Settings className="w-5 h-5" />,
+      tourId: 'nav-settings'
     }] : []),
     // Users is now a sub-entry under Settings for admins
     ...((!roleLoading && isAdminEffective) ? [{
@@ -465,7 +472,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar>
+      <Sidebar data-tour="sidebar">
         <SidebarHeader className="py-6 px-4 border-b border-sidebar-border">
           {/* Company Logo Section */}
           <div className="flex items-center justify-between mb-4">
@@ -581,7 +588,11 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild 
                   className={isActive(item.path) ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/80 hover:text-white"}
                 >
-                  <Link to={item.path} className="flex items-center gap-3 px-3 py-2">
+                  <Link 
+                    to={item.path} 
+                    className="flex items-center gap-3 px-3 py-2"
+                    data-tour={item.tourId}
+                  >
                     {item.icon}
                     <span>{item.label}</span>
                   </Link>
@@ -599,7 +610,11 @@ export function AppSidebar() {
                 <SidebarMenuButton asChild 
                   className={isActive(item.path) ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/80 hover:text-white"}
                 >
-                  <Link to={item.path} className="flex items-center gap-3 px-3 py-2">
+                  <Link 
+                    to={item.path} 
+                    className="flex items-center gap-3 px-3 py-2"
+                    data-tour={item.tourId}
+                  >
                     {item.icon}
                     <span>{item.label}</span>
                   </Link>
@@ -609,18 +624,23 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="py-4 px-2 border-t border-sidebar-border space-y-4">
-          <div className="px-2 flex items-center gap-2">
-            <LanguageSwitcher />
-            <Button
+          <div className="px-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher />
+              <Button
               variant="outline"
               size="icon"
               aria-label={t('navigation.dark_mode')}
               title={t('navigation.dark_mode')}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="ml-2 border-sidebar-border bg-sidebar hover:bg-sidebar-accent text-sidebar-foreground hover:text-white"
+              className="border-sidebar-border bg-sidebar hover:bg-sidebar-accent text-sidebar-foreground hover:text-white"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
+            </div>
+            <div className="flex justify-center">
+              <HelpCenter />
+            </div>
           </div>
           <div className="flex justify-center">
             <Button 

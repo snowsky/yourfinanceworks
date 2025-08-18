@@ -1367,6 +1367,17 @@
     "REVIEW_PAYMENT_TERMS_SLOW_CLIENTS": "Review payment terms for slow-paying clients.",
     "START_CREATING_INVOICES": "Start creating invoices to track your business."
   },
+  "helpCenter": {
+    "title": "Help Center",
+    "description": "Get help and learn how to use the application",
+    "searchPlaceholder": "Search for help...",
+    "tours": "Interactive Tours",
+    "documentation": "Documentation",
+    "support": "Support",
+    "startTour": "Start Tour",
+    "viewDocs": "View Documentation",
+    "contactSupport": "Contact Support"
+  },
   "currency_manager": {
     "custom_currencies": "Custom Currencies",
     "custom_currencies_description": "Add your own currencies like Bitcoin, Ethereum, or other cryptocurrencies",

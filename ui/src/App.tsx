@@ -42,6 +42,9 @@ import { Favicon } from "./components/ui/favicon";
 import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
+import { OnboardingProvider } from "./components/onboarding/OnboardingProvider";
+import { TourOverlay } from "./components/onboarding/TourOverlay";
+import { OnboardingWelcome } from "./components/onboarding/OnboardingWelcome";
 
 const queryClient = new QueryClient();
 
@@ -73,13 +76,14 @@ const AppContent = () => {
   }, [notifications]);
 
   return (
-    <TooltipProvider>
-      <Favicon 
-        logoUrl={settings?.company_info?.logo}
-        companyName={settings?.company_info?.name}
-      />
+    <OnboardingProvider>
+      <TooltipProvider>
+        <Favicon 
+          logoUrl={settings?.company_info?.logo}
+          companyName={settings?.company_info?.name}
+        />
 
-      <BrowserRouter>
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/oauth-callback" element={<OAuthCallback />} />
@@ -109,8 +113,10 @@ const AppContent = () => {
           <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-      <AIAssistant />
+        </BrowserRouter>
+        <TourOverlay />
+        <OnboardingWelcome />
+        <AIAssistant />
       {isLoggedIn && !bellHidden && (
         <NotificationBell 
           notifications={notifications}
@@ -128,8 +134,9 @@ const AppContent = () => {
           <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
         </div>
       )}
-      <Toaster position="top-center" richColors />
-    </TooltipProvider>
+        <Toaster position="top-center" richColors />
+      </TooltipProvider>
+    </OnboardingProvider>
   );
 };
 

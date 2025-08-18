@@ -9,6 +9,8 @@ import { dashboardApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
 import { DisplayMD, BodyLG } from "@/components/ui/typography";
+import { HelpTooltip } from "@/components/onboarding/HelpTooltip";
+import { ProgressiveDisclosure } from "@/components/onboarding/ProgressiveDisclosure";
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -159,16 +161,22 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div>
-          <DisplayMD>
-            {userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
-          </DisplayMD>
+        <div data-tour="dashboard-welcome">
+          <div className="flex items-center gap-2">
+            <DisplayMD>
+              {userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
+            </DisplayMD>
+            <HelpTooltip 
+              content="This dashboard provides an overview of your business finances, including income, pending invoices, and client metrics."
+              title="Dashboard Overview"
+            />
+          </div>
           <BodyLG className="text-muted-foreground mt-2">
             {tenantName ? t('dashboard.tenant_overview', { tenant: tenantName }) : t('dashboard.overview')}
           </BodyLG>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 slide-in">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 slide-in" data-tour="dashboard-stats">
           <StatCard
             title={t('dashboard.stats.total_income')}
             value={formatMultiCurrencyString(dashboardStats.totalIncome)}
@@ -211,10 +219,54 @@ const Dashboard = () => {
           />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-in" style={{ animationDelay: '100ms' }}>
-          <InvoiceChart />
-          <RecentInvoices />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 slide-in" style={{ animationDelay: '100ms' }}>
+          <div className="lg:col-span-3" data-tour="dashboard-chart">
+            <InvoiceChart />
+          </div>
+          <div className="lg:col-span-2" data-tour="dashboard-recent">
+            <RecentInvoices />
+          </div>
         </div>
+        
+        <ProgressiveDisclosure
+          features={[
+            {
+              id: 'ai-assistant',
+              title: 'AI Business Assistant',
+              description: 'Get intelligent insights about your business data and automate routine tasks.',
+              category: 'automation',
+              difficulty: 'beginner',
+              action: () => {
+                const aiButton = document.querySelector('[data-ai-assistant-trigger]') as HTMLElement;
+                if (aiButton) aiButton.click();
+              }
+            },
+            {
+              id: 'email-automation',
+              title: 'Automated Email Reminders',
+              description: 'Set up automatic payment reminders for overdue invoices.',
+              category: 'automation',
+              difficulty: 'intermediate',
+              action: () => window.location.href = '/settings'
+            },
+            {
+              id: 'advanced-analytics',
+              title: 'Advanced Analytics Dashboard',
+              description: 'Deep dive into your business metrics with advanced charts and forecasting.',
+              category: 'analytics',
+              difficulty: 'intermediate',
+              action: () => window.location.href = '/analytics'
+            },
+            {
+              id: 'api-integration',
+              title: 'API Integration',
+              description: 'Connect with external accounting software and payment processors.',
+              category: 'integration',
+              difficulty: 'advanced'
+            }
+          ]}
+          className="mt-6"
+        />
       </div>
     </AppLayout>
   );

@@ -1501,5 +1501,16 @@
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Considere implementar condiciones de pago más estrictas.",
     "REVIEW_PAYMENT_TERMS_SLOW_CLIENTS": "Revise las condiciones de pago para los clientes que pagan lentamente.",
     "START_CREATING_INVOICES": "Comience a crear facturas para hacer un seguimiento de su negocio."
+  },
+  "helpCenter": {
+    "title": "Centro de Ayuda",
+    "description": "Obtén ayuda y aprende cómo usar la aplicación",
+    "searchPlaceholder": "Buscar ayuda...",
+    "tours": "Tours Interactivos",
+    "documentation": "Documentación",
+    "support": "Soporte",
+    "startTour": "Iniciar Tour",
+    "viewDocs": "Ver Documentación",
+    "contactSupport": "Contactar Soporte"
   }
 } 

@@ -35,6 +35,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
 import { getErrorMessage } from '@/lib/api';
 import { Checkbox } from "@/components/ui/checkbox";
+import { HelpTooltip } from "@/components/onboarding/HelpTooltip";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -2911,8 +2912,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       control={form.control}
                       name="client"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('invoices.client')}</FormLabel>
+                        <FormItem data-tour="client-selector">
+                          <div className="flex items-center gap-2">
+                            <FormLabel>{t('invoices.client')}</FormLabel>
+                            <HelpTooltip 
+                              content="Select an existing client or create a new one. Client information will be used for billing and contact details."
+                              title="Client Selection"
+                            />
+                          </div>
                           <div className="flex gap-2">
                             <SmartClientSelector
                               clients={clients}
@@ -3240,9 +3247,15 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-tour="invoice-items">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">{t('invoices.items')}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-medium">{t('invoices.items')}</h3>
+                        <HelpTooltip 
+                          content="Add products or services to your invoice. Include detailed descriptions, quantities, and prices for accurate billing."
+                          title="Invoice Items"
+                        />
+                      </div>
                       <Button
                         type="button"
                         variant="outline"

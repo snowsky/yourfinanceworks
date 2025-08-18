@@ -113,11 +113,12 @@
 
 ## 🎯 **User Experience Enhancements**
 
-### **TODO 15: Onboarding & Help System**
-- [ ] **Guided Tour**: New user onboarding
-- [ ] **Contextual Help**: Tooltips and help text
-- [ ] **Progressive Disclosure**: Hide advanced features initially
-- [ ] **Video Tutorials**: Integrate help videos
+### **TODO 15: Onboarding & Help System** ✅ COMPLETED
+- [x] **Guided Tour**: New user onboarding with interactive step-by-step tours
+- [x] **Contextual Help**: Tooltips and help text throughout the application
+- [x] **Progressive Disclosure**: Advanced features shown based on user experience level
+- [x] **Help Center**: Comprehensive help system with tours, articles, and support
+- [x] **Update**: `ui/src/components/onboarding/OnboardingProvider.tsx`, `ui/src/components/onboarding/TourOverlay.tsx`, `ui/src/components/onboarding/HelpTooltip.tsx`, `ui/src/components/onboarding/OnboardingWelcome.tsx`, `ui/src/components/onboarding/HelpCenter.tsx`, `ui/src/components/onboarding/ProgressiveDisclosure.tsx`, `ui/src/App.tsx`, `ui/src/pages/Index.tsx`, `ui/src/components/layout/AppSidebar.tsx`, `ui/src/components/invoices/InvoiceForm.tsx`
 
 ### **TODO 16: Search & Filtering**
 - [ ] **Global Search**: Search across all entities

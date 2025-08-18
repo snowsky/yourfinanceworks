@@ -1481,5 +1481,16 @@
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Envisagez de mettre en place des conditions de paiement plus strictes.",
     "REVIEW_PAYMENT_TERMS_SLOW_CLIENTS": "Révisez les conditions de paiement pour les clients qui paient lentement.",
     "START_CREATING_INVOICES": "Commencez à créer des factures pour suivre votre activité."
+  },
+  "helpCenter": {
+    "title": "Centre d'Aide",
+    "description": "Obtenez de l'aide et apprenez à utiliser l'application",
+    "searchPlaceholder": "Rechercher de l'aide...",
+    "tours": "Visites Interactives",
+    "documentation": "Documentation",
+    "support": "Support",
+    "startTour": "Commencer la Visite",
+    "viewDocs": "Voir la Documentation",
+    "contactSupport": "Contacter le Support"
   }
 } 
