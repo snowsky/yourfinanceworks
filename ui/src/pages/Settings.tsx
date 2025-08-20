@@ -850,6 +850,7 @@ const Settings = () => {
       provider_name: provider,
       model_name: 
         provider === "openai" ? "gpt-4" :
+        provider === "openrouter" ? "openai/gpt-4" :
         provider === "ollama" ? "llama2" :
         provider === "anthropic" ? "claude-3-sonnet" :
         provider === "google" ? "gemini-pro" :
@@ -2207,6 +2208,7 @@ const Settings = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="openai">{t('settings.openai')}</SelectItem>
+                      <SelectItem value="openrouter">OpenRouter</SelectItem>
                       <SelectItem value="ollama">{t('settings.ollama')}</SelectItem>
                       <SelectItem value="anthropic">{t('settings.anthropic')}</SelectItem>
                       <SelectItem value="google">{t('settings.google')}</SelectItem>
@@ -2224,6 +2226,7 @@ const Settings = () => {
                     onChange={handleAIConfigChange}
                     placeholder={
                       newAIConfig.provider_name === "openai" ? t('settings.openai_model_example') :
+                      newAIConfig.provider_name === "openrouter" ? "openai/gpt-4, anthropic/claude-3-sonnet" :
                       newAIConfig.provider_name === "ollama" ? t('settings.ollama_model_example') :
                       newAIConfig.provider_name === "anthropic" ? t('settings.anthropic_model_example') :
                       newAIConfig.provider_name === "google" ? t('settings.google_model_example') :
@@ -2232,6 +2235,7 @@ const Settings = () => {
                   />
                   <p className="text-sm text-muted-foreground">
                     {newAIConfig.provider_name === "openai" && t('settings.openai_model_hint')}
+                    {newAIConfig.provider_name === "openrouter" && "Access 100+ models via OpenRouter. Use format: provider/model (e.g., openai/gpt-4, anthropic/claude-3-sonnet)"}
                     {newAIConfig.provider_name === "ollama" && t('settings.ollama_model_hint')}
                     {newAIConfig.provider_name === "anthropic" && t('settings.anthropic_model_hint')}
                     {newAIConfig.provider_name === "google" && t('settings.google_model_hint')}

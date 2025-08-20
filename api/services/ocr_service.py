@@ -254,19 +254,31 @@ def cancel_ocr_tasks_for_expense(expense_id: int) -> None:
     # No-op: If using Kafka, consider producing a cancel message or managing an outbox/processing table.
 
 
-async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Run OCR using Ollama OCR library if available, else return empty result."""
     try:
         from ollama_ocr import OCRProcessor  # type: ignore
 
-        model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
-        # Configure the complete endpoint URL for ollama-ocr library
-        # If OLLAMA_OCR_ENDPOINT is set, use it directly, otherwise construct from base URL
-        ocr_endpoint = os.getenv("OLLAMA_OCR_ENDPOINT")
-        if not ocr_endpoint:
-            base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
-            ocr_endpoint = f"{base_url}/api/generate"  # Default Ollama endpoint
-        logger.info(f"Starting OCR: file={file_path} model={model_name} endpoint={ocr_endpoint}")
+        # Use AI config from database if available, otherwise fallback to environment variables
+        if ai_config:
+            model_name = ai_config.get("model_name", "llama3.2-vision:11b")
+            base_url = ai_config.get("provider_url", "http://localhost:11434")
+            # For Ollama, we need to append /api/generate to the base URL
+            if ai_config.get("provider_name") == "ollama" and not base_url.endswith("/api/generate"):
+                ocr_endpoint = f"{base_url}/api/generate"
+            else:
+                ocr_endpoint = base_url
+            logger.info(f"Starting OCR with AI config: file={file_path} model={model_name} endpoint={ocr_endpoint}")
+        else:
+            # Fallback to environment variables (legacy behavior)
+            model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
+            # Configure the complete endpoint URL for ollama-ocr library
+            # If OLLAMA_OCR_ENDPOINT is set, use it directly, otherwise construct from base URL
+            ocr_endpoint = os.getenv("OLLAMA_OCR_ENDPOINT")
+            if not ocr_endpoint:
+                base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
+                ocr_endpoint = f"{base_url}/api/generate"  # Default Ollama endpoint
+            logger.info(f"Starting OCR with env vars: file={file_path} model={model_name} endpoint={ocr_endpoint}")
         ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
         prompt = custom_prompt or (
             "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
@@ -304,7 +316,7 @@ async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None) -
 
 async def process_attachment_inline(db: Session, expense_id: int, attachment_id: int, file_path: str) -> None:
     """Fallback inline processing when Kafka is not configured."""
-    from models.models_per_tenant import Expense  # local import to avoid circulars
+    from models.models_per_tenant import Expense, AIConfig as AIConfigModel  # local import to avoid circulars
     expense = db.query(Expense).filter(Expense.id == expense_id).first()
     if not expense:
         return
@@ -317,8 +329,28 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
     except Exception:
         db.rollback()
 
+    # Fetch AI config from database (same pattern as bank statement service)
+    ai_config = None
+    try:
+        ai_row = db.query(AIConfigModel).filter(
+            AIConfigModel.is_active == True,
+            AIConfigModel.tested == True
+        ).first()
+        if ai_row:
+            ai_config = {
+                "provider_name": ai_row.provider_name,
+                "provider_url": ai_row.provider_url,
+                "api_key": ai_row.api_key,
+                "model_name": ai_row.model_name,
+            }
+            logger.info(f"Using AI config from database: provider={ai_row.provider_name}, model={ai_row.model_name}")
+        else:
+            logger.info("No active AI config found in database, falling back to environment variables")
+    except Exception as e:
+        logger.warning(f"Failed to fetch AI config from database: {e}, falling back to environment variables")
+
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
-    result = await _run_ollama_ocr(file_path)
+    result = await _run_ollama_ocr(file_path, ai_config=ai_config)
 
     # Update DB with result if still not overridden
     expense = db.query(Expense).filter(Expense.id == expense_id).first()

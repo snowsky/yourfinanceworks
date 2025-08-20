@@ -220,7 +220,7 @@ def main() -> int:
                             db.commit()
                         except Exception:
                             db.rollback()
-                        # Process with OCR
+                        # Process with OCR (uses updated process_attachment_inline that fetches AI config)
                         import asyncio
                         asyncio.get_event_loop().run_until_complete(
                             process_attachment_inline(db, expense_id, attachment_id, file_path)

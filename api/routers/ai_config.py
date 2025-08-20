@@ -177,6 +177,9 @@ async def test_ai_config(
             elif db_config.provider_name == "openai":
                 # For OpenAI, use as-is (LiteLLM recognizes OpenAI models)
                 model_name = db_config.model_name
+            elif db_config.provider_name == "openrouter":
+                # For OpenRouter, prefix with openrouter/
+                model_name = f"openrouter/{db_config.model_name}"
             elif db_config.provider_name == "anthropic":
                 # For Anthropic, use as-is (LiteLLM recognizes Anthropic models)
                 model_name = db_config.model_name
@@ -199,6 +202,12 @@ async def test_ai_config(
                     kwargs["api_key"] = db_config.api_key
                 if db_config.provider_url:
                     kwargs["api_base"] = db_config.provider_url
+            elif db_config.provider_name == "openrouter":
+                import os
+                if db_config.api_key:
+                    kwargs["api_key"] = db_config.api_key
+                elif os.getenv("OPENROUTER_API_KEY"):
+                    kwargs["api_key"] = os.getenv("OPENROUTER_API_KEY")
             elif db_config.provider_name == "ollama":
                 if db_config.provider_url:
                     kwargs["api_base"] = db_config.provider_url
