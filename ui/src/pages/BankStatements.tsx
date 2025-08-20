@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,7 @@ export default function BankStatements() {
   const [statementNotes, setStatementNotes] = useState<string>('');
   const [statementLabels, setStatementLabels] = useState<string[]>([]);
   const [newStatementLabel, setNewStatementLabel] = useState<string>('');
+  const [editingRow, setEditingRow] = useState<number | null>(null);
   const readOnly = detail?.status === 'processing';
 
   const formatStatus = (value?: string | null) => {
@@ -490,6 +491,11 @@ export default function BankStatements() {
                   <CardTitle>{t('bankStatements.transactions_title', { filename: detail?.original_filename || '' })}</CardTitle>
                 </div>
                 <p className="text-muted-foreground text-sm">{t('bankStatements.transactions_description')}</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {readOnly && (
@@ -644,60 +650,110 @@ export default function BankStatements() {
                       <TableRow key={idx}>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{(r as any).id ?? ''}</TableCell>
                         <TableCell>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-[160px] justify-start text-left font-normal" disabled={readOnly}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {r.date ? format(new Date(r.date), 'PPP') : 'Pick a date'}
-                              </Button>
-                            </PopoverTrigger>
-                            {!readOnly && (
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={r.date ? new Date(r.date) : undefined}
-                                  onSelect={(d) => {
-                                    if (!d) return;
-                                    const iso = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().split('T')[0];
-                                    setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
-                                  }}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            )}
-                          </Popover>
+                          {editingRow === idx ? (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-[200px] justify-start text-left font-normal" disabled={readOnly}>
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {r.date ? format(new Date(r.date), 'PPP') : 'Pick a date'}
+                                </Button>
+                              </PopoverTrigger>
+                              {!readOnly && (
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={r.date ? new Date(r.date) : undefined}
+                                    defaultMonth={r.date ? new Date(r.date) : undefined}
+                                    onSelect={(d) => {
+                                      if (!d) return;
+                                      const iso = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().split('T')[0];
+                                      setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              )}
+                            </Popover>
+                          ) : (
+                            <span className="text-sm">{r.date ? format(new Date(r.date), 'PPP') : 'No date'}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Input value={r.description} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} />
+                          {editingRow === idx ? (
+                            <div className="space-y-1">
+                              <Textarea 
+                                value={r.description} 
+                                onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} 
+                                rows={3}
+                                maxLength={500}
+                                className="min-w-[200px]"
+                              />
+                              <div className="text-xs text-muted-foreground">{r.description.length}/500 characters</div>
+                            </div>
+                          ) : (
+                            <span className="text-sm">{r.description}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={Number(r.amount)} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))} />
+                          {editingRow === idx ? (
+                            <Input type="number" value={Number(r.amount)} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))} />
+                          ) : (
+                            <span className="text-sm">${r.amount}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={r.balance ?? ''} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))} />
+                          {editingRow === idx ? (
+                            <Input type="number" value={r.balance ?? ''} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))} />
+                          ) : (
+                            <span className="text-sm">{r.balance ?? 'N/A'}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
-                            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="debit">debit (expense)</SelectItem>
-                              <SelectItem value="credit">credit (income)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {editingRow === idx ? (
+                            <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
+                              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="debit">debit (expense)</SelectItem>
+                                <SelectItem value="credit">credit (income)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-sm">{r.transaction_type === 'debit' ? 'debit (expense)' : 'credit (income)'}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Select value={r.category || 'Other'} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, category: v } : x))}>
-                            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {CATEGORY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
+                          {editingRow === idx ? (
+                            <Select value={r.category || 'Other'} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, category: v } : x))}>
+                              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {CATEGORY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-sm">{r.category || 'Other'}</span>
+                          )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {Boolean((r as any).expense_id) ? `#${(r as any).expense_id}` : '-'}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                if (editingRow === idx) {
+                                  setEditingRow(null);
+                                  await saveRows();
+                                } else {
+                                  setEditingRow(idx);
+                                }
+                              }}
+                              disabled={readOnly}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              {editingRow === idx ? 'Done' : 'Edit'}
+                            </Button>
                             {r.transaction_type === 'debit' && (
                               <>
                                 <Button
