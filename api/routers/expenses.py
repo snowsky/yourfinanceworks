@@ -387,6 +387,20 @@ async def delete_expense(
         except Exception as e:
             logger.warning(f"Failed to enumerate attachments for deletion: {e}")
 
+        # Unlink any bank statement transactions that reference this expense BEFORE deletion
+        try:
+            from models.models_per_tenant import BankStatementTransaction
+            linked_transactions = db.query(BankStatementTransaction).filter(
+                BankStatementTransaction.expense_id == expense_id
+            ).all()
+            for txn in linked_transactions:
+                txn.expense_id = None
+            if linked_transactions:
+                logger.info(f"Unlinked {len(linked_transactions)} bank transactions from deleted expense {expense_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unlink bank transactions from expense {expense_id}: {e}")
+
+        # Delete the expense (unlinking should prevent FK constraint errors)
         db.delete(db_expense)
         db.commit()
 

@@ -29,8 +29,8 @@ def query_audit_log(user_email: str):
     try:
         logger.info(f"Querying audit log for user: {user_email}")
         
-        # Query for delete and update actions
-        actions = ["DELETE", "UPDATE"]
+        # Query for delete and update actions (including new user-friendly names)
+        actions = ["DELETE", "UPDATE", "Soft Delete", "Permanent Delete", "Empty Recycle Bin", "Restore"]
         
         log_entries = db.query(AuditLog).filter(
             AuditLog.user_email == user_email,

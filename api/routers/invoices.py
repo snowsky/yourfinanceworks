@@ -621,7 +621,7 @@ async def empty_recycle_bin(
             db=db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="EMPTY_RECYCLE_BIN",
+            action="Empty Recycle Bin",
             resource_type="invoice",
             resource_id=None,
             resource_name=None,
@@ -695,7 +695,7 @@ async def restore_invoice(
             db=db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="RESTORE",
+            action="Restore",
             resource_type="invoice",
             resource_id=str(invoice_id),
             resource_name=f"Invoice {db_invoice.number}",
@@ -743,6 +743,19 @@ async def permanently_delete_invoice(
         # Only admins can permanently delete invoices
         require_admin(current_user, "permanently delete invoices")
         
+        # Unlink any bank statement transactions that reference this invoice  
+        try:
+            from models.models_per_tenant import BankStatementTransaction
+            linked_transactions = db.query(BankStatementTransaction).filter(
+                BankStatementTransaction.invoice_id == invoice_id
+            ).all()
+            for txn in linked_transactions:
+                txn.invoice_id = None
+            if linked_transactions:
+                logger.info(f"Unlinked {len(linked_transactions)} bank transactions from permanently deleted invoice {invoice_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unlink bank transactions from permanently deleted invoice {invoice_id}: {e}")
+
         # Log the permanent deletion before deleting
         from models.models_per_tenant import InvoiceHistory
         history_entry = InvoiceHistory(
@@ -768,7 +781,7 @@ async def permanently_delete_invoice(
             db=db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="PERMANENT_DELETE",
+            action="Permanent Delete",
             resource_type="invoice",
             resource_id=str(invoice_id),
             resource_name=f"Invoice {db_invoice.number}",
@@ -1289,6 +1302,19 @@ async def delete_invoice(
                 detail="Invoice not found or already deleted"
             )
         
+        # Unlink any bank statement transactions that reference this invoice
+        try:
+            from models.models_per_tenant import BankStatementTransaction
+            linked_transactions = db.query(BankStatementTransaction).filter(
+                BankStatementTransaction.invoice_id == invoice_id
+            ).all()
+            for txn in linked_transactions:
+                txn.invoice_id = None
+            if linked_transactions:
+                logger.info(f"Unlinked {len(linked_transactions)} bank transactions from deleted invoice {invoice_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unlink bank transactions from invoice {invoice_id}: {e}")
+
         # Soft delete the invoice
         db_invoice.is_deleted = True
         db_invoice.deleted_at = datetime.now(timezone.utc)
@@ -1312,7 +1338,7 @@ async def delete_invoice(
             db=db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="DELETE",
+            action="Soft Delete",
             resource_type="invoice",
             resource_id=str(invoice_id),
             resource_name=f"Invoice {db_invoice.number}",

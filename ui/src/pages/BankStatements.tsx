@@ -11,8 +11,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit } from 'lucide-react';
-import { format } from 'date-fns';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -22,7 +23,28 @@ const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
 ];
 
-type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null };
+type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null };
+
+// Helper function to format date without timezone issues
+const formatDateToISO = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to safely parse date strings without timezone issues
+const safeParseDateString = (dateString?: string): Date => {
+  if (!dateString) return new Date();
+  
+  try {
+    const parsedDate = parseISO(dateString);
+    return isValid(parsedDate) ? parsedDate : new Date();
+  } catch (error) {
+    console.warn('Failed to parse date:', dateString, error);
+    return new Date();
+  }
+};
 
 export default function BankStatements() {
   const { t } = useTranslation();
@@ -130,7 +152,8 @@ export default function BankStatements() {
         vendor: transaction.description,
         notes: `Created from bank statement: ${detail?.original_filename}`,
         payment_method: 'Bank Transfer',
-        status: 'completed'
+        status: 'completed',
+        analysis_status: 'done'
       };
 
       const created = await expenseApi.createExpense(expenseData as any);
@@ -219,8 +242,9 @@ export default function BankStatements() {
       setDetail(s);
       setStatementLabels(Array.isArray((s as any).labels) ? ((s as any).labels as string[]).slice(0, 10) : []);
       setStatementNotes(s.notes || '');
-      setRows((s.transactions || []).map(t => ({
-        id: (t as any).id,
+      // Reassign IDs to start from 1 for consistent frontend display
+      const transactionsWithIds = (s.transactions || []).map((t, index) => ({
+        id: index + 1, // Always start from 1
         date: t.date,
         description: t.description,
         amount: t.amount,
@@ -229,7 +253,9 @@ export default function BankStatements() {
         category: t.category ?? null,
         invoice_id: (t as any).invoice_id ?? null,
         expense_id: (t as any).expense_id ?? null,
-      })));
+        backend_id: (t as any).id, // Preserve original backend ID for API calls
+      }));
+      setRows(transactionsWithIds);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statement');
       setSelected(null);
@@ -263,8 +289,29 @@ export default function BankStatements() {
 
   const addEmptyRow = () => {
     const today = new Date();
-    const iso = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())).toISOString().split('T')[0];
-    setRows(prev => ([...prev, { date: iso, description: '', amount: 0, transaction_type: 'debit', balance: null, category: 'Other' }]));
+    const iso = formatDateToISO(today);
+    setRows(prev => {
+      // Add new row at the top, then reassign all IDs to start from 1
+      const newRowsWithoutIds = [{ 
+        date: iso, 
+        description: '', 
+        amount: 0, 
+        transaction_type: 'debit' as 'debit', 
+        balance: null, 
+        category: 'Other',
+        backend_id: null // New row, no backend ID yet
+      }, ...prev];
+      
+      // Reassign all IDs to start from 1
+      const newRowsWithIds = newRowsWithoutIds.map((row, index) => ({
+        ...row,
+        id: index + 1
+      }));
+      
+      // Set the newly added row (now at index 0) as editing
+      setEditingRow(0);
+      return newRowsWithIds;
+    });
   };
 
   const saveRows = async () => {
@@ -273,13 +320,15 @@ export default function BankStatements() {
       setDetailLoading(true);
       const cleaned = rows.map(r => ({
         ...r,
+        id: r.backend_id || undefined, // Use backend_id for API, or let backend assign new ID
         balance: r.balance === undefined ? null : r.balance,
         category: r.category || null,
         invoice_id: r.invoice_id ?? null,
+        expense_id: r.expense_id ?? null,
       }));
       await bankStatementApi.replaceTransactions(selected, cleaned);
       toast.success('Transactions saved');
-      // Refresh detail and list counts
+      // Refresh detail and list counts but preserve frontend ID sequence
       await openStatement(selected);
       await loadList();
     } catch (e: any) {
@@ -655,18 +704,19 @@ export default function BankStatements() {
                               <PopoverTrigger asChild>
                                 <Button variant="outline" className="w-[200px] justify-start text-left font-normal" disabled={readOnly}>
                                   <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {r.date ? format(new Date(r.date), 'PPP') : 'Pick a date'}
+                                  {r.date ? format(safeParseDateString(r.date), 'PPP') : 'Pick a date'}
                                 </Button>
                               </PopoverTrigger>
                               {!readOnly && (
                                 <PopoverContent className="w-auto p-0" align="start">
                                   <Calendar
                                     mode="single"
-                                    selected={r.date ? new Date(r.date) : undefined}
-                                    defaultMonth={r.date ? new Date(r.date) : undefined}
+                                    selected={r.date ? safeParseDateString(r.date) : undefined}
+                                    defaultMonth={r.date ? safeParseDateString(r.date) : undefined}
                                     onSelect={(d) => {
                                       if (!d) return;
-                                      const iso = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().split('T')[0];
+                                      // Format date without timezone conversion to preserve user's selected date
+                                      const iso = formatDateToISO(d);
                                       setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
                                     }}
                                     initialFocus
@@ -675,7 +725,7 @@ export default function BankStatements() {
                               )}
                             </Popover>
                           ) : (
-                            <span className="text-sm">{r.date ? format(new Date(r.date), 'PPP') : 'No date'}</span>
+                            <span className="text-sm">{r.date ? format(safeParseDateString(r.date), 'PPP') : 'No date'}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -737,85 +787,181 @@ export default function BankStatements() {
                           {Boolean((r as any).expense_id) ? `#${(r as any).expense_id}` : '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                if (editingRow === idx) {
+                          <div className="flex items-center gap-2">
+                            {editingRow === idx ? (
+                              <Button
+                                size="sm"
+                                onClick={async () => {
                                   setEditingRow(null);
                                   await saveRows();
-                                } else {
-                                  setEditingRow(idx);
-                                }
-                              }}
-                              disabled={readOnly}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              {editingRow === idx ? 'Done' : 'Edit'}
-                            </Button>
-                            {r.transaction_type === 'debit' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => createExpenseFromTransaction(idx)}
-                                  disabled={readOnly || Boolean((r as any).expense_id)}
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  {Boolean((r as any).expense_id) ? `Expense #${(r as any).expense_id}` : 'Expense'}
-                                </Button>
-                                {Boolean((r as any).expense_id) && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(String((r as any).expense_id));
-                                        toast.success(`Copied Expense ID ${(r as any).expense_id}`);
-                                      } catch (e) {
-                                        toast.error('Failed to copy Expense ID');
-                                      }
-                                    }}
-                                  >
-                                    <Copy className="w-3 h-3 mr-1" />
-                                    Copy Expense ID
+                                }}
+                                disabled={readOnly}
+                              >
+                                Done
+                              </Button>
+                            ) : (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0" disabled={readOnly}>
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
-                                )}
-                              </>
-                            )}
-                            {r.transaction_type === 'credit' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => createInvoiceFromTransaction(idx)}
-                                  disabled={readOnly || Boolean((r as any).invoice_id)}
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  {Boolean((r as any).invoice_id) ? 'Invoice linked' : 'Invoice'}
-                                </Button>
-                                {Boolean((r as any).invoice_id) && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                      try {
-                                        const invId = Number((r as any).invoice_id);
-                                        const inv = await invoiceApi.getInvoice(invId);
-                                        const toCopy = inv.number || String(invId);
-                                        await navigator.clipboard.writeText(toCopy);
-                                        toast.success(`Copied Invoice No ${toCopy}`);
-                                      } catch (e) {
-                                        toast.error('Failed to copy Invoice ID');
-                                      }
-                                    }}
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => setEditingRow(idx)}
+                                    disabled={readOnly}
                                   >
-                                    <Copy className="w-3 h-3 mr-1" />
-                                    Copy Invoice ID
-                                  </Button>
-                                )}
-                              </>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  
+                                  <DropdownMenuSeparator />
+                                  
+                                  {r.transaction_type === 'debit' && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => createExpenseFromTransaction(idx)}
+                                        disabled={readOnly || Boolean((r as any).expense_id)}
+                                      >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        {Boolean((r as any).expense_id) ? `Expense #${(r as any).expense_id}` : 'Add to Expense'}
+                                      </DropdownMenuItem>
+                                      {Boolean((r as any).expense_id) && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              try {
+                                                await navigator.clipboard.writeText(String((r as any).expense_id));
+                                                toast.success(`Copied Expense ID ${(r as any).expense_id}`);
+                                              } catch (e) {
+                                                toast.error('Failed to copy Expense ID');
+                                              }
+                                            }}
+                                          >
+                                            <Copy className="w-4 h-4 mr-2" />
+                                            Copy Expense ID
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              if (!confirm('Are you sure you want to delete this expense? This action cannot be undone.')) return;
+                                              try {
+                                                const expenseId = (r as any).expense_id;
+                                                // Delete the expense
+                                                await expenseApi.deleteExpense(expenseId);
+                                                toast.success(`Expense #${expenseId} deleted successfully`);
+                                                
+                                                // Unlink the expense from the transaction
+                                                const updatedRows: BankRow[] = rows.map((row, i) => 
+                                                  i === idx ? { ...row, expense_id: null } : row
+                                                );
+                                                setRows(updatedRows);
+                                                
+                                                // Persist the unlink to backend
+                                                if (selected) {
+                                                  try {
+                                                    const cleaned = updatedRows.map(row => ({
+                                                      ...row,
+                                                      balance: row.balance === undefined ? null : row.balance,
+                                                      category: row.category || null,
+                                                      invoice_id: row.invoice_id ?? null,
+                                                      expense_id: row.expense_id ?? null,
+                                                    }));
+                                                    await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                    // Reload to confirm changes
+                                                    await openStatement(selected);
+                                                  } catch (linkErr: any) {
+                                                    console.error('Failed to persist expense unlink:', linkErr);
+                                                  }
+                                                }
+                                              } catch (e: any) {
+                                                toast.error(e?.message || 'Failed to delete expense');
+                                              }
+                                            }}
+                                            className="text-red-600 focus:text-red-600"
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete Expense
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                  
+                                  {r.transaction_type === 'credit' && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => createInvoiceFromTransaction(idx)}
+                                        disabled={readOnly || Boolean((r as any).invoice_id)}
+                                      >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        {Boolean((r as any).invoice_id) ? 'Invoice linked' : 'Add to Invoice'}
+                                      </DropdownMenuItem>
+                                      {Boolean((r as any).invoice_id) && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              try {
+                                                const invId = Number((r as any).invoice_id);
+                                                const inv = await invoiceApi.getInvoice(invId);
+                                                const toCopy = inv.number || String(invId);
+                                                await navigator.clipboard.writeText(toCopy);
+                                                toast.success(`Copied Invoice No ${toCopy}`);
+                                              } catch (e) {
+                                                toast.error('Failed to copy Invoice ID');
+                                              }
+                                            }}
+                                          >
+                                            <Copy className="w-4 h-4 mr-2" />
+                                            Copy Invoice ID
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={async () => {
+                                              if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
+                                              try {
+                                                const invoiceId = Number((r as any).invoice_id);
+                                                // Delete the invoice
+                                                await invoiceApi.deleteInvoice(invoiceId);
+                                                toast.success(`Invoice #${invoiceId} deleted successfully`);
+                                                
+                                                // Unlink the invoice from the transaction
+                                                const updatedRows: BankRow[] = rows.map((row, i) => 
+                                                  i === idx ? { ...row, invoice_id: null } : row
+                                                );
+                                                setRows(updatedRows);
+                                                
+                                                // Persist the unlink to backend
+                                                if (selected) {
+                                                  try {
+                                                    const cleaned = updatedRows.map(row => ({
+                                                      ...row,
+                                                      balance: row.balance === undefined ? null : row.balance,
+                                                      category: row.category || null,
+                                                      invoice_id: row.invoice_id ?? null,
+                                                      expense_id: row.expense_id ?? null,
+                                                    }));
+                                                    await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                    // Reload to confirm changes
+                                                    await openStatement(selected);
+                                                  } catch (linkErr: any) {
+                                                    console.error('Failed to persist invoice unlink:', linkErr);
+                                                  }
+                                                }
+                                              } catch (e: any) {
+                                                toast.error(e?.message || 'Failed to delete invoice');
+                                              }
+                                            }}
+                                            className="text-red-600 focus:text-red-600"
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete Invoice
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </div>
                         </TableCell>

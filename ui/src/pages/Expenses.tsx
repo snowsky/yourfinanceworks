@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -26,8 +26,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, MoreHorizontal, Edit } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -37,10 +37,31 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canPerformActions } from '@/utils/auth';
 
+// Helper function to format date without timezone issues
+const formatDateToISO = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to safely parse date strings without timezone issues
+const safeParseDateString = (dateString?: string): Date => {
+  if (!dateString) return new Date();
+  
+  try {
+    const parsedDate = parseISO(dateString);
+    return isValid(parsedDate) ? parsedDate : new Date();
+  } catch (error) {
+    console.warn('Failed to parse date:', dateString, error);
+    return new Date();
+  }
+};
+
 const defaultNewExpense: Partial<Expense> = {
   amount: 0,
   currency: 'USD',
-  expense_date: new Date().toISOString().split('T')[0],
+  expense_date: formatDateToISO(new Date()),
   category: 'General',
   status: 'recorded',
 };
@@ -658,32 +679,47 @@ const Expenses = () => {
                              {Array.isArray(attachments[e.id]) ? `${attachments[e.id].length} ${t('attachments_count', { defaultValue: 'file(s)' })}` : (typeof e.attachments_count === 'number' ? `${e.attachments_count} ${t('attachments_count', { defaultValue: 'file(s)' })}` : t('expenses.preview'))}
                           </Button>
                         </TableCell>
-                        <TableCell className="space-x-2">
+                        <TableCell>
                           {canPerformActions() && (
-                            <>
-                              <Link to={`/expenses/edit/${e.id}`}>
-                                <Button variant="outline" size="sm">{t('edit', { defaultValue: 'Edit' })}</Button>
-                              </Link>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="destructive" size="sm">
-                                    <Trash2 className="w-4 h-4 mr-1" /> Delete
-                                  </Button>
-                                </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t('expenses.delete_confirm_description')}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('delete')}</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                            </>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    {t('edit', { defaultValue: 'Edit' })}
+                                  </Link>
+                                </DropdownMenuItem>
+                                
+                                <DropdownMenuSeparator />
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('expenses.delete_confirm_description')}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('delete')}</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </TableCell>
                       </TableRow>
@@ -745,16 +781,16 @@ const Expenses = () => {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {newExpense.expense_date ? format(new Date(newExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                       {newExpense.expense_date ? format(safeParseDateString(newExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={newExpense.expense_date ? new Date(newExpense.expense_date as string) : undefined}
+                      selected={newExpense.expense_date ? safeParseDateString(newExpense.expense_date as string) : undefined}
                       onSelect={(d) => {
                         if (d) {
-                          const iso = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().split('T')[0];
+                          const iso = formatDateToISO(d);
                           setNewExpense({ ...newExpense, expense_date: iso });
                         }
                       }}

@@ -80,7 +80,7 @@ def test_cancel_invite():
         from models.models import AuditLog
         audit_logs = db.query(AuditLog).filter(
             AuditLog.resource_type == "invite",
-            AuditLog.action == "DELETE"
+            AuditLog.action == "DELETE"  # Note: invites still use "DELETE", only invoices use "Soft Delete"
         ).all()
         
         if audit_logs:

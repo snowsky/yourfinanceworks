@@ -2296,7 +2296,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
-                        {isEdit && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
+                        {(isEdit || (initialData && (initialData as any).bank_transaction_id)) && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
                         <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
                         <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
                       </SelectContent>
@@ -2605,6 +2605,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
+                            {(isEdit || (initialData && (initialData as any).bank_transaction_id)) && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
                             <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
                             <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
                           </SelectContent>
@@ -3105,7 +3106,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="pending">{t('invoices.pending')}</SelectItem>
-                              {isEdit && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
+                              {(isEdit || (initialData && (initialData as any).bank_transaction_id)) && <SelectItem value="paid">{t('invoices.paid')}</SelectItem>}
                               <SelectItem value="partially_paid">{t('invoices.partially_paid')}</SelectItem>
                               <SelectItem value="overdue">{t('invoices.overdue')}</SelectItem>
                             </SelectContent>
