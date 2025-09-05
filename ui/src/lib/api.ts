@@ -487,8 +487,14 @@ export async function apiRequest<T>(
       headers['Content-Type'] = 'application/json';
     }
     if (!config.skipTenant && tenantId) {
-      headers['X-Tenant-ID'] = tenantId;
-      console.log(`🔄 API Request: ${requestUrl} with X-Tenant-ID: ${tenantId}`);
+      // Ensure tenant ID is a valid number string
+      const numericTenantId = parseInt(tenantId, 10);
+      if (!isNaN(numericTenantId)) {
+        headers['X-Tenant-ID'] = numericTenantId.toString();
+        console.log(`🔄 API Request: ${requestUrl} with X-Tenant-ID: ${numericTenantId}`);
+      } else {
+        console.warn(`⚠️ Invalid tenant ID: ${tenantId}`);
+      }
     } else if (!config.skipTenant) {
       console.warn(`⚠️ No tenant ID available for request to ${requestUrl}`);
       console.log('Debug info:', { 
