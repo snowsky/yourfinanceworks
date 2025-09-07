@@ -473,185 +473,229 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar data-tour="sidebar">
-        <SidebarHeader className="py-6 px-4 border-b border-sidebar-border">
-          {/* Company Logo Section */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+      <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl">
+        <SidebarHeader className="py-8 px-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+          {/* Professional Company Logo Section */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
               {companyLogoUrl ? (
-                <img 
+                <img
                   src={companyLogoUrl.startsWith('http') ? companyLogoUrl : `${API_BASE_URL}${companyLogoUrl}`}
                   alt={`${companyName} Logo`}
-                  className="h-8 w-8 object-contain rounded"
+                  className="h-12 w-12 object-contain rounded-xl shadow-lg ring-2 ring-blue-500/20"
                   onError={(e) => {
                     console.error('Failed to load company logo:', e);
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="h-8 w-8 bg-primary rounded flex items-center justify-center">
-                  <Building className="h-5 w-5 text-primary-foreground" />
+                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
+                  <Building className="h-6 w-6 text-white" />
                 </div>
               )}
               <div className="flex flex-col leading-tight">
-                <span className="text-sm font-bold text-white truncate max-w-[140px]">
+                <span className="text-lg font-bold text-white truncate max-w-[140px] tracking-tight">
                   {companyName}
                 </span>
-                <span className="text-xs text-sidebar-foreground/60">
+                <span className="text-sm text-slate-300 font-medium">
                   Invoice Management
                 </span>
               </div>
             </div>
             <SidebarTrigger>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 aria-label="Toggle sidebar"
-                className="text-sidebar-foreground hover:text-white"
+                className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
             </SidebarTrigger>
           </div>
           
-          {/* User Profile Section */}
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
-              <AvatarFallback className="bg-sidebar-foreground/20 text-white text-sm font-medium">
-                {(() => {
-                  const first = (user?.first_name || '').trim();
-                  const last = (user?.last_name || '').trim();
-                  const name = `${first} ${last}`.trim() || (user?.email?.split('@')[0] || 'User');
-                  const parts = name.split(' ').filter(Boolean);
-                  const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
-                  return initials.toUpperCase();
-                })()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold text-white">
-                {(() => {
-                  const first = (user?.first_name || '').trim();
-                  const last = (user?.last_name || '').trim();
-                  const name = `${first} ${last}`.trim();
-                  return name || (user?.email?.split('@')[0] || 'User');
-                })()}
-              </span>
-              <span className="text-xs text-sidebar-foreground/60 truncate max-w-[160px]">
-                {user?.email}
-              </span>
+          {/* Professional User Profile Section */}
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 ring-2 ring-slate-600/50">
+                <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-bold">
+                  {(() => {
+                    const first = (user?.first_name || '').trim();
+                    const last = (user?.last_name || '').trim();
+                    const name = `${first} ${last}`.trim() || (user?.email?.split('@')[0] || 'User');
+                    const parts = name.split(' ').filter(Boolean);
+                    const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
+                    return initials.toUpperCase();
+                  })()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col leading-tight flex-1 min-w-0">
+                <span className="text-sm font-bold text-white truncate">
+                  {(() => {
+                    const first = (user?.first_name || '').trim();
+                    const last = (user?.last_name || '').trim();
+                    const name = `${first} ${last}`.trim();
+                    return name || (user?.email?.split('@')[0] || 'User');
+                  })()}
+                </span>
+                <span className="text-xs text-slate-300 truncate">
+                  {user?.email}
+                </span>
+              </div>
             </div>
           </div>
         </SidebarHeader>
-        <SidebarContent className="pt-6">
+        <SidebarContent className="pt-8 px-4">
           {/* Organization Selector */}
           {userOrganizations.length > 0 && (
-            <div className="px-3 mb-4">
-              <div className="text-xs text-sidebar-foreground/60 mb-2">
-                Organization {userOrganizations.length > 1 ? `(${userOrganizations.length} available)` : ''}
+            <div className="mb-6">
+              <div className="px-3 mb-3">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Organization {userOrganizations.length > 1 ? `(${userOrganizations.length} available)` : ''}
+                </h3>
               </div>
-              <Select value={currentOrgId} onValueChange={handleOrganizationSwitch} disabled={isSwitchingOrg}>
-                <SelectTrigger className="w-full bg-sidebar border-sidebar-border text-sidebar-foreground">
-                  <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4" />
-                    {isSwitchingOrg ? (
-                      <span className="text-sm">Switching...</span>
-                    ) : (
-                      <SelectValue placeholder="Select organization" />
-                    )}
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
-                    <SelectItem key={org.id} value={org.id.toString()}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>
-                          {org.name}
-                          {org.id === user?.tenant_id && (
-                            <span className="text-xs text-blue-500 ml-1">(Home)</span>
+              <div className="px-3">
+                <Select value={currentOrgId} onValueChange={handleOrganizationSwitch} disabled={isSwitchingOrg}>
+                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700/50 text-white hover:bg-slate-700/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-slate-300" />
+                      {isSwitchingOrg ? (
+                        <span className="text-sm">Switching...</span>
+                      ) : (
+                        <SelectValue placeholder="Select organization" />
+                      )}
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700/50">
+                    {userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
+                      <SelectItem key={org.id} value={org.id.toString()} className="text-white hover:bg-slate-700/50">
+                        <div className="flex items-center justify-between w-full">
+                          <span>
+                            {org.name}
+                            {org.id === user?.tenant_id && (
+                              <span className="text-xs text-blue-500 ml-1">(Home)</span>
+                            )}
+                          </span>
+                          {org.id.toString() === currentOrgId && (
+                            <span className="text-xs text-green-500 ml-2">✓</span>
                           )}
-                        </span>
-                        {org.id.toString() === currentOrgId && (
-                          <span className="text-xs text-green-500 ml-2">✓</span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
           
-          <SidebarMenu>
-            {mainMenuItems.map((item) => (
-              <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton asChild 
-                  className={isActive(item.path) ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/80 hover:text-white"}
-                >
-                  <Link 
-                    to={item.path} 
-                    className="flex items-center gap-3 px-3 py-2"
-                    data-tour={item.tourId}
+          <SidebarMenu className="space-y-2">
+            {/* Main Navigation Section */}
+            <div className="mb-6">
+              <div className="px-3 mb-3">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Main Navigation
+                </h3>
+              </div>
+              {mainMenuItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    className={`mx-2 rounded-xl transition-all duration-200 ${
+                      isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20 transform scale-105"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/50 hover:transform hover:scale-105"
+                    }`}
+                    isActive={isActive(item.path)}
                   >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-            
-            {/* Separator */}
-            <div className="my-4 px-3">
-              <div className="border-t border-sidebar-border"></div>
+                    <Link
+                      to={item.path}
+                      className="flex items-center gap-4 w-full h-full py-3 px-4"
+                      data-tour={item.tourId}
+                    >
+                      <div className={`p-2 rounded-lg ${
+                        isActive(item.path)
+                          ? "bg-white/20"
+                          : "bg-slate-700/50 group-hover:bg-slate-600/50"
+                      }`}>
+                        {item.icon}
+                      </div>
+                      <span className="font-medium">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </div>
+
+            {/* Professional Separator */}
+            <div className="my-6 px-3">
+              <div className="border-t border-slate-700/50"></div>
             </div>
             
-            {settingsMenuItems.map((item) => (
-              <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton asChild 
-                  className={isActive(item.path) ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/80 hover:text-white"}
-                >
-                  <Link 
-                    to={item.path} 
-                    className="flex items-center gap-3 px-3 py-2"
-                    data-tour={item.tourId}
+            {/* Settings Section */}
+            <div>
+              <div className="px-3 mb-3">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  System
+                </h3>
+              </div>
+              {settingsMenuItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    className={`mx-2 rounded-xl transition-all duration-200 ${
+                      isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20 transform scale-105"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/50 hover:transform hover:scale-105"
+                    }`}
+                    isActive={isActive(item.path)}
                   >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+                    <Link
+                      to={item.path}
+                      className="flex items-center gap-4 w-full h-full py-3 px-4"
+                      data-tour={item.tourId}
+                    >
+                      <div className={`p-2 rounded-lg ${
+                        isActive(item.path)
+                          ? "bg-white/20"
+                          : "bg-slate-700/50 group-hover:bg-slate-600/50"
+                      }`}>
+                        {item.icon}
+                      </div>
+                      <span className="font-medium">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </div>
           </SidebarMenu>
         </SidebarContent>
-        <SidebarFooter className="py-4 px-2 border-t border-sidebar-border space-y-4">
-          <div className="px-2 space-y-2">
-            <div className="flex items-center gap-2">
-              <LanguageSwitcher />
+        <SidebarFooter className="py-6 px-6 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+          {/* Professional Controls Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <LanguageSwitcher />
+              </div>
               <Button
-              variant="outline"
-              size="icon"
-              aria-label={t('navigation.dark_mode')}
-              title={t('navigation.dark_mode')}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="border-sidebar-border bg-sidebar hover:bg-sidebar-accent text-sidebar-foreground hover:text-white"
-            >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </Button>
+                variant="outline"
+                size="icon"
+                aria-label={t('navigation.dark_mode')}
+                title={t('navigation.dark_mode')}
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="border-slate-600/50 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white transition-all duration-200 rounded-lg"
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
             </div>
-            <div className="flex justify-center">
-              <HelpCenter />
-            </div>
-          </div>
-          <div className="flex justify-center">
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              className="w-full"
+
+            {/* Professional Logout Button */}
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              {t('auth.logout')}
+              <span>{t('auth.logout')}</span>
             </Button>
           </div>
         </SidebarFooter>
