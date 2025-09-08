@@ -7,6 +7,10 @@ import traceback
 import logging
 from fastapi.staticfiles import StaticFiles
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from routers import (
     auth,

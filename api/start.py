@@ -1,8 +1,12 @@
 import uvicorn
 import os
+from dotenv import load_dotenv
 from models.database import engine, Base
 from models.models import Client, Invoice, Item, Payment
 from db_init import init_db
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Create the database and tables
 Base.metadata.create_all(bind=engine)
