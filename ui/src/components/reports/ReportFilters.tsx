@@ -48,24 +48,70 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 
   const currencies = currencyData?.currencies || [];
 
-  // Update filters when dates change
+  // Sync local date state with filters prop when filters are changed externally (e.g., Quick Actions)
   useEffect(() => {
+    // Create dates in local timezone to avoid timezone conversion issues
+    const newDateFrom = filters.date_from ? new Date(filters.date_from + 'T12:00:00') : undefined;
+    const newDateTo = filters.date_to ? new Date(filters.date_to + 'T12:00:00') : undefined;
+
+    // Only update local state if the dates are actually different
+    const currentFromTime = dateFrom?.getTime();
+    const currentToTime = dateTo?.getTime();
+    const newFromTime = newDateFrom?.getTime();
+    const newToTime = newDateTo?.getTime();
+
+    const dateFromChanged = currentFromTime !== newFromTime;
+    const dateToChanged = currentToTime !== newToTime;
+
+    if (dateFromChanged || dateToChanged) {
+      setDateFrom(newDateFrom);
+      setDateTo(newDateTo);
+    }
+  }, [filters.date_from, filters.date_to]); // Only watch filter changes, not local state
+
+  // Update filters when dates change (only when user manually selects dates)
+  useEffect(() => {
+    // Skip if dates are undefined or if filters already match the formatted dates
+    if (!dateFrom && !dateTo) return;
+
     const newFilters = { ...filters };
+    let hasChanges = false;
+
     if (dateFrom) {
-      newFilters.date_from = format(dateFrom, 'yyyy-MM-dd');
-    } else {
+      const formattedFrom = format(dateFrom, 'yyyy-MM-dd');
+      if (newFilters.date_from !== formattedFrom) {
+        newFilters.date_from = formattedFrom;
+        hasChanges = true;
+      }
+    } else if (newFilters.date_from) {
       delete newFilters.date_from;
+      hasChanges = true;
     }
+
     if (dateTo) {
-      newFilters.date_to = format(dateTo, 'yyyy-MM-dd');
-    } else {
+      const formattedTo = format(dateTo, 'yyyy-MM-dd');
+      if (newFilters.date_to !== formattedTo) {
+        newFilters.date_to = formattedTo;
+        hasChanges = true;
+      }
+    } else if (newFilters.date_to) {
       delete newFilters.date_to;
+      hasChanges = true;
     }
-    onFiltersChange(newFilters);
-  }, [dateFrom, dateTo]);
+
+    // Only call onFiltersChange if there are actual changes
+    if (hasChanges) {
+      // Add a small delay to prevent rapid-fire updates
+      const timeoutId = setTimeout(() => {
+        onFiltersChange(newFilters);
+      }, 10);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [dateFrom, dateTo]); // Removed filters from dependencies to prevent unnecessary re-runs
 
   const updateFilter = (key: keyof ReportFiltersType, value: any) => {
-    const newFilters = { ...filters };
+    const newFilters = { ...filters } as any;
     if (value === undefined || value === null || value === '') {
       delete newFilters[key];
     } else {
@@ -201,8 +247,9 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   const renderAmountRangeFilter = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-2">
-        <Label>Minimum Amount</Label>
+        <Label htmlFor="min-amount">Minimum Amount</Label>
         <Input
+          id="min-amount"
           type="number"
           placeholder="0.00"
           value={filters.amount_min || ''}
@@ -210,8 +257,9 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
         />
       </div>
       <div className="space-y-2">
-        <Label>Maximum Amount</Label>
+        <Label htmlFor="max-amount">Maximum Amount</Label>
         <Input
+          id="max-amount"
           type="number"
           placeholder="0.00"
           value={filters.amount_max || ''}
@@ -330,17 +378,17 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
           </SelectTrigger>
           <SelectContent>
             {EXPENSE_CATEGORY_OPTIONS.map((category) => (
-              <SelectItem key={category.value} value={category.value}>
-                {category.label}
+              <SelectItem key={category} value={category}>
+                {category}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {filters.categories && filters.categories.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
-            {filters.categories.map((category) => (
+            {filters.categories.map((category: string) => (
               <div key={category} className="flex items-center bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm">
-                {EXPENSE_CATEGORY_OPTIONS.find(c => c.value === category)?.label || category}
+                {EXPENSE_CATEGORY_OPTIONS.find(c => c === category) || category}
                 <Button
                   variant="ghost"
                   size="sm"
