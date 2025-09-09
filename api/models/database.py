@@ -20,7 +20,7 @@ SQLALCHEMY_DATABASE_URL = DATABASE_URL
 current_tenant_id: ContextVar[int] = ContextVar('current_tenant_id', default=None)
 
 # Configure engine based on database type
-if DATABASE_URL.startswith("postgresql"):
+if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
     # PostgreSQL configuration - This is the master database
     engine = create_engine(
         DATABASE_URL,
@@ -31,8 +31,10 @@ if DATABASE_URL.startswith("postgresql"):
     )
 else:
     # SQLite configuration - This is the master database
+    # Use a default SQLite URL if DATABASE_URL is None
+    sqlite_url = DATABASE_URL or "sqlite:///./test.db"
     engine = create_engine(
-        DATABASE_URL, 
+        sqlite_url, 
         connect_args={"check_same_thread": False}
     )
 

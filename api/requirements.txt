@@ -47,5 +47,15 @@ pytest-cov==6.2.1
 # Image processing
 pillow==11.3.0
 
+# Excel export
+openpyxl==3.1.2
+
+# Cron scheduling
+croniter==3.0.3
+
 # Kafka
 confluent-kafka==2.10.0
+
+# Redis for caching
+redis==5.2.1
+hiredis==3.1.0

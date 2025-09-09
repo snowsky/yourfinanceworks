@@ -413,4 +413,64 @@ class EmailNotificationSettings(Base):
     # Relationships
     user = relationship("User")
 
- 
+
+# --- Reporting Module Models ---
+
+class ReportTemplate(Base):
+    __tablename__ = "report_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    report_type = Column(String, nullable=False)  # client, invoice, payment, expense, statement
+    filters = Column(JSON, nullable=True)  # Stored filter configuration
+    columns = Column(JSON, nullable=True)  # Selected columns for the report
+    formatting = Column(JSON, nullable=True)  # Formatting preferences
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_shared = Column(Boolean, default=False, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = relationship("User")
+    scheduled_reports = relationship("ScheduledReport", back_populates="template", cascade="all, delete-orphan")
+    report_history = relationship("ReportHistory", back_populates="template")
+
+
+class ScheduledReport(Base):
+    __tablename__ = "scheduled_reports"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("report_templates.id", ondelete="CASCADE"), nullable=False)
+    schedule_type = Column(String, nullable=False)  # daily, weekly, monthly, yearly, cron
+    schedule_config = Column(JSON, nullable=False)  # Cron expression or schedule configuration
+    recipients = Column(JSON, nullable=False)  # List of email addresses
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_run = Column(DateTime(timezone=True), nullable=True)
+    next_run = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    template = relationship("ReportTemplate", back_populates="scheduled_reports")
+
+
+class ReportHistory(Base):
+    __tablename__ = "report_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("report_templates.id"), nullable=True)  # Nullable for ad-hoc reports
+    report_type = Column(String, nullable=False)  # client, invoice, payment, expense, statement
+    parameters = Column(JSON, nullable=False)  # Report generation parameters and filters
+    file_path = Column(String, nullable=True)  # Path to generated report file
+    status = Column(String, nullable=False, default="pending")  # pending, generating, completed, failed
+    generated_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    error_message = Column(Text, nullable=True)  # Error details if generation failed
+    
+    generated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # When the report file should be cleaned up
+    
+    # Relationships
+    template = relationship("ReportTemplate", back_populates="report_history")
+    user = relationship("User")

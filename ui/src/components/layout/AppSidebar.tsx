@@ -429,6 +429,12 @@ export function AppSidebar() {
       icon: <FileText className="w-5 h-5" />,
       tourId: 'nav-statements'
     },
+    { 
+      path: '/reports', 
+      label: t('navigation.reports'),
+      icon: <BarChart className="w-5 h-5" />,
+      tourId: 'nav-reports'
+    },
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];

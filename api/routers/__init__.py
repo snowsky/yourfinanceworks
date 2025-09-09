@@ -19,3 +19,4 @@ from .pdf_processor import *
 from .expenses import *
 from .statements import *
 from .tax_integration import *
+from .reports_minimal import *

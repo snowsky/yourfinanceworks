@@ -28,6 +28,8 @@ class Config:
     SMTP_USERNAME: Optional[str] = os.getenv("SMTP_USERNAME")
     SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD")
     FROM_EMAIL: Optional[str] = os.getenv("FROM_EMAIL")
+    EMAIL_FROM: Optional[str] = os.getenv("EMAIL_FROM", "noreply@invoiceapp.com")
+    EMAIL_FROM_NAME: Optional[str] = os.getenv("EMAIL_FROM_NAME", "Invoice Management System")
 
     # File upload settings
     MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", "10485760"))  # 10MB default
@@ -39,6 +41,18 @@ class Config:
 
     # Tenant settings
     MULTI_TENANT: bool = os.getenv("MULTI_TENANT", "true").lower() == "true"
+    
+    # Cache settings
+    REDIS_URL: Optional[str] = os.getenv("REDIS_URL")
+    CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+    CACHE_DEFAULT_TTL: int = int(os.getenv("CACHE_DEFAULT_TTL", "3600"))  # 1 hour
+    CACHE_MAX_MEMORY_SIZE: int = int(os.getenv("CACHE_MAX_MEMORY_SIZE", "100"))
+    
+    # Performance settings
+    QUERY_OPTIMIZATION_ENABLED: bool = os.getenv("QUERY_OPTIMIZATION_ENABLED", "true").lower() == "true"
+    SLOW_QUERY_THRESHOLD: float = float(os.getenv("SLOW_QUERY_THRESHOLD", "5.0"))
+    MAX_RESULT_SIZE: int = int(os.getenv("MAX_RESULT_SIZE", "50000"))
+    PROGRESS_TRACKING_ENABLED: bool = os.getenv("PROGRESS_TRACKING_ENABLED", "true").lower() == "true"
 
     @property
     def tax_service_config(self):
@@ -55,3 +69,7 @@ class Config:
 
 # Global config instance
 config = Config()
+
+def get_settings() -> Config:
+    """Get the global configuration instance"""
+    return config

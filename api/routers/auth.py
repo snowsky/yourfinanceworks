@@ -180,7 +180,7 @@ class ChangePasswordRequest(BaseModel):
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_master_db)
-):
+) -> MasterUser:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=TENANT_CONTEXT_REQUIRED,

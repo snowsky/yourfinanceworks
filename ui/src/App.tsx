@@ -35,6 +35,7 @@ import { Toaster } from "sonner";
 import AuditLog from "./pages/AuditLog";
 import RecycleBin from "./pages/RecycleBin";
 import Analytics from "./pages/Analytics";
+import Reports from "./pages/Reports";
 import { NotificationBell } from "./components/notifications/NotificationBell";
 import { useNotifications } from "./hooks/useNotifications";
 import { useExpenseStatusPolling } from "./hooks/useExpenseStatusPolling";
@@ -113,6 +114,7 @@ const AppContent = () => {
           <Route path="/audit-log" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><AuditLog /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/recycle-bin" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
           </Routes>
           <TourOverlay />
