@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 import logging
@@ -130,13 +130,13 @@ class ProgressTracker:
     def mark_started(self) -> None:
         """Mark the task as started"""
         self.status = ProgressStatus.RUNNING
-        self.started_at = datetime.now()
+        self.started_at = datetime.now(timezone.utc)
         self.update_progress(message="Report generation started")
     
     def mark_completed(self, result_data: Optional[Any] = None) -> None:
         """Mark the task as completed"""
         self.status = ProgressStatus.COMPLETED
-        self.completed_at = datetime.now()
+        self.completed_at = datetime.now(timezone.utc)
         self.overall_progress = 100.0
         self.result_data = result_data
         self.update_progress(
@@ -148,14 +148,14 @@ class ProgressTracker:
     def mark_failed(self, error_message: str) -> None:
         """Mark the task as failed"""
         self.status = ProgressStatus.FAILED
-        self.completed_at = datetime.now()
+        self.completed_at = datetime.now(timezone.utc)
         self.error_message = error_message
         self.update_progress(message=f"Report generation failed: {error_message}")
     
     def mark_cancelled(self) -> None:
         """Mark the task as cancelled"""
         self.status = ProgressStatus.CANCELLED
-        self.completed_at = datetime.now()
+        self.completed_at = datetime.now(timezone.utc)
         self.update_progress(message="Report generation cancelled")
     
     def request_cancellation(self) -> None:
@@ -172,7 +172,7 @@ class ProgressTracker:
         if self.started_at is None:
             return None
         
-        end_time = self.completed_at or datetime.now()
+        end_time = self.completed_at or datetime.now(timezone.utc)
         return end_time - self.started_at
     
     def to_dict(self) -> Dict[str, Any]:
@@ -301,7 +301,7 @@ class ReportProgressService:
             
             # Update estimated completion time
             if tracker.started_at and tracker.overall_progress > 0:
-                elapsed = datetime.now() - tracker.started_at
+                elapsed = datetime.now(timezone.utc) - tracker.started_at
                 estimated_total = elapsed.total_seconds() * (100.0 / tracker.overall_progress)
                 tracker.estimated_completion = tracker.started_at + timedelta(seconds=estimated_total)
             
@@ -498,7 +498,7 @@ class ReportProgressService:
         Returns:
             Number of tasks cleaned up
         """
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
         cleaned_count = 0
         
         with self._task_lock:

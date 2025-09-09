@@ -16,7 +16,8 @@ import {
   ReportData,
   ReportType
 } from '@/lib/api';
-import { Eye, FileDown, RefreshCw } from 'lucide-react';
+import { Eye, FileDown, RefreshCw, FileText } from 'lucide-react';
+import { ensureAuthenticated } from '@/utils/auth';
 
 export const ReportGenerator: React.FC = () => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -42,6 +43,16 @@ export const ReportGenerator: React.FC = () => {
       setPreviewError(null);
     },
     onError: (error: any) => {
+      console.error('Preview error:', error);
+
+      // Check if it's an authentication error
+      if (error.message && (error.message.includes('401') || error.message.includes('Authentication failed'))) {
+        setPreviewError('Session expired. Please log in again.');
+        toast.error('Session expired. Please log in again.');
+        // The apiRequest function should handle the redirect automatically
+        return;
+      }
+
       setPreviewError(error.message || 'Failed to generate preview');
       setPreviewData(null);
     },
@@ -52,14 +63,14 @@ export const ReportGenerator: React.FC = () => {
     mutationFn: (request: ReportGenerateRequest) => reportApi.generateReport(request),
     onSuccess: (result) => {
       if (result.success) {
-        if (result.download_url) {
-          // Direct download
+        if (result.report_id) {
+          // Always use the authenticated download method with report ID
+          console.log('Report generated with ID:', result.report_id);
+          handleDownload(result.report_id);
+        } else if (result.download_url) {
+          // Fallback to direct URL if no report ID (should include auth)
+          console.log('Report generated with direct URL:', result.download_url);
           window.open(result.download_url, '_blank');
-        } else if (result.file_path) {
-          // Use report ID to download
-          if (result.report_id) {
-            handleDownload(result.report_id);
-          }
         }
         toast.success('Report generated successfully!');
       } else {
@@ -67,29 +78,51 @@ export const ReportGenerator: React.FC = () => {
       }
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to generate report');
+      console.error('Export error:', error);
+
+      // Check if it's an authentication error
+      if (error.message && error.message.includes('401')) {
+        toast.error('Session expired. Please log in again.');
+        // The apiRequest function should handle the redirect automatically
+        return;
+      }
+
+      if (error.message && error.message.includes('Authentication failed')) {
+        toast.error('Authentication failed. Please log in again.');
+        return;
+      }
+
+      toast.error(error.message || 'Failed to generate report. Please try again.');
     },
   });
 
   // Handle download
   const handleDownload = async (reportId: number) => {
     try {
+      console.log('Attempting to download report:', reportId);
+
       const response = await reportApi.downloadReport(reportId);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report-${reportId}.${exportFormat}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        throw new Error('Failed to download report');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `report-${reportId}.${exportFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Report downloaded successfully!');
+    } catch (error: any) {
+      console.error('Download error:', error);
+
+      // Authentication errors are already handled in the downloadReport function
+      if (error.message && error.message.includes('Authentication failed')) {
+        // The downloadReport function already handles the redirect
+        return;
       }
-    } catch (error) {
-      toast.error('Failed to download report');
+
+      toast.error(error.message || 'Failed to download report. Please try again.');
     }
   };
 
@@ -97,6 +130,12 @@ export const ReportGenerator: React.FC = () => {
   const handlePreview = () => {
     if (!selectedType) {
       toast.error('Please select a report type');
+      return;
+    }
+
+    // Check authentication before making the request
+    if (!ensureAuthenticated()) {
+      toast.error('Session expired. Please log in again.');
       return;
     }
 
@@ -115,6 +154,17 @@ export const ReportGenerator: React.FC = () => {
       toast.error('Please select a report type');
       return;
     }
+
+    // Check authentication before making the request
+    if (!ensureAuthenticated()) {
+      toast.error('Session expired. Please log in again.');
+      return;
+    }
+
+    console.log('Export request - Auth check passed for:', {
+      reportType: selectedType,
+      exportFormat
+    });
 
     const request: ReportGenerateRequest = {
       report_type: selectedType as any,
@@ -146,31 +196,34 @@ export const ReportGenerator: React.FC = () => {
   }, [selectedType]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Report Generator</h1>
-        <p className="text-muted-foreground">
-          Generate comprehensive reports for your business data
-        </p>
-      </div>
-
+    <div className="space-y-8">
       {/* Report Type Selection */}
-      <ReportTypeSelector
-        reportTypes={reportTypes}
-        selectedType={selectedType}
-        onTypeSelect={setSelectedType}
-        loading={reportTypesLoading}
-      />
+      <Card className="slide-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Report Type Selection
+          </CardTitle>
+          <CardDescription>
+            Choose the type of report you want to generate
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <ReportTypeSelector
+            reportTypes={reportTypes}
+            selectedType={selectedType}
+            onTypeSelect={setSelectedType}
+            loading={reportTypesLoading}
+          />
+        </CardContent>
+      </Card>
 
       {selectedType && selectedTypeConfig && (
         <>
-          <Separator />
-          
           {/* Filters and Preview Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             {/* Left Column - Filters */}
-            <div className="space-y-6">
+            <div className="xl:col-span-1 space-y-6">
               <ReportFilters
                 reportType={selectedType}
                 reportTypeConfig={selectedTypeConfig}
@@ -179,13 +232,14 @@ export const ReportGenerator: React.FC = () => {
               />
 
               {/* Preview Button */}
-              <Card>
+              <Card className="slide-in">
                 <CardContent className="pt-6">
                   <Button
                     onClick={handlePreview}
                     disabled={previewMutation.isPending}
                     variant="outline"
                     className="w-full"
+                    size="lg"
                   >
                     {previewMutation.isPending ? (
                       <>
@@ -201,10 +255,85 @@ export const ReportGenerator: React.FC = () => {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Quick Actions */}
+              <Card className="slide-in">
+                <CardHeader>
+                  <CardTitle className="text-lg">Quick Actions</CardTitle>
+                  <CardDescription>Common report generation shortcuts</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                        setFilters({
+                          ...filters,
+                          date_from: firstDayOfMonth.toISOString().split('T')[0],
+                          date_to: today.toISOString().split('T')[0],
+                        });
+                      }}
+                      className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                    >
+                      <span className="font-medium">This Month</span>
+                      <span className="text-xs text-muted-foreground">Current month data</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                        const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                        setFilters({
+                          ...filters,
+                          date_from: lastMonth.toISOString().split('T')[0],
+                          date_to: lastDayOfLastMonth.toISOString().split('T')[0],
+                        });
+                      }}
+                      className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                    >
+                      <span className="font-medium">Last Month</span>
+                      <span className="text-xs text-muted-foreground">Previous month data</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
+                        setFilters({
+                          ...filters,
+                          date_from: firstDayOfYear.toISOString().split('T')[0],
+                          date_to: today.toISOString().split('T')[0],
+                        });
+                      }}
+                      className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                    >
+                      <span className="font-medium">Year to Date</span>
+                      <span className="text-xs text-muted-foreground">Current year data</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilters({});
+                      }}
+                      className="h-auto py-3 px-4 flex flex-col items-start gap-1"
+                    >
+                      <span className="font-medium">Clear Filters</span>
+                      <span className="text-xs text-muted-foreground">Reset all filters</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Right Column - Preview */}
-            <div className="space-y-6">
+            <div className="xl:col-span-2 space-y-6">
               <ReportPreview
                 reportData={previewData}
                 loading={previewMutation.isPending}
@@ -214,81 +343,25 @@ export const ReportGenerator: React.FC = () => {
             </div>
           </div>
 
-          <Separator />
-
           {/* Export Section */}
-          <ExportFormatSelector
-            selectedFormat={exportFormat}
-            onFormatChange={setExportFormat}
-            onExport={handleExport}
-            loading={exportMutation.isPending}
-            disabled={!previewData}
-          />
-
-          {/* Quick Actions */}
-          <Card>
+          <Card className="slide-in">
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common report generation shortcuts</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <FileDown className="h-5 w-5" />
+                Export Options
+              </CardTitle>
+              <CardDescription>
+                Choose your preferred export format and download your report
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date();
-                    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                    setFilters({
-                      ...filters,
-                      date_from: firstDayOfMonth.toISOString().split('T')[0],
-                      date_to: today.toISOString().split('T')[0],
-                    });
-                  }}
-                >
-                  This Month
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date();
-                    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-                    setFilters({
-                      ...filters,
-                      date_from: lastMonth.toISOString().split('T')[0],
-                      date_to: lastDayOfLastMonth.toISOString().split('T')[0],
-                    });
-                  }}
-                >
-                  Last Month
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const today = new Date();
-                    const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
-                    setFilters({
-                      ...filters,
-                      date_from: firstDayOfYear.toISOString().split('T')[0],
-                      date_to: today.toISOString().split('T')[0],
-                    });
-                  }}
-                >
-                  Year to Date
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFilters({});
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
+            <CardContent className="pt-6">
+              <ExportFormatSelector
+                selectedFormat={exportFormat}
+                onFormatChange={setExportFormat}
+                onExport={handleExport}
+                loading={exportMutation.isPending}
+                disabled={!previewData}
+              />
             </CardContent>
           </Card>
         </>

@@ -9,7 +9,7 @@ import json
 import hashlib
 import pickle
 from typing import Any, Dict, List, Optional, Union, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -233,13 +233,13 @@ class ReportCacheService:
                 return None
             
             # Check if entry has expired
-            if datetime.now() > entry.expires_at:
+            if datetime.now(timezone.utc) > entry.expires_at:
                 self._remove_entry(cache_key)
                 return None
-            
+
             # Update access statistics
             entry.access_count += 1
-            entry.last_accessed = datetime.now()
+            entry.last_accessed = datetime.now(timezone.utc)
             
             # Move to end for LRU behavior
             self._memory_cache.move_to_end(cache_key)
@@ -334,7 +334,7 @@ class ReportCacheService:
     ) -> bool:
         """Set data in memory cache"""
         ttl = ttl or self.config.default_ttl
-        expires_at = datetime.now() + timedelta(seconds=ttl)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
         
         if data_size is None:
             try:
@@ -347,7 +347,7 @@ class ReportCacheService:
             entry = CacheEntry(
                 key=cache_key,
                 data=data,
-                created_at=datetime.now(),
+                created_at=datetime.now(timezone.utc),
                 expires_at=expires_at,
                 size_bytes=data_size,
                 compressed=False
@@ -578,9 +578,9 @@ class ReportCacheService:
         Returns:
             Number of entries removed
         """
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         expired_keys = []
-        
+
         with self._cache_lock:
             for key, entry in self._memory_cache.items():
                 if now > entry.expires_at:

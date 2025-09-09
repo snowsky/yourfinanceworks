@@ -329,3 +329,47 @@ def export_format_error(format_name: str) -> ReportExportException:
             "Contact support if you need additional formats"
         ]
     )
+
+
+# Additional exception classes for backward compatibility
+class ReportAccessDeniedException(BaseReportException):
+    """Exception for access denied errors"""
+    
+    def __init__(
+        self,
+        message: str,
+        error_code: ReportErrorCode,
+        details: Optional[Dict[str, Any]] = None,
+        suggestions: Optional[List[str]] = None
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            details=details,
+            suggestions=suggestions or [
+                "Check your user permissions",
+                "Contact your administrator for access",
+                "Verify you're accessing the correct resource"
+            ],
+            retryable=False
+        )
+
+
+class TemplateValidationError(ReportTemplateException):
+    """Legacy exception for template validation errors"""
+    pass
+
+
+class TemplateAccessError(ReportTemplateException):
+    """Legacy exception for template access errors"""
+    pass
+
+
+class ReportValidationError(ReportValidationException):
+    """Legacy exception for report validation errors"""
+    pass
+
+
+class ReportSchedulerError(ReportScheduleException):
+    """Legacy exception for scheduler errors"""
+    pass

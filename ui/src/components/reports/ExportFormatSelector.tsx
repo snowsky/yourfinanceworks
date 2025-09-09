@@ -54,12 +54,7 @@ export const ExportFormatSelector: React.FC<ExportFormatSelectorProps> = ({
   const selectedOption = formatOptions.find(option => option.value === selectedFormat);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Export Format</CardTitle>
-        <CardDescription>Choose how you want to export your report</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-6">
         {/* Format Selection */}
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -132,8 +127,8 @@ export const ExportFormatSelector: React.FC<ExportFormatSelectorProps> = ({
         )}
 
         {/* Export Button */}
-        <Button 
-          onClick={onExport} 
+        <Button
+          onClick={onExport}
           disabled={disabled || loading}
           className="w-full"
           size="lg"
@@ -152,11 +147,16 @@ export const ExportFormatSelector: React.FC<ExportFormatSelectorProps> = ({
         </Button>
 
         {/* Export Tips */}
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p>💡 <strong>Tip:</strong> PDF format is recommended for sharing and presentations.</p>
-          <p>💡 <strong>Tip:</strong> Use Excel or CSV for further data analysis.</p>
+        <div className="text-sm text-muted-foreground space-y-2">
+          <div className="flex items-start gap-2">
+            <div className="p-1 bg-primary/10 rounded text-primary text-xs mt-0.5">💡</div>
+            <p><strong>PDF</strong> format is recommended for sharing and presentations.</p>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="p-1 bg-primary/10 rounded text-primary text-xs mt-0.5">💡</div>
+            <p>Use <strong>Excel</strong> or <strong>CSV</strong> for further data analysis.</p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 };

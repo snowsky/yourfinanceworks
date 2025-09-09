@@ -5,7 +5,7 @@ Comprehensive API endpoints for report generation, template management,
 scheduling, and history tracking with proper authentication and authorization.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -14,6 +14,7 @@ import traceback
 from datetime import datetime
 import os
 import mimetypes
+import time
 
 from models.database import get_db
 from models.models import MasterUser
@@ -68,14 +69,17 @@ from services.report_template_service import ReportTemplateService
 from services.scheduled_report_service import ScheduledReportService
 from services.report_exporter import ReportExportService, ExportError
 from services.report_history_service import ReportHistoryService
+from services.report_audit_service import ReportAuditService, extract_request_info
+from services.report_security_service import ReportSecurityService, ReportRateLimiter
 from exceptions.report_exceptions import (
     BaseReportException, ReportValidationException, ReportGenerationException,
     ReportTemplateException, ReportScheduleException, ReportExportException,
-    ReportErrorCode
+    ReportErrorCode, TemplateValidationError, TemplateAccessError,
+    ReportValidationError, ReportSchedulerError
 )
 from schemas.report import (
     ReportType, ExportFormat, ReportGenerateRequest, ReportPreviewRequest,
-    ReportResult, ReportData, ReportTypesResponse,
+    ReportResult, ReportData, ReportTypesResponse, ReportStatus,
     ReportTemplateCreate, ReportTemplateUpdate, ReportTemplate as ReportTemplateSchema,
     ReportTemplateListResponse, ScheduledReportCreate, ScheduledReportUpdate,
     ScheduledReport as ScheduledReportSchema, ScheduledReportListResponse,
@@ -320,6 +324,7 @@ async def get_report_types(
 async def generate_report(
     request: ReportGenerateRequest,
     background_tasks: BackgroundTasks,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_non_viewer_user)
 ):
@@ -329,23 +334,84 @@ async def generate_report(
     Supports all report types with comprehensive filtering options.
     Can generate reports immediately for JSON format or in background for file formats.
     """
+    start_time = time.time()
+    
+    # Initialize security and audit services
+    security_service = ReportSecurityService(db)
+    audit_service = ReportAuditService(db)
+    rate_limiter = ReportRateLimiter(db)
+    
+    # Extract request information for audit logging
+    ip_address, user_agent = extract_request_info(http_request)
     
     try:
-        # Log audit event
-        await log_audit_event(
-            db, current_user.id, "report_generate",
-            f"Generating {request.report_type.value} report",
-            {"report_type": request.report_type.value, "export_format": request.export_format.value}
-        )
+        # Validate user permissions
+        security_service.validate_report_access(current_user, 'generate')
+        
+        # Check rate limits
+        if not rate_limiter.check_rate_limit(current_user, 'report_generation'):
+            rate_info = rate_limiter.get_rate_limit_info(current_user, 'report_generation')
+            
+            # Log rate limit violation
+            audit_service.log_access_attempt(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource_type='report',
+                resource_id='rate_limit',
+                action='GENERATE',
+                access_granted=False,
+                reason=f"Rate limit exceeded: {rate_info['current_usage']}/{rate_info['limit']} requests per hour",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error_code": "RATE_LIMIT_EXCEEDED",
+                    "message": "Report generation rate limit exceeded",
+                    "details": rate_info,
+                    "suggestions": [
+                        f"Wait until {rate_info['reset_time']} to generate more reports",
+                        "Consider upgrading your account for higher limits"
+                    ]
+                }
+            )
+        
+        # Validate export format permissions
+        security_service.validate_export_format(current_user, request.export_format)
+        
+        # Validate report type access
+        if not security_service.can_access_report_type(current_user, request.report_type):
+            audit_service.log_access_attempt(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource_type='report',
+                resource_id=request.report_type.value,
+                action='GENERATE',
+                access_granted=False,
+                reason=f"Access denied to report type: {request.report_type.value}",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied to {request.report_type.value} reports"
+            )
         
         # Initialize report service with performance optimizations
         report_service = get_report_service(db)
+        
+        # Apply security filters
+        security_filters = security_service.get_data_access_filters(current_user)
+        combined_filters = {**request.filters, **security_filters}
         
         # For JSON format, generate immediately
         if request.export_format == ExportFormat.JSON:
             result = report_service.generate_report(
                 report_type=request.report_type,
-                filters=request.filters,
+                filters=combined_filters,
                 export_format=request.export_format,
                 user_id=current_user.id,
                 use_cache=True,
@@ -353,10 +419,55 @@ async def generate_report(
             )
             
             if not result.success:
+                execution_time_ms = int((time.time() - start_time) * 1000)
+                
+                # Log failed generation
+                audit_service.log_report_generation(
+                    user_id=current_user.id,
+                    user_email=current_user.email,
+                    report_type=request.report_type,
+                    export_format=request.export_format,
+                    filters=request.filters,
+                    template_id=request.template_id,
+                    status="error",
+                    error_message=result.error_message,
+                    execution_time_ms=execution_time_ms,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=result.error_message or "Report generation failed"
                 )
+            
+            # Apply data redaction if needed
+            if result.data:
+                result.data = security_service.apply_data_redaction(
+                    result.data,
+                    request.report_type,
+                    current_user,
+                    redaction_level="standard"
+                )
+            
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            record_count = len(result.data.data) if result.data else 0
+
+            # Log successful generation
+            audit_service.log_report_generation(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                report_type=request.report_type,
+                export_format=request.export_format,
+                filters=request.filters,
+                template_id=request.template_id,
+                report_id=result.report_id,
+                status="success",
+                execution_time_ms=execution_time_ms,
+                record_count=record_count,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
             
             return result
         
@@ -367,19 +478,36 @@ async def generate_report(
             report_history = history_service.create_report_history(
                 report_type=request.report_type,
                 parameters={
-                    "filters": request.filters,
+                    "filters": combined_filters,
                     "columns": request.columns,
                     "export_format": request.export_format,
-                    "template_id": request.template_id
+                    "template_id": request.template_id,
+                    "redaction_level": "standard",
+                    "security_filters_applied": bool(security_filters)
                 },
                 user_id=current_user.id,
                 template_id=request.template_id
             )
             
+            # Log background generation start
+            audit_service.log_report_generation(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                report_type=request.report_type,
+                export_format=request.export_format,
+                filters=request.filters,
+                template_id=request.template_id,
+                report_id=str(report_history.id),
+                status="success",
+                execution_time_ms=int((time.time() - start_time) * 1000),
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             # Add background task for report generation
             background_tasks.add_task(
                 _generate_report_background,
-                db, report_history.id, request, current_user.id
+                db, report_history.id, request, current_user.id, ip_address, user_agent
             )
             
             return ReportResult(
@@ -389,9 +517,46 @@ async def generate_report(
             )
             
     except BaseReportException as e:
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Log exception
+        audit_service.log_report_generation(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            report_type=request.report_type,
+            export_format=request.export_format,
+            filters=request.filters,
+            template_id=request.template_id,
+            status="error",
+            error_message=str(e),
+            execution_time_ms=execution_time_ms,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         logger.warning(f"Report exception: {e.error_code.value} - {e.message}")
         raise handle_report_exception(e)
+    except HTTPException:
+        # Re-raise HTTP exceptions (like rate limiting)
+        raise
     except Exception as e:
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Log unexpected exception
+        audit_service.log_report_generation(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            report_type=request.report_type,
+            export_format=request.export_format,
+            filters=request.filters,
+            template_id=request.template_id,
+            status="error",
+            error_message=str(e),
+            execution_time_ms=execution_time_ms,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         logger.error(f"Failed to generate report: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise handle_generic_exception(e, "report generation")
@@ -892,27 +1057,63 @@ async def get_report_history(
 @router.get("/download/{report_id}")
 async def download_report(
     report_id: int,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """
     Download a generated report file.
     
-    Users can only download reports they generated.
+    Users can only download reports they generated or have access to.
     """
+    # Initialize services
+    security_service = ReportSecurityService(db)
+    audit_service = ReportAuditService(db)
+    history_service = ReportHistoryService(db)
+    
+    # Extract request information for audit logging
+    ip_address, user_agent = extract_request_info(http_request)
+    
     try:
-        history_service = ReportHistoryService(db)
+        # Validate download permissions
+        security_service.validate_report_access(current_user, 'download')
         
         # Get report history entry with access control
         report = history_service.get_report_history(report_id, current_user.id)
         
         if not report:
+            # Log access attempt
+            audit_service.log_access_attempt(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource_type='report',
+                resource_id=str(report_id),
+                action='DOWNLOAD',
+                access_granted=False,
+                reason="Report not found or access denied",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Report not found"
             )
         
         if report.status != ReportStatus.COMPLETED:
+            # Log access attempt for incomplete report
+            audit_service.log_access_attempt(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource_type='report',
+                resource_id=str(report_id),
+                action='DOWNLOAD',
+                access_granted=False,
+                reason=f"Report not ready: {report.status}",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Report is not ready for download. Status: {report.status}"
@@ -922,6 +1123,19 @@ async def download_report(
         file_path = history_service.get_report_file_path(report_id, current_user.id)
         
         if not file_path:
+            # Log access attempt for missing file
+            audit_service.log_access_attempt(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                resource_type='report',
+                resource_id=str(report_id),
+                action='DOWNLOAD',
+                access_granted=False,
+                reason="Report file not found or expired",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Report file not found or has expired"
@@ -941,11 +1155,31 @@ async def download_report(
         elif file_path.endswith('.xlsx'):
             filename += '.xlsx'
         
-        # Log audit event
-        await log_audit_event(
-            db, current_user.id, "report_download",
-            f"Downloaded report: {report.report_type}",
-            {"report_id": report_id}
+        # Get file size for audit logging
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        
+        # Log successful download
+        audit_service.log_report_download(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            report_id=str(report_id),
+            report_type=report.report_type,
+            export_format=report.parameters.get('export_format', 'unknown'),
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Log successful access
+        audit_service.log_access_attempt(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            resource_type='report',
+            resource_id=str(report_id),
+            action='DOWNLOAD',
+            access_granted=True,
+            reason=f"File size: {file_size} bytes",
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         
         return FileResponse(
@@ -954,7 +1188,23 @@ async def download_report(
             media_type=content_type
         )
         
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
+        # Log unexpected exception
+        audit_service.log_access_attempt(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            resource_type='report',
+            resource_id=str(report_id),
+            action='DOWNLOAD',
+            access_granted=False,
+            reason=f"System error: {str(e)}",
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         logger.error(f"Failed to download report: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
@@ -1168,16 +1418,33 @@ async def _generate_report_background(
     db: Session,
     report_history_id: int,
     request: ReportGenerateRequest,
-    user_id: int
+    user_id: int,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
 ):
     """
     Background task for generating reports in file formats.
     
-    Updates the report history entry with the result.
+    Updates the report history entry with the result and logs audit events.
     """
+    start_time = time.time()
+    
+    # Initialize services
+    history_service = ReportHistoryService(db)
+    audit_service = ReportAuditService(db)
+    security_service = ReportSecurityService(db)
+    
+    # Get user info for audit logging (from master database)
+    from models.models import MasterUser
+    from models.database import get_master_db
+    master_db = next(get_master_db())
     try:
-        history_service = ReportHistoryService(db)
-        
+        user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+        user_email = user.email if user else "unknown@system"
+    finally:
+        master_db.close()
+    
+    try:
         # Update status to generating
         history_service.update_report_status(
             report_history_id, 
@@ -1196,6 +1463,15 @@ async def _generate_report_background(
         )
         
         if result.success and result.data:
+            # Apply data redaction if needed
+            if user:
+                result.data = security_service.apply_data_redaction(
+                    result.data,
+                    request.report_type,
+                    user,
+                    redaction_level="standard"
+                )
+            
             # Export the report to file format
             export_service = ReportExportService()
             exported_data = export_service.export_report(result.data, request.export_format)
@@ -1213,8 +1489,47 @@ async def _generate_report_background(
                 f"{request.report_type}_report"
             )
             
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            record_count = len(result.data.data) if result.data else 0
+            file_size_bytes = len(file_content)
+            
+            # Log successful background generation
+            audit_service.log_report_generation(
+                user_id=user_id,
+                user_email=user_email,
+                report_type=request.report_type,
+                export_format=request.export_format,
+                filters=request.filters,
+                template_id=request.template_id,
+                report_id=str(report_history_id),
+                status="success",
+                execution_time_ms=execution_time_ms,
+                record_count=record_count,
+                file_size_bytes=file_size_bytes,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             logger.info(f"Report {report_history_id} generated successfully: {file_path}")
         else:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Log failed generation
+            audit_service.log_report_generation(
+                user_id=user_id,
+                user_email=user_email,
+                report_type=request.report_type,
+                export_format=request.export_format,
+                filters=request.filters,
+                template_id=request.template_id,
+                report_id=str(report_history_id),
+                status="error",
+                error_message=result.error_message or "Report generation failed",
+                execution_time_ms=execution_time_ms,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             # Update status to failed
             history_service.update_report_status(
                 report_history_id,
@@ -1223,6 +1538,24 @@ async def _generate_report_background(
             )
         
     except Exception as e:
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Log exception
+        audit_service.log_report_generation(
+            user_id=user_id,
+            user_email=user_email,
+            report_type=request.report_type,
+            export_format=request.export_format,
+            filters=request.filters,
+            template_id=request.template_id,
+            report_id=str(report_history_id),
+            status="error",
+            error_message=str(e),
+            execution_time_ms=execution_time_ms,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         logger.error(f"Background report generation failed: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         

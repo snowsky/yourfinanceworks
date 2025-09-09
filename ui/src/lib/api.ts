@@ -2,7 +2,8 @@ import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 
 // API base URL comes from env var. Set VITE_API_URL in your environment.
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+// When running in containers, use nginx proxy on port 8080
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 // Type definitions
 export interface Client {
@@ -1833,20 +1834,53 @@ export const reportApi = {
       body: JSON.stringify(shareSettings),
     }),
   
-  downloadReport: (reportId: number) => {
-    const token = localStorage.getItem('token');
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
-    })();
-    
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (tenantId) headers['X-Tenant-ID'] = tenantId;
-    
-    return fetch(`${API_BASE_URL}/reports/download/${reportId}`, {
-      method: 'GET',
-      headers,
-    });
+  downloadReport: async (reportId: number) => {
+    try {
+      console.log('DownloadReport: Starting download for report ID:', reportId);
+
+      // For downloads, we need to bypass the JSON parsing in apiRequest
+      const token = localStorage.getItem('token');
+      const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+        try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
+      })();
+
+      console.log('DownloadReport: Auth check - token exists:', !!token, 'tenantId:', tenantId);
+
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+      const downloadUrl = `${API_BASE_URL}/reports/download/${reportId}`;
+      console.log('DownloadReport: Making request to:', downloadUrl);
+
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers,
+      });
+
+      console.log('DownloadReport: Response status:', response.status, response.statusText);
+
+      // Handle 401 errors specifically for downloads
+      if (response.status === 401) {
+        console.error('DownloadReport: 401 Unauthorized - clearing auth data');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('selected_tenant_id');
+        window.location.replace('/login');
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      if (!response.ok) {
+        console.error('DownloadReport: Request failed with status:', response.status, response.statusText);
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      console.log('DownloadReport: Download successful');
+      return response;
+    } catch (error) {
+      console.error('Download report error:', error);
+      throw error;
+    }
   },
 
   // Scheduled reports

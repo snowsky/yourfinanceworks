@@ -145,4 +145,23 @@ export const logout = () => {
   localStorage.removeItem('user');
   localStorage.removeItem('selected_tenant_id');
   window.location.href = '/login';
+};
+
+/**
+ * Check authentication and redirect if needed
+ * @param redirectOnFailure Whether to redirect to login on failure (default: true)
+ * @returns boolean indicating if user is authenticated
+ */
+export const ensureAuthenticated = (redirectOnFailure: boolean = true): boolean => {
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+
+  const isAuthenticated = !!(token && user);
+
+  if (!isAuthenticated && redirectOnFailure) {
+    console.warn('Authentication check failed, redirecting to login');
+    window.location.href = '/login';
+  }
+
+  return isAuthenticated;
 }; 

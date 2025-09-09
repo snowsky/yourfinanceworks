@@ -117,7 +117,7 @@
   - Add security tests for access control and data isolation
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [-] 16. Add audit logging and security features
+- [x] 16. Add audit logging and security features
   - Implement audit logging for all report operations
   - Add role-based access control for report features
   - Create data redaction options for sensitive information

@@ -226,45 +226,45 @@ class PDFExporter(BaseExporter):
         return elements
     
     def _build_data_table(self, report_data: ReportData) -> List:
-        """Build main data table"""
+        """Build main data table with intelligent column width handling"""
         elements = []
-        
+
         if not report_data.data:
             elements.append(Paragraph("No data available", self.styles['Normal']))
             return elements
-        
+
         elements.append(Paragraph("Report Data", self.styles['SectionHeader']))
-        
+
         # Get column headers from first row
         first_row = report_data.data[0]
         headers = list(first_row.keys())
-        
-        # Build table data
+        num_cols = len(headers)
+
+        # Build table data with improved text formatting
         table_data = [headers]  # Header row
-        
+
         for row in report_data.data:
             table_row = []
             for header in headers:
                 value = row.get(header, '')
-                # Format values appropriately
-                if isinstance(value, (int, float)):
-                    if isinstance(value, float):
-                        table_row.append(f"{value:,.2f}")
-                    else:
-                        table_row.append(f"{value:,}")
-                elif isinstance(value, datetime):
-                    table_row.append(value.strftime('%Y-%m-%d'))
-                else:
-                    table_row.append(str(value) if value is not None else '')
+                # Format values appropriately and handle long text
+                formatted_value = self._format_table_value(value, header)
+                table_row.append(formatted_value)
             table_data.append(table_row)
-        
-        # Calculate column widths dynamically
-        num_cols = len(headers)
-        available_width = 6.5 * inch  # Available width for table
-        col_width = available_width / num_cols
-        col_widths = [col_width] * num_cols
-        
-        # Create table
+
+        # Handle extreme cases with too many columns
+        if num_cols > 25:
+            # For extremely wide tables, create a simplified view or split into multiple tables
+            elements.extend(self._build_wide_table_fallback(report_data, headers, table_data))
+            return elements
+
+        # Calculate intelligent column widths based on content
+        col_widths = self._calculate_column_widths(headers, table_data, num_cols)
+
+        # Adjust font sizes based on number of columns
+        header_font_size, data_font_size = self._get_font_sizes(num_cols)
+
+        # Create table with improved styling
         data_table = Table(table_data, colWidths=col_widths)
         data_table.setStyle(TableStyle([
             # Header styling
@@ -272,22 +272,228 @@ class PDFExporter(BaseExporter):
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            
+            ('FONTSIZE', (0, 0), (-1, 0), header_font_size),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
+
             # Data rows styling
             ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), data_font_size),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.beige, colors.white]),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
-        
+
         elements.append(data_table)
-        
+
         return elements
-    
+
+    def _format_table_value(self, value: Any, header: str) -> str:
+        """Format table values with intelligent text handling"""
+        if value is None or value == '':
+            return ''
+
+        # Format numbers
+        if isinstance(value, (int, float)):
+            if isinstance(value, float):
+                # Use shorter format for wide tables
+                return f"{value:.2f}"
+            else:
+                return f"{value:,}"
+
+        # Format dates
+        elif isinstance(value, datetime):
+            return value.strftime('%Y-%m-%d')
+
+        # Handle long text values
+        else:
+            text_value = str(value)
+
+            # Truncate very long values to prevent table overflow
+            if len(text_value) > 50:
+                text_value = text_value[:47] + "..."
+
+            # For certain fields that might be long, try to find natural break points
+            if header.lower() in ['description', 'notes', 'address', 'comments']:
+                # Break long text at reasonable points
+                if len(text_value) > 30:
+                    # Try to break at word boundaries
+                    words = text_value.split()
+                    lines = []
+                    current_line = ""
+                    for word in words:
+                        if len(current_line + " " + word) <= 25:
+                            current_line += (" " + word) if current_line else word
+                        else:
+                            if current_line:
+                                lines.append(current_line)
+                            current_line = word
+                    if current_line:
+                        lines.append(current_line)
+                    text_value = "\n".join(lines)
+
+            return text_value
+
+    def _calculate_column_widths(self, headers: List[str], table_data: List[List], num_cols: int) -> List[float]:
+        """Calculate intelligent column widths based on content and available space"""
+        available_width = 6.5 * inch  # Available width for table
+        min_col_width = 0.4 * inch   # Minimum column width
+        max_col_width = 1.5 * inch   # Maximum column width
+
+        # For very wide tables, reduce minimum width
+        if num_cols > 15:
+            min_col_width = 0.3 * inch
+        elif num_cols > 10:
+            min_col_width = 0.35 * inch
+
+        # Analyze content to determine optimal widths
+        col_content_lengths = []
+        for col_idx in range(num_cols):
+            max_length = len(headers[col_idx])  # Start with header length
+
+            # Check content lengths in data rows (sample first 10 rows for performance)
+            for row_idx in range(1, min(len(table_data), 11)):
+                if col_idx < len(table_data[row_idx]):
+                    content = str(table_data[row_idx][col_idx])
+                    # Count lines for multi-line content
+                    lines = content.split('\n')
+                    max_line_length = max(len(line) for line in lines) if lines else 0
+                    max_length = max(max_length, max_line_length)
+
+            col_content_lengths.append(max_length)
+
+        # Calculate base widths based on content
+        base_widths = []
+        for length in col_content_lengths:
+            # Estimate width based on character count (rough approximation)
+            estimated_width = min(max(length * 0.08 * inch, min_col_width), max_col_width)
+            base_widths.append(estimated_width)
+
+        # Normalize widths to fit available space
+        total_base_width = sum(base_widths)
+
+        if total_base_width > available_width:
+            # Scale down proportionally
+            scale_factor = available_width / total_base_width
+            col_widths = [width * scale_factor for width in base_widths]
+
+            # Ensure minimum widths
+            col_widths = [max(width, min_col_width) for width in col_widths]
+
+            # If we still exceed available width after minimums, reduce proportionally again
+            total_min_width = sum(col_widths)
+            if total_min_width > available_width:
+                scale_factor = available_width / total_min_width
+                col_widths = [width * scale_factor for width in col_widths]
+        else:
+            # Distribute extra space proportionally
+            extra_space = available_width - total_base_width
+            if num_cols > 0:
+                extra_per_col = extra_space / num_cols
+                col_widths = [width + extra_per_col for width in base_widths]
+                # Cap at maximum width
+                col_widths = [min(width, max_col_width) for width in col_widths]
+
+        return col_widths
+
+    def _get_font_sizes(self, num_cols: int) -> tuple[int, int]:
+        """Get appropriate font sizes based on number of columns"""
+        if num_cols > 20:
+            return (8, 7)  # Very small for very wide tables
+        elif num_cols > 15:
+            return (9, 8)  # Small for wide tables
+        elif num_cols > 10:
+            return (10, 9)  # Medium-small for moderately wide tables
+        else:
+            return (10, 9)  # Standard sizes for narrow tables
+
+    def _build_wide_table_fallback(self, report_data: ReportData, headers: List[str], table_data: List[List]) -> List:
+        """Handle extremely wide tables by creating a simplified summary or multiple tables"""
+        elements = []
+
+        # Add a warning about the wide table
+        elements.append(Paragraph(
+            "Note: This report contains many columns. Showing summarized view below.",
+            self.styles['Summary']
+        ))
+        elements.append(Spacer(1, 10))
+
+        # Create a summary table with key columns only
+        key_columns = self._identify_key_columns(headers, table_data)
+
+        if key_columns:
+            # Build summary table with just the most important columns
+            summary_headers = [headers[i] for i in key_columns]
+            summary_data = [summary_headers]  # Header row
+
+            for row in table_data[1:]:  # Skip header row
+                summary_row = [row[i] for i in key_columns if i < len(row)]
+                if summary_row:
+                    summary_data.append(summary_row)
+
+            # Create summary table
+            summary_table = Table(summary_data)
+            summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495e')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.beige, colors.white]),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ]))
+
+            elements.append(Paragraph("Summary View (Key Columns Only)", self.styles['SectionHeader']))
+            elements.append(summary_table)
+        else:
+            # Fallback to showing just row counts
+            total_rows = len(table_data) - 1  # Subtract header row
+            elements.append(Paragraph(
+                f"This report contains {len(headers)} columns and {total_rows} rows. " +
+                "For detailed data, please use CSV or Excel export formats.",
+                self.styles['Normal']
+            ))
+
+        return elements
+
+    def _identify_key_columns(self, headers: List[str], table_data: List[List], max_cols: int = 8) -> List[int]:
+        """Identify the most important columns to show in summary view"""
+        key_column_names = [
+            'id', 'name', 'title', 'date', 'amount', 'total', 'status',
+            'created_at', 'updated_at', 'client', 'customer'
+        ]
+
+        key_indices = []
+        remaining_slots = max_cols
+
+        # First, prioritize key columns
+        for i, header in enumerate(headers):
+            header_lower = header.lower()
+            if any(key_name in header_lower for key_name in key_column_names):
+                key_indices.append(i)
+                remaining_slots -= 1
+                if remaining_slots <= 0:
+                    break
+
+        # If we still have slots, add the first few remaining columns
+        if remaining_slots > 0:
+            for i, header in enumerate(headers):
+                if i not in key_indices:
+                    key_indices.append(i)
+                    remaining_slots -= 1
+                    if remaining_slots <= 0:
+                        break
+
+        return sorted(key_indices)
+
     def _build_footer(self) -> List:
         """Build report footer"""
         elements = []

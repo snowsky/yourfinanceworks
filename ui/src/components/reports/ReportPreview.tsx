@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { ReportData } from '@/lib/api';
 import { format } from 'date-fns';
 
@@ -22,23 +22,32 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
 }) => {
   if (loading) {
     return (
-      <Card>
+      <Card className="slide-in">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
             Generating Preview...
           </CardTitle>
           <CardDescription>Please wait while we generate your report preview</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+          <div className="space-y-6">
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 bg-muted/50 rounded w-1/4"></div>
+              <div className="h-4 bg-muted/50 rounded w-1/2"></div>
+              <div className="h-4 bg-muted/50 rounded w-1/3"></div>
             </div>
             <div className="animate-pulse">
-              <div className="h-32 bg-gray-200 rounded"></div>
+              <div className="h-40 bg-muted/50 rounded-lg"></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-20 bg-muted/50 rounded-lg"></div>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>
@@ -48,18 +57,23 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
 
   if (error) {
     return (
-      <Card>
+      <Card className="slide-in border-destructive/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <EyeOff className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-3 text-destructive">
+            <div className="p-2 bg-destructive/10 rounded-lg">
+              <EyeOff className="h-5 w-5" />
+            </div>
             Preview Error
           </CardTitle>
           <CardDescription>There was an error generating the preview</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <Button onClick={onRefresh} variant="outline">
+          <div className="space-y-6">
+            <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive/80">{error}</p>
+            </div>
+            <Button onClick={onRefresh} variant="outline" className="w-full">
+              <RefreshCw className="mr-2 h-4 w-4" />
               Try Again
             </Button>
           </div>
@@ -70,17 +84,23 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
 
   if (!reportData) {
     return (
-      <Card>
+      <Card className="slide-in">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 bg-muted/50 rounded-lg">
+              <Eye className="h-5 w-5 text-muted-foreground" />
+            </div>
             Report Preview
           </CardTitle>
           <CardDescription>Configure your filters and click preview to see a sample of your report</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            No preview available. Please configure your filters and generate a preview.
+          <div className="text-center py-16 text-muted-foreground">
+            <div className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+              <Eye className="h-8 w-8" />
+            </div>
+            <p className="font-medium mb-2">No preview available</p>
+            <p className="text-sm">Configure your filters and generate a preview to see your data</p>
           </div>
         </CardContent>
       </Card>
@@ -164,10 +184,12 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
   };
 
   return (
-    <Card>
+    <Card className="slide-in">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Eye className="h-5 w-5" />
+        <CardTitle className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Eye className="h-5 w-5 text-primary" />
+          </div>
           Report Preview
         </CardTitle>
         <CardDescription>

@@ -8,7 +8,7 @@ Provides secure access control and automatic cleanup of expired reports.
 import os
 import shutil
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
@@ -291,7 +291,7 @@ class ReportHistoryService:
             return None
         
         # Check if report has expired
-        if report.expires_at and datetime.now() > report.expires_at:
+        if report.expires_at and datetime.now(timezone.utc) > report.expires_at:
             return None
         
         return report.file_path
