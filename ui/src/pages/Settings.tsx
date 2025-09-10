@@ -984,14 +984,13 @@ const Settings = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
             <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
             <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
             <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
             <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
             <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
-            <TabsTrigger value="email" className="text-xs md:text-sm">{t('settings.tabs.email')}</TabsTrigger>
-            <TabsTrigger value="notifications" className="text-xs md:text-sm">Notifications</TabsTrigger>
+            <TabsTrigger value="email-notifications" className="text-xs md:text-sm">Email & Notifications</TabsTrigger>
             <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
           </TabsList>
           
@@ -1440,434 +1439,439 @@ const Settings = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="notifications" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Notifications</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Configure which operations trigger email notifications
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {loadingNotifications ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span className="text-sm text-muted-foreground">Loading notification settings...</span>
+          <TabsContent value="email-notifications" className="mt-6">
+            <div className="space-y-6">
+              {/* Email Configuration Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('settings.email_configuration')}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your email service provider and settings
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="email_enabled">{t('settings.enable_email_service')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('settings.enable_email_service_description')}</p>
+                    </div>
+                    <Switch
+                      id="email_enabled"
+                      checked={emailSettings.enabled}
+                      onCheckedChange={(checked) => handleEmailToggleChange('enabled', checked)}
+                    />
                   </div>
-                ) : (
-                  <>
-                    {/* Custom notification email */}
-                    <div className="space-y-2">
-                      <Label htmlFor="notification_email">Notification Email (Optional)</Label>
-                      <Input
-                        id="notification_email"
-                        type="email"
-                        value={notificationSettings.notification_email}
-                        onChange={handleNotificationEmailChange}
-                        placeholder="Leave empty to use your account email"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        If specified, notifications will be sent to this email instead of your account email
-                      </p>
-                    </div>
 
-                    {/* User Operations */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">User Operations</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>User Created</Label>
-                            <p className="text-sm text-muted-foreground">When a new user is added</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.user_created}
-                            onCheckedChange={(checked) => handleNotificationToggle('user_created', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>User Updated</Label>
-                            <p className="text-sm text-muted-foreground">When user info is modified</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.user_updated}
-                            onCheckedChange={(checked) => handleNotificationToggle('user_updated', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>User Deleted</Label>
-                            <p className="text-sm text-muted-foreground">When a user is removed</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.user_deleted}
-                            onCheckedChange={(checked) => handleNotificationToggle('user_deleted', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>User Login</Label>
-                            <p className="text-sm text-muted-foreground">When a user logs in</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.user_login}
-                            onCheckedChange={(checked) => handleNotificationToggle('user_login', checked)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Client Operations */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Client Operations</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Client Created</Label>
-                            <p className="text-sm text-muted-foreground">When a new client is added</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.client_created}
-                            onCheckedChange={(checked) => handleNotificationToggle('client_created', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Client Updated</Label>
-                            <p className="text-sm text-muted-foreground">When client info is modified</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.client_updated}
-                            onCheckedChange={(checked) => handleNotificationToggle('client_updated', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Client Deleted</Label>
-                            <p className="text-sm text-muted-foreground">When a client is removed</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.client_deleted}
-                            onCheckedChange={(checked) => handleNotificationToggle('client_deleted', checked)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Invoice Operations */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Invoice Operations</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Created</Label>
-                            <p className="text-sm text-muted-foreground">When a new invoice is created</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_created}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_created', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Updated</Label>
-                            <p className="text-sm text-muted-foreground">When invoice is modified</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_updated}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_updated', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Deleted</Label>
-                            <p className="text-sm text-muted-foreground">When an invoice is deleted</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_deleted}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_deleted', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Sent</Label>
-                            <p className="text-sm text-muted-foreground">When invoice is sent to client</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_sent}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_sent', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Paid</Label>
-                            <p className="text-sm text-muted-foreground">When invoice is marked as paid</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_paid}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_paid', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Invoice Overdue</Label>
-                            <p className="text-sm text-muted-foreground">When invoice becomes overdue</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.invoice_overdue}
-                            onCheckedChange={(checked) => handleNotificationToggle('invoice_overdue', checked)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Payment Operations */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Payment Operations</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Payment Created</Label>
-                            <p className="text-sm text-muted-foreground">When a payment is recorded</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.payment_created}
-                            onCheckedChange={(checked) => handleNotificationToggle('payment_created', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Payment Updated</Label>
-                            <p className="text-sm text-muted-foreground">When payment is modified</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.payment_updated}
-                            onCheckedChange={(checked) => handleNotificationToggle('payment_updated', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Payment Deleted</Label>
-                            <p className="text-sm text-muted-foreground">When a payment is removed</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.payment_deleted}
-                            onCheckedChange={(checked) => handleNotificationToggle('payment_deleted', checked)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Summary Notifications */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Summary Notifications</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Daily Summary</Label>
-                            <p className="text-sm text-muted-foreground">Daily activity summary</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.daily_summary}
-                            onCheckedChange={(checked) => handleNotificationToggle('daily_summary', checked)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Weekly Summary</Label>
-                            <p className="text-sm text-muted-foreground">Weekly activity summary</p>
-                          </div>
-                          <Switch
-                            checked={notificationSettings.weekly_summary}
-                            onCheckedChange={(checked) => handleNotificationToggle('weekly_summary', checked)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex justify-between pt-4 border-t">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleTestNotification}
-                      >
-                        Send Test Notification
-                      </Button>
-                      <Button
-                        onClick={handleSaveNotifications}
-                        disabled={savingNotifications}
-                      >
-                        {savingNotifications && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Notification Settings
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="email" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.email_configuration')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="email_enabled">{t('settings.enable_email_service')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('settings.enable_email_service_description')}</p>
-                  </div>
-                  <Switch 
-                    id="email_enabled" 
-                    checked={emailSettings.enabled} 
-                    onCheckedChange={(checked) => handleEmailToggleChange('enabled', checked)} 
-                  />
-                </div>
-
-                {emailSettings.enabled && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="provider">{t('settings.email_provider')}</Label>
-                      <Select value={emailSettings.provider} onValueChange={handleEmailProviderChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('settings.select_email_provider')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="aws_ses">{t('settings.aws_ses')}</SelectItem>
-                          <SelectItem value="azure_email">{t('settings.azure_email_services')}</SelectItem>
-                          <SelectItem value="mailgun">{t('settings.mailgun')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {emailSettings.enabled && (
+                    <>
                       <div className="space-y-2">
-                        <Label htmlFor="from_name">{t('settings.from_name')}</Label>
-                        <Input 
-                          id="from_name" 
-                          name="from_name" 
-                          value={emailSettings.from_name} 
-                          onChange={handleEmailChange} 
-                        />
+                        <Label htmlFor="provider">{t('settings.email_provider')}</Label>
+                        <Select value={emailSettings.provider} onValueChange={handleEmailProviderChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('settings.select_email_provider')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="aws_ses">{t('settings.aws_ses')}</SelectItem>
+                            <SelectItem value="azure_email">{t('settings.azure_email_services')}</SelectItem>
+                            <SelectItem value="mailgun">{t('settings.mailgun')}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="from_email">{t('settings.from_email')}</Label>
-                        <Input 
-                          id="from_email" 
-                          name="from_email" 
-                          type="email" 
-                          value={emailSettings.from_email} 
-                          onChange={handleEmailChange} 
-                        />
-                      </div>
-                    </div>
 
-                    {emailSettings.provider === "aws_ses" && (
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">{t('settings.aws_ses_configuration')}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="aws_access_key_id">{t('settings.aws_access_key_id')}</Label>
-                            <Input 
-                              id="aws_access_key_id" 
-                              name="aws_access_key_id" 
-                              type="password"
-                              value={emailSettings.aws_access_key_id} 
-                              onChange={handleEmailChange} 
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="aws_secret_access_key">{t('settings.aws_secret_access_key')}</Label>
-                            <Input 
-                              id="aws_secret_access_key" 
-                              name="aws_secret_access_key" 
-                              type="password"
-                              value={emailSettings.aws_secret_access_key} 
-                              onChange={handleEmailChange} 
-                            />
-                          </div>
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="aws_region">{t('settings.aws_region')}</Label>
-                          <Select value={emailSettings.aws_region} onValueChange={(value) => setEmailSettings(prev => ({ ...prev, aws_region: value }))}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="us-east-1">{t('settings.us_east_virginia')}</SelectItem>
-                              <SelectItem value="us-west-2">{t('settings.us_west_oregon')}</SelectItem>
-                              <SelectItem value="eu-west-1">{t('settings.eu_ireland')}</SelectItem>
-                              <SelectItem value="ap-southeast-1">{t('settings.asia_pacific_singapore')}</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor="from_name">{t('settings.from_name')}</Label>
+                          <Input
+                            id="from_name"
+                            name="from_name"
+                            value={emailSettings.from_name}
+                            onChange={handleEmailChange}
+                          />
                         </div>
-                      </div>
-                    )}
 
-                    {emailSettings.provider === "azure_email" && (
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">{t('settings.azure_email_services_configuration')}</h4>
                         <div className="space-y-2">
-                          <Label htmlFor="azure_connection_string">{t('settings.azure_connection_string')}</Label>
-                          <Input 
-                            id="azure_connection_string" 
-                            name="azure_connection_string" 
-                            type="password"
-                            value={emailSettings.azure_connection_string} 
-                            onChange={handleEmailChange} 
+                          <Label htmlFor="from_email">{t('settings.from_email')}</Label>
+                          <Input
+                            id="from_email"
+                            name="from_email"
+                            type="email"
+                            value={emailSettings.from_email}
+                            onChange={handleEmailChange}
                           />
                         </div>
                       </div>
-                    )}
 
-                    {emailSettings.provider === "mailgun" && (
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-medium">{t('settings.mailgun_configuration')}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="mailgun_api_key">{t('settings.mailgun_api_key')}</Label>
-                            <Input 
-                              id="mailgun_api_key" 
-                              name="mailgun_api_key" 
-                              type="password"
-                              value={emailSettings.mailgun_api_key} 
-                              onChange={handleEmailChange} 
-                            />
+                      {emailSettings.provider === "aws_ses" && (
+                        <div className="space-y-4 p-4 border rounded-lg">
+                          <h4 className="font-medium">{t('settings.aws_ses_configuration')}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="aws_access_key_id">{t('settings.aws_access_key_id')}</Label>
+                              <Input
+                                id="aws_access_key_id"
+                                name="aws_access_key_id"
+                                type="password"
+                                value={emailSettings.aws_access_key_id}
+                                onChange={handleEmailChange}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="aws_secret_access_key">{t('settings.aws_secret_access_key')}</Label>
+                              <Input
+                                id="aws_secret_access_key"
+                                name="aws_secret_access_key"
+                                type="password"
+                                value={emailSettings.aws_secret_access_key}
+                                onChange={handleEmailChange}
+                              />
+                            </div>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="mailgun_domain">{t('settings.mailgun_domain')}</Label>
-                            <Input 
-                              id="mailgun_domain" 
-                              name="mailgun_domain" 
-                              value={emailSettings.mailgun_domain} 
-                              onChange={handleEmailChange} 
+                            <Label htmlFor="aws_region">{t('settings.aws_region')}</Label>
+                            <Select value={emailSettings.aws_region} onValueChange={(value) => setEmailSettings(prev => ({ ...prev, aws_region: value }))}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="us-east-1">{t('settings.us_east_virginia')}</SelectItem>
+                                <SelectItem value="us-west-2">{t('settings.us_west_oregon')}</SelectItem>
+                                <SelectItem value="eu-west-1">{t('settings.eu_ireland')}</SelectItem>
+                                <SelectItem value="ap-southeast-1">{t('settings.asia_pacific_singapore')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+
+                      {emailSettings.provider === "azure_email" && (
+                        <div className="space-y-4 p-4 border rounded-lg">
+                          <h4 className="font-medium">{t('settings.azure_email_services_configuration')}</h4>
+                          <div className="space-y-2">
+                            <Label htmlFor="azure_connection_string">{t('settings.azure_connection_string')}</Label>
+                            <Input
+                              id="azure_connection_string"
+                              name="azure_connection_string"
+                              type="password"
+                              value={emailSettings.azure_connection_string}
+                              onChange={handleEmailChange}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {emailSettings.provider === "mailgun" && (
+                        <div className="space-y-4 p-4 border rounded-lg">
+                          <h4 className="font-medium">{t('settings.mailgun_configuration')}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="mailgun_api_key">{t('settings.mailgun_api_key')}</Label>
+                              <Input
+                                id="mailgun_api_key"
+                                name="mailgun_api_key"
+                                type="password"
+                                value={emailSettings.mailgun_api_key}
+                                onChange={handleEmailChange}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="mailgun_domain">{t('settings.mailgun_domain')}</Label>
+                              <Input
+                                id="mailgun_domain"
+                                name="mailgun_domain"
+                                value={emailSettings.mailgun_domain}
+                                onChange={handleEmailChange}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between pt-4 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={testEmailConfiguration}
+                        >
+                          {t('settings.test_configuration')}
+                        </Button>
+                        <Button onClick={handleSave} disabled={saving}>
+                          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {t('settings.save_email_settings')}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Notification Settings Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notification Settings</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Configure which operations trigger email notifications
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {loadingNotifications ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span className="text-sm text-muted-foreground">Loading notification settings...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Custom notification email */}
+                      <div className="space-y-2">
+                        <Label htmlFor="notification_email">Notification Email (Optional)</Label>
+                        <Input
+                          id="notification_email"
+                          type="email"
+                          value={notificationSettings.notification_email}
+                          onChange={handleNotificationEmailChange}
+                          placeholder="Leave empty to use your account email"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          If specified, notifications will be sent to this email instead of your account email
+                        </p>
+                      </div>
+
+                      {/* User Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">User Operations</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>User Created</Label>
+                              <p className="text-sm text-muted-foreground">When a new user is added</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.user_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('user_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>User Updated</Label>
+                              <p className="text-sm text-muted-foreground">When user info is modified</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.user_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('user_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>User Deleted</Label>
+                              <p className="text-sm text-muted-foreground">When a user is removed</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.user_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('user_deleted', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>User Login</Label>
+                              <p className="text-sm text-muted-foreground">When a user logs in</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.user_login}
+                              onCheckedChange={(checked) => handleNotificationToggle('user_login', checked)}
                             />
                           </div>
                         </div>
                       </div>
-                    )}
 
-                    <div className="flex justify-between">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={testEmailConfiguration}
-                      >
-                        {t('settings.test_configuration')}
-                      </Button>
-                      <Button onClick={handleSave} disabled={saving}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {t('settings.save_email_settings')}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                      {/* Client Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Client Operations</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Client Created</Label>
+                              <p className="text-sm text-muted-foreground">When a new client is added</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.client_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('client_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Client Updated</Label>
+                              <p className="text-sm text-muted-foreground">When client info is modified</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.client_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('client_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Client Deleted</Label>
+                              <p className="text-sm text-muted-foreground">When a client is removed</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.client_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('client_deleted', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Invoice Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Invoice Operations</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Created</Label>
+                              <p className="text-sm text-muted-foreground">When a new invoice is created</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Updated</Label>
+                              <p className="text-sm text-muted-foreground">When invoice is modified</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Deleted</Label>
+                              <p className="text-sm text-muted-foreground">When an invoice is deleted</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_deleted', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Sent</Label>
+                              <p className="text-sm text-muted-foreground">When invoice is sent to client</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_sent}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_sent', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Paid</Label>
+                              <p className="text-sm text-muted-foreground">When invoice is marked as paid</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_paid}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_paid', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Invoice Overdue</Label>
+                              <p className="text-sm text-muted-foreground">When invoice becomes overdue</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.invoice_overdue}
+                              onCheckedChange={(checked) => handleNotificationToggle('invoice_overdue', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payment Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Payment Operations</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Payment Created</Label>
+                              <p className="text-sm text-muted-foreground">When a payment is recorded</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.payment_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('payment_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Payment Updated</Label>
+                              <p className="text-sm text-muted-foreground">When payment is modified</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.payment_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('payment_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Payment Deleted</Label>
+                              <p className="text-sm text-muted-foreground">When a payment is removed</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.payment_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('payment_deleted', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Summary Notifications */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Summary Notifications</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Daily Summary</Label>
+                              <p className="text-sm text-muted-foreground">Daily activity summary</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.daily_summary}
+                              onCheckedChange={(checked) => handleNotificationToggle('daily_summary', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Weekly Summary</Label>
+                              <p className="text-sm text-muted-foreground">Weekly activity summary</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.weekly_summary}
+                              onCheckedChange={(checked) => handleNotificationToggle('weekly_summary', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex justify-between pt-4 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleTestNotification}
+                        >
+                          Send Test Notification
+                        </Button>
+                        <Button
+                          onClick={handleSaveNotifications}
+                          disabled={savingNotifications}
+                        >
+                          {savingNotifications && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Save Notification Settings
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
           
           <TabsContent value="export" className="space-y-6">
