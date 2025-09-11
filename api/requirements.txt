@@ -62,3 +62,4 @@ hiredis==3.1.0
 
 # OpenSearch
 opensearch-py==2.4.2
+urllib3>=2.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
