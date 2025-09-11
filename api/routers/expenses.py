@@ -208,6 +208,10 @@ class BulkLabelsRequest(BaseModel):
     label: str
 
 
+class BulkExpenseCreateRequest(BaseModel):
+    expenses: TypingList[ExpenseCreate]
+
+
 @router.post("/bulk-labels")
 async def bulk_labels_expenses(
     payload: BulkLabelsRequest,
@@ -246,6 +250,114 @@ async def bulk_labels_expenses(
         db.rollback()
         logger.error(f"Failed bulk label update: {e}")
         raise HTTPException(status_code=500, detail="Failed to bulk update labels")
+
+
+@router.post("/bulk-create", response_model=List[ExpenseSchema])
+async def bulk_create_expenses(
+    payload: BulkExpenseCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "create expenses")
+    try:
+        if not payload.expenses or len(payload.expenses) == 0:
+            raise HTTPException(status_code=400, detail="No expenses provided")
+        if len(payload.expenses) > 10:
+            raise HTTPException(status_code=400, detail="Maximum 10 expenses allowed")
+
+        currency_service = CurrencyService(db)
+        created_expenses = []
+
+        for expense in payload.expenses:
+            currency_code = expense.currency or "USD"
+            if not currency_service.validate_currency_code(currency_code):
+                raise HTTPException(status_code=400, detail=f"Invalid currency code: {currency_code}")
+
+            expense_dt = expense.expense_date
+            if isinstance(expense_dt, date):
+                expense_dt = datetime.combine(expense_dt, datetime.min.time()).replace(tzinfo=timezone.utc)
+
+            tax_amount = expense.tax_amount
+            total_amount = expense.total_amount
+            if tax_amount is None and expense.tax_rate is not None:
+                tax_amount = float(expense.amount) * float(expense.tax_rate) / 100.0
+            if total_amount is None:
+                total_amount = float(expense.amount) + float(tax_amount or 0)
+
+            if expense.invoice_id is not None:
+                inv = db.query(Invoice).filter(Invoice.id == expense.invoice_id).first()
+                if not inv:
+                    raise HTTPException(status_code=400, detail=f"Invoice {expense.invoice_id} not found")
+
+            input_labels = getattr(expense, "labels", None) or ([] if not getattr(expense, "label", None) else [getattr(expense, "label")])
+            if input_labels:
+                norm = []
+                seen = set()
+                for s in input_labels:
+                    if not isinstance(s, str):
+                        continue
+                    v = s.strip()
+                    if not v or v in seen:
+                        continue
+                    norm.append(v)
+                    seen.add(v)
+                    if len(norm) >= 10:
+                        break
+                input_labels = norm
+            else:
+                input_labels = None
+
+            db_expense = Expense(
+                amount=float(expense.amount),
+                currency=currency_code,
+                expense_date=expense_dt,
+                category=expense.category,
+                vendor=expense.vendor,
+                label=getattr(expense, "label", None),
+                labels=input_labels,
+                tax_rate=float(expense.tax_rate) if expense.tax_rate is not None else None,
+                tax_amount=float(tax_amount) if tax_amount is not None else None,
+                total_amount=float(total_amount) if total_amount is not None else None,
+                payment_method=expense.payment_method,
+                reference_number=expense.reference_number,
+                status=expense.status or "recorded",
+                notes=expense.notes,
+                user_id=current_user.id,
+                invoice_id=expense.invoice_id,
+                imported_from_attachment=bool(getattr(expense, "imported_from_attachment", False)),
+                analysis_status=getattr(expense, "analysis_status", "not_started"),
+                analysis_result=getattr(expense, "analysis_result", None),
+                analysis_error=getattr(expense, "analysis_error", None),
+                manual_override=bool(getattr(expense, "manual_override", False)),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            db.add(db_expense)
+            created_expenses.append(db_expense)
+
+        db.commit()
+        for expense in created_expenses:
+            db.refresh(expense)
+
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="BULK_CREATE",
+            resource_type="expense",
+            resource_id="bulk",
+            resource_name=f"Bulk created {len(created_expenses)} expenses",
+            details={"count": len(created_expenses)},
+            status="success",
+        )
+
+        return created_expenses
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to bulk create expenses: {e}")
+        raise HTTPException(status_code=500, detail="Failed to bulk create expenses")
 
 
 @router.put("/{expense_id}", response_model=ExpenseSchema)

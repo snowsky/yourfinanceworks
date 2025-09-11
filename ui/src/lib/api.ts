@@ -1329,6 +1329,11 @@ export const expenseApi = {
     apiRequest<{ message: string; status: string }>(`/expenses/${expenseId}/reprocess`, {
       method: 'POST',
     }),
+  bulkCreateExpenses: (expenses: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'receipt_filename'>[]) =>
+    apiRequest<Expense[]>(`/expenses/bulk-create`, {
+      method: 'POST',
+      body: JSON.stringify({ expenses }),
+    }),
 };
 
 // Dashboard API

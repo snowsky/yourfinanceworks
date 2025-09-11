@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, X } from 'lucide-react';
+import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { format, parseISO, isValid } from 'date-fns';
 import { 
   AlertDialog,
@@ -95,6 +96,7 @@ const Expenses = () => {
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState<{ expenseId: number | null }>({ expenseId: null });
   const [attachments, setAttachments] = useState<Record<number, ExpenseAttachmentMeta[]>>({});
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
+  const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
 
 
 
@@ -397,6 +399,10 @@ const Expenses = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsBulkCreateOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Multiple Expenses
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/expenses/import" className="flex items-center w-full">
                         <Upload className="mr-2 h-4 w-4" />
@@ -1020,6 +1026,12 @@ const Expenses = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Bulk Expense Creation Modal */}
+        <BulkExpenseModal
+          open={isBulkCreateOpen}
+          onOpenChange={setIsBulkCreateOpen}
+          onSuccess={fetchExpenses}
+        />
 
       </div>
     </AppLayout>
