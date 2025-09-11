@@ -35,12 +35,14 @@ from routers import (
     statements,
     tax_integration,  # Add the new tax integration router
     reports,  # Add the new reports router
-    attachments  # Add the new attachments router
+    attachments,  # Add the new attachments router
+    search
 )
 from models.database import engine
 from models import models
 
 from db_init import init_db
+from services.search_indexer import search_indexer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # Ensure INFO logs are shown
@@ -184,6 +186,7 @@ app.include_router(statements.router, prefix="/api/v1")
 app.include_router(tax_integration.router, prefix="/api/v1") # Include the new tax integration router
 app.include_router(reports.router, prefix="/api/v1") # Include the new reports router
 app.include_router(attachments.router, prefix="/api/v1") # Include the new attachments router
+app.include_router(search.router, prefix="/api/v1") # Include the new search router
 
 @app.get("/")
 def read_root():

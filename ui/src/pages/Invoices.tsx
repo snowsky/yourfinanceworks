@@ -19,12 +19,7 @@ import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 
-// Import Tax Integration Components
-import {
-  SendToTaxServiceButton,
-  TaxIntegrationStatus,
-  BulkSendToTaxServiceDialog,
-} from '@/components/tax-integration';
+
 
 const formatStatus = (status: string) => {
   return status.split('_').map(word => 
@@ -56,9 +51,7 @@ const Invoices = () => {
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
-  // Tax Integration State
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [bulkSendDialogOpen, setBulkSendDialogOpen] = useState(false);
+
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
@@ -272,8 +265,7 @@ const Invoices = () => {
           )}
         </div>
 
-        {/* Tax Integration Status */}
-        <TaxIntegrationStatus />
+
 
         <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
           <CollapsibleContent>
@@ -523,19 +515,7 @@ const Invoices = () => {
           </CardContent>
         </Card>
 
-        {/* Bulk Send to Tax Service Dialog */}
-        <BulkSendToTaxServiceDialog
-          open={bulkSendDialogOpen}
-          onOpenChange={setBulkSendDialogOpen}
-          items={filteredInvoices.filter(invoice => selectedIds.includes(invoice.id))}
-          itemType="invoice"
-          onSuccess={() => {
-            // Refresh invoices and clear selection after successful bulk send
-            setInvoices(prev => [...prev]); // Trigger re-render
-            setSelectedIds([]);
-            setBulkSendDialogOpen(false);
-          }}
-        />
+
       </div>
     </AppLayout>
   );

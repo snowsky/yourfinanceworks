@@ -84,12 +84,20 @@ services:
       # Number of retry attempts for failed requests
       - TAX_SERVICE_RETRY_ATTEMPTS=${TAX_SERVICE_RETRY_ATTEMPTS:-3}
       # ============================================================================
+      # OpenSearch Configuration
+      # ============================================================================
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
+      # ============================================================================
     ports:
       - "8000:8000"
     depends_on:
       postgres-master:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      opensearch:
         condition: service_healthy
     networks:
       - invoice_app_network
@@ -197,6 +205,8 @@ services:
       - invoice_app_network
     restart: unless-stopped
 
+
+
   # OCR Worker running as a separate container
   ocr-worker:
     build:
@@ -254,6 +264,57 @@ services:
   #     - invoice_app_network
   #   restart: unless-stopped
 
+  # OpenSearch for search indexing
+  opensearch:
+    image: opensearchproject/opensearch:2.11.1
+    container_name: invoice_app_opensearch
+    environment:
+      - cluster.name=invoice-search-cluster
+      - node.name=invoice-search-node
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # OpenSearch Dashboards (optional)
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.1
+    container_name: invoice_app_opensearch_dashboards
+    ports:
+      - "5601:5601"
+    expose:
+      - "5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+
   # Database backup service (optional)
   backup:
     image: postgres:15
@@ -277,6 +338,7 @@ volumes:
   postgres_master_data:
   ollama_data:
   kafka_data:
+  opensearch_data:
 
 networks:
   invoice_app_network:

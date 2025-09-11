@@ -19,6 +19,7 @@ const formSchema = z.object({
   email: z.string().email("Invalid email address").optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  company: z.string().optional(),
   preferred_currency: z.string().optional(),
 });
 
@@ -41,6 +42,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
       email: client?.email || "",
       phone: client?.phone || "",
       address: client?.address || "",
+      company: client?.company || "",
       preferred_currency: client?.preferred_currency || "USD",
     },
   });
@@ -55,6 +57,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
         email: client.email || "",
         phone: client.phone || "",
         address: client.address || "",
+        company: client.company || "",
         preferred_currency: client.preferred_currency || "USD",
       });
     }
@@ -69,6 +72,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
           name: data.name,
           phone: data.phone,
           address: data.address,
+          company: data.company,
           preferred_currency: data.preferred_currency
         };
         await clientApi.updateClient(client.id, updateData);
@@ -80,6 +84,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
           email: data.email || "",
           phone: data.phone,
           address: data.address,
+          company: data.company,
           balance: 0, // Set initial balance to 0 for new clients
           paid_amount: 0,
           preferred_currency: data.preferred_currency
@@ -175,6 +180,20 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                   <FormLabel>{t('clientForm.address')}</FormLabel>
                   <FormControl>
                     <Input {...field} placeholder={t('clientForm.addressPlaceholder')} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Enter company name (optional)" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

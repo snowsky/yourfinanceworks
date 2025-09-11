@@ -59,3 +59,6 @@ confluent-kafka==2.10.0
 # Redis for caching
 redis==5.2.1
 hiredis==3.1.0
+
+# OpenSearch
+opensearch-py==2.4.2

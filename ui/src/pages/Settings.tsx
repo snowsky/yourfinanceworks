@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from "@/components/ui/badge";
 import { CurrencyManager } from "@/components/ui/currency-manager";
 import { CurrencySelector } from "@/components/ui/currency-selector";
+import { SearchStatus } from "@/components/search/SearchStatus";
 import { api } from "@/lib/api";
 import { getErrorMessage } from '@/lib/api';
 
@@ -1053,6 +1054,7 @@ const Settings = () => {
             <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
             <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
             <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
+            <TabsTrigger value="search" className="text-xs md:text-sm">Search</TabsTrigger>
             <TabsTrigger value="email-notifications" className="text-xs md:text-sm">Email & Notifications</TabsTrigger>
             <TabsTrigger value="tax-integration" className="text-xs md:text-sm">Tax Integration</TabsTrigger>
             <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
@@ -1501,6 +1503,10 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="search" className="mt-6">
+            <SearchStatus />
           </TabsContent>
           
           <TabsContent value="email-notifications" className="mt-6">

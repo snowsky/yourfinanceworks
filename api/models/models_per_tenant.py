@@ -42,6 +42,7 @@ class Client(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
+    company = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
     paid_amount = Column(Float, default=0)
     preferred_currency = Column(String, nullable=True)  # Optional, fallback to tenant default

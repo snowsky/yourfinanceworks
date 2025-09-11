@@ -47,6 +47,8 @@ import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
 import { OnboardingProvider } from "./components/onboarding/OnboardingProvider";
 import { TourOverlay } from "./components/onboarding/TourOverlay";
+import { SearchProvider } from "./components/search/SearchProvider";
+import { SearchDialog } from "./components/search/SearchDialog";
 
 
 const queryClient = new QueryClient();
@@ -86,8 +88,9 @@ const AppContent = () => {
       />
 
       <BrowserRouter>
-        <OnboardingProvider>
-        <Routes>
+        <SearchProvider>
+          <OnboardingProvider>
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/oauth-callback" element={<OAuthCallback />} />
           <Route path="/signup" element={<Signup />} />
@@ -120,7 +123,9 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
           </Routes>
           <TourOverlay />
-        </OnboardingProvider>
+          </OnboardingProvider>
+          <SearchDialog />
+        </SearchProvider>
       </BrowserRouter>
       
       <AIAssistant />

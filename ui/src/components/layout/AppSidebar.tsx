@@ -36,7 +36,6 @@ import {
   Sun,
   Trash2,
   Bot,
-  Search
 } from "lucide-react";
 import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
@@ -436,11 +435,7 @@ export function AppSidebar() {
       icon: <BarChart className="w-5 h-5" />,
       tourId: 'nav-reports'
     },
-    { 
-      path: '/attachments', 
-      label: 'Attachment Search',
-      icon: <Search className="w-5 h-5" />
-    },
+    
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];

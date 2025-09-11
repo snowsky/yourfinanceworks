@@ -1,5 +1,8 @@
 
+import { SearchProvider } from "@/components/search/SearchProvider";
+import { SearchDialog } from "@/components/search/SearchDialog";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 import { Toaster } from "sonner";
 
@@ -9,14 +12,20 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
+    <SearchProvider>
     <SidebarProvider>
+      <SearchDialog />
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        <main className="flex-1 min-h-screen p-6 md:p-8 overflow-auto">
+        <div className="flex-1 flex flex-col min-h-screen">
+        <AppHeader />
+        <main className="flex-1 p-6 md:p-8 overflow-auto">
           {children}
         </main>
+      </div>
 
       </div>
     </SidebarProvider>
+    </SearchProvider>
   );
 }

@@ -12,6 +12,7 @@ export interface Client {
   email: string;
   phone: string;
   address: string;
+  company?: string;
   balance: number;
   paid_amount: number;
   outstanding_balance?: number;
@@ -1665,7 +1666,10 @@ export const api = {
   post: <T>(url: string, data?: any, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'POST', body: JSON.stringify(data) }, config),
   put: <T>(url: string, data?: any, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'PUT', body: JSON.stringify(data) }, config),
   delete: <T>(url: string, config?: { isLogin?: boolean }) => apiRequest<T>(url, { method: 'DELETE' }, config),
-}; 
+};
+
+// Export apiClient as alias for api for compatibility
+export const apiClient = api; 
 
 export const superAdminApi = {
   demoteSuperAdmin: async (email: string) => {
