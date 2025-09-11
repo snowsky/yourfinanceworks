@@ -537,60 +537,76 @@ export default function Statements() {
 
         {selected && !showInvoiceForm && (
           <Card className="slide-in">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1">
+            <CardHeader className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="icon" onClick={() => { setSelected(null); setDetail(null); setRows([]); }}>
                     <ArrowLeft className="w-5 h-5" />
                   </Button>
-                  <CardTitle>{t('statements.transactions_title', { filename: detail?.original_filename || '' })}</CardTitle>
+                  <div>
+                    <CardTitle>{t('statements.transactions_title', { filename: detail?.original_filename || '' })}</CardTitle>
+                    <p className="text-muted-foreground text-sm mt-1">{t('statements.transactions_description')}</p>
+                  </div>
                 </div>
-                <p className="text-muted-foreground text-sm">{t('statements.transactions_description')}</p>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
-                  <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => selected && handlePreview(selected)}>
+                    <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                  </Button>
+                  <Button variant="outline" onClick={() => selected && handleDownload(selected, detail?.original_filename)}>
+                    <Download className="w-4 h-4 mr-1" /> {t('statements.download')}
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {readOnly && (
-                  <span className="text-sm text-muted-foreground">{t('statements.processing_disabled')}</span>
-                )}
-                <Button variant="outline" onClick={() => selected && handlePreview(selected)}>
-                  <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
-                </Button>
-                <Button variant="outline" onClick={() => selected && handleDownload(selected, detail?.original_filename)}>
-                  <Download className="w-4 h-4 mr-1" /> {t('statements.download')}
-                </Button>
-                {(detail?.status === 'failed' || (detail?.status === 'processed' && (detail?.extracted_count || 0) === 0)) && (
-                  <Button
-                    variant="destructive"
-                    onClick={async () => {
-                      if (!selected) return;
-                      try {
-                        const addNotification = (window as any).addAINotification;
-                        addNotification?.('processing', 'Reprocessing Statement', `Re-analyzing ${detail?.original_filename} with AI...`);
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
+                </p>
+              </div>
+              
+              {readOnly && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-sm text-amber-800">
+                    <strong>Processing…</strong> Editing is disabled until extraction completes.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Edit transactions and save
+                </div>
+                <div className="flex items-center gap-2">
+                  {(detail?.status === 'failed' || (detail?.status === 'processed' && (detail?.extracted_count || 0) === 0)) && (
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (!selected) return;
+                        try {
+                          const addNotification = (window as any).addAINotification;
+                          addNotification?.('processing', 'Reprocessing Statement', `Re-analyzing ${detail?.original_filename} with AI...`);
 
-                        await bankStatementApi.reprocess(selected);
+                          await bankStatementApi.reprocess(selected);
 
-                        addNotification?.('success', 'Statement Reprocessing Started', `Successfully started reprocessing ${detail?.original_filename}`);
-                        toast.success('Reprocessing started');
-                        await openStatement(selected);
-                      } catch (e: any) {
-                        const addNotification = (window as any).addAINotification;
-                        addNotification?.('error', 'Reprocessing Failed', `Failed to reprocess ${detail?.original_filename}: ${e?.message || 'Unknown error'}`);
-                        toast.error(e?.message || 'Failed to start reprocessing');
-                      }
-                    }}
-                  >
-                    Process again
+                          addNotification?.('success', 'Statement Reprocessing Started', `Successfully started reprocessing ${detail?.original_filename}`);
+                          toast.success('Reprocessing started');
+                          await openStatement(selected);
+                        } catch (e: any) {
+                          const addNotification = (window as any).addAINotification;
+                          addNotification?.('error', 'Reprocessing Failed', `Failed to reprocess ${detail?.original_filename}: ${e?.message || 'Unknown error'}`);
+                          toast.error(e?.message || 'Failed to start reprocessing');
+                        }
+                      }}
+                    >
+                      Process again
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={exportToCSV} disabled={rows.length === 0}>
+                    <FileText className="w-4 h-4 mr-1" /> Export CSV
                   </Button>
-                )}
-                <Button variant="outline" onClick={exportToCSV} disabled={rows.length === 0}>
-                  <FileText className="w-4 h-4 mr-1" /> Export CSV
-                </Button>
-                <Button variant="outline" onClick={addEmptyRow} disabled={readOnly}>Add Row</Button>
-                <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
+                  <Button variant="outline" onClick={addEmptyRow} disabled={readOnly}>Add Row</Button>
+                  <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

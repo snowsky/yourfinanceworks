@@ -36,6 +36,7 @@ import AuditLog from "./pages/AuditLog";
 import RecycleBin from "./pages/RecycleBin";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
+import AttachmentSearch from "./pages/AttachmentSearch";
 import { NotificationBell } from "./components/notifications/NotificationBell";
 import { useNotifications } from "./hooks/useNotifications";
 import { useExpenseStatusPolling } from "./hooks/useExpenseStatusPolling";
@@ -115,6 +116,7 @@ const AppContent = () => {
           <Route path="/recycle-bin" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/attachments" element={<ProtectedRoute><AttachmentSearch /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
           </Routes>
           <TourOverlay />

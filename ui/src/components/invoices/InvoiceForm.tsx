@@ -3077,7 +3077,12 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 <Edit className="w-4 h-4 text-orange-600" />
                               )}
                               <span className="font-medium text-sm">
-                                {entry.action === 'update' ? t('invoices.update') : entry.action === 'creation' ? t('invoices.invoice_created') : entry.action}
+                                {entry.action === 'update' ? t('invoices.update') : 
+                                 entry.action === 'creation' ? t('invoices.invoice_created') : 
+                                 entry.action === 'Payment Added' ? t('invoices.payment_added') :
+                                 entry.action === 'Paid Amount Updated' ? t('invoices.paid_amount_updated') :
+                                 entry.action === 'Payment Reduced' ? t('invoices.payment_reduced') :
+                                 entry.action}
                                 {entry.user_name && (
                                   <span className="ml-2 text-xs text-muted-foreground">{t('invoices.by', { user: entry.user_name })}</span>
                                 )}

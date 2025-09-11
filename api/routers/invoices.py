@@ -1745,6 +1745,21 @@ async def upload_invoice_attachment(
         invoice.attachment_filename = file.filename
         invoice.updated_at = datetime.now(timezone.utc)
         
+        # Create history entry for attachment upload
+        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
+        history_entry = InvoiceHistoryModel(
+            invoice_id=invoice_id,
+            user_id=current_user.id,
+            action='attachment_uploaded',
+            details=f'Attachment uploaded: {file.filename}',
+            current_values={
+                'attachment_filename': file.filename,
+                'file_size': len(contents),
+                'content_type': file.content_type
+            }
+        )
+        db.add(history_entry)
+        
         logger.info(f"🔍 BEFORE COMMIT - invoice {invoice_id}: path={file_path}, filename={file.filename}")
         logger.info(f"🔍 BEFORE COMMIT - invoice object: attachment_path={invoice.attachment_path}, attachment_filename={invoice.attachment_filename}")
         

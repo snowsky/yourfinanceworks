@@ -437,7 +437,10 @@
     "failed_to_link_expense": "Failed to link expense",
     "failed_to_unlink_expense": "Failed to unlink expense",
     "invoice_ready_to_be_created": "Invoice is ready to be created",
-    "invoice_ready_to_be_updated": "Invoice is ready to be updated"
+    "invoice_ready_to_be_updated": "Invoice is ready to be updated",
+    "payment_added": "Payment Added",
+    "paid_amount_updated": "Paid Amount Updated",
+    "payment_reduced": "Payment Reduced"
   },
   "clients": {
     "title": "Clients",
