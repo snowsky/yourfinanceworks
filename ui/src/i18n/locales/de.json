@@ -1370,6 +1370,11 @@
     "recentInvoices": "Kürzliche Rechnungen",
     "invoicePatternAnalysis": "Rechnungsmusteranalyse",
     "recommendations": "Empfehlungen",
+    "send_overdue_reminders": "Mahnungen für überfällige Zahlungen versenden",
+    "review_payment_terms": "Zahlungsbedingungen überprüfen",
+    "follow_up_recent_invoices": "Kürzliche Rechnungen nachverfolgen",
+    "implement_stricter_terms": "Strengere Zahlungsbedingungen implementieren",
+    "review_business_processes": "Überprüfen Sie Ihre Rechnungs- und Zahlungseinzugsprozesse",
     "error_message": "Entschuldigung, ich bin auf einen Fehler gestoßen. Bitte versuchen Sie es erneut oder überprüfen Sie Ihre KI-Konfiguration.",
     "no_ai_config_found": "Keine KI-Konfiguration gefunden."
   },

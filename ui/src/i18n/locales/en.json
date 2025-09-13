@@ -1435,6 +1435,11 @@
     "recentInvoices": "Recent Invoices",
     "invoicePatternAnalysis": "Invoice Pattern Analysis",
     "recommendations": "Recommendations",
+    "send_overdue_reminders": "Send overdue payment reminders",
+    "review_payment_terms": "Review payment terms",
+    "follow_up_recent_invoices": "Follow up on recent invoices",
+    "implement_stricter_terms": "Implement stricter payment terms",
+    "review_business_processes": "Review your invoicing and payment collection processes",
     "error_message": "Sorry, I encountered an error. Please try again or check your AI configuration.",
     "no_ai_config_found": "No AI configuration found. Please check your AI configuration."
   },

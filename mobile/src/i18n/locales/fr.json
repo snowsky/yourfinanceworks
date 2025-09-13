@@ -1329,6 +1329,10 @@
     "recentInvoices": "Factures récentes",
     "invoicePatternAnalysis": "Analyse des modèles de factures",
     "recommendations": "Recommandations",
+    "send_overdue_reminders": "Envoyer des rappels de paiement en retard",
+    "review_payment_terms": "Examiner les conditions de paiement",
+    "follow_up_recent_invoices": "Suivre les factures récentes",
+    "implement_stricter_terms": "Mettre en place des conditions de paiement plus strictes",
     "review_business_processes": "Examinez vos processus de facturation et de recouvrement des paiements",
     "error_message": "Désolé, j'ai rencontré une erreur. Veuillez réessayer ou vérifier votre configuration d'IA.",
     "no_ai_config_found": "Aucune configuration d'IA trouvée. Veuillez vérifier votre configuration d'IA."
