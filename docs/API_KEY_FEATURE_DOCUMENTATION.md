@@ -252,6 +252,55 @@ Key UI Elements:
 - **Status Monitoring**: Active/inactive key management
 - **Review Workflow**: Transactions require review by default
 
+## New Features
+
+### AI Recognition Control
+
+The API now supports an optional `disable_ai_recognition` parameter that allows API clients to skip AI document processing when creating expenses or external transactions. This is useful when the API call already contains complete information and AI processing is unnecessary.
+
+#### Usage Examples:
+
+**Creating an expense with AI recognition disabled:**
+```bash
+curl -X POST "$BASE_URL/api/v1/expenses/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{
+    "amount": 150.00,
+    "currency": "USD",
+    "expense_date": "2025-09-14",
+    "category": "Travel",
+    "vendor": "Delta Airlines",
+    "disable_ai_recognition": true
+  }'
+```
+
+**Creating an external transaction with AI recognition disabled:**
+```bash
+curl -X POST "$BASE_URL/api/v1/external-transactions/transactions" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_type": "expense",
+    "amount": 150.00,
+    "currency": "USD",
+    "date": "2025-09-14T10:00:00Z",
+    "description": "Flight to NYC",
+    "category": "Travel",
+    "vendor_name": "Delta Airlines",
+    "disable_ai_recognition": true
+  }'
+```
+
+#### Behavior:
+
+- When `disable_ai_recognition` is set to `true`:
+  - For expenses: The analysis status is set to "skipped" and no OCR/AI processing is triggered
+  - For external transactions: The field is stored for reference but doesn't affect processing
+  - Receipt uploads will still be processed normally unless this flag is set on the expense
+- When `disable_ai_recognition` is `false` or omitted (default): Normal AI processing occurs
+- This helps optimize performance and costs when complete data is already available
+
 ## API Endpoints
 
 ### Authentication Header

@@ -603,11 +603,15 @@ async def upload_receipt(
         db.add(attachment)
         expense.updated_at = datetime.now(timezone.utc)
 
-        # Mark expense as imported and queue OCR if not manually overridden
+        # Mark expense as imported and queue OCR if not manually overridden and AI not disabled
         try:
             expense.imported_from_attachment = True
-            if not expense.manual_override:
+            disable_ai = getattr(expense, "disable_ai_recognition", False)
+            if not expense.manual_override and not disable_ai:
                 expense.analysis_status = "queued"
+            elif disable_ai:
+                expense.analysis_status = "skipped"
+                logger.info(f"AI recognition disabled for expense {expense_id}")
             expense.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(expense)
@@ -624,7 +628,13 @@ async def upload_receipt(
             db.refresh(attachment)
         except Exception:
             pass
-        queue_or_process_attachment(db, tenant_id, expense_id, getattr(attachment, 'id', 0), str(file_path))
+
+        # Only process attachment if AI recognition is not disabled
+        disable_ai = getattr(expense, "disable_ai_recognition", False)
+        if not disable_ai:
+            queue_or_process_attachment(db, tenant_id, expense_id, getattr(attachment, 'id', 0), str(file_path))
+        else:
+            logger.info(f"Skipping AI processing for expense {expense_id} - AI recognition disabled")
 
         return {
             "message": "Attachment uploaded successfully",

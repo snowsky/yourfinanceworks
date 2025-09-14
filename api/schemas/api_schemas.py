@@ -144,6 +144,7 @@ class ExternalTransactionCreate(BaseModel):
     
     # Metadata
     submission_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    disable_ai_recognition: Optional[bool] = Field(False, description="Disable AI document recognition for this transaction")
 
 
 class ExternalTransactionResponse(BaseModel):
@@ -197,6 +198,7 @@ class ExternalTransactionResponse(BaseModel):
     submission_metadata: Optional[Dict[str, Any]]
     api_version: Optional[str]
     client_ip_address: Optional[str]
+    disable_ai_recognition: Optional[bool]
     
     # Timestamps
     created_at: datetime

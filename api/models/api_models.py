@@ -169,6 +169,7 @@ class ExternalTransaction(Base):
     submission_metadata = Column(JSON, nullable=True)  # Additional data from external system
     api_version = Column(String(10), nullable=True)
     client_ip_address = Column(String(45), nullable=True)
+    disable_ai_recognition = Column(Boolean, nullable=False, default=False)  # Disable AI document recognition
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

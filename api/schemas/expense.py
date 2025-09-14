@@ -25,6 +25,7 @@ class ExpenseBase(BaseModel):
     analysis_result: Optional[dict] = Field(None, description="Raw analysis payload from OCR/LLM")
     analysis_error: Optional[str] = Field(None, description="Error message if analysis failed")
     manual_override: Optional[bool] = Field(False, description="True if user manually edited; stops further analysis")
+    disable_ai_recognition: Optional[bool] = Field(False, description="Disable AI document recognition for this expense")
 
 
 class ExpenseCreate(ExpenseBase):
@@ -53,6 +54,7 @@ class ExpenseUpdate(BaseModel):
     analysis_result: Optional[dict] = None
     analysis_error: Optional[str] = None
     manual_override: Optional[bool] = None
+    disable_ai_recognition: Optional[bool] = None
 
 
 class Expense(ExpenseBase):

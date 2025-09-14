@@ -139,7 +139,8 @@ async def create_external_transaction(
             original_transaction_id=existing_transaction.external_transaction_id,
             submission_metadata=transaction_data.submission_metadata,
             api_version="1.0",
-            client_ip_address=request.client.host if request.client else None
+            client_ip_address=request.client.host if request.client else None,
+            disable_ai_recognition=transaction_data.disable_ai_recognition
         )
         
         db.add(new_transaction)
@@ -178,7 +179,8 @@ async def create_external_transaction(
         duplicate_check_hash=duplicate_hash,
         submission_metadata=transaction_data.submission_metadata,
         api_version="1.0",
-        client_ip_address=request.client.host if request.client else None
+        client_ip_address=request.client.host if request.client else None,
+        disable_ai_recognition=transaction_data.disable_ai_recognition
     )
     
     db.add(new_transaction)

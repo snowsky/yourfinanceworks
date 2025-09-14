@@ -44,6 +44,57 @@ curl -X GET "$BASE_URL/api/v1/external-auth/api-keys" \
 ```
 
 ### 4. Create API Key
+
+```bash
+curl -X POST "$BASE_URL/api/v1/external-auth/api-keys" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{
+    "client_name": "Test Integration",
+    "client_description": "Testing API integration",
+    "allowed_transaction_types": ["income", "expense"],
+    "allowed_currencies": ["USD", "EUR"],
+    "rate_limit_per_minute": 60,
+    "rate_limit_per_hour": 1000,
+    "rate_limit_per_day": 10000
+  }'
+```
+
+### 5. Create External Transaction with AI Recognition Disabled
+
+```bash
+curl -X POST "$BASE_URL/api/v1/external-transactions/transactions" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_type": "expense",
+    "amount": 150.00,
+    "currency": "USD",
+    "date": "2025-09-14T10:00:00Z",
+    "description": "Flight to NYC",
+    "category": "Travel",
+    "vendor_name": "Delta Airlines",
+    "disable_ai_recognition": true
+  }'
+```
+
+### 6. Create Expense with AI Recognition Disabled
+
+```bash
+curl -X POST "$BASE_URL/api/v1/expenses/" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{
+    "amount": 150.00,
+    "currency": "USD",
+    "expense_date": "2025-09-14",
+    "category": "Travel",
+    "vendor": "Delta Airlines",
+    "disable_ai_recognition": true
+  }'
+```
+
+### 7. Create API Key
 ```bash
 curl -X POST "$BASE_URL/api/v1/external-auth/api-keys" \
   -H "Content-Type: application/json" \
