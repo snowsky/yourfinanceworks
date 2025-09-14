@@ -649,15 +649,15 @@ const Expenses = () => {
                         </TableCell>
                         <TableCell>
                           {e.analysis_status === 'done' ? (
-                             <span className="text-green-700 bg-green-100 px-2 py-0.5 rounded text-xs">{t('expenses.status_done')}</span>
+                             <Badge variant="success">{t('expenses.status_done')}</Badge>
                           ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                             <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-xs capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</span>
+                             <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
                           ) : e.analysis_status === 'failed' ? (
-                             <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded text-xs">Failed</span>
+                             <Badge variant="destructive">Failed</Badge>
                           ) : e.analysis_status === 'cancelled' ? (
-                             <span className="text-gray-700 bg-gray-100 px-2 py-0.5 rounded text-xs">Cancelled</span>
+                             <Badge variant="secondary">Cancelled</Badge>
                           ) : e.imported_from_attachment ? (
-                             <span className="text-muted-foreground text-xs">Not Started</span>
+                             <Badge variant="info">Not Started</Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}

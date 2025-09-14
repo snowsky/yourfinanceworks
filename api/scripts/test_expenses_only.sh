@@ -67,13 +67,102 @@ else
     exit 1
 fi
 
-# Step 3: Create Multiple Expenses
-print_step "3" "Create Multiple Expenses"
+# Step 3: Create Sample Receipt Files
+print_step "3" "Create Sample Receipt Files"
+
+# Create temporary directory for sample receipts
+TEMP_DIR=$(mktemp -d)
+print_info "Creating sample receipt files in: $TEMP_DIR"
+
+# Create sample receipt images (simple PNG files)
+# We'll create minimal PNG files using ImageMagick if available, or use a different approach
+
+if command -v convert >/dev/null 2>&1; then
+    # Use ImageMagick to create simple receipt images
+    print_info "Using ImageMagick to create receipt images..."
+    
+    convert -size 400x600 xc:white \
+        -font "Courier" -pointsize 12 -fill black \
+        -annotate +20+30 "ADOBE CREATIVE SUITE" \
+        -annotate +20+50 "Invoice #: SUB-2024-001" \
+        -annotate +20+70 "Date: $(date +%Y-%m-%d)" \
+        -annotate +20+90 "Amount: \$99.99" \
+        -annotate +20+110 "Tax: \$8.50" \
+        -annotate +20+130 "Total: \$108.49" \
+        -annotate +20+150 "Payment: Credit Card ****1234" \
+        "$TEMP_DIR/adobe_receipt.png"
+    
+    convert -size 400x600 xc:white \
+        -font "Courier" -pointsize 12 -fill black \
+        -annotate +20+30 "DELTA AIRLINES" \
+        -annotate +20+50 "Confirmation #: TRV-2024-002" \
+        -annotate +20+70 "Flight: DL1234 SFO-LAX" \
+        -annotate +20+90 "Date: $(date -v-1d +%Y-%m-%d)" \
+        -annotate +20+110 "Amount: \$450.00" \
+        -annotate +20+130 "Payment: Corporate Card" \
+        "$TEMP_DIR/delta_receipt.png"
+    
+    convert -size 400x600 xc:white \
+        -font "Courier" -pointsize 12 -fill black \
+        -annotate +20+30 "STAPLES OFFICE SUPPLIES" \
+        -annotate +20+50 "Receipt #: OFF-2024-003" \
+        -annotate +20+70 "Date: $(date -v-2d +%Y-%m-%d)" \
+        -annotate +20+90 "Paper: \$25.00" \
+        -annotate +20+110 "Pens: \$15.75" \
+        -annotate +20+130 "Folders: \$12.00" \
+        -annotate +20+150 "Ink: \$73.00" \
+        -annotate +20+170 "Total: \$136.44" \
+        "$TEMP_DIR/staples_receipt.png"
+else
+    # Fallback: Create simple text files and rename them as .jpg (they'll still work for testing)
+    print_info "ImageMagick not available, creating simple text files as .jpg..."
+    
+    cat > "$TEMP_DIR/adobe_receipt.jpg" << 'EOF'
+ADOBE CREATIVE SUITE SUBSCRIPTION
+Invoice #: SUB-2024-001
+Date: $(date +%Y-%m-%d)
+Amount: $99.99
+Tax: $8.50
+Total: $108.49
+Payment Method: Credit Card ****1234
+Monthly subscription for design team
+EOF
+
+    cat > "$TEMP_DIR/delta_receipt.jpg" << 'EOF'
+DELTA AIRLINES
+Confirmation #: TRV-2024-002
+Flight: DL1234 SFO-LAX
+Date: $(date -v-1d +%Y-%m-%d)
+Passenger: Business Traveler
+Amount: $450.00
+Payment: Corporate Card
+Business trip to client meeting
+EOF
+
+    cat > "$TEMP_DIR/staples_receipt.jpg" << 'EOF'
+STAPLES OFFICE SUPPLIES
+Receipt #: OFF-2024-003
+Date: $(date -v-2d +%Y-%m-%d)
+Items:
+- Paper (5 reams) - $25.00
+- Pens (10 pack) - $15.75
+- Folders (20 pack) - $12.00
+- Printer Ink - $73.00
+Subtotal: $125.75
+Tax: $10.69
+Total: $136.44
+EOF
+fi
+
+print_success "Sample receipt files created"
+
+# Step 4: Create Multiple Expenses with Attachments
+print_step "4" "Create Multiple Expenses with Attachments"
 
 EXPENSE_IDS=()
 
-# Expense 1: Software subscription
-print_info "Creating software expense..."
+# Expense 1: Software subscription (with attachment)
+print_info "Creating software expense with receipt..."
 EXPENSE_DATA_1='{
     "amount": 99.99,
     "currency": "USD",
@@ -87,7 +176,9 @@ EXPENSE_DATA_1='{
     "payment_method": "Credit Card",
     "reference_number": "SUB-2024-001",
     "status": "recorded",
-    "notes": "Monthly Adobe Creative Suite subscription for design team"
+    "notes": "Monthly Adobe Creative Suite subscription for design team",
+    "imported_from_attachment": true,
+    "analysis_status": "queued"
 }'
 
 EXPENSE_RESPONSE_1=$(curl -s -X POST "$BASE_URL/api/v1/expenses/" \
@@ -95,18 +186,33 @@ EXPENSE_RESPONSE_1=$(curl -s -X POST "$BASE_URL/api/v1/expenses/" \
     -H "Authorization: Bearer $JWT_TOKEN" \
     -d "$EXPENSE_DATA_1")
 
-print_info "Response: ${EXPENSE_RESPONSE_1:0:200}..."
-
 if echo "$EXPENSE_RESPONSE_1" | grep -q "id"; then
     EXPENSE_ID_1=$(echo "$EXPENSE_RESPONSE_1" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
     EXPENSE_IDS+=("$EXPENSE_ID_1")
     print_success "Software expense created: ID $EXPENSE_ID_1"
+    
+    # Upload receipt file
+    print_info "Uploading receipt for expense $EXPENSE_ID_1..."
+    if [ -f "$TEMP_DIR/adobe_receipt.png" ]; then
+        RECEIPT_FILE="$TEMP_DIR/adobe_receipt.png"
+    else
+        RECEIPT_FILE="$TEMP_DIR/adobe_receipt.jpg"
+    fi
+    UPLOAD_RESPONSE_1=$(curl -s -X POST "$BASE_URL/api/v1/expenses/$EXPENSE_ID_1/upload-receipt" \
+        -H "Authorization: Bearer $JWT_TOKEN" \
+        -F "file=@$RECEIPT_FILE")
+    
+    if echo "$UPLOAD_RESPONSE_1" | grep -q "uploaded successfully\|filename"; then
+        print_success "Receipt uploaded successfully for expense $EXPENSE_ID_1"
+    else
+        print_error "Receipt upload failed: $UPLOAD_RESPONSE_1"
+    fi
 else
     print_error "Software expense failed: $EXPENSE_RESPONSE_1"
 fi
 
-# Expense 2: Travel expense
-print_info "Creating travel expense..."
+# Expense 2: Travel expense (with attachment)
+print_info "Creating travel expense with receipt..."
 EXPENSE_DATA_2='{
     "amount": 450.00,
     "currency": "USD",
@@ -117,7 +223,9 @@ EXPENSE_DATA_2='{
     "payment_method": "Corporate Card",
     "reference_number": "TRV-2024-002",
     "status": "recorded",
-    "notes": "Flight to client meeting in San Francisco"
+    "notes": "Flight to client meeting in San Francisco",
+    "imported_from_attachment": true,
+    "analysis_status": "queued"
 }'
 
 EXPENSE_RESPONSE_2=$(curl -s -X POST "$BASE_URL/api/v1/expenses/" \
@@ -129,12 +237,29 @@ if echo "$EXPENSE_RESPONSE_2" | grep -q "id"; then
     EXPENSE_ID_2=$(echo "$EXPENSE_RESPONSE_2" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
     EXPENSE_IDS+=("$EXPENSE_ID_2")
     print_success "Travel expense created: ID $EXPENSE_ID_2"
+    
+    # Upload receipt file
+    print_info "Uploading receipt for expense $EXPENSE_ID_2..."
+    if [ -f "$TEMP_DIR/delta_receipt.png" ]; then
+        RECEIPT_FILE="$TEMP_DIR/delta_receipt.png"
+    else
+        RECEIPT_FILE="$TEMP_DIR/delta_receipt.jpg"
+    fi
+    UPLOAD_RESPONSE_2=$(curl -s -X POST "$BASE_URL/api/v1/expenses/$EXPENSE_ID_2/upload-receipt" \
+        -H "Authorization: Bearer $JWT_TOKEN" \
+        -F "file=@$RECEIPT_FILE")
+    
+    if echo "$UPLOAD_RESPONSE_2" | grep -q "uploaded successfully\|filename"; then
+        print_success "Receipt uploaded successfully for expense $EXPENSE_ID_2"
+    else
+        print_error "Receipt upload failed: $UPLOAD_RESPONSE_2"
+    fi
 else
     print_error "Travel expense failed: $EXPENSE_RESPONSE_2"
 fi
 
-# Expense 3: Office supplies
-print_info "Creating office supplies expense..."
+# Expense 3: Office supplies (with attachment)
+print_info "Creating office supplies expense with receipt..."
 EXPENSE_DATA_3='{
     "amount": 125.75,
     "currency": "USD",
@@ -145,7 +270,9 @@ EXPENSE_DATA_3='{
     "payment_method": "Debit Card",
     "reference_number": "OFF-2024-003",
     "status": "recorded",
-    "notes": "Monthly office supplies: paper, pens, folders, printer ink"
+    "notes": "Monthly office supplies: paper, pens, folders, printer ink",
+    "imported_from_attachment": true,
+    "analysis_status": "queued"
 }'
 
 EXPENSE_RESPONSE_3=$(curl -s -X POST "$BASE_URL/api/v1/expenses/" \
@@ -157,12 +284,29 @@ if echo "$EXPENSE_RESPONSE_3" | grep -q "id"; then
     EXPENSE_ID_3=$(echo "$EXPENSE_RESPONSE_3" | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
     EXPENSE_IDS+=("$EXPENSE_ID_3")
     print_success "Office supplies expense created: ID $EXPENSE_ID_3"
+    
+    # Upload receipt file
+    print_info "Uploading receipt for expense $EXPENSE_ID_3..."
+    if [ -f "$TEMP_DIR/staples_receipt.png" ]; then
+        RECEIPT_FILE="$TEMP_DIR/staples_receipt.png"
+    else
+        RECEIPT_FILE="$TEMP_DIR/staples_receipt.jpg"
+    fi
+    UPLOAD_RESPONSE_3=$(curl -s -X POST "$BASE_URL/api/v1/expenses/$EXPENSE_ID_3/upload-receipt" \
+        -H "Authorization: Bearer $JWT_TOKEN" \
+        -F "file=@$RECEIPT_FILE")
+    
+    if echo "$UPLOAD_RESPONSE_3" | grep -q "uploaded successfully\|filename"; then
+        print_success "Receipt uploaded successfully for expense $EXPENSE_ID_3"
+    else
+        print_error "Receipt upload failed: $UPLOAD_RESPONSE_3"
+    fi
 else
     print_error "Office supplies expense failed: $EXPENSE_RESPONSE_3"
 fi
 
-# Expense 4: Meals & Entertainment
-print_info "Creating meals expense..."
+# Expense 4: Meals & Entertainment (WITHOUT attachment - to test disabled Process Again button)
+print_info "Creating meals expense without receipt..."
 EXPENSE_DATA_4='{
     "amount": 85.50,
     "currency": "USD",
@@ -189,8 +333,8 @@ else
     print_error "Meals expense failed: $EXPENSE_RESPONSE_4"
 fi
 
-# Expense 5: Marketing expense
-print_info "Creating marketing expense..."
+# Expense 5: Marketing expense (WITHOUT attachment - to test disabled Process Again button)
+print_info "Creating marketing expense without receipt..."
 EXPENSE_DATA_5='{
     "amount": 299.00,
     "currency": "USD",
@@ -219,8 +363,8 @@ fi
 
 print_info "Created ${#EXPENSE_IDS[@]} expenses total"
 
-# Step 4: List created expenses
-print_step "4" "Verify Created Expenses"
+# Step 5: List created expenses
+print_step "5" "Verify Created Expenses"
 EXPENSES_LIST=$(curl -s -X GET "$BASE_URL/api/v1/expenses/" \
     -H "Authorization: Bearer $JWT_TOKEN")
 
@@ -244,8 +388,8 @@ except Exception as e:
     print(f'Raw response: {sys.stdin.read()}')
 "
 
-# Step 5: Show summary statistics
-print_step "5" "Summary Statistics"
+# Step 6: Show summary statistics
+print_step "6" "Summary Statistics"
 
 # Get expense totals
 EXPENSE_SUMMARY=$(echo "$EXPENSES_LIST" | python3 -c "
@@ -299,3 +443,9 @@ echo "  • Expenses Page: $UI_URL/expenses"
 echo "  • Dashboard: $UI_URL/dashboard"
 echo ""
 print_success "All expenses created successfully and ready to view in the UI! 🎉"
+
+# Cleanup temporary files
+print_step "7" "Cleanup"
+print_info "Cleaning up temporary receipt files..."
+rm -rf "$TEMP_DIR"
+print_success "Temporary files cleaned up"
