@@ -49,6 +49,10 @@ import { OnboardingProvider } from "./components/onboarding/OnboardingProvider";
 import { TourOverlay } from "./components/onboarding/TourOverlay";
 import { SearchProvider } from "./components/search/SearchProvider";
 import { SearchDialog } from "./components/search/SearchDialog";
+import Inventory from "./pages/Inventory";
+import NewInventoryItem from "./pages/NewInventoryItem";
+import EditInventoryItem from "./pages/EditInventoryItem";
+import NewInventoryInvoice from "./pages/NewInventoryInvoice";
 
 
 const queryClient = new QueryClient();
@@ -120,6 +124,10 @@ const AppContent = () => {
           <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/attachments" element={<ProtectedRoute><AttachmentSearch /></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Inventory /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/inventory/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryItem /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/inventory/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInventoryItem /></RoleProtectedRoute></ProtectedRoute>} />
+          <Route path="/invoices/new-inventory" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryInvoice /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
           </Routes>
           <TourOverlay />

@@ -20,3 +20,9 @@ from .expenses import *
 from .statements import *
 from .tax_integration import *
 from .reports_minimal import *
+from .reports import *
+from .attachments import *
+from .search import *
+from .external_api_auth import *
+from .external_transactions import *
+from .inventory import *

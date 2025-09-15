@@ -2,14 +2,17 @@ import React, { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InvoiceForm } from "@/components/invoices/InvoiceForm";
 import { InvoiceCreationChoice } from "@/components/invoices/InvoiceCreationChoice";
+import { InventoryInvoiceForm } from "@/components/inventory/InventoryInvoiceForm";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const NewInvoice = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
+  const [showInventoryForm, setShowInventoryForm] = useState(false);
   const [initialData, setInitialData] = useState<any>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [prefillNewClient, setPrefillNewClient] = useState<{ name?: string; email?: string; address?: string; phone?: string } | null>(null);
@@ -62,6 +65,10 @@ const NewInvoice = () => {
   const handleManualCreate = (attachmentFile?: File) => {
     setAttachment(attachmentFile || null);
     setShowForm(true);
+  };
+
+  const handleInventoryCreate = () => {
+    navigate('/invoices/new-inventory');
   };
 
   const handlePdfImport = async (pdfData: any, pdfFile: File) => {
@@ -147,6 +154,7 @@ const NewInvoice = () => {
           <InvoiceCreationChoice
             onManualCreate={handleManualCreate}
             onPdfImport={handlePdfImport}
+            onInventoryCreate={handleInventoryCreate}
           />
         </div>
       </div>

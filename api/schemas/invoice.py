@@ -6,6 +6,8 @@ class InvoiceItemBase(BaseModel):
     description: str
     quantity: float
     price: float
+    inventory_item_id: Optional[int] = Field(None, description="ID of inventory item to populate from")
+    unit_of_measure: Optional[str] = Field(None, description="Unit of measure")
 
 class InvoiceItemCreate(InvoiceItemBase):
     pass
@@ -15,11 +17,21 @@ class InvoiceItemUpdate(BaseModel):
     description: Optional[str] = None
     quantity: Optional[float] = None
     price: Optional[float] = None
+    inventory_item_id: Optional[int] = None
+    unit_of_measure: Optional[str] = None
 
 class InvoiceItem(InvoiceItemBase):
     id: int
     invoice_id: int
     amount: float
+    inventory_item_id: Optional[int]
+    unit_of_measure: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+class InvoiceItemWithInventory(InvoiceItem):
+    """Invoice item with full inventory information"""
+    inventory_item: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

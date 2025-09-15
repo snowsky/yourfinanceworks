@@ -139,6 +139,46 @@ async def create_expense(
         else:
             input_labels = None
 
+        # Handle inventory purchase fields
+        is_inventory_purchase = bool(getattr(expense, "is_inventory_purchase", False))
+        inventory_items = getattr(expense, "inventory_items", None)
+
+        # Validate inventory purchase data if provided
+        if is_inventory_purchase:
+            if not inventory_items or len(inventory_items) == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Inventory purchase must include at least one item"
+                )
+
+            # Validate each inventory item
+            from services.inventory_service import InventoryService
+            inventory_service = InventoryService(db)
+
+            for item_data in inventory_items:
+                item_id = item_data.get('item_id')
+                quantity = item_data.get('quantity', 0)
+
+                if not item_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Each inventory item must have an item_id"
+                    )
+
+                # Verify item exists
+                inventory_item = inventory_service.get_item(item_id)
+                if not inventory_item:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Inventory item {item_id} not found"
+                    )
+
+                if quantity <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Quantity must be greater than 0 for item {inventory_item.name}"
+                    )
+
         db_expense = Expense(
             amount=float(expense.amount),
             currency=currency_code,
@@ -156,6 +196,8 @@ async def create_expense(
             notes=expense.notes,
             user_id=current_user.id,
             invoice_id=expense.invoice_id,
+            is_inventory_purchase=is_inventory_purchase,
+            inventory_items=inventory_items,
             imported_from_attachment=bool(getattr(expense, "imported_from_attachment", False)),
             analysis_status=getattr(expense, "analysis_status", "not_started"),
             analysis_result=getattr(expense, "analysis_result", None),
@@ -167,6 +209,21 @@ async def create_expense(
         db.add(db_expense)
         db.commit()
         db.refresh(db_expense)
+
+        # Process inventory stock movements for inventory purchases
+        if is_inventory_purchase and inventory_items:
+            try:
+                from services.inventory_integration_service import InventoryIntegrationService
+                integration_service = InventoryIntegrationService(db)
+
+                movements = integration_service.process_expense_inventory_purchase(db_expense, current_user.id)
+                if movements:
+                    uvicorn_logger.info(f"Processed {len(movements)} stock movements for inventory purchase expense {db_expense.id}")
+
+            except Exception as e:
+                uvicorn_logger.error(f"Failed to process stock movements for expense {db_expense.id}: {e}")
+                # Don't fail the expense creation, but log the error
+                # The expense is already created, stock movements can be processed later if needed
 
         # If this expense was created from a bank statement transaction, link it to prevent duplicates
         try:
@@ -409,6 +466,47 @@ async def update_expense(
                 f"Updating expense {expense_id}: invoice_id {db_expense.invoice_id} -> {update_data['invoice_id']}"
             )
 
+        # Handle inventory purchase updates
+        if "is_inventory_purchase" in update_data or "inventory_items" in update_data:
+            is_inventory_purchase = update_data.get("is_inventory_purchase", db_expense.is_inventory_purchase)
+            inventory_items = update_data.get("inventory_items", db_expense.inventory_items)
+
+            # Validate inventory purchase data if being set to true
+            if is_inventory_purchase and inventory_items:
+                if not inventory_items or len(inventory_items) == 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Inventory purchase must include at least one item"
+                    )
+
+                # Validate each inventory item
+                from services.inventory_service import InventoryService
+                inventory_service = InventoryService(db)
+
+                for item_data in inventory_items:
+                    item_id = item_data.get('item_id')
+                    quantity = item_data.get('quantity', 0)
+
+                    if not item_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Each inventory item must have an item_id"
+                        )
+
+                    # Verify item exists
+                    inventory_item = inventory_service.get_item(item_id)
+                    if not inventory_item:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Inventory item {item_id} not found"
+                        )
+
+                    if quantity <= 0:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Quantity must be greater than 0 for item {inventory_item.name}"
+                        )
+
         # Normalize labels if provided
         if "labels" in update_data:
             raw = update_data.get("labels") or ([] if not update_data.get("label") else [update_data.get("label")])
@@ -443,6 +541,21 @@ async def update_expense(
         db.refresh(db_expense)
         if "invoice_id" in update_data:
             uvicorn_logger.info(f"Updated expense {expense_id} persisted with invoice_id={db_expense.invoice_id}")
+
+        # Handle inventory stock movements for updated purchases
+        if ("is_inventory_purchase" in update_data or "inventory_items" in update_data) and db_expense.is_inventory_purchase and db_expense.inventory_items:
+            try:
+                from services.inventory_integration_service import InventoryIntegrationService
+                integration_service = InventoryIntegrationService(db)
+
+                movements = integration_service.process_expense_inventory_purchase(db_expense, current_user.id)
+                if movements:
+                    uvicorn_logger.info(f"Processed {len(movements)} stock movements for updated expense {expense_id}")
+
+            except Exception as e:
+                uvicorn_logger.error(f"Failed to process stock movements for updated expense {expense_id}: {e}")
+                # Don't fail the expense update, but log the error
+                # The expense is already updated, stock movements can be processed later if needed
 
         log_audit_event(
             db=db,

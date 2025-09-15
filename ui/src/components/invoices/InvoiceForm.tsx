@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail, User, Calculator, Settings as SettingsIcon } from "lucide-react";
+import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail, User, Calculator, Settings as SettingsIcon, Package } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -24,7 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { isAdmin } from "@/utils/auth";
-import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL, expenseApi, Expense, Settings } from "@/lib/api";
+import { clientApi, Client, invoiceApi, paymentApi, Invoice, InvoiceItem, InvoiceStatus, settingsApi, discountRulesApi, DiscountCalculation, DiscountRule, tenantApi, API_BASE_URL, expenseApi, Expense, Settings, inventoryApi } from "@/lib/api";
 import { Label } from "@/components/ui/label";
 import { InvoicePDF } from "./InvoicePDF";
 import { TemplateSelector } from "./TemplateSelector";
@@ -36,16 +36,19 @@ import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
 import { getErrorMessage } from '@/lib/api';
 import { Checkbox } from "@/components/ui/checkbox";
 import { HelpTooltip } from "@/components/onboarding/HelpTooltip";
+import { InventoryItemSelector } from "@/components/inventory/InventoryItemSelector";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
   id: z.number().optional(),
+  inventory_item_id: z.number().optional(),
+  unit_of_measure: z.string().optional(),
 });
 
 const isValidInvoiceStatus = (status: string): status is InvoiceStatus => {
-  return ["pending", "paid", "overdue", "partially_paid"].includes(status);
+  return ["draft", "pending", "paid", "overdue", "partially_paid"].includes(status);
 };
 
 const formatStatus = (status: string) => {
@@ -65,7 +68,7 @@ const formSchema = z.object({
   currency: z.string().min(1, "Currency is required"),
   date: z.date(),
   dueDate: z.date(),
-  status: z.custom<InvoiceStatus>(),
+  status: z.enum(["draft", "pending", "paid", "overdue", "partially_paid"] as const),
   paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
@@ -88,7 +91,9 @@ const defaultItem = {
   description: "",
   quantity: 1,
   price: 0,
-  amount: 0
+  amount: 0,
+  inventory_item_id: undefined,
+  unit_of_measure: undefined
 };
 
 interface InvoiceFormProps {
@@ -129,6 +134,29 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [showExcessAmountDialog, setShowExcessAmountDialog] = useState(false);
+  const [inventoryData, setInventoryData] = useState<Map<number, any>>(new Map());
+
+  // Fetch inventory data for items that have inventory_item_id
+  const fetchInventoryData = async (inventoryItemIds: number[]) => {
+    const uniqueIds = [...new Set(inventoryItemIds.filter(id => id && !inventoryData.has(id)))];
+    if (uniqueIds.length === 0) return;
+
+    try {
+      const promises = uniqueIds.map(id => inventoryApi.getItem(id));
+      const results = await Promise.all(promises);
+
+      const newData = new Map(inventoryData);
+      results.forEach((item, index) => {
+        if (item) {
+          newData.set(uniqueIds[index], item);
+        }
+      });
+      setInventoryData(newData);
+    } catch (error) {
+      console.warn("Failed to fetch inventory data:", error);
+    }
+  };
+
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [newClientForm, setNewClientForm] = useState({
@@ -498,7 +526,9 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         description: item.description || '',
         quantity: item.quantity || 1,
         price: item.price || 0,
-        amount: (item.quantity || 1) * (item.price || 0)
+        amount: (item.quantity || 1) * (item.price || 0),
+        inventory_item_id: item.inventory_item_id,
+        unit_of_measure: item.unit_of_measure
       }));
     }
     return [{ ...defaultItem }];
@@ -579,6 +609,18 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       }
     }
   }, [isEdit, form, addValidation]);
+
+  // Watch for inventory item IDs and fetch their data
+  useEffect(() => {
+    const currentItems = form.watch("items");
+    const inventoryItemIds = currentItems
+      .map(item => item.inventory_item_id)
+      .filter(id => id) as number[];
+
+    if (inventoryItemIds.length > 0) {
+      fetchInventoryData(inventoryItemIds);
+    }
+  }, [form.watch("items")]);
 
   // Auto-save setup after form is initialized
   const formData = form.watch();
@@ -1338,7 +1380,9 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   };
 
   const onSubmit = async (data: FormValues) => {
-    console.log("onSubmit called", { isEdit, data });
+    console.log("🔥 onSubmit called", { isEdit, data });
+    console.log("🔥 Form data validation:", form.formState.errors);
+    console.log("🔥 Form is valid:", form.formState.isValid);
     setSubmitting(true);
     try {
       // Update preview before submitting
@@ -1365,6 +1409,52 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       };
       setPreviewInvoice(updatedPreview);
       setPreviewKey(prev => prev + 1);
+
+      // Validate inventory stock availability
+      const inventoryItems = data.items.filter(item => item.inventory_item_id);
+      if (inventoryItems.length > 0) {
+        try {
+          console.log("🔍 Validating inventory stock for items:", inventoryItems);
+          const validationResult = await inventoryApi.validateInvoiceStock(inventoryItems);
+          console.log("🔍 Stock validation result:", validationResult);
+
+          const validationResults = (validationResult as any).validation_results;
+          const insufficientStock = validationResults.filter(
+            (result: any) => !result.sufficient
+          );
+
+          if (insufficientStock.length > 0) {
+            const errorMessages = insufficientStock.map((item: any) =>
+              `${item.item_name}: Requested ${item.requested_quantity}, only ${item.current_stock} available`
+            ).join('; ');
+
+            toast.error(`Insufficient stock: ${errorMessages}`, {
+              duration: 6000,
+            });
+            setSubmitting(false);
+            return;
+          }
+
+          // Show warnings for low stock items
+          const lowStockItems = validationResults.filter(
+            (result: any) => result.sufficient && result.current_stock <= (result.minimum_stock || 0) * 1.2
+          );
+
+          if (lowStockItems.length > 0) {
+            const warningMessages = lowStockItems.map((item: any) =>
+              `${item.item_name}: Only ${item.current_stock} remaining`
+            ).join('; ');
+
+            toast.warning(`Low stock warning: ${warningMessages}`, {
+              duration: 4000,
+            });
+          }
+        } catch (error) {
+          console.warn("Failed to validate inventory stock:", error);
+          // Continue with submission but show warning
+          toast.warning("Could not validate inventory stock. Please check manually.");
+        }
+      }
 
       // Format dates for API with time
       const formattedDate = format(data.date, "yyyy-MM-dd'T'HH:mm:ss");
@@ -1410,7 +1500,9 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
               quantity: Number(item.quantity) || 1,
               price: Number(item.price) || 0,
               amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
-              id: item.id
+              id: item.id,
+              inventory_item_id: item.inventory_item_id,
+              unit_of_measure: item.unit_of_measure
             })),
             is_recurring: data.isRecurring,
             recurring_frequency: data.recurringFrequency,
@@ -1786,7 +1878,9 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             description: item.description || '',
             quantity: Number(item.quantity) || 1,
             price: Number(item.price) || 0,
-            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0)
+            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
+            inventory_item_id: item.inventory_item_id,
+            unit_of_measure: item.unit_of_measure
           })),
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
@@ -2141,16 +2235,115 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">{t('invoices.items')}</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addItem}
-                  disabled={isInvoicePaid}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('invoices.add_item')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addItem}
+                    disabled={isInvoicePaid}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('invoices.add_item')}
+                  </Button>
+
+                  {/* Bulk Inventory Operations */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const inventoryItems = items.filter(item => item.inventory_item_id && item.quantity > 0);
+                      if (inventoryItems.length === 0) {
+                        toast.info("No inventory items to validate");
+                        return;
+                      }
+
+                      try {
+                        setSubmitting(true);
+                        const validationResult = await inventoryApi.validateInvoiceStock(inventoryItems);
+                        const results = (validationResult as any).validation_results;
+
+                        const insufficient = results.filter((r: any) => !r.sufficient);
+                        const warnings = results.filter((r: any) => r.sufficient && r.current_stock <= (r.minimum_stock || 0) * 1.2);
+
+                        if (insufficient.length > 0) {
+                          const messages = insufficient.map((item: any) =>
+                            `${item.item_name}: ${item.requested_quantity} requested, ${item.current_stock} available`
+                          );
+                          toast.error(`Insufficient stock:\n${messages.join('\n')}`, { duration: 8000 });
+                        } else if (warnings.length > 0) {
+                          const messages = warnings.map((item: any) =>
+                            `${item.item_name}: ${item.current_stock} remaining`
+                          );
+                          toast.warning(`Low stock warnings:\n${messages.join('\n')}`, { duration: 6000 });
+                        } else {
+                          toast.success(`All ${inventoryItems.length} inventory items validated successfully`);
+                        }
+                      } catch (error) {
+                        console.error("Bulk inventory validation failed:", error);
+                        toast.error("Failed to validate inventory stock");
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={isInvoicePaid || submitting}
+                    title="Validate stock availability for all inventory items"
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Validate Stock
+                  </Button>
+
+                  {/* Quick Populate from Inventory */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        setSubmitting(true);
+                        // Get all inventory items that aren't already linked to invoice items
+                        const inventoryResponse = await inventoryApi.getItems({ limit: 100 });
+                        const availableInventory = inventoryResponse.items.filter(invItem =>
+                          !items.some(invoiceItem => invoiceItem.inventory_item_id === invItem.id)
+                        );
+
+                        if (availableInventory.length === 0) {
+                          toast.info("No additional inventory items available to add");
+                          return;
+                        }
+
+                        // Add the first few available inventory items as new invoice items
+                        const itemsToAdd = availableInventory.slice(0, 3); // Add up to 3 items at once
+                        const currentItems = form.getValues("items");
+
+                        const newItems = itemsToAdd.map(invItem => ({
+                          description: invItem.name,
+                          quantity: 1,
+                          price: invItem.unit_price,
+                          inventory_item_id: invItem.id,
+                          unit_of_measure: invItem.unit_of_measure,
+                          id: undefined
+                        }));
+
+                        const updatedItems = [...currentItems, ...newItems];
+                        form.setValue("items", updatedItems);
+
+                        toast.success(`Added ${itemsToAdd.length} inventory items to invoice`);
+                      } catch (error) {
+                        console.error("Failed to populate from inventory:", error);
+                        toast.error("Failed to add inventory items");
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={isInvoicePaid || submitting}
+                    title="Quickly add available inventory items to invoice"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Quick Add
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 mb-2">
@@ -2169,12 +2362,40 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input 
-                              placeholder={t('invoices.item_description')} 
-                              {...field}
-                              value={field.value || ''}
-                              disabled={isInvoicePaid}
-                            />
+                            <div className="relative">
+                              <Input
+                                placeholder={t('invoices.item_description')}
+                                {...field}
+                                value={field.value || ''}
+                                disabled={isInvoicePaid}
+                              />
+                              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                                {!isInvoicePaid && (
+                                  <InventoryItemSelector
+                                    onItemSelect={(inventoryItem) => {
+                                      // Update the current item with inventory data
+                                      const currentItems = form.getValues("items");
+                                      const updatedItems = [...currentItems];
+                                      updatedItems[index] = {
+                                        ...updatedItems[index],
+                                        description: inventoryItem.description,
+                                        price: inventoryItem.price,
+                                        unit_of_measure: inventoryItem.unit_of_measure,
+                                        inventory_item_id: inventoryItem.inventory_item_id,
+                                      };
+                                      form.setValue("items", updatedItems);
+                                    }}
+                                    selectedItemId={item.inventory_item_id}
+                                    compact={true}
+                                  />
+                                )}
+                                {item.inventory_item_id && (
+                                  <div title="Linked to Inventory Item">
+                                    <Package className="h-4 w-4 text-blue-500" />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -2188,13 +2409,52 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              placeholder={t('invoices.qty')}
-                              {...field}
-                              disabled={isInvoicePaid}
-                            />
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                min="1"
+                                placeholder={t('invoices.qty')}
+                                {...field}
+                                disabled={isInvoicePaid}
+                              />
+                              {item.inventory_item_id && (
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                                  {(() => {
+                                    const inventoryItem = inventoryData.get(item.inventory_item_id);
+                                    if (!inventoryItem) {
+                                      return (
+                                        <div className="text-xs text-muted-foreground">
+                                          Loading...
+                                        </div>
+                                      );
+                                    }
+
+                                    const quantity = Number(field.value) || 0;
+                                    const availableStock = inventoryItem.current_stock || 0;
+                                    const isLowStock = inventoryItem.track_stock && availableStock <= (inventoryItem.minimum_stock || 0);
+                                    const isInsufficient = inventoryItem.track_stock && quantity > availableStock;
+
+                                    return (
+                                      <div className="flex items-center gap-1">
+                                        <span className={`text-xs ${
+                                          isInsufficient ? 'text-red-600 font-medium' :
+                                          isLowStock ? 'text-orange-600' :
+                                          'text-muted-foreground'
+                                        }`}>
+                                          {inventoryItem.track_stock ? `${availableStock} avail` : 'No tracking'}
+                                        </span>
+                                        {isInsufficient && (
+                                          <div className="w-2 h-2 bg-red-500 rounded-full" title="Insufficient stock" />
+                                        )}
+                                        {isLowStock && !isInsufficient && (
+                                          <div className="w-2 h-2 bg-orange-500 rounded-full" title="Low stock warning" />
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -2235,6 +2495,64 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   </div>
                 </div>
               ))}
+
+              {/* Inventory Summary */}
+              {(() => {
+                const inventoryItems = items.filter(item => item.inventory_item_id);
+                if (inventoryItems.length === 0) return null;
+
+                const summary = inventoryItems.map(item => {
+                  const inventoryItem = inventoryData.get(item.inventory_item_id);
+                  const quantity = Number(item.quantity) || 0;
+                  return {
+                    name: item.description || 'Unknown Item',
+                    quantity,
+                    inventoryItem,
+                    isInsufficient: inventoryItem?.track_stock && quantity > (inventoryItem?.current_stock || 0),
+                    isLowStock: inventoryItem?.track_stock && (inventoryItem?.current_stock || 0) <= (inventoryItem?.minimum_stock || 0)
+                  };
+                });
+
+                const hasIssues = summary.some(item => item.isInsufficient);
+                const hasWarnings = summary.some(item => item.isLowStock && !item.isInsufficient);
+
+                if (!hasIssues && !hasWarnings) return null;
+
+                return (
+                  <div className="mt-4 p-4 border rounded-lg bg-muted/50">
+                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                      <Package className="h-4 w-4" />
+                      Inventory Status
+                    </h4>
+
+                    {hasIssues && (
+                      <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                        <strong>Insufficient Stock:</strong>
+                        <ul className="mt-1 ml-4 list-disc">
+                          {summary.filter(item => item.isInsufficient).map((item, index) => (
+                            <li key={index}>
+                              {item.name}: Requested {item.quantity}, only {item.inventoryItem?.current_stock || 0} available
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {hasWarnings && (
+                      <div className="p-2 bg-orange-50 border border-orange-200 rounded text-sm text-orange-800">
+                        <strong>Low Stock Warning:</strong>
+                        <ul className="mt-1 ml-4 list-disc">
+                          {summary.filter(item => item.isLowStock && !item.isInsufficient).map((item, index) => (
+                            <li key={index}>
+                              {item.name}: Only {item.inventoryItem?.current_stock || 0} remaining
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
@@ -2524,14 +2842,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                 {!isEdit && <AutoSaveIndicator status={autoSaveStatus} lastSaved={lastSaved} />}
                 
                 {/* Client and Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   <FormField
                     control={form.control}
                     name="client"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('invoices.client')}</FormLabel>
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                           <SmartClientSelector
                             clients={clients}
                             value={field.value}
@@ -2551,6 +2869,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             type="button"
                             variant="outline"
                             onClick={() => setShowNewClientDialog(true)}
+                            className="w-full sm:w-auto"
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             {t('invoices.new_client')}
@@ -2561,37 +2880,39 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="invoiceNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('invoices.invoice_number')}</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="invoiceNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('invoices.invoice_number')}</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="currency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('invoices.currency')}</FormLabel>
-                        <FormControl>
-                          <CurrencySelector
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                            placeholder="Select currency"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="currency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('invoices.currency')}</FormLabel>
+                          <FormControl>
+                            <CurrencySelector
+                              value={field.value || ""}
+                              onValueChange={field.onChange}
+                              placeholder="Select currency"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -3039,7 +3360,11 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   <Button type="button" variant="outline" onClick={() => navigate('/invoices')}>
                     {t('invoices.cancel')}
                   </Button>
-                  <Button type="submit" disabled={submitting}>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    onClick={() => console.log("🔥 Create Invoice button clicked")}
+                  >
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('invoices.create_invoice')}
                   </Button>
@@ -3136,89 +3461,85 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     <InlineValidation messages={validationMessages} className="mb-4" />
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="client"
-                      render={({ field }) => (
-                        <FormItem data-tour="client-selector">
-                          <div className="flex items-center gap-2">
-                            <FormLabel>{t('invoices.client')}</FormLabel>
-                            <HelpTooltip 
-                              content="Select an existing client or create a new one. Client information will be used for billing and contact details."
-                              title="Client Selection"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <SmartClientSelector
-                              clients={clients}
-                              value={field.value}
-                              onValueChange={(value) => {
-                                field.onChange(value);
-                                form.trigger("client");
-                                const selectedClient = clients.find(c => c.id.toString() === value);
-                                if (selectedClient?.preferred_currency && !isInvoicePaid) {
-                                  form.setValue("currency", selectedClient.preferred_currency);
-                                }
-                              }}
-                              onCreateNew={() => setShowNewClientDialog(true)}
-                              placeholder={t('invoices.select_a_client')}
-                              disabled={isInvoicePaid}
-                            />
-                            {!isInvoicePaid && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowNewClientDialog(true)}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                {t('invoices.new_client')}
-                              </Button>
-                            )}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="invoiceNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('invoices.invoice_number')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled={isInvoicePaid} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="currency"
-                      render={({ field }) => {
-                        console.log("💰 Currency field render - value:", field.value, "type:", typeof field.value);
-                        return (
-                          <FormItem>
-                            <FormLabel>{t('invoices.currency')}</FormLabel>
-                            <FormControl>
-                              <CurrencySelector
-                                value={field.value || ""}
+                    <div className="grid grid-cols-1 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="client"
+                        render={({ field }) => (
+                          <FormItem data-tour="client-selector">
+                            <div className="flex items-center gap-2">
+                              <FormLabel>{t('invoices.client')}</FormLabel>
+                              <HelpTooltip
+                                content="Select an existing client or create a new one. Client information will be used for billing and contact details."
+                                title="Client Selection"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <SmartClientSelector
+                                clients={clients}
+                                value={field.value}
                                 onValueChange={(value) => {
-                                  console.log("💰 Currency manually changed to:", value);
                                   field.onChange(value);
+                                  form.trigger("client");
+                                  const selectedClient = clients.find(c => c.id.toString() === value);
+                                  if (selectedClient?.preferred_currency && !isInvoicePaid) {
+                                    form.setValue("currency", selectedClient.preferred_currency);
+                                  }
                                 }}
-                                placeholder="Select currency"
+                                onCreateNew={() => setShowNewClientDialog(true)}
+                                placeholder={t('invoices.select_a_client')}
                                 disabled={isInvoicePaid}
                               />
-                            </FormControl>
+                              {!isInvoicePaid && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => setShowNewClientDialog(true)}
+                                  className="w-full sm:w-auto"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  {t('invoices.new_client')}
+                                </Button>
+                              )}
+                            </div>
                             <FormMessage />
                           </FormItem>
-                        );
-                      }}
-                    />
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="invoiceNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('invoices.invoice_number')}</FormLabel>
+                              <FormControl>
+                                <Input {...field} disabled={isInvoicePaid} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="currency"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('invoices.currency')}</FormLabel>
+                              <FormControl>
+                                <CurrencySelector
+                                  value={field.value || ""}
+                                  onValueChange={field.onChange}
+                                  placeholder="Select currency"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
                     <FormField
                       control={form.control}

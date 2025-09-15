@@ -1567,6 +1567,46 @@
       "error_message": "Fehlermeldung",
       "details": "Details",
       "copy_json": "JSON kopieren"
+    },
+    "inventory": {
+      "title": "Inventar",
+      "service_description": "Erstellen Sie einen Servicekatalog für Ihre Beratungs- und Freiberuflerarbeit",
+      "product_description": "Verwalten Sie Ihre Produkte und Lagerbestände",
+      "add_item": "Artikel hinzufügen",
+      "items_list": "Inventargegenstände",
+      "all_categories": "Alle Kategorien",
+      "search_placeholder": "Artikel suchen...",
+      "table": {
+        "name": "Name",
+        "sku": "SKU",
+        "category": "Kategorie",
+        "price": "Preis",
+        "stock": "Lager",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "loading": "Inventar wird geladen...",
+      "no_service_items": "Noch keine Serviceartikel. Erstellen Sie Ihren Servicekatalog, um zu beginnen.",
+      "no_product_items": "Keine Inventargegenstände gefunden. Fügen Sie Ihr erstes Produkt hinzu, um zu beginnen.",
+      "add_first_service": "Ihren ersten Service hinzufügen",
+      "add_first_product": "Ihr erstes Produkt hinzufügen",
+      "delete_item": "Artikel löschen",
+      "delete_confirm": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "item_deleted": "Artikel \"{{name}}\" erfolgreich gelöscht",
+      "analytics": {
+        "total_items": "Gesamtanzahl Artikel",
+        "active": "aktiv",
+        "low_stock_items": "Artikel mit niedrigem Lagerbestand",
+        "need_attention": "Benötigen Aufmerksamkeit",
+        "inventory_value": "Inventarwert",
+        "categories": "Kategorien",
+        "product_categories": "Produktkategorien"
+      },
+      "stock_status": {
+        "not_tracked": "Nicht verfolgt",
+        "low_stock": "Niedriger Lagerbestand",
+        "in_stock": "Auf Lager"
+      }
     }
   }
 }

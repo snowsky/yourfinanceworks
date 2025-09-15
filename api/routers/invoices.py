@@ -189,14 +189,42 @@ async def create_invoice(
                 logger.warning("Failed to create auto payment on invoice creation", exc_info=True)
         logger.info(f"[DEBUG] Saved custom_fields in DB: {db_invoice.custom_fields}")
         
-        # Create invoice items
+        # Create invoice items with inventory integration
+        from services.inventory_integration_service import InventoryIntegrationService
+        integration_service = InventoryIntegrationService(db)
+
         for item_data in items_list:
+            # Handle inventory item integration
+            inventory_item_id = getattr(item_data, 'inventory_item_id', None)
+            unit_of_measure = getattr(item_data, 'unit_of_measure', None)
+
+            # If inventory_item_id is provided, populate from inventory
+            if inventory_item_id:
+                try:
+                    inventory_data = integration_service.populate_invoice_item_from_inventory(
+                        inventory_item_id, float(item_data.quantity)
+                    )
+                    # Use inventory data to populate item
+                    description = inventory_data['description']
+                    price = inventory_data['unit_price'] if item_data.price == 0 else float(item_data.price)
+                    unit_of_measure = inventory_data.get('unit_of_measure', unit_of_measure)
+                except Exception as e:
+                    logger.warning(f"Failed to populate invoice item from inventory {inventory_item_id}: {e}")
+                    # Fall back to provided data
+                    description = item_data.description
+                    price = float(item_data.price)
+            else:
+                description = item_data.description
+                price = float(item_data.price)
+
             db_item = InvoiceItem(
                 invoice_id=db_invoice.id,
-                description=item_data.description,
+                inventory_item_id=inventory_item_id,
+                description=description,
                 quantity=float(item_data.quantity),
-                price=float(item_data.price),
-                amount=float(item_data.quantity) * float(item_data.price)
+                price=price,
+                amount=float(item_data.quantity) * price,
+                unit_of_measure=unit_of_measure
             )
             db.add(db_item)
         
@@ -242,16 +270,18 @@ async def create_invoice(
             status="success"
         )
         
-        # Build response including description from notes
+        # Build response including description from notes and inventory information
         items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == db_invoice.id).all()
         items_data = [
             {
                 "id": item.id,
                 "invoice_id": item.invoice_id,
+                "inventory_item_id": item.inventory_item_id,
                 "description": item.description,
                 "quantity": item.quantity,
                 "price": item.price,
-                "amount": item.amount
+                "amount": item.amount,
+                "unit_of_measure": item.unit_of_measure
             }
             for item in items
         ]
@@ -881,7 +911,9 @@ async def read_invoice(
                 "description": item.description,
                 "quantity": item.quantity,
                 "price": item.price,
-                "amount": item.amount
+                "amount": item.amount,
+                "inventory_item_id": item.inventory_item_id,
+                "unit_of_measure": item.unit_of_measure
             }
             for item in items
         ]
@@ -1176,6 +1208,33 @@ async def update_invoice(
                 print(f"Error resolving client names: {e}")
                 changes.append(f"Client changed from Client ID {old_client_id} to Client ID {invoice.client_id}")
         
+        # Handle inventory stock movements for status changes
+        if "status" in update_data and old_status != invoice.status:
+            from services.inventory_integration_service import InventoryIntegrationService
+            integration_service = InventoryIntegrationService(db)
+
+            # Process stock movements when invoice becomes payable
+            if invoice.status in ['paid', 'completed']:
+                try:
+                    movements = integration_service.process_invoice_stock_movements(db_invoice, current_user.id)
+                    if movements:
+                        logger.info(f"Processed {len(movements)} stock movements for invoice {invoice_id}")
+                        changes.append(f"Processed {len(movements)} inventory stock movements")
+                except Exception as e:
+                    logger.error(f"Failed to process stock movements for invoice {invoice_id}: {e}")
+                    # Don't fail the invoice update, just log the error
+
+            # Reverse stock movements when invoice is cancelled/refunded
+            elif invoice.status in ['cancelled', 'refunded'] and old_status in ['paid', 'completed']:
+                try:
+                    movements = integration_service.reverse_invoice_stock_movements(db_invoice, current_user.id)
+                    if movements:
+                        logger.info(f"Reversed {len(movements)} stock movements for invoice {invoice_id}")
+                        changes.append(f"Reversed {len(movements)} inventory stock movements")
+                except Exception as e:
+                    logger.error(f"Failed to reverse stock movements for invoice {invoice_id}: {e}")
+                    # Don't fail the invoice update, just log the error
+
         # Only create history entry if there are actual changes
         if changes and len(changes) > 0:
             history_entry = InvoiceHistoryModel(
@@ -1238,16 +1297,18 @@ async def update_invoice(
                 status="success"
             )
             
-            # Get updated items to include in response
+            # Get updated items to include in response with inventory information
             items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
             items_data = [
                 {
                     "id": item.id,
                     "invoice_id": item.invoice_id,
+                    "inventory_item_id": item.inventory_item_id,
                     "description": item.description,
                     "quantity": item.quantity,
                     "price": item.price,
-                    "amount": item.amount
+                    "amount": item.amount,
+                    "unit_of_measure": item.unit_of_measure
                 }
                 for item in items
             ]

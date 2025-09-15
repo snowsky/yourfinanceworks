@@ -7,12 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload } from 'lucide-react';
+import { CalendarIcon, Upload, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, Expense, linkApi } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { FileUpload, FileData } from '@/components/ui/file-upload';
+import { InventoryPurchaseForm } from '@/components/inventory/InventoryPurchaseForm';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ExpensesNew() {
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
@@ -26,6 +28,8 @@ export default function ExpensesNew() {
   const [files, setFiles] = useState<FileData[]>([]);
   const [saving, setSaving] = useState(false);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
+  const [isInventoryPurchase, setIsInventoryPurchase] = useState(false);
+  const [inventoryPurchaseItems, setInventoryPurchaseItems] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -64,6 +68,8 @@ export default function ExpensesNew() {
         status: form.status || 'recorded',
         notes: form.notes,
         invoice_id: form.invoice_id ?? null,
+        is_inventory_purchase: isInventoryPurchase,
+        inventory_items: isInventoryPurchase ? inventoryPurchaseItems : undefined,
       } as any;
       const created = await expenseApi.createExpense({ ...payload, imported_from_attachment: files.length > 0, analysis_status: files.length > 0 ? 'queued' : 'not_started' } as any);
       
@@ -188,6 +194,74 @@ export default function ExpensesNew() {
               <label className="text-sm">Notes</label>
               <Input value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Inventory Purchase Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Inventory Purchase
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is-inventory-purchase"
+                checked={isInventoryPurchase}
+                onCheckedChange={(checked) => setIsInventoryPurchase(checked as boolean)}
+              />
+              <label
+                htmlFor="is-inventory-purchase"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                This expense is for purchasing inventory items
+              </label>
+            </div>
+
+            {isInventoryPurchase && (
+              <div className="space-y-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-purple-800 mb-3">
+                    <Package className="h-4 w-4" />
+                    <span className="text-sm font-medium">Inventory Purchase Details</span>
+                  </div>
+                  <p className="text-sm text-purple-700 mb-4">
+                    Select the inventory items you purchased with this expense. The system will automatically update stock levels when you save.
+                  </p>
+
+                  <InventoryPurchaseForm
+                    onPurchaseItemsChange={setInventoryPurchaseItems}
+                    currency={form.currency || 'USD'}
+                    totalAmount={Number(form.amount || 0)}
+                  />
+                </div>
+
+                {inventoryPurchaseItems.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-green-800">
+                      <Package className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        Ready to process: {inventoryPurchaseItems.length} inventory items will be added to stock
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* File Upload Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Receipt Attachments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="sm:col-span-2">
               <FileUpload
                 title="Receipt Attachments (max 10)"

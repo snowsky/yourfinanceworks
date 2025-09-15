@@ -36,6 +36,7 @@ import {
   Sun,
   Trash2,
   Bot,
+  Package,
 } from "lucide-react";
 import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
@@ -394,48 +395,54 @@ export function AppSidebar() {
   };
 
   const mainMenuItems = [
-    { 
-      path: '/', 
+    {
+      path: '/',
       label: t('navigation.dashboard'),
-      icon: <BarChart className="w-5 h-5" /> 
+      icon: <BarChart className="w-5 h-5" />
     },
-    { 
-      path: '/clients', 
+    {
+      path: '/clients',
       label: t('navigation.clients'),
       icon: <Users className="w-5 h-5" />,
       tourId: 'nav-clients'
     },
-    { 
-      path: '/invoices', 
+    {
+      path: '/invoices',
       label: t('navigation.invoices'),
       icon: <FileText className="w-5 h-5" />,
       tourId: 'nav-invoices'
     },
-    { 
-      path: '/payments', 
+    {
+      path: '/payments',
       label: t('navigation.payments'),
       icon: <DollarSign className="w-5 h-5" />,
       tourId: 'nav-payments'
     },
-    { 
-      path: '/expenses', 
+    {
+      path: '/expenses',
       label: t('navigation.expenses'),
       icon: <DollarSign className="w-5 h-5" />,
       tourId: 'nav-expenses'
     },
-    { 
-      path: '/statements', 
+    {
+      path: '/inventory',
+      label: t('navigation.inventory', 'Inventory'),
+      icon: <Package className="w-5 h-5" />,
+      tourId: 'nav-inventory'
+    },
+    {
+      path: '/statements',
       label: t('navigation.bank_statements'),
       icon: <FileText className="w-5 h-5" />,
       tourId: 'nav-statements'
     },
-    { 
-      path: '/reports', 
+    {
+      path: '/reports',
       label: t('navigation.reports'),
       icon: <BarChart className="w-5 h-5" />,
       tourId: 'nav-reports'
     },
-    
+
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];

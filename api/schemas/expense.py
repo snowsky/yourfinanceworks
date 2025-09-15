@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
 
@@ -19,6 +19,10 @@ class ExpenseBase(BaseModel):
     status: str = Field("recorded", description="Status of the expense (recorded, reimbursed, submitted)")
     notes: Optional[str] = Field(None, description="Additional notes about the expense")
     invoice_id: Optional[int] = Field(None, description="Linked invoice ID (one expense -> at most one invoice)")
+    # Inventory purchase fields
+    is_inventory_purchase: Optional[bool] = Field(False, description="Whether this expense is an inventory purchase")
+    inventory_items: Optional[List[Dict[str, Any]]] = Field(None, description="List of inventory items purchased")
+
     # OCR/AI analysis flags
     imported_from_attachment: Optional[bool] = Field(False, description="Whether this expense originated from an uploaded file")
     analysis_status: Optional[str] = Field("not_started", description="OCR analysis status: not_started|pending|queued|processing|done|failed|cancelled")
@@ -49,6 +53,9 @@ class ExpenseUpdate(BaseModel):
     notes: Optional[str] = None
     # Allow linking/unlinking to an invoice
     invoice_id: Optional[int] = None
+    # Inventory purchase fields
+    is_inventory_purchase: Optional[bool] = None
+    inventory_items: Optional[List[Dict[str, Any]]] = None
     imported_from_attachment: Optional[bool] = None
     analysis_status: Optional[str] = None
     analysis_result: Optional[dict] = None
@@ -64,6 +71,67 @@ class Expense(ExpenseBase):
     receipt_filename: Optional[str] = None  # legacy single receipt
     attachments_count: Optional[int] = None
     analysis_updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# === Inventory Purchase Schemas ===
+
+class InventoryPurchaseItem(BaseModel):
+    """Schema for individual inventory purchase items"""
+    item_id: int = Field(..., description="ID of the inventory item being purchased")
+    quantity: float = Field(..., gt=0, description="Quantity purchased")
+    unit_cost: float = Field(..., ge=0, description="Cost per unit")
+    item_name: Optional[str] = Field(None, description="Item name for validation")
+
+    @field_validator('quantity')
+    @classmethod
+    def validate_quantity(cls, v):
+        if v <= 0:
+            raise ValueError('Quantity must be greater than 0')
+        return v
+
+    @field_validator('unit_cost')
+    @classmethod
+    def validate_unit_cost(cls, v):
+        if v < 0:
+            raise ValueError('Unit cost cannot be negative')
+        return v
+
+
+class InventoryPurchaseCreate(BaseModel):
+    """Schema for creating an inventory purchase expense"""
+    vendor: str = Field(..., description="Vendor/Supplier name")
+    reference_number: Optional[str] = Field(None, description="Purchase order or invoice number")
+    purchase_date: date = Field(default_factory=date.today, description="Date of purchase")
+    currency: str = Field("USD", description="Currency code")
+    items: List[InventoryPurchaseItem] = Field(..., min_length=1, description="List of items purchased")
+    notes: Optional[str] = Field(None, description="Purchase notes")
+    payment_method: Optional[str] = Field(None, description="Payment method used")
+    tax_rate: Optional[float] = Field(None, description="Tax rate for the purchase")
+
+    @field_validator('items')
+    @classmethod
+    def validate_items(cls, v):
+        if not v:
+            raise ValueError('At least one item must be purchased')
+        return v
+
+
+class ExpenseWithInventoryPurchase(Expense):
+    """Expense with detailed inventory purchase information"""
+    inventory_purchase_details: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryPurchaseSummary(BaseModel):
+    """Summary of inventory purchases for reporting"""
+    total_expenses: int
+    total_purchase_value: float
+    total_items_purchased: int
+    currency: str
+    purchases: List[Dict[str, Any]]
 
     model_config = ConfigDict(from_attributes=True)
 

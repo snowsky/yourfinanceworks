@@ -1581,6 +1581,46 @@
       "error_message": "Error Message",
       "details": "Details",
       "copy_json": "Copy JSON"
+    },
+    "inventory": {
+      "title": "Inventory",
+      "service_description": "Create a service catalog for your consulting and freelance work",
+      "product_description": "Manage your products and stock levels",
+      "add_item": "Add Item",
+      "items_list": "Inventory Items",
+      "all_categories": "All Categories",
+      "search_placeholder": "Search items...",
+      "table": {
+        "name": "Name",
+        "sku": "SKU",
+        "category": "Category",
+        "price": "Price",
+        "stock": "Stock",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "loading": "Loading inventory...",
+      "no_service_items": "No service items yet. Create your service catalog to get started.",
+      "no_product_items": "No inventory items found. Add your first product to get started.",
+      "add_first_service": "Add Your First Service",
+      "add_first_product": "Add Your First Product",
+      "delete_item": "Delete Item",
+      "delete_confirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+      "item_deleted": "Item \"{{name}}\" deleted successfully",
+      "analytics": {
+        "total_items": "Total Items",
+        "active": "active",
+        "low_stock_items": "Low Stock Items",
+        "need_attention": "Need attention",
+        "inventory_value": "Inventory Value",
+        "categories": "Categories",
+        "product_categories": "Product categories"
+      },
+      "stock_status": {
+        "not_tracked": "Not Tracked",
+        "low_stock": "Low Stock",
+        "in_stock": "In Stock"
+      }
     }
   }
 }

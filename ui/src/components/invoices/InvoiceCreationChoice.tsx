@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Upload, FileText, Loader2, AlertCircle, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface InvoiceCreationChoiceProps {
   onManualCreate: (attachment?: File) => void;
   onPdfImport: (pdfData: any, pdfFile: File) => void;
+  onInventoryCreate?: () => void;
 }
 
-export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCreationChoiceProps) {
+export function InvoiceCreationChoice({ onManualCreate, onPdfImport, onInventoryCreate }: InvoiceCreationChoiceProps) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -110,7 +111,7 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCr
         <p className="text-muted-foreground">{t('invoices.choose_creation_method')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* PDF Import Option */}
         <Card className="cursor-pointer hover:shadow-lg transition-shadow">
           <CardHeader className="text-center">
@@ -195,6 +196,46 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport }: InvoiceCr
             </div>
           </CardContent>
         </Card>
+
+        {/* Inventory Integration Option */}
+        {onInventoryCreate && (
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                <Package className="w-8 h-8 text-purple-600" />
+              </div>
+              <CardTitle className="text-xl">Create with Inventory</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                Select items from your inventory catalog with automatic stock tracking and pricing
+              </p>
+
+              <div className="space-y-3">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-purple-800">
+                    <Package className="w-4 h-4" />
+                    <span className="text-sm font-medium">Features:</span>
+                  </div>
+                  <ul className="text-sm text-purple-700 mt-2 space-y-1">
+                    <li>• Select from inventory catalog</li>
+                    <li>• Automatic stock validation</li>
+                    <li>• Real-time pricing updates</li>
+                    <li>• Low stock warnings</li>
+                  </ul>
+                </div>
+
+                <Button
+                  onClick={onInventoryCreate}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Create with Inventory
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -1584,6 +1584,46 @@
         "baseUrl": "Establece la URL base del servicio fiscal en la variable de entorno TAX_SERVICE_BASE_URL",
         "environment": "Usa el script de configuración para configurar estas opciones de manera interactiva"
       }
+    },
+    "inventory": {
+      "title": "Inventario",
+      "service_description": "Crea un catálogo de servicios para tu trabajo de consultoría y freelance",
+      "product_description": "Gestiona tus productos y niveles de stock",
+      "add_item": "Agregar Artículo",
+      "items_list": "Artículos de Inventario",
+      "all_categories": "Todas las Categorías",
+      "search_placeholder": "Buscar artículos...",
+      "table": {
+        "name": "Nombre",
+        "sku": "SKU",
+        "category": "Categoría",
+        "price": "Precio",
+        "stock": "Stock",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "loading": "Cargando inventario...",
+      "no_service_items": "Aún no hay artículos de servicio. Crea tu catálogo de servicios para comenzar.",
+      "no_product_items": "No se encontraron artículos de inventario. Agrega tu primer producto para comenzar.",
+      "add_first_service": "Agregar Tu Primer Servicio",
+      "add_first_product": "Agregar Tu Primer Producto",
+      "delete_item": "Eliminar Artículo",
+      "delete_confirm": "¿Estás seguro de que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer.",
+      "item_deleted": "Artículo \"{{name}}\" eliminado exitosamente",
+      "analytics": {
+        "total_items": "Total de Artículos",
+        "active": "activo",
+        "low_stock_items": "Artículos con Stock Bajo",
+        "need_attention": "Necesitan atención",
+        "inventory_value": "Valor del Inventario",
+        "categories": "Categorías",
+        "product_categories": "Categorías de productos"
+      },
+      "stock_status": {
+        "not_tracked": "No Rastreado",
+        "low_stock": "Stock Bajo",
+        "in_stock": "En Stock"
+      }
     }
   }
 }

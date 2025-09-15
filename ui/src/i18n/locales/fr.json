@@ -1565,6 +1565,46 @@
         "baseUrl": "Définissez l'URL de base du service fiscal dans la variable d'environnement TAX_SERVICE_BASE_URL",
         "environment": "Utilisez le script de configuration pour configurer ces options de manière interactive"
       }
+    },
+    "inventory": {
+      "title": "Inventaire",
+      "service_description": "Créez un catalogue de services pour votre travail de conseil et freelance",
+      "product_description": "Gérez vos produits et niveaux de stock",
+      "add_item": "Ajouter un Article",
+      "items_list": "Articles d'Inventaire",
+      "all_categories": "Toutes les Catégories",
+      "search_placeholder": "Rechercher des articles...",
+      "table": {
+        "name": "Nom",
+        "sku": "SKU",
+        "category": "Catégorie",
+        "price": "Prix",
+        "stock": "Stock",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "loading": "Chargement de l'inventaire...",
+      "no_service_items": "Aucun article de service pour le moment. Créez votre catalogue de services pour commencer.",
+      "no_product_items": "Aucun article d'inventaire trouvé. Ajoutez votre premier produit pour commencer.",
+      "add_first_service": "Ajouter Votre Premier Service",
+      "add_first_product": "Ajouter Votre Premier Produit",
+      "delete_item": "Supprimer l'Article",
+      "delete_confirm": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action ne peut pas être annulée.",
+      "item_deleted": "Article \"{{name}}\" supprimé avec succès",
+      "analytics": {
+        "total_items": "Total des Articles",
+        "active": "actif",
+        "low_stock_items": "Articles en Stock Faible",
+        "need_attention": "Nécessitent une attention",
+        "inventory_value": "Valeur de l'Inventaire",
+        "categories": "Catégories",
+        "product_categories": "Catégories de produits"
+      },
+      "stock_status": {
+        "not_tracked": "Non Suivi",
+        "low_stock": "Stock Faible",
+        "in_stock": "En Stock"
+      }
     }
   }
 } 

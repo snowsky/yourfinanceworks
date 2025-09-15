@@ -38,7 +38,8 @@ from routers import (
     attachments,  # Add the new attachments router
     search,
     external_api_auth,  # Add the new external API auth router
-    external_transactions  # Add the new external transactions router
+    external_transactions,  # Add the new external transactions router
+    inventory  # Add the new inventory router
 )
 from models.database import engine
 from models import models
@@ -195,6 +196,7 @@ app.include_router(attachments.router, prefix="/api/v1") # Include the new attac
 app.include_router(search.router, prefix="/api/v1") # Include the new search router
 app.include_router(external_api_auth.router, prefix="/api/v1") # Include the new external API auth router
 app.include_router(external_transactions.router, prefix="/api/v1") # Include the new external transactions router
+app.include_router(inventory.router, prefix="/api/v1") # Include the new inventory router
 
 @app.get("/")
 def read_root():
