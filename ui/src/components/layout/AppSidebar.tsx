@@ -684,7 +684,7 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter className="py-2 px-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
           {/* Professional Controls Section */}
-          <div className="space-y-2">
+          <div className="space-y-8">
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
                 <LanguageSwitcher />

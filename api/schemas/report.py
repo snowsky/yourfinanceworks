@@ -10,6 +10,7 @@ class ReportType(str, Enum):
     PAYMENT = "payment"
     EXPENSE = "expense"
     STATEMENT = "statement"
+    INVENTORY = "inventory"
 
 class ReportStatus(str, Enum):
     PENDING = "pending"
@@ -36,6 +37,11 @@ class BaseReportFilters(BaseModel):
     date_to: Optional[datetime] = Field(None, description="End date for the report")
     client_ids: Optional[List[int]] = Field(None, description="List of client IDs to filter by")
     currency: Optional[str] = Field(None, description="Currency code to filter by")
+
+class InventoryBaseFilters(BaseModel):
+    """Base filters for inventory reports - excludes client and currency filtering"""
+    date_from: Optional[datetime] = Field(None, description="Start date for the report")
+    date_to: Optional[datetime] = Field(None, description="End date for the report")
 
 class ClientReportFilters(BaseReportFilters):
     include_inactive: Optional[bool] = Field(False, description="Include inactive clients")
@@ -69,13 +75,23 @@ class StatementReportFilters(BaseReportFilters):
     amount_min: Optional[float] = Field(None, description="Minimum transaction amount")
     amount_max: Optional[float] = Field(None, description="Maximum transaction amount")
 
+class InventoryReportFilters(InventoryBaseFilters):
+    category_ids: Optional[List[int]] = Field(None, description="Inventory category IDs to filter by")
+    item_type: Optional[List[str]] = Field(None, description="Item types to filter by (product, service, material)")
+    low_stock_only: Optional[bool] = Field(False, description="Show only items with low stock")
+    value_min: Optional[float] = Field(None, description="Minimum inventory value")
+    value_max: Optional[float] = Field(None, description="Maximum inventory value")
+    include_inactive: Optional[bool] = Field(False, description="Include inactive items")
+    date_filter_type: Optional[str] = Field("both", description="Type of date filtering: 'created', 'updated', or 'both'")
+
 # Union type for all filter types
 ReportFilters = Union[
     ClientReportFilters,
     InvoiceReportFilters,
     PaymentReportFilters,
     ExpenseReportFilters,
-    StatementReportFilters
+    StatementReportFilters,
+    InventoryReportFilters
 ]
 
 # Report generation request models

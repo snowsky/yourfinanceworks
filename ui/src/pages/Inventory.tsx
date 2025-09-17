@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
+import { CurrencyDisplay } from "@/components/ui/currency-display";
+import { formatDateTime } from "@/lib/utils";
 
 const Inventory = () => {
   const { t } = useTranslation();
@@ -268,9 +270,9 @@ const Inventory = () => {
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${analytics.total_value.toLocaleString()}</div>
+                    <div className="text-2xl font-bold"><CurrencyDisplay amount={analytics.total_value} currency={analytics.currency} /></div>
                     <p className="text-xs text-muted-foreground">
-                      {analytics.currency}
+                      {t('total', 'Total')}
                     </p>
                   </CardContent>
                 </Card>
@@ -329,6 +331,8 @@ const Inventory = () => {
                         <TableHead>{t('inventory.table.category', 'Category')}</TableHead>
                         <TableHead className="text-right">{t('inventory.table.price', 'Price')}</TableHead>
                         <TableHead className="text-right">{t('inventory.table.stock', 'Stock')}</TableHead>
+                        <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>
+                        <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>
                         <TableHead>{t('inventory.table.status', 'Status')}</TableHead>
                         <TableHead className="w-[100px]">{t('inventory.table.actions', 'Actions')}</TableHead>
                       </TableRow>
@@ -336,7 +340,7 @@ const Inventory = () => {
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
+                          <TableCell colSpan={9} className="h-24 text-center">
                             <div className="flex justify-center items-center">
                               <Loader2 className="h-6 w-6 animate-spin mr-2" />
                               {t('inventory.loading', 'Loading inventory...')}
@@ -361,7 +365,7 @@ const Inventory = () => {
                               <TableCell>{item.sku || '-'}</TableCell>
                               <TableCell>{item.category?.name || '-'}</TableCell>
                               <TableCell className="text-right font-medium">
-                                ${item.unit_price.toFixed(2)}
+                                <CurrencyDisplay amount={item.unit_price} currency={item.currency} />
                               </TableCell>
                               <TableCell className="text-right">
                                 {item.track_stock ? (
@@ -371,6 +375,12 @@ const Inventory = () => {
                                 ) : (
                                   <span className="text-muted-foreground">-</span>
                                 )}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {formatDateTime(item.created_at)}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {formatDateTime(item.updated_at)}
                               </TableCell>
                               <TableCell>
                                 <Badge variant={stockStatus.color || 'default'}>
@@ -402,7 +412,7 @@ const Inventory = () => {
                         })
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
+                          <TableCell colSpan={9} className="h-24 text-center">
                             <div className="space-y-2">
                               <p className="text-muted-foreground">
                                 {businessType === 'service'
@@ -473,7 +483,7 @@ const Inventory = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        ${advancedAnalytics.key_metrics.avg_daily_revenue.toFixed(2)}
+                        <CurrencyDisplay amount={advancedAnalytics.key_metrics.avg_daily_revenue} currency={analytics.currency} />
                       </div>
                       <p className="text-xs text-muted-foreground">per day average</p>
                     </CardContent>
@@ -528,9 +538,9 @@ const Inventory = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold">${item.total_revenue.toFixed(2)}</div>
+                            <div className="font-bold"><CurrencyDisplay amount={item.total_revenue} currency={analytics.currency} /></div>
                             <div className="text-sm text-muted-foreground">
-                              ${(item.total_revenue / item.total_sold).toFixed(2)} avg
+                              <CurrencyDisplay amount={item.total_revenue / item.total_sold} currency={analytics.currency} /> avg
                             </div>
                           </div>
                         </div>
@@ -556,9 +566,9 @@ const Inventory = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold">${category.total_revenue.toFixed(2)}</div>
+                            <div className="font-bold"><CurrencyDisplay amount={category.total_revenue} currency={analytics.currency} /></div>
                             <div className="text-sm text-muted-foreground">
-                              ${(category.total_revenue / category.total_sold).toFixed(2)} avg price
+                              <CurrencyDisplay amount={category.total_revenue / category.total_sold} currency={analytics.currency} /> avg price
                             </div>
                           </div>
                         </div>

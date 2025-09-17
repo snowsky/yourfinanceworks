@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, CreditCard, Receipt, Building } from 'lucide-react';
+import { FileText, Users, CreditCard, Receipt, Building, Package } from 'lucide-react';
 import { ReportType } from '@/lib/api';
 
 interface ReportTypeSelectorProps {
@@ -23,6 +23,8 @@ const getReportIcon = (type: string) => {
       return <Receipt className="h-6 w-6" />;
     case 'statement':
       return <Building className="h-6 w-6" />;
+    case 'inventory':
+      return <Package className="h-6 w-6" />;
     default:
       return <FileText className="h-6 w-6" />;
   }

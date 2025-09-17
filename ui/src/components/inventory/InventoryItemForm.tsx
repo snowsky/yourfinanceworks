@@ -13,6 +13,7 @@ import { inventoryApi, InventoryItem, InventoryCategory, getErrorMessage } from 
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
 import { InventoryItemLinkedInvoices } from "./InventoryItemLinkedInvoices";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 
 interface InventoryItemFormProps {
   isEdit?: boolean;
@@ -359,22 +360,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="currency">{t('inventory.currency', 'Currency')}</Label>
-                  <Select
+                  <Label>{t('inventory.currency', 'Currency')}</Label>
+                  <CurrencySelector
                     value={formData.currency}
                     onValueChange={(value) => handleInputChange('currency', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                      <SelectItem value="CAD">CAD</SelectItem>
-                      <SelectItem value="BRL">BRL</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder={t('inventory.select_currency', 'Select currency')}
+                  />
                 </div>
               </div>
             </CardContent>
