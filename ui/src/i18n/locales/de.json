@@ -187,8 +187,11 @@
       "pending": "Ausstehend",
       "paid": "Bezahlt",
       "overdue": "Überfällig",
-      "partially_paid": "Teilweise bezahlt"
+      "partially_paid": "Teilweise bezahlt",
+      "cancelled": "Storniert"
     },
+    "draft": "Entwurf",
+    "cancelled": "Storniert",
     "items": "Artikel",
     "add_item": "Artikel hinzufügen",
     "remove_item": "Artikel entfernen",
@@ -1679,6 +1682,8 @@
     "product_stock_help": "Lagerbestände verfolgen und Warnungen bei niedrigem Lagerbestand erhalten",
     "track_stock": "Lagerbestände verfolgen",
     "optional_for_services": "optional für Dienstleistungen",
+    "unlimited_stock": "Unbegrenzter Lagerbestand",
+    "unlimited_stock_help": "Perfekt für Dienstleistungen wie Beratung - geht nie aus und erfordert keine Lagerverwaltung",
     "current_stock": "Aktueller Lagerbestand",
     "minimum_stock": "Mindestlagerbestand",
     "unit_of_measure": "Maßeinheit",

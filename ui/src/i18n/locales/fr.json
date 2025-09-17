@@ -187,8 +187,11 @@
       "pending": "En attente",
       "paid": "Payée",
       "overdue": "En retard",
-      "partially_paid": "Partiellement payée"
+      "partially_paid": "Partiellement payée",
+      "cancelled": "Annulée"
     },
+    "draft": "Brouillon",
+    "cancelled": "Annulée",
     "remove_item": "Retirer l'Article",
     "item_description": "Description de l'Article",
     "item_quantity": "Quantité",
@@ -1677,6 +1680,8 @@
     "product_stock_help": "Suivre les niveaux d'inventaire et recevoir des alertes de stock faible",
     "track_stock": "Suivre les niveaux de stock",
     "optional_for_services": "optionnel pour les services",
+    "unlimited_stock": "Stock Illimité",
+    "unlimited_stock_help": "Parfait pour les services comme le conseil - jamais épuisé et aucune gestion de stock nécessaire",
     "current_stock": "Stock Actuel",
     "minimum_stock": "Stock Minimum",
     "unit_of_measure": "Unité de Mesure",

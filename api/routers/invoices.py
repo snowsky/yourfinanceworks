@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
 import logging
@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 
 from models.database import get_db
-from models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule
+from models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, InventoryItem
 from models.models import MasterUser
 from routers.payments import Payment
 from schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate, RecycleBinResponse, DeletedInvoice, RestoreInvoiceRequest
@@ -74,9 +74,22 @@ async def create_invoice(
                 detail=f"Client with ID {invoice.client_id} not found. Please create a client first."
             )
         
-        # Generate unique invoice number
+        # Use provided invoice number or generate unique one
         # No tenant_id needed since we're in the tenant's database
-        invoice_number = generate_invoice_number(db)
+        if invoice.number and invoice.number.strip():
+            # Check if the provided number is already in use
+            existing_invoice = db.query(Invoice).filter(
+                Invoice.number == invoice.number.strip(),
+                Invoice.is_deleted == False
+            ).first()
+            if existing_invoice:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invoice number '{invoice.number.strip()}' is already in use. Please choose a different number."
+                )
+            invoice_number = invoice.number.strip()
+        else:
+            invoice_number = generate_invoice_number(db)
         
         # Initialize currency service
         currency_service = CurrencyService(db)
@@ -350,7 +363,7 @@ async def clone_invoice(
         # Fetch items for source invoice
         source_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
 
-        # Generate new invoice number
+        # Always generate new invoice number for cloned invoices
         new_number = generate_invoice_number(db)
 
         # Build new invoice (reset status to draft, keep due_date as-is)
@@ -522,7 +535,7 @@ async def read_invoices(
         # Get invoices with client information and payment status
         invoices = query.group_by(
             Invoice.id, Client.name
-        ).offset(skip).limit(limit).all()
+        ).order_by(Invoice.created_at.desc(), Invoice.id.desc()).offset(skip).limit(limit).all()
 
         # Convert to response format
         result = []
@@ -900,12 +913,16 @@ async def read_invoice(
         # Force refresh of database session to ensure we get latest data
         db.expire_all()
 
-        # Get invoice items
-        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
-        logger.info(f"Raw items from database query: {[(item.id, item.description) for item in items]}")
+        # Get invoice items with inventory details
+        items_query = db.query(InvoiceItem).options(
+            joinedload(InvoiceItem.inventory_item)
+        ).filter(InvoiceItem.invoice_id == invoice_id).all()
+        
+        logger.info(f"Raw items from database query: {[(item.id, item.description) for item in items_query]}")
 
-        items_data = [
-            {
+        items_data = []
+        for item in items_query:
+            item_data = {
                 "id": item.id,
                 "invoice_id": item.invoice_id,
                 "description": item.description,
@@ -915,8 +932,30 @@ async def read_invoice(
                 "inventory_item_id": item.inventory_item_id,
                 "unit_of_measure": item.unit_of_measure
             }
-            for item in items
-        ]
+            
+            # Add inventory item details if linked
+            if item.inventory_item_id and item.inventory_item:
+                item_data["inventory_item"] = {
+                    "id": item.inventory_item.id,
+                    "name": item.inventory_item.name,
+                    "description": item.inventory_item.description,
+                    "sku": item.inventory_item.sku,
+                    "unit_price": item.inventory_item.unit_price,
+                    "cost_price": item.inventory_item.cost_price,
+                    "currency": item.inventory_item.currency,
+                    "track_stock": item.inventory_item.track_stock,
+                    "current_stock": item.inventory_item.current_stock,
+                    "minimum_stock": item.inventory_item.minimum_stock,
+                    "unit_of_measure": item.inventory_item.unit_of_measure,
+                    "item_type": item.inventory_item.item_type,
+                    "is_active": item.inventory_item.is_active,
+                    "barcode": item.inventory_item.barcode,
+                    "category_id": item.inventory_item.category_id
+                }
+            else:
+                item_data["inventory_item"] = None
+                
+            items_data.append(item_data)
 
         logger.info(f"Returning {len(items_data)} items for invoice {invoice_id}: {[{'id': item['id'], 'description': item['description'], 'description_length': len(item['description']) if item['description'] else 0} for item in items_data]}")
         
@@ -976,7 +1015,7 @@ async def read_invoice(
             detail=FAILED_TO_FETCH_INVOICE
         )
 
-@router.put("/{invoice_id}", response_model=InvoiceSchema)
+@router.put("/{invoice_id}", response_model=InvoiceWithClient)
 async def update_invoice(
     invoice_id: int,
     invoice: InvoiceUpdate,
@@ -1216,10 +1255,13 @@ async def update_invoice(
             # Process stock movements when invoice becomes payable
             if invoice.status in ['paid', 'completed']:
                 try:
+                    logger.info(f"Triggering stock movement processing for invoice {invoice_id} with status '{invoice.status}'")
                     movements = integration_service.process_invoice_stock_movements(db_invoice, current_user.id)
                     if movements:
-                        logger.info(f"Processed {len(movements)} stock movements for invoice {invoice_id}")
+                        logger.info(f"Successfully processed {len(movements)} stock movements for invoice {invoice_id}")
                         changes.append(f"Processed {len(movements)} inventory stock movements")
+                    else:
+                        logger.info(f"No stock movements were processed for invoice {invoice_id} (no inventory items found)")
                 except Exception as e:
                     logger.error(f"Failed to process stock movements for invoice {invoice_id}: {e}")
                     # Don't fail the invoice update, just log the error
@@ -1298,9 +1340,13 @@ async def update_invoice(
             )
             
             # Get updated items to include in response with inventory information
-            items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
-            items_data = [
-                {
+            items = db.query(InvoiceItem).options(
+                joinedload(InvoiceItem.inventory_item)
+            ).filter(InvoiceItem.invoice_id == invoice_id).all()
+            
+            items_data = []
+            for item in items:
+                item_data = {
                     "id": item.id,
                     "invoice_id": item.invoice_id,
                     "inventory_item_id": item.inventory_item_id,
@@ -1310,10 +1356,36 @@ async def update_invoice(
                     "amount": item.amount,
                     "unit_of_measure": item.unit_of_measure
                 }
-                for item in items
-            ]
+                
+                # Add inventory item details if linked
+                if item.inventory_item_id and item.inventory_item:
+                    item_data["inventory_item"] = {
+                        "id": item.inventory_item.id,
+                        "name": item.inventory_item.name,
+                        "description": item.inventory_item.description,
+                        "sku": item.inventory_item.sku,
+                        "unit_price": item.inventory_item.unit_price,
+                        "cost_price": item.inventory_item.cost_price,
+                        "currency": item.inventory_item.currency,
+                        "track_stock": item.inventory_item.track_stock,
+                        "current_stock": item.inventory_item.current_stock,
+                        "minimum_stock": item.inventory_item.minimum_stock,
+                        "unit_of_measure": item.inventory_item.unit_of_measure,
+                        "item_type": item.inventory_item.item_type,
+                        "is_active": item.inventory_item.is_active,
+                        "barcode": item.inventory_item.barcode,
+                        "category_id": item.inventory_item.category_id
+                    }
+                else:
+                    item_data["inventory_item"] = None
+                    
+                items_data.append(item_data)
             
             logger.info(f"Returning {len(items_data)} items in response: {[{'id': item['id'], 'description': item['description'], 'description_length': len(item['description']) if item['description'] else 0} for item in items_data]}")
+            
+            # Get client name and total paid for response
+            client = db.query(Client).filter(Client.id == db_invoice.client_id).first()
+            total_paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.invoice_id == invoice_id).scalar() or 0
             
             # Convert to response format
             invoice_dict = {
@@ -1325,6 +1397,8 @@ async def update_invoice(
                 "status": db_invoice.status,
                 "notes": db_invoice.notes,
                 "client_id": db_invoice.client_id,
+                "client_name": client.name if client else "Unknown",
+                "total_paid": float(total_paid),
                 "created_at": db_invoice.created_at.isoformat() if db_invoice.created_at else None,
                 "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
                 "is_recurring": db_invoice.is_recurring,
@@ -1340,9 +1414,13 @@ async def update_invoice(
             return invoice_dict
         else:
             # If no changes, just return the current state with actual items
-            items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
-            items_data = [
-                {
+            items = db.query(InvoiceItem).options(
+                joinedload(InvoiceItem.inventory_item)
+            ).filter(InvoiceItem.invoice_id == invoice_id).all()
+            
+            items_data = []
+            for item in items:
+                item_data = {
                     "id": item.id,
                     "invoice_id": item.invoice_id,
                     "inventory_item_id": item.inventory_item_id,
@@ -1352,8 +1430,34 @@ async def update_invoice(
                     "amount": item.amount,
                     "unit_of_measure": item.unit_of_measure
                 }
-                for item in items
-            ]
+                
+                # Add inventory item details if linked
+                if item.inventory_item_id and item.inventory_item:
+                    item_data["inventory_item"] = {
+                        "id": item.inventory_item.id,
+                        "name": item.inventory_item.name,
+                        "description": item.inventory_item.description,
+                        "sku": item.inventory_item.sku,
+                        "unit_price": item.inventory_item.unit_price,
+                        "cost_price": item.inventory_item.cost_price,
+                        "currency": item.inventory_item.currency,
+                        "track_stock": item.inventory_item.track_stock,
+                        "current_stock": item.inventory_item.current_stock,
+                        "minimum_stock": item.inventory_item.minimum_stock,
+                        "unit_of_measure": item.inventory_item.unit_of_measure,
+                        "item_type": item.inventory_item.item_type,
+                        "is_active": item.inventory_item.is_active,
+                        "barcode": item.inventory_item.barcode,
+                        "category_id": item.inventory_item.category_id
+                    }
+                else:
+                    item_data["inventory_item"] = None
+                    
+                items_data.append(item_data)
+            
+            # Get client name and total paid for response
+            client = db.query(Client).filter(Client.id == db_invoice.client_id).first()
+            total_paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.invoice_id == invoice_id).scalar() or 0
             
             return {
                 "id": db_invoice.id,
@@ -1364,6 +1468,8 @@ async def update_invoice(
                 "status": db_invoice.status,
                 "notes": db_invoice.notes,
                 "client_id": db_invoice.client_id,
+                "client_name": client.name if client else "Unknown",
+                "total_paid": float(total_paid),
                 "created_at": db_invoice.created_at.isoformat() if db_invoice.created_at else None,
                 "updated_at": db_invoice.updated_at.isoformat() if db_invoice.updated_at else None,
                 "is_recurring": db_invoice.is_recurring,

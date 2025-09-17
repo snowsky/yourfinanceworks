@@ -39,6 +39,23 @@ export interface InvoiceItem {
   invoice_id?: number;
   inventory_item_id?: number;
   unit_of_measure?: string;
+  inventory_item?: {
+    id: number;
+    name: string;
+    description?: string;
+    sku?: string;
+    unit_price: number;
+    cost_price?: number;
+    currency: string;
+    track_stock: boolean;
+    current_stock: number;
+    minimum_stock: number;
+    unit_of_measure: string;
+    item_type: string;
+    is_active: boolean;
+    barcode?: string;
+    category_id?: number;
+  };
 }
 
 export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid";
@@ -1273,7 +1290,8 @@ export const invoiceApi = {
           price: item.price || 0,
           amount: item.amount || (item.quantity || 1) * (item.price || 0),
           inventory_item_id: item.inventory_item_id,
-          unit_of_measure: item.unit_of_measure
+          unit_of_measure: item.unit_of_measure,
+          inventory_item: item.inventory_item // Include the inventory item data!
         })) : [],
         created_at: apiResponse.created_at || '',
         updated_at: apiResponse.updated_at || '',
@@ -2294,6 +2312,20 @@ export const inventoryApi = {
   getAnalytics: () =>
     apiRequest<InventoryAnalytics>('/inventory/analytics'),
 
+  getAdvancedAnalytics: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    const queryString = params.toString();
+    return apiRequest(`/inventory/analytics/advanced${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getSalesVelocity: (days = 30) =>
+    apiRequest(`/inventory/analytics/sales-velocity?days=${days}`),
+
+  getForecasting: (forecastDays = 90) =>
+    apiRequest(`/inventory/analytics/forecasting?forecast_days=${forecastDays}`),
+
   getValueReport: () =>
     apiRequest<InventoryValueReport>('/inventory/reports/value'),
 
@@ -2316,7 +2348,7 @@ export const inventoryApi = {
     return apiRequest<CategoryPerformanceReport>(`/inventory/reports/categories${queryString ? `?${queryString}` : ''}`);
   },
 
-  getSalesVelocity: (days = 30) =>
+  getSalesVelocityReport: (days = 30) =>
     apiRequest(`/inventory/reports/sales-velocity?days=${days}`),
 
   getDashboardData: () =>
@@ -2380,6 +2412,43 @@ export const inventoryApi = {
     apiRequest<StockMovement[]>('/inventory/stock-movements/bulk', {
       method: 'POST',
       body: JSON.stringify(movements),
+    }),
+
+  // Barcode Management
+  getItemByBarcode: (barcode: string) =>
+    apiRequest<InventoryItem>(`/inventory/items/barcode/${encodeURIComponent(barcode)}`),
+
+  updateItemBarcode: (itemId: number, barcodeData: {
+    barcode: string;
+    barcode_type?: string;
+    barcode_format?: string;
+  }) =>
+    apiRequest(`/inventory/items/${itemId}/barcode`, {
+      method: 'POST',
+      body: JSON.stringify(barcodeData),
+    }),
+
+  validateBarcode: (barcode: string) =>
+    apiRequest(`/inventory/barcode/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ barcode }),
+    }),
+
+  getBarcodeSuggestions: (itemName: string, sku?: string) => {
+    const params = new URLSearchParams({ item_name: itemName });
+    if (sku) params.set('sku', sku);
+    return apiRequest<{ suggestions: string[] }>(`/inventory/barcode/suggestions?${params.toString()}`);
+  },
+
+  bulkUpdateBarcodes: (barcodeUpdates: Array<{
+    item_id: number;
+    barcode: string;
+    barcode_type?: string;
+    barcode_format?: string;
+  }>) =>
+    apiRequest('/inventory/barcode/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify(barcodeUpdates),
     }),
 
   // Import/Export

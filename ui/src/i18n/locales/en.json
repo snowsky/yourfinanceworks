@@ -250,8 +250,11 @@
       "pending": "Pending",
       "paid": "Paid",
       "overdue": "Overdue",
-      "partially_paid": "Partially Paid"
+      "partially_paid": "Partially Paid",
+      "cancelled": "Cancelled"
     },
+    "draft": "Draft",
+    "cancelled": "Cancelled",
     "items": "Items",
     "add_item": "Add Item",
     "remove_item": "Remove Item",
@@ -1694,6 +1697,8 @@
       "product_stock_help": "Track inventory levels and get low stock alerts",
       "track_stock": "Track stock levels",
       "optional_for_services": "optional for services",
+      "unlimited_stock": "Unlimited Stock",
+      "unlimited_stock_help": "Perfect for services like consulting - never runs out and no stock management needed",
       "current_stock": "Current Stock",
       "minimum_stock": "Minimum Stock",
       "unit_of_measure": "Unit of Measure",

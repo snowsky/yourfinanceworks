@@ -50,12 +50,13 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
     unit_price: '',
     cost_price: '',
     currency: 'USD',
-    track_stock: businessType === 'service' ? false : true, // Services don't need stock by default
+    track_stock: true, // Enable stock tracking by default
     current_stock: '',
     minimum_stock: '',
     unit_of_measure: businessType === 'service' ? 'hours' : 'each', // Services often measured in hours
     item_type: businessType === 'service' ? 'service' : 'product', // Default based on business type
-    is_active: true
+    is_active: true,
+    unlimited_stock: businessType === 'service' ? true : false // Services default to unlimited
   });
 
   useEffect(() => {
@@ -67,6 +68,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
         if (isEdit && id) {
           const itemData = await inventoryApi.getItem(parseInt(id));
+          // Check if stock is unlimited (very high number for services)
+          const isUnlimited = !itemData.track_stock && itemData.current_stock >= 999999;
+
           setFormData({
             name: itemData.name,
             description: itemData.description || '',
@@ -76,11 +80,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
             cost_price: itemData.cost_price?.toString() || '',
             currency: itemData.currency,
             track_stock: itemData.track_stock,
-            current_stock: itemData.current_stock.toString(),
+            current_stock: isUnlimited ? '' : itemData.current_stock.toString(),
             minimum_stock: itemData.minimum_stock.toString(),
             unit_of_measure: itemData.unit_of_measure,
             item_type: itemData.item_type,
-            is_active: itemData.is_active
+            is_active: itemData.is_active,
+            unlimited_stock: isUnlimited
           });
         }
       } catch (error) {
@@ -95,7 +100,42 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   }, [isEdit, id]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+
+      // Handle special cases
+      if (field === 'item_type') {
+        // Auto-adjust defaults based on item type
+        if (value === 'service' && !isEdit) {
+          newData.track_stock = true;  // Enable stock tracking for services
+          newData.unlimited_stock = true;  // But default to unlimited
+          newData.unit_of_measure = 'hours';
+        } else if (value === 'product' && !isEdit) {
+          newData.track_stock = true;
+          newData.unlimited_stock = false;
+          newData.unit_of_measure = 'each';
+        }
+      }
+
+      if (field === 'track_stock') {
+        // When enabling stock tracking for services, offer unlimited option
+        if (value && newData.item_type === 'service') {
+          newData.unlimited_stock = true;
+        } else if (!value) {
+          newData.unlimited_stock = false;
+        }
+      }
+
+      if (field === 'unlimited_stock') {
+        // When unlimited is toggled, update current_stock accordingly
+        if (value) {
+          newData.current_stock = '';
+          newData.minimum_stock = '';
+        }
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,6 +154,24 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
     setSaving(true);
     try {
+      // Handle stock values based on type and unlimited setting
+      let current_stock: number;
+      let minimum_stock: number;
+
+      if (formData.track_stock) {
+        // Normal stock tracking
+        current_stock = parseFloat(formData.current_stock || '0');
+        minimum_stock = parseFloat(formData.minimum_stock || '0');
+      } else if (formData.unlimited_stock && formData.item_type === 'service') {
+        // Unlimited stock for services
+        current_stock = 999999;
+        minimum_stock = 0;
+      } else {
+        // No stock tracking
+        current_stock = 0;
+        minimum_stock = 0;
+      }
+
       const itemData = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
@@ -123,8 +181,8 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : undefined,
         currency: formData.currency,
         track_stock: formData.track_stock,
-        current_stock: formData.track_stock ? parseFloat(formData.current_stock || '0') : 0,
-        minimum_stock: formData.track_stock ? parseFloat(formData.minimum_stock || '0') : 0,
+        current_stock: current_stock,
+        minimum_stock: minimum_stock,
         unit_of_measure: formData.unit_of_measure,
         item_type: formData.item_type,
         is_active: formData.is_active
@@ -333,48 +391,81 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="track_stock"
-                  checked={formData.track_stock}
-                  onCheckedChange={(checked) => handleInputChange('track_stock', checked)}
-                />
-                <Label htmlFor="track_stock">
-                  {t('inventory.track_stock', 'Track stock levels')}
-                  {businessType === 'service' && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({t('inventory.optional_for_services', 'optional for services')})
-                    </span>
-                  )}
-                </Label>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="track_stock"
+                    checked={formData.track_stock}
+                    onCheckedChange={(checked) => handleInputChange('track_stock', checked)}
+                  />
+                  <Label htmlFor="track_stock">
+                    {t('inventory.track_stock', 'Track stock levels')}
+                    {businessType === 'service' && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({t('inventory.optional_for_services', 'optional for services')})
+                      </span>
+                    )}
+                  </Label>
+                </div>
+
               </div>
 
               {formData.track_stock && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current_stock">{t('inventory.current_stock', 'Current Stock')}</Label>
-                    <Input
-                      id="current_stock"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.current_stock}
-                      onChange={(e) => handleInputChange('current_stock', e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minimum_stock">{t('inventory.minimum_stock', 'Minimum Stock')}</Label>
-                    <Input
-                      id="minimum_stock"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.minimum_stock}
-                      onChange={(e) => handleInputChange('minimum_stock', e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
+                <div className="space-y-4">
+                  {/* Unlimited Stock Option for Services */}
+                  {formData.item_type === 'service' && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="unlimited_stock"
+                          checked={formData.unlimited_stock}
+                          onCheckedChange={(checked) => handleInputChange('unlimited_stock', checked)}
+                        />
+                        <Label htmlFor="unlimited_stock" className="font-medium">
+                          {t('inventory.unlimited_stock', 'Unlimited Stock')}
+                        </Label>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t('inventory.unlimited_stock_help',
+                          'Perfect for services like consulting - never runs out and no stock management needed')}
+                      </p>
+                      {formData.unlimited_stock && (
+                        <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
+                          <span>✓ Available: Unlimited</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!formData.unlimited_stock && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="current_stock">{t('inventory.current_stock', 'Current Stock')}</Label>
+                        <Input
+                          id="current_stock"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.current_stock}
+                          onChange={(e) => handleInputChange('current_stock', e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="minimum_stock">{t('inventory.minimum_stock', 'Minimum Stock')}</Label>
+                        <Input
+                          id="minimum_stock"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.minimum_stock}
+                          onChange={(e) => handleInputChange('minimum_stock', e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="unit_of_measure">{t('inventory.unit_of_measure', 'Unit of Measure')}</Label>
                     <Select

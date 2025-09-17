@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Package, TrendingDown, TrendingUp, ExternalLink } from "lucide-react";
-import { inventoryApi, StockMovement } from "@/lib/api";
+import { Loader2, Package, TrendingDown, TrendingUp, ExternalLink, Info } from "lucide-react";
+import { inventoryApi, StockMovement, invoiceApi, Invoice } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -26,18 +26,52 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchStockMovements();
+    fetchData();
   }, [invoiceId]);
 
-  const fetchStockMovements = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const movements = await inventoryApi.getStockMovementsByReference("invoice", invoiceId);
+      // Fetch stock movements and invoice data
+      const [movements, invoiceData] = await Promise.all([
+        inventoryApi.getStockMovementsByReference("invoice", invoiceId),
+        invoiceApi.getInvoice(invoiceId)
+      ]);
+      
       setStockMovements(movements);
+      setInvoice(invoiceData);
+      
+      // Extract inventory items from invoice
+      const itemsWithInventory = invoiceData.items?.filter(item => item.inventory_item_id) || [];
+      
+      // Fetch detailed inventory information for each item
+      if (itemsWithInventory.length > 0) {
+        const inventoryPromises = itemsWithInventory.map(async (item) => {
+          try {
+            const inventoryItem = await inventoryApi.getItem(item.inventory_item_id);
+            return {
+              invoiceItem: item,
+              inventoryItem: inventoryItem
+            };
+          } catch (error) {
+            console.warn(`Failed to fetch inventory item ${item.inventory_item_id}:`, error);
+            return {
+              invoiceItem: item,
+              inventoryItem: null
+            };
+          }
+        });
+        
+        const inventoryResults = await Promise.all(inventoryPromises);
+        setInventoryItems(inventoryResults);
+      }
+      
     } catch (error) {
-      console.error("Failed to fetch stock movements:", error);
+      console.error("Failed to fetch data:", error);
       toast.error(getErrorMessage(error, t));
     } finally {
       setLoading(false);
@@ -113,6 +147,78 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Inventory Items Information */}
+        {inventoryItems.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-4 w-4 text-blue-500" />
+              <h4 className="font-medium">Inventory Items in this Invoice</h4>
+            </div>
+            <div className="space-y-3">
+              {inventoryItems.map((item, index) => {
+                const { invoiceItem, inventoryItem } = item;
+                return (
+                  <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {inventoryItem?.name || invoiceItem.description}
+                        </div>
+                        {inventoryItem && (
+                          <div className="text-sm text-gray-600">
+                            SKU: {inventoryItem.sku || 'N/A'}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/inventory/edit/${invoiceItem.inventory_item_id}`)}
+                        className="h-8 w-8 p-0"
+                        title="View inventory item details"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    {inventoryItem ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Unit Price:</span>
+                          <div className="font-medium">${(inventoryItem.unit_price || 0).toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Quantity Sold:</span>
+                          <div className="font-medium">{invoiceItem.quantity} {inventoryItem.unit_of_measure || 'units'}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Current Stock:</span>
+                          <div className="font-medium">
+                            {inventoryItem.track_stock 
+                              ? `${inventoryItem.current_stock || 0} ${inventoryItem.unit_of_measure || 'units'}`
+                              : 'Not tracked'
+                            }
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Total Value:</span>
+                          <div className="font-medium">${((invoiceItem.quantity || 0) * (invoiceItem.price || 0)).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Loading inventory information...
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <hr className="my-6" />
+          </div>
+        )}
+
+        {/* Stock Movements Section */}
         {stockMovements.length === 0 ? (
           <div className="text-center py-8">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

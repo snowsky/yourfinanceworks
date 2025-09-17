@@ -55,6 +55,7 @@ class InvoiceBase(BaseModel):
     show_discount_in_pdf: Optional[bool] = True
 
 class InvoiceCreate(InvoiceBase):
+    number: Optional[str] = Field(None, description="Invoice number (optional - will be auto-generated if not provided)")
     items: Optional[List[InvoiceItemCreate]] = None
 
 class InvoiceUpdate(BaseModel):
@@ -91,7 +92,7 @@ class Invoice(InvoiceBase):
 class InvoiceWithClient(Invoice):
     client_name: str
     total_paid: float = 0.0
-    items: List[InvoiceItem] = [] 
+    items: List[InvoiceItemWithInventory] = [] 
     custom_fields: Optional[Dict[str, Any]] = Field(default=None, description="Custom fields for the invoice")
     has_attachment: Optional[bool] = False
     attachment_filename: Optional[str] = None

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, JSON, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
@@ -537,6 +537,11 @@ class InventoryItem(Base):
     item_type = Column(String, default="product", nullable=False)  # product, material, service
     is_active = Column(Boolean, default=True, nullable=False)
 
+    # Barcode support
+    barcode = Column(String, nullable=True, unique=True, index=True)  # Barcode value
+    barcode_type = Column(String, nullable=True)  # UPC, EAN, CODE128, QR, etc.
+    barcode_format = Column(String, nullable=True)  # 1D, 2D, etc.
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -545,6 +550,7 @@ class InventoryItem(Base):
     category = relationship("InventoryCategory", back_populates="items")
     stock_movements = relationship("StockMovement", back_populates="item", cascade="all, delete-orphan")
     invoice_items = relationship("InvoiceItem", back_populates="inventory_item")
+    inventory_levels = relationship("InventoryLevel", back_populates="item", cascade="all, delete-orphan")
 
 
 class StockMovement(Base):
@@ -552,14 +558,19 @@ class StockMovement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=True)  # Can be null for legacy movements
 
     # Movement details
-    movement_type = Column(String, nullable=False)  # purchase, sale, adjustment, usage, return
+    movement_type = Column(String, nullable=False)  # purchase, sale, adjustment, usage, return, transfer
     quantity = Column(Float, nullable=False)  # Positive for increases, negative for decreases
     unit_cost = Column(Float, nullable=True)  # Cost per unit for purchases
 
+    # Transfer specific fields
+    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+
     # Reference information for tracking source
-    reference_type = Column(String, nullable=True)  # invoice, expense, manual, system
+    reference_type = Column(String, nullable=True)  # invoice, expense, manual, system, transfer
     reference_id = Column(Integer, nullable=True)  # ID of the related record
     notes = Column(Text, nullable=True)  # Additional context for the movement
 
@@ -571,4 +582,68 @@ class StockMovement(Base):
 
     # Relationships
     item = relationship("InventoryItem", back_populates="stock_movements")
+    warehouse = relationship("Warehouse", foreign_keys=[warehouse_id])
+    from_warehouse = relationship("Warehouse", foreign_keys=[from_warehouse_id])
+    to_warehouse = relationship("Warehouse", foreign_keys=[to_warehouse_id])
     user = relationship("User")
+
+
+class Warehouse(Base):
+    __tablename__ = "warehouses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    code = Column(String, nullable=False, unique=True, index=True)  # Short code like WH001
+    description = Column(Text, nullable=True)
+    address = Column(Text, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    postal_code = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # Manager/Responsible person
+    manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    manager = relationship("User")
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    inventory_levels = relationship("InventoryLevel", back_populates="warehouse", cascade="all, delete-orphan")
+
+
+class InventoryLevel(Base):
+    __tablename__ = "inventory_levels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False)
+
+    # Stock levels
+    current_stock = Column(Float, default=0.0, nullable=False)
+    minimum_stock = Column(Float, default=0.0, nullable=False)
+    maximum_stock = Column(Float, nullable=True)  # Optional maximum capacity
+
+    # Location within warehouse (aisle, shelf, bin)
+    location_code = Column(String, nullable=True)  # e.g., "A-01-05" for Aisle 1, Shelf 1, Bin 5
+
+    # Last inventory count
+    last_count_date = Column(DateTime(timezone=True), nullable=True)
+    last_count_quantity = Column(Float, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    item = relationship("InventoryItem", back_populates="inventory_levels")
+    warehouse = relationship("Warehouse", back_populates="inventory_levels")
+
+    # Unique constraint to prevent duplicate item-warehouse combinations
+    __table_args__ = (
+        UniqueConstraint('item_id', 'warehouse_id', name='unique_item_warehouse'),
+    )

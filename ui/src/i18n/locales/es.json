@@ -190,8 +190,11 @@
       "pending": "Pendiente",
       "paid": "Pagada",
       "overdue": "Vencida",
-      "partially_paid": "Parcialmente Pagada"
+      "partially_paid": "Parcialmente Pagada",
+      "cancelled": "Cancelada"
     },
+    "draft": "Borrador",
+    "cancelled": "Cancelada",
     "items": "Artículos",
     "add_item": "Agregar Artículo",
     "remove_item": "Quitar Artículo",
@@ -1692,6 +1695,8 @@
     "product_stock_help": "Rastrea niveles de inventario y recibe alertas de stock bajo",
     "track_stock": "Rastrear niveles de stock",
     "optional_for_services": "opcional para servicios",
+    "unlimited_stock": "Stock Ilimitado",
+    "unlimited_stock_help": "Perfecto para servicios como consultoría - nunca se agota y no requiere gestión de stock",
     "current_stock": "Stock Actual",
     "minimum_stock": "Stock Mínimo",
     "unit_of_measure": "Unidad de Medida",
