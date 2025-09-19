@@ -12,7 +12,7 @@ import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Eye } from 'lucide-react';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { format, parseISO, isValid } from 'date-fns';
@@ -754,7 +754,13 @@ const Expenses = () => {
                             setAttachments(prev => ({ ...prev, [e.id]: list }));
                             setAttachmentPreviewOpen({ expenseId: e.id });
                           }}>
-                             {Array.isArray(attachments[e.id]) ? `${attachments[e.id].length} ${t('attachments_count', { defaultValue: 'file(s)' })}` : (typeof e.attachments_count === 'number' ? `${e.attachments_count} ${t('attachments_count', { defaultValue: 'file(s)' })}` : t('expenses.preview'))}
+                            {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
+                              `${Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} ${t('attachments_count', { defaultValue: 'file(s)' })}`
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4 mr-2" />
+                              </>
+                            )}
                           </Button>
                         </TableCell>
                         <TableCell>

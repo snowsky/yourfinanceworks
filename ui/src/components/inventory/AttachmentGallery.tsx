@@ -77,6 +77,9 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<number, string>>({});
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewContentType, setPreviewContentType] = useState<string | null>(null);
+  const [isContentTruncated, setIsContentTruncated] = useState(false);
 
   const imageAttachments = attachments.filter(att => att.attachment_type === 'image');
   const documentAttachments = attachments.filter(att => att.attachment_type === 'document');
@@ -144,6 +147,42 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       return URL.createObjectURL(blob);
     } catch (error) {
       console.error('Failed to fetch image with auth:', error);
+      return null;
+    }
+  };
+
+  const fetchAttachmentContent = async (attachmentId: number): Promise<{ content: string; contentType: string; isTruncated?: boolean } | null> => {
+    try {
+      const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachmentId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch attachment');
+      }
+
+      const blob = await response.blob();
+      const contentType = response.headers.get('content-type') || blob.type || 'application/octet-stream';
+
+      // For text files, read as text
+      if (contentType.startsWith('text/') || contentType === 'application/json' || contentType === 'application/javascript') {
+        const text = await blob.text();
+        const lines = text.split('\n');
+        const isTruncated = lines.length > 100;
+        const truncatedContent = isTruncated ? lines.slice(0, 100).join('\n') + '\n\n[Content truncated - showing first 100 lines only]' : text;
+
+        return {
+          content: truncatedContent,
+          contentType,
+          isTruncated
+        };
+      }
+
+      return null; // Not a text file
+    } catch (error) {
+      console.error('Failed to fetch attachment content:', error);
       return null;
     }
   };
@@ -325,8 +364,24 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     setSelectedAttachment(attachment);
+                    setPreviewContent(null);
+                    setPreviewContentType(null);
+                    setIsContentTruncated(false);
+
+                    // For text files, fetch content for preview
+                    if (attachment.content_type?.startsWith('text/') ||
+                        attachment.content_type === 'application/json' ||
+                        attachment.content_type === 'application/javascript') {
+                      const contentResult = await fetchAttachmentContent(attachment.id);
+                      if (contentResult) {
+                        setPreviewContent(contentResult.content);
+                        setPreviewContentType(contentResult.contentType);
+                        setIsContentTruncated(contentResult.isTruncated || false);
+                      }
+                    }
+
                     setPreviewOpen(true);
                   }}
                   className="h-8 w-8 p-0"
@@ -424,8 +479,24 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
+            onClick={async () => {
               setSelectedAttachment(attachment);
+              setPreviewContent(null);
+              setPreviewContentType(null);
+              setIsContentTruncated(false);
+
+              // For text files, fetch content for preview
+              if (attachment.content_type?.startsWith('text/') ||
+                  attachment.content_type === 'application/json' ||
+                  attachment.content_type === 'application/javascript') {
+                const contentResult = await fetchAttachmentContent(attachment.id);
+                if (contentResult) {
+                  setPreviewContent(contentResult.content);
+                  setPreviewContentType(contentResult.contentType);
+                  setIsContentTruncated(contentResult.isTruncated || false);
+                }
+              }
+
               setPreviewOpen(true);
             }}
           >
@@ -545,7 +616,14 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       )}
 
       {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={(open) => {
+        setPreviewOpen(open);
+        if (!open) {
+          setPreviewContent(null);
+          setPreviewContentType(null);
+          setIsContentTruncated(false);
+        }
+      }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedAttachment?.filename}</DialogTitle>
@@ -561,6 +639,12 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                     alt={selectedAttachment.alt_text || selectedAttachment.filename}
                     className="max-w-full max-h-96 object-contain rounded-lg"
                   />
+                </div>
+              ) : previewContent ? (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <pre className="text-sm whitespace-pre-wrap overflow-auto max-h-96 font-mono">
+                    {previewContent}
+                  </pre>
                 </div>
               ) : (
                 <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg">
@@ -579,11 +663,17 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                 <div>
                   <Label className="font-medium">Type</Label>
                   <p className="capitalize">{selectedAttachment.attachment_type}</p>
+                  {previewContent && previewContentType && (
+                    <p className="text-xs text-gray-500 mt-1">{previewContentType}</p>
+                  )}
                 </div>
 
                 <div>
                   <Label className="font-medium">Size</Label>
                   <p>{formatFileSize(selectedAttachment.file_size)}</p>
+                  {isContentTruncated && (
+                    <p className="text-xs text-orange-600 mt-1">Showing first 100 lines only</p>
+                  )}
                 </div>
 
                 {selectedAttachment.document_type && (

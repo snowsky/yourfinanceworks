@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail, User, Calculator, Settings as SettingsIcon } from "lucide-react";
+import { CalendarIcon, Plus, Trash, Loader2, DollarSign, FileText, Edit, Mail, User, Calculator, Settings as SettingsIcon, Eye } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { PDFDownloadLink } from '@react-pdf/renderer';
@@ -4183,7 +4183,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 }
                               }}
                             >
-                              {t('invoices.preview', { defaultValue: 'Preview' })}
+                              <Eye className="w-4 h-4 mr-2" />
                             </Button>
                             <Button
                               type="button"
@@ -4348,7 +4348,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 }
                               }}
                             >
-                              {t('invoices.preview', { defaultValue: 'Preview' })}
+                              <Eye className="w-4 h-4 mr-2" />
                             </Button>
                             <Button
                               type="button"

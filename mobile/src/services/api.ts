@@ -111,7 +111,7 @@ export interface InvoiceItemUpdate {
   price: number;
 }
 
-export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid";
+export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid" | "cancelled";
 
 export interface Invoice {
   id: number;

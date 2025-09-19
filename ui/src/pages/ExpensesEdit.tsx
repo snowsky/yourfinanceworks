@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Package } from 'lucide-react';
+import { CalendarIcon, Upload, X, Package, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
@@ -449,7 +449,9 @@ export default function ExpensesEdit() {
                             const blob = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
                             const url = URL.createObjectURL(blob);
                             setPreview({ open: true, url, contentType: att.content_type || null, filename: att.filename || null });
-                          }}>{t('expenses.preview')}</Button>
+                          }}>
+                            <Eye className="w-4 h-4 mr-2" />
+                          </Button>
                           <Button
                             variant={pendingDelete.has(att.id) ? 'outline' : 'destructive'}
                             size="sm"
