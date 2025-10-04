@@ -848,7 +848,14 @@ async def permanently_delete_invoice(
                 status_code=404,
                 detail="Deleted invoice not found"
             )
-        
+
+        # Check if invoice has linked expenses - prevent deletion if it does
+        if db_invoice.expenses and len(db_invoice.expenses) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot permanently delete invoice that has linked expenses. Please unlink or delete the expenses first."
+            )
+
         # Only admins can permanently delete invoices
         require_admin(current_user, "permanently delete invoices")
         
@@ -1626,7 +1633,14 @@ async def delete_invoice(
                 status_code=404,
                 detail="Invoice not found or already deleted"
             )
-        
+
+        # Check if invoice has linked expenses - prevent deletion if it does
+        if db_invoice.expenses and len(db_invoice.expenses) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete invoice that has linked expenses. Please unlink or delete the expenses first."
+            )
+
         # Unlink any bank statement transactions that reference this invoice
         try:
             from models.models_per_tenant import BankStatementTransaction

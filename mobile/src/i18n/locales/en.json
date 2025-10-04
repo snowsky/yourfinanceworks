@@ -384,7 +384,7 @@
     "llm_not_configured_will_proceed_manually": "LLM not configured. Will proceed with manual invoice creation.",
     "processing_pdf": "Processing PDF...",
     "create_manually": "Create Manually",
-    "enter_invoice_details_manually": "Enter all invoice details manually with optional file attachment",
+    "enter_invoice_details_manually": "Enter details manually",
     "optional_attachment": "Optional Attachment",
     "attachment_selected": "Attachment selected",
     "link_expense": "Link Expense",

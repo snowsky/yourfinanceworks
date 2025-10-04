@@ -149,7 +149,15 @@ const Invoices = () => {
       }
     } catch (error) {
       console.error('Failed to delete invoice:', error);
-      toast.error(t('invoices.delete_error'));
+      // Extract specific error message from API response
+      let errorMessage = error instanceof Error ? error.message : t('invoices.delete_error');
+
+      // Check if it's the linked expenses error and use translated version
+      if (errorMessage.includes('linked expenses')) {
+        errorMessage = t('invoices.delete_error_linked_expenses');
+      }
+
+      toast.error(errorMessage);
     }
   };
 
@@ -249,13 +257,13 @@ const Invoices = () => {
                     <DropdownMenuItem asChild>
                       <Link to="/invoices/new" className="flex items-center w-full">
                         <Upload className="mr-2 h-4 w-4" />
-                        Import from PDF
+                        {t('invoices.import_from_pdf')}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/invoices/new-manual" className="flex items-center w-full">
                         <Edit className="mr-2 h-4 w-4" />
-                        Enter details manually
+                        {t('invoices.enter_invoice_details_manually')}
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
