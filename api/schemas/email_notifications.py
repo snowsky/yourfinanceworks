@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Optional, List
 from datetime import datetime
 
 class EmailNotificationSettingsBase(BaseModel):
@@ -30,10 +30,54 @@ class EmailNotificationSettingsBase(BaseModel):
     # Settings operation notifications
     settings_updated: bool = False
     
+    # Approval operation notifications
+    expense_submitted_for_approval: bool = True
+    expense_approved: bool = True
+    expense_rejected: bool = True
+    expense_level_approved: bool = True
+    expense_fully_approved: bool = True
+    expense_auto_approved: bool = True
+    approval_reminder: bool = True
+    approval_escalation: bool = True
+    
+    # Approval notification frequency preferences
+    approval_notification_frequency: str = "immediate"  # immediate, daily_digest
+    approval_reminder_frequency: str = "daily"  # daily, weekly, disabled
+    
+    # Approval notification channel preferences
+    approval_notification_channels: List[str] = ["email"]  # ["email", "in_app"] or ["email"] or ["in_app"]
+    
     # Additional notification preferences
     notification_email: Optional[str] = None
     daily_summary: bool = False
     weekly_summary: bool = False
+    
+    @field_validator('approval_notification_frequency')
+    @classmethod
+    def validate_approval_notification_frequency(cls, v):
+        valid_frequencies = ["immediate", "daily_digest"]
+        if v not in valid_frequencies:
+            raise ValueError(f'approval_notification_frequency must be one of {valid_frequencies}')
+        return v
+    
+    @field_validator('approval_reminder_frequency')
+    @classmethod
+    def validate_approval_reminder_frequency(cls, v):
+        valid_frequencies = ["daily", "weekly", "disabled"]
+        if v not in valid_frequencies:
+            raise ValueError(f'approval_reminder_frequency must be one of {valid_frequencies}')
+        return v
+    
+    @field_validator('approval_notification_channels')
+    @classmethod
+    def validate_approval_notification_channels(cls, v):
+        valid_channels = ["email", "in_app"]
+        if not v or not isinstance(v, list):
+            raise ValueError('approval_notification_channels must be a non-empty list')
+        for channel in v:
+            if channel not in valid_channels:
+                raise ValueError(f'Invalid channel: {channel}. Must be one of {valid_channels}')
+        return v
 
 class EmailNotificationSettingsCreate(EmailNotificationSettingsBase):
     pass

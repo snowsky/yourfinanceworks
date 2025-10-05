@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
+from constants.expense_status import ExpenseStatus
 
 
 class ExpenseBase(BaseModel):
@@ -16,7 +17,7 @@ class ExpenseBase(BaseModel):
     total_amount: Optional[float] = Field(None, description="Total amount including tax")
     payment_method: Optional[str] = Field(None, description="Payment method (e.g., Credit Card, Bank Transfer)")
     reference_number: Optional[str] = Field(None, description="Reference number")
-    status: str = Field("recorded", description="Status of the expense (recorded, reimbursed, submitted)")
+    status: str = Field(ExpenseStatus.RECORDED.value, description="Status of the expense")
     notes: Optional[str] = Field(None, description="Additional notes about the expense")
     invoice_id: Optional[int] = Field(None, description="Linked invoice ID (one expense -> at most one invoice)")
     # Inventory purchase fields
@@ -34,6 +35,13 @@ class ExpenseBase(BaseModel):
     analysis_error: Optional[str] = Field(None, description="Error message if analysis failed")
     manual_override: Optional[bool] = Field(False, description="True if user manually edited; stops further analysis")
     disable_ai_recognition: Optional[bool] = Field(False, description="Disable AI document recognition for this expense")
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        if v not in ExpenseStatus.get_all_values():
+            raise ValueError(f'Invalid status. Must be one of: {", ".join(ExpenseStatus.get_all_values())}')
+        return v
 
 
 class ExpenseCreate(ExpenseBase):
@@ -70,6 +78,13 @@ class ExpenseUpdate(BaseModel):
     analysis_error: Optional[str] = None
     manual_override: Optional[bool] = None
     disable_ai_recognition: Optional[bool] = None
+
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in ExpenseStatus.get_all_values():
+            raise ValueError(f'Invalid status. Must be one of: {", ".join(ExpenseStatus.get_all_values())}')
+        return v
 
 
 class Expense(ExpenseBase):

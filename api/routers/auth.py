@@ -1647,9 +1647,9 @@ async def admin_activate_user(
         db.add(master_user)
         db.commit()
         db.refresh(master_user)
-        # Require password reset for newly created users
+        # Require password reset only when password was auto-generated (not provided by admin)
         try:
-            master_user.must_reset_password = True
+            master_user.must_reset_password = bool(generated_temp_password is not None)
             db.commit()
         except Exception:
             db.rollback()
@@ -1689,7 +1689,8 @@ async def admin_activate_user(
                 last_name=activation_data.last_name or invite.last_name,
                 role=invite.role,
                 is_verified=True,
-                is_superuser=False
+                is_superuser=False,
+                must_reset_password=master_user.must_reset_password
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()

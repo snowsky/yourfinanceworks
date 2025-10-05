@@ -182,6 +182,7 @@ class Expense(Base):
     # Relationships
     user = relationship("User")
     invoice = relationship("Invoice", back_populates="expenses")
+    approvals = relationship("ExpenseApproval", back_populates="expense", cascade="all, delete-orphan")
 
 class ExpenseAttachment(Base):
     __tablename__ = "expense_attachments"
@@ -423,6 +424,23 @@ class EmailNotificationSettings(Base):
     
     # Settings operation notifications
     settings_updated = Column(Boolean, default=False)
+    
+    # Approval operation notifications
+    expense_submitted_for_approval = Column(Boolean, default=True)
+    expense_approved = Column(Boolean, default=True)
+    expense_rejected = Column(Boolean, default=True)
+    expense_level_approved = Column(Boolean, default=True)
+    expense_fully_approved = Column(Boolean, default=True)
+    expense_auto_approved = Column(Boolean, default=True)
+    approval_reminder = Column(Boolean, default=True)
+    approval_escalation = Column(Boolean, default=True)
+    
+    # Approval notification frequency preferences
+    approval_notification_frequency = Column(String, default="immediate", nullable=False)  # immediate, daily_digest
+    approval_reminder_frequency = Column(String, default="daily", nullable=False)  # daily, weekly, disabled
+    
+    # Approval notification channel preferences
+    approval_notification_channels = Column(JSON, default=["email"], nullable=False)  # ["email", "in_app"] or ["email"] or ["in_app"]
     
     # Additional notification preferences
     notification_email = Column(String, nullable=True)  # Override email for notifications
@@ -735,3 +753,74 @@ class InvoiceAttachment(Base):
     # Relationships
     invoice = relationship("Invoice", back_populates="attachments")
     uploader = relationship("User")
+
+# --- Expense Approval Workflow Models ---
+
+class ExpenseApproval(Base):
+    __tablename__ = "expense_approvals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    expense_id = Column(Integer, ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False)
+    approver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    approval_rule_id = Column(Integer, ForeignKey("approval_rules.id"), nullable=True)
+    status = Column(String, nullable=False, default="pending")  # pending, approved, rejected
+    rejection_reason = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), nullable=False)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    approval_level = Column(Integer, nullable=False, default=1)
+    is_current_level = Column(Boolean, nullable=False, default=True)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    expense = relationship("Expense")
+    approver = relationship("User", foreign_keys=[approver_id])
+    approval_rule = relationship("ApprovalRule")
+
+
+class ApprovalRule(Base):
+    __tablename__ = "approval_rules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    min_amount = Column(Float, nullable=True)
+    max_amount = Column(Float, nullable=True)
+    category_filter = Column(String, nullable=True)  # JSON array of categories
+    currency = Column(String, default="USD", nullable=False)
+    approval_level = Column(Integer, nullable=False, default=1)
+    approver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=0, nullable=False)
+    auto_approve_below = Column(Float, nullable=True)  # Auto-approve below this amount
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    approver = relationship("User", foreign_keys=[approver_id])
+    expense_approvals = relationship("ExpenseApproval", back_populates="approval_rule")
+
+
+class ApprovalDelegate(Base):
+    __tablename__ = "approval_delegates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    approver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    delegate_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    approver = relationship("User", foreign_keys=[approver_id])
+    delegate = relationship("User", foreign_keys=[delegate_id])
+    
+    # Ensure unique active delegation per approver
+    __table_args__ = (
+        UniqueConstraint('approver_id', 'delegate_id', 'start_date', name='unique_active_delegation'),
+    )

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { api } from "@/lib/api";
+import { api, superAdminApi, userApi } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,11 @@ export default function UsersPage() {
   const [activating, setActivating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // User management states
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   // Get current user id from localStorage
   let currentUserId: number | null = null;
@@ -238,7 +243,7 @@ export default function UsersPage() {
     if (!confirm(t('users.confirmCancelInvite', { email: inviteEmail }))) {
       return;
     }
-    
+
     setCancelling(true);
     try {
       await api.delete(`/auth/invites/${inviteId}`);
@@ -249,6 +254,64 @@ export default function UsersPage() {
       toast.error(getErrorMessage(err, t));
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: number, userEmail: string, isCurrentlyActive: boolean) => {
+    const action = isCurrentlyActive ? t('users.deactivate') : t('users.activate');
+    if (!confirm(t('users.confirmToggleStatus', { email: userEmail, action: action.toLowerCase() }))) {
+      return;
+    }
+
+    setTogglingStatus(true);
+    try {
+      await superAdminApi.toggleUserStatus(userId);
+      toast.success(t('users.statusToggled'));
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Failed to toggle user status:", err);
+      toast.error(getErrorMessage(err, t));
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
+  const handleResetPassword = async (userId: number, userEmail: string) => {
+    const newPassword = prompt(t('users.enterNewPassword', { email: userEmail }));
+    if (!newPassword || newPassword.length < 6) {
+      if (newPassword !== null) {
+        toast.error(t('users.passwordTooShort'));
+      }
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      await superAdminApi.resetUserPassword(userId, newPassword, false);
+      toast.success(t('users.passwordReset'));
+    } catch (err: any) {
+      console.error("Failed to reset password:", err);
+      toast.error(getErrorMessage(err, t));
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: number, userEmail: string) => {
+    if (!confirm(t('users.confirmDeleteUser', { email: userEmail }))) {
+      return;
+    }
+
+    setDeletingUser(true);
+    try {
+      await userApi.deleteUser(userId);
+      toast.success(t('users.userDeleted'));
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Failed to delete user:", err);
+      toast.error(getErrorMessage(err, t));
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -430,7 +493,7 @@ export default function UsersPage() {
                     <TableHead>{t('users.role')}</TableHead>
                     <TableHead>{t('users.status')}</TableHead>
                     <TableHead>{t('users.created')}</TableHead>
-                    <TableHead>{t('users.changeRole')}</TableHead>
+                    <TableHead>{t('users.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -458,22 +521,57 @@ export default function UsersPage() {
                         <TableCell>{user.is_active ? t('users.active') : t('users.inactive')}</TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
                         <TableCell>
-                          <Select
-                            value={user.role}
-                            onValueChange={(role: string) => handleRoleChange(user.id, role)}
-                            disabled={user.id === currentUserId}
-                          >
-                            <SelectTrigger className="w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLES.map((role) => (
-                                <SelectItem key={role} value={role}>
-                                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex gap-1 flex-wrap">
+                            <Select
+                              value={user.role}
+                              onValueChange={(role: string) => handleRoleChange(user.id, role)}
+                              disabled={user.id === currentUserId}
+                            >
+                              <SelectTrigger className="w-24 h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ROLES.map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <Button
+                              size="sm"
+                              variant={user.is_active ? "destructive" : "default"}
+                              onClick={() => handleToggleUserStatus(user.id, user.email, user.is_active)}
+                              disabled={togglingStatus || user.id === currentUserId}
+                              className="h-8 px-2 text-xs"
+                              title={user.is_active ? t('users.deactivateUser') : t('users.activateUser')}
+                            >
+                              {togglingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : (user.is_active ? t('users.deactivate') : t('users.activate'))}
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResetPassword(user.id, user.email)}
+                              disabled={resettingPassword}
+                              className="h-8 px-2 text-xs"
+                              title={t('users.resetPassword')}
+                            >
+                              {resettingPassword ? <Loader2 className="h-3 w-3 animate-spin" /> : t('users.reset')}
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteUser(user.id, user.email)}
+                              disabled={deletingUser || user.id === currentUserId}
+                              className="h-8 px-2 text-xs"
+                              title={t('users.deleteUser')}
+                            >
+                              {deletingUser ? <Loader2 className="h-3 w-3 animate-spin" /> : t('users.delete')}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -485,42 +583,74 @@ export default function UsersPage() {
         </Card>
 
         <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{t('users.activateUser')}: {activationInvite?.email}</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {t('users.activationDescription') || 'Activate this user account. You can set their password now or send them an invitation to set it themselves.'}
+              </p>
             </DialogHeader>
             <form onSubmit={handleActivateUser} className="space-y-4">
-              <Input
-                type="password"
-                name="password"
-                value={activationForm.password}
-                onChange={handleActivationFormChange}
-                placeholder={t('users.enterPasswordForUserPlaceholder')}
-              />
-              <p className="text-xs text-muted-foreground">{t('users.optionalPasswordHint') || 'Optional: leave blank to send an invite email and require the user to set a password on first login.'}</p>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  name="first_name"
-                  value={activationForm.first_name}
-                  onChange={handleActivationFormChange}
-                  placeholder={t('users.firstNamePlaceholder')}
-                />
-                <Input
-                  type="text"
-                  name="last_name"
-                  value={activationForm.last_name}
-                  onChange={handleActivationFormChange}
-                  placeholder={t('users.lastNamePlaceholder')}
-                />
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    name="first_name"
+                    value={activationForm.first_name}
+                    onChange={handleActivationFormChange}
+                    placeholder={t('users.firstNamePlaceholder')}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="text"
+                    name="last_name"
+                    value={activationForm.last_name}
+                    onChange={handleActivationFormChange}
+                    placeholder={t('users.lastNamePlaceholder')}
+                    className="flex-1"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t('users.passwordOptionLabel') || 'Password Setup'}
+                  </label>
+                  <Input
+                    type="password"
+                    name="password"
+                    value={activationForm.password}
+                    onChange={handleActivationFormChange}
+                    placeholder={t('users.enterPasswordForUserPlaceholder')}
+                  />
+                  {activationForm.password && (
+                    <div className="text-xs text-muted-foreground">
+                      {t('users.passwordWillBeSet') || '✓ User will be able to login immediately with this password'}
+                    </div>
+                  )}
+                  {!activationForm.password && (
+                    <div className="text-xs text-amber-600">
+                      {t('users.inviteWillBeSent') || '⚠ Leave blank to send invite email - user must set password on first login'}
+                    </div>
+                  )}
+                  {activationForm.password && activationForm.password.length > 0 && activationForm.password.length < 6 && (
+                    <div className="text-xs text-red-600">
+                      {t('users.passwordTooShort') || 'Password must be at least 6 characters long'}
+                    </div>
+                  )}
+                </div>
               </div>
-              <DialogFooter>
+
+              <DialogFooter className="flex gap-2">
                 <Button type="button" variant="outline" onClick={closeActivationDialog} disabled={activating}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="submit" disabled={activating} className="bg-green-600 hover:bg-green-700">
+                <Button
+                  type="submit"
+                  disabled={activating || (activationForm.password && activationForm.password.length > 0 && activationForm.password.length < 6)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
                   {activating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {t('users.activateUser')}
+                  {activationForm.password ? (t('users.activateWithPassword') || 'Activate & Set Password') : (t('users.sendInvite') || 'Send Invite Email')}
                 </Button>
               </DialogFooter>
             </form>

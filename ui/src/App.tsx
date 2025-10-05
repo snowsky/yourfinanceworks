@@ -63,7 +63,7 @@ const AppContent = () => {
   const { startPolling } = useExpenseStatusPolling();
   const [bellHidden, setBellHidden] = React.useState(false);
   const isLoggedIn = getCurrentUser() !== null;
-  
+
   // Get company branding for favicon
   const { data: settings } = useQuery({
     queryKey: ['settings'],

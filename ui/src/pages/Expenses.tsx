@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, X, Eye } from 'lucide-react';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
+import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
 import { format, parseISO, isValid } from 'date-fns';
 import { 
   AlertDialog,
@@ -613,6 +614,7 @@ const Expenses = () => {
                     <TableHead>{t('expenses.table.amount')}</TableHead>
                     <TableHead>{t('expenses.table.total')}</TableHead>
                     <TableHead>{t('expenses.table.invoice')}</TableHead>
+                    <TableHead>Approval Status</TableHead>
                     <TableHead>{t('expenses.table.analyzed')}</TableHead>
                     <TableHead>{t('expenses.table.receipt')}</TableHead>
                     <TableHead>{t('expenses.table.actions')}</TableHead>
@@ -704,6 +706,17 @@ const Expenses = () => {
                           ) : (
                              <span className="text-muted-foreground">{t('expenses.none')}</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <ExpenseApprovalStatus 
+                            expense={{
+                              id: e.id,
+                              status: e.status,
+                              amount: e.amount || 0,
+                              currency: e.currency || 'USD'
+                            }}
+                            approvals={[]} // TODO: Fetch approvals data
+                          />
                         </TableCell>
                         <TableCell>
                           {e.analysis_status === 'done' ? (

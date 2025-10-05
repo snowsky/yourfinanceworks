@@ -21,6 +21,7 @@ from utils.rbac import require_non_viewer
 from utils.audit import log_audit_event
 from services.ocr_service import queue_or_process_attachment, cancel_ocr_tasks_for_expense
 from constants.error_codes import EXPENSE_LINKED_TO_INVOICE
+from constants.expense_status import ExpenseStatus
 
 
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +30,25 @@ logger = logging.getLogger(__name__)
 uvicorn_logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
+
+
+def validate_status_transition(current_status: str, new_status: str) -> bool:
+    """Validate if a status transition is allowed"""
+    try:
+        current = ExpenseStatus(current_status)
+        new = ExpenseStatus(new_status)
+        return current.can_transition_to(new)
+    except ValueError:
+        return False
+
+
+def check_expense_modification_allowed(expense: Expense) -> None:
+    """Check if an expense can be modified based on its current status"""
+    if expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot modify expense with status '{expense.status}'. Expense is in approval workflow."
+        )
 
 
 @router.get("/", response_model=List[ExpenseSchema])
@@ -240,7 +260,7 @@ async def create_expense(
             total_amount=float(total_amount) if total_amount is not None else None,
             payment_method=expense.payment_method,
             reference_number=expense.reference_number,
-            status=expense.status or "recorded",
+            status=expense.status or ExpenseStatus.RECORDED.value,
             notes=expense.notes,
             user_id=current_user.id,
             invoice_id=expense.invoice_id,
@@ -442,7 +462,7 @@ async def bulk_create_expenses(
                 total_amount=float(total_amount) if total_amount is not None else None,
                 payment_method=expense.payment_method,
                 reference_number=expense.reference_number,
-                status=expense.status or "recorded",
+                status=expense.status or ExpenseStatus.RECORDED.value,
                 notes=expense.notes,
                 user_id=current_user.id,
                 invoice_id=expense.invoice_id,
@@ -494,10 +514,23 @@ async def update_expense(
         db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not db_expense:
             raise HTTPException(status_code=404, detail="Expense not found")
+        
+        # Check if expense can be modified based on current status
+        check_expense_modification_allowed(db_expense)
+        
         previous_status = getattr(db_expense, "analysis_status", None)
 
         currency_service = CurrencyService(db)
         update_data = expense.model_dump(exclude_unset=True)
+
+        # Validate status transition if status is actually changing
+        if "status" in update_data:
+            new_status = update_data["status"]
+            if db_expense.status != new_status and not validate_status_transition(db_expense.status, new_status):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status transition from '{db_expense.status}' to '{new_status}'"
+                )
 
         if "currency" in update_data:
             if not currency_service.validate_currency_code(update_data["currency"]):
@@ -717,6 +750,14 @@ async def delete_expense(
         db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not db_expense:
             raise HTTPException(status_code=404, detail="Expense not found")
+        
+        # Check if expense can be deleted based on current status
+        if db_expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot delete expense with status '{db_expense.status}'. Expense is in approval workflow."
+            )
+        
         # Prevent deleting an expense that is linked to an invoice
         if getattr(db_expense, "invoice_id", None) is not None:
             raise HTTPException(status_code=400, detail=EXPENSE_LINKED_TO_INVOICE)

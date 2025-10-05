@@ -12,12 +12,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Upload, X, Package, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { expenseApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
+import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
+import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissionDialog';
 
 export default function ExpensesEdit() {
   const { t } = useTranslation();
@@ -37,6 +38,10 @@ export default function ExpensesEdit() {
   // Inventory consumption state
   const [isInventoryConsumption, setIsInventoryConsumption] = useState(false);
   const [consumptionItems, setConsumptionItems] = useState<any[]>([]);
+  
+  // Approval submission state
+  const [submitForApproval, setSubmitForApproval] = useState(false);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -71,107 +76,142 @@ export default function ExpensesEdit() {
     }
   }, [consumptionItems, isInventoryConsumption]);
 
+  const validateExpenseForm = () => {
+    const isAnalyzedDone = (form as any)?.analysis_status === 'done';
+    if (isAnalyzedDone && pendingDelete.size > 0) {
+      toast.error(t('expenses.cannot_delete_analyzed', { defaultValue: 'Cannot delete attachments from an analyzed expense' }));
+      return false;
+    }
+    // Allow amount 0 if there will be at least one attachment after this save
+    const existingCount = (attachments?.length || 0);
+    const toDeleteCount = Array.from(pendingDelete).length;
+    const effectiveExistingAfterSave = Math.max(0, existingCount - toDeleteCount);
+    const hasNewFiles = newFiles.length > 0;
+    const willHaveAnyAttachments = effectiveExistingAfterSave > 0 || hasNewFiles;
+    if ((!form.amount || Number(form.amount) === 0) && !willHaveAnyAttachments) {
+      toast.error(t('expenses.amount_required_with_attachment', { defaultValue: 'Amount is required unless at least one attachment is kept or newly added' }));
+      return false;
+    }
+    if (!form.category) {
+      toast.error(t('expenses.category_required'));
+      return false;
+    }
+    if (isInventoryConsumption && (!consumptionItems || consumptionItems.length === 0)) {
+      toast.error('Inventory consumption must include at least one item');
+      return false;
+    }
+    if (isInventoryConsumption && consumptionItems && consumptionItems.length > 0) {
+      // Validate that all consumption items have valid quantities
+      const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
+      if (invalidItems.length > 0) {
+        toast.error('All inventory consumption items must have a quantity greater than 0');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const updateExpense = async () => {
+    // Ensure pending input label is included if user didn't press Enter
+    let labelsFromForm: string[] = Array.isArray((form as any).labels) ? ((form as any).labels as string[]) : [];
+    const pending = (newLabel || '').trim();
+    if (pending) {
+      const set = new Set(labelsFromForm);
+      if (!set.has(pending) && set.size < 10) {
+        set.add(pending);
+      }
+      labelsFromForm = Array.from(set).slice(0, 10);
+    }
+
+    const payload = {
+      amount: Number(form.amount),
+      currency: form.currency || 'USD',
+      expense_date: form.expense_date,
+      category: form.category,
+      vendor: form.vendor,
+      tax_rate: form.tax_rate,
+      tax_amount: form.tax_amount,
+      total_amount: form.total_amount,
+      payment_method: form.payment_method,
+      reference_number: form.reference_number,
+      status: form.status || 'recorded',
+      notes: form.notes,
+      labels: labelsFromForm.length ? labelsFromForm : undefined,
+      invoice_id: form.invoice_id ?? null,
+      is_inventory_consumption: isInventoryConsumption,
+      consumption_items: isInventoryConsumption ? consumptionItems : null,
+    } as any;
+    
+    await expenseApi.updateExpense(Number(id), payload);
+
+    // First apply pending deletions (to satisfy max 5 rule before uploads)
+    if (pendingDelete.size > 0) {
+      await Promise.all(Array.from(pendingDelete.values()).map(attId => expenseApi.deleteAttachment(Number(id), attId).catch(() => {})));
+    }
+
+    // Refresh attachments and compute how many new files can be uploaded (cap 10)
+    let currentList: ExpenseAttachmentMeta[] = [];
+    try { currentList = await expenseApi.listAttachments(Number(id)); } catch {}
+    const remainingSlots = Math.max(0, 10 - (currentList?.length || 0));
+
+    const addNotification = (window as any).addAINotification;
+    if (newFiles.length > 0) {
+      addNotification?.('processing', 'Processing Expense Receipts', `Analyzing ${Math.min(newFiles.length, remainingSlots)} receipt files with AI...`);
+    }
+    
+    let uploadedCount = 0;
+    for (let i = 0; i < Math.min(newFiles.length, remainingSlots); i++) {
+      try { 
+        await expenseApi.uploadReceipt(Number(id), newFiles[i]); 
+        uploadedCount++;
+      } catch (e) { 
+        console.error(e); 
+      }
+    }
+    
+    if (newFiles.length > 0) {
+      if (uploadedCount === Math.min(newFiles.length, remainingSlots)) {
+        addNotification?.('success', 'Expense Receipts Processed', `Successfully uploaded ${uploadedCount} receipt files. AI analysis in progress.`);
+      } else {
+        addNotification?.('error', 'Expense Upload Partial', `Uploaded ${uploadedCount} of ${Math.min(newFiles.length, remainingSlots)} receipt files.`);
+      }
+    }
+  };
+
+  const handleApprovalSubmission = async (notes?: string) => {
+    try {
+      if (!id) return;
+      
+      await approvalApi.submitForApproval(Number(id), notes);
+      
+      toast.success('Expense submitted for approval successfully');
+      setShowApprovalDialog(false);
+      navigate('/expenses');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to submit expense for approval');
+      throw e; // Re-throw to prevent dialog from closing
+    }
+  };
+
   const onSave = async () => {
     try {
       if (!id) return;
       setSaving(true);
-      const isAnalyzedDone = (form as any)?.analysis_status === 'done';
-      if (isAnalyzedDone && pendingDelete.size > 0) {
-        toast.error(t('expenses.cannot_delete_analyzed', { defaultValue: 'Cannot delete attachments from an analyzed expense' }));
-        return;
-      }
-      // Allow amount 0 if there will be at least one attachment after this save
-      const existingCount = (attachments?.length || 0);
-      const toDeleteCount = Array.from(pendingDelete).length;
-      const effectiveExistingAfterSave = Math.max(0, existingCount - toDeleteCount);
-      const hasNewFiles = newFiles.length > 0;
-      const willHaveAnyAttachments = effectiveExistingAfterSave > 0 || hasNewFiles;
-      if ((!form.amount || Number(form.amount) === 0) && !willHaveAnyAttachments) {
-        toast.error(t('expenses.amount_required_with_attachment', { defaultValue: 'Amount is required unless at least one attachment is kept or newly added' }));
-        return;
-      }
-      if (!form.category) {
-        toast.error(t('expenses.category_required'));
-        return;
-      }
-      if (isInventoryConsumption && (!consumptionItems || consumptionItems.length === 0)) {
-        toast.error('Inventory consumption must include at least one item');
-        return;
-      }
-      if (isInventoryConsumption && consumptionItems && consumptionItems.length > 0) {
-        // Validate that all consumption items have valid quantities
-        const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
-        if (invalidItems.length > 0) {
-          toast.error('All inventory consumption items must have a quantity greater than 0');
-          return;
-        }
-      }
-      // Ensure pending input label is included if user didn't press Enter
-      let labelsFromForm: string[] = Array.isArray((form as any).labels) ? ((form as any).labels as string[]) : [];
-      const pending = (newLabel || '').trim();
-      if (pending) {
-        const set = new Set(labelsFromForm);
-        if (!set.has(pending) && set.size < 10) {
-          set.add(pending);
-        }
-        labelsFromForm = Array.from(set).slice(0, 10);
-      }
-
-      const payload = {
-        amount: Number(form.amount),
-        currency: form.currency || 'USD',
-        expense_date: form.expense_date,
-        category: form.category,
-        vendor: form.vendor,
-        tax_rate: form.tax_rate,
-        tax_amount: form.tax_amount,
-        total_amount: form.total_amount,
-        payment_method: form.payment_method,
-        reference_number: form.reference_number,
-        status: form.status || 'recorded',
-        notes: form.notes,
-        labels: labelsFromForm.length ? labelsFromForm : undefined,
-        invoice_id: form.invoice_id ?? null,
-        is_inventory_consumption: isInventoryConsumption,
-        consumption_items: isInventoryConsumption ? consumptionItems : null,
-      } as any;
-      await expenseApi.updateExpense(Number(id), payload);
-
-      // First apply pending deletions (to satisfy max 5 rule before uploads)
-      if (pendingDelete.size > 0) {
-        await Promise.all(Array.from(pendingDelete.values()).map(attId => expenseApi.deleteAttachment(Number(id), attId).catch(() => {})));
-      }
-
-      // Refresh attachments and compute how many new files can be uploaded (cap 10)
-      let currentList: ExpenseAttachmentMeta[] = [];
-      try { currentList = await expenseApi.listAttachments(Number(id)); } catch {}
-      const remainingSlots = Math.max(0, 10 - (currentList?.length || 0));
-
-      const addNotification = (window as any).addAINotification;
-      if (newFiles.length > 0) {
-        addNotification?.('processing', 'Processing Expense Receipts', `Analyzing ${Math.min(newFiles.length, remainingSlots)} receipt files with AI...`);
-      }
       
-      let uploadedCount = 0;
-      for (let i = 0; i < Math.min(newFiles.length, remainingSlots); i++) {
-        try { 
-          await expenseApi.uploadReceipt(Number(id), newFiles[i]); 
-          uploadedCount++;
-        } catch (e) { 
-          console.error(e); 
-        }
+      if (!validateExpenseForm()) {
+        return;
       }
+
+      await updateExpense();
       
-      if (newFiles.length > 0) {
-        if (uploadedCount === Math.min(newFiles.length, remainingSlots)) {
-          addNotification?.('success', 'Expense Receipts Processed', `Successfully uploaded ${uploadedCount} receipt files. AI analysis in progress.`);
-        } else {
-          addNotification?.('error', 'Expense Upload Partial', `Uploaded ${uploadedCount} of ${Math.min(newFiles.length, remainingSlots)} receipt files.`);
-        }
+      if (submitForApproval) {
+        // Show approval dialog
+        setShowApprovalDialog(true);
+      } else {
+        toast.success(t('expenses.expense_updated'));
+        setNewLabel('');
+        navigate('/expenses');
       }
-      toast.success(t('expenses.expense_updated'));
-      setNewLabel('');
-      navigate('/expenses');
     } catch (e: any) {
       toast.error(e?.message || t('expenses.failed_to_update'));
     } finally {
@@ -476,10 +516,56 @@ export default function ExpensesEdit() {
           </CardContent>
         </Card>
 
+        {/* Approval Submission Section - Only show if expense is not already in approval workflow */}
+        {form.status !== 'pending_approval' && form.status !== 'approved' && form.status !== 'rejected' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Approval Workflow</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="submit-for-approval"
+                  checked={submitForApproval}
+                  onCheckedChange={(checked) => setSubmitForApproval(checked as boolean)}
+                />
+                <label
+                  htmlFor="submit-for-approval"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Submit this expense for approval after saving changes
+                </label>
+              </div>
+              {submitForApproval && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    This expense will be submitted for approval according to your organization's approval rules. 
+                    You'll be able to add additional notes for the approver before final submission.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/expenses')}>{t('common.cancel')}</Button>
-          <Button onClick={onSave} disabled={saving}>{saving ? t('common.saving', { defaultValue: 'Saving...' }) : t('expenses.buttons.save_changes')}</Button>
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? t('common.saving', { defaultValue: 'Saving...' }) : 
+             (submitForApproval ? 'Save & Submit for Approval' : t('expenses.buttons.save_changes'))}
+          </Button>
         </div>
+
+        {/* Approval Submission Dialog */}
+        <ApprovalSubmissionDialog
+          open={showApprovalDialog}
+          onOpenChange={setShowApprovalDialog}
+          onConfirm={handleApprovalSubmission}
+          expenseAmount={Number(form.amount || 0)}
+          currency={form.currency || 'USD'}
+          category={form.category || 'General'}
+          loading={saving}
+        />
         {/* File inline preview dialog */}
         <Dialog open={preview.open} onOpenChange={(o) => {
           if (!o && preview.url) URL.revokeObjectURL(preview.url);

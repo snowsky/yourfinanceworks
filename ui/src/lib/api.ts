@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
+import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, ApprovalRule, User, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate } from '@/types';
 
 // API base URL comes from env var. Set VITE_API_URL in your environment.
 // When running in containers, use nginx proxy on port 8080
@@ -1100,6 +1101,136 @@ export interface ReportType {
   default_columns: string[];
 }
 
+// Approval API methods
+export const approvalApi = {
+  // Get pending approvals for current user
+  getPendingApprovals: (filters?: { 
+    limit?: number; 
+    offset?: number; 
+    category?: string; 
+    min_amount?: number; 
+    max_amount?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.min_amount) params.append('min_amount', filters.min_amount.toString());
+    if (filters?.max_amount) params.append('max_amount', filters.max_amount.toString());
+    if (filters?.sort_by) params.append('sort_by', filters.sort_by);
+    if (filters?.sort_order) params.append('sort_order', filters.sort_order);
+    
+    const queryString = params.toString();
+    return apiRequest<{ approvals: ExpenseApproval[]; total: number; }>(`/approvals/pending${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get approval dashboard statistics
+  getDashboardStats: () => apiRequest<ApprovalDashboardStats>("/approvals/dashboard-stats"),
+
+  // Approve an expense
+  approveExpense: (approvalId: number, notes?: string) => 
+    apiRequest<{ success: boolean; message: string; }>(`/approvals/${approvalId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
+
+  // Reject an expense
+  rejectExpense: (approvalId: number, reason: string, notes?: string) => 
+    apiRequest<{ success: boolean; message: string; }>(`/approvals/${approvalId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason: reason, notes }),
+    }),
+
+  // Get approval history for an expense
+  getApprovalHistory: (expenseId: number) => 
+    apiRequest<{ history: ApprovalHistoryEntry[]; }>(`/approvals/history/${expenseId}`),
+
+  // Submit expense for approval
+  submitForApproval: (expenseId: number, notes?: string) => 
+    apiRequest<ExpenseApproval[]>(`/approvals/expenses/${expenseId}/submit-approval`, {
+      method: 'POST',
+      body: JSON.stringify({ expense_id: expenseId, notes }),
+    }),
+
+  // Approval Rules Management
+  getApprovalRules: (filters?: { 
+    is_active?: boolean; 
+    approver_id?: number; 
+    limit?: number; 
+    offset?: number; 
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters?.approver_id) params.append('approver_id', filters.approver_id.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    
+    const queryString = params.toString();
+    return apiRequest<ApprovalRule[]>(`/approvals/approval-rules${queryString ? `?${queryString}` : ''}`);
+  },
+
+  createApprovalRule: (ruleData: Omit<ApprovalRule, 'id' | 'approver'>) => 
+    apiRequest<ApprovalRule>('/approvals/approval-rules', {
+      method: 'POST',
+      body: JSON.stringify(ruleData),
+    }),
+
+  updateApprovalRule: (ruleId: number, ruleData: Partial<Omit<ApprovalRule, 'id' | 'approver'>>) => 
+    apiRequest<ApprovalRule>(`/approvals/approval-rules/${ruleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(ruleData),
+    }),
+
+  deleteApprovalRule: (ruleId: number) => 
+    apiRequest<{ message: string }>(`/approvals/approval-rules/${ruleId}`, {
+      method: 'DELETE',
+    }),
+
+  updateApprovalRulePriority: (ruleId: number, priority: number) => 
+    apiRequest<ApprovalRule>(`/approvals/approval-rules/${ruleId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ priority }),
+    }),
+
+  // Approval Delegation Management
+  getDelegations: (filters?: { 
+    approver_id?: number; 
+    delegate_id?: number; 
+    is_active?: boolean;
+    limit?: number; 
+    offset?: number; 
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.approver_id) params.append('approver_id', filters.approver_id.toString());
+    if (filters?.delegate_id) params.append('delegate_id', filters.delegate_id.toString());
+    if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    
+    const queryString = params.toString();
+    return apiRequest<ApprovalDelegate[]>(`/approvals/delegates${queryString ? `?${queryString}` : ''}`);
+  },
+
+  createDelegation: (delegationData: ApprovalDelegateCreate) => 
+    apiRequest<ApprovalDelegate>('/approvals/delegate', {
+      method: 'POST',
+      body: JSON.stringify(delegationData),
+    }),
+
+  updateDelegation: (delegationId: number, delegationData: ApprovalDelegateUpdate) => 
+    apiRequest<ApprovalDelegate>(`/approvals/delegates/${delegationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(delegationData),
+    }),
+
+  deleteDelegation: (delegationId: number) => 
+    apiRequest<{ message: string }>(`/approvals/delegates/${delegationId}`, {
+      method: 'DELETE',
+    }),
+};
+
 // Client API methods
 export const clientApi = {
   getClients: () => apiRequest<Client[]>("/clients/"),
@@ -1190,6 +1321,21 @@ export const authApi = {
     apiRequest<any>(`/auth/invites/${inviteId}/activate`, {
       method: 'POST',
       body: JSON.stringify(activationData),
+    }),
+};
+
+// User API methods
+export const userApi = {
+  getUsers: () => apiRequest<User[]>('/auth/users'),
+  getUser: (id: number) => apiRequest<User>(`/auth/users/${id}`),
+  updateUser: (id: number, userData: Partial<User>) =>
+    apiRequest<User>(`/auth/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    }),
+  deleteUser: (id: number) =>
+    apiRequest<{ message: string }>(`/auth/users/${id}`, {
+      method: 'DELETE',
     }),
 };
 
@@ -1983,6 +2129,21 @@ export const superAdminApi = {
     return apiRequest<{ message: string }>("/super-admin/demote", {
       method: "POST",
       body: JSON.stringify({ email }),
+    }, { skipTenant: true });
+  },
+  toggleUserStatus: async (userId: number) => {
+    return apiRequest<{ message: string }>(`/super-admin/users/${userId}/toggle-status`, {
+      method: "PATCH",
+    }, { skipTenant: true });
+  },
+  resetUserPassword: async (userId: number, newPassword: string, forceReset: boolean = false) => {
+    return apiRequest<{ message: string }>(`/super-admin/users/${userId}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({
+        new_password: newPassword,
+        confirm_password: newPassword,
+        force_reset_on_login: forceReset
+      }),
     }, { skipTenant: true });
   },
 };
