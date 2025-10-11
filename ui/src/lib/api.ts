@@ -1148,7 +1148,7 @@ export const approvalApi = {
     apiRequest<{ history: ApprovalHistoryEntry[]; }>(`/approvals/history/${expenseId}`),
 
   // Submit expense for approval
-  submitForApproval: (expenseId: number, notes?: string, approverId: number) =>
+  submitForApproval: (expenseId: number, approverId: number, notes?: string) =>
     apiRequest<ExpenseApproval[]>(`/approvals/expenses/${expenseId}/submit-approval`, {
       method: 'POST',
       body: JSON.stringify({ expense_id: expenseId, notes, approver_id: approverId }),
