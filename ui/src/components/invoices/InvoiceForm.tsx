@@ -41,7 +41,7 @@ import { InventoryItemSelector } from "@/components/inventory/InventoryItemSelec
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
-  price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  price: z.coerce.number().min(0, "Price cannot be negative"),
   id: z.number().optional(),
   inventory_item_id: z.number().optional().nullable(),
   unit_of_measure: z.string().optional().nullable(),
@@ -2218,7 +2218,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                           <FormControl>
                             <Input
                               type="number"
-                              min="0.01"
+                              min="0"
+                              step="0.01"
                               placeholder={t('invoices.price')}
                               {...field}
                               disabled={isInvoicePaid}
@@ -2794,7 +2795,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               <FormControl>
                                 <Input
                                   type="number"
-                                  min="0.01"
+                                  min="0"
+                                  step="0.01"
                                   placeholder={t('invoices.price')}
                                   {...field}
                                 />
@@ -3600,7 +3602,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 <FormControl>
                                   <Input
                                     type="number"
-                                    min="0.01"
+                                    min="0"
+                                    step="0.01"
                                     placeholder={t('invoices.price')}
                                     {...field}
                                     disabled={isInvoicePaid}
