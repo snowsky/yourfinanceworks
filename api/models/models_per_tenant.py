@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
+from enum import Enum as PyEnum
 
 Base = declarative_base()
 
@@ -823,4 +824,124 @@ class ApprovalDelegate(Base):
     # Ensure unique active delegation per approver
     __table_args__ = (
         UniqueConstraint('approver_id', 'delegate_id', 'start_date', name='unique_active_delegation'),
+    )
+
+
+# --- Reminder System Models ---
+
+class RecurrencePattern(str, PyEnum):
+    """Recurrence pattern enumeration"""
+    NONE = "none"           # One-time reminder
+    DAILY = "daily"         # Every day
+    WEEKLY = "weekly"       # Every week
+    MONTHLY = "monthly"     # Every month
+    YEARLY = "yearly"       # Every year
+
+
+class ReminderStatus(str, PyEnum):
+    """Reminder status enumeration"""
+    PENDING = "pending"     # Not yet due or completed
+    COMPLETED = "completed" # Marked as done
+    SNOOZED = "snoozed"    # Temporarily postponed
+    CANCELLED = "cancelled" # No longer needed
+
+
+class ReminderPriority(str, PyEnum):
+    """Reminder priority enumeration"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    
+    # Scheduling information
+    due_date = Column(DateTime(timezone=True), nullable=False)
+    next_due_date = Column(DateTime(timezone=True), nullable=True)  # For recurring reminders
+    recurrence_pattern = Column(Enum(RecurrencePattern), default=RecurrencePattern.NONE, nullable=False)
+    recurrence_interval = Column(Integer, default=1, nullable=False)  # Every N days/weeks/months/years
+    recurrence_end_date = Column(DateTime(timezone=True), nullable=True)  # When to stop recurring
+    
+    # Status and priority
+    status = Column(Enum(ReminderStatus), default=ReminderStatus.PENDING, nullable=False)
+    priority = Column(Enum(ReminderPriority), default=ReminderPriority.MEDIUM, nullable=False)
+    
+    # Assignment
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Snooze functionality
+    snoozed_until = Column(DateTime(timezone=True), nullable=True)
+    snooze_count = Column(Integer, default=0, nullable=False)
+    
+    # Completion tracking
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    completion_notes = Column(Text, nullable=True)
+    
+    # Metadata
+    tags = Column(JSON, nullable=True)  # Array of tags for categorization
+    extra_metadata = Column("metadata", JSON, nullable=True)  # Additional flexible data
+    
+    # Soft delete
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id])
+    completed_by = relationship("User", foreign_keys=[completed_by_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
+    notifications = relationship("ReminderNotification", back_populates="reminder", cascade="all, delete-orphan")
+
+
+class ReminderNotification(Base):
+    __tablename__ = "reminder_notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    reminder_id = Column(Integer, ForeignKey("reminders.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Notification details
+    notification_type = Column(String, nullable=False)  # 'due', 'overdue', 'reminder', 'assigned'
+    channel = Column(String, nullable=False)  # 'email', 'in_app', 'both'
+    
+    # Scheduling
+    scheduled_for = Column(DateTime(timezone=True), nullable=False)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Status
+    is_sent = Column(Boolean, default=False, nullable=False)
+    is_read = Column(Boolean, default=False, nullable=False)  # For in-app notifications
+    send_attempts = Column(Integer, default=0, nullable=False)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+    
+    # Content
+    subject = Column(String, nullable=True)
+    message = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    reminder = relationship("Reminder", back_populates="notifications")
+    user = relationship("User")
+    
+    # Ensure we don't send duplicate notifications
+    __table_args__ = (
+        UniqueConstraint('reminder_id', 'user_id', 'notification_type', 'scheduled_for', 
+                        name='unique_reminder_notification'),
     )

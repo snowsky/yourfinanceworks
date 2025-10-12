@@ -1,6 +1,7 @@
 import { useSearch } from "@/components/search/SearchProvider";
 import { Button } from "@/components/ui/button";
 import { Search, Command } from "lucide-react";
+import { InAppNotifications } from "@/components/reminders";
 
 export function AppHeader() {
   const { setIsOpen } = useSearch();
@@ -10,7 +11,8 @@ export function AppHeader() {
       <div>
         {/* Add any other header content here */}
       </div>
-      <div>
+      <div className="flex items-center gap-2">
+        <InAppNotifications />
         <Button 
           variant="outline" 
           onClick={() => setIsOpen(true)}

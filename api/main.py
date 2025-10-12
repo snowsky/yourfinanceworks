@@ -43,7 +43,8 @@ from routers import (
     inventory_attachments,  # Add the inventory attachments router
     approvals,  # Add the new approvals router
     approval_reports,  # Add the new approval reports router
-    organization_join  # Add the new organization join router
+    organization_join,  # Add the new organization join router
+    reminders  # Add the new reminders router
 )
 from models.database import engine
 from models import models
@@ -84,8 +85,23 @@ async def app_lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Failed to initialize tax integration service: {str(e)}")
 
+        # Start reminder background service
+        try:
+            from services.reminder_background_service import start_reminder_background_service
+            await start_reminder_background_service()
+            logger.info("Reminder background service started successfully")
+        except Exception as e:
+            logger.warning(f"Failed to start reminder background service: {str(e)}")
+
         yield
     finally:
+        # Stop reminder background service
+        try:
+            from services.reminder_background_service import stop_reminder_background_service
+            await stop_reminder_background_service()
+        except Exception:
+            pass
+
         # Shutdown: flush Kafka producers
         try:
             from services.ocr_service import flush_all_producers
@@ -215,6 +231,7 @@ app.include_router(inventory_attachments.router, prefix="/api/v1") # Include the
 app.include_router(approvals.router, prefix="/api/v1") # Include the new approvals router
 app.include_router(approval_reports.router, prefix="/api/v1") # Include the new approval reports router
 app.include_router(organization_join.router, prefix="/api/v1") # Include the new organization join router
+app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"]) # Include the new reminders router
 
 @app.get("/")
 def read_root():

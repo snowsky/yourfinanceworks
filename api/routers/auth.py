@@ -1338,8 +1338,10 @@ async def list_users(
     current_user: MasterUser = Depends(get_current_user),
     master_db: Session = Depends(get_master_db)
 ):
-    """List all users who have access to the current organization (admin only)"""
-    require_admin(current_user, "view users")
+    """List all users who have access to the current organization"""
+    # Allow all authenticated users to see other users for assignment purposes
+    # Only admins can see the full list for management purposes
+    # Regular users can see activated users for reminder assignments
     
     from models.database import get_tenant_context
     current_tenant_id = get_tenant_context()
@@ -1385,21 +1387,27 @@ async def list_users(
                 tenant_role_map = {tu.id: tu.role for tu in tenant_users}
                 logger.info(f"Found {len(tenant_role_map)} tenant-specific roles: {tenant_role_map}")
                 
-                # Update user roles with tenant-specific roles
+                # Filter users to only include those who exist in the tenant database
+                filtered_users = []
                 for user in users:
                     if user.id in tenant_role_map:
+                        # User exists in tenant, update role
                         old_role = user.role
                         user.role = tenant_role_map[user.id]
-                        logger.info(f"Updated user {user.email} role from '{old_role}' to '{user.role}'")
+                        filtered_users.append(user)
+                        logger.info(f"Including user {user.email} with tenant role '{user.role}'")
                     else:
-                        logger.info(f"User {user.email} has no tenant-specific role, keeping master role: '{user.role}'")
+                        logger.info(f"Excluding user {user.email} - not activated for tenant")
 
             finally:
                 tenant_db.close()
+
+            users = filtered_users
         except Exception as e:
             logger.warning(f"Failed to get tenant-specific roles for users in tenant {current_tenant_id}: {e}")
-            # Continue with master database roles if tenant lookup fails
-        
+            # If tenant lookup fails, don't return any users to avoid showing unactivated users
+            users = []
+
         logger.info(f"Returning {len(users)} users with roles: {[(u.email, u.role) for u in users]}")
         return users
     else:

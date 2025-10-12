@@ -191,7 +191,7 @@ export default function ExpensesView() {
             </div>
             <div>
               <label className="text-sm">{t('expenses.labels.currency')}</label>
-              <CurrencySelector value={form.currency || 'USD'} disabled={true} />
+              <CurrencySelector value={form.currency || 'USD'} disabled={true} onValueChange={() => {}} />
             </div>
             <div>
               <label className="text-sm">{t('expenses.labels.date')}</label>
@@ -250,7 +250,7 @@ export default function ExpensesView() {
               <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  <span className="text-sm font-medium">Inventory Integration</span>
+                  <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -263,7 +263,7 @@ export default function ExpensesView() {
                     htmlFor="is-inventory-consumption"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    This expense is for consuming inventory items
+                    {t('expenses.this_expense_is_for_consuming_inventory_items')}
                   </label>
                 </div>
 
@@ -272,10 +272,10 @@ export default function ExpensesView() {
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-orange-800 mb-3">
                         <Package className="h-4 w-4" />
-                        <span className="text-sm font-medium">Inventory Consumption Details</span>
+                        <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                       </div>
                       <p className="text-sm text-orange-700 mb-4">
-                        Select the inventory items you consumed. The system will automatically reduce stock levels and calculate the expense amount.
+                        {t('expenses.select_the_inventory_items_you_consumed')}
                       </p>
 
                       <InventoryConsumptionForm
@@ -290,7 +290,7 @@ export default function ExpensesView() {
                         <div className="flex items-center gap-2 text-green-800">
                           <Package className="h-4 w-4" />
                           <span className="text-sm font-medium">
-                            Ready to process: {consumptionItems.length} inventory items will be consumed
+                            {t('expenses.ready_to_process', { count: consumptionItems.length })}
                           </span>
                         </div>
                       </div>
@@ -326,7 +326,7 @@ export default function ExpensesView() {
                           setPreview({ open: true, url, contentType: att.content_type || null, filename: att.filename || null });
                         }}>
                           <Eye className="w-4 h-4 mr-2" />
-                          View
+                          {t('common.view')}
                         </Button>
                       </li>
                     ))}
@@ -349,7 +349,7 @@ export default function ExpensesView() {
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>{preview.filename || t('expenses.preview')}</DialogTitle>
+              <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {preview.url && (preview.contentType || '').startsWith('image/') && (

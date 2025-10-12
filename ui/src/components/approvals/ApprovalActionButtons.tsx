@@ -81,7 +81,7 @@ export function ApprovalActionButtons({ approval, onAction }: ApprovalActionButt
                 <div><strong>Amount:</strong> {approval.expense?.currency || 'USD'} {approval.expense?.amount?.toFixed(2)}</div>
                 <div><strong>Category:</strong> {approval.expense?.category}</div>
                 {approval.expense?.vendor && <div><strong>Vendor:</strong> {approval.expense.vendor}</div>}
-                <div><strong>Date:</strong> {new Date(approval.expense?.expense_date || '').toLocaleDateString()}</div>
+                <div><strong>Date:</strong> {approval.expense?.expense_date ? new Date(approval.expense.expense_date).toLocaleDateString() : 'N/A'}</div>
               </div>
             </div>
             
@@ -152,7 +152,7 @@ export function ApprovalActionButtons({ approval, onAction }: ApprovalActionButt
                 <div><strong>Amount:</strong> {approval.expense?.currency || 'USD'} {approval.expense?.amount?.toFixed(2)}</div>
                 <div><strong>Category:</strong> {approval.expense?.category}</div>
                 {approval.expense?.vendor && <div><strong>Vendor:</strong> {approval.expense.vendor}</div>}
-                <div><strong>Date:</strong> {new Date(approval.expense?.expense_date || '').toLocaleDateString()}</div>
+                <div><strong>Date:</strong> {approval.expense?.expense_date ? new Date(approval.expense.expense_date).toLocaleDateString() : 'N/A'}</div>
               </div>
             </div>
             

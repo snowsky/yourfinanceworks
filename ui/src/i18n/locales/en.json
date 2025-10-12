@@ -116,6 +116,7 @@
     "dashboard": "Dashboard",
     "invoices": "Invoices",
     "expenses": "Expenses",
+    "reminders": "Reminders",
     "bank_statements": "Statements",
     "clients": "Clients",
     "payments": "Payments",
@@ -1047,7 +1048,10 @@
       "invoice": "Invoice",
       "analyzed": "Analyzed",
       "receipt": "Receipt",
-      "actions": "Actions"
+      "actions": "Actions",
+      "labels": "Labels",
+      "approval_status": "Approval Status",
+      "id": "ID"
     },
     "loading": "Loading expenses...",
     "status_done": "Done",
@@ -1141,7 +1145,19 @@
     "attachments_cannot_delete": "Attachments cannot be deleted after analysis is completed.",
     "attachment": "attachment",
     "pdf_preview": "PDF Preview",
-    "cannot_preview": "This file type cannot be previewed. Please download instead."
+    "cannot_preview": "This file type cannot be previewed. Please download instead.",
+    "calculated_from_items": "Calculated from items",
+    "this_expense_is_for_consuming_inventory_items": "This expense is for consuming inventory items",
+    "inventory_consumption_details": "Inventory Consumption Details",
+    "select_the_inventory_items_you_consumed": "Select the inventory items you consumed",
+    "ready_to_process": "Ready to process {{count}} item(s)",
+    "approval_workflow": "Approval Workflow",
+    "submit_this_expense_for_approval_after_creation": "Submit this expense for approval after creation",
+    "inventory_integration": "Inventory Integration",
+    "no_expenses_yet": "No expenses yet",
+    "this_expense_will_be_submitted_for_approval": "This expense will be submitted for approval",
+    "select_approver": "Select Approver",
+    "choose_an_approver": "Choose an approver"
   },
   "email": {
     "subject": "Subject",

@@ -19,8 +19,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Users } from 'lucide-react';
 import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissionDialog';
+import { useTranslation } from 'react-i18next';
 
 export default function ExpensesNew() {
+  const { t } = useTranslation();
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
   const [form, setForm] = useState<Partial<Expense>>({
     amount: 0,
@@ -308,7 +310,7 @@ export default function ExpensesNew() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Inventory Integration
+              {t('expenses.inventory_integration')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -326,7 +328,7 @@ export default function ExpensesNew() {
                   htmlFor="is-inventory-purchase"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  This expense is for purchasing inventory items
+                  {t('expenses.this_expense_is_for_purchasing_inventory_items')}
                 </label>
               </div>
 
@@ -343,7 +345,7 @@ export default function ExpensesNew() {
                   htmlFor="is-inventory-consumption"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  This expense is for consuming inventory items
+                  {t('expenses.this_expense_is_for_consuming_inventory_items')}
                 </label>
               </div>
             </div>
@@ -353,10 +355,10 @@ export default function ExpensesNew() {
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-purple-800 mb-3">
                     <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">Inventory Purchase Details</span>
+                    <span className="text-sm font-medium">{t('expenses.inventory_purchase_details')}</span>
                   </div>
                   <p className="text-sm text-purple-700 mb-4">
-                    Select the inventory items you purchased with this expense. The system will automatically update stock levels when you save.
+                    {t('expenses.select_the_inventory_items_you_purchased_with_this_expense')}
                   </p>
 
                   <InventoryPurchaseForm
@@ -371,7 +373,7 @@ export default function ExpensesNew() {
                     <div className="flex items-center gap-2 text-green-800">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        Ready to process: {inventoryPurchaseItems.length} inventory items will be added to stock
+                        {t('expenses.ready_to_process', { count: inventoryPurchaseItems.length })}
                       </span>
                     </div>
                   </div>
@@ -384,10 +386,10 @@ export default function ExpensesNew() {
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-orange-800 mb-3">
                     <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">Inventory Consumption Details</span>
+                    <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                   </div>
                   <p className="text-sm text-orange-700 mb-4">
-                    Select the inventory items you consumed. The system will automatically reduce stock levels and calculate the expense amount based on cost prices.
+                    {t('expenses.select_the_inventory_items_you_consumed')}
                   </p>
 
                   <InventoryConsumptionForm
@@ -402,7 +404,7 @@ export default function ExpensesNew() {
                     <div className="flex items-center gap-2 text-green-800">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        Ready to process: {consumptionItems.length} inventory items will be consumed
+                        {t('expenses.ready_to_process', { count: consumptionItems.length })}
                       </span>
                     </div>
                   </div>
@@ -417,13 +419,13 @@ export default function ExpensesNew() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Receipt Attachments
+              {t('expenses.receipt_attachments')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="sm:col-span-2">
               <FileUpload
-                title="Receipt Attachments (max 10)"
+                title={t('expenses.receipt_attachments_max_10')}
                 maxFiles={10}
                 allowedTypes={['application/pdf', 'image/jpeg', 'image/png']}
                 selectedFiles={files}
@@ -443,7 +445,7 @@ export default function ExpensesNew() {
         {/* Approval Submission Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Approval Workflow</CardTitle>
+            <CardTitle>{t('expenses.approval_workflow')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
@@ -456,25 +458,25 @@ export default function ExpensesNew() {
                 htmlFor="submit-for-approval"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                Submit this expense for approval after creation
+                {t('expenses.submit_this_expense_for_approval_after_creation')}
               </label>
             </div>
               {submitForApproval && (
                 <div className="mt-3 space-y-3">
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-700">
-                      This expense will be submitted for approval. You'll be able to add additional notes before final submission.
+                      {t('expenses.this_expense_will_be_submitted_for_approval')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="approver-select" className="flex items-center gap-2 text-sm font-medium">
                       <Users className="h-4 w-4" />
-                      Select Approver *
+                      {t('expenses.select_approver')} *
                     </Label>
                     <Select value={selectedApproverId} onValueChange={setSelectedApproverId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Choose an approver" />
+                        <SelectValue placeholder={t('expenses.choose_an_approver')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableApprovers.map((approver) => (
@@ -491,9 +493,9 @@ export default function ExpensesNew() {
         </Card>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
+          <Button variant="outline" onClick={() => window.history.back()}>{t('common.cancel')}</Button>
           <Button onClick={onSubmit} disabled={saving || (submitForApproval && !selectedApproverId)}>
-            {saving ? 'Saving...' : (submitForApproval ? 'Create & Submit for Approval' : 'Create Expense')}
+            {saving ? t('saving') : (submitForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.create_expense'))}
           </Button>
         </div>
 

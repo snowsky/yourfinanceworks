@@ -1074,7 +1074,19 @@
     "attachments_cannot_delete": "Anhänge können nach Abschluss der Analyse nicht gelöscht werden.",
     "attachment": "Anhang",
     "pdf_preview": "PDF-Vorschau",
-    "cannot_preview": "Dieser Dateityp kann nicht in der Vorschau angezeigt werden. Bitte herunterladen."
+    "cannot_preview": "Dieser Dateityp kann nicht in der Vorschau angezeigt werden. Bitte herunterladen.",
+    "calculated_from_items": "Berechnet aus Artikeln",
+    "this_expense_is_for_consuming_inventory_items": "Diese Ausgabe ist für den Verbrauch von Inventargegenständen",
+    "inventory_consumption_details": "Inventarverbrauchsdetails",
+    "select_the_inventory_items_you_consumed": "Wählen Sie die Inventargegenstände aus, die Sie verbraucht haben",
+    "ready_to_process": "Bereit zur Verarbeitung von {{count}} Artikel(n)",
+    "approval_workflow": "Genehmigungsworkflow",
+    "submit_this_expense_for_approval_after_creation": "Diese Ausgabe nach der Erstellung zur Genehmigung einreichen",
+    "inventory_integration": "Inventarintegration",
+    "this_expense_will_be_submitted_for_approval": "Diese Ausgabe wird zur Genehmigung eingereicht",
+    "select_approver": "Genehmiger auswählen",
+    "choose_an_approver": "Einen Genehmiger wählen",
+    "no_expenses_yet": "Noch keine Ausgaben"
   },
   "email": {
     "subject": "Betreff",

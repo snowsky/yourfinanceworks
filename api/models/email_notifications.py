@@ -39,6 +39,17 @@ class EmailNotificationSettings(Base):
     # Organization join request notifications
     organization_join_request_created = Column(Boolean, default=True)  # Admin gets notified of new requests
     
+    # Reminder notifications
+    reminder_due = Column(Boolean, default=True)  # Reminder is due
+    reminder_overdue = Column(Boolean, default=True)  # Reminder is overdue
+    reminder_upcoming = Column(Boolean, default=True)  # Reminder is due soon
+    reminder_assigned = Column(Boolean, default=True)  # Reminder assigned to user
+    reminder_completed = Column(Boolean, default=False)  # Reminder completed by someone else
+    
+    # Reminder notification preferences
+    reminder_advance_days = Column(Integer, default=1)  # How many days in advance to send upcoming notifications
+    reminder_notification_frequency = Column(String, default="immediate")  # immediate, daily_digest
+    
     # Additional notification preferences
     notification_email = Column(String, nullable=True)  # Override email for notifications
     daily_summary = Column(Boolean, default=False)

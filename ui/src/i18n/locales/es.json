@@ -1004,7 +1004,10 @@
       "invoice": "Factura",
       "analyzed": "Analizado",
       "receipt": "Recibo",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "labels": "Etiquetas",
+      "approval_status": "Estado de Aprobación",
+      "id": "ID"
     },
     "loading": "Cargando gastos...",
     "status_done": "Completado",
@@ -1098,7 +1101,19 @@
     "attachments_cannot_delete": "Los adjuntos no se pueden eliminar después de completar el análisis.",
     "attachment": "adjunto",
     "pdf_preview": "Vista previa PDF",
-    "cannot_preview": "Este tipo de archivo no se puede previsualizar. Por favor descarga en su lugar."
+    "cannot_preview": "Este tipo de archivo no se puede previsualizar. Por favor descarga en su lugar.",
+    "calculated_from_items": "Calculado desde artículos",
+    "this_expense_is_for_consuming_inventory_items": "Este gasto es para consumir artículos de inventario",
+    "inventory_consumption_details": "Detalles de Consumo de Inventario",
+    "select_the_inventory_items_you_consumed": "Selecciona los artículos de inventario que consumiste",
+    "ready_to_process": "Listo para procesar {{count}} artículo(s)",
+    "approval_workflow": "Flujo de Aprobación",
+    "submit_this_expense_for_approval_after_creation": "Enviar este gasto para aprobación después de la creación",
+    "inventory_integration": "Integración de Inventario",
+    "this_expense_will_be_submitted_for_approval": "Este gasto será enviado para aprobación",
+    "select_approver": "Seleccionar Aprobador",
+    "choose_an_approver": "Elegir un aprobador",
+    "no_expenses_yet": "Aún no hay gastos"
   },
   "email": {
     "subject": "Asunto",

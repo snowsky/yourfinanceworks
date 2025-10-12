@@ -425,7 +425,7 @@ export default function ExpensesEdit() {
               <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  <span className="text-sm font-medium">Inventory Integration</span>
+                  <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -438,7 +438,7 @@ export default function ExpensesEdit() {
                     htmlFor="is-inventory-consumption"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    This expense is for consuming inventory items
+                    {t('expenses.this_expense_is_for_consuming_inventory_items')}
                   </label>
                 </div>
 
@@ -447,10 +447,10 @@ export default function ExpensesEdit() {
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-orange-800 mb-3">
                         <Package className="h-4 w-4" />
-                        <span className="text-sm font-medium">Inventory Consumption Details</span>
+                        <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                       </div>
                       <p className="text-sm text-orange-700 mb-4">
-                        Select the inventory items you consumed. The system will automatically reduce stock levels and calculate the expense amount.
+                        {t('expenses.select_the_inventory_items_you_consumed')}
                       </p>
 
                       <InventoryConsumptionForm
@@ -465,7 +465,7 @@ export default function ExpensesEdit() {
                         <div className="flex items-center gap-2 text-green-800">
                           <Package className="h-4 w-4" />
                           <span className="text-sm font-medium">
-                            Ready to process: {consumptionItems.length} inventory items will be consumed
+                            {t('expenses.ready_to_process', { count: consumptionItems.length })}
                           </span>
                         </div>
                       </div>
@@ -546,7 +546,7 @@ export default function ExpensesEdit() {
         {form.status !== 'pending_approval' && form.status !== 'approved' && form.status !== 'rejected' && (
           <Card>
             <CardHeader>
-              <CardTitle>Approval Workflow</CardTitle>
+              <CardTitle>{t('expenses.approval_workflow')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center space-x-2">
@@ -559,25 +559,25 @@ export default function ExpensesEdit() {
                   htmlFor="submit-for-approval"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Submit this expense for approval after saving changes
+                  {t('expenses.submit_this_expense_for_approval_after_saving_changes')}
                 </label>
               </div>
               {submitForApproval && (
                 <div className="mt-3 space-y-3">
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-700">
-                      This expense will be submitted for approval. You'll be able to add additional notes before final submission.
+                      {t('expenses.this_expense_will_be_submitted_for_approval')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="approver-select" className="flex items-center gap-2 text-sm font-medium">
                       <Users className="h-4 w-4" />
-                      Select Approver *
+                      {t('expenses.select_approver')} *
                     </Label>
                     <Select value={selectedApproverId} onValueChange={setSelectedApproverId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Choose an approver" />
+                        <SelectValue placeholder={t('expenses.choose_an_approver')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableApprovers.map((approver) => (
@@ -598,7 +598,7 @@ export default function ExpensesEdit() {
           <Button variant="outline" onClick={() => navigate('/expenses')}>{t('common.cancel')}</Button>
           <Button onClick={onSave} disabled={saving || (submitForApproval && !selectedApproverId)}>
             {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
-             (submitForApproval ? 'Save & Submit for Approval' : t('expenses.buttons.save_changes'))}
+             (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
           </Button>
         </div>
 
@@ -620,7 +620,7 @@ export default function ExpensesEdit() {
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>{preview.filename || t('expenses.preview')}</DialogTitle>
+              <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {preview.url && (preview.contentType || '').startsWith('image/') && (

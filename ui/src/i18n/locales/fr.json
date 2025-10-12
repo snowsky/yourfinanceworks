@@ -976,7 +976,10 @@
       "invoice": "Facture",
       "analyzed": "Analysé",
       "receipt": "Reçu",
-      "actions": "Actions"
+      "actions": "Actions",
+      "labels": "Étiquettes",
+      "approval_status": "Statut d'Approbation",
+      "id": "ID"
     },
     "loading": "Chargement des dépenses...",
     "status_done": "Terminé",
@@ -1070,7 +1073,19 @@
     "attachments_cannot_delete": "Les pièces jointes ne peuvent pas être supprimées après la fin de l'analyse.",
     "attachment": "pièce jointe",
     "pdf_preview": "Aperçu PDF",
-    "cannot_preview": "Ce type de fichier ne peut pas être prévisualisé. Veuillez télécharger à la place."
+    "cannot_preview": "Ce type de fichier ne peut pas être prévisualisé. Veuillez télécharger à la place.",
+    "calculated_from_items": "Calculé à partir des articles",
+    "this_expense_is_for_consuming_inventory_items": "Cette dépense est pour consommer des articles d'inventaire",
+    "inventory_consumption_details": "Détails de Consommation d'Inventaire",
+    "select_the_inventory_items_you_consumed": "Sélectionnez les articles d'inventaire que vous avez consommés",
+    "ready_to_process": "Prêt à traiter {{count}} article(s)",
+    "approval_workflow": "Flux d'Approbation",
+    "submit_this_expense_for_approval_after_creation": "Soumettre cette dépense pour approbation après la création",
+    "inventory_integration": "Intégration d'Inventaire",
+    "no_expenses_yet": "Aucune dépense encore",
+    "this_expense_will_be_submitted_for_approval": "Cette dépense sera soumise pour approbation",
+    "select_approver": "Sélectionner un Approbateur",
+    "choose_an_approver": "Choisir un approbateur"
   },
   "email": {
     "subject": "Objet",

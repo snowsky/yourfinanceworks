@@ -156,6 +156,28 @@ async def submit_expense_for_approval(
             approver_id=submission_data.approver_id
         )
         
+        # Create notification for approvers
+        from models.models_per_tenant import ReminderNotification, Expense
+        now = datetime.now(timezone.utc)
+        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        
+        for approval in approvals:
+            if approval.approver_id:
+                notification = ReminderNotification(
+                    reminder_id=None,
+                    user_id=approval.approver_id,
+                    notification_type="expense_approval",
+                    channel="in_app",
+                    scheduled_for=now,
+                    subject=f"Expense Approval Request",
+                    message=f"New expense approval request from {current_user.email}: ${expense.amount if expense else 'N/A'}",
+                    is_sent=True,
+                    sent_at=now
+                )
+                db.add(notification)
+        
+        db.commit()
+        
         # Log audit event
         log_audit_event(
             db=db,
@@ -346,6 +368,26 @@ async def approve_expense(
             notes=decision_data.notes
         )
         
+        # Create notification for expense submitter
+        from models.models_per_tenant import ReminderNotification, Expense
+        now = datetime.now(timezone.utc)
+        expense = db.query(Expense).filter(Expense.id == approval.expense_id).first()
+        
+        if expense and expense.user_id:
+            notification = ReminderNotification(
+                reminder_id=None,
+                user_id=expense.user_id,
+                notification_type="expense_approved",
+                channel="in_app",
+                scheduled_for=now,
+                subject=f"Expense Approved",
+                message=f"Your expense of ${expense.amount} has been approved by {current_user.email}",
+                is_sent=True,
+                sent_at=now
+            )
+            db.add(notification)
+            db.commit()
+        
         # Log audit event
         log_audit_event(
             db=db,
@@ -435,6 +477,26 @@ async def reject_expense(
             rejection_reason=decision_data.rejection_reason,
             notes=decision_data.notes
         )
+        
+        # Create notification for expense submitter
+        from models.models_per_tenant import ReminderNotification, Expense
+        now = datetime.now(timezone.utc)
+        expense = db.query(Expense).filter(Expense.id == approval.expense_id).first()
+        
+        if expense and expense.user_id:
+            notification = ReminderNotification(
+                reminder_id=None,
+                user_id=expense.user_id,
+                notification_type="expense_rejected",
+                channel="in_app",
+                scheduled_for=now,
+                subject=f"Expense Rejected",
+                message=f"Your expense of ${expense.amount} was rejected by {current_user.email}. Reason: {decision_data.rejection_reason}",
+                is_sent=True,
+                sent_at=now
+            )
+            db.add(notification)
+            db.commit()
         
         # Log audit event
         log_audit_event(

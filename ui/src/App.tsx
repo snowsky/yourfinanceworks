@@ -57,6 +57,7 @@ import InventoryItemDetail from "./pages/InventoryItemDetail";
 import NewInventoryInvoice from "./pages/NewInventoryInvoice";
 import { ApprovalDashboard } from "./components/approvals/ApprovalDashboard";
 import ApprovalReportsPage from "./pages/ApprovalReportsPage";
+import Reminders from "./pages/Reminders";
 import { AppLayout } from "./components/layout/AppLayout";
 
 
@@ -120,6 +121,7 @@ const AppContent = () => {
           <Route path="/expenses/view/:id" element={<ProtectedRoute><ExpensesView /></ProtectedRoute>} />
           <Route path="/expenses/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+          <Route path="/reminders" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/approvals" element={<ProtectedRoute><AppLayout><ApprovalDashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/approvals/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><AppLayout><ApprovalReportsPage /></AppLayout></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/statements" element={<ProtectedRoute><Statements /></ProtectedRoute>} />

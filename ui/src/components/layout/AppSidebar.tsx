@@ -37,6 +37,7 @@ import {
   Trash2,
   Bot,
   Package,
+  Clock,
 } from "lucide-react";
 import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
@@ -441,6 +442,12 @@ export function AppSidebar() {
       label: t('navigation.bank_statements'),
       icon: <FileText className="w-5 h-5" />,
       tourId: 'nav-statements'
+    },
+    {
+      path: '/reminders',
+      label: t('navigation.reminders'),
+      icon: <Clock className="w-5 h-5" />,
+      tourId: 'nav-reminders'
     },
     {
       path: '/reports',

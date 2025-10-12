@@ -657,15 +657,15 @@ const Expenses = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead>ID</TableHead>
+                    <TableHead>{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
                     <TableHead>{t('expenses.table.date')}</TableHead>
                     <TableHead>{t('expenses.table.category')}</TableHead>
                     <TableHead>{t('expenses.table.vendor')}</TableHead>
-                    <TableHead>{t('labels', { defaultValue: 'Labels' })}</TableHead>
+                    <TableHead>{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
                     <TableHead>{t('expenses.table.amount')}</TableHead>
                     <TableHead>{t('expenses.table.total')}</TableHead>
                     <TableHead>{t('expenses.table.invoice')}</TableHead>
-                    <TableHead>Approval Status</TableHead>
+                    <TableHead>{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
                     <TableHead>{t('expenses.table.analyzed')}</TableHead>
                     <TableHead>{t('expenses.table.receipt')}</TableHead>
                     <TableHead>{t('expenses.table.actions')}</TableHead>
@@ -879,7 +879,7 @@ const Expenses = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
-                        No expenses yet
+                        {t('expenses.no_expenses_yet')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -922,7 +922,7 @@ const Expenses = () => {
                   value={Number(newExpense.amount || 0)} 
                   onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} 
                   disabled={isNewInventoryConsumption}
-                  placeholder={isNewInventoryConsumption ? "Calculated from items" : ""}
+                  placeholder={isNewInventoryConsumption ? t('expenses.calculated_from_items') : ""}
                 />
               </div>
               <div>
@@ -958,13 +958,13 @@ const Expenses = () => {
                 </Popover>
               </div>
               <div>
-                <label className="text-sm">Link to Invoice (optional)</label>
+                <label className="text-sm">{t('expenses.link_to_invoice')}</label>
                 <Select value={newExpense.invoice_id ? String(newExpense.invoice_id) : undefined} onValueChange={v => setNewExpense({ ...newExpense, invoice_id: v === 'none' ? undefined : Number(v) })}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select invoice" />
+                    <SelectValue placeholder={t('expenses.select_invoice')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="none">{t('expenses.none')}</SelectItem>
                     {invoiceOptions.map(inv => (
                       <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
                     ))}
@@ -1005,7 +1005,7 @@ const Expenses = () => {
                 <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">Inventory Integration</span>
+                    <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                   </div>
                   
                   <div className="flex items-center space-x-2">
@@ -1018,7 +1018,7 @@ const Expenses = () => {
                       htmlFor="is-new-inventory-consumption"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
-                      This expense is for consuming inventory items
+                      {t('expenses.this_expense_is_for_consuming_inventory_items')}
                     </label>
                   </div>
 
@@ -1027,10 +1027,10 @@ const Expenses = () => {
                       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                         <div className="flex items-center gap-2 text-orange-800 mb-3">
                           <Package className="h-4 w-4" />
-                          <span className="text-sm font-medium">Inventory Consumption Details</span>
+                          <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                         </div>
                         <p className="text-sm text-orange-700 mb-4">
-                          Select the inventory items you consumed. The system will automatically reduce stock levels and calculate the expense amount.
+                          {t('expenses.select_the_inventory_items_you_consumed')}
                         </p>
 
                         <InventoryConsumptionForm
@@ -1044,7 +1044,7 @@ const Expenses = () => {
                           <div className="flex items-center gap-2 text-green-800">
                             <Package className="h-4 w-4" />
                             <span className="text-sm font-medium">
-                              Ready to process: {newConsumptionItems.length} inventory items will be consumed
+                              {t('expenses.ready_to_process', { count: newConsumptionItems.length })}
                             </span>
                           </div>
                         </div>
@@ -1069,7 +1069,7 @@ const Expenses = () => {
 
               {/* Approval Workflow Section */}
               <div className="sm:col-span-2 border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-3">Approval Workflow</h4>
+                <h4 className="text-sm font-medium mb-3">{t('expenses.approval_workflow')}</h4>
                 <div className="flex items-center space-x-2 mb-2">
                   <Checkbox
                     id="submit-new-for-approval"
@@ -1080,25 +1080,25 @@ const Expenses = () => {
                     htmlFor="submit-new-for-approval"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Submit this expense for approval after creation
+                    {t('expenses.submit_this_expense_for_approval_after_creation')}
                   </label>
                 </div>
                 {submitNewForApproval && (
                   <div className="mt-3 space-y-3">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        This expense will be submitted for approval. You'll be able to add additional notes before final submission.
+                        {t('expenses.this_expense_will_be_submitted_for_approval')}
                       </p>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="new-approver-select" className="flex items-center gap-2 text-sm font-medium">
                         <Users className="h-4 w-4" />
-                        Select Approver *
+                        {t('expenses.select_approver')} *
                       </Label>
                       <Select value={selectedNewApproverId} onValueChange={setSelectedNewApproverId}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose an approver" />
+                          <SelectValue placeholder={t('expenses.choose_an_approver')} />
                         </SelectTrigger>
                         <SelectContent>
                           {availableNewApprovers.map((approver) => (
@@ -1116,7 +1116,7 @@ const Expenses = () => {
             <div className="p-4 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('cancel')}</Button>
               <Button onClick={handleCreate} disabled={submitNewForApproval && !selectedNewApproverId}>
-                {submitNewForApproval ? 'Create & Submit for Approval' : t('expenses.buttons.create')}
+                {submitNewForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.buttons.create')}
               </Button>
             </div>
           </DialogContent>
@@ -1134,7 +1134,7 @@ const Expenses = () => {
                   value={Number(editExpense.amount || 0)} 
                   onChange={e => setEditExpense({ ...editExpense, amount: Number(e.target.value) })} 
                   disabled={isEditInventoryConsumption}
-                  placeholder={isEditInventoryConsumption ? "Calculated from items" : ""}
+                  placeholder={isEditInventoryConsumption ? t('expenses.calculated_from_items') : ""}
                 />
               </div>
               <div>
@@ -1203,7 +1203,7 @@ const Expenses = () => {
                 <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">Inventory Integration</span>
+                    <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                   </div>
                   
                   <div className="flex items-center space-x-2">
@@ -1216,7 +1216,7 @@ const Expenses = () => {
                       htmlFor="is-edit-inventory-consumption"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
-                      This expense is for consuming inventory items
+                      {t('expenses.this_expense_is_for_consuming_inventory_items')}
                     </label>
                   </div>
 
@@ -1225,10 +1225,10 @@ const Expenses = () => {
                       <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                         <div className="flex items-center gap-2 text-orange-800 mb-3">
                           <Package className="h-4 w-4" />
-                          <span className="text-sm font-medium">Inventory Consumption Details</span>
+                          <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                         </div>
                         <p className="text-sm text-orange-700 mb-4">
-                          Select the inventory items you consumed. The system will automatically reduce stock levels and calculate the expense amount.
+                          {t('expenses.select_the_inventory_items_you_consumed')}
                         </p>
 
                         <InventoryConsumptionForm
@@ -1242,7 +1242,7 @@ const Expenses = () => {
                           <div className="flex items-center gap-2 text-green-800">
                             <Package className="h-4 w-4" />
                             <span className="text-sm font-medium">
-                              Ready to process: {editConsumptionItems.length} inventory items will be consumed
+                              {t('expenses.ready_to_process', { count: editConsumptionItems.length })}
                             </span>
                           </div>
                         </div>
@@ -1319,17 +1319,17 @@ const Expenses = () => {
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>{preview.filename || 'Preview'}</DialogTitle>
+              <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {preview.url && (preview.contentType || '').startsWith('image/') && (
                 <img src={preview.url} alt={preview.filename || 'attachment'} className="max-w-full h-auto" />
               )}
               {preview.url && preview.contentType === 'application/pdf' && (
-                <iframe src={preview.url} className="w-full h-[70vh]" title="PDF Preview" />
+                <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview', { defaultValue: 'PDF Preview' })} />
               )}
               {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || preview.contentType === 'application/pdf') && (
-                <div className="text-sm text-muted-foreground">This file type cannot be previewed. Please download instead.</div>
+                <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview', { defaultValue: 'This file type cannot be previewed. Please download instead.' })}</div>
               )}
             </div>
             <div className="flex gap-2">

@@ -50,6 +50,17 @@ class EmailNotificationSettingsBase(BaseModel):
     # Approval notification channel preferences
     approval_notification_channels: List[str] = ["email"]  # ["email", "in_app"] or ["email"] or ["in_app"]
     
+    # Reminder notifications
+    reminder_due: bool = True
+    reminder_overdue: bool = True
+    reminder_upcoming: bool = True
+    reminder_assigned: bool = True
+    reminder_completed: bool = False
+    
+    # Reminder notification preferences
+    reminder_advance_days: int = 1
+    reminder_notification_frequency: str = "immediate"  # immediate, daily_digest
+    
     # Additional notification preferences
     notification_email: Optional[str] = None
     daily_summary: bool = False
@@ -69,6 +80,21 @@ class EmailNotificationSettingsBase(BaseModel):
         valid_frequencies = ["daily", "weekly", "disabled"]
         if v not in valid_frequencies:
             raise ValueError(f'approval_reminder_frequency must be one of {valid_frequencies}')
+        return v
+    
+    @field_validator('reminder_notification_frequency')
+    @classmethod
+    def validate_reminder_notification_frequency(cls, v):
+        valid_frequencies = ["immediate", "daily_digest"]
+        if v not in valid_frequencies:
+            raise ValueError(f'reminder_notification_frequency must be one of {valid_frequencies}')
+        return v
+    
+    @field_validator('reminder_advance_days')
+    @classmethod
+    def validate_reminder_advance_days(cls, v):
+        if v < 0 or v > 30:
+            raise ValueError('reminder_advance_days must be between 0 and 30')
         return v
     
     @field_validator('approval_notification_channels')
