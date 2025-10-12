@@ -12,9 +12,10 @@ import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Eye } from 'lucide-react';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
+import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
 import { format, parseISO, isValid } from 'date-fns';
 import { 
   AlertDialog,
@@ -33,11 +34,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { expenseApi, Expense, ExpenseAttachmentMeta, api, linkApi } from '@/lib/api';
+import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, api, linkApi } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { CurrencySelector } from '@/components/ui/currency-selector';
+import { Label } from '@/components/ui/label';
+import { Users } from 'lucide-react';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
-import { canPerformActions } from '@/utils/auth';
+import { canPerformActions, canEditExpense, canDeleteExpense, getCurrentUser } from '@/utils/auth';
 
 
 
@@ -96,6 +99,11 @@ const Expenses = () => {
   const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState<{ expenseId: number | null }>({ expenseId: null });
   const [attachments, setAttachments] = useState<Record<number, ExpenseAttachmentMeta[]>>({});
+
+  // Approval workflow state for new expense modal
+  const [submitNewForApproval, setSubmitNewForApproval] = useState(false);
+  const [selectedNewApproverId, setSelectedNewApproverId] = useState<string>('');
+  const [availableNewApprovers, setAvailableNewApprovers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
@@ -167,18 +175,45 @@ const Expenses = () => {
     return () => window.removeEventListener('storage', onStorage);
   }, [currentTenantId]);
 
+  useEffect(() => {
+    const fetchApprovers = async () => {
+      try {
+        const response = await approvalApi.getApprovers();
+        setAvailableNewApprovers(response);
+      } catch (error) {
+        console.error('Failed to fetch approvers:', error);
+      }
+    };
+    fetchApprovers();
+  }, []);
+
   const fetchExpenses = async () => {
     setLoading(true);
     try {
       const skip = (page - 1) * pageSize;
       const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize });
-      setExpenses(data);
+
+      // Get current user to filter expenses by ownership
+      const currentUser = getCurrentUser();
+      const currentUserId = currentUser?.id;
+
+      // Filter expenses: only show expenses created by current user AND exclude pending approval expenses
+      const filteredData = data.filter(expense =>
+        expense.user_id === currentUserId &&
+        expense.status !== 'pending_approval'
+      );
+      setExpenses(filteredData);
       // Probe next page existence precisely
       try {
         const probe = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: skip + pageSize, limit: 1 });
-        setHasNextPage(Array.isArray(probe) && probe.length > 0);
+        // Apply the same filtering to probe results (ownership + status filtering)
+        const filteredProbe = probe.filter(expense =>
+          expense.user_id === currentUserId &&
+          expense.status !== 'pending_approval'
+        );
+        setHasNextPage(Array.isArray(filteredProbe) && filteredProbe.length > 0);
       } catch {
-        setHasNextPage(data.length === pageSize);
+        setHasNextPage(filteredData.length === pageSize);
       }
     } catch (e) {
       toast.error('Failed to load expenses');
@@ -239,6 +274,8 @@ const Expenses = () => {
     setNewReceiptFile(null);
     setIsNewInventoryConsumption(false);
     setNewConsumptionItems([]);
+    setSubmitNewForApproval(false);
+    setSelectedNewApproverId('');
     setIsCreateOpen(true);
   };
 
@@ -296,9 +333,24 @@ const Expenses = () => {
           setNewReceiptFile(null);
         }
       }
+      // Submit for approval if requested
+      if (submitNewForApproval && selectedNewApproverId) {
+        try {
+          await approvalApi.submitForApproval(createdWithReceipt.id, parseInt(selectedNewApproverId), undefined);
+          toast.success('Expense created and submitted for approval');
+        } catch (approvalError) {
+          console.error('Approval submission failed:', approvalError);
+          toast.error('Expense created but failed to submit for approval');
+        }
+      } else {
+        toast.success('Expense created');
+      }
+
+      // Reset approval workflow state
+      setSubmitNewForApproval(false);
+      setSelectedNewApproverId('');
       setExpenses(prev => [createdWithReceipt, ...prev]);
       setIsCreateOpen(false);
-      toast.success('Expense created');
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create expense');
     }
@@ -613,6 +665,7 @@ const Expenses = () => {
                     <TableHead>{t('expenses.table.amount')}</TableHead>
                     <TableHead>{t('expenses.table.total')}</TableHead>
                     <TableHead>{t('expenses.table.invoice')}</TableHead>
+                    <TableHead>Approval Status</TableHead>
                     <TableHead>{t('expenses.table.analyzed')}</TableHead>
                     <TableHead>{t('expenses.table.receipt')}</TableHead>
                     <TableHead>{t('expenses.table.actions')}</TableHead>
@@ -706,6 +759,17 @@ const Expenses = () => {
                           )}
                         </TableCell>
                         <TableCell>
+                          <ExpenseApprovalStatus 
+                            expense={{
+                              id: e.id,
+                              status: e.status,
+                              amount: e.amount || 0,
+                              currency: e.currency || 'USD'
+                            }}
+                            approvals={[]} // TODO: Fetch approvals data
+                          />
+                        </TableCell>
+                        <TableCell>
                           {e.analysis_status === 'done' ? (
                              <Badge variant="success">{t('expenses.status_done')}</Badge>
                           ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
@@ -754,7 +818,13 @@ const Expenses = () => {
                             setAttachments(prev => ({ ...prev, [e.id]: list }));
                             setAttachmentPreviewOpen({ expenseId: e.id });
                           }}>
-                             {Array.isArray(attachments[e.id]) ? `${attachments[e.id].length} ${t('attachments_count', { defaultValue: 'file(s)' })}` : (typeof e.attachments_count === 'number' ? `${e.attachments_count} ${t('attachments_count', { defaultValue: 'file(s)' })}` : t('expenses.preview'))}
+                            {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
+                              `${Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} ${t('attachments_count', { defaultValue: 'file(s)' })}`
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4 mr-2" />
+                              </>
+                            )}
                           </Button>
                         </TableCell>
                         <TableCell>
@@ -767,35 +837,39 @@ const Expenses = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    {t('edit', { defaultValue: 'Edit' })}
-                                  </Link>
-                                </DropdownMenuItem>
+                                {canEditExpense(e) && (
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      {t('edit', { defaultValue: 'Edit' })}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
 
 
-                                
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <Trash2 className="w-4 h-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('expenses.delete_confirm_description')}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('delete')}</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+
+                                {canDeleteExpense(e) && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          {t('expenses.delete_confirm_description')}
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('delete')}</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
@@ -992,10 +1066,58 @@ const Expenses = () => {
                   onChange={(ev) => setNewReceiptFile(ev.target.files?.[0] || null)}
                 />
               </div>
+
+              {/* Approval Workflow Section */}
+              <div className="sm:col-span-2 border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium mb-3">Approval Workflow</h4>
+                <div className="flex items-center space-x-2 mb-2">
+                  <Checkbox
+                    id="submit-new-for-approval"
+                    checked={submitNewForApproval}
+                    onCheckedChange={(checked) => setSubmitNewForApproval(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="submit-new-for-approval"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Submit this expense for approval after creation
+                  </label>
+                </div>
+                {submitNewForApproval && (
+                  <div className="mt-3 space-y-3">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        This expense will be submitted for approval. You'll be able to add additional notes before final submission.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="new-approver-select" className="flex items-center gap-2 text-sm font-medium">
+                        <Users className="h-4 w-4" />
+                        Select Approver *
+                      </Label>
+                      <Select value={selectedNewApproverId} onValueChange={setSelectedNewApproverId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose an approver" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableNewApprovers.map((approver) => (
+                            <SelectItem key={approver.id} value={approver.id.toString()}>
+                              {approver.name} ({approver.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="p-4 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('cancel')}</Button>
-              <Button onClick={handleCreate}>{t('expenses.buttons.create')}</Button>
+              <Button onClick={handleCreate} disabled={submitNewForApproval && !selectedNewApproverId}>
+                {submitNewForApproval ? 'Create & Submit for Approval' : t('expenses.buttons.create')}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

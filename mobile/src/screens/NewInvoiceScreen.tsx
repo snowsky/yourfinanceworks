@@ -793,7 +793,7 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
                     style={styles.input}
                     placeholder="1"
                     value={item.quantity.toString()}
-                    onChangeText={(text) => handleItemChange(index, 'quantity', parseInt(text) || 0)}
+                    onChangeText={(text) => handleItemChange(index, 'quantity', parseFloat(text) || 0)}
                     keyboardType="numeric"
                   />
                 </View>

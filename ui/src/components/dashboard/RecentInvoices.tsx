@@ -11,9 +11,9 @@ import { Link } from "react-router-dom";
 import { formatDate } from "@/lib/utils";
 
 export function RecentInvoices() {
+  const { t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -80,13 +80,13 @@ export function RecentInvoices() {
                     <CurrencyDisplay amount={invoice.amount} currency={invoice.currency} />
                   </div>
                   <Badge className={
-                    invoice.status === 'paid' ? 'status-paid' : 
-                    invoice.status === 'pending' ? 'status-pending' : 
+                    invoice.status === 'paid' ? 'status-paid' :
+                    invoice.status === 'pending' ? 'status-pending' :
                     invoice.status === 'overdue' ? 'status-overdue' :
                     invoice.status === 'partially_paid' ? 'status-partially-paid' :
                     'bg-muted/50 text-muted-foreground'
                   }>
-                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1).replace('_', ' ')}
+                    {t(`invoices.status.${invoice.status}`)}
                   </Badge>
                 </div>
               </div>

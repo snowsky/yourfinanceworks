@@ -39,6 +39,10 @@ services:
       # Google OAuth (optional)
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # Azure AD OAuth (optional)
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-common}
       - UI_BASE_URL=${UI_BASE_URL:-http://localhost:8080}
       # Multi-tenant configuration
       - MULTITENANT_MODE=database_per_tenant

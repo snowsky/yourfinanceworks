@@ -66,6 +66,25 @@ google_oauth_client: Optional[GoogleOAuth2] = None
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     google_oauth_client = GoogleOAuth2(client_id=GOOGLE_CLIENT_ID, client_secret=GOOGLE_CLIENT_SECRET)
 
+# --- Azure AD OAuth2 (SSO) setup ---
+AZURE_CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
+AZURE_CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
+AZURE_TENANT_ID = os.getenv("AZURE_TENANT_ID", "common")  # 'common' for multi-tenant, or specific tenant ID
+AZURE_OAUTH_SCOPES = ["openid", "email", "profile"]
+
+# Azure AD OAuth client using MSAL
+azure_oauth_client = None
+if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET:
+    try:
+        from msal import ConfidentialClientApplication
+        azure_oauth_client = ConfidentialClientApplication(
+            client_id=AZURE_CLIENT_ID,
+            client_credential=AZURE_CLIENT_SECRET,
+            authority=f"https://login.microsoftonline.com/{AZURE_TENANT_ID}"
+        )
+    except ImportError:
+        logger.warning("MSAL library not available. Azure AD SSO will be disabled.")
+
 # In-memory state store for CSRF protection and to carry 'next' parameter
 OAUTH_STATE_STORE: Dict[str, Dict[str, Any]] = {}
 OAUTH_STATE_TTL_SECONDS = 600
@@ -560,6 +579,156 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
     import json, base64
     user_payload = UserRead.model_validate(user).model_dump()
     # encode user payload compactly
+    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode()
+    redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
+    return RedirectResponse(url=redirect_url)
+
+# -------------------- Azure AD OAuth (SSO) endpoints --------------------
+@router.get("/azure/login")
+async def azure_login(request: Request, next: Optional[str] = None):
+    if not azure_oauth_client:
+        raise HTTPException(status_code=503, detail="Azure AD SSO is not configured")
+
+    # Determine redirect URI (callback)
+    base_url = str(request.base_url).rstrip("/")
+    callback_url = f"{base_url}/api/v1/auth/azure/callback"
+
+    # Generate state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    OAUTH_STATE_STORE[state] = {"ts": time.time(), "next": next or "/dashboard"}
+    _oauth_prune_states()
+
+    # Build authorization URL using MSAL
+    authorization_url = azure_oauth_client.get_authorization_request_url(
+        scopes=AZURE_OAUTH_SCOPES,
+        state=state,
+        redirect_uri=callback_url
+    )
+    return RedirectResponse(url=authorization_url)
+
+@router.get("/azure/callback")
+async def azure_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, db: Session = Depends(get_master_db)):
+    if not azure_oauth_client:
+        raise HTTPException(status_code=503, detail="Azure AD SSO is not configured")
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Missing code or state")
+
+    # Validate state
+    state_data = OAUTH_STATE_STORE.pop(state, None)
+    _oauth_prune_states()
+    if not state_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired state")
+
+    base_url = str(request.base_url).rstrip("/")
+    callback_url = f"{base_url}/api/v1/auth/azure/callback"
+
+    # Exchange code for token using MSAL
+    try:
+        result = azure_oauth_client.acquire_token_by_authorization_code(
+            code=code,
+            scopes=AZURE_OAUTH_SCOPES,
+            redirect_uri=callback_url
+        )
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=f"Azure AD error: {result.get('error_description', result['error'])}")
+        
+        access_token = result["access_token"]
+        id_token_claims = result.get("id_token_claims", {})
+        
+    except Exception as e:
+        logger.error(f"Azure AD token exchange failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
+
+    # Extract user info from ID token claims
+    azure_id = id_token_claims.get("oid")  # Object ID
+    email = id_token_claims.get("email") or id_token_claims.get("preferred_username")
+    azure_tenant_id = id_token_claims.get("tid")  # Tenant ID
+    first_name = id_token_claims.get("given_name")
+    last_name = id_token_claims.get("family_name")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Azure AD account has no email")
+    if not azure_id:
+        raise HTTPException(status_code=400, detail="Azure AD account has no object ID")
+
+    # Find or create user in master database
+    user = db.query(MasterUser).filter(
+        (MasterUser.azure_ad_id == azure_id) | (MasterUser.email == email)
+    ).first()
+    
+    if not user:
+        # Create a minimal tenant for first user if none exists yet
+        is_first_user = db.query(MasterUser).count() == 0
+        # Create tenant for first user
+        tenant_name = f"{email.split('@')[0]}'s Organization"
+        db_tenant = Tenant(name=tenant_name, email=email, is_active=True)
+        db.add(db_tenant)
+        db.commit()
+        db.refresh(db_tenant)
+
+        # Provision tenant DB
+        success = tenant_db_manager.create_tenant_database(db_tenant.id, tenant_name)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to create tenant database")
+
+        # Create master user
+        user = MasterUser(
+            email=email,
+            hashed_password=get_password_hash(secrets.token_urlsafe(16)),
+            first_name=first_name,
+            last_name=last_name,
+            role="admin" if is_first_user else "admin",  # Owner of the new tenant
+            tenant_id=db_tenant.id,
+            is_active=True,
+            is_superuser=is_first_user,
+            is_verified=True,  # Azure AD users are pre-verified
+            azure_ad_id=str(azure_id),
+            azure_tenant_id=str(azure_tenant_id) if azure_tenant_id else None,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Create tenant user mirror
+        set_tenant_context(db_tenant.id)
+        tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
+        tenant_db = tenant_session()
+        try:
+            from models.models_per_tenant import User as TenantUser
+            tenant_user = TenantUser(
+                id=user.id,
+                email=email,
+                hashed_password=user.hashed_password,
+                first_name=first_name,
+                last_name=last_name,
+                role="admin",
+                is_active=True,
+                is_superuser=is_first_user,
+                is_verified=True,
+                azure_ad_id=str(azure_id),
+                azure_tenant_id=str(azure_tenant_id) if azure_tenant_id else None,
+            )
+            tenant_db.add(tenant_user)
+            tenant_db.commit()
+        finally:
+            tenant_db.close()
+    else:
+        # Ensure azure_ad_id is linked
+        if not user.azure_ad_id:
+            user.azure_ad_id = str(azure_id)
+            user.azure_tenant_id = str(azure_tenant_id) if azure_tenant_id else None
+            db.commit()
+
+    # Issue JWT
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
+
+    # Redirect back to UI with token
+    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+    redirect_next = state_data.get("next") or "/dashboard"
+    import json, base64
+    user_payload = UserRead.model_validate(user).model_dump()
     user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode()
     redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
     return RedirectResponse(url=redirect_url)
@@ -1478,9 +1647,9 @@ async def admin_activate_user(
         db.add(master_user)
         db.commit()
         db.refresh(master_user)
-        # Require password reset for newly created users
+        # Require password reset only when password was auto-generated (not provided by admin)
         try:
-            master_user.must_reset_password = True
+            master_user.must_reset_password = bool(generated_temp_password is not None)
             db.commit()
         except Exception:
             db.rollback()
@@ -1520,7 +1689,8 @@ async def admin_activate_user(
                 last_name=activation_data.last_name or invite.last_name,
                 role=invite.role,
                 is_verified=True,
-                is_superuser=False
+                is_superuser=False,
+                must_reset_password=master_user.must_reset_password
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()

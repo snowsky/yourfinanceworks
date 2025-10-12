@@ -92,6 +92,7 @@
     "signing_in": "Connexion en cours...",
     "or_continue_with": "Ou continuer avec",
     "sign_in_with_google": "Se connecter avec Google",
+    "sign_in_with_microsoft": "Se connecter avec Microsoft",
     "no_account": "Vous n'avez pas de compte ?",
     "google_sso_coming_soon": "Le SSO Google sera bientôt disponible !",
     "signup": {
@@ -178,6 +179,12 @@
     "title": "Factures",
     "new_invoice": "Nouvelle Facture",
     "edit_invoice": "Modifier la Facture",
+    "clone_invoice": "Cloner",
+    "created_label": "Créé",
+    "due_label": "Échéance",
+    "paid_label": "Payé",
+    "outstanding_label": "Restant dû",
+    "total_amount": "Montant Total",
     "invoice_number": "Numéro de Facture",
     "client": "Client",
     "invoice_date": "Date de Facture",
@@ -187,8 +194,11 @@
       "pending": "En attente",
       "paid": "Payée",
       "overdue": "En retard",
-      "partially_paid": "Partiellement payée"
+      "partially_paid": "Partiellement payée",
+      "cancelled": "Annulée"
     },
+    "draft": "Brouillon",
+    "cancelled": "Annulée",
     "remove_item": "Retirer l'Article",
     "item_description": "Description de l'Article",
     "item_quantity": "Quantité",
@@ -210,6 +220,9 @@
     "mark_overdue": "Marquer comme En Retard",
     "delete_invoice": "Supprimer la Facture",
     "confirm_delete": "Êtes-vous sûr de vouloir supprimer cette facture ?",
+    "delete_success": "Facture déplacée vers la corbeille avec succès",
+    "delete_error": "Échec de la suppression de la facture",
+    "delete_error_linked_expenses": "Impossible de supprimer une facture qui contient des dépenses liées. Veuillez d'abord dissocier ou supprimer les dépenses.",
     "invoice_created": "Facture créée avec succès",
     "invoice_updated": "Facture mise à jour avec succès",
     "invoice_deleted": "Facture supprimée avec succès",
@@ -359,7 +372,17 @@
     "failed_to_link_expense": "Échec de la liaison de la dépense",
     "failed_to_unlink_expense": "Échec de la dissociation de la dépense",
     "invoice_ready_to_be_created": "La facture est prête à être créée",
-    "invoice_ready_to_be_updated": "La facture est prête à être mise à jour"
+    "invoice_ready_to_be_updated": "La facture est prête à être mise à jour",
+    "create_new_invoice": "Créer une Nouvelle Facture",
+    "choose_creation_method": "Choisissez comment vous souhaitez créer votre facture",
+    "import_from_pdf": "Importer depuis PDF",
+    "upload_pdf_to_extract_invoice_details": "Téléversez un PDF de facture pour extraire automatiquement les détails du client et des articles",
+    "select_pdf_file": "Sélectionner un Fichier PDF",
+    "selected_file": "Fichier sélectionné",
+    "llm_not_configured_will_proceed_manually": "IA non configurée. La création manuelle de facture va être utilisée.",
+    "processing_pdf": "Traitement du PDF...",
+    "create_manually": "Créer Manuellement",
+    "enter_invoice_details_manually": "Saisir les détails manuellement"
   },
   "clients": {
     "title": "Clients",
@@ -495,7 +518,15 @@
       "invoices": "Param. Factures",
       "currencies": "Devises",
       "discount_rules": "Règles de Remise",
+      "ai_config": "Config. IA",
+      "api_keys": "Clés API",
+      "search": "Recherche",
+      "email_notifications": "Email & Notifications",
+      "tax_integration": "Intégration Fiscale",
+      "approval_rules": "Règles d'Approbation",
+      "export": "Gestion Données",
       "add_rule": "Ajouter une Règle",
+      "rule_name": "Nom de la Règle",
       "min_amount": "Montant Minimum",
       "discount_type": "Type de Remise",
       "discount_value": "Valeur de la Remise",
@@ -508,22 +539,13 @@
       "discount_type_fixed": "Montant Fixe",
       "create_discount_rule": "Créer une Règle de Remise",
       "edit_discount_rule": "Modifier la Règle de Remise",
-      "rule_name": "Nom de la Règle",
-      "rule_name_placeholder": "Entrez le nom de la règle",
-      "min_amount_placeholder": "Entrez le montant minimum",
-      "priority_placeholder": "Entrez la priorité (plus élevé = plus important)",
-      "percentage_discount": "Pourcentage (%)",
-      "fixed_amount_discount": "Montant Fixe",
-      "percentage_discount_value_placeholder": "Entrez le pourcentage (ex. 10 pour 10%)",
-      "fixed_amount_discount_value_placeholder": "Entrez le montant (ex. 20 pour 20€)",
-      "currency_placeholder": "Sélectionnez la devise",
-      "create_rule": "Créer la Règle",
-      "update_rule": "Mettre à jour la Règle",
       "rule_active": "Actif",
       "rule_inactive": "Inactif",
-      "ai_config": "Config. IA",
-      "email": "Param. Email",
-      "export": "Gestion Données"
+      "email": "Param. Email"
+    },
+    "approval_rules": {
+      "title": "Gestion des Règles d'Approbation",
+      "description": "Configurez les workflows et règles d'approbation pour les soumissions de dépenses"
     },
     "currency_management": "Gestion des Devises",
     "ai_configuration": "Configuration de l'IA",
@@ -714,8 +736,7 @@
     "priority": "Priorité",
     "discount_type": "Type de Remise",
     "discount_value": "Valeur de la Remise",
-    "currency": "Devise",
-    "rule_active": "Actif"
+    "currency": "Devise"
   },
   "users": {
     "title": "Utilisateurs",
@@ -786,7 +807,26 @@
     "cancel": "Annuler",
     "confirmCancelInvite": "Êtes-vous sûr de vouloir annuler l'invitation pour {{email}}?",
     "inviteCancelled": "Invitation annulée avec succès!",
-    "failedToCancelInvite": "Échec de l'annulation de l'invitation"
+    "failedToCancelInvite": "Échec de l'annulation de l'invitation",
+    "activationDescription": "Activez ce compte utilisateur. Vous pouvez définir leur mot de passe maintenant ou leur envoyer une invitation pour qu'ils le définissent eux-mêmes.",
+    "passwordOptionLabel": "Configuration du mot de passe",
+    "passwordWillBeSet": "✓ L'utilisateur pourra se connecter immédiatement avec ce mot de passe",
+    "inviteWillBeSent": "⚠ Laissez vide pour envoyer un e-mail d'invitation - l'utilisateur doit définir le mot de passe lors de la première connexion",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+    "activateWithPassword": "Activer & Définir le mot de passe",
+    "sendInvite": "Envoyer un e-mail d'invitation",
+    "deactivate": "Désactiver",
+    "reset": "Réinitialiser",
+    "delete": "Supprimer",
+    "deactivateUser": "Désactiver l'utilisateur",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "deleteUser": "Supprimer l'utilisateur",
+    "confirmToggleStatus": "Êtes-vous sûr de vouloir {{action}} l'utilisateur {{email}} ?",
+    "confirmDeleteUser": "Êtes-vous sûr de vouloir supprimer l'utilisateur {{email}} ? Cette action ne peut pas être annulée.",
+    "enterNewPassword": "Entrez un nouveau mot de passe pour {{email}} :",
+    "statusToggled": "Statut de l'utilisateur mis à jour avec succès",
+    "passwordReset": "Mot de passe réinitialisé avec succès",
+    "userDeleted": "Utilisateur supprimé avec succès"
   },
   "errors": {
     "network_error": "Erreur réseau. Veuillez vérifier votre connexion.",
@@ -951,10 +991,12 @@
     "delete_confirm_description": "Cette action est irréversible. Cela supprimera définitivement cette dépense et ses pièces jointes.",
     "new_title": "Nouvelle dépense",
     "edit_title": "Modifier la dépense",
+    "view_title": "Voir la dépense",
     "import_title": "Importer les dépenses",
     "import_description": "Sélectionnez jusqu'à 10 fichiers PDF ou images pour créer des dépenses. Chaque fichier devient une dépense séparée et sera analysé par OCR.",
     "new_description": "Créez une nouvelle dépense et téléversez jusqu'à 5 pièces jointes.",
     "edit_description": "Mettez à jour cette dépense et gérez les pièces jointes.",
+    "view_description": "Examinez les détails de la dépense et prenez des mesures d'approbation.",
     "back_to_expenses": "Retour aux dépenses",
     "start_import": "Commencer l'importation",
     "importing": "Importation...",
@@ -1517,6 +1559,8 @@
   "taxIntegration": {
     "title": "Intégration du Service Fiscal",
     "sendToTaxService": "Envoyer au Service Fiscal",
+    "tax_send_success": "Facture envoyée au service fiscal avec succès",
+    "tax_send_error": "Échec de l'envoi au service fiscal",
     "testConnection": "Tester la Connexion",
     "sendSelected": "Envoyer Sélectionnés ({{count}})",
     "bulkSendTitle": "Envoyer {{itemType}} au Service Fiscal",
@@ -1583,7 +1627,9 @@
       "price": "Prix",
       "stock": "Stock",
       "status": "Statut",
-      "actions": "Actions"
+      "actions": "Actions",
+      "created_date": "Créé",
+      "updated_date": "Mis à jour"
     },
     "loading": "Chargement de l'inventaire...",
     "no_service_items": "Aucun article de service pour le moment. Créez votre catalogue de services pour commencer.",
@@ -1677,6 +1723,8 @@
     "product_stock_help": "Suivre les niveaux d'inventaire et recevoir des alertes de stock faible",
     "track_stock": "Suivre les niveaux de stock",
     "optional_for_services": "optionnel pour les services",
+    "unlimited_stock": "Stock Illimité",
+    "unlimited_stock_help": "Parfait pour les services comme le conseil - jamais épuisé et aucune gestion de stock nécessaire",
     "current_stock": "Stock Actuel",
     "minimum_stock": "Stock Minimum",
     "unit_of_measure": "Unité de Mesure",
@@ -1697,6 +1745,7 @@
     "validation": {
       "name_required": "Le nom de l'article est requis",
       "price_required": "Un prix unitaire valide est requis"
-    }
+    },
+    "total": "Total"
   }
 } 

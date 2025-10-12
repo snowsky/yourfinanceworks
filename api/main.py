@@ -39,7 +39,11 @@ from routers import (
     search,
     external_api_auth,  # Add the new external API auth router
     external_transactions,  # Add the new external transactions router
-    inventory  # Add the new inventory router
+    inventory,  # Add the new inventory router
+    inventory_attachments,  # Add the inventory attachments router
+    approvals,  # Add the new approvals router
+    approval_reports,  # Add the new approval reports router
+    organization_join  # Add the new organization join router
 )
 from models.database import engine
 from models import models
@@ -100,7 +104,8 @@ app = FastAPI(
     title="Invoice API",
     description="API for the Invoice Management System",
     version="1.0.0",
-    lifespan=app_lifespan
+    lifespan=app_lifespan,
+    redirect_slashes=False  # Disable automatic trailing slash redirects
 )
 
 # Serve static files (e.g., for company logos)
@@ -108,25 +113,34 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.mount("/api/v1/static", StaticFiles(directory=static_dir), name="api_static")
 
-# CORS Middleware (tightened with env-driven configuration)
-# ALLOWED_ORIGINS can be a comma-separated list, e.g. "http://localhost:8080,https://app.example.com"
+# CORS Middleware (permissive for development)
+# Check multiple environment indicators for debug mode
+debug_env = os.getenv("DEBUG", "True").lower()
+dev_env = os.getenv("ENVIRONMENT", "development").lower()
+debug_mode = debug_env == "true" or dev_env in ["development", "dev"]
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
-debug_mode = os.getenv("DEBUG", "False").lower() == "true"
 
-if allowed_origins_env:
-    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+if debug_mode:
+    # In debug mode, allow all origins
+    allowed_origins = ["*"]
+    allow_credentials = False  # Cannot use credentials with wildcard
 else:
-    # In DEBUG, fall back to permissive wildcard. In production, default to no origins.
-    allowed_origins = ["*"] if debug_mode else []
+    # In production, use specific origins
+    if allowed_origins_env:
+        allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    else:
+        allowed_origins = [
+            "http://localhost:8080", "http://localhost:3000", 
+            "http://192.168.86.39", "http://192.168.86.39:8080",
+            "http://192.168.65.1"
+        ]
+    allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "True").lower() == "true"
 
-# Add frontend container IP to allowed origins
-allowed_origins.extend(["http://192.168.65.1", "http://localhost:8080", "http://localhost:3000"])
-
-# Credentials cannot be used with wildcard origins per CORS spec
-allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "False").lower() == "true"
-if allow_credentials and (not allowed_origins or "*" in allowed_origins):
-    # Override to safe default when wildcard is used
-    allow_credentials = False
+# Log CORS configuration for debugging
+logger.info(f"CORS Configuration:")
+logger.info(f"  Debug mode: {debug_mode}")
+logger.info(f"  Allowed origins: {allowed_origins}")
+logger.info(f"  Allow credentials: {allow_credentials}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -197,6 +211,10 @@ app.include_router(search.router, prefix="/api/v1") # Include the new search rou
 app.include_router(external_api_auth.router, prefix="/api/v1") # Include the new external API auth router
 app.include_router(external_transactions.router, prefix="/api/v1") # Include the new external transactions router
 app.include_router(inventory.router, prefix="/api/v1") # Include the new inventory router
+app.include_router(inventory_attachments.router, prefix="/api/v1") # Include the inventory attachments router
+app.include_router(approvals.router, prefix="/api/v1") # Include the new approvals router
+app.include_router(approval_reports.router, prefix="/api/v1") # Include the new approval reports router
+app.include_router(organization_join.router, prefix="/api/v1") # Include the new organization join router
 
 @app.get("/")
 def read_root():

@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
+import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, User, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate } from '@/types';
 
 // API base URL comes from env var. Set VITE_API_URL in your environment.
 // When running in containers, use nginx proxy on port 8080
@@ -39,9 +40,26 @@ export interface InvoiceItem {
   invoice_id?: number;
   inventory_item_id?: number;
   unit_of_measure?: string;
+  inventory_item?: {
+    id: number;
+    name: string;
+    description?: string;
+    sku?: string;
+    unit_price: number;
+    cost_price?: number;
+    currency: string;
+    track_stock: boolean;
+    current_stock: number;
+    minimum_stock: number;
+    unit_of_measure: string;
+    item_type: string;
+    is_active: boolean;
+    barcode?: string;
+    category_id?: number;
+  };
 }
 
-export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid";
+export type InvoiceStatus = "draft" | "pending" | "paid" | "overdue" | "partially_paid" | "cancelled";
 
 export interface Invoice {
   id: number;
@@ -49,6 +67,7 @@ export interface Invoice {
   client_id: number;
   client_name: string;
   client_email: string;
+  client_company?: string;
   date: string;
   due_date: string;
   amount: number;
@@ -1082,6 +1101,126 @@ export interface ReportType {
   default_columns: string[];
 }
 
+// Approval API methods
+export const approvalApi = {
+  // Get pending approvals for current user
+  getPendingApprovals: (filters?: { 
+    limit?: number; 
+    offset?: number; 
+    category?: string; 
+    min_amount?: number; 
+    max_amount?: number;
+    sort_by?: string;
+    sort_order?: 'asc' | 'desc';
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.min_amount) params.append('min_amount', filters.min_amount.toString());
+    if (filters?.max_amount) params.append('max_amount', filters.max_amount.toString());
+    if (filters?.sort_by) params.append('sort_by', filters.sort_by);
+    if (filters?.sort_order) params.append('sort_order', filters.sort_order);
+    
+    const queryString = params.toString();
+    return apiRequest<{ approvals: ExpenseApproval[]; total: number; }>(`/approvals/pending${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get approval dashboard statistics
+  getDashboardStats: () => apiRequest<ApprovalDashboardStats>("/approvals/dashboard-stats"),
+
+  // Get expenses approved by current user
+  getApprovedExpenses: (filters?: {
+    skip?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.skip !== undefined) params.append('skip', filters.skip.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    return apiRequest<{ expenses: Expense[]; total: number; }>(`/approvals/approved-expenses${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get expenses processed (approved/rejected) by current user
+  getProcessedExpenses: (filters?: {
+    skip?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.skip !== undefined) params.append('skip', filters.skip.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    return apiRequest<{ expenses: Expense[]; total: number; }>(`/approvals/processed-expenses${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Approve an expense
+  approveExpense: (approvalId: number, notes?: string) =>
+    apiRequest<{ success: boolean; message: string; }>(`/approvals/${approvalId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'approved', notes }),
+    }),
+
+  // Reject an expense
+  rejectExpense: (approvalId: number, reason: string, notes?: string) =>
+    apiRequest<{ success: boolean; message: string; }>(`/approvals/${approvalId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'rejected', rejection_reason: reason, notes }),
+    }),
+
+  // Get approval history for an expense
+  getApprovalHistory: (expenseId: number) => 
+    apiRequest<{ history: ApprovalHistoryEntry[]; }>(`/approvals/history/${expenseId}`),
+
+  // Submit expense for approval
+  submitForApproval: (expenseId: number, approverId: number, notes?: string) =>
+    apiRequest<ExpenseApproval[]>(`/approvals/expenses/${expenseId}/submit-approval`, {
+      method: 'POST',
+      body: JSON.stringify({ expense_id: expenseId, notes, approver_id: approverId }),
+    }),
+
+  // Get list of available approvers
+  getApprovers: () => apiRequest<Array<{ id: number; name: string; email: string }>>(`/approvals/approvers`),
+
+
+  // Approval Delegation Management
+  getDelegations: (filters?: { 
+    approver_id?: number; 
+    delegate_id?: number; 
+    is_active?: boolean;
+    limit?: number; 
+    offset?: number; 
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.approver_id) params.append('approver_id', filters.approver_id.toString());
+    if (filters?.delegate_id) params.append('delegate_id', filters.delegate_id.toString());
+    if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    
+    const queryString = params.toString();
+    return apiRequest<ApprovalDelegate[]>(`/approvals/delegates${queryString ? `?${queryString}` : ''}`);
+  },
+
+  createDelegation: (delegationData: ApprovalDelegateCreate) => 
+    apiRequest<ApprovalDelegate>('/approvals/delegate', {
+      method: 'POST',
+      body: JSON.stringify(delegationData),
+    }),
+
+  updateDelegation: (delegationId: number, delegationData: ApprovalDelegateUpdate) => 
+    apiRequest<ApprovalDelegate>(`/approvals/delegates/${delegationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(delegationData),
+    }),
+
+  deleteDelegation: (delegationId: number) => 
+    apiRequest<{ message: string }>(`/approvals/delegates/${delegationId}`, {
+      method: 'DELETE',
+    }),
+};
+
 // Client API methods
 export const clientApi = {
   getClients: () => apiRequest<Client[]>("/clients/"),
@@ -1158,6 +1297,36 @@ export const authApi = {
     apiRequest<{ available: boolean; email: string }>(`/auth/check-email-availability?email=${encodeURIComponent(email)}`, {
       method: 'GET',
     }),
+  
+  // Organization join request functions
+  lookupOrganization: (organizationName: string) =>
+    apiRequest<{ exists: boolean; tenant_id?: number; organization_name?: string; message: string }>('/organization-join/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ organization_name: organizationName }),
+    }),
+  
+  submitJoinRequest: (requestData: any) =>
+    apiRequest<{ success: boolean; message: string; request_id?: number }>('/organization-join/request', {
+      method: 'POST',
+      body: JSON.stringify(requestData),
+    }),
+  
+  // Admin functions for managing join requests
+  getPendingJoinRequests: () =>
+    apiRequest<any[]>('/organization-join/pending', {
+      method: 'GET',
+    }),
+  
+  getJoinRequestDetails: (requestId: number) =>
+    apiRequest<any>(`/organization-join/${requestId}`, {
+      method: 'GET',
+    }),
+  
+  processJoinRequest: (requestId: number, approvalData: any) =>
+    apiRequest<{ success: boolean; message: string }>(`/organization-join/${requestId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(approvalData),
+    }),
   requestPasswordReset: (email: string) =>
     apiRequest<{ message: string; success: boolean }>(`/auth/request-password-reset`, {
       method: 'POST',
@@ -1172,6 +1341,21 @@ export const authApi = {
     apiRequest<any>(`/auth/invites/${inviteId}/activate`, {
       method: 'POST',
       body: JSON.stringify(activationData),
+    }),
+};
+
+// User API methods
+export const userApi = {
+  getUsers: () => apiRequest<User[]>('/auth/users'),
+  getUser: (id: number) => apiRequest<User>(`/auth/users/${id}`),
+  updateUser: (id: number, userData: Partial<User>) =>
+    apiRequest<User>(`/auth/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    }),
+  deleteUser: (id: number) =>
+    apiRequest<{ message: string }>(`/auth/users/${id}`, {
+      method: 'DELETE',
     }),
 };
 
@@ -1273,7 +1457,8 @@ export const invoiceApi = {
           price: item.price || 0,
           amount: item.amount || (item.quantity || 1) * (item.price || 0),
           inventory_item_id: item.inventory_item_id,
-          unit_of_measure: item.unit_of_measure
+          unit_of_measure: item.unit_of_measure,
+          inventory_item: item.inventory_item // Include the inventory item data!
         })) : [],
         created_at: apiResponse.created_at || '',
         updated_at: apiResponse.updated_at || '',
@@ -1306,7 +1491,25 @@ export const invoiceApi = {
       throw error;
     }
   },
-  createInvoice: (invoiceData: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) => 
+  createInvoice: (invoiceData: {
+    number?: string;
+    client_id: number;
+    date?: string;
+    due_date?: string;
+    amount: number;
+    currency?: string;
+    paid_amount?: number;
+    status?: string;
+    notes?: string;
+    is_recurring?: boolean;
+    recurring_frequency?: string;
+    discount_type?: string;
+    discount_value?: number;
+    subtotal?: number;
+    custom_fields?: Record<string, any>;
+    show_discount_in_pdf?: boolean;
+    items?: any[];
+  }) => 
     apiRequest<Invoice>('/invoices/', {
       method: 'POST',
       body: JSON.stringify(invoiceData),
@@ -1948,6 +2151,21 @@ export const superAdminApi = {
       body: JSON.stringify({ email }),
     }, { skipTenant: true });
   },
+  toggleUserStatus: async (userId: number) => {
+    return apiRequest<{ message: string }>(`/super-admin/users/${userId}/toggle-status`, {
+      method: "PATCH",
+    }, { skipTenant: true });
+  },
+  resetUserPassword: async (userId: number, newPassword: string, forceReset: boolean = false) => {
+    return apiRequest<{ message: string }>(`/super-admin/users/${userId}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({
+        new_password: newPassword,
+        confirm_password: newPassword,
+        force_reset_on_login: forceReset
+      }),
+    }, { skipTenant: true });
+  },
 };
 
 // Report error handling utilities
@@ -2294,6 +2512,20 @@ export const inventoryApi = {
   getAnalytics: () =>
     apiRequest<InventoryAnalytics>('/inventory/analytics'),
 
+  getAdvancedAnalytics: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    const queryString = params.toString();
+    return apiRequest(`/inventory/analytics/advanced${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getSalesVelocity: (days = 30) =>
+    apiRequest(`/inventory/analytics/sales-velocity?days=${days}`),
+
+  getForecasting: (forecastDays = 90) =>
+    apiRequest(`/inventory/analytics/forecasting?forecast_days=${forecastDays}`),
+
   getValueReport: () =>
     apiRequest<InventoryValueReport>('/inventory/reports/value'),
 
@@ -2316,7 +2548,7 @@ export const inventoryApi = {
     return apiRequest<CategoryPerformanceReport>(`/inventory/reports/categories${queryString ? `?${queryString}` : ''}`);
   },
 
-  getSalesVelocity: (days = 30) =>
+  getSalesVelocityReport: (days = 30) =>
     apiRequest(`/inventory/reports/sales-velocity?days=${days}`),
 
   getDashboardData: () =>
@@ -2380,6 +2612,43 @@ export const inventoryApi = {
     apiRequest<StockMovement[]>('/inventory/stock-movements/bulk', {
       method: 'POST',
       body: JSON.stringify(movements),
+    }),
+
+  // Barcode Management
+  getItemByBarcode: (barcode: string) =>
+    apiRequest<InventoryItem>(`/inventory/items/barcode/${encodeURIComponent(barcode)}`),
+
+  updateItemBarcode: (itemId: number, barcodeData: {
+    barcode: string;
+    barcode_type?: string;
+    barcode_format?: string;
+  }) =>
+    apiRequest(`/inventory/items/${itemId}/barcode`, {
+      method: 'POST',
+      body: JSON.stringify(barcodeData),
+    }),
+
+  validateBarcode: (barcode: string) =>
+    apiRequest(`/inventory/barcode/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ barcode }),
+    }),
+
+  getBarcodeSuggestions: (itemName: string, sku?: string) => {
+    const params = new URLSearchParams({ item_name: itemName });
+    if (sku) params.set('sku', sku);
+    return apiRequest<{ suggestions: string[] }>(`/inventory/barcode/suggestions?${params.toString()}`);
+  },
+
+  bulkUpdateBarcodes: (barcodeUpdates: Array<{
+    item_id: number;
+    barcode: string;
+    barcode_type?: string;
+    barcode_format?: string;
+  }>) =>
+    apiRequest('/inventory/barcode/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify(barcodeUpdates),
     }),
 
   // Import/Export

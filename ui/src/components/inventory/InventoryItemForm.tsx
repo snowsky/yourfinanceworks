@@ -8,11 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Package, FileText } from "lucide-react";
 import { inventoryApi, InventoryItem, InventoryCategory, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
-import { InventoryItemLinkedInvoices } from "./InventoryItemLinkedInvoices";
+import { CurrencySelector } from "@/components/ui/currency-selector";
+import { AttachmentUpload } from "./AttachmentUpload";
+import { AttachmentGallery, Attachment } from "./AttachmentGallery";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface InventoryItemFormProps {
   isEdit?: boolean;
@@ -26,6 +29,8 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   // Detect user's business type to set appropriate defaults
   const getUserBusinessType = () => {
     try {
@@ -42,6 +47,41 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
   const businessType = getUserBusinessType();
 
+  // Load attachments for the current item
+  const loadAttachments = async (itemId: number) => {
+    try {
+      setAttachmentsLoading(true);
+      const response = await fetch(`/api/v1/inventory/${itemId}/attachments`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAttachments(data);
+      }
+    } catch (error) {
+      console.error('Failed to load attachments:', error);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  };
+
+  // Handle successful attachment uploads
+  const handleAttachmentUpload = (uploadedAttachments: any[]) => {
+    // Refresh the attachments list
+    if (id) {
+      loadAttachments(parseInt(id));
+    }
+    toast.success(`Successfully uploaded ${uploadedAttachments.length} attachment(s)`);
+  };
+
+  // Handle attachment upload errors
+  const handleAttachmentUploadError = (error: string) => {
+    toast.error(`Upload error: ${error}`);
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -50,12 +90,13 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
     unit_price: '',
     cost_price: '',
     currency: 'USD',
-    track_stock: businessType === 'service' ? false : true, // Services don't need stock by default
+    track_stock: true, // Enable stock tracking by default
     current_stock: '',
     minimum_stock: '',
     unit_of_measure: businessType === 'service' ? 'hours' : 'each', // Services often measured in hours
     item_type: businessType === 'service' ? 'service' : 'product', // Default based on business type
-    is_active: true
+    is_active: true,
+    unlimited_stock: businessType === 'service' ? true : false // Services default to unlimited
   });
 
   useEffect(() => {
@@ -67,6 +108,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
         if (isEdit && id) {
           const itemData = await inventoryApi.getItem(parseInt(id));
+          // Check if stock is unlimited (very high number for services)
+          const isUnlimited = !itemData.track_stock && itemData.current_stock >= 999999;
+
           setFormData({
             name: itemData.name,
             description: itemData.description || '',
@@ -76,12 +120,16 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
             cost_price: itemData.cost_price?.toString() || '',
             currency: itemData.currency,
             track_stock: itemData.track_stock,
-            current_stock: itemData.current_stock.toString(),
+            current_stock: isUnlimited ? '' : itemData.current_stock.toString(),
             minimum_stock: itemData.minimum_stock.toString(),
             unit_of_measure: itemData.unit_of_measure,
             item_type: itemData.item_type,
-            is_active: itemData.is_active
+            is_active: itemData.is_active,
+            unlimited_stock: isUnlimited
           });
+
+          // Load attachments for this item
+          await loadAttachments(parseInt(id));
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -95,7 +143,42 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   }, [isEdit, id]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+
+      // Handle special cases
+      if (field === 'item_type') {
+        // Auto-adjust defaults based on item type
+        if (value === 'service' && !isEdit) {
+          newData.track_stock = true;  // Enable stock tracking for services
+          newData.unlimited_stock = true;  // But default to unlimited
+          newData.unit_of_measure = 'hours';
+        } else if (value === 'product' && !isEdit) {
+          newData.track_stock = true;
+          newData.unlimited_stock = false;
+          newData.unit_of_measure = 'each';
+        }
+      }
+
+      if (field === 'track_stock') {
+        // When enabling stock tracking for services, offer unlimited option
+        if (value && newData.item_type === 'service') {
+          newData.unlimited_stock = true;
+        } else if (!value) {
+          newData.unlimited_stock = false;
+        }
+      }
+
+      if (field === 'unlimited_stock') {
+        // When unlimited is toggled, update current_stock accordingly
+        if (value) {
+          newData.current_stock = '';
+          newData.minimum_stock = '';
+        }
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,6 +197,24 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
     setSaving(true);
     try {
+      // Handle stock values based on type and unlimited setting
+      let current_stock: number;
+      let minimum_stock: number;
+
+      if (formData.track_stock) {
+        // Normal stock tracking
+        current_stock = parseFloat(formData.current_stock || '0');
+        minimum_stock = parseFloat(formData.minimum_stock || '0');
+      } else if (formData.unlimited_stock && formData.item_type === 'service') {
+        // Unlimited stock for services
+        current_stock = 999999;
+        minimum_stock = 0;
+      } else {
+        // No stock tracking
+        current_stock = 0;
+        minimum_stock = 0;
+      }
+
       const itemData = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
@@ -123,8 +224,8 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : undefined,
         currency: formData.currency,
         track_stock: formData.track_stock,
-        current_stock: formData.track_stock ? parseFloat(formData.current_stock || '0') : 0,
-        minimum_stock: formData.track_stock ? parseFloat(formData.minimum_stock || '0') : 0,
+        current_stock: current_stock,
+        minimum_stock: minimum_stock,
         unit_of_measure: formData.unit_of_measure,
         item_type: formData.item_type,
         is_active: formData.is_active
@@ -178,11 +279,30 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('inventory.basic_info', 'Basic Information')}</CardTitle>
-            </CardHeader>
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="details">{t('inventory.item_details', 'Item Details')}</TabsTrigger>
+            <TabsTrigger value="attachments">
+              {t('inventory.attachments', 'Attachments')}
+              {attachments.length > 0 && (
+                <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+                  {attachments.length}
+                </span>
+              )}
+            </TabsTrigger>
+            {isEdit && id && (
+              <TabsTrigger value="activity">
+                {t('inventory.activity', 'Activity')}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="details" className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('inventory.basic_info', 'Basic Information')}</CardTitle>
+                </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -301,22 +421,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="currency">{t('inventory.currency', 'Currency')}</Label>
-                  <Select
+                  <Label>{t('inventory.currency', 'Currency')}</Label>
+                  <CurrencySelector
                     value={formData.currency}
                     onValueChange={(value) => handleInputChange('currency', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                      <SelectItem value="CAD">CAD</SelectItem>
-                      <SelectItem value="BRL">BRL</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder={t('inventory.select_currency', 'Select currency')}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -333,48 +443,81 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="track_stock"
-                  checked={formData.track_stock}
-                  onCheckedChange={(checked) => handleInputChange('track_stock', checked)}
-                />
-                <Label htmlFor="track_stock">
-                  {t('inventory.track_stock', 'Track stock levels')}
-                  {businessType === 'service' && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({t('inventory.optional_for_services', 'optional for services')})
-                    </span>
-                  )}
-                </Label>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="track_stock"
+                    checked={formData.track_stock}
+                    onCheckedChange={(checked) => handleInputChange('track_stock', checked)}
+                  />
+                  <Label htmlFor="track_stock">
+                    {t('inventory.track_stock', 'Track stock levels')}
+                    {businessType === 'service' && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({t('inventory.optional_for_services', 'optional for services')})
+                      </span>
+                    )}
+                  </Label>
+                </div>
+
               </div>
 
               {formData.track_stock && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current_stock">{t('inventory.current_stock', 'Current Stock')}</Label>
-                    <Input
-                      id="current_stock"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.current_stock}
-                      onChange={(e) => handleInputChange('current_stock', e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minimum_stock">{t('inventory.minimum_stock', 'Minimum Stock')}</Label>
-                    <Input
-                      id="minimum_stock"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.minimum_stock}
-                      onChange={(e) => handleInputChange('minimum_stock', e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
+                <div className="space-y-4">
+                  {/* Unlimited Stock Option for Services */}
+                  {formData.item_type === 'service' && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="unlimited_stock"
+                          checked={formData.unlimited_stock}
+                          onCheckedChange={(checked) => handleInputChange('unlimited_stock', checked)}
+                        />
+                        <Label htmlFor="unlimited_stock" className="font-medium">
+                          {t('inventory.unlimited_stock', 'Unlimited Stock')}
+                        </Label>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t('inventory.unlimited_stock_help',
+                          'Perfect for services like consulting - never runs out and no stock management needed')}
+                      </p>
+                      {formData.unlimited_stock && (
+                        <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
+                          <span>✓ Available: Unlimited</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!formData.unlimited_stock && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="current_stock">{t('inventory.current_stock', 'Current Stock')}</Label>
+                        <Input
+                          id="current_stock"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.current_stock}
+                          onChange={(e) => handleInputChange('current_stock', e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="minimum_stock">{t('inventory.minimum_stock', 'Minimum Stock')}</Label>
+                        <Input
+                          id="minimum_stock"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.minimum_stock}
+                          onChange={(e) => handleInputChange('minimum_stock', e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="unit_of_measure">{t('inventory.unit_of_measure', 'Unit of Measure')}</Label>
                     <Select
@@ -416,33 +559,101 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/inventory')}
-              disabled={saving}
-            >
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Save className="mr-2 h-4 w-4" />
-              {saving
-                ? t('common.saving', 'Saving...')
-                : t('common.save', 'Save')
-              }
-            </Button>
-          </div>
-        </form>
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/inventory')}
+                  disabled={saving}
+                >
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving
+                    ? t('common.saving', 'Saving...')
+                    : t('common.save', 'Save')
+                  }
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
 
-        {/* Linked Invoices and Stock Movements - Only show for existing items */}
-        {isEdit && id && (
-          <InventoryItemLinkedInvoices
-            itemId={parseInt(id)}
-            itemName={formData.name || 'this item'}
-          />
-        )}
+          <TabsContent value="attachments" className="space-y-6">
+            {isEdit && id ? (
+              <div className="space-y-6">
+                {/* Existing Attachments Gallery */}
+                {attachments.length > 0 && (
+                  <AttachmentGallery
+                    itemId={parseInt(id)}
+                    attachments={attachments}
+                    onAttachmentUpdate={() => loadAttachments(parseInt(id))}
+                  />
+                )}
+
+                {/* Upload New Attachments */}
+                <AttachmentUpload
+                  itemId={parseInt(id)}
+                  onUploadComplete={handleAttachmentUpload}
+                  onUploadError={handleAttachmentUploadError}
+                />
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="text-muted-foreground">
+                    <p className="text-lg font-medium mb-2">Save the item first</p>
+                    <p>You can add attachments after creating the inventory item.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {isEdit && id && (
+            <TabsContent value="activity" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Stock Movement Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      {t('inventory.stock_movement_summary', 'Stock Movement Summary')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
+                        {t('inventory.stock_movement_placeholder', 'Stock movement summary will be displayed here')}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Linked Invoices */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      {t('inventory.linked_invoices', 'Linked Invoices')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
+                        {t('inventory.linked_invoices_placeholder', 'Linked invoices will be displayed here')}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
+
       </div>
     </AppLayout>
   );

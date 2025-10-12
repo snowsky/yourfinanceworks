@@ -425,6 +425,12 @@ export function AppSidebar() {
       tourId: 'nav-expenses'
     },
     {
+      path: '/approvals',
+      label: 'Approvals',
+      icon: <ListChecks className="w-5 h-5" />,
+      tourId: 'nav-approvals'
+    },
+    {
       path: '/inventory',
       label: t('navigation.inventory', 'Inventory'),
       icon: <Package className="w-5 h-5" />,
@@ -449,13 +455,13 @@ export function AppSidebar() {
 
   const settingsMenuItems = [
     // Only show Settings for admin users in their owned organization
-    ...((!roleLoading && isAdminEffective && isPrimaryTenant) ? [{ 
+    ...((!roleLoading && isAdminEffective && isPrimaryTenant) ? [{
       path: '/settings',
       label: t('navigation.settings'),
       icon: <Settings className="w-5 h-5" />,
       tourId: 'nav-settings'
     }] : []),
-    // Users is now a sub-entry under Settings for admins
+    // User Management section for admins
     ...((!roleLoading && isAdminEffective) ? [{
       path: '/users',
       label: t('navigation.users'),
@@ -684,7 +690,7 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter className="py-2 px-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
           {/* Professional Controls Section */}
-          <div className="space-y-2">
+          <div className="space-y-8">
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
                 <LanguageSwitcher />

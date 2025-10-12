@@ -26,3 +26,5 @@ from .search import *
 from .external_api_auth import *
 from .external_transactions import *
 from .inventory import *
+from .inventory_attachments import *
+from .approvals import *

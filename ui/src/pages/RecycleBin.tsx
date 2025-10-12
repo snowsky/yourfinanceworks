@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, AlertTriangle } from "lucide-react";
+import { Trash2, RotateCcw } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
@@ -66,7 +66,15 @@ const RecycleBin = () => {
       fetchDeletedInvoices();
     } catch (error) {
       console.error('Failed to permanently delete invoice:', error);
-      toast.error('Failed to permanently delete invoice');
+      // Extract specific error message from API response
+      let errorMessage = error instanceof Error ? error.message : 'Failed to permanently delete invoice';
+
+      // Check if it's the linked expenses error and use translated version
+      if (errorMessage.includes('linked expenses')) {
+        errorMessage = t('invoices.delete_error_linked_expenses');
+      }
+
+      toast.error(errorMessage);
     }
   };
 

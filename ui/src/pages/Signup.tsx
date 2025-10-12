@@ -12,8 +12,11 @@ const Signup: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    organization_name: ''
+    organization_name: '',
+    requested_role: 'user',
+    message: ''
   });
+  const [signupMode, setSignupMode] = useState<'create' | 'join'>('create');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -65,14 +68,25 @@ const Signup: React.FC = () => {
     });
 
     try {
-      const result = await authApi.checkOrganizationNameAvailability(name);
-      setOrganizationNameStatus({
-        checking: false,
-        available: result.available,
-        message: result.available 
-          ? t('auth.signup.availability.org_available')
-          : t('auth.signup.availability.org_taken')
-      });
+      if (signupMode === 'create') {
+        // Check if name is available for new organization
+        const result = await authApi.checkOrganizationNameAvailability(name);
+        setOrganizationNameStatus({
+          checking: false,
+          available: result.available,
+          message: result.available 
+            ? t('auth.signup.availability.org_available')
+            : t('auth.signup.availability.org_taken')
+        });
+      } else {
+        // Check if organization exists to join
+        const result = await authApi.lookupOrganization(name);
+        setOrganizationNameStatus({
+          checking: false,
+          available: result.exists,
+          message: result.message
+        });
+      }
     } catch (error) {
       setOrganizationNameStatus({
         checking: false,
@@ -80,7 +94,7 @@ const Signup: React.FC = () => {
         message: t('auth.signup.availability.error_checking')
       });
     }
-  }, []);
+  }, [signupMode]);
 
   // Debounced email availability check
   const checkEmailAvailability = useCallback(async (email: string) => {
@@ -207,13 +221,35 @@ const Signup: React.FC = () => {
     }
 
     try {
-      const data = await authApi.register(formData);
-      // Clear any previous tenant selection
-      localStorage.removeItem('selected_tenant_id');
-      // Store token and user info
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/dashboard');
+      if (signupMode === 'create') {
+        // Regular signup - create new organization
+        const data = await authApi.register(formData);
+        // Clear any previous tenant selection
+        localStorage.removeItem('selected_tenant_id');
+        // Store token and user info
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/dashboard');
+      } else {
+        // Join existing organization - submit join request
+        const result = await authApi.submitJoinRequest({
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          password: formData.password,
+          organization_name: formData.organization_name,
+          requested_role: formData.requested_role,
+          message: formData.message
+        });
+        
+        if (result.success) {
+          // Show success message and redirect to a confirmation page or login
+          alert(result.message + ' Please wait for admin approval.');
+          navigate('/login');
+        } else {
+          setError(result.message);
+        }
+      }
     } catch (err: any) {
       setError(err.message || t('auth.signup.validation.registration_failed'));
     } finally {
@@ -240,10 +276,57 @@ const Signup: React.FC = () => {
           )}
           
           <div className="space-y-4">
+            {/* Mode Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                How would you like to get started?
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignupMode('create');
+                    // Reset organization status when switching modes
+                    setOrganizationNameStatus({ checking: false, available: null, message: '' });
+                    if (formData.organization_name) {
+                      checkOrganizationNameAvailability(formData.organization_name);
+                    }
+                  }}
+                  className={`p-3 text-left border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    signupMode === 'create'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-medium">Create new organization</div>
+                  <div className="text-xs text-gray-500">Start fresh with your own organization</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSignupMode('join');
+                    // Reset organization status when switching modes
+                    setOrganizationNameStatus({ checking: false, available: null, message: '' });
+                    if (formData.organization_name) {
+                      checkOrganizationNameAvailability(formData.organization_name);
+                    }
+                  }}
+                  className={`p-3 text-left border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    signupMode === 'join'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-medium">Join existing organization</div>
+                  <div className="text-xs text-gray-500">Request to join an organization</div>
+                </button>
+              </div>
+            </div>
+
             {/* Organization Name */}
             <div>
               <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700">
-                {t('auth.signup.organization_name')}
+                {signupMode === 'create' ? 'Organization Name' : 'Organization to Join'}
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -261,7 +344,7 @@ const Signup: React.FC = () => {
                       ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
                       : 'border-gray-300'
                   }`}
-                  placeholder={t('auth.signup.organization_placeholder')}
+                  placeholder={signupMode === 'create' ? 'Enter your organization name' : 'Enter organization name to join'}
                   value={formData.organization_name}
                   onChange={handleChange}
                 />
@@ -451,6 +534,45 @@ const Signup: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Additional fields for join mode */}
+            {signupMode === 'join' && (
+              <>
+                {/* Role Selection */}
+                <div>
+                  <label htmlFor="requested_role" className="block text-sm font-medium text-gray-700">
+                    Requested Role
+                  </label>
+                  <select
+                    id="requested_role"
+                    name="requested_role"
+                    value={formData.requested_role}
+                    onChange={(e) => setFormData({...formData, requested_role: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+
+                {/* Optional Message */}
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+                    Message to Admin (Optional)
+                  </label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    rows={3}
+                    value={formData.message}
+                    onChange={(e) => setFormData({...formData, message: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Tell the admin why you want to join this organization..."
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div>
@@ -459,7 +581,10 @@ const Signup: React.FC = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? t('auth.signup.creating_account') : t('auth.signup.create_account')}
+              {loading ? 
+                (signupMode === 'create' ? 'Creating Account...' : 'Submitting Request...') : 
+                (signupMode === 'create' ? 'Create Account' : 'Request to Join')
+              }
             </button>
           </div>
 

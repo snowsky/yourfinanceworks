@@ -306,6 +306,27 @@ async def get_report_types(
                     "transaction_date", "description", "amount", "balance",
                     "transaction_type", "account_name", "reference"
                 ]
+            },
+            {
+                "type": ReportType.INVENTORY,
+                "name": "Inventory Reports",
+                "description": "Stock levels, valuation, and movement analysis",
+                "filters": [
+                    {"name": "date_from", "type": "datetime", "required": False},
+                    {"name": "date_to", "type": "datetime", "required": False},
+                    {"name": "date_filter_type", "type": "str", "required": False, "default": "both"},
+                    {"name": "category_ids", "type": "list[int]", "required": False},
+                    {"name": "item_type", "type": "list[str]", "required": False},
+                    {"name": "low_stock_only", "type": "boolean", "required": False},
+                    {"name": "value_min", "type": "float", "required": False},
+                    {"name": "value_max", "type": "float", "required": False},
+                    {"name": "include_inactive", "type": "boolean", "required": False}
+                ],
+                "columns": [
+                    "item_name", "sku", "category", "unit_price", "cost_price",
+                    "current_stock", "minimum_stock", "total_value", "last_movement",
+                    "item_type", "currency", "is_active"
+                ]
             }
         ]
         

@@ -7,6 +7,7 @@ class ClientBase(BaseModel):
     email: Optional[str] = Field(None, description="Client's email address")
     phone: Optional[str] = Field(None, description="Client's phone number")
     address: Optional[str] = Field(None, description="Client's address")
+    company: Optional[str] = Field(None, description="Client's company name")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
 
 class ClientCreate(ClientBase):
@@ -17,6 +18,7 @@ class ClientUpdate(BaseModel):
     email: Optional[str] = Field(None, description="Client's email address")
     phone: Optional[str] = Field(None, description="Client's phone number")
     address: Optional[str] = Field(None, description="Client's address")
+    company: Optional[str] = Field(None, description="Client's company name")
     balance: Optional[float] = Field(None, description="Current balance")
     paid_amount: Optional[float] = Field(None, description="Total amount paid")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")

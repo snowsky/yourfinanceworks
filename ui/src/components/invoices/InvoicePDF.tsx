@@ -145,11 +145,12 @@ const styles = StyleSheet.create({
 interface InvoicePDFProps {
   invoice: Invoice;
   companyName: string;
+  clientCompany?: string;
   showDiscount: boolean;
   template?: string;
 }
 
-export const InvoicePDF = ({ invoice, companyName, showDiscount, template = 'modern' }: InvoicePDFProps) => {
+export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, template = 'modern' }: InvoicePDFProps) => {
   const getTemplateColors = () => {
     switch (template) {
       case 'classic':
@@ -195,16 +196,24 @@ export const InvoicePDF = ({ invoice, companyName, showDiscount, template = 'mod
           <Text style={styles.label}>Due Date:</Text>
           <Text style={styles.value}>{invoice.due_date}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Status:</Text>
-          <Text style={styles.value}>{invoice.status}</Text>
-        </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { marginBottom: 5 }]}>Bill To:</Text>
-        <Text style={styles.value}>{invoice.client_name}</Text>
-        <Text style={styles.value}>{invoice.client_email}</Text>
+        <Text style={[styles.label, { marginBottom: 8 }]}>Bill To:</Text>
+        {clientCompany && (
+          <View style={styles.row}>
+            <Text style={styles.label}></Text>
+            <Text style={styles.value}>{clientCompany}</Text>
+          </View>
+        )}
+        <View style={styles.row}>
+          <Text style={styles.label}></Text>
+          <Text style={styles.value}>{invoice.client_name}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}></Text>
+          <Text style={styles.value}>{invoice.client_email}</Text>
+        </View>
       </View>
 
       {invoice.custom_fields && Object.keys(invoice.custom_fields).length > 0 && (

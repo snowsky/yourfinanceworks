@@ -1055,10 +1055,10 @@ const Settings = () => {
             <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
             <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
             <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
-            <TabsTrigger value="api-keys" className="text-xs md:text-sm">API Keys</TabsTrigger>
-            <TabsTrigger value="search" className="text-xs md:text-sm">Search</TabsTrigger>
-            <TabsTrigger value="email-notifications" className="text-xs md:text-sm">Email & Notifications</TabsTrigger>
-            <TabsTrigger value="tax-integration" className="text-xs md:text-sm">Tax Integration</TabsTrigger>
+            <TabsTrigger value="api-keys" className="text-xs md:text-sm">{t('settings.tabs.api_keys')}</TabsTrigger>
+            <TabsTrigger value="search" className="text-xs md:text-sm">{t('settings.tabs.search')}</TabsTrigger>
+            <TabsTrigger value="email-notifications" className="text-xs md:text-sm">{t('settings.tabs.email_notifications')}</TabsTrigger>
+            <TabsTrigger value="tax-integration" className="text-xs md:text-sm">{t('settings.tabs.tax_integration')}</TabsTrigger>
             <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
           </TabsList>
           
@@ -2109,6 +2109,7 @@ const Settings = () => {
               </Card>
             </div>
           </TabsContent>
+
 
           <TabsContent value="export" className="space-y-6">
             {/* Data Overview Section */}

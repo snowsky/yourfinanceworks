@@ -92,6 +92,7 @@
     "signing_in": "Anmeldung läuft...",
     "or_continue_with": "Oder fortfahren mit",
     "sign_in_with_google": "Mit Google anmelden",
+    "sign_in_with_microsoft": "Mit Microsoft anmelden",
     "no_account": "Haben Sie noch kein Konto?",
     "google_sso_coming_soon": "Google SSO wird bald verfügbar sein!",
     "signup": {
@@ -178,6 +179,12 @@
     "description": "Rechnungen erstellen und verwalten",
     "new_invoice": "Neue Rechnung",
     "edit_invoice": "Rechnung bearbeiten",
+    "clone_invoice": "Klonen",
+    "created_label": "Erstellt",
+    "due_label": "Fällig",
+    "paid_label": "Bezahlt",
+    "outstanding_label": "Ausstehend",
+    "total_amount": "Gesamtbetrag",
     "invoice_number": "Rechnungsnummer",
     "client": "Kunde",
     "invoice_date": "Rechnungsdatum",
@@ -187,8 +194,11 @@
       "pending": "Ausstehend",
       "paid": "Bezahlt",
       "overdue": "Überfällig",
-      "partially_paid": "Teilweise bezahlt"
+      "partially_paid": "Teilweise bezahlt",
+      "cancelled": "Storniert"
     },
+    "draft": "Entwurf",
+    "cancelled": "Storniert",
     "items": "Artikel",
     "add_item": "Artikel hinzufügen",
     "remove_item": "Artikel entfernen",
@@ -217,6 +227,7 @@
     "confirm_delete": "Sind Sie sicher, dass Sie diese Rechnung löschen möchten?",
     "delete_success": "Rechnung erfolgreich in den Papierkorb verschoben",
     "delete_error": "Fehler beim Löschen der Rechnung",
+    "delete_error_linked_expenses": "Rechnung kann nicht gelöscht werden, da verknüpfte Ausgaben vorhanden sind. Bitte trennen Sie zuerst die Verknüpfung auf oder löschen Sie die Ausgaben.",
     "invoice_created": "Rechnung erfolgreich erstellt",
     "invoice_updated": "Rechnung erfolgreich aktualisiert",
     "invoice_deleted": "Rechnung erfolgreich gelöscht",
@@ -361,7 +372,7 @@
     "llm_not_configured_will_proceed_manually": "LLM nicht konfiguriert. Fahrt mit manueller Rechnungserstellung fort.",
     "processing_pdf": "PDF wird verarbeitet...",
     "create_manually": "Manuell erstellen",
-    "enter_invoice_details_manually": "Geben Sie alle Rechnungsdetails manuell ein mit optionaler Dateianlage",
+    "enter_invoice_details_manually": "Details manuell eingeben",
     "optional_attachment": "Optionaler Anhang",
     "attachment_selected": "Anhang ausgewählt",
     "link_expense": "Ausgabe verknüpfen",
@@ -511,6 +522,13 @@
       "invoices": "Rechnungseinstellungen",
       "currencies": "Währungen",
       "discount_rules": "Rabattregeln",
+      "ai_config": "KI-Konfiguration",
+      "api_keys": "API-Schlüssel",
+      "search": "Suche",
+      "email_notifications": "E-Mail & Benachrichtigungen",
+      "tax_integration": "Steuerintegration",
+      "approval_rules": "Genehmigungsregeln",
+      "export": "Datenverwaltung",
       "add_rule": "Regel hinzufügen",
       "rule_name": "Regelname",
       "min_amount": "Mindestbetrag",
@@ -527,9 +545,11 @@
       "edit_discount_rule": "Rabattregel bearbeiten",
       "rule_active": "Aktiv",
       "rule_inactive": "Inaktiv",
-      "ai_config": "KI-Konfiguration",
-      "email": "E-Mail-Einstellungen",
-      "export": "Datenverwaltung"
+      "email": "E-Mail-Einstellungen"
+    },
+    "approval_rules": {
+      "title": "Genehmigungsregeln-Verwaltung",
+      "description": "Konfigurieren Sie Genehmigungs-Workflows und Regeln für Spesenabrechnungen"
     },
     "min_amount": "Mindestbetrag",
     "priority": "Priorität",
@@ -798,7 +818,26 @@
     "cancel": "Abbrechen",
     "confirmCancelInvite": "Sind Sie sicher, dass Sie die Einladung für {{email}} stornieren möchten?",
     "inviteCancelled": "Einladung erfolgreich storniert!",
-    "failedToCancelInvite": "Einladung konnte nicht storniert werden"
+    "failedToCancelInvite": "Einladung konnte nicht storniert werden",
+    "activationDescription": "Aktivieren Sie dieses Benutzerkonto. Sie können das Passwort jetzt festlegen oder eine Einladung senden, damit der Benutzer es selbst festlegt.",
+    "passwordOptionLabel": "Passwort-Einrichtung",
+    "passwordWillBeSet": "✓ Benutzer kann sich sofort mit diesem Passwort anmelden",
+    "inviteWillBeSent": "⚠ Leer lassen, um Einladungs-E-Mail zu senden - Benutzer muss Passwort bei erster Anmeldung setzen",
+    "passwordTooShort": "Passwort muss mindestens 6 Zeichen lang sein",
+    "activateWithPassword": "Aktivieren & Passwort setzen",
+    "sendInvite": "Einladungs-E-Mail senden",
+    "deactivate": "Deaktivieren",
+    "reset": "Zurücksetzen",
+    "delete": "Löschen",
+    "deactivateUser": "Benutzer deaktivieren",
+    "resetPassword": "Passwort zurücksetzen",
+    "deleteUser": "Benutzer löschen",
+    "confirmToggleStatus": "Sind Sie sicher, dass Sie den Benutzer {{email}} {{action}} möchten?",
+    "confirmDeleteUser": "Sind Sie sicher, dass Sie den Benutzer {{email}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "enterNewPassword": "Neues Passwort für {{email}} eingeben:",
+    "statusToggled": "Benutzerstatus erfolgreich aktualisiert",
+    "passwordReset": "Passwort erfolgreich zurückgesetzt",
+    "userDeleted": "Benutzer erfolgreich gelöscht"
   },
   "errors": {
     "USER_NOT_FOUND": "Benutzer existiert nicht. Bitte melden Sie sich zuerst an.",
@@ -956,10 +995,12 @@
     "delete_confirm_description": "Diese Aktion kann nicht rückgängig gemacht werden. Dies wird diese Ausgabe und ihre Anhänge dauerhaft löschen.",
     "new_title": "Neue Ausgabe",
     "edit_title": "Ausgabe bearbeiten",
+    "view_title": "Ausgabe anzeigen",
     "import_title": "Ausgaben importieren",
     "import_description": "Wählen Sie bis zu 10 PDF- oder Bilddateien aus, um Ausgaben zu erstellen. Jede Datei wird zu einer separaten Ausgabe und wird von OCR analysiert.",
     "new_description": "Erstellen Sie eine neue Ausgabe und laden Sie bis zu 5 Anhänge hoch.",
     "edit_description": "Aktualisieren Sie diese Ausgabe und verwalten Sie Anhänge.",
+    "view_description": "Überprüfen Sie Ausgabendetails und ergreifen Sie Genehmigungsmaßnahmen.",
     "back_to_expenses": "Zurück zu Ausgaben",
     "start_import": "Import starten",
     "importing": "Wird importiert...",
@@ -1398,6 +1439,8 @@
   "taxIntegration": {
     "title": "Steuerdienst-Integration",
     "sendToTaxService": "An Steuerdienst senden",
+    "tax_send_success": "Rechnung erfolgreich an Steuerdienst gesendet",
+    "tax_send_error": "Fehler beim Senden an Steuerdienst",
     "testConnection": "Verbindung testen",
     "sendSelected": "Ausgewählte senden ({{count}})",
     "bulkSendTitle": "{{itemType}} an Steuerdienst senden",
@@ -1585,7 +1628,9 @@
       "price": "Preis",
       "stock": "Lager",
       "status": "Status",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "created_date": "Erstellt",
+      "updated_date": "Aktualisiert"
     },
     "loading": "Inventar wird geladen...",
     "no_service_items": "Noch keine Serviceartikel. Erstellen Sie Ihren Servicekatalog, um zu beginnen.",
@@ -1679,6 +1724,8 @@
     "product_stock_help": "Lagerbestände verfolgen und Warnungen bei niedrigem Lagerbestand erhalten",
     "track_stock": "Lagerbestände verfolgen",
     "optional_for_services": "optional für Dienstleistungen",
+    "unlimited_stock": "Unbegrenzter Lagerbestand",
+    "unlimited_stock_help": "Perfekt für Dienstleistungen wie Beratung - geht nie aus und erfordert keine Lagerverwaltung",
     "current_stock": "Aktueller Lagerbestand",
     "minimum_stock": "Mindestlagerbestand",
     "unit_of_measure": "Maßeinheit",
@@ -1699,6 +1746,7 @@
     "validation": {
       "name_required": "Artikelname ist erforderlich",
       "price_required": "Gültiger Stückpreis ist erforderlich"
-    }
+    },
+    "total": "Total"
   }
 }

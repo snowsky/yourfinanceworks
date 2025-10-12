@@ -125,7 +125,7 @@ export const InventoryConsumptionForm: React.FC<InventoryConsumptionFormProps> =
             {consumptionItems.length > 0 ? (
               <>
                 <span>Select Inventory Items ({consumptionItems.length} selected)</span>
-                <Badge variant="secondary">{consumptionItems.length}</Badge>
+                <Badge variant="secondary">{consumptionItems.length.toString()}</Badge>
               </>
             ) : (
               <span>Select Inventory Items</span>
@@ -212,7 +212,7 @@ export const InventoryConsumptionForm: React.FC<InventoryConsumptionFormProps> =
                         <Label className="text-sm">Qty:</Label>
                         <Input
                           type="number"
-                          min="0.01"
+                          min="0"
                           step="0.01"
                           value={item.quantity}
                           onChange={(e) => updateConsumptionItem(index, 'quantity', parseFloat(e.target.value) || 0)}

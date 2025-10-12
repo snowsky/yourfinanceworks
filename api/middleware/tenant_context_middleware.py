@@ -133,6 +133,8 @@ async def tenant_context_middleware(request: Request, call_next):
         "/api/v1/auth/change-password",
         # Google OAuth SSO endpoints must be public
         "/api/v1/auth/google/login", "/api/v1/auth/google/callback",
+        # Organization join endpoints must be public (used during signup)
+        "/api/v1/organization-join/lookup", "/api/v1/organization-join/request",
     ]
     
     # Skip tenant context for external API endpoints (they use API key auth)

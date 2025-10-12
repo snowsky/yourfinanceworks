@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime, timezone
 import csv
 
 from models.database import get_db
-from models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement
+from models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement, Invoice, InvoiceItem
 from models.models import MasterUser
 from schemas.inventory import (
     InventoryItem as InventoryItemSchema,
@@ -719,6 +720,58 @@ async def get_inventory_analytics(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch analytics")
 
 
+@router.get("/analytics/advanced")
+async def get_advanced_inventory_analytics(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Get advanced inventory analytics with trends and insights"""
+    try:
+        from datetime import datetime
+        start = datetime.fromisoformat(start_date.replace('Z', '+00:00')) if start_date else None
+        end = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if end_date else None
+
+        return inventory_service.get_advanced_inventory_analytics(start, end)
+    except Exception as e:
+        logger.error(f"Error fetching advanced analytics: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch advanced analytics")
+
+
+@router.get("/analytics/sales-velocity")
+async def get_sales_velocity_analysis(
+    days: int = Query(30, ge=7, le=365, description="Analysis period in days"),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Get sales velocity analysis for inventory forecasting"""
+    try:
+        # Use the service method that handles database queries internally
+        return inventory_service.get_sales_velocity_analysis(days)
+    except Exception as e:
+        logger.error(f"Error generating sales velocity analysis: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate sales velocity analysis")
+
+
+@router.get("/analytics/forecasting")
+async def get_inventory_forecasting(
+    forecast_days: int = Query(90, ge=30, le=365, description="Forecast period in days"),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Get inventory forecasting based on historical data"""
+    try:
+        # Use the service method that handles database queries internally
+        return inventory_service.get_inventory_forecasting(forecast_days)
+    except Exception as e:
+        logger.error(f"Error generating inventory forecast: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate inventory forecast")
+
+
 @router.get("/reports/value")
 async def get_inventory_value_report(
     db: Session = Depends(get_db),
@@ -1135,8 +1188,7 @@ async def export_inventory_csv(
 
         csv_content = '\n'.join(csv_lines)
 
-        log_audit_event(db, current_user.id, current_user.email, "EXPORT", "inventory_items", None, f"Exported {len(items)} items to CSV"
-        )
+        log_audit_event(db, current_user.id, current_user.email, "EXPORT", "inventory_items", None, f"Exported {len(items)} items to CSV", None, None, None, "success", None)
 
         return Response(
             content=csv_content,
@@ -1145,7 +1197,120 @@ async def export_inventory_csv(
         )
     except Exception as e:
         logger.error(f"Error exporting CSV: {e}")
-        raise HTTPException(status_code=500, detail="Failed to export inventory data")
+        raise HTTPException(status_code=500, detail=f"Failed to export CSV: {str(e)}")
+
+
+# === Barcode Management Endpoints ===
+
+@router.get("/items/barcode/{barcode}")
+async def get_item_by_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Get inventory item by barcode"""
+    try:
+        item = inventory_service.get_item_by_barcode(barcode)
+        if not item:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found for barcode")
+        return item
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching item by barcode {barcode}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch item by barcode")
+
+
+@router.post("/items/{item_id}/barcode")
+async def update_item_barcode(
+    item_id: int,
+    barcode_data: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Update barcode for an inventory item"""
+    try:
+        barcode = barcode_data.get('barcode')
+        barcode_type = barcode_data.get('barcode_type')
+        barcode_format = barcode_data.get('barcode_format')
+
+        if not barcode:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Barcode is required")
+
+        updated_item = inventory_service.update_item_barcode(
+            item_id, barcode, barcode_type, barcode_format
+        )
+
+        log_audit_event(db, current_user.id, current_user.email, "UPDATE", "inventory_item",
+                       str(item_id), f"Updated barcode: {barcode}", None, None, None, "success", None)
+
+        return {"message": "Barcode updated successfully", "item": updated_item}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating barcode for item {item_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update barcode")
+
+
+@router.post("/barcode/validate")
+async def validate_barcode(
+    barcode_data: Dict[str, str],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Validate a barcode and detect its type"""
+    try:
+        barcode = barcode_data.get('barcode')
+        if not barcode:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Barcode is required")
+
+        validation_result = inventory_service.validate_barcode(barcode)
+        return validation_result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating barcode: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to validate barcode")
+
+
+@router.get("/barcode/suggestions")
+async def get_barcode_suggestions(
+    item_name: str = Query(..., description="Item name for generating suggestions"),
+    sku: Optional[str] = Query(None, description="SKU for generating suggestions"),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Generate barcode suggestions based on item information"""
+    try:
+        suggestions = inventory_service.generate_barcode_suggestions(item_name, sku)
+        return {"suggestions": suggestions}
+    except Exception as e:
+        logger.error(f"Error generating barcode suggestions: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate barcode suggestions")
+
+
+@router.post("/barcode/bulk-update")
+async def bulk_update_barcodes(
+    barcode_updates: List[Dict[str, Any]],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+    inventory_service: InventoryService = Depends(get_inventory_service)
+):
+    """Bulk update barcodes for multiple items"""
+    try:
+        result = inventory_service.bulk_update_barcodes(barcode_updates)
+
+        log_audit_event(db, current_user.id, current_user.email, "BULK_UPDATE", "inventory_barcodes",
+                       None, f"Bulk updated {result['success_count']} barcodes", None, None, None, "success", None)
+
+        return result
+    except Exception as e:
+        logger.error(f"Error bulk updating barcodes: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to bulk update barcodes")
 
 
 # Invoice-Inventory Linking Endpoints
@@ -1157,24 +1322,24 @@ async def get_invoices_linked_to_inventory_item(
     current_user: MasterUser = Depends(get_current_user),
     stock_service: StockMovementService = Depends(get_stock_service)
 ):
-    """Get all invoices that have affected this inventory item's stock"""
+    """Get all invoices that contain this inventory item"""
     try:
         from models.models_per_tenant import Invoice, InvoiceItem
 
-        # Get all stock movements for this item
+        # Get all invoices that contain this inventory item
+        invoice_items = db.query(InvoiceItem.invoice_id).filter(
+            InvoiceItem.inventory_item_id == item_id
+        ).distinct().all()
+
+        if not invoice_items:
+            return []
+
+        # Get unique invoice IDs from invoice items
+        invoice_ids = [item.invoice_id for item in invoice_items]
+
+        # Get all stock movements for this item (for additional info)
         stock_movements = stock_service.get_movement_history(item_id, limit=1000)
-
-        if not stock_movements:
-            return []
-
-        # Filter stock movements to only invoice-related ones
         invoice_stock_movements = [m for m in stock_movements if m.reference_type == "invoice"]
-
-        if not invoice_stock_movements:
-            return []
-
-        # Get unique invoice IDs from stock movements
-        invoice_ids = list(set(movement.reference_id for movement in invoice_stock_movements))
 
         # Fetch invoice details with items
         invoices = db.query(
@@ -1244,7 +1409,6 @@ async def get_invoices_linked_to_inventory_item(
             result.append(invoice_dict)
 
         return result
-
     except Exception as e:
         logger.error(f"Error fetching linked invoices for inventory item {item_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch linked invoices")

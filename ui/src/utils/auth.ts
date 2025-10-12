@@ -138,6 +138,46 @@ export const canAccess = (feature: string, allowedRoles: UserRole[]): boolean =>
 };
 
 /**
+ * Check if an expense can be edited by the current user
+ * @param expense The expense to check
+ * @returns boolean - true if the expense can be edited
+ */
+export const canEditExpense = (expense: { status: string }): boolean => {
+  // First check if user has general action permissions
+  if (!canPerformActions()) {
+    return false;
+  }
+
+  // Prevent editing expenses that are in approval workflow
+  const approvalStatuses = ['pending_approval', 'approved', 'rejected', 'resubmitted'];
+  if (approvalStatuses.includes(expense.status)) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Check if an expense can be deleted by the current user
+ * @param expense The expense to check
+ * @returns boolean - true if the expense can be deleted
+ */
+export const canDeleteExpense = (expense: { status: string }): boolean => {
+  // First check if user has general action permissions
+  if (!canPerformActions()) {
+    return false;
+  }
+
+  // Prevent deleting expenses that are in approval workflow
+  const approvalStatuses = ['pending_approval', 'approved', 'rejected', 'resubmitted'];
+  if (approvalStatuses.includes(expense.status)) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
  * Clear authentication data and redirect to login
  */
 export const logout = () => {

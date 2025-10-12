@@ -159,3 +159,158 @@ def require_report_management(user: Union[User, MasterUser], action: str = "mana
         HTTPException: 403 Forbidden if user doesn't have report management access
     """
     require_roles(user, ["admin", "user"], action)
+
+
+# Approval-specific permission functions
+def can_submit_for_approval(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can submit expenses for approval."""
+    return user.role in ["admin", "user"]
+
+
+def can_approve_expenses(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can approve expenses (basic approval permission)."""
+    return user.role in ["admin", "user"]
+
+
+def can_approve_amount(user: Union[User, MasterUser], amount: float, currency: str = "USD") -> bool:
+    """
+    Check if a user can approve expenses up to a specific amount.
+    This is a basic implementation - actual limits should be checked against ApprovalRule.
+    
+    Args:
+        user: The current user
+        amount: The expense amount to approve
+        currency: The currency of the expense
+    
+    Returns:
+        bool: True if user can approve this amount (basic role check)
+    """
+    # Basic role-based approval - actual amount limits should be checked in ApprovalService
+    if user.role == "admin":
+        return True
+    elif user.role == "user":
+        return True  # Amount limits will be enforced by ApprovalRule evaluation
+    else:
+        return False
+
+
+def can_manage_approval_rules(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can create and manage approval rules."""
+    return user.role == "admin"
+
+
+def can_delegate_approvals(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can set up approval delegations."""
+    return user.role in ["admin", "user"]
+
+
+def can_view_approval_history(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can view approval history."""
+    return user.role in ["admin", "user"]
+
+
+def can_view_all_approvals(user: Union[User, MasterUser]) -> bool:
+    """Check if a user can view all pending approvals (admin-only feature)."""
+    return user.role == "admin"
+
+
+def require_approval_submission(user: Union[User, MasterUser], action: str = "submit expenses for approval") -> None:
+    """
+    Check if a user can submit expenses for approval.
+    
+    Args:
+        user: The current user
+        action: Description of the action being performed
+    
+    Raises:
+        HTTPException: 403 Forbidden if user cannot submit for approval
+    """
+    require_roles(user, ["admin", "user"], action)
+
+
+def require_approval_permission(user: Union[User, MasterUser], action: str = "approve expenses") -> None:
+    """
+    Check if a user has basic approval permissions.
+    
+    Args:
+        user: The current user
+        action: Description of the action being performed
+    
+    Raises:
+        HTTPException: 403 Forbidden if user cannot approve expenses
+    """
+    require_roles(user, ["admin", "user"], action)
+
+
+def require_approval_rule_management(user: Union[User, MasterUser], action: str = "manage approval rules") -> None:
+    """
+    Check if a user can manage approval rules.
+    
+    Args:
+        user: The current user
+        action: Description of the action being performed
+    
+    Raises:
+        HTTPException: 403 Forbidden if user cannot manage approval rules
+    """
+    require_admin(user, action)
+
+
+def require_delegation_permission(user: Union[User, MasterUser], action: str = "manage approval delegations") -> None:
+    """
+    Check if a user can set up approval delegations.
+    
+    Args:
+        user: The current user
+        action: Description of the action being performed
+    
+    Raises:
+        HTTPException: 403 Forbidden if user cannot manage delegations
+    """
+    require_roles(user, ["admin", "user"], action)
+
+
+def require_permission(user: Union[User, MasterUser], permission: str) -> None:
+    """
+    Generic permission checker that maps permission strings to appropriate role checks.
+    
+    Args:
+        user: The current user (User or MasterUser)
+        permission: The permission string to check
+    
+    Raises:
+        HTTPException: 403 Forbidden if user doesn't have the required permission
+    """
+    permission_mapping = {
+        # Approval permissions
+        "approval_view": ["admin", "user"],
+        "approval_admin": ["admin"],
+        "approval_submit": ["admin", "user"],
+        "approval_delegate": ["admin", "user"],
+        
+        # Report permissions
+        "report_view": ["admin", "user"],
+        "report_manage": ["admin", "user"],
+        "report_admin": ["admin"],
+        
+        # General permissions
+        "admin": ["admin"],
+        "user": ["admin", "user"],
+        "superuser": [],  # Special case for superuser check
+    }
+    
+    # Special case for superuser permission
+    if permission == "superuser":
+        require_superuser(user, f"access {permission}")
+        return
+    
+    # Check if permission exists in mapping
+    if permission not in permission_mapping:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown permission: {permission}"
+        )
+    
+    # Check user role against required roles for this permission
+    required_roles = permission_mapping[permission]
+    require_roles(user, required_roles, f"access {permission}")

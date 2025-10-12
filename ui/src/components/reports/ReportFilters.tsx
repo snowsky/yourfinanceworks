@@ -48,6 +48,13 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 
   const currencies = currencyData?.currencies || [];
 
+  // Fetch inventory categories for inventory reports
+  const { data: categories = [] } = useQuery({
+    queryKey: ['inventory-categories'],
+    queryFn: () => import('@/lib/api').then(api => api.inventoryApi.getCategories()),
+    enabled: reportType === 'inventory',
+  });
+
   // Sync local date state with filters prop when filters are changed externally (e.g., Quick Actions)
   useEffect(() => {
     // Create dates in local timezone to avoid timezone conversion issues
@@ -110,7 +117,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
     }
   }, [dateFrom, dateTo]); // Removed filters from dependencies to prevent unnecessary re-runs
 
-  const updateFilter = (key: keyof ReportFiltersType, value: any) => {
+  const updateFilter = (key: string, value: any) => {
     const newFilters = { ...filters } as any;
     if (value === undefined || value === null || value === '') {
       delete newFilters[key];
@@ -120,14 +127,14 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
     onFiltersChange(newFilters);
   };
 
-  const addToArrayFilter = (key: keyof ReportFiltersType, value: string | number) => {
+  const addToArrayFilter = (key: string, value: string | number) => {
     const currentArray = (filters[key] as any[]) || [];
     if (!currentArray.includes(value)) {
       updateFilter(key, [...currentArray, value]);
     }
   };
 
-  const removeFromArrayFilter = (key: keyof ReportFiltersType, value: string | number) => {
+  const removeFromArrayFilter = (key: string, value: string | number) => {
     const currentArray = (filters[key] as any[]) || [];
     updateFilter(key, currentArray.filter(item => item !== value));
   };
@@ -496,6 +503,130 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
     </>
   );
 
+  const renderInventoryFilters = () => (
+    <>
+      <div className="space-y-2">
+        <Label>Categories</Label>
+        <Select onValueChange={(value) => addToArrayFilter('category_ids', parseInt(value))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select category..." />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id.toString()}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filters.category_ids && filters.category_ids.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {filters.category_ids.map((categoryId) => {
+              const category = categories.find(c => c.id === categoryId);
+              return (
+                <div key={categoryId} className="flex items-center bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm">
+                  {category?.name || `Category ${categoryId}`}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-1 h-4 w-4 p-0"
+                    onClick={() => removeFromArrayFilter('category_ids', categoryId)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Item Types</Label>
+        <Select onValueChange={(value) => addToArrayFilter('item_type', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select item type..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="product">Product</SelectItem>
+            <SelectItem value="service">Service</SelectItem>
+            <SelectItem value="material">Material</SelectItem>
+          </SelectContent>
+        </Select>
+        {filters.item_type && filters.item_type.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {filters.item_type.map((type) => (
+              <div key={type} className="flex items-center bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm">
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1 h-4 w-4 p-0"
+                  onClick={() => removeFromArrayFilter('item_type', type)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Date Filter Type</Label>
+        <Select value={filters.date_filter_type || 'both'} onValueChange={(value) => updateFilter('date_filter_type', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select date filter type..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="both">Created or Updated</SelectItem>
+            <SelectItem value="created">Created Date Only</SelectItem>
+            <SelectItem value="updated">Updated Date Only</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Minimum Value</Label>
+          <Input
+            type="number"
+            placeholder="0.00"
+            value={filters.value_min || ''}
+            onChange={(e) => updateFilter('value_min', e.target.value ? parseFloat(e.target.value) : undefined)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Maximum Value</Label>
+          <Input
+            type="number"
+            placeholder="0.00"
+            value={filters.value_max || ''}
+            onChange={(e) => updateFilter('value_max', e.target.value ? parseFloat(e.target.value) : undefined)}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="low_stock_only"
+          checked={filters.low_stock_only || false}
+          onCheckedChange={(checked) => updateFilter('low_stock_only', checked)}
+        />
+        <Label htmlFor="low_stock_only">Show only low stock items</Label>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="include_inactive"
+          checked={filters.include_inactive || false}
+          onCheckedChange={(checked) => updateFilter('include_inactive', checked)}
+        />
+        <Label htmlFor="include_inactive">Include inactive items</Label>
+      </div>
+    </>
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -507,11 +638,14 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
       <CardContent className="space-y-6">
         {/* Common filters */}
         {renderDateRangeFilter()}
-        {reportType !== 'client' && renderClientFilter()}
-        {renderCurrencyFilter()}
+        {reportType !== 'client' && reportType !== 'inventory' && renderClientFilter()}
+        {reportType !== 'inventory' && renderCurrencyFilter()}
         
         {/* Amount range for applicable report types */}
         {['invoice', 'payment', 'expense', 'statement'].includes(reportType) && renderAmountRangeFilter()}
+
+        {/* Inventory-specific filters */}
+        {reportType === 'inventory' && renderInventoryFilters()}
         
         {/* Report-specific filters */}
         {reportType === 'invoice' && renderInvoiceFilters()}

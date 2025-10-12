@@ -41,6 +41,8 @@ class MasterUser(Base):
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
+    azure_ad_id = Column(String, unique=True, nullable=True)  # For Azure AD SSO (Object ID)
+    azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -145,6 +147,8 @@ class User(Base):
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
+    azure_ad_id = Column(String, unique=True, nullable=True)  # For Azure AD SSO (Object ID)
+    azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -375,4 +379,47 @@ class AuditLog(Base):
     user_agent = Column(String, nullable=True)
     status = Column(String, default="success", nullable=False)
     error_message = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)) 
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class OrganizationJoinRequest(Base):
+    """
+    Model for tracking requests to join existing organizations.
+    Users can request to join an organization, and admins can approve/reject.
+    """
+    __tablename__ = "organization_join_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # User information for the request
+    email = Column(String, nullable=False, index=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=False)  # Stored temporarily until approved
+    
+    # Organization they want to join
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    requested_role = Column(String, default="user", nullable=False)  # user, admin, viewer
+    
+    # Request status and workflow
+    status = Column(String, default="pending", nullable=False)  # pending, approved, rejected, expired
+    rejection_reason = Column(Text, nullable=True)
+    
+    # Admin who processed the request
+    reviewed_by_id = Column(Integer, ForeignKey("master_users.id"), nullable=True)
+    
+    # Additional information
+    message = Column(Text, nullable=True)  # Optional message from requester
+    notes = Column(Text, nullable=True)  # Admin notes
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # Auto-expire requests after X days
+    
+    # Relationships
+    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+    reviewed_by = relationship("MasterUser", foreign_keys=[reviewed_by_id])
+
+    def __repr__(self):
+        return f"<OrganizationJoinRequest(id={self.id}, email='{self.email}', tenant_id={self.tenant_id}, status='{self.status}')>" 

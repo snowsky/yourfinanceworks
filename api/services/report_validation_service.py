@@ -142,19 +142,23 @@ class ReportValidationService:
             )
         
         # Common validations for all report types
-        validated_filters = self._validate_common_filters(filters)
-        
-        # Type-specific validations
-        if report_type == ReportType.CLIENT:
-            validated_filters.update(self._validate_client_filters(filters))
-        elif report_type == ReportType.INVOICE:
-            validated_filters.update(self._validate_invoice_filters(filters))
-        elif report_type == ReportType.PAYMENT:
-            validated_filters.update(self._validate_payment_filters(filters))
-        elif report_type == ReportType.EXPENSE:
-            validated_filters.update(self._validate_expense_filters(filters))
-        elif report_type == ReportType.STATEMENT:
-            validated_filters.update(self._validate_statement_filters(filters))
+        # For inventory reports, skip common filters (client_ids, currency) and only validate inventory-specific filters
+        if report_type == ReportType.INVENTORY:
+            validated_filters = self._validate_inventory_filters(filters)
+        else:
+            validated_filters = self._validate_common_filters(filters)
+
+            # Type-specific validations
+            if report_type == ReportType.CLIENT:
+                validated_filters.update(self._validate_client_filters(filters))
+            elif report_type == ReportType.INVOICE:
+                validated_filters.update(self._validate_invoice_filters(filters))
+            elif report_type == ReportType.PAYMENT:
+                validated_filters.update(self._validate_payment_filters(filters))
+            elif report_type == ReportType.EXPENSE:
+                validated_filters.update(self._validate_expense_filters(filters))
+            elif report_type == ReportType.STATEMENT:
+                validated_filters.update(self._validate_statement_filters(filters))
         
         return validated_filters
     
@@ -390,7 +394,87 @@ class ReportValidationService:
         # Add client-specific validations here if needed
         
         return validated
-    
+
+    def _validate_inventory_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate inventory-specific filters"""
+        validated = {}
+
+        # Validate date range
+        date_from = filters.get("date_from")
+        date_to = filters.get("date_to")
+        if date_from or date_to:
+            validated_dates = self._validate_date_range(date_from, date_to)
+            validated.update(validated_dates)
+
+        # Validate category_ids
+        if 'category_ids' in filters:
+            category_ids = filters['category_ids']
+            if category_ids is not None:
+                if not isinstance(category_ids, list):
+                    raise validation_error(
+                        "Category IDs must be a list of integers",
+                        field="category_ids"
+                    )
+                for cid in category_ids:
+                    if not isinstance(cid, int) or cid <= 0:
+                        raise validation_error(
+                            "Category IDs must be positive integers",
+                            field="category_ids"
+                        )
+                validated['category_ids'] = category_ids
+
+        # Validate item_type
+        if 'item_type' in filters:
+            item_type = filters['item_type']
+            if item_type is not None:
+                if not isinstance(item_type, list):
+                    item_type = [item_type]
+                valid_types = ['product', 'service', 'material']
+                for it in item_type:
+                    if it not in valid_types:
+                        raise validation_error(
+                            f"Invalid item type: {it}",
+                            field="item_type",
+                            suggestions=[f"Valid types: {', '.join(valid_types)}"]
+                        )
+                validated['item_type'] = item_type
+
+        # Validate low_stock_only
+        if 'low_stock_only' in filters:
+            low_stock_only = filters['low_stock_only']
+            if low_stock_only is not None:
+                if not isinstance(low_stock_only, bool):
+                    raise validation_error(
+                        "low_stock_only must be a boolean",
+                        field="low_stock_only"
+                    )
+                validated['low_stock_only'] = low_stock_only
+
+        # Validate value range
+        for field in ['value_min', 'value_max']:
+            if field in filters:
+                value = filters[field]
+                if value is not None:
+                    if not isinstance(value, (int, float)) or value < 0:
+                        raise validation_error(
+                            f"{field} must be a non-negative number",
+                            field=field
+                        )
+                    validated[field] = float(value)
+
+        # Validate include_inactive
+        if 'include_inactive' in filters:
+            include_inactive = filters['include_inactive']
+            if include_inactive is not None:
+                if not isinstance(include_inactive, bool):
+                    raise validation_error(
+                        "include_inactive must be a boolean",
+                        field="include_inactive"
+                    )
+                validated['include_inactive'] = include_inactive
+
+        return validated
+
     def _validate_invoice_status(self, status: Union[str, List[str]]) -> List[str]:
         """Validate invoice status values"""
         if isinstance(status, str):

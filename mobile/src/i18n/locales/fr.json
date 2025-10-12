@@ -88,6 +88,7 @@
     "signing_in": "Connexion en cours...",
     "or_continue_with": "Ou continuer avec",
     "sign_in_with_google": "Se connecter avec Google",
+    "sign_in_with_microsoft": "Se connecter avec Microsoft",
     "no_account": "Vous n'avez pas de compte ?",
     "google_sso_coming_soon": "Le SSO Google sera bientôt disponible !",
     "signup": {

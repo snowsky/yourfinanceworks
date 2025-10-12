@@ -36,8 +36,12 @@ from schemas.report import (
     ReportType, ReportFilters, ReportData, ReportSummary, ReportMetadata,
     ReportResult, ExportFormat, ClientReportFilters, InvoiceReportFilters,
     PaymentReportFilters, ExpenseReportFilters, StatementReportFilters,
-    ReportTemplate as ReportTemplateSchema
+    InventoryReportFilters, ReportTemplate as ReportTemplateSchema
 )
+from models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement
+from schemas.inventory import InventoryItem as InventoryItemSchema, InventoryAnalytics
+from services.inventory_service import InventoryService
+from sqlalchemy.orm import selectinload
 
 
 class ReportService:
@@ -73,16 +77,18 @@ class ReportService:
             ReportType.INVOICE: InvoiceReportFilters,
             ReportType.PAYMENT: PaymentReportFilters,
             ReportType.EXPENSE: ExpenseReportFilters,
-            ReportType.STATEMENT: StatementReportFilters
+            ReportType.STATEMENT: StatementReportFilters,
+            ReportType.INVENTORY: InventoryReportFilters
         }
-        
+
         # Map report types to their aggregation methods
         self.aggregation_methods = {
             ReportType.CLIENT: self._generate_client_report,
             ReportType.INVOICE: self._generate_invoice_report,
             ReportType.PAYMENT: self._generate_payment_report,
             ReportType.EXPENSE: self._generate_expense_report,
-            ReportType.STATEMENT: self._generate_statement_report
+            ReportType.STATEMENT: self._generate_statement_report,
+            ReportType.INVENTORY: self._generate_inventory_report
         }
     
     def generate_report(
@@ -712,7 +718,145 @@ class ReportService:
         )
         
         return (reconciled_count / len(transactions)) * 100
-    
+
+    def _generate_inventory_report(self, filters: InventoryReportFilters, progress_callback: Optional[callable] = None) -> Dict[str, Any]:
+        """Generate inventory report with stock levels and valuation"""
+        try:
+            # Query inventory items with filters
+            query = self.db.query(InventoryItem).options(
+                selectinload(InventoryItem.category)
+            )
+
+            # Apply filters
+            if filters.category_ids:
+                query = query.filter(InventoryItem.category_id.in_(filters.category_ids))
+
+            if filters.item_type:
+                query = query.filter(InventoryItem.item_type.in_(filters.item_type))
+
+            if filters.low_stock_only:
+                query = query.filter(InventoryItem.track_stock == True).filter(
+                    InventoryItem.current_stock <= InventoryItem.minimum_stock
+                )
+
+            if not filters.include_inactive:
+                query = query.filter(InventoryItem.is_active == True)
+
+            # Apply date filters based on date_filter_type
+            date_filter_type = getattr(filters, 'date_filter_type', 'both')
+
+            if filters.date_from:
+                if date_filter_type == 'created':
+                    query = query.filter(InventoryItem.created_at >= filters.date_from)
+                elif date_filter_type == 'updated':
+                    query = query.filter(InventoryItem.updated_at >= filters.date_from)
+                else:  # 'both' - filter by either created or updated
+                    query = query.filter(
+                        (InventoryItem.created_at >= filters.date_from) |
+                        (InventoryItem.updated_at >= filters.date_from)
+                    )
+
+            if filters.date_to:
+                if date_filter_type == 'created':
+                    query = query.filter(InventoryItem.created_at <= filters.date_to)
+                elif date_filter_type == 'updated':
+                    query = query.filter(InventoryItem.updated_at <= filters.date_to)
+                else:  # 'both' - filter by either created or updated
+                    query = query.filter(
+                        (InventoryItem.created_at <= filters.date_to) |
+                        (InventoryItem.updated_at <= filters.date_to)
+                    )
+
+            # Get inventory items
+            inventory_items = query.all()
+
+            # Calculate totals
+            total_items = len(inventory_items)
+            total_value = 0
+            low_stock_items = 0
+            out_of_stock_items = 0
+
+            # Process items and calculate values
+            processed_items = []
+            for item in inventory_items:
+                # Calculate item value (current_stock * unit_price)
+                item_value = 0
+                if item.track_stock and item.current_stock and item.current_stock > 0:
+                    item_value = item.current_stock * item.unit_price
+                elif not item.track_stock:
+                    # For non-tracked items, use unit_price as reference
+                    item_value = item.unit_price
+
+                total_value += item_value
+
+                # Check stock status
+                if item.track_stock:
+                    if item.current_stock <= 0:
+                        out_of_stock_items += 1
+                    elif item.current_stock <= item.minimum_stock:
+                        low_stock_items += 1
+
+                # Get last movement date (simplified - would need StockMovement join in real implementation)
+                last_movement = None
+
+                processed_items.append({
+                    "item_name": item.name,
+                    "sku": item.sku,
+                    "category": item.category.name if item.category else None,
+                    "unit_price": item.unit_price,
+                    "cost_price": item.cost_price,
+                    "current_stock": item.current_stock,
+                    "minimum_stock": item.minimum_stock,
+                    "total_value": item_value,
+                    "last_movement": last_movement,
+                    "item_type": item.item_type,
+                    "currency": item.currency,
+                    "is_active": item.is_active
+                })
+
+            # Filter by value range if specified
+            if filters.value_min is not None or filters.value_max is not None:
+                filtered_items = []
+                for item in processed_items:
+                    item_value = item["total_value"]
+                    if filters.value_min is not None and item_value < filters.value_min:
+                        continue
+                    if filters.value_max is not None and item_value > filters.value_max:
+                        continue
+                    filtered_items.append(item)
+                processed_items = filtered_items
+
+            # Create summary
+            summary = ReportSummary(
+                total_records=len(processed_items),
+                total_amount=total_value,
+                currency="USD",  # Inventory reports use USD as default currency
+                date_range={
+                    "start_date": filters.date_from,
+                    "end_date": filters.date_to
+                } if filters.date_from or filters.date_to else None,
+                key_metrics={
+                    "total_items": total_items,
+                    "total_value": total_value,
+                    "low_stock_items": low_stock_items,
+                    "out_of_stock_items": out_of_stock_items,
+                    "active_items": sum(1 for item in processed_items if item["is_active"]),
+                    "categories_count": len(set(item["category"] for item in processed_items if item["category"]))
+                }
+            )
+
+            return {
+                "summary": summary,
+                "data": processed_items
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error generating inventory report: {str(e)}")
+            raise ReportGenerationException(
+                f"Failed to generate inventory report: {str(e)}",
+                error_code=ReportErrorCode.REPORT_GENERATION_FAILED
+            )
+
     def get_available_report_types(self) -> List[Dict[str, Any]]:
         """
         Get list of available report types with their configurations.
@@ -779,6 +923,18 @@ class ReportService:
                 ],
                 "default_columns": [
                     "date", "description", "amount", "transaction_type", "balance"
+                ]
+            },
+            {
+                "type": ReportType.INVENTORY,
+                "name": "Inventory Report",
+                "description": "Stock levels, valuation, and movement analysis",
+                "available_filters": [
+                    "date_from", "date_to", "date_filter_type", "category_ids", "item_type", "low_stock_only",
+                    "value_min", "value_max", "include_inactive"
+                ],
+                "default_columns": [
+                    "item_name", "sku", "category", "current_stock", "unit_price", "total_value"
                 ]
             }
         ]

@@ -36,8 +36,8 @@ import { InventoryInvoiceItem } from "./InventoryInvoiceItem";
 
 const invoiceItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
-  quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
-  price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+  price: z.coerce.number().min(0, "Price cannot be negative"),
   id: z.number().optional(),
   inventory_item_id: z.number().optional(),
   unit_of_measure: z.string().optional(),
@@ -60,11 +60,11 @@ const customFieldSchema = z.object({
 
 const formSchema = z.object({
   client: z.string().min(1, "Client is required"),
-  invoiceNumber: z.string().min(1, "Invoice number is required"),
+  invoiceNumber: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
   date: z.date(),
   dueDate: z.date(),
-  status: z.enum(["draft", "pending", "paid", "overdue", "partially_paid"] as const),
+  status: z.enum(["draft", "pending", "paid", "overdue", "partially_paid", "cancelled"] as const),
   paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
@@ -437,6 +437,21 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
     );
   }
 
+  // Check if there are no clients
+  if (!clients.length) {
+    return (
+      <div className="w-full px-6 py-6">
+        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+          <p className="text-lg">{t('invoices.no_clients_found')}</p>
+          <Button onClick={() => navigate('/clients/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('invoices.add_new_client', 'Add New Client')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   console.log("🔥 InventoryInvoiceForm rendering", {
     isEdit,
     saving,
@@ -465,20 +480,6 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="invoiceNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('invoices.invoice_number', 'Invoice Number')} *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="INV-001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="client"
                   render={({ field }) => (
                     <FormItem>
@@ -497,6 +498,20 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="invoiceNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('invoices.invoice_number', 'Invoice Number')}</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Leave empty to auto-generate" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

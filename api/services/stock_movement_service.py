@@ -22,13 +22,20 @@ class StockMovementService:
     def record_movement(self, movement_data: StockMovementCreate) -> StockMovement:
         """Record a new stock movement"""
         try:
-            # Validate item exists and tracks stock
+            # Validate item exists
             item = self.db.query(InventoryItem).filter(InventoryItem.id == movement_data.item_id).first()
             if not item:
                 raise ValueError("Inventory item not found")
 
+            # Allow stock movements for items linked to invoices, even if they don't normally track stock
+            # This enables automatic stock reduction when invoices are paid, as per documentation
             if not item.track_stock:
-                raise ValueError("Item does not track stock")
+                # Check if this movement is related to an invoice
+                if movement_data.reference_type == "invoice" and movement_data.reference_id:
+                    logger.info(f"Allowing stock movement for item {item.name} (ID: {item.id}) "
+                               f"that doesn't track stock, because it's linked to invoice {movement_data.reference_id}")
+                else:
+                    raise ValueError("Item does not track stock")
 
             # Create movement record
             movement = StockMovement(**movement_data.model_dump())
@@ -46,7 +53,8 @@ class StockMovementService:
             self.db.refresh(movement)
             self.db.refresh(item)
 
-            logger.info(f"Recorded stock movement: {movement.movement_type} {movement.quantity} for item {item.name}")
+            logger.info(f"Recorded stock movement: {movement.movement_type} {movement.quantity} for item {item.name} "
+                       f"(ID: {item.id}). New stock level: {item.current_stock}")
             return movement
 
         except Exception as e:

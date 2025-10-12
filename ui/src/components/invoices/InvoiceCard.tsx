@@ -8,6 +8,7 @@ import { Invoice, api } from "@/lib/api";
 import { Calendar, Clock, FileText, MoreVertical, Pencil, Copy, Trash2, User, DollarSign, Send } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface InvoiceCardProps {
   invoice: Invoice;
@@ -51,13 +52,9 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-const formatStatus = (status: string) => {
-  return status.split('_').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
-};
 
 export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = true }: InvoiceCardProps) {
+  const { t } = useTranslation();
   const statusConfig = getStatusConfig(invoice.status);
   const outstandingBalance = invoice.amount - (invoice.paid_amount || 0);
   const isOverdue = invoice.status === 'overdue';
@@ -83,7 +80,7 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
           <div className="flex items-center gap-2">
             <Badge className={`${statusConfig.className} font-medium`}>
               <span className="mr-1">{statusConfig.icon}</span>
-              {formatStatus(invoice.status)}
+              {t(`invoices.status.${invoice.status}`)}
             </Badge>
             
             {canPerformActions && (
@@ -97,12 +94,12 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
                   <DropdownMenuItem asChild>
                     <Link to={`/invoices/edit/${invoice.id}`} className="flex items-center w-full">
                       <Pencil className="mr-2 h-4 w-4" />
-                      Edit
+                      {t('invoices.edit_invoice')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onClone?.(invoice.id)}>
                     <Copy className="mr-2 h-4 w-4" />
-                    Clone
+                    {t('invoices.clone_invoice')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => {
                     // Handle send to tax service directly here
@@ -118,29 +115,29 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
 
                       if (response.success) {
                         toast.success(
-                          'Invoice sent to tax service successfully'
+                          t('taxIntegration.tax_send_success')
                         );
                       } else {
                         toast.error(
-                          response.error_message || 'Failed to send to tax service'
+                          response.error_message || t('taxIntegration.tax_send_error')
                         );
                       }
                     } catch (error: any) {
                       console.error('Error sending to tax service:', error);
                       toast.error(
-                        error?.message || 'Failed to send to tax service'
+                        error?.message || t('taxIntegration.tax_send_error')
                       );
                     }
                   }}>
                     <Send className="mr-2 h-4 w-4" />
-                    Send to Tax Service
+                    {t('taxIntegration.sendToTaxService')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => onDelete?.(invoice.id)}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    {t('invoices.delete_invoice')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -152,12 +149,12 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Created:</span>
+              <span className="text-muted-foreground">{t('invoices.created_label')}:</span>
               <span className="font-medium">{formatDate(invoice.created_at)}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Clock className={`h-4 w-4 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`} />
-              <span className="text-muted-foreground">Due:</span>
+              <span className="text-muted-foreground">{t('invoices.due_label')}:</span>
               <span className={`font-medium ${isOverdue ? 'text-destructive' : ''}`}>
                 {formatDate(invoice.due_date)}
               </span>
@@ -167,14 +164,14 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm">
               <DollarSign className="h-4 w-4 text-success" />
-              <span className="text-muted-foreground">Paid:</span>
+              <span className="text-muted-foreground">{t('invoices.paid_label')}:</span>
               <span className="font-medium text-success">
                 <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <DollarSign className={`h-4 w-4 ${outstandingBalance > 0 ? 'text-warning' : 'text-success'}`} />
-              <span className="text-muted-foreground">Outstanding:</span>
+              <span className="text-muted-foreground">{t('invoices.outstanding_label')}:</span>
               <span className={`font-medium ${outstandingBalance > 0 ? 'text-warning' : 'text-success'}`}>
                 <CurrencyDisplay amount={outstandingBalance} currency={invoice.currency} />
               </span>
@@ -184,17 +181,17 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
 
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-right">
-            <div className="text-sm text-muted-foreground">Total Amount</div>
+            <div className="text-sm text-muted-foreground">{t('invoices.total_amount')}</div>
             <div className="text-2xl font-bold text-primary">
               <CurrencyDisplay amount={invoice.amount} currency={invoice.currency} />
             </div>
           </div>
-          
+
           {canPerformActions && (
             <Button asChild variant="outline" size="sm">
               <Link to={`/invoices/edit/${invoice.id}`}>
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit Invoice
+                {t('invoices.edit_invoice')}
               </Link>
             </Button>
           )}

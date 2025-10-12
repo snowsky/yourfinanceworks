@@ -36,6 +36,9 @@ class EmailNotificationSettings(Base):
     # Settings operation notifications
     settings_updated = Column(Boolean, default=False)
     
+    # Organization join request notifications
+    organization_join_request_created = Column(Boolean, default=True)  # Admin gets notified of new requests
+    
     # Additional notification preferences
     notification_email = Column(String, nullable=True)  # Override email for notifications
     daily_summary = Column(Boolean, default=False)

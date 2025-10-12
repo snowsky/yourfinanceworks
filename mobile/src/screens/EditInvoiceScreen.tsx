@@ -415,6 +415,10 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
       setError('All items must have a price greater than 0');
       return false;
     }
+    if (formData.items.some(item => item.quantity < 0.01)) {
+      setError('All items must have a quantity greater than 0');
+      return false;
+    }
     if (calculateTotal() <= 0) {
       if (formData.items.every(item => item.price <= 0)) {
         // Automatically fix prices if they're all zero
@@ -1018,7 +1022,7 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
                   <TextInput
                     style={styles.input}
                     value={item.quantity.toString()}
-                    onChangeText={(value) => handleItemChange(index, 'quantity', parseInt(value) || 0)}
+                    onChangeText={(value) => handleItemChange(index, 'quantity', value === '' ? 0 : parseFloat(value) || 0)}
                     keyboardType="numeric"
                     placeholder="1"
                   />

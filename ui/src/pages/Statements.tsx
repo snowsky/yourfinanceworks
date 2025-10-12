@@ -970,7 +970,12 @@ export default function Statements() {
                                                   }
                                                 }
                                               } catch (e: any) {
-                                                toast.error(e?.message || 'Failed to delete invoice');
+                                                // Check if it's the linked expenses error and use translated version
+                                                let errorMessage = e?.message || 'Failed to delete invoice';
+                                                if (errorMessage.includes('linked expenses')) {
+                                                  errorMessage = t('invoices.delete_error_linked_expenses');
+                                                }
+                                                toast.error(errorMessage);
                                               }
                                             }}
                                             className="text-red-600 focus:text-red-600"

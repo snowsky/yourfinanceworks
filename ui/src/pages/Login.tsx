@@ -49,6 +49,12 @@ const Login = () => {
     window.location.href = url;
   };
 
+  const handleAzureLogin = () => {
+    const next = encodeURIComponent('/dashboard');
+    const url = `${API_BASE_URL}/auth/azure/login?next=${next}`;
+    window.location.href = url;
+  };
+
   // Handle OAuth callback via URL hash (e.g., /#/oauth-callback?token=...)
   useEffect(() => {
     const hash = window.location.hash || '';
@@ -178,6 +184,25 @@ const Login = () => {
               />
             </svg>
             {t('auth.sign_in_with_google')}
+          </Button>
+          
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleAzureLogin}
+          >
+            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+              <path
+                d="M12.5 1.5L5.5 3.5v7c0 5.5 3.8 10.7 7 12 3.2-1.3 7-6.5 7-12v-7l-7-2z"
+                fill="#00BCF2"
+              />
+              <path
+                d="M12.5 1.5v21c3.2-1.3 7-6.5 7-12v-7l-7-2z"
+                fill="#0078D4"
+              />
+            </svg>
+            {t('auth.sign_in_with_microsoft')}
           </Button>
           
           <div className="text-center text-sm">

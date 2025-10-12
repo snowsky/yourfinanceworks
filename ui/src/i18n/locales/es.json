@@ -94,6 +94,7 @@
     "signing_in": "Iniciando sesión...",
     "or_continue_with": "O continuar con",
     "sign_in_with_google": "Iniciar sesión con Google",
+    "sign_in_with_microsoft": "Iniciar sesión con Microsoft",
     "no_account": "¿No tienes una cuenta?",
     "google_sso_coming_soon": "¡El SSO de Google estará disponible pronto!",
     "signup": {
@@ -181,6 +182,12 @@
     "description": "Crear y gestionar tus facturas",
     "new_invoice": "Nueva Factura",
     "edit_invoice": "Editar Factura",
+    "clone_invoice": "Clonar",
+    "created_label": "Creado",
+    "due_label": "Vencimiento",
+    "paid_label": "Pagado",
+    "outstanding_label": "Pendiente",
+    "total_amount": "Monto Total",
     "invoice_number": "Número de Factura",
     "client": "Cliente",
     "invoice_date": "Fecha de Factura",
@@ -190,8 +197,11 @@
       "pending": "Pendiente",
       "paid": "Pagada",
       "overdue": "Vencida",
-      "partially_paid": "Parcialmente Pagada"
+      "partially_paid": "Parcialmente Pagada",
+      "cancelled": "Cancelada"
     },
+    "draft": "Borrador",
+    "cancelled": "Cancelada",
     "items": "Artículos",
     "add_item": "Agregar Artículo",
     "remove_item": "Quitar Artículo",
@@ -215,6 +225,9 @@
     "mark_overdue": "Marcar como Vencida",
     "delete_invoice": "Eliminar Factura",
     "confirm_delete": "¿Estás seguro de que quieres eliminar esta factura?",
+    "delete_success": "Factura movida a la papelera exitosamente",
+    "delete_error": "Error al eliminar la factura",
+    "delete_error_linked_expenses": "No se puede eliminar la factura que tiene gastos vinculados. Primero desvincule o elimine los gastos.",
     "invoice_created": "Factura creada exitosamente",
     "invoice_updated": "Factura actualizada exitosamente",
     "invoice_deleted": "Factura eliminada exitosamente",
@@ -361,7 +374,17 @@
     "failed_to_link_expense": "No se pudo vincular el gasto",
     "failed_to_unlink_expense": "No se pudo desvincular el gasto",
     "invoice_ready_to_be_created": "La factura está lista para ser creada",
-    "invoice_ready_to_be_updated": "La factura está lista para ser actualizada"
+    "invoice_ready_to_be_updated": "La factura está lista para ser actualizada",
+    "create_new_invoice": "Crear Nueva Factura",
+    "choose_creation_method": "Elige cómo deseas crear tu factura",
+    "import_from_pdf": "Importar desde PDF",
+    "upload_pdf_to_extract_invoice_details": "Sube un PDF de factura para extraer automáticamente los detalles del cliente y artículos",
+    "select_pdf_file": "Seleccionar Archivo PDF",
+    "selected_file": "Archivo seleccionado",
+    "llm_not_configured_will_proceed_manually": "IA no configurada. Se procederá con la creación manual de facturas.",
+    "processing_pdf": "Procesando PDF...",
+    "create_manually": "Crear Manualmente",
+    "enter_invoice_details_manually": "Ingresar detalles manualmente"
   },
   "clients": {
     "title": "Clientes",
@@ -496,6 +519,13 @@
       "invoices": "Config. de Facturas",
       "currencies": "Monedas",
       "discount_rules": "Reglas de Descuento",
+      "ai_config": "Config. de IA",
+      "api_keys": "Claves API",
+      "search": "Buscar",
+      "email_notifications": "Correo & Notificaciones",
+      "tax_integration": "Integración Fiscal",
+      "approval_rules": "Reglas de Aprobación",
+      "export": "Gestión de Datos",
       "add_rule": "Agregar Regla",
       "rule_name": "Nombre de la Regla",
       "min_amount": "Monto Mínimo",
@@ -512,9 +542,11 @@
       "edit_discount_rule": "Editar Regla de Descuento",
       "rule_active": "Activo",
       "rule_inactive": "Inactivo",
-      "ai_config": "Config. de IA",
-      "email": "Config. de Email",
-      "export": "Gestión de Datos"
+      "email": "Config. de Email"
+    },
+    "approval_rules": {
+      "title": "Gestión de Reglas de Aprobación",
+      "description": "Configure flujos de trabajo y reglas de aprobación para envíos de gastos"
     },
     "currency_management": "Gestión de Monedas",
     "ai_configuration": "Configuración de IA",
@@ -810,7 +842,26 @@
     "cancel": "Cancelar",
     "confirmCancelInvite": "¿Estás seguro de que quieres cancelar la invitación para {{email}}?",
     "inviteCancelled": "¡Invitación cancelada exitosamente!",
-    "failedToCancelInvite": "Error al cancelar la invitación"
+    "failedToCancelInvite": "Error al cancelar la invitación",
+    "activationDescription": "Activa esta cuenta de usuario. Puedes establecer su contraseña ahora o enviarles una invitación para que la establezcan ellos mismos.",
+    "passwordOptionLabel": "Configuración de contraseña",
+    "passwordWillBeSet": "✓ El usuario podrá iniciar sesión inmediatamente con esta contraseña",
+    "inviteWillBeSent": "⚠ Déjalo en blanco para enviar correo de invitación - el usuario debe establecer contraseña en el primer inicio de sesión",
+    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "activateWithPassword": "Activar y Establecer Contraseña",
+    "sendInvite": "Enviar Correo de Invitación",
+    "deactivate": "Desactivar",
+    "reset": "Restablecer",
+    "delete": "Eliminar",
+    "deactivateUser": "Desactivar Usuario",
+    "resetPassword": "Restablecer Contraseña",
+    "deleteUser": "Eliminar Usuario",
+    "confirmToggleStatus": "¿Estás seguro de que quieres {{action}} al usuario {{email}}?",
+    "confirmDeleteUser": "¿Estás seguro de que quieres eliminar al usuario {{email}}? Esta acción no se puede deshacer.",
+    "enterNewPassword": "Ingresa nueva contraseña para {{email}}:",
+    "statusToggled": "Estado del usuario actualizado exitosamente",
+    "passwordReset": "Contraseña restablecida exitosamente",
+    "userDeleted": "Usuario eliminado exitosamente"
   },
   "errors": {
     "USER_NOT_FOUND": "El usuario no existe. Por favor regístrese primero.",
@@ -968,10 +1019,12 @@
     "delete_confirm_description": "Esta acción no se puede deshacer. Esto eliminará permanentemente este gasto y sus adjuntos.",
     "new_title": "Nuevo Gasto",
     "edit_title": "Editar Gasto",
+    "view_title": "Ver Gasto",
     "import_title": "Importar Gastos",
     "import_description": "Selecciona hasta 10 archivos PDF o imágenes para crear gastos. Cada archivo se convierte en un gasto separado y será analizado por OCR.",
     "new_description": "Crea un nuevo gasto y sube hasta 5 adjuntos.",
     "edit_description": "Actualiza este gasto y gestiona los adjuntos.",
+    "view_description": "Revisa los detalles del gasto y toma acciones de aprobación.",
     "back_to_expenses": "Volver a Gastos",
     "start_import": "Iniciar Importación",
     "importing": "Importando...",
@@ -1532,6 +1585,8 @@
   "taxIntegration": {
     "title": "Integración del Servicio Fiscal",
     "sendToTaxService": "Enviar al Servicio Fiscal",
+    "tax_send_success": "Factura enviada al servicio fiscal exitosamente",
+    "tax_send_error": "Error al enviar al servicio fiscal",
     "testConnection": "Probar Conexión",
     "sendSelected": "Enviar Seleccionados ({{count}})",
     "bulkSendTitle": "Enviar {{itemType}} al Servicio Fiscal",
@@ -1598,7 +1653,9 @@
       "price": "Precio",
       "stock": "Stock",
       "status": "Estado",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "created_date": "Creado",
+      "updated_date": "Actualizado"
     },
     "loading": "Cargando inventario...",
     "no_service_items": "Aún no hay artículos de servicio. Crea tu catálogo de servicios para comenzar.",
@@ -1692,6 +1749,8 @@
     "product_stock_help": "Rastrea niveles de inventario y recibe alertas de stock bajo",
     "track_stock": "Rastrear niveles de stock",
     "optional_for_services": "opcional para servicios",
+    "unlimited_stock": "Stock Ilimitado",
+    "unlimited_stock_help": "Perfecto para servicios como consultoría - nunca se agota y no requiere gestión de stock",
     "current_stock": "Stock Actual",
     "minimum_stock": "Stock Mínimo",
     "unit_of_measure": "Unidad de Medida",
@@ -1712,6 +1771,7 @@
     "validation": {
       "name_required": "El nombre del artículo es obligatorio",
       "price_required": "Se requiere un precio unitario válido"
-    }
+    },
+    "total": "Total"
   }
 }

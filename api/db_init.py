@@ -101,7 +101,9 @@ def ensure_required_columns(database_url):
             # Required columns that should exist
             required_columns = {
                 'must_reset_password': 'BOOLEAN NOT NULL DEFAULT FALSE',
-                'show_analytics': 'BOOLEAN NOT NULL DEFAULT FALSE'
+                'show_analytics': 'BOOLEAN NOT NULL DEFAULT FALSE',
+                'azure_ad_id': 'VARCHAR(255)',
+                'azure_tenant_id': 'VARCHAR(255)'
             }
             
             # Add missing columns

@@ -150,9 +150,15 @@ class InventoryIntegrationService:
 
                 inventory_item = invoice_item.inventory_item
 
-                # Skip if item doesn't track stock
+                # Note: We process stock movements for all inventory-linked items,
+                # regardless of track_stock setting, as per documentation that states
+                # "Automatic stock reduction when invoices are paid"
                 if not inventory_item.track_stock:
-                    continue
+                    logger.info(f"Processing stock movement for item {inventory_item.name} (ID: {inventory_item.id}) "
+                               f"even though track_stock=False, as it's linked to invoice {invoice.id}")
+                else:
+                    logger.info(f"Processing stock movement for item {inventory_item.name} (ID: {inventory_item.id}) "
+                               f"with track_stock=True for invoice {invoice.id}")
 
                 try:
                     # Create stock movement for sale (negative quantity)

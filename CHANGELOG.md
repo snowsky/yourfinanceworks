@@ -1,6 +1,68 @@
-# Bank Statement Processing Improvements
+# Changelog
 
-## Summary
+## [Latest] - September 2025
+
+### Microsoft Azure AD SSO Implementation
+
+**Summary**: Added enterprise-grade Single Sign-On support with Microsoft Azure AD/Entra ID, enabling seamless authentication for organizations using Microsoft identity services.
+
+#### 🔐 Authentication & Security Enhancements
+- **Azure AD OAuth 2.0 Integration**: Full implementation using Microsoft Authentication Library (MSAL)
+- **Multi-tenant Support**: Supports both single-tenant and multi-tenant Azure AD configurations
+- **Database Schema Extensions**: Added `azure_ad_id` and `azure_tenant_id` fields to user models
+- **Automatic User Provisioning**: Creates users and tenants automatically for new Azure AD users
+- **Account Linking**: Links existing users with Azure AD accounts seamlessly
+- **CSRF Protection**: Secure state management with token expiration
+
+#### 🎨 User Interface Updates
+- **Microsoft Login Button**: Added official Microsoft branding to login page
+- **Multi-language Support**: Translations for "Sign in with Microsoft" in English, French, Spanish, and German
+- **Consistent UX**: Matches existing Google OAuth button styling and behavior
+- **OAuth Flow Handling**: Seamless redirect-based authentication flow
+
+#### 🔧 Technical Implementation
+- **New Dependencies**: Added MSAL 1.31.0 for Microsoft authentication
+- **API Endpoints**: 
+  - `/api/v1/auth/azure/login` - Initiates Azure AD authentication
+  - `/api/v1/auth/azure/callback` - Handles OAuth callback and user creation
+- **Environment Configuration**: Docker Compose support for Azure AD variables
+- **Comprehensive Logging**: Detailed logs for debugging and monitoring
+- **Error Handling**: Graceful handling of authentication failures and edge cases
+
+#### 📚 Documentation
+- **Implementation Guide**: Complete Azure AD SSO setup documentation
+- **Testing Guide**: Comprehensive testing scenarios and troubleshooting
+- **Security Documentation**: Enterprise compliance and security considerations
+
+#### 🗄️ Database Changes
+```sql
+-- Added to both MasterUser and TenantUser models
+azure_ad_id VARCHAR UNIQUE NULL     -- Azure AD Object ID
+azure_tenant_id VARCHAR NULL        -- Azure AD Tenant ID
+```
+
+#### 📁 Files Modified
+- `api/requirements.txt` - Added MSAL dependency
+- `api/models/models.py` - Extended MasterUser and User models
+- `api/models/models_per_tenant.py` - Extended TenantUser model
+- `api/routers/auth.py` - Added Azure AD OAuth endpoints and client
+- `docker-compose.yml` - Added Azure AD environment variables
+- `ui/src/pages/Login.tsx` - Added Microsoft login button and handler
+- `ui/src/i18n/locales/*.json` - Added Microsoft login translations
+- `mobile/src/i18n/locales/*.json` - Added mobile translations
+
+#### 🧪 Testing
+- Manual testing scenarios documented
+- Error handling verification
+- Multi-language UI testing
+- Database integration testing
+- OAuth flow validation
+
+---
+
+## [Previous] - Bank Statement Processing Improvements
+
+### Summary
 Enhanced bank statement extraction service and added CSV export + expense creation features to the transactions interface.
 
 ## Changes Made

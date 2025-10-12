@@ -10,12 +10,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Upload, Package } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { expenseApi, Expense, linkApi } from '@/lib/api';
+import { expenseApi, approvalApi, Expense, linkApi } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { FileUpload, FileData } from '@/components/ui/file-upload';
 import { InventoryPurchaseForm } from '@/components/inventory/InventoryPurchaseForm';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Users } from 'lucide-react';
+import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissionDialog';
 
 export default function ExpensesNew() {
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
@@ -33,11 +36,28 @@ export default function ExpensesNew() {
   const [inventoryPurchaseItems, setInventoryPurchaseItems] = useState<any[]>([]);
   const [isInventoryConsumption, setIsInventoryConsumption] = useState(false);
   const [consumptionItems, setConsumptionItems] = useState<any[]>([]);
+  const [submitForApproval, setSubmitForApproval] = useState(false);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [createdExpenseId, setCreatedExpenseId] = useState<number | null>(null);
+  const [selectedApproverId, setSelectedApproverId] = useState<string>('');
+  const [availableApprovers, setAvailableApprovers] = useState<Array<{ id: number; name: string; email: string }>>([]);
 
   useEffect(() => {
     (async () => {
       try { const invs = await linkApi.getInvoicesBasic(); setInvoiceOptions(invs); } catch {}
     })();
+  }, []);
+
+  useEffect(() => {
+    const fetchApprovers = async () => {
+      try {
+        const response = await approvalApi.getApprovers();
+        setAvailableApprovers(response);
+      } catch (error) {
+        console.error('Failed to fetch approvers:', error);
+      }
+    };
+    fetchApprovers();
   }, []);
 
   // Calculate amount from consumption items
@@ -56,79 +76,121 @@ export default function ExpensesNew() {
     }
   }, [isInventoryPurchase, isInventoryConsumption]);
 
+  const validateExpenseForm = () => {
+    if ((!form.amount || Number(form.amount) === 0) && files.length === 0) {
+      toast.error('Amount is required unless importing from files');
+      return false;
+    }
+    if (!form.category) {
+      toast.error('Category is required');
+      return false;
+    }
+
+    // Validate consumption items
+    if (isInventoryConsumption) {
+      if (!consumptionItems || consumptionItems.length === 0) {
+        toast.error('At least one inventory item must be selected for consumption');
+        return false;
+      }
+      // Validate that all consumption items have valid quantities
+      const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
+      if (invalidItems.length > 0) {
+        toast.error('All inventory consumption items must have a quantity greater than 0');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const createExpense = async () => {
+    const addNotification = (window as any).addAINotification;
+    if (files.length > 0) {
+      addNotification?.('processing', 'Processing Expense Receipts', `Analyzing ${files.length} receipt files with AI...`);
+    }
+    
+    const payload = {
+      amount: Number(form.amount),
+      currency: form.currency || 'USD',
+      expense_date: form.expense_date,
+      category: form.category,
+      vendor: form.vendor,
+      tax_rate: form.tax_rate,
+      tax_amount: form.tax_amount,
+      total_amount: form.total_amount,
+      payment_method: form.payment_method,
+      reference_number: form.reference_number,
+      status: form.status || 'recorded',
+      notes: form.notes,
+      invoice_id: form.invoice_id ?? null,
+      is_inventory_purchase: isInventoryPurchase,
+      inventory_items: isInventoryPurchase ? inventoryPurchaseItems : undefined,
+      is_inventory_consumption: isInventoryConsumption,
+      consumption_items: isInventoryConsumption ? consumptionItems : undefined,
+    } as any;
+    
+    const created = await expenseApi.createExpense({ 
+      ...payload, 
+      imported_from_attachment: files.length > 0, 
+      analysis_status: files.length > 0 ? 'queued' : 'not_started' 
+    } as any);
+    
+    // Upload up to 10 files
+    let uploadedCount = 0;
+    for (let i = 0; i < Math.min(files.length, 10); i++) {
+      try {
+        await expenseApi.uploadReceipt(created.id, files[i].file);
+        uploadedCount++;
+      } catch (e) {
+        console.error(e); 
+      }
+    }
+    
+    if (files.length > 0) {
+      if (uploadedCount === files.length) {
+        addNotification?.('success', 'Expense Receipts Processed', `Successfully uploaded ${uploadedCount} receipt files. AI analysis in progress.`);
+      } else {
+        addNotification?.('error', 'Expense Upload Partial', `Uploaded ${uploadedCount} of ${files.length} receipt files.`);
+      }
+    }
+
+    return created;
+  };
+
+  const handleApprovalSubmission = async (notes?: string) => {
+    try {
+      if (!createdExpenseId) return;
+
+      const approverId = parseInt(selectedApproverId);
+      await approvalApi.submitForApproval(createdExpenseId, approverId, notes);
+
+      toast.success('Expense submitted for approval successfully');
+      setShowApprovalDialog(false);
+      window.history.back();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to submit expense for approval');
+      throw e; // Re-throw to prevent dialog from closing
+    }
+  };
+
   const onSubmit = async () => {
     try {
       setSaving(true);
-      if ((!form.amount || Number(form.amount) === 0) && files.length === 0) {
-        toast.error('Amount is required unless importing from files');
-        return;
-      }
-      if (!form.category) {
-        toast.error('Category is required');
+      
+      if (!validateExpenseForm()) {
         return;
       }
 
-      // Validate consumption items
-      if (isInventoryConsumption) {
-        if (!consumptionItems || consumptionItems.length === 0) {
-          toast.error('At least one inventory item must be selected for consumption');
-          return;
-        }
-        // Validate that all consumption items have valid quantities
-        const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
-        if (invalidItems.length > 0) {
-          toast.error('All inventory consumption items must have a quantity greater than 0');
-          return;
-        }
-      }
-
-      const addNotification = (window as any).addAINotification;
-      if (files.length > 0) {
-        addNotification?.('processing', 'Processing Expense Receipts', `Analyzing ${files.length} receipt files with AI...`);
-      }
+      const created = await createExpense();
       
-      const payload = {
-        amount: Number(form.amount),
-        currency: form.currency || 'USD',
-        expense_date: form.expense_date,
-        category: form.category,
-        vendor: form.vendor,
-        tax_rate: form.tax_rate,
-        tax_amount: form.tax_amount,
-        total_amount: form.total_amount,
-        payment_method: form.payment_method,
-        reference_number: form.reference_number,
-        status: form.status || 'recorded',
-        notes: form.notes,
-        invoice_id: form.invoice_id ?? null,
-        is_inventory_purchase: isInventoryPurchase,
-        inventory_items: isInventoryPurchase ? inventoryPurchaseItems : undefined,
-        is_inventory_consumption: isInventoryConsumption,
-        consumption_items: isInventoryConsumption ? consumptionItems : undefined,
-      } as any;
-      const created = await expenseApi.createExpense({ ...payload, imported_from_attachment: files.length > 0, analysis_status: files.length > 0 ? 'queued' : 'not_started' } as any);
-      
-      // Upload up to 10 files
-      let uploadedCount = 0;
-      for (let i = 0; i < Math.min(files.length, 10); i++) {
-        try {
-          await expenseApi.uploadReceipt(created.id, files[i].file);
-          uploadedCount++;
-        } catch (e) {
-          console.error(e); 
-        }
+      if (submitForApproval) {
+        // Store the created expense ID and show approval dialog
+        setCreatedExpenseId(created.id);
+        setShowApprovalDialog(true);
+      } else {
+        toast.success(isInventoryConsumption ? 'Consumption expense created successfully' : 'Expense created');
+        window.history.back();
       }
-      
-      if (files.length > 0) {
-        if (uploadedCount === files.length) {
-          addNotification?.('success', 'Expense Receipts Processed', `Successfully uploaded ${uploadedCount} receipt files. AI analysis in progress.`);
-        } else {
-          addNotification?.('error', 'Expense Upload Partial', `Uploaded ${uploadedCount} of ${files.length} receipt files.`);
-        }
-      }
-      
-      toast.success(isInventoryConsumption ? 'Consumption expense created successfully' : 'Expense created');
-      window.history.back();
     } catch (e: any) {
       const addNotification = (window as any).addAINotification;
       if (files.length > 0) {
@@ -378,10 +440,74 @@ export default function ExpensesNew() {
           </CardContent>
         </Card>
 
+        {/* Approval Submission Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Approval Workflow</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="submit-for-approval"
+                checked={submitForApproval}
+                onCheckedChange={(checked) => setSubmitForApproval(checked as boolean)}
+              />
+              <label
+                htmlFor="submit-for-approval"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Submit this expense for approval after creation
+              </label>
+            </div>
+              {submitForApproval && (
+                <div className="mt-3 space-y-3">
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      This expense will be submitted for approval. You'll be able to add additional notes before final submission.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="approver-select" className="flex items-center gap-2 text-sm font-medium">
+                      <Users className="h-4 w-4" />
+                      Select Approver *
+                    </Label>
+                    <Select value={selectedApproverId} onValueChange={setSelectedApproverId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose an approver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableApprovers.map((approver) => (
+                          <SelectItem key={approver.id} value={approver.id.toString()}>
+                            {approver.name} ({approver.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+          </CardContent>
+        </Card>
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button onClick={onSubmit} disabled={saving}>{saving ? 'Saving...' : 'Create Expense'}</Button>
+          <Button onClick={onSubmit} disabled={saving || (submitForApproval && !selectedApproverId)}>
+            {saving ? 'Saving...' : (submitForApproval ? 'Create & Submit for Approval' : 'Create Expense')}
+          </Button>
         </div>
+
+        {/* Approval Submission Dialog */}
+        <ApprovalSubmissionDialog
+          open={showApprovalDialog}
+          onOpenChange={setShowApprovalDialog}
+          onConfirm={handleApprovalSubmission}
+          expenseAmount={Number(form.amount || 0)}
+          currency={form.currency || 'USD'}
+          category={form.category || 'General'}
+          selectedApproverName={availableApprovers.find(a => a.id.toString() === selectedApproverId)?.name}
+          loading={saving}
+        />
       </div>
     </AppLayout>
   );

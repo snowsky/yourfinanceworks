@@ -52,6 +52,11 @@ class InventoryItemBase(BaseModel):
     item_type: str = Field("product", description="Type: product, material, service")
     is_active: bool = Field(True, description="Whether item is active")
 
+    # Barcode support
+    barcode: Optional[str] = Field(None, max_length=100, description="Barcode value")
+    barcode_type: Optional[str] = Field(None, max_length=20, description="Barcode type: UPC, EAN, CODE128, QR")
+    barcode_format: Optional[str] = Field(None, max_length=10, description="Barcode format: 1D, 2D")
+
     @field_validator('item_type')
     @classmethod
     def validate_item_type(cls, v):
@@ -69,6 +74,11 @@ class InventoryItemBase(BaseModel):
 
     @model_validator(mode='after')
     def validate_stock_tracking(self):
+        # For services, allow unlimited stock even if not tracking stock
+        if self.item_type == 'service':
+            return self
+
+        # For products and materials, apply normal stock validation
         if not self.track_stock and self.current_stock > 0:
             raise ValueError('Cannot have current_stock > 0 when track_stock is False')
         if not self.track_stock and self.minimum_stock > 0:
@@ -98,6 +108,11 @@ class InventoryItemUpdate(BaseModel):
     # Item type and status
     item_type: Optional[str] = Field(None)
     is_active: Optional[bool] = Field(None)
+
+    # Barcode support
+    barcode: Optional[str] = Field(None, max_length=100)
+    barcode_type: Optional[str] = Field(None, max_length=20)
+    barcode_format: Optional[str] = Field(None, max_length=10)
 
     @field_validator('item_type')
     @classmethod
