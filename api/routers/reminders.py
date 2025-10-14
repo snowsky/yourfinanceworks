@@ -422,6 +422,59 @@ def update_reminder_status(
     
     return ReminderWithUsers.model_validate(reminder)
 
+@router.post("/{reminder_id}/unsnooze", response_model=ReminderWithUsers)
+def unsnooze_reminder(
+    reminder_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Unsnooze a reminder (set status back to pending)"""
+    
+    reminder = db.query(Reminder).filter(
+        Reminder.id == reminder_id,
+        Reminder.is_deleted == False
+    ).first()
+    
+    if not reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reminder not found"
+        )
+    
+    # Check permissions (assigned user or creator can unsnooze)
+    if (reminder.assigned_to_id != current_user.id and
+        reminder.created_by_id != current_user.id):
+        try:
+            require_admin(current_user, "unsnooze this reminder")
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to unsnooze this reminder"
+            )
+    
+    # Only allow unsnoozing if currently snoozed
+    if reminder.status != ReminderStatus.SNOOZED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reminder is not currently snoozed"
+        )
+    
+    # Unsnooze the reminder
+    reminder.status = ReminderStatus.PENDING
+    reminder.snoozed_until = None
+    
+    db.commit()
+    db.refresh(reminder)
+    
+    # Load relationships for response
+    reminder = db.query(Reminder).options(
+        joinedload(Reminder.created_by),
+        joinedload(Reminder.assigned_to),
+        joinedload(Reminder.completed_by)
+    ).filter(Reminder.id == reminder.id).first()
+    
+    return ReminderWithUsers.model_validate(reminder)
+
 @router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_reminder(
     reminder_id: int,

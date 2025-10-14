@@ -11,7 +11,8 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Timer
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -148,6 +149,9 @@ export function ReminderList({ className }: ReminderListProps) {
           params.due_date_to = new Date().toISOString();
           params.status = ['pending'];
           break;
+        case 'snoozed':
+          params.status = ['snoozed'];
+          break;
         case 'completed':
           params.status = ['completed'];
           break;
@@ -265,6 +269,17 @@ export function ReminderList({ className }: ReminderListProps) {
     }
   };
 
+  const handleUnsnoozeReminder = async (id: number) => {
+    try {
+      await reminderApi.unsnoozeReminder(id);
+
+      toast.success('Reminder unsnoozed');
+      loadReminders();
+    } catch (error) {
+      toast.error('Failed to unsnooze reminder');
+    }
+  };
+
   const handleDeleteReminder = async (id: number) => {
     try {
       await reminderApi.deleteReminder(id);
@@ -286,6 +301,7 @@ export function ReminderList({ className }: ReminderListProps) {
       my: reminders.filter(r => r.assigned_to.id === currentUser?.id).length,
       due_today: reminders.filter(r => format(new Date(r.due_date), 'yyyy-MM-dd') === todayStr).length,
       overdue: reminders.filter(r => new Date(r.due_date) < today && r.status === 'pending').length,
+      snoozed: reminders.filter(r => r.status === 'snoozed').length,
       completed: reminders.filter(r => r.status === 'completed').length,
     };
     
@@ -352,7 +368,7 @@ export function ReminderList({ className }: ReminderListProps) {
           setPage(1);
         }}
       >
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             All ({counts.all})
@@ -368,6 +384,10 @@ export function ReminderList({ className }: ReminderListProps) {
           <TabsTrigger value="overdue" className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             Overdue ({counts.overdue})
+          </TabsTrigger>
+          <TabsTrigger value="snoozed" className="flex items-center gap-2">
+            <Timer className="h-4 w-4" />
+            Snoozed ({counts.snoozed})
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
@@ -500,6 +520,8 @@ export function ReminderList({ className }: ReminderListProps) {
                 <p className="text-muted-foreground text-center mb-4">
                   {activeTab === 'all' 
                     ? "Create your first reminder to get started"
+                    : activeTab === 'snoozed'
+                    ? "No snoozed reminders - all your reminders are active!"
                     : `No ${activeTab.replace('_', ' ')} reminders`}
                 </p>
                 <Button onClick={() => setShowForm(true)}>
@@ -518,6 +540,7 @@ export function ReminderList({ className }: ReminderListProps) {
                   onEdit={setEditingReminder}
                   onComplete={handleCompleteReminder}
                   onSnooze={handleSnoozeReminder}
+                  onUnsnooze={handleUnsnoozeReminder}
                   onDelete={handleDeleteReminder}
                 />
               ))}

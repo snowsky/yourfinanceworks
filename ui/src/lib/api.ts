@@ -2804,4 +2804,10 @@ export const reminderApi = {
   getReminderNotifications: async (reminderId: number) => {
     return apiRequest<any>(`/reminders/${reminderId}/notifications`);
   },
+
+  unsnoozeReminder: async (id: number) => {
+    return apiRequest<any>(`/reminders/${id}/unsnooze`, {
+      method: 'POST',
+    });
+  },
 };

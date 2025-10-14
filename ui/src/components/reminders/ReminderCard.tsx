@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
-import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle } from 'lucide-react';
+import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle, Play } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ interface ReminderCardProps {
   onEdit?: (reminder: any) => void;
   onComplete?: (id: number, notes?: string) => void;
   onSnooze?: (id: number, until: Date) => void;
+  onUnsnooze?: (id: number) => void;
   onDelete?: (id: number) => void;
   className?: string;
 }
@@ -46,6 +47,7 @@ export function ReminderCard({
   onEdit,
   onComplete,
   onSnooze,
+  onUnsnooze,
   onDelete,
   className
 }: ReminderCardProps) {
@@ -214,6 +216,28 @@ export function ReminderCard({
               >
                 <Timer className="h-4 w-4" />
                 Snooze
+              </Button>
+            </>
+          )}
+
+          {reminder.status === 'snoozed' && isAssignedToCurrentUser && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => onComplete?.(reminder.id)}
+                className="flex items-center gap-1"
+              >
+                <Check className="h-4 w-4" />
+                Complete
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onUnsnooze?.(reminder.id)}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+              >
+                <Play className="h-4 w-4" />
+                Unsnooze
               </Button>
             </>
           )}
