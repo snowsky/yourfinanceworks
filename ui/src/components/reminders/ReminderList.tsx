@@ -373,11 +373,11 @@ export function ReminderList({ className }: ReminderListProps) {
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all" className="flex items-center gap-2">
             <List className="h-4 w-4" />
-            All ({counts.all})
+            {t('reminders.all')} ({counts.all})
           </TabsTrigger>
           <TabsTrigger value="my" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            My Tasks ({counts.my})
+            {t('reminders.my_tasks')} ({counts.my})
           </TabsTrigger>
           <TabsTrigger value="due_today" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
