@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface ReminderCardProps {
   reminder: {
@@ -51,6 +52,7 @@ export function ReminderCard({
   onDelete,
   className
 }: ReminderCardProps) {
+  const { t } = useTranslation();
   const dueDate = new Date(reminder.due_date);
   const isOverdue = isPast(dueDate) && reminder.status === 'pending';
   const isDueToday = isToday(dueDate);
@@ -132,10 +134,10 @@ export function ReminderCard({
           <div className="flex items-center gap-2 ml-2">
             <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
               <Flag className="h-3 w-3 mr-1" />
-              {reminder.priority}
+              {t(reminder.priority)}
             </Badge>
             <Badge variant="outline" className={getStatusColor(reminder.status)}>
-              {reminder.status}
+              {t(reminder.status)}
             </Badge>
           </div>
         </div>
@@ -153,7 +155,7 @@ export function ReminderCard({
             <div className="flex items-center gap-1">
               <User className="h-4 w-4" />
               <span>
-                {isAssignedToCurrentUser ? 'You' : getUserDisplayName(reminder.assigned_to)}
+                {isAssignedToCurrentUser ? t('reminders.you') : getUserDisplayName(reminder.assigned_to)}
               </span>
             </div>
           )}
@@ -168,7 +170,7 @@ export function ReminderCard({
           {reminder.snooze_count && reminder.snooze_count > 0 && (
             <div className="flex items-center gap-1 text-blue-600">
               <Timer className="h-4 w-4" />
-              <span>Snoozed {reminder.snooze_count}x</span>
+              <span>{t('reminders.snoozed')} {reminder.snooze_count}x</span>
             </div>
           )}
         </div>
@@ -185,13 +187,13 @@ export function ReminderCard({
 
         {reminder.snoozed_until && (
           <div className="text-sm text-blue-600 mb-3">
-            Snoozed until {format(new Date(reminder.snoozed_until), 'MMM d, yyyy h:mm a')}
+            {t('reminders.snoozed_until')} {format(new Date(reminder.snoozed_until), 'MMM d, yyyy h:mm a')}
           </div>
         )}
 
         {reminder.completed_at && (
           <div className="text-sm text-green-600 mb-3">
-            Completed on {format(new Date(reminder.completed_at), 'MMM d, yyyy h:mm a')}
+            {t('reminders.completed_on')} {format(new Date(reminder.completed_at), 'MMM d, yyyy h:mm a')}
           </div>
         )}
       </CardContent>
@@ -206,7 +208,7 @@ export function ReminderCard({
                 className="flex items-center gap-1"
               >
                 <Check className="h-4 w-4" />
-                Complete
+                {t('reminders.complete')}
               </Button>
               <Button
                 size="sm"
@@ -215,7 +217,7 @@ export function ReminderCard({
                 className="flex items-center gap-1"
               >
                 <Timer className="h-4 w-4" />
-                Snooze
+                {t('reminders.snooze')}
               </Button>
             </>
           )}
@@ -228,7 +230,7 @@ export function ReminderCard({
                 className="flex items-center gap-1"
               >
                 <Check className="h-4 w-4" />
-                Complete
+                {t('reminders.complete')}
               </Button>
               <Button
                 size="sm"
@@ -237,7 +239,7 @@ export function ReminderCard({
                 className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
               >
                 <Play className="h-4 w-4" />
-                Unsnooze
+                {t('reminders.unsnooze')}
               </Button>
             </>
           )}
@@ -250,7 +252,7 @@ export function ReminderCard({
               className="flex items-center gap-1"
             >
               <Edit className="h-4 w-4" />
-              Edit
+              {t('reminders.edit')}
             </Button>
           )}
 
@@ -262,7 +264,7 @@ export function ReminderCard({
               className="flex items-center gap-1 text-red-600 hover:text-red-700 ml-auto"
             >
               <Trash2 className="h-4 w-4" />
-              Delete
+              {t('reminders.delete')}
             </Button>
           )}
         </div>

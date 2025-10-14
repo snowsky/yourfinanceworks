@@ -55,6 +55,8 @@
     "invoices": "Facturas",
     "expenses": "Gastos",
     "bank_statements": "Estados de Cuenta",
+    "reminders": "Recordatorios",
+    "reports": "Reportes",
     "clients": "Clientes",
     "payments": "Pagos",
     "inventory": "Inventario",
@@ -476,7 +478,7 @@
   },
   "settings": {
     "title": "Configuración",
-    "description": "Gestiona las preferencias y configuración de tu aplicación",
+    "description": "Respalda, exporta y restaura todos los datos de tu organización de forma segura.",
     "company_info": "Información de la Empresa",
     "company_name": "Nombre de la Empresa",
     "company_email": "Correo de la Empresa",
@@ -663,7 +665,6 @@
     "data_can_be_used_programmatically_in_custom_applications": "Los datos exportados pueden usarse programáticamente en aplicaciones personalizadas.",
     "import_validates_file_structure_before_processing": "La importación valida la estructura del archivo antes de procesar.",
     "new_invoice_numbers_are_generated_to_avoid_conflicts": "Se generan nuevos números de factura para evitar conflictos durante la importación.",
-    "description": "Respalda, exporta y restaura todos los datos de tu organización de forma segura.",
     "recommended_backup_hint": "Recomendamos descargar un respaldo regularmente para evitar la pérdida de datos.",
     "backup_current_data_first": "Haz una copia de seguridad de los datos actuales primero",
     "ai_assistant": "Asistente de IA",
@@ -749,7 +750,6 @@
     "discount_type": "Tipo de Descuento",
     "discount_value": "Valor del Descuento",
     "currency": "Moneda",
-    "rule_active": "Activo",
     "error_message": "Lo sentimos, encontramos un error. Por favor intenta de nuevo o verifica tu configuración de IA.",
     "no_ai_config_found": "No se encontró configuración de IA. Por favor configura un proveedor de IA en Configuración > Configuraciones de Proveedor de IA.",
     "suggestActions": "Sugerencias",
@@ -1788,5 +1788,278 @@
       "price_required": "Se requiere un precio unitario válido"
     },
     "total": "Total"
+  },
+  "approvalDashboard": {
+    "title": "Panel de Aprobaciones",
+    "pending_approvals": "Aprobaciones Pendientes",
+    "processed_expenses": "Gastos Procesados",
+    "awaiting_review": "Esperando tu revisión",
+    "approved_today": "Aprobados Hoy",
+    "expenses_approved_today": "Gastos aprobados hoy",
+    "rejected_today": "Rechazados Hoy",
+    "expenses_rejected_today": "Gastos rechazados hoy",
+    "overdue": "Vencidos",
+    "pending_days": "Pendientes > 3 días",
+    "avg_approval_time": "Tiempo Promedio de Aprobación",
+    "avg_time_to_approve": "Tiempo promedio para aprobar",
+    "filter_sort_options": "Opciones de Filtro y Orden",
+    "expenses_approved_rejected": "Gastos que has aprobado o rechazado",
+    "search_approvals": "Buscar aprobaciones...",
+    "search_expenses": "Buscar gastos...",
+    "filters": "Filtros",
+    "category": "Categoría",
+    "filter_by_category": "Filtrar por categoría",
+    "sort_by": "Ordenar Por",
+    "date_submitted": "Fecha de Envío",
+    "amount": "Monto",
+    "order": "Orden",
+    "newest_first": "Más Recientes Primero",
+    "oldest_first": "Más Antiguos Primero",
+    "pending": "Pendiente",
+    "approved": "Aprobado",
+    "rejected": "Rechazado",
+    "view_details": "Ver Detalles",
+    "no_pending_approvals": "No hay aprobaciones pendientes",
+    "no_processed_expenses": "No hay gastos procesados",
+    "no_approvals_match_your_search_criteria": "No hay aprobaciones que coincidan con tus criterios de búsqueda",
+    "not_approved_rejected": "Aún no has aprobado ni rechazado ningún gasto.",
+    "showing": "Mostrando",
+    "of": "de",
+    "approvals": "aprobaciones",
+    "all_categories": "Todas las categorías",
+    "failed_to_load_approval_statistics": "No se pudieron cargar las estadísticas de aprobación"
+  },
+  "approvalHelp": {
+    "show_help": "Mostrar Ayuda",
+    "exit_help": "Salir del Modo de Ayuda",
+    "quick_help": "Ayuda Rápida",
+    "quick_tips": "Consejos Rápidos",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "finish": "Finalizar",
+    "submission": {
+      "submit_approval": {
+        "title": "Enviar para Aprobación",
+        "content": "Una vez que envíes un gasto para aprobación, no podrás editarlo. Asegúrate de que toda la información sea correcta y los recibos estén cargados antes de enviar."
+      },
+      "approval_status": {
+        "title": "Estado de Aprobación",
+        "content": "Rastrea tu gasto a través del proceso de aprobación. El estado muestra: Pendiente (esperando revisión), Aprobado (listo para reembolso), o Rechazado (necesita correcciones)."
+      },
+      "required_fields": {
+        "title": "Información Requerida",
+        "content": "Todos los campos marcados con * son obligatorios para el envío de aprobación. La información faltante impedirá el envío y retrasará el procesamiento."
+      },
+      "tips": [
+        "Asegúrate de que todos los campos obligatorios estén completos antes de enviar",
+        "Carga recibos claros y legibles para todos los gastos",
+        "Proporciona una justificación comercial detallada en las descripciones",
+        "Revisa los límites de la política de gastos antes de enviar"
+      ]
+    },
+    "approval": {
+      "approve_button": {
+        "title": "Aprobar Gasto",
+        "content": "Haz clic para aprobar este gasto. Puedes agregar notas opcionales que se enviarán al empleado. La aprobación no se puede deshacer."
+      },
+      "reject_button": {
+        "title": "Rechazar Gasto",
+        "content": "Rechaza este gasto con un motivo obligatorio. El empleado recibirá tus comentarios y podrá volver a enviar después de hacer correcciones."
+      },
+      "expense_details": {
+        "title": "Revisar Detalles",
+        "content": "Revisa cuidadosamente toda la información del gasto, recibos y documentación antes de tomar tu decisión. Verifica el cumplimiento de la política."
+      },
+      "approval_history": {
+        "title": "Historial de Aprobación",
+        "content": "Ve la línea de tiempo completa de aprobación. Para aprobaciones de múltiples niveles, ve quién ya ha aprobado y quién necesita aprobar a continuación."
+      },
+      "tips": [
+        "Revisa todos los detalles del gasto y la documentación de respaldo",
+        "Verifica el cumplimiento del gasto con las políticas de la empresa",
+        "Proporciona comentarios claros al rechazar gastos",
+        "Usa la delegación cuando no estés disponible"
+      ]
+    },
+    "dashboard": {
+      "pending_count": {
+        "title": "Aprobaciones Pendientes",
+        "content": "Número de gastos esperando tu aprobación. Haz clic para ver la lista completa y priorizar tus revisiones."
+      },
+      "filter_options": {
+        "title": "Opciones de Filtro y Orden",
+        "content": "Usa filtros para encontrar gastos específicos por monto, fecha, empleado o categoría. Ordena por urgencia o fecha de envío."
+      },
+      "bulk_actions": {
+        "title": "Acciones en Lote",
+        "content": "Selecciona múltiples gastos para aprobar artículos similares a la vez. Usa con cuidado y solo para gastos rutinarios que cumplan con la política."
+      },
+      "delegation_status": {
+        "title": "Delegación Activa",
+        "content": "Tienes configuraciones de delegación activas. Algunas aprobaciones pueden ser manejadas por tu delegado durante el período especificado."
+      },
+      "tips": [
+        "Usa filtros para priorizar aprobaciones urgentes",
+        "Configura notificaciones para un procesamiento oportuno de aprobaciones",
+        "Revisa las analíticas de aprobación para identificar cuellos de botella",
+        "Configura la delegación antes de ausencias planificadas"
+      ]
+    },
+    "rules": {
+      "rule_priority": {
+        "title": "Prioridad de Regla",
+        "content": "Los números de prioridad más altos se evalúan primero. Usa la prioridad para asegurar que las reglas específicas anulen las generales."
+      },
+      "amount_ranges": {
+        "title": "Rangos de Monto",
+        "content": "Establece montos mínimos y máximos para esta regla. Evita brechas entre reglas para asegurar que todos los gastos tengan un aprobador."
+      },
+      "category_filter": {
+        "title": "Filtro de Categoría",
+        "content": "Especifica a qué categorías de gastos se aplica esta regla. Deja vacío para aplicar a todas las categorías dentro del rango de monto."
+      },
+      "approval_levels": {
+        "title": "Niveles de Aprobación",
+        "content": "El Nivel 1 es el primer aprobador, el Nivel 2 es el segundo, etc. Crea múltiples reglas con el mismo rango de monto para aprobación de múltiples niveles."
+      },
+      "auto_approval": {
+        "title": "Aprobación Automática",
+        "content": "Los gastos por debajo de este monto se aprueban automáticamente. Usa para gastos pequeños y rutinarios para reducir la carga de aprobación."
+      },
+      "tips": [
+        "Prueba nuevas reglas antes de activarlas",
+        "Evita brechas en los rangos de monto entre reglas",
+        "Usa la prioridad para manejar conflictos de reglas",
+        "Documenta los cambios de reglas para fines de auditoría"
+      ]
+    },
+    "delegation": {
+      "delegate_selection": {
+        "title": "Elegir Delegado",
+        "content": "Selecciona un miembro de equipo de confianza para manejar aprobaciones en tu ausencia. Deben tener los permisos apropiados y conocimiento de las políticas."
+      },
+      "delegation_period": {
+        "title": "Período de Delegación",
+        "content": "Establece fechas específicas de inicio y fin para la delegación. La delegación expira automáticamente en la fecha de fin por seguridad."
+      },
+      "delegation_scope": {
+        "title": "Alcance de Delegación",
+        "content": "Elige si delegar todas las aprobaciones o solo tipos específicos (límites de monto, categorías). La delegación parcial mantiene el control."
+      },
+      "notification_settings": {
+        "title": "Notificaciones de Delegación",
+        "content": "Configura si recibes copias de las decisiones de aprobación tomadas por tu delegado. Recomendado para fines de auditoría."
+      },
+      "tips": [
+        "Elige delegados con conocimiento y permisos apropiados",
+        "Establece fechas específicas de inicio y fin por seguridad",
+        "Configura preferencias de notificación para supervisión",
+        "Revisa la efectividad de la delegación regularmente"
+      ]
+    }
+  },
+  "reminders": {
+    "title": "Recordatorios",
+    "description": "Gestiona tus tareas y recordatorios recurrentes",
+    "new_reminder": "Nuevo Recordatorio",
+    "edit_reminder": "Editar Recordatorio",
+    "create_new_reminder": "Crear Nuevo Recordatorio",
+    "refresh": "Actualizar",
+    "all": "Todos",
+    "my_tasks": "Mis Tareas",
+    "due_today": "Vence Hoy",
+    "overdue": "Vencido",
+    "snoozed": "Pospuesto",
+    "completed": "Completado",
+    "search_placeholder": "Buscar recordatorios...",
+    "all_status": "Todos los Estados",
+    "all_priority": "Todas las Prioridades",
+    "all_users": "Todos los Usuarios",
+    "date_range": "Rango de Fechas",
+    "from_date": "Fecha de Inicio",
+    "to_date": "Fecha de Fin",
+    "clear": "Limpiar",
+    "no_reminders_found": "No se encontraron recordatorios",
+    "create_first_reminder": "Crea tu primer recordatorio para comenzar",
+    "no_snoozed_reminders": "No hay recordatorios pospuestos - ¡todos tus recordatorios están activos!",
+    "no_reminders_for_filter": "No hay recordatorios",
+    "create_reminder": "Crear Recordatorio",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page_of": "Página {{page}} de {{total}}",
+    "delete": "Eliminar",
+    "complete": "Completar",
+    "snooze": "Posponer",
+    "unsnooze": "Cancelar Posposición",
+    "edit": "Editar",
+    "form": {
+      "title": "Título *",
+      "title_placeholder": "Ingresa el título del recordatorio",
+      "description": "Descripción",
+      "description_placeholder": "Ingresa la descripción del recordatorio (opcional)",
+      "due_date": "Fecha de Vencimiento *",
+      "pick_date_time": "Elegir fecha y hora",
+      "priority": "Prioridad",
+      "select_priority": "Seleccionar prioridad",
+      "assign_to": "Asignar A *",
+      "select_user": "Seleccionar usuario",
+      "recurrence": "Recurrencia",
+      "select_recurrence": "Seleccionar recurrencia",
+      "repeat_every": "Repetir Cada",
+      "end_recurrence": "Fin de Recurrencia (Opcional)",
+      "select_end_date": "Seleccionar fecha de fin (opcional)",
+      "leave_empty_indefinite": "Dejar vacío para recurrencia indefinida",
+      "tags": "Etiquetas",
+      "add_tag": "Agregar etiqueta",
+      "cancel": "Cancelar",
+      "saving": "Guardando...",
+      "create_reminder": "Crear Recordatorio",
+      "update_reminder": "Actualizar Recordatorio"
+    },
+    "priority": {
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "urgent": "Urgente"
+    },
+    "recurrence": {
+      "none": "Sin recurrencia",
+      "daily": "Diario",
+      "weekly": "Semanal",
+      "monthly": "Mensual",
+      "yearly": "Anual",
+      "days": "día(s)",
+      "weeks": "semana(s)",
+      "months": "mes(es)",
+      "years": "año(s)"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "completed": "Completado",
+      "snoozed": "Pospuesto",
+      "cancelled": "Cancelado"
+    },
+    "actions": {
+      "complete": "Completar",
+      "snooze": "Posponer",
+      "unsnooze": "Cancelar Posposición",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "messages": {
+      "created_success": "Recordatorio creado exitosamente",
+      "updated_success": "Recordatorio actualizado exitosamente",
+      "completed_success": "Recordatorio marcado como completado",
+      "snoozed_success": "Recordatorio pospuesto",
+      "unsnoozed_success": "Recordatorio reactivado",
+      "deleted_success": "Recordatorio eliminado",
+      "create_failed": "Error al crear el recordatorio",
+      "update_failed": "Error al actualizar el recordatorio",
+      "complete_failed": "Error al completar el recordatorio",
+      "snooze_failed": "Error al posponer el recordatorio",
+      "unsnooze_failed": "Error al reactivar el recordatorio",
+      "delete_failed": "Error al eliminar el recordatorio",
+      "load_failed": "Error al cargar los recordatorios"
+    }
   }
 }

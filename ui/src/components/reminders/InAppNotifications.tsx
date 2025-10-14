@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { reminderApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface InAppNotification {
   id: number;
@@ -32,6 +33,7 @@ interface InAppNotificationsProps {
 }
 
 export function InAppNotifications({ className }: InAppNotificationsProps) {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -61,7 +63,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
       const data = await reminderApi.getRecentNotifications();
       setNotifications(data.items || []);
     } catch (error) {
-      toast.error('Failed to load notifications');
+      toast.error(t('reminders.failed_to_load_notifications'));
     } finally {
       setLoading(false);
     }
@@ -97,9 +99,9 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
         prev.map(n => ({ ...n, is_read: true }))
       );
       setUnreadCount(0);
-      toast.success('All notifications marked as read');
+      toast.success(t('reminders.all_notifications_marked_as_read'));
     } catch (error) {
-      toast.error('Failed to mark all as read');
+      toast.error(t('reminders.failed_to_mark_all_as_read'));
     }
   };
 
@@ -112,7 +114,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      toast.error('Failed to dismiss notification');
+      toast.error(t('reminders.failed_to_dismiss_notification'));
     }
   };
 
@@ -177,7 +179,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
         <Card className="border-0 shadow-none">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Notifications</CardTitle>
+              <CardTitle className="text-lg">{t('reminders.notifications')}</CardTitle>
               {notifications.some(n => !n.is_read) && (
                 <Button
                   variant="ghost"
@@ -185,7 +187,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
                   onClick={markAllAsRead}
                   className="text-xs"
                 >
-                  Mark all read
+                  {t('reminders.mark_all_read')}
                 </Button>
               )}
             </div>
@@ -199,8 +201,8 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
             ) : notifications.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No notifications</p>
-                <p className="text-sm">You're all caught up!</p>
+                <p>{t('reminders.no_notifications')}</p>
+                <p className="text-sm">{t('reminders.you_re_all_caught_up')}</p>
               </div>
             ) : (
               <ScrollArea className="max-h-96">
@@ -294,7 +296,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
                     window.location.href = '/reminders';
                   }}
                 >
-                  View All Reminders
+                  {t('reminders.view_all_reminders')}
                 </Button>
               </div>
             )}

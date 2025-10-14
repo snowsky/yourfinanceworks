@@ -50,6 +50,7 @@
     "dashboard": "Dashboard",
     "invoices": "Invoices",
     "expenses": "Expenses",
+    "reminders": "Reminders",
     "bank_statements": "Statements",
     "clients": "Clients",
     "payments": "Payments",

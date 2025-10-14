@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Bell, Mail, Smartphone, Clock, Settings } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface ApprovalNotificationPreferences {
   approval_notification_frequency: string;
@@ -26,6 +27,7 @@ interface ApprovalNotificationPreferences {
 }
 
 const ApprovalNotificationPreferences: React.FC = () => {
+  const { t } = useTranslation();
   const [preferences, setPreferences] = useState<ApprovalNotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,7 +45,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
       setPreferences(response.data);
     } catch (error) {
       console.error('Error fetching approval notification preferences:', error);
-      setError('Failed to load notification preferences');
+      setError(t('approval_notification_preferences.failed_to_load_notification_preferences'));
     } finally {
       setLoading(false);
     }
@@ -58,10 +60,10 @@ const ApprovalNotificationPreferences: React.FC = () => {
       setSuccess(null);
 
       await api.put('/notifications/approval-preferences', preferences);
-      setSuccess('Notification preferences updated successfully');
+      setSuccess(t('approval_notification_preferences.notification_preferences_updated_successfully'));
     } catch (error) {
       console.error('Error saving approval notification preferences:', error);
-      setError('Failed to save notification preferences');
+      setError(t('approval_notification_preferences.failed_to_save_notification_preferences'));
     } finally {
       setSaving(false);
     }
@@ -73,10 +75,10 @@ const ApprovalNotificationPreferences: React.FC = () => {
       setSuccess(null);
       
       await api.post('/notifications/send-digest');
-      setSuccess('Test digest sent successfully! Check your email.');
+      setSuccess(t('approval_notification_preferences.test_digest_sent_successfully'));
     } catch (error) {
       console.error('Error sending test digest:', error);
-      setError('Failed to send test digest');
+      setError(t('approval_notification_preferences.failed_to_send_test_digest'));
     }
   };
 
@@ -127,7 +129,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
       <Card>
         <CardContent className="flex items-center justify-center p-6">
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          Loading notification preferences...
+          {t('approval_notification_preferences.loading_notification_preferences')}
         </CardContent>
       </Card>
     );
@@ -139,7 +141,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
         <CardContent className="p-6">
           <Alert>
             <AlertDescription>
-              Failed to load notification preferences. Please try refreshing the page.
+              {t('approval_notification_preferences.failed_to_load_notification_preferences')}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -153,7 +155,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Approval Notification Preferences
+            {t('approval_notification_preferences.approval_notification_preferences')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -173,13 +175,13 @@ const ApprovalNotificationPreferences: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              <Label className="text-base font-medium">Notification Frequency</Label>
+              <Label className="text-base font-medium">{t('approval_notification_preferences.notification_frequency')}</Label>
             </div>
             
             <div className="space-y-3 ml-6">
               <div>
                 <Label htmlFor="notification-frequency" className="text-sm font-medium">
-                  Approval Notifications
+                  {t('approval_notification_preferences.approval_notifications')}
                 </Label>
                 <Select
                   value={preferences.approval_notification_frequency}
@@ -189,15 +191,15 @@ const ApprovalNotificationPreferences: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="immediate">Immediate - Send notifications as events occur</SelectItem>
-                    <SelectItem value="daily_digest">Daily Digest - Send a summary once per day</SelectItem>
+                    <SelectItem value="immediate">{t('approval_notification_preferences.immediate')} - {t('approval_notification_preferences.send_notifications_as_events_occur')}</SelectItem>
+                    <SelectItem value="daily_digest">{t('approval_notification_preferences.daily_digest')} - {t('approval_notification_preferences.send_summary_once_per_day')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label htmlFor="reminder-frequency" className="text-sm font-medium">
-                  Approval Reminders
+                  {t('approval_notification_preferences.approval_reminders')}
                 </Label>
                 <Select
                   value={preferences.approval_reminder_frequency}
@@ -207,9 +209,9 @@ const ApprovalNotificationPreferences: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="daily">Daily - Send reminders daily</SelectItem>
-                    <SelectItem value="weekly">Weekly - Send reminders weekly</SelectItem>
-                    <SelectItem value="disabled">Disabled - No reminder notifications</SelectItem>
+                    <SelectItem value="daily">{t('approval_notification_preferences.daily')} - {t('approval_notification_preferences.send_reminders_daily')}</SelectItem>
+                    <SelectItem value="weekly">{t('approval_notification_preferences.weekly')} - {t('approval_notification_preferences.send_reminders_weekly')}</SelectItem>
+                    <SelectItem value="disabled">{t('approval_notification_preferences.disabled')} - {t('approval_notification_preferences.no_reminder_notifications')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -220,7 +222,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Smartphone className="h-4 w-4" />
-              <Label className="text-base font-medium">Notification Channels</Label>
+              <Label className="text-base font-medium">{t('approval_notification_preferences.notification_channels')}</Label>
             </div>
             
             <div className="space-y-3 ml-6">
@@ -232,7 +234,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                 />
                 <Label htmlFor="email-channel" className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
-                  Email notifications
+                  {t('approval_notification_preferences.email_notifications')}
                 </Label>
               </div>
               
@@ -244,12 +246,12 @@ const ApprovalNotificationPreferences: React.FC = () => {
                 />
                 <Label htmlFor="inapp-channel" className="flex items-center gap-2">
                   <Bell className="h-4 w-4" />
-                  In-app notifications
+                  {t('approval_notification_preferences.in_app_notifications')}
                 </Label>
               </div>
               
               <p className="text-sm text-muted-foreground">
-                At least one notification channel must be selected.
+                {t('approval_notification_preferences.at_least_one_notification_channel_must_be_selected')}
               </p>
             </div>
           </div>
@@ -258,17 +260,17 @@ const ApprovalNotificationPreferences: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              <Label className="text-base font-medium">Event Notifications</Label>
+              <Label className="text-base font-medium">{t('approval_notification_preferences.event_notifications')}</Label>
             </div>
             
             <div className="space-y-3 ml-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm">Expense Events</h4>
+                  <h4 className="font-medium text-sm">{t('approval_notification_preferences.expense_events')}</h4>
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-submitted" className="text-sm">
-                      Expense submitted for approval
+                      {t('approval_notification_preferences.expense_submitted_for_approval')}
                     </Label>
                     <Switch
                       id="expense-submitted"
@@ -279,7 +281,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-approved" className="text-sm">
-                      Expense approved
+                      {t('approval_notification_preferences.expense_approved')}
                     </Label>
                     <Switch
                       id="expense-approved"
@@ -290,7 +292,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-rejected" className="text-sm">
-                      Expense rejected
+                      {t('approval_notification_preferences.expense_rejected')}
                     </Label>
                     <Switch
                       id="expense-rejected"
@@ -301,7 +303,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-level-approved" className="text-sm">
-                      Expense level approved
+                      {t('approval_notification_preferences.expense_level_approved')}
                     </Label>
                     <Switch
                       id="expense-level-approved"
@@ -312,11 +314,11 @@ const ApprovalNotificationPreferences: React.FC = () => {
                 </div>
                 
                 <div className="space-y-3">
-                  <h4 className="font-medium text-sm">System Events</h4>
+                  <h4 className="font-medium text-sm">{t('approval_notification_preferences.system_events')}</h4>
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-fully-approved" className="text-sm">
-                      Expense fully approved
+                      {t('approval_notification_preferences.expense_fully_approved')}
                     </Label>
                     <Switch
                       id="expense-fully-approved"
@@ -327,7 +329,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="expense-auto-approved" className="text-sm">
-                      Expense auto-approved
+                      {t('approval_notification_preferences.expense_auto_approved')}
                     </Label>
                     <Switch
                       id="expense-auto-approved"
@@ -338,7 +340,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="approval-reminder" className="text-sm">
-                      Approval reminders
+                      {t('approval_notification_preferences.approval_reminders')}
                     </Label>
                     <Switch
                       id="approval-reminder"
@@ -349,7 +351,7 @@ const ApprovalNotificationPreferences: React.FC = () => {
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="approval-escalation" className="text-sm">
-                      Approval escalations
+                      {t('approval_notification_preferences.approval_escalations')}
                     </Label>
                     <Switch
                       id="approval-escalation"
@@ -366,11 +368,11 @@ const ApprovalNotificationPreferences: React.FC = () => {
           <div className="flex gap-3 pt-4 border-t">
             <Button onClick={savePreferences} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Preferences
+              {t('approval_notification_preferences.save_preferences')}
             </Button>
             
             <Button variant="outline" onClick={sendTestDigest}>
-              Send Test Digest
+              {t('approval_notification_preferences.send_test_digest')}
             </Button>
           </div>
         </CardContent>

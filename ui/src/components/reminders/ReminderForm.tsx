@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 const reminderSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
@@ -62,6 +63,7 @@ export function ReminderForm({
   onCancel,
   isLoading = false
 }: ReminderFormProps) {
+  const { t } = useTranslation();
   const [newTag, setNewTag] = useState('');
   const [tags, setTags] = useState<string[]>(reminder?.tags || []);
 
@@ -260,14 +262,14 @@ export function ReminderForm({
               name="priority"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Priority</FormLabel>
+                  <FormLabel>{t('reminders.priority')}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select priority">
+                        <SelectValue placeholder={t('reminders.select_priority')}>
                           <div className="flex items-center gap-2">
                             <Flag className="h-4 w-4" />
-                            {priorityOptions.find(p => p.value === field.value)?.label}
+                            {t(priorityOptions.find(p => p.value === field.value)?.label)}
                           </div>
                         </SelectValue>
                       </SelectTrigger>
@@ -277,7 +279,7 @@ export function ReminderForm({
                         <SelectItem key={option.value} value={option.value}>
                           <div className={cn("flex items-center gap-2", option.color)}>
                             <Flag className="h-4 w-4" />
-                            {option.label}
+                            {t(option.label)}
                           </div>
                         </SelectItem>
                       ))}
@@ -294,7 +296,7 @@ export function ReminderForm({
               name="assigned_to_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assign To *</FormLabel>
+                  <FormLabel>{t('reminders.assign_to')} *</FormLabel>
                   <Select 
                     onValueChange={(value) => field.onChange(parseInt(value))} 
                     defaultValue={field.value?.toString()}
@@ -302,11 +304,11 @@ export function ReminderForm({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select user">
+                        <SelectValue placeholder={t('reminders.select_user')}>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4" />
                             {users.find(u => u.id === field.value) && 
-                             getUserDisplayName(users.find(u => u.id === field.value))}
+                             t(getUserDisplayName(users.find(u => u.id === field.value)))}
                           </div>
                         </SelectValue>
                       </SelectTrigger>
@@ -316,7 +318,7 @@ export function ReminderForm({
                         <SelectItem key={user.id} value={user.id.toString()}>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4" />
-                            {getUserDisplayName(user)}
+                            {t(getUserDisplayName(user))}
                           </div>
                         </SelectItem>
                       ))}
@@ -334,14 +336,14 @@ export function ReminderForm({
                 name="recurrence_pattern"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Recurrence</FormLabel>
+                    <FormLabel>{t('reminders.recurrence')}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select recurrence">
+                          <SelectValue placeholder={t('reminders.select_recurrence')}>
                             <div className="flex items-center gap-2">
                               <Repeat className="h-4 w-4" />
-                              {recurrenceOptions.find(r => r.value === field.value)?.label}
+                              {t(recurrenceOptions.find(r => r.value === field.value)?.label)}
                             </div>
                           </SelectValue>
                         </SelectTrigger>
@@ -351,7 +353,7 @@ export function ReminderForm({
                           <SelectItem key={option.value} value={option.value}>
                             <div className="flex items-center gap-2">
                               <Repeat className="h-4 w-4" />
-                              {option.label}
+                              {t(option.label)}
                             </div>
                           </SelectItem>
                         ))}
@@ -369,7 +371,7 @@ export function ReminderForm({
                     name="recurrence_interval"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Repeat Every</FormLabel>
+                        <FormLabel>{t('reminders.repeat_every')}</FormLabel>
                         <FormControl>
                           <div className="flex items-center gap-2">
                             <Input
@@ -382,10 +384,10 @@ export function ReminderForm({
                               disabled={isLoading}
                             />
                             <span className="text-sm text-muted-foreground">
-                              {watchRecurrence === 'daily' && 'day(s)'}
-                              {watchRecurrence === 'weekly' && 'week(s)'}
-                              {watchRecurrence === 'monthly' && 'month(s)'}
-                              {watchRecurrence === 'yearly' && 'year(s)'}
+                              {watchRecurrence === 'daily' && t('reminders.days')}
+                              {watchRecurrence === 'weekly' && t('reminders.weeks')}
+                              {watchRecurrence === 'monthly' && t('reminders.months')}
+                              {watchRecurrence === 'yearly' && t('reminders.years')}
                             </span>
                           </div>
                         </FormControl>
@@ -399,7 +401,7 @@ export function ReminderForm({
                     name="recurrence_end_date"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>End Recurrence (Optional)</FormLabel>
+                        <FormLabel>{t('reminders.end_recurrence')} (Optional)</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -414,7 +416,7 @@ export function ReminderForm({
                                 {field.value ? (
                                   format(field.value, "PPP")
                                 ) : (
-                                  <span>Select end date (optional)</span>
+                                  <span>{t('reminders.select_end_date')} (optional)</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
@@ -431,7 +433,7 @@ export function ReminderForm({
                           </PopoverContent>
                         </Popover>
                         <FormDescription>
-                          Leave empty for indefinite recurrence
+                          {t('reminders.leave_empty_indefinite')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -443,10 +445,10 @@ export function ReminderForm({
 
             {/* Tags */}
             <div className="space-y-3">
-              <label className="text-sm font-medium">Tags</label>
+              <label className="text-sm font-medium">{t('reminders.tags')}</label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Add a tag"
+                  placeholder={t('reminders.add_tag')}
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyPress={(e) => {
@@ -494,10 +496,10 @@ export function ReminderForm({
               onClick={onCancel}
               disabled={isLoading}
             >
-              Cancel
+              {t('reminders.cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : reminder ? 'Update Reminder' : 'Create Reminder'}
+              {isLoading ? t('reminders.saving') : reminder ? t('reminders.update_reminder') : t('reminders.create_reminder')}
             </Button>
           </CardFooter>
         </form>

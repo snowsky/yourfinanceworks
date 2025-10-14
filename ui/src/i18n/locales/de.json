@@ -52,7 +52,9 @@
     "dashboard": "Dashboard",
     "invoices": "Rechnungen",
     "expenses": "Ausgaben",
+    "reminders": "Erinnerungen",
     "bank_statements": "Auszüge",
+    "reports": "Berichte",
     "clients": "Kunden",
     "payments": "Zahlungen",
     "inventory": "Inventar",
@@ -1760,5 +1762,278 @@
       "price_required": "Gültiger Stückpreis ist erforderlich"
     },
     "total": "Total"
+  },
+  "approvalDashboard": {
+    "title": "Genehmigungs-Dashboard",
+    "pending_approvals": "Ausstehende Genehmigungen",
+    "processed_expenses": "Verarbeitete Ausgaben",
+    "awaiting_review": "Warten auf Ihre Überprüfung",
+    "approved_today": "Heute Genehmigt",
+    "expenses_approved_today": "Heute genehmigte Ausgaben",
+    "rejected_today": "Heute Abgelehnt",
+    "expenses_rejected_today": "Heute abgelehnte Ausgaben",
+    "overdue": "Überfällig",
+    "pending_days": "Ausstehend > 3 Tage",
+    "avg_approval_time": "Durchschn. Genehmigungszeit",
+    "avg_time_to_approve": "Durchschnittliche Zeit zur Genehmigung",
+    "filter_sort_options": "Filter- und Sortieroptionen",
+    "expenses_approved_rejected": "Von Ihnen genehmigte oder abgelehnte Ausgaben",
+    "search_approvals": "Genehmigungen suchen...",
+    "search_expenses": "Ausgaben suchen...",
+    "filters": "Filter",
+    "category": "Kategorie",
+    "filter_by_category": "Nach Kategorie filtern",
+    "sort_by": "Sortieren Nach",
+    "date_submitted": "Eingereicht am",
+    "amount": "Betrag",
+    "order": "Reihenfolge",
+    "newest_first": "Neueste Zuerst",
+    "oldest_first": "Älteste Zuerst",
+    "pending": "Ausstehend",
+    "approved": "Genehmigt",
+    "rejected": "Abgelehnt",
+    "view_details": "Details Anzeigen",
+    "no_pending_approvals": "Keine ausstehenden Genehmigungen",
+    "no_processed_expenses": "Keine verarbeiteten Ausgaben",
+    "no_approvals_match_your_search_criteria": "Keine Genehmigungen entsprechen Ihren Suchkriterien",
+    "not_approved_rejected": "Sie haben noch keine Ausgaben genehmigt oder abgelehnt.",
+    "showing": "Anzeige",
+    "of": "von",
+    "approvals": "Genehmigungen",
+    "all_categories": "Alle Kategorien",
+    "failed_to_load_approval_statistics": "Genehmigungsstatistiken konnten nicht geladen werden"
+  },
+  "approvalHelp": {
+    "show_help": "Hilfe Anzeigen",
+    "exit_help": "Hilfemodus Verlassen",
+    "quick_help": "Schnellhilfe",
+    "quick_tips": "Schnelltipps",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "submission": {
+      "submit_approval": {
+        "title": "Zur Genehmigung Einreichen",
+        "content": "Sobald Sie eine Ausgabe zur Genehmigung einreichen, können Sie sie nicht mehr bearbeiten. Stellen Sie sicher, dass alle Informationen korrekt sind und Belege hochgeladen wurden, bevor Sie einreichen."
+      },
+      "approval_status": {
+        "title": "Genehmigungsstatus",
+        "content": "Verfolgen Sie Ihre Ausgabe durch den Genehmigungsprozess. Der Status zeigt: Ausstehend (wartet auf Überprüfung), Genehmigt (bereit zur Erstattung) oder Abgelehnt (benötigt Korrekturen)."
+      },
+      "required_fields": {
+        "title": "Erforderliche Informationen",
+        "content": "Alle mit * markierten Felder sind für die Genehmigungseinreichung erforderlich. Fehlende Informationen verhindern die Einreichung und verzögern die Bearbeitung."
+      },
+      "tips": [
+        "Stellen Sie sicher, dass alle erforderlichen Felder ausgefüllt sind, bevor Sie einreichen",
+        "Laden Sie klare, lesbare Belege für alle Ausgaben hoch",
+        "Geben Sie eine detaillierte geschäftliche Begründung in den Beschreibungen an",
+        "Überprüfen Sie die Ausgabenpolitik-Grenzen vor der Einreichung"
+      ]
+    },
+    "approval": {
+      "approve_button": {
+        "title": "Ausgabe Genehmigen",
+        "content": "Klicken Sie, um diese Ausgabe zu genehmigen. Sie können optionale Notizen hinzufügen, die an den Mitarbeiter gesendet werden. Die Genehmigung kann nicht rückgängig gemacht werden."
+      },
+      "reject_button": {
+        "title": "Ausgabe Ablehnen",
+        "content": "Lehnen Sie diese Ausgabe mit einem erforderlichen Grund ab. Der Mitarbeiter erhält Ihr Feedback und kann nach Korrekturen erneut einreichen."
+      },
+      "expense_details": {
+        "title": "Details Überprüfen",
+        "content": "Überprüfen Sie sorgfältig alle Ausgabeninformationen, Belege und Dokumentation, bevor Sie Ihre Entscheidung treffen. Überprüfen Sie die Richtlinienkonformität."
+      },
+      "approval_history": {
+        "title": "Genehmigungshistorie",
+        "content": "Sehen Sie die vollständige Genehmigungszeitleiste. Bei mehrstufigen Genehmigungen sehen Sie, wer bereits genehmigt hat und wer als nächstes genehmigen muss."
+      },
+      "tips": [
+        "Überprüfen Sie alle Ausgabendetails und Belege",
+        "Überprüfen Sie die Einhaltung der Unternehmensrichtlinien",
+        "Geben Sie klares Feedback beim Ablehnen von Ausgaben",
+        "Nutzen Sie die Delegation, wenn Sie nicht verfügbar sind"
+      ]
+    },
+    "dashboard": {
+      "pending_count": {
+        "title": "Ausstehende Genehmigungen",
+        "content": "Anzahl der Ausgaben, die auf Ihre Genehmigung warten. Klicken Sie, um die vollständige Liste zu sehen und Ihre Überprüfungen zu priorisieren."
+      },
+      "filter_options": {
+        "title": "Filter- und Sortieroptionen",
+        "content": "Verwenden Sie Filter, um bestimmte Ausgaben nach Betrag, Datum, Mitarbeiter oder Kategorie zu finden. Sortieren Sie nach Dringlichkeit oder Einreichungsdatum."
+      },
+      "bulk_actions": {
+        "title": "Massenaktionen",
+        "content": "Wählen Sie mehrere Ausgaben aus, um ähnliche Artikel auf einmal zu genehmigen. Verwenden Sie dies vorsichtig und nur für routinemäßige, richtlinienkonforme Ausgaben."
+      },
+      "delegation_status": {
+        "title": "Delegation Aktiv",
+        "content": "Sie haben aktive Delegationseinstellungen. Einige Genehmigungen können während des angegebenen Zeitraums von Ihrem Delegierten bearbeitet werden."
+      },
+      "tips": [
+        "Verwenden Sie Filter, um dringende Genehmigungen zu priorisieren",
+        "Richten Sie Benachrichtigungen für zeitnahe Genehmigungsbearbeitung ein",
+        "Überprüfen Sie Genehmigungsanalysen, um Engpässe zu identifizieren",
+        "Konfigurieren Sie die Delegation vor geplanten Abwesenheiten"
+      ]
+    },
+    "rules": {
+      "rule_priority": {
+        "title": "Regelpriorität",
+        "content": "Höhere Prioritätsnummern werden zuerst ausgewertet. Verwenden Sie die Priorität, um sicherzustellen, dass spezifische Regeln allgemeine Regeln überschreiben."
+      },
+      "amount_ranges": {
+        "title": "Betragsbereiche",
+        "content": "Legen Sie Mindest- und Höchstbeträge für diese Regel fest. Vermeiden Sie Lücken zwischen Regeln, um sicherzustellen, dass alle Ausgaben einen Genehmiger haben."
+      },
+      "category_filter": {
+        "title": "Kategoriefilter",
+        "content": "Geben Sie an, für welche Ausgabenkategorien diese Regel gilt. Lassen Sie das Feld leer, um auf alle Kategorien innerhalb des Betragsbereichs anzuwenden."
+      },
+      "approval_levels": {
+        "title": "Genehmigungsebenen",
+        "content": "Ebene 1 ist der erste Genehmiger, Ebene 2 ist der zweite usw. Erstellen Sie mehrere Regeln mit demselben Betragsbereich für mehrstufige Genehmigungen."
+      },
+      "auto_approval": {
+        "title": "Automatische Genehmigung",
+        "content": "Ausgaben unter diesem Betrag werden automatisch genehmigt. Verwenden Sie dies für kleine, routinemäßige Ausgaben, um die Genehmigungslast zu reduzieren."
+      },
+      "tips": [
+        "Testen Sie neue Regeln, bevor Sie sie aktivieren",
+        "Vermeiden Sie Lücken in Betragsbereichen zwischen Regeln",
+        "Verwenden Sie Priorität, um Regelkonflikte zu behandeln",
+        "Dokumentieren Sie Regeländerungen für Prüfungszwecke"
+      ]
+    },
+    "delegation": {
+      "delegate_selection": {
+        "title": "Delegierten Wählen",
+        "content": "Wählen Sie ein vertrauenswürdiges Teammitglied, um Genehmigungen in Ihrer Abwesenheit zu bearbeiten. Sie müssen über die entsprechenden Berechtigungen und Kenntnisse der Richtlinien verfügen."
+      },
+      "delegation_period": {
+        "title": "Delegationszeitraum",
+        "content": "Legen Sie spezifische Start- und Enddaten für die Delegation fest. Die Delegation läuft aus Sicherheitsgründen automatisch am Enddatum ab."
+      },
+      "delegation_scope": {
+        "title": "Delegationsumfang",
+        "content": "Wählen Sie, ob alle Genehmigungen oder nur bestimmte Typen (Betragsgrenzen, Kategorien) delegiert werden sollen. Teilweise Delegation behält die Kontrolle."
+      },
+      "notification_settings": {
+        "title": "Delegationsbenachrichtigungen",
+        "content": "Konfigurieren Sie, ob Sie Kopien von Genehmigungsentscheidungen erhalten, die von Ihrem Delegierten getroffen wurden. Empfohlen für Prüfungszwecke."
+      },
+      "tips": [
+        "Wählen Sie Delegierte mit entsprechenden Kenntnissen und Berechtigungen",
+        "Legen Sie spezifische Start- und Enddaten aus Sicherheitsgründen fest",
+        "Konfigurieren Sie Benachrichtigungseinstellungen zur Überwachung",
+        "Überprüfen Sie regelmäßig die Wirksamkeit der Delegation"
+      ]
+    }
+  },
+  "reminders": {
+    "title": "Erinnerungen",
+    "description": "Verwalten Sie Ihre Aufgaben und wiederkehrenden Erinnerungen",
+    "new_reminder": "Neue Erinnerung",
+    "edit_reminder": "Erinnerung Bearbeiten",
+    "create_new_reminder": "Neue Erinnerung Erstellen",
+    "refresh": "Aktualisieren",
+    "all": "Alle",
+    "my_tasks": "Meine Aufgaben",
+    "due_today": "Fällig Heute",
+    "overdue": "Überfällig",
+    "snoozed": "Verschoben",
+    "completed": "Abgeschlossen",
+    "search_placeholder": "Erinnerungen suchen...",
+    "all_status": "Alle Status",
+    "all_priority": "Alle Prioritäten",
+    "all_users": "Alle Benutzer",
+    "date_range": "Datumsbereich",
+    "from_date": "Von Datum",
+    "to_date": "Bis Datum",
+    "clear": "Löschen",
+    "no_reminders_found": "Keine Erinnerungen gefunden",
+    "create_first_reminder": "Erstellen Sie Ihre erste Erinnerung, um zu beginnen",
+    "no_snoozed_reminders": "Keine verschobenen Erinnerungen - alle Ihre Erinnerungen sind aktiv!",
+    "no_reminders_for_filter": "Keine Erinnerungen",
+    "create_reminder": "Erinnerung Erstellen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "page_of": "Seite {{page}} von {{total}}",
+    "delete": "Löschen",
+    "complete": "Abschließen",
+    "snooze": "Verschieben",
+    "unsnooze": "Verschiebung Aufheben",
+    "edit": "Bearbeiten",
+    "form": {
+      "title": "Titel *",
+      "title_placeholder": "Erinnerungstitel eingeben",
+      "description": "Beschreibung",
+      "description_placeholder": "Erinnerungsbeschreibung eingeben (optional)",
+      "due_date": "Fälligkeitsdatum *",
+      "pick_date_time": "Datum und Uhrzeit auswählen",
+      "priority": "Priorität",
+      "select_priority": "Priorität auswählen",
+      "assign_to": "Zuweisen An *",
+      "select_user": "Benutzer auswählen",
+      "recurrence": "Wiederholung",
+      "select_recurrence": "Wiederholung auswählen",
+      "repeat_every": "Wiederholen Alle",
+      "end_recurrence": "Wiederholung Beenden (Optional)",
+      "select_end_date": "Enddatum auswählen (optional)",
+      "leave_empty_indefinite": "Leer lassen für unbegrenzte Wiederholung",
+      "tags": "Tags",
+      "add_tag": "Tag hinzufügen",
+      "cancel": "Abbrechen",
+      "saving": "Speichern...",
+      "create_reminder": "Erinnerung Erstellen",
+      "update_reminder": "Erinnerung Aktualisieren"
+    },
+    "priority": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "urgent": "Dringend"
+    },
+    "recurrence": {
+      "none": "Keine Wiederholung",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "days": "Tag(e)",
+      "weeks": "Woche(n)",
+      "months": "Monat(e)",
+      "years": "Jahr(e)"
+    },
+    "status": {
+      "pending": "Ausstehend",
+      "completed": "Abgeschlossen",
+      "snoozed": "Verschoben",
+      "cancelled": "Abgebrochen"
+    },
+    "actions": {
+      "complete": "Abschließen",
+      "snooze": "Verschieben",
+      "unsnooze": "Verschiebung Aufheben",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "messages": {
+      "created_success": "Erinnerung erfolgreich erstellt",
+      "updated_success": "Erinnerung erfolgreich aktualisiert",
+      "completed_success": "Erinnerung als abgeschlossen markiert",
+      "snoozed_success": "Erinnerung verschoben",
+      "unsnoozed_success": "Erinnerung reaktiviert",
+      "deleted_success": "Erinnerung gelöscht",
+      "create_failed": "Fehler beim Erstellen der Erinnerung",
+      "update_failed": "Fehler beim Aktualisieren der Erinnerung",
+      "complete_failed": "Fehler beim Abschließen der Erinnerung",
+      "snooze_failed": "Fehler beim Verschieben der Erinnerung",
+      "unsnooze_failed": "Fehler beim Reaktivieren der Erinnerung",
+      "delete_failed": "Fehler beim Löschen der Erinnerung",
+      "load_failed": "Fehler beim Laden der Erinnerungen"
+    }
   }
 }

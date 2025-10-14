@@ -1431,7 +1431,7 @@
     "role_viewer_label": "Viewer",
     "organizations_management_title": "Organizations Management",
     "create_organization_button": "Create Organization",
-    "create_new_organization_title": "Create New Organization", 
+    "create_new_organization_title": "Create New Organization",
     "edit_organization_title": "Edit Organization",
     "update_organization_button": "Update Organization",
     "delete_organization_title": "Delete Organization",
@@ -1789,5 +1789,279 @@
     "stock_movement_placeholder": "Stock movement summary will be displayed here",
     "linked_invoices": "Linked Invoices",
     "linked_invoices_placeholder": "Linked invoices will be displayed here"
+  },
+  "approvalDashboard": {
+    "title": "Approval Dashboard",
+    "pending_approvals": "Pending Approvals",
+    "processed_expenses": "Processed Expenses",
+    "awaiting_review": "Awaiting your review",
+    "approved_today": "Approved Today",
+    "expenses_approved_today": "Expenses approved today",
+    "rejected_today": "Rejected Today",
+    "expenses_rejected_today": "Expenses rejected today",
+    "overdue": "Overdue",
+    "pending_days": "Pending > 3 days",
+    "avg_approval_time": "Avg. Approval Time",
+    "avg_time_to_approve": "Average time to approve",
+    "filterSortOptions": "Filter & Sort Options",
+    "expenses_approved_rejected": "Expenses you've approved or rejected",
+    "search_approvals": "Search approvals...",
+    "search_expenses": "Search expenses...",
+    "filters": "Filters",
+    "category": "Category",
+    "filter_by_category": "Filter by category",
+    "sort_by": "Sort By",
+    "date_submitted": "Date Submitted",
+    "amount": "Amount",
+    "order": "Order",
+    "newest_first": "Newest First",
+    "oldest_first": "Oldest First",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "view_details": "View Details",
+    "no_pending_approvals": "No pending approvals",
+    "no_processed_expenses": "No processed expenses",
+    "no_approvals_match_your_search_criteria": "No approvals match your search criteria",
+    "not_approved_rejected": "You haven't approved or rejected any expenses yet.",
+    "showing": "Showing",
+    "of": "of",
+    "approvals": "approvals",
+    "all_categories": "All categories",
+    "failed_to_load_approval_statistics": "Failed to load approval statistics",
+    "filter_sort_options": "Filter & Sort Options"
+  },
+  "approvalHelp": {
+    "show_help": "Show Help",
+    "exit_help": "Exit Help Mode",
+    "quick_help": "Quick Help",
+    "quick_tips": "Quick Tips",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Finish",
+    "submission": {
+      "submit_approval": {
+        "title": "Submit for Approval",
+        "content": "Once you submit an expense for approval, you cannot edit it. Make sure all information is correct and receipts are uploaded before submitting."
+      },
+      "approval_status": {
+        "title": "Approval Status",
+        "content": "Track your expense through the approval process. Status shows: Pending (waiting for review), Approved (ready for reimbursement), or Rejected (needs corrections)."
+      },
+      "required_fields": {
+        "title": "Required Information",
+        "content": "All fields marked with * are required for approval submission. Missing information will prevent submission and delay processing."
+      },
+      "tips": [
+        "Ensure all required fields are completed before submitting",
+        "Upload clear, legible receipts for all expenses",
+        "Provide detailed business justification in descriptions",
+        "Review expense policy limits before submission"
+      ]
+    },
+    "approval": {
+      "approve_button": {
+        "title": "Approve Expense",
+        "content": "Click to approve this expense. You can add optional notes that will be sent to the employee. Approval cannot be undone."
+      },
+      "reject_button": {
+        "title": "Reject Expense",
+        "content": "Reject this expense with a required reason. The employee will receive your feedback and can resubmit after making corrections."
+      },
+      "expense_details": {
+        "title": "Review Details",
+        "content": "Carefully review all expense information, receipts, and documentation before making your decision. Check for policy compliance."
+      },
+      "approval_history": {
+        "title": "Approval History",
+        "content": "View the complete approval timeline. For multi-level approvals, see who has already approved and who needs to approve next."
+      },
+      "tips": [
+        "Review all expense details and supporting documentation",
+        "Check expense compliance with company policies",
+        "Provide clear feedback when rejecting expenses",
+        "Use delegation when you will be unavailable"
+      ]
+    },
+    "dashboard": {
+      "pending_count": {
+        "title": "Pending Approvals",
+        "content": "Number of expenses waiting for your approval. Click to see the full list and prioritize your reviews."
+      },
+      "filter_options": {
+        "title": "Filter & Sort Options",
+        "content": "Use filters to find specific expenses by amount, date, employee, or category. Sort by urgency or submission date."
+      },
+      "bulk_actions": {
+        "title": "Bulk Actions",
+        "content": "Select multiple expenses to approve similar items at once. Use carefully and only for routine, policy-compliant expenses."
+      },
+      "delegation_status": {
+        "title": "Delegation Active",
+        "content": "You have active delegation settings. Some approvals may be handled by your delegate during the specified period."
+      },
+      "tips": [
+        "Use filters to prioritize urgent approvals",
+        "Set up notifications for timely approval processing",
+        "Review approval analytics to identify bottlenecks",
+        "Configure delegation before planned absences"
+      ]
+    },
+    "rules": {
+      "rule_priority": {
+        "title": "Rule Priority",
+        "content": "Higher priority numbers are evaluated first. Use priority to ensure specific rules override general ones."
+      },
+      "amount_ranges": {
+        "title": "Amount Ranges",
+        "content": "Set minimum and maximum amounts for this rule. Avoid gaps between rules to ensure all expenses have an approver."
+      },
+      "category_filter": {
+        "title": "Category Filter",
+        "content": "Specify which expense categories this rule applies to. Leave empty to apply to all categories within the amount range."
+      },
+      "approval_levels": {
+        "title": "Approval Levels",
+        "content": "Level 1 is the first approver, Level 2 is second, etc. Create multiple rules with the same amount range for multi-level approval."
+      },
+      "auto_approval": {
+        "title": "Auto Approval",
+        "content": "Expenses below this amount are automatically approved. Use for small, routine expenses to reduce approval workload."
+      },
+      "tips": [
+        "Test new rules before activating them",
+        "Avoid gaps in amount ranges between rules",
+        "Use priority to handle rule conflicts",
+        "Document rule changes for audit purposes"
+      ]
+    },
+    "delegation": {
+      "delegate_selection": {
+        "title": "Choose Delegate",
+        "content": "Select a trusted team member to handle approvals in your absence. They must have appropriate permissions and knowledge of policies."
+      },
+      "delegation_period": {
+        "title": "Delegation Period",
+        "content": "Set specific start and end dates for delegation. Delegation automatically expires at the end date for security."
+      },
+      "delegation_scope": {
+        "title": "Delegation Scope",
+        "content": "Choose whether to delegate all approvals or only specific types (amount limits, categories). Partial delegation maintains control."
+      },
+      "notification_settings": {
+        "title": "Delegation Notifications",
+        "content": "Configure whether you receive copies of approval decisions made by your delegate. Recommended for audit purposes."
+      },
+      "tips": [
+        "Choose delegates with appropriate knowledge and permissions",
+        "Set specific start and end dates for security",
+        "Configure notification preferences for oversight",
+        "Review delegation effectiveness regularly"
+      ]
+    }
+  },
+  "reminders": {
+    "title": "Reminders",
+    "description": "Manage your tasks and recurring reminders",
+    "new_reminder": "New Reminder",
+    "edit_reminder": "Edit Reminder",
+    "create_new_reminder": "Create New Reminder",
+    "refresh": "Refresh",
+    "all": "All",
+    "my_tasks": "My Tasks",
+    "due_today": "Due Today",
+    "overdue": "Overdue",
+    "snoozed": "Snoozed",
+    "completed": "Completed",
+    "search_placeholder": "Search reminders...",
+    "all_status": "All Status",
+    "all_priority": "All Priority",
+    "all_users": "All Users",
+    "date_range": "Date Range",
+    "from_date": "From Date",
+    "to_date": "To Date",
+    "clear": "Clear",
+    "no_reminders_found": "No reminders found",
+    "create_first_reminder": "Create your first reminder to get started",
+    "no_snoozed_reminders": "No snoozed reminders - all your reminders are active!",
+    "no_reminders_for_filter": "No reminders",
+    "create_reminder": "Create Reminder",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{page}} of {{total}}",
+    "delete": "Delete",
+    "complete": "Complete",
+    "snooze": "Snooze",
+    "unsnooze": "Unsnooze",
+    "edit": "Edit",
+    "form": {
+      "title": "Title *",
+      "title_placeholder": "Enter reminder title",
+      "description": "Description",
+      "description_placeholder": "Enter reminder description (optional)",
+      "due_date": "Due Date *",
+      "pick_date_time": "Pick a date and time",
+      "priority": "Priority",
+      "select_priority": "Select priority",
+      "assign_to": "Assign To *",
+      "select_user": "Select user",
+      "recurrence": "Recurrence",
+      "select_recurrence": "Select recurrence",
+      "repeat_every": "Repeat Every",
+      "end_recurrence": "End Recurrence (Optional)",
+      "select_end_date": "Select end date (optional)",
+      "leave_empty_indefinite": "Leave empty for indefinite recurrence",
+      "tags": "Tags",
+      "add_tag": "Add a tag",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "create_reminder": "Create Reminder",
+      "update_reminder": "Update Reminder"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "recurrence": {
+      "none": "No recurrence",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "days": "day(s)",
+      "weeks": "week(s)",
+      "months": "month(s)",
+      "years": "year(s)"
+    },
+    "status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "snoozed": "Snoozed",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "complete": "Complete",
+      "snooze": "Snooze",
+      "unsnooze": "Unsnooze",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "messages": {
+      "created_success": "Reminder created successfully",
+      "updated_success": "Reminder updated successfully",
+      "completed_success": "Reminder marked as completed",
+      "snoozed_success": "Reminder snoozed",
+      "unsnoozed_success": "Reminder unsnoozed",
+      "deleted_success": "Reminder deleted",
+      "create_failed": "Failed to create reminder",
+      "update_failed": "Failed to update reminder",
+      "complete_failed": "Failed to complete reminder",
+      "snooze_failed": "Failed to snooze reminder",
+      "unsnooze_failed": "Failed to unsnooze reminder",
+      "delete_failed": "Failed to delete reminder",
+      "load_failed": "Failed to load reminders"
+    }
   }
 }

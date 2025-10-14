@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { approvalApi } from '@/lib/api';
-import { Expense } from '@/types';
 import {
   Search,
   Filter,
@@ -22,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface ProcessedExpensesListProps {
   onViewDetails?: (expenseId: number) => void;
@@ -36,8 +36,9 @@ interface Filters {
 }
 
 export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -97,14 +98,14 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
         return (
           <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
             <CheckCircle className="w-3 h-3 mr-1" />
-            Approved
+            {t('approvalDashboard.approved')}
           </Badge>
         );
       case 'rejected':
         return (
           <Badge variant="destructive">
             <XCircle className="w-3 h-3 mr-1" />
-            Rejected
+            {t('approvalDashboard.rejected')}
           </Badge>
         );
       default:
@@ -161,19 +162,19 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All categories</SelectItem>
-                    <SelectItem value="Travel">Travel</SelectItem>
-                    <SelectItem value="Meals">Meals</SelectItem>
-                    <SelectItem value="Software">Software</SelectItem>
-                    <SelectItem value="Office Supplies">Office Supplies</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="">{t('approvalDashboard.all_categories')}</SelectItem>
+                    <SelectItem value="Travel">{t('approvalDashboard.travel')}</SelectItem>
+                    <SelectItem value="Meals">{t('approvalDashboard.meals')}</SelectItem>
+                    <SelectItem value="Software">{t('approvalDashboard.software')}</SelectItem>
+                    <SelectItem value="Office Supplies">{t('approvalDashboard.office_supplies')}</SelectItem>
+                    <SelectItem value="Marketing">{t('approvalDashboard.marketing')}</SelectItem>
+                    <SelectItem value="Other">{t('approvalDashboard.other')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Sort By</label>
+                <label className="text-sm font-medium mb-2 block">{t('approvalDashboard.sort_by')}</label>
                 <Select
                   value={filters.sort_by}
                   onValueChange={(value) => setFilters(prev => ({ ...prev, sort_by: value }))}
@@ -182,15 +183,15 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="amount">Amount</SelectItem>
-                    <SelectItem value="category">Category</SelectItem>
+                    <SelectItem value="date">{t('approvalDashboard.date')}</SelectItem>
+                    <SelectItem value="amount">{t('approvalDashboard.amount')}</SelectItem>
+                    <SelectItem value="category">{t('approvalDashboard.category')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Order</label>
+                <label className="text-sm font-medium mb-2 block">{t('approvalDashboard.order')}</label>
                 <Select
                   value={filters.sort_order}
                   onValueChange={(value) => setFilters(prev => ({ ...prev, sort_order: value as 'asc' | 'desc' }))}
@@ -202,13 +203,13 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                     <SelectItem value="desc">
                       <div className="flex items-center">
                         <SortDesc className="h-4 w-4 mr-2" />
-                        Newest First
+                        {t('approvalDashboard.newest_first')}
                       </div>
                     </SelectItem>
                     <SelectItem value="asc">
                       <div className="flex items-center">
                         <SortAsc className="h-4 w-4 mr-2" />
-                        Oldest First
+                        {t('approvalDashboard.oldest_first')}
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -244,8 +245,8 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
             <CardContent className="p-8 text-center">
               <div className="text-gray-500">
                 <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium mb-2">No processed expenses</h3>
-                <p>You haven't approved or rejected any expenses yet.</p>
+                <h3 className="text-lg font-medium mb-2">{t('approvalDashboard.no_processed_expenses')}</h3>
+                <p>{t('approvalDashboard.not_approved_rejected')}</p>
               </div>
             </CardContent>
           </Card>
@@ -290,7 +291,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                       onClick={() => handleViewDetails(expense.id)}
                     >
                       <Eye className="h-4 w-4 mr-2" />
-                      View Details
+                      {t('approvalDashboard.view_details')}
                     </Button>
                   </div>
                 </div>
@@ -304,7 +305,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} of {total} expenses
+            {t('approvalDashboard.showing')} {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} {t('approvalDashboard.of')} {total} {t('approvalDashboard.expenses')}
           </div>
 
           <div className="flex gap-2">
@@ -314,7 +315,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
               onClick={() => setPage(prev => Math.max(0, prev - 1))}
               disabled={page === 0}
             >
-              Previous
+              {t('approvalHelp.previous')}
             </Button>
 
             <Button
@@ -323,7 +324,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
               onClick={() => setPage(prev => Math.min(totalPages - 1, prev + 1))}
               disabled={page >= totalPages - 1}
             >
-              Next
+              {t('approvalHelp.next')}
             </Button>
           </div>
         </div>

@@ -29,6 +29,7 @@ import { ReminderCard } from './ReminderCard';
 import { ReminderForm } from './ReminderForm';
 import { cn } from '@/lib/utils';
 import { reminderApi, userApi, authApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface ReminderListProps {
   className?: string;
@@ -68,6 +69,7 @@ interface User {
 }
 
 export function ReminderList({ className }: ReminderListProps) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -379,19 +381,19 @@ export function ReminderList({ className }: ReminderListProps) {
           </TabsTrigger>
           <TabsTrigger value="due_today" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Due Today ({counts.due_today})
+            {t('reminders.due_today')} ({counts.due_today})
           </TabsTrigger>
           <TabsTrigger value="overdue" className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            Overdue ({counts.overdue})
+            {t('reminders.overdue')} ({counts.overdue})
           </TabsTrigger>
           <TabsTrigger value="snoozed" className="flex items-center gap-2">
             <Timer className="h-4 w-4" />
-            Snoozed ({counts.snoozed})
+            {t('reminders.snoozed')} ({counts.snoozed})
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
-            Completed ({counts.completed})
+            {t('reminders.completed')} ({counts.completed})
           </TabsTrigger>
         </TabsList>
 
@@ -401,7 +403,7 @@ export function ReminderList({ className }: ReminderListProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search reminders..."
+                placeholder={t('reminders.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -416,11 +418,11 @@ export function ReminderList({ className }: ReminderListProps) {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="snoozed">Snoozed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">{t('reminders.all_status')}</SelectItem>
+                  <SelectItem value="pending">{t('reminders.pending')}</SelectItem>
+                  <SelectItem value="completed">{t('reminders.completed')}</SelectItem>
+                  <SelectItem value="snoozed">{t('reminders.snoozed')}</SelectItem>
+                  <SelectItem value="cancelled">{t('reminders.cancelled')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -429,11 +431,11 @@ export function ReminderList({ className }: ReminderListProps) {
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">{t('reminders.all_priority')}</SelectItem>
+                  <SelectItem value="urgent">{t('reminders.urgent')}</SelectItem>
+                  <SelectItem value="high">{t('reminders.high')}</SelectItem>
+                  <SelectItem value="medium">{t('reminders.medium')}</SelectItem>
+                  <SelectItem value="low">{t('reminders.low')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -442,7 +444,7 @@ export function ReminderList({ className }: ReminderListProps) {
                   <SelectValue placeholder="Assigned To" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="all">{t('reminders.all_users')}</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id.toString()}>
                       {user.first_name && user.last_name
@@ -459,7 +461,7 @@ export function ReminderList({ className }: ReminderListProps) {
             <PopoverTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
-                Date Range
+                {t('reminders.date_range')}
                 {(dueDateFrom || dueDateTo) && (
                   <Badge variant="secondary" className="ml-1">
                     {dueDateFrom && dueDateTo
@@ -474,7 +476,7 @@ export function ReminderList({ className }: ReminderListProps) {
             <PopoverContent className="w-auto p-0" align="end">
               <div className="p-4 space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">From Date</label>
+                  <label className="text-sm font-medium mb-2 block">{t('reminders.from_date')}</label>
                   <CalendarComponent
                     mode="single"
                     selected={dueDateFrom}
@@ -482,7 +484,7 @@ export function ReminderList({ className }: ReminderListProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">To Date</label>
+                  <label className="text-sm font-medium mb-2 block">{t('reminders.to_date')}</label>
                   <CalendarComponent
                     mode="single"
                     selected={dueDateTo}
@@ -498,7 +500,7 @@ export function ReminderList({ className }: ReminderListProps) {
                       setDueDateTo(undefined);
                     }}
                   >
-                    Clear
+                    {t('reminders.clear')}
                   </Button>
                 </div>
               </div>
@@ -516,17 +518,17 @@ export function ReminderList({ className }: ReminderListProps) {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No reminders found</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('reminders.no_reminders_found')}</h3>
                 <p className="text-muted-foreground text-center mb-4">
                   {activeTab === 'all' 
-                    ? "Create your first reminder to get started"
+                    ? t('reminders.create_your_first_reminder_to_get_started')
                     : activeTab === 'snoozed'
-                    ? "No snoozed reminders - all your reminders are active!"
-                    : `No ${activeTab.replace('_', ' ')} reminders`}
+                    ? t('reminders.no_snoozed_reminders_all_your_reminders_are_active')
+                    : t('reminders.no_reminders', { tab: activeTab.replace('_', ' ') })}
                 </p>
                 <Button onClick={() => setShowForm(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Reminder
+                  {t('reminders.create_reminder')}
                 </Button>
               </CardContent>
             </Card>
@@ -556,10 +558,10 @@ export function ReminderList({ className }: ReminderListProps) {
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
-                Previous
+                {t('reminders.previous')}
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
+                {t('reminders.page')} {page} {t('reminders.of')} {totalPages}
               </span>
               <Button
                 variant="outline"
@@ -567,7 +569,7 @@ export function ReminderList({ className }: ReminderListProps) {
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
-                Next
+                {t('reminders.next')}
               </Button>
             </div>
           )}

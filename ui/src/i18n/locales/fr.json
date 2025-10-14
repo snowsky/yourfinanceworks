@@ -52,6 +52,8 @@
     "dashboard": "Tableau de Bord",
     "invoices": "Factures",
     "expenses": "Dépenses",
+    "reminders": "Rappels",
+    "reports": "Rapports",
     "bank_statements": "Relevés",
     "clients": "Clients",
     "payments": "Paiements",
@@ -1762,5 +1764,278 @@
       "price_required": "Un prix unitaire valide est requis"
     },
     "total": "Total"
+  },
+  "approvalDashboard": {
+    "title": "Tableau de Bord des Approbations",
+    "pending_approvals": "Approbations en Attente",
+    "processed_expenses": "Dépenses Traitées",
+    "awaiting_review": "En attente de votre examen",
+    "approved_today": "Approuvées Aujourd'hui",
+    "expenses_approved_today": "Dépenses approuvées aujourd'hui",
+    "rejected_today": "Rejetées Aujourd'hui",
+    "expenses_rejected_today": "Dépenses rejetées aujourd'hui",
+    "overdue": "En Retard",
+    "pending_days": "En attente > 3 jours",
+    "avg_approval_time": "Temps Moyen d'Approbation",
+    "avg_time_to_approve": "Temps moyen pour approuver",
+    "expenses_approved_rejected": "Dépenses que vous avez approuvées ou rejetées",
+    "search_approvals": "Rechercher des approbations...",
+    "search_expenses": "Rechercher des dépenses...",
+    "filters": "Filtres",
+    "category": "Catégorie",
+    "filter_by_category": "Filtrer par catégorie",
+    "sort_by": "Trier Par",
+    "date_submitted": "Date de Soumission",
+    "amount": "Montant",
+    "order": "Ordre",
+    "newest_first": "Plus Récents d'Abord",
+    "oldest_first": "Plus Anciens d'Abord",
+    "pending": "En Attente",
+    "approved": "Approuvé",
+    "rejected": "Rejeté",
+    "view_details": "Voir les Détails",
+    "no_pending_approvals": "Aucune approbation en attente",
+    "no_processed_expenses": "Aucune dépense traitée",
+    "no_approvals_match_your_search_criteria": "Aucune approbation ne correspond à vos critères de recherche",
+    "not_approved_rejected": "Vous n'avez encore approuvé ni rejeté aucune dépense.",
+    "showing": "Affichage",
+    "of": "de",
+    "approvals": "approbations",
+    "all_categories": "Toutes les catégories",
+    "failed_to_load_approval_statistics": "Les statistiques d'approbation n'ont pas pu être chargées",
+    "filter_sort_options": "Options de Filtre et de Tri"
+  },
+  "approvalHelp": {
+    "show_help": "Afficher l'Aide",
+    "exit_help": "Quitter le Mode Aide",
+    "quick_help": "Aide Rapide",
+    "quick_tips": "Conseils Rapides",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "finish": "Terminer",
+    "submission": {
+      "submit_approval": {
+        "title": "Soumettre pour Approbation",
+        "content": "Une fois que vous soumettez une dépense pour approbation, vous ne pouvez pas la modifier. Assurez-vous que toutes les informations sont correctes et que les reçus sont téléversés avant de soumettre."
+      },
+      "approval_status": {
+        "title": "Statut d'Approbation",
+        "content": "Suivez votre dépense tout au long du processus d'approbation. Le statut affiche : En attente (en attente d'examen), Approuvé (prêt pour le remboursement), ou Rejeté (nécessite des corrections)."
+      },
+      "required_fields": {
+        "title": "Informations Requises",
+        "content": "Tous les champs marqués d'un * sont obligatoires pour la soumission d'approbation. Les informations manquantes empêcheront la soumission et retarderont le traitement."
+      },
+      "tips": [
+        "Assurez-vous que tous les champs obligatoires sont remplis avant de soumettre",
+        "Téléversez des reçus clairs et lisibles pour toutes les dépenses",
+        "Fournissez une justification commerciale détaillée dans les descriptions",
+        "Vérifiez les limites de la politique de dépenses avant de soumettre"
+      ]
+    },
+    "approval": {
+      "approve_button": {
+        "title": "Approuver la Dépense",
+        "content": "Cliquez pour approuver cette dépense. Vous pouvez ajouter des notes facultatives qui seront envoyées à l'employé. L'approbation ne peut pas être annulée."
+      },
+      "reject_button": {
+        "title": "Rejeter la Dépense",
+        "content": "Rejetez cette dépense avec une raison obligatoire. L'employé recevra vos commentaires et pourra soumettre à nouveau après avoir apporté des corrections."
+      },
+      "expense_details": {
+        "title": "Examiner les Détails",
+        "content": "Examinez attentivement toutes les informations sur les dépenses, les reçus et la documentation avant de prendre votre décision. Vérifiez la conformité à la politique."
+      },
+      "approval_history": {
+        "title": "Historique d'Approbation",
+        "content": "Consultez la chronologie complète de l'approbation. Pour les approbations à plusieurs niveaux, voyez qui a déjà approuvé et qui doit approuver ensuite."
+      },
+      "tips": [
+        "Examinez tous les détails des dépenses et la documentation justificative",
+        "Vérifiez la conformité des dépenses avec les politiques de l'entreprise",
+        "Fournissez des commentaires clairs lors du rejet des dépenses",
+        "Utilisez la délégation lorsque vous n'êtes pas disponible"
+      ]
+    },
+    "dashboard": {
+      "pending_count": {
+        "title": "Approbations en Attente",
+        "content": "Nombre de dépenses en attente de votre approbation. Cliquez pour voir la liste complète et prioriser vos examens."
+      },
+      "filter_options": {
+        "title": "Options de Filtre et de Tri",
+        "content": "Utilisez les filtres pour trouver des dépenses spécifiques par montant, date, employé ou catégorie. Triez par urgence ou date de soumission."
+      },
+      "bulk_actions": {
+        "title": "Actions en Masse",
+        "content": "Sélectionnez plusieurs dépenses pour approuver des éléments similaires en une seule fois. Utilisez avec précaution et uniquement pour les dépenses routinières conformes à la politique."
+      },
+      "delegation_status": {
+        "title": "Délégation Active",
+        "content": "Vous avez des paramètres de délégation actifs. Certaines approbations peuvent être gérées par votre délégué pendant la période spécifiée."
+      },
+      "tips": [
+        "Utilisez les filtres pour prioriser les approbations urgentes",
+        "Configurez les notifications pour un traitement rapide des approbations",
+        "Examinez les analyses d'approbation pour identifier les goulots d'étranglement",
+        "Configurez la délégation avant les absences prévues"
+      ]
+    },
+    "rules": {
+      "rule_priority": {
+        "title": "Priorité de Règle",
+        "content": "Les numéros de priorité plus élevés sont évalués en premier. Utilisez la priorité pour vous assurer que les règles spécifiques remplacent les règles générales."
+      },
+      "amount_ranges": {
+        "title": "Plages de Montant",
+        "content": "Définissez les montants minimum et maximum pour cette règle. Évitez les lacunes entre les règles pour vous assurer que toutes les dépenses ont un approbateur."
+      },
+      "category_filter": {
+        "title": "Filtre de Catégorie",
+        "content": "Spécifiez à quelles catégories de dépenses cette règle s'applique. Laissez vide pour appliquer à toutes les catégories dans la plage de montant."
+      },
+      "approval_levels": {
+        "title": "Niveaux d'Approbation",
+        "content": "Le Niveau 1 est le premier approbateur, le Niveau 2 est le deuxième, etc. Créez plusieurs règles avec la même plage de montant pour une approbation à plusieurs niveaux."
+      },
+      "auto_approval": {
+        "title": "Approbation Automatique",
+        "content": "Les dépenses inférieures à ce montant sont automatiquement approuvées. Utilisez pour les petites dépenses routinières afin de réduire la charge d'approbation."
+      },
+      "tips": [
+        "Testez les nouvelles règles avant de les activer",
+        "Évitez les lacunes dans les plages de montant entre les règles",
+        "Utilisez la priorité pour gérer les conflits de règles",
+        "Documentez les changements de règles à des fins d'audit"
+      ]
+    },
+    "delegation": {
+      "delegate_selection": {
+        "title": "Choisir un Délégué",
+        "content": "Sélectionnez un membre de l'équipe de confiance pour gérer les approbations en votre absence. Ils doivent avoir les autorisations appropriées et la connaissance des politiques."
+      },
+      "delegation_period": {
+        "title": "Période de Délégation",
+        "content": "Définissez des dates de début et de fin spécifiques pour la délégation. La délégation expire automatiquement à la date de fin pour des raisons de sécurité."
+      },
+      "delegation_scope": {
+        "title": "Portée de la Délégation",
+        "content": "Choisissez de déléguer toutes les approbations ou seulement des types spécifiques (limites de montant, catégories). La délégation partielle maintient le contrôle."
+      },
+      "notification_settings": {
+        "title": "Notifications de Délégation",
+        "content": "Configurez si vous recevez des copies des décisions d'approbation prises par votre délégué. Recommandé à des fins d'audit."
+      },
+      "tips": [
+        "Choisissez des délégués avec les connaissances et autorisations appropriées",
+        "Définissez des dates de début et de fin spécifiques pour la sécurité",
+        "Configurez les préférences de notification pour la surveillance",
+        "Examinez régulièrement l'efficacité de la délégation"
+      ]
+    }
+  },
+  "reminders": {
+    "title": "Rappels",
+    "description": "Gérez vos tâches et rappels récurrents",
+    "new_reminder": "Nouveau Rappel",
+    "edit_reminder": "Modifier le Rappel",
+    "create_new_reminder": "Créer un Nouveau Rappel",
+    "refresh": "Actualiser",
+    "all": "Tous",
+    "my_tasks": "Mes Tâches",
+    "due_today": "Échéance Aujourd'hui",
+    "overdue": "En Retard",
+    "snoozed": "Reporté",
+    "completed": "Terminé",
+    "search_placeholder": "Rechercher des rappels...",
+    "all_status": "Tous les Statuts",
+    "all_priority": "Toutes les Priorités",
+    "all_users": "Tous les Utilisateurs",
+    "date_range": "Plage de Dates",
+    "from_date": "Date de Début",
+    "to_date": "Date de Fin",
+    "clear": "Effacer",
+    "no_reminders_found": "Aucun rappel trouvé",
+    "create_first_reminder": "Créez votre premier rappel pour commencer",
+    "no_snoozed_reminders": "Aucun rappel reporté - tous vos rappels sont actifs !",
+    "no_reminders_for_filter": "Aucun rappel",
+    "create_reminder": "Créer un Rappel",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "page_of": "Page {{page}} sur {{total}}",
+    "delete": "Supprimer",
+    "complete": "Terminer",
+    "snooze": "Somnoler",
+    "unsnooze":"Annuler la répétition",
+    "edit": "Modifier",
+    "form": {
+      "title": "Titre *",
+      "title_placeholder": "Entrez le titre du rappel",
+      "description": "Description",
+      "description_placeholder": "Entrez la description du rappel (optionnel)",
+      "due_date": "Date d'Échéance *",
+      "pick_date_time": "Choisir une date et une heure",
+      "priority": "Priorité",
+      "select_priority": "Sélectionner la priorité",
+      "assign_to": "Assigner À *",
+      "select_user": "Sélectionner un utilisateur",
+      "recurrence": "Récurrence",
+      "select_recurrence": "Sélectionner la récurrence",
+      "repeat_every": "Répéter Tous les",
+      "end_recurrence": "Fin de la Récurrence (Optionnel)",
+      "select_end_date": "Sélectionner la date de fin (optionnel)",
+      "leave_empty_indefinite": "Laisser vide pour une récurrence indéfinie",
+      "tags": "Étiquettes",
+      "add_tag": "Ajouter une étiquette",
+      "cancel": "Annuler",
+      "saving": "Enregistrement...",
+      "create_reminder": "Créer un Rappel",
+      "update_reminder": "Mettre à Jour le Rappel"
+    },
+    "priority": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé",
+      "urgent": "Urgent"
+    },
+    "recurrence": {
+      "none": "Aucune récurrence",
+      "daily": "Quotidien",
+      "weekly": "Hebdomadaire",
+      "monthly": "Mensuel",
+      "yearly": "Annuel",
+      "days": "jour(s)",
+      "weeks": "semaine(s)",
+      "months": "mois",
+      "years": "année(s)"
+    },
+    "status": {
+      "pending": "En Attente",
+      "completed": "Terminé",
+      "snoozed": "Reporté",
+      "cancelled": "Annulé"
+    },
+    "actions": {
+      "complete": "Terminer",
+      "snooze": "Reporter",
+      "unsnooze": "Annuler le Report",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "messages": {
+      "created_success": "Rappel créé avec succès",
+      "updated_success": "Rappel mis à jour avec succès",
+      "completed_success": "Rappel marqué comme terminé",
+      "snoozed_success": "Rappel reporté",
+      "unsnoozed_success": "Rappel réactivé",
+      "deleted_success": "Rappel supprimé",
+      "create_failed": "Échec de la création du rappel",
+      "update_failed": "Échec de la mise à jour du rappel",
+      "complete_failed": "Échec de la finalisation du rappel",
+      "snooze_failed": "Échec du report du rappel",
+      "unsnooze_failed": "Échec de la réactivation du rappel",
+      "delete_failed": "Échec de la suppression du rappel",
+      "load_failed": "Échec du chargement des rappels"
+    }
   }
-} 
+}

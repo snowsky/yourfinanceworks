@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface PendingApprovalsListProps {
   onApprovalAction?: () => void;
@@ -34,6 +35,7 @@ interface Filters {
 }
 
 export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [approvals, setApprovals] = useState<ExpenseApproval[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,8 +223,8 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
           <CardContent className="p-8 text-center">
             <div className="text-muted-foreground">
               {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc') 
-                ? 'No approvals match your search criteria' 
-                : 'No pending approvals'}
+                ? t('approvalDashboard.no_approvals_match_your_search_criteria')
+                : t('approvalDashboard.no_pending_approvals')}
             </div>
           </CardContent>
         </Card>
@@ -231,7 +233,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
           {filteredApprovals.map((approval) => (
             <Card key={approval.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center justify-between">
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className="flex items-center gap-1">
