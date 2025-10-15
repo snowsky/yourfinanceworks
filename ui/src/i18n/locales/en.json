@@ -234,6 +234,31 @@
       "clients_description": "Active client accounts",
       "overdue_description": "Invoices past due date"
     },
+    "quick_actions": {
+      "title": "Quick Actions",
+      "subtitle": "Common tasks and shortcuts",
+      "new_expense": "New Expense",
+      "new_expense_desc": "Record a new business expense",
+      "new_invoice": "Create Invoice",
+      "new_invoice_desc": "Generate a new client invoice",
+      "import_expenses": "Import Expenses",
+      "import_expenses_desc": "Upload receipts and documents",
+      "add_client": "Add Client",
+      "add_client_desc": "Register a new client",
+      "pending_approvals": "Pending Approvals",
+      "pending_approvals_desc": "Review expense approvals",
+      "inventory": "Inventory",
+      "inventory_desc": "Manage inventory items",
+      "reports": "Generate Reports",
+      "reports_desc": "Create financial reports",
+      "reminders": "Reminders",
+      "reminders_desc": "Manage payment reminders"
+    },
+    "pending_items": {
+      "title": "Needs Attention",
+      "view_all": "View All",
+      "review": "Review"
+    },
     "errors": {
       "load_failed": "Failed to load dashboard data"
     },
@@ -1148,6 +1173,7 @@
     "cannot_preview": "This file type cannot be previewed. Please download instead.",
     "calculated_from_items": "Calculated from items",
     "this_expense_is_for_consuming_inventory_items": "This expense is for consuming inventory items",
+    "this_expense_is_for_purchasing_inventory_items": "This expense is for purchasing inventory items",
     "inventory_consumption_details": "Inventory Consumption Details",
     "select_the_inventory_items_you_consumed": "Select the inventory items you consumed",
     "ready_to_process": "Ready to process {{count}} item(s)",

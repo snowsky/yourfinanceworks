@@ -1104,6 +1104,7 @@
     "cannot_preview": "Este tipo de archivo no se puede previsualizar. Por favor descarga en su lugar.",
     "calculated_from_items": "Calculado desde artículos",
     "this_expense_is_for_consuming_inventory_items": "Este gasto es para consumir artículos de inventario",
+    "this_expense_is_for_purchasing_inventory_items": "Este gasto es para comprar artículos de inventario",
     "inventory_consumption_details": "Detalles de Consumo de Inventario",
     "select_the_inventory_items_you_consumed": "Selecciona los artículos de inventario que consumiste",
     "ready_to_process": "Listo para procesar {{count}} artículo(s)",

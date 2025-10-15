@@ -4,6 +4,7 @@ import { BarChart, DollarSign, FileText, Users } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentInvoices } from "@/components/dashboard/RecentInvoices";
 import { InvoiceChart } from "@/components/dashboard/InvoiceChart";
+import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { dashboardApi } from "@/lib/api";
 import { toast } from "sonner";
@@ -240,11 +241,16 @@ const Dashboard = () => {
           />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 slide-in" style={{ animationDelay: '100ms' }}>
-          <div className="lg:col-span-3" data-tour="dashboard-chart">
-            <InvoiceChart />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-in" style={{ animationDelay: '100ms' }}>
+          <div className="lg:col-span-2 space-y-6">
+            <div data-tour="dashboard-chart">
+              <InvoiceChart />
+            </div>
+            <div data-tour="dashboard-quick-actions">
+              <QuickActions />
+            </div>
           </div>
-          <div className="lg:col-span-2" data-tour="dashboard-recent">
+          <div className="lg:col-span-1" data-tour="dashboard-recent">
             <RecentInvoices />
           </div>
         </div>

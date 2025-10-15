@@ -1079,6 +1079,7 @@
     "cannot_preview": "Dieser Dateityp kann nicht in der Vorschau angezeigt werden. Bitte herunterladen.",
     "calculated_from_items": "Berechnet aus Artikeln",
     "this_expense_is_for_consuming_inventory_items": "Diese Ausgabe ist für den Verbrauch von Inventargegenständen",
+    "this_expense_is_for_purchasing_inventory_items": "Diese Ausgabe ist für den Kauf von Inventargegenständen",
     "inventory_consumption_details": "Inventarverbrauchsdetails",
     "select_the_inventory_items_you_consumed": "Wählen Sie die Inventargegenstände aus, die Sie verbraucht haben",
     "ready_to_process": "Bereit zur Verarbeitung von {{count}} Artikel(n)",
