@@ -125,7 +125,7 @@ export function AppSidebar() {
     shouldFetchSettings: isAdminEffective 
   });
 
-  // Get company name from settings with moderate refetching (only for admin users)
+  // Get company name from settings with reduced refetching frequency (only for admin users)
   // Note: We conditionally define the query to prevent API calls for non-admin users
   const { data: settings, isLoading: settingsLoading, refetch } = useQuery({
     queryKey: ['settings', forceUpdate], // Include forceUpdate in query key to force refetch
@@ -133,12 +133,12 @@ export function AppSidebar() {
       console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
       return settingsApi.getSettings();
     },
-    refetchInterval: 30000, // 30 seconds
-    refetchOnWindowFocus: true,
+    refetchInterval: 120000, // 2 minutes (reduced from 30 seconds)
+    refetchOnWindowFocus: false, // Disable window focus refetching
     refetchOnMount: true,
-    refetchOnReconnect: true,
+    refetchOnReconnect: false, // Disable reconnect refetching
     refetchIntervalInBackground: false,
-    staleTime: 0,
+    staleTime: 300000, // 5 minutes stale time
     enabled: (!roleLoading && isAdminEffective), // Only fetch settings after role is known and admin in current org
     retry: (failureCount, error: any) => {
       // Don't retry on authentication/authorization errors
@@ -214,7 +214,7 @@ export function AppSidebar() {
     });
   }, [settings, companyName, forceUpdate, userOrganizations, currentOrgId]);
 
-  // Fetch user's organizations
+  // Fetch user's organizations (only once on mount, not on every settings change)
   useEffect(() => {
     const fetchUserOrganizations = async () => {
       if (!user?.id) {
@@ -289,9 +289,9 @@ export function AppSidebar() {
         console.log('🔄 Set error fallback organization:', currentOrg);
       }
     };
-    
+
     fetchUserOrganizations();
-  }, [user?.id, user?.tenant_id, settings?.company_info?.name]);
+  }, [user?.id, user?.tenant_id]); // Removed settings?.company_info?.name dependency
   
   const handleOrganizationSwitch = async (orgId: string) => {
     if (orgId === currentOrgId) return;
@@ -336,7 +336,7 @@ export function AppSidebar() {
   };
 
 
-  // Also try a direct approach - listen for localStorage changes
+  // Listen for localStorage changes with reduced frequency
   useEffect(() => {
     const checkForUpdates = () => {
       const lastUpdate = localStorage.getItem('settings_updated');
@@ -348,10 +348,10 @@ export function AppSidebar() {
 
     // Check immediately
     checkForUpdates();
-    
-    // Set up interval to check for updates
-    const interval = setInterval(checkForUpdates, 5000); // Check every 5 seconds
-    
+
+    // Set up interval to check for updates (reduced from 5 seconds to 30 seconds)
+    const interval = setInterval(checkForUpdates, 30000);
+
     return () => clearInterval(interval);
   }, []);
 
