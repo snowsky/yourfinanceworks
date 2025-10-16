@@ -500,32 +500,32 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl">
-        <SidebarHeader className="py-2 px-3 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
-          {/* Professional Company Logo Section */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-4">
+      <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl backdrop-blur-xl">
+        <SidebarHeader className="py-4 px-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
+          {/* Enhanced Company Branding Section */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
               {companyLogoUrl ? (
                 <img
                   src={companyLogoUrl.startsWith('http') ? companyLogoUrl : `${API_BASE_URL}${companyLogoUrl}`}
                   alt={`${companyName} Logo`}
-                  className="h-12 w-12 object-contain rounded-xl shadow-lg ring-2 ring-blue-500/20"
+                  className="h-10 w-10 object-contain rounded-xl shadow-lg ring-2 ring-blue-500/20 bg-white/10 p-1 backdrop-blur-sm"
                   onError={(e) => {
                     console.error('Failed to load company logo:', e);
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
-                  <Building className="h-6 w-6 text-white" />
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
+                  <Building className="h-5 w-5 text-white" />
                 </div>
               )}
               <div className="flex flex-col leading-tight">
-                <span className="text-lg font-bold text-white truncate max-w-[140px] tracking-tight">
+                <span className="text-base font-bold text-white truncate max-w-[140px] tracking-tight">
                   {companyName}
                 </span>
-                <span className="text-sm text-slate-300 font-medium">
-                  Invoice Management App
+                <span className="text-xs text-slate-300 font-medium">
+                  Financial Management
                 </span>
               </div>
             </div>
@@ -534,19 +534,19 @@ export function AppSidebar() {
                 variant="ghost"
                 size="icon"
                 aria-label="Toggle sidebar"
-                className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg h-8 w-8 transition-all duration-200"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
             </SidebarTrigger>
           </div>
           
-          {/* Professional User Profile Section */}
-          <div className="bg-slate-800/50 rounded-xl p-2 border border-slate-700/50">
+          {/* Enhanced User Profile Section */}
+          <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700/20 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 ring-2 ring-slate-600/50">
+              <Avatar className="h-8 w-8 ring-2 ring-slate-600/30">
                 <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-bold">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
                   {(() => {
                     const first = (user?.first_name || '').trim();
                     const last = (user?.last_name || '').trim();
@@ -558,7 +558,7 @@ export function AppSidebar() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col leading-tight flex-1 min-w-0">
-                <span className="text-sm font-bold text-white truncate">
+                <span className="text-xs font-semibold text-white truncate">
                   {(() => {
                     const first = (user?.first_name || '').trim();
                     const last = (user?.last_name || '').trim();
@@ -567,24 +567,24 @@ export function AppSidebar() {
                   })()}
                 </span>
                 <span className="text-xs text-slate-300 truncate">
-                  {user?.email}
+                  {effectiveRole === 'admin' ? 'Administrator' : 'User'}
                 </span>
               </div>
             </div>
           </div>
         </SidebarHeader>
-        <SidebarContent className="pt-2 px-3">
+        <SidebarContent className="pt-4 px-3 space-y-6">
           {/* Organization Selector */}
           {userOrganizations.length > 0 && (
-            <div className="mb-3">
-              <div className="px-3 mb-3">
+            <div className="space-y-3">
+              <div className="px-3">
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Organization {userOrganizations.length > 1 ? `(${userOrganizations.length} available)` : ''}
                 </h3>
               </div>
               <div className="px-3">
                 <Select value={currentOrgId} onValueChange={handleOrganizationSwitch} disabled={isSwitchingOrg}>
-                  <SelectTrigger className="w-full bg-slate-800/50 border-slate-700/50 text-white hover:bg-slate-700/50 rounded-lg">
+                  <SelectTrigger className="w-full bg-slate-800/30 border-slate-700/30 text-white hover:bg-slate-700/30 rounded-lg backdrop-blur-sm">
                     <div className="flex items-center gap-2">
                       <Building className="w-4 h-4 text-slate-300" />
                       {isSwitchingOrg ? (
@@ -594,9 +594,9 @@ export function AppSidebar() {
                       )}
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700/50">
+                  <SelectContent className="bg-slate-800 border-slate-700/30 backdrop-blur-sm">
                     {userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
-                      <SelectItem key={org.id} value={org.id.toString()} className="text-white hover:bg-slate-700/50">
+                      <SelectItem key={org.id} value={org.id.toString()} className="text-white hover:bg-slate-700/30">
                         <div className="flex items-center justify-between w-full">
                           <span>
                             {org.name}
@@ -616,78 +616,78 @@ export function AppSidebar() {
             </div>
           )}
           
-          <SidebarMenu className="space-y-1">
-            {/* Main Navigation Section */}
-            <div className="mb-3">
-              <div className="px-3 mb-2">
+          <SidebarMenu className="space-y-6">
+            {/* Core Navigation Section */}
+            <div className="space-y-1">
+              <div className="px-3 mb-3">
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Main Navigation
+                  Core
                 </h3>
               </div>
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 ${
+                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                       isActive(item.path)
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20 transform scale-105"
-                        : "text-slate-300 hover:text-white hover:bg-slate-700/50 hover:transform hover:scale-105"
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
                     }`}
                     isActive={isActive(item.path)}
                   >
                     <Link
                       to={item.path}
-                      className="flex items-center gap-4 w-full h-full py-3 px-4"
+                      className="flex items-center gap-3 w-full h-full py-3 px-4"
                       data-tour={item.tourId}
                     >
-                      <div className={`p-2 rounded-lg ${
+                      <div className={`p-2 rounded-lg transition-all duration-200 ${
                         isActive(item.path)
-                          ? "bg-white/20"
-                          : "bg-slate-700/50 group-hover:bg-slate-600/50"
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
                       }`}>
                         {item.icon}
                       </div>
-                      <span className="font-medium">{item.label}</span>
+                      <span className="font-medium text-sm">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </div>
 
-            {/* Professional Separator */}
-            <div className="my-2 px-3">
-              <div className="border-t border-slate-700/50"></div>
+            {/* Separator */}
+            <div className="px-3">
+              <div className="border-t border-slate-700/30"></div>
             </div>
-            
-            {/* Settings Section */}
-            <div>
-              <div className="px-3 mb-2">
+
+            {/* Administration Section */}
+            <div className="space-y-1">
+              <div className="px-3 mb-3">
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  System
+                  Administration
                 </h3>
               </div>
               {settingsMenuItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 ${
+                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                       isActive(item.path)
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20 transform scale-105"
-                        : "text-slate-300 hover:text-white hover:bg-slate-700/50 hover:transform hover:scale-105"
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
                     }`}
                     isActive={isActive(item.path)}
                   >
                     <Link
                       to={item.path}
-                      className="flex items-center gap-4 w-full h-full py-3 px-4"
+                      className="flex items-center gap-3 w-full h-full py-3 px-4"
                       data-tour={item.tourId}
                     >
-                      <div className={`p-2 rounded-lg ${
+                      <div className={`p-2 rounded-lg transition-all duration-200 ${
                         isActive(item.path)
-                          ? "bg-white/20"
-                          : "bg-slate-700/50 group-hover:bg-slate-600/50"
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
                       }`}>
                         {item.icon}
                       </div>
-                      <span className="font-medium">{item.label}</span>
+                      <span className="font-medium text-sm">{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -695,34 +695,34 @@ export function AppSidebar() {
             </div>
           </SidebarMenu>
         </SidebarContent>
-        <SidebarFooter className="py-2 px-3 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
-          {/* Professional Controls Section */}
-          <div className="space-y-8">
-            <div className="flex items-center justify-between gap-3">
+        <SidebarFooter className="py-4 px-4 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
+          <div className="space-y-4">
+            {/* Controls */}
+            <div className="flex items-center justify-between gap-2">
               <div className="flex-1">
                 <LanguageSwitcher />
               </div>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
                 aria-label={t('navigation.dark_mode')}
                 title={t('navigation.dark_mode')}
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="border-slate-600/50 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white transition-all duration-200 rounded-lg"
+                className="h-8 w-8 border border-slate-600/30 bg-slate-700/20 hover:bg-slate-600/20 text-slate-300 hover:text-white transition-all duration-200 rounded-lg"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </Button>
             </div>
 
-            {/* Professional Logout Button */}
+            {/* Logout Button */}
             <Button
               variant="destructive"
               size="sm"
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              className="w-full bg-gradient-to-r from-red-600/90 to-red-700/90 hover:from-red-700 hover:to-red-800 text-white font-medium py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border border-red-500/20"
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              <span>{t('auth.logout')}</span>
+              <span className="text-sm">{t('auth.logout')}</span>
             </Button>
           </div>
         </SidebarFooter>
@@ -732,7 +732,7 @@ export function AppSidebar() {
       {/* Floating toggle shown when sidebar is hidden (desktop) */}
       {state === 'collapsed' && (
         <div className="fixed top-4 left-2 z-50 hidden md:block">
-          <SidebarTrigger className="rounded-full bg-white shadow-md hover:bg-gray-100" />
+          <SidebarTrigger className="rounded-full bg-background/80 backdrop-blur-sm shadow-lg hover:bg-background border border-border/50" />
         </div>
       )}
     </>
