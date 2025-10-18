@@ -1,15 +1,17 @@
 // ConsentBanner component - fixed bottom banner for initial consent
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ConsentBannerProps } from './types';
 
 export const ConsentBanner: React.FC<ConsentBannerProps> = ({
-  message = "We use cookies to improve your experience. By continuing, you agree to our use of cookies.",
+  message,
   primaryColor,
   darkMode = false,
   onAcceptAll,
   onManagePreferences,
   visible
 }) => {
+  const { t } = useTranslation();
   const bannerRef = useRef<HTMLDivElement>(null);
   const acceptButtonRef = useRef<HTMLButtonElement>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -21,7 +23,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
       // Show animation: render first, then animate in
       setShouldRender(true);
       setIsAnimating(true);
-      
+
       // Use requestAnimationFrame to ensure DOM is updated before animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -31,12 +33,12 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
     } else if (!visible && shouldRender) {
       // Hide animation: animate out first, then stop rendering
       setIsAnimating(true);
-      
+
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsAnimating(false);
       }, 300); // Match CSS transition duration
-      
+
       return () => clearTimeout(timer);
     }
   }, [visible, shouldRender]);
@@ -57,7 +59,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
         const focusableElements = bannerRef.current.querySelectorAll(
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
-        
+
         const firstElement = focusableElements[0] as HTMLElement;
         const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
 
@@ -77,7 +79,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
       const focusTimer = setTimeout(() => {
         bannerRef.current?.focus();
       }, 350); // Wait for animation to complete
-      
+
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
         clearTimeout(focusTimer);
@@ -106,7 +108,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
     announcement.className = 'sr-only';
-    announcement.textContent = 'All cookies have been accepted. The banner has been dismissed.';
+    announcement.textContent = t('cookieConsent.banner.acceptedAnnouncement');
     document.body.appendChild(announcement);
     setTimeout(() => document.body.removeChild(announcement), 1000);
   };
@@ -118,7 +120,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
     announcement.className = 'sr-only';
-    announcement.textContent = 'Opening cookie preferences dialog.';
+    announcement.textContent = t('cookieConsent.banner.preferencesAnnouncement');
     document.body.appendChild(announcement);
     setTimeout(() => document.body.removeChild(announcement), 1000);
   };
@@ -131,14 +133,14 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
   };
 
   return (
-    <div 
+    <div
       ref={bannerRef}
       className={`cookie-banner ${getAnimationClass()}`}
       data-theme={darkMode ? 'dark' : 'light'}
       style={bannerStyle}
       data-testid="consent-banner"
       role="banner"
-      aria-label="Cookie consent notification"
+      aria-label={t('cookieConsent.banner.ariaLabel')}
       aria-describedby="cookie-message"
       tabIndex={-1}
       data-animating={isAnimating}
@@ -146,7 +148,7 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
       <div className="cookie-banner__content">
         <div className="cookie-banner__message">
           <p id="cookie-message" role="status" aria-live="polite">
-            {message}
+            {message || t('cookieConsent.banner.message')}
           </p>
         </div>
         <div className="cookie-banner__actions" role="group" aria-label="Cookie consent actions">
@@ -154,29 +156,29 @@ export const ConsentBanner: React.FC<ConsentBannerProps> = ({
             type="button"
             className="cookie-banner__button cookie-banner__button--secondary"
             onClick={handleManagePreferences}
-            aria-label="Open cookie preferences to customize your choices"
+            aria-label={t('cookieConsent.banner.manageAriaLabel')}
             aria-describedby="cookie-message"
             data-action="manage"
           >
-            Manage Preferences
+            {t('cookieConsent.banner.managePreferences')}
           </button>
           <button
             ref={acceptButtonRef}
             type="button"
             className="cookie-banner__button cookie-banner__button--primary"
             onClick={handleAcceptAll}
-            aria-label="Accept all cookies and dismiss this banner"
+            aria-label={t('cookieConsent.banner.acceptAriaLabel')}
             aria-describedby="cookie-message"
             data-action="accept"
           >
-            Accept All
+            {t('cookieConsent.banner.acceptAll')}
           </button>
         </div>
       </div>
-      
+
       {/* Screen reader only instructions */}
       <div className="sr-only" aria-live="polite">
-        Use Tab to navigate between buttons. Press Escape to focus on Manage Preferences. Press Enter or Space to activate buttons.
+        {t('cookieConsent.banner.keyboardInstructions')}
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ export const CookieConsentBanner = forwardRef<CookieConsentRef, CookieConsentPro
   primaryColor = '#007bff',
   darkMode,
   position = 'bottom',
-  message = "We use cookies to improve your experience. By continuing, you agree to our use of cookies.",
+  message,
   onConsentChange,
   analyticsConfig = {}
 }, ref) => {
@@ -158,7 +158,7 @@ export const CookieConsentBanner = forwardRef<CookieConsentRef, CookieConsentPro
       announcement.setAttribute('aria-live', 'polite');
       announcement.setAttribute('aria-atomic', 'true');
       announcement.className = 'sr-only';
-      announcement.textContent = 'All cookies have been accepted. Cookie preferences saved.';
+      announcement.textContent = 'All cookies have been accepted. Cookie preferences saved.'; // This will be handled by ConsentBanner component
       document.body.appendChild(announcement);
       setTimeout(() => {
         if (document.body.contains(announcement)) {
@@ -207,7 +207,7 @@ export const CookieConsentBanner = forwardRef<CookieConsentRef, CookieConsentPro
       announcement.setAttribute('aria-live', 'polite');
       announcement.setAttribute('aria-atomic', 'true');
       announcement.className = 'sr-only';
-      announcement.textContent = 'Cookie preferences have been saved successfully.';
+      announcement.textContent = 'Cookie preferences have been saved successfully.'; // This will be handled by PreferencesModal component
       document.body.appendChild(announcement);
       setTimeout(() => {
         if (document.body.contains(announcement)) {

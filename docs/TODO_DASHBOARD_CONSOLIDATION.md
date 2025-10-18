@@ -16,7 +16,7 @@ User requested to use `ProfessionalDashboard.tsx` (web) in the mobile app and re
   - Uses React Router, browser DOM APIs
   - Uses ShadCN UI components (web-only)
   - Tailwind CSS styling
-  
+
 - **DashboardScreen.tsx** (`mobile/src/screens/DashboardScreen.tsx`)
   - React Native component
   - Uses React Native components (View, ScrollView, TouchableOpacity)

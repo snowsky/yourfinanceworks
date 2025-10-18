@@ -17,9 +17,9 @@ The Cookie Consent Banner is designed to be fully accessible and compliant with:
 The consent banner uses the following ARIA attributes for screen reader compatibility:
 
 ```html
-<div 
-  class="cookie-banner" 
-  role="banner" 
+<div
+  class="cookie-banner"
+  role="banner"
   aria-label="Cookie consent notice"
   aria-live="polite"
   aria-atomic="true"
@@ -28,17 +28,17 @@ The consent banner uses the following ARIA attributes for screen reader compatib
     <p id="consent-message" class="cookie-banner__message">
       We use cookies to improve your experience. By continuing, you agree to our use of cookies.
     </p>
-    
+
     <div class="cookie-banner__actions" role="group" aria-labelledby="consent-message">
-      <button 
+      <button
         type="button"
         class="cookie-banner__button cookie-banner__button--primary"
         aria-describedby="consent-message"
       >
         Accept All
       </button>
-      
-      <button 
+
+      <button
         type="button"
         class="cookie-banner__button cookie-banner__button--secondary"
         aria-describedby="consent-message"
@@ -64,33 +64,33 @@ The consent banner uses the following ARIA attributes for screen reader compatib
 The preferences modal implements comprehensive ARIA patterns:
 
 ```html
-<div 
-  class="preferences-modal" 
-  role="dialog" 
+<div
+  class="preferences-modal"
+  role="dialog"
   aria-modal="true"
   aria-labelledby="modal-title"
   aria-describedby="modal-description"
 >
   <div class="preferences-modal__overlay" aria-hidden="true"></div>
-  
+
   <div class="preferences-modal__content">
     <header class="preferences-modal__header">
       <h2 id="modal-title" class="preferences-modal__title">
         Cookie Preferences
       </h2>
-      <button 
-        type="button" 
+      <button
+        type="button"
         class="preferences-modal__close"
         aria-label="Close cookie preferences dialog"
       >
         ×
       </button>
     </header>
-    
+
     <div id="modal-description" class="preferences-modal__description">
       <p>Choose which cookies you want to allow. You can change these settings at any time.</p>
     </div>
-    
+
     <form class="preferences-modal__form" role="form">
       <fieldset class="cookie-category">
         <legend class="cookie-category__title">Essential Cookies</legend>
@@ -98,10 +98,10 @@ The preferences modal implements comprehensive ARIA patterns:
           Required for basic website functionality. Cannot be disabled.
         </div>
         <div class="cookie-toggle">
-          <input 
-            type="checkbox" 
+          <input
+            type="checkbox"
             id="essential-cookies"
-            checked 
+            checked
             disabled
             aria-describedby="essential-description"
           >
@@ -111,15 +111,15 @@ The preferences modal implements comprehensive ARIA patterns:
           </div>
         </div>
       </fieldset>
-      
+
       <fieldset class="cookie-category">
         <legend class="cookie-category__title">Analytics Cookies</legend>
         <div class="cookie-category__description">
           Help us understand how visitors interact with our website.
         </div>
         <div class="cookie-toggle">
-          <input 
-            type="checkbox" 
+          <input
+            type="checkbox"
             id="analytics-cookies"
             aria-describedby="analytics-description"
           >
@@ -134,15 +134,15 @@ The preferences modal implements comprehensive ARIA patterns:
           </div>
         </div>
       </fieldset>
-      
+
       <fieldset class="cookie-category">
         <legend class="cookie-category__title">Marketing Cookies</legend>
         <div class="cookie-category__description">
           Used to deliver personalized advertisements and content.
         </div>
         <div class="cookie-toggle">
-          <input 
-            type="checkbox" 
+          <input
+            type="checkbox"
             id="marketing-cookies"
             aria-describedby="marketing-description"
           >
@@ -158,7 +158,7 @@ The preferences modal implements comprehensive ARIA patterns:
         </div>
       </fieldset>
     </form>
-    
+
     <footer class="preferences-modal__footer">
       <button type="button" class="btn btn--secondary">Cancel</button>
       <button type="button" class="btn btn--primary">Save Preferences</button>
@@ -364,7 +364,7 @@ The interface doesn't rely solely on color to convey information:
     padding: 16px;
     font-size: 16px; /* Minimum readable size */
   }
-  
+
   .cookie-banner__button {
     min-height: 44px;
     padding: 12px 16px;
@@ -491,8 +491,8 @@ const { execSync } = require('child_process');
 execSync('npm run test:a11y', { stdio: 'inherit' });
 
 // Run Pa11y against built components
-execSync('pa11y-ci --sitemap http://localhost:3000/sitemap.xml', { 
-  stdio: 'inherit' 
+execSync('pa11y-ci --sitemap http://localhost:3000/sitemap.xml', {
+  stdio: 'inherit'
 });
 ```
 

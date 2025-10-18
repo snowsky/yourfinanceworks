@@ -418,7 +418,7 @@ class CustomAnalyticsProvider {
 
   trackEvent(event: string, data: any) {
     if (!this.isEnabled) return;
-    
+
     // Send to your custom analytics
     (window as any).yourAnalytics.track(event, data);
   }
@@ -431,7 +431,7 @@ class CustomAnalyticsProvider {
 // Environment-specific tracking
 const getTrackingConfig = () => {
   const env = import.meta.env.VITE_ENVIRONMENT;
-  
+
   return {
     development: {
       enableConsoleLogging: true,

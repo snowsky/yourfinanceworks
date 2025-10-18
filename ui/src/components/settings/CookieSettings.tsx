@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { ConsentManager } from '@/components/cookie-consent/services/ConsentManager';
 import { Shield, Eye, Target, Settings as SettingsIcon, RefreshCw, Save, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const CookieSettings: React.FC = () => {
+  const { t } = useTranslation();
   const [consentManager] = useState(() => new ConsentManager());
   const [preferences, setPreferences] = useState({
     essential: true, // Always true, cannot be disabled
@@ -105,10 +107,10 @@ const CookieSettings: React.FC = () => {
       setOriginalPreferences(preferences);
       setHasUnsavedChanges(false);
       
-      toast.success('Cookie preferences saved successfully');
+      toast.success(t('cookieConsent.settings.messages.saveSuccess'));
     } catch (error) {
       console.error('Error saving cookie preferences:', error);
-      toast.error('Failed to save cookie preferences');
+      toast.error(t('cookieConsent.settings.messages.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -117,7 +119,7 @@ const CookieSettings: React.FC = () => {
   const handleReset = () => {
     setPreferences(originalPreferences);
     setHasUnsavedChanges(false);
-    toast.info('Changes reset to last saved preferences');
+    toast.info(t('cookieConsent.settings.messages.resetInfo'));
   };
 
   if (isLoading) {
@@ -126,10 +128,10 @@ const CookieSettings: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SettingsIcon className="w-5 h-5" />
-            Cookie Preferences
+            {t('cookieConsent.settings.title')}
           </CardTitle>
           <CardDescription>
-            Loading your cookie preferences...
+            {t('cookieConsent.settings.loading')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -147,20 +149,20 @@ const CookieSettings: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SettingsIcon className="w-5 h-5" />
-            Cookie Preferences
+            {t('cookieConsent.settings.title')}
           </CardTitle>
           <CardDescription>
-            Manage your cookie and tracking preferences. These settings control how we collect and use data to improve your experience.
+            {t('cookieConsent.settings.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Quick Actions */}
           <div className="flex gap-3">
             <Button onClick={handleAcceptAll} variant="outline" className="flex-1">
-              Accept All
+              {t('cookieConsent.settings.acceptAll')}
             </Button>
             <Button onClick={handleRejectAll} variant="outline" className="flex-1">
-              Reject Optional
+              {t('cookieConsent.settings.rejectOptional')}
             </Button>
           </div>
 
@@ -174,19 +176,18 @@ const CookieSettings: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Shield className="w-5 h-5 text-green-600" />
                   <div>
-                    <Label className="text-base font-medium">Essential Cookies</Label>
-                    <Badge variant="secondary" className="ml-2">Always Active</Badge>
+                    <Label className="text-base font-medium">{t('cookieConsent.settings.categories.essential.title')}</Label>
+                    <Badge variant="secondary" className="ml-2">{t('cookieConsent.settings.alwaysActive')}</Badge>
                   </div>
                 </div>
                 <Switch
                   checked={preferences.essential}
                   disabled={true}
-                  aria-label="Essential cookies (always enabled)"
+                  aria-label={t('cookieConsent.settings.categories.essential.ariaLabel')}
                 />
               </div>
               <p className="text-sm text-muted-foreground ml-8">
-                Essential cookies required for the website to function properly. These include authentication, 
-                security, and basic functionality cookies that cannot be disabled.
+                {t('cookieConsent.settings.categories.essential.description')}
               </p>
             </div>
 
@@ -196,19 +197,18 @@ const CookieSettings: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Eye className="w-5 h-5 text-blue-600" />
                   <div>
-                    <Label className="text-base font-medium">Analytics Cookies</Label>
-                    {preferences.analytics && <Badge variant="default" className="ml-2">Enabled</Badge>}
+                    <Label className="text-base font-medium">{t('cookieConsent.settings.categories.analytics.title')}</Label>
+                    {preferences.analytics && <Badge variant="default" className="ml-2">{t('cookieConsent.settings.enabled')}</Badge>}
                   </div>
                 </div>
                 <Switch
                   checked={preferences.analytics}
                   onCheckedChange={(checked) => handlePreferenceChange('analytics', checked)}
-                  aria-label="Analytics cookies"
+                  aria-label={t('cookieConsent.settings.categories.analytics.ariaLabel')}
                 />
               </div>
               <p className="text-sm text-muted-foreground ml-8">
-                Help us understand how you use our website by collecting anonymous usage statistics. 
-                This includes page views, user interactions, and performance metrics.
+                {t('cookieConsent.settings.categories.analytics.description')}
               </p>
             </div>
 
@@ -218,19 +218,18 @@ const CookieSettings: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Target className="w-5 h-5 text-purple-600" />
                   <div>
-                    <Label className="text-base font-medium">Marketing Cookies</Label>
-                    {preferences.marketing && <Badge variant="default" className="ml-2">Enabled</Badge>}
+                    <Label className="text-base font-medium">{t('cookieConsent.settings.categories.marketing.title')}</Label>
+                    {preferences.marketing && <Badge variant="default" className="ml-2">{t('cookieConsent.settings.enabled')}</Badge>}
                   </div>
                 </div>
                 <Switch
                   checked={preferences.marketing}
                   onCheckedChange={(checked) => handlePreferenceChange('marketing', checked)}
-                  aria-label="Marketing cookies"
+                  aria-label={t('cookieConsent.settings.categories.marketing.ariaLabel')}
                 />
               </div>
               <p className="text-sm text-muted-foreground ml-8">
-                Used to track visitors across websites and show relevant advertisements. 
-                This includes conversion tracking, remarketing, and personalized ad delivery.
+                {t('cookieConsent.settings.categories.marketing.description')}
               </p>
             </div>
 
@@ -246,7 +245,7 @@ const CookieSettings: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                   <span className="text-sm font-medium text-amber-800">
-                    You have unsaved changes
+                    {t('cookieConsent.settings.unsavedChanges')}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -256,7 +255,7 @@ const CookieSettings: React.FC = () => {
                     size="sm"
                     className="text-amber-700 hover:text-amber-800 hover:bg-amber-100"
                   >
-                    Reset
+                    {t('cookieConsent.settings.reset')}
                   </Button>
                   <Button 
                     onClick={handleSave} 
@@ -267,12 +266,12 @@ const CookieSettings: React.FC = () => {
                     {isSaving ? (
                       <>
                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
+                        {t('cookieConsent.settings.saving')}
                       </>
                     ) : (
                       <>
                         <Save className="w-4 h-4 mr-2" />
-                        Save Changes
+                        {t('cookieConsent.settings.saveChanges')}
                       </>
                     )}
                   </Button>
@@ -286,7 +285,7 @@ const CookieSettings: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">
-                  Your preferences are saved and up to date
+                  {t('cookieConsent.settings.upToDate')}
                 </span>
               </div>
             </div>
@@ -296,19 +295,19 @@ const CookieSettings: React.FC = () => {
 
           {/* Additional Information */}
           <div className="space-y-3">
-            <h4 className="font-medium">Additional Information</h4>
+            <h4 className="font-medium">{t('cookieConsent.settings.additionalInfo')}</h4>
             <div className="text-sm text-muted-foreground space-y-2">
               <p>
-                • Your preferences are stored locally and will be remembered for future visits
+                • {t('cookieConsent.settings.infoPoints.stored')}
               </p>
               <p>
-                • You can change these settings at any time
+                • {t('cookieConsent.settings.infoPoints.changeable')}
               </p>
               <p>
-                • Some features may not work properly if certain cookies are disabled
+                • {t('cookieConsent.settings.infoPoints.functionality')}
               </p>
               <p>
-                • We comply with GDPR and other privacy regulations
+                • {t('cookieConsent.settings.infoPoints.compliance')}
               </p>
             </div>
           </div>

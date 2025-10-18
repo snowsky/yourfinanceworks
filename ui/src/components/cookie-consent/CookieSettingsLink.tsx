@@ -1,5 +1,6 @@
 import React from 'react';
 import { Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CookieSettingsLinkProps {
   className?: string;
@@ -12,6 +13,7 @@ export const CookieSettingsLink: React.FC<CookieSettingsLinkProps> = ({
   showIcon = true,
   variant = 'link'
 }) => {
+  const { t } = useTranslation();
   const baseClasses = variant === 'button' 
     ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer'
     : 'inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer';
@@ -25,10 +27,10 @@ export const CookieSettingsLink: React.FC<CookieSettingsLinkProps> = ({
     <button 
       onClick={handleClick}
       className={`${baseClasses} ${className}`}
-      title="Manage your cookie preferences"
+      title={t('cookieConsent.banner.managePreferences')}
     >
       {showIcon && <Settings className="w-4 h-4" />}
-      Cookie Settings
+      {t('settings.tabs.cookies')}
     </button>
   );
 };

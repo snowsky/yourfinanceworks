@@ -1,5 +1,6 @@
 // PreferencesModal component - detailed cookie preferences interface
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { PreferencesModalProps } from './types';
 
 export const PreferencesModal: React.FC<PreferencesModalProps> = ({
@@ -10,6 +11,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   primaryColor = '#007bff',
   darkMode = false
 }) => {
+  const { t } = useTranslation();
   const modalRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
   const lastFocusableRef = useRef<HTMLButtonElement>(null);
@@ -124,13 +126,13 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
       >
         <div className="cookie-preferences-header">
           <h2 id="cookie-preferences-title" className="cookie-preferences-title">
-            Cookie Preferences
+            {t('cookieConsent.preferences.title')}
           </h2>
           <button
             ref={firstFocusableRef}
             className="cookie-preferences-close"
             onClick={onClose}
-            aria-label="Close cookie preferences"
+            aria-label={t('cookieConsent.preferences.closeAriaLabel')}
             type="button"
           >
             <span aria-hidden="true">&times;</span>
@@ -139,14 +141,14 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
 
         <div className="cookie-preferences-content">
           <p id="cookie-preferences-description" className="cookie-preferences-description">
-            Manage your cookie preferences. You can enable or disable different types of cookies below.
+            {t('cookieConsent.preferences.description')}
           </p>
 
           <div className="cookie-categories">
             {/* Essential Cookies - Always enabled */}
             <div className="cookie-category">
               <div className="cookie-category-header">
-                <h3 className="cookie-category-title">Essential Cookies</h3>
+                <h3 className="cookie-category-title">{t('cookieConsent.preferences.categories.essential.title')}</h3>
                 <div className="cookie-category-toggle">
                   <input
                     type="checkbox"
@@ -158,21 +160,20 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
                   />
                   <label htmlFor="essential-cookies" className="cookie-toggle-label">
                     <span className="cookie-toggle-slider"></span>
-                    <span className="sr-only">Essential cookies are always enabled</span>
+                    <span className="sr-only">{t('cookieConsent.preferences.categories.essential.ariaLabel')}</span>
                   </label>
-                  <span className="cookie-toggle-status">Always On</span>
+                  <span className="cookie-toggle-status">{t('cookieConsent.preferences.categories.essential.alwaysOn')}</span>
                 </div>
               </div>
               <p id="essential-description" className="cookie-category-description">
-                These cookies are necessary for the website to function and cannot be switched off. 
-                They are usually only set in response to actions made by you which amount to a request for services.
+                {t('cookieConsent.preferences.categories.essential.description')}
               </p>
             </div>
 
             {/* Analytics Cookies */}
             <div className="cookie-category">
               <div className="cookie-category-header">
-                <h3 className="cookie-category-title">Analytics Cookies</h3>
+                <h3 className="cookie-category-title">{t('cookieConsent.preferences.categories.analytics.title')}</h3>
                 <div className="cookie-category-toggle">
                   <input
                     type="checkbox"
@@ -185,24 +186,23 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
                   <label htmlFor="analytics-cookies" className="cookie-toggle-label">
                     <span className="cookie-toggle-slider"></span>
                     <span className="sr-only">
-                      {preferences.analytics ? 'Disable' : 'Enable'} analytics cookies
+                      {preferences.analytics ? t('cookieConsent.preferences.categories.analytics.disableAriaLabel') : t('cookieConsent.preferences.categories.analytics.enableAriaLabel')}
                     </span>
                   </label>
                   <span className="cookie-toggle-status">
-                    {preferences.analytics ? 'On' : 'Off'}
+                    {preferences.analytics ? t('cookieConsent.preferences.categories.analytics.on') : t('cookieConsent.preferences.categories.analytics.off')}
                   </span>
                 </div>
               </div>
               <p id="analytics-description" className="cookie-category-description">
-                These cookies help us understand how visitors interact with our website by collecting 
-                and reporting information anonymously. This helps us improve our website performance.
+                {t('cookieConsent.preferences.categories.analytics.description')}
               </p>
             </div>
 
             {/* Marketing Cookies */}
             <div className="cookie-category">
               <div className="cookie-category-header">
-                <h3 className="cookie-category-title">Marketing Cookies</h3>
+                <h3 className="cookie-category-title">{t('cookieConsent.preferences.categories.marketing.title')}</h3>
                 <div className="cookie-category-toggle">
                   <input
                     type="checkbox"
@@ -215,17 +215,16 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
                   <label htmlFor="marketing-cookies" className="cookie-toggle-label">
                     <span className="cookie-toggle-slider"></span>
                     <span className="sr-only">
-                      {preferences.marketing ? 'Disable' : 'Enable'} marketing cookies
+                      {preferences.marketing ? t('cookieConsent.preferences.categories.marketing.disableAriaLabel') : t('cookieConsent.preferences.categories.marketing.enableAriaLabel')}
                     </span>
                   </label>
                   <span className="cookie-toggle-status">
-                    {preferences.marketing ? 'On' : 'Off'}
+                    {preferences.marketing ? t('cookieConsent.preferences.categories.marketing.on') : t('cookieConsent.preferences.categories.marketing.off')}
                   </span>
                 </div>
               </div>
               <p id="marketing-description" className="cookie-category-description">
-                These cookies are used to deliver advertisements more relevant to you and your interests. 
-                They may also be used to limit the number of times you see an advertisement.
+                {t('cookieConsent.preferences.categories.marketing.description')}
               </p>
             </div>
           </div>
@@ -237,7 +236,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
             onClick={handleCancel}
             type="button"
           >
-            Cancel
+            {t('cookieConsent.preferences.cancel')}
           </button>
           <button
             ref={lastFocusableRef}
@@ -245,7 +244,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
             onClick={handleSave}
             type="button"
           >
-            Save Preferences
+            {t('cookieConsent.preferences.savePreferences')}
           </button>
         </div>
       </div>
