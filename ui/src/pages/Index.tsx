@@ -14,10 +14,14 @@ import { DisplayMD, BodyLG } from "@/components/ui/typography";
 import { HelpTooltip } from "@/components/onboarding/HelpTooltip";
 import { ProgressiveDisclosure } from "@/components/onboarding/ProgressiveDisclosure";
 import { OnboardingWelcome, useOnboarding } from "@/components/onboarding";
+import { CookieConsentBanner } from "@/components/cookie-consent/CookieConsentBanner";
+import { useTracking, useBusinessTracking } from "@/hooks/useTracking";
 
 const Dashboard = () => {
   const { t } = useTranslation();
   const { showWelcome, setShowWelcome, startTour } = useOnboarding();
+  const tracking = useTracking();
+  const businessTracking = useBusinessTracking();
   const [dashboardStats, setDashboardStats] = useState({
     totalIncome: {},
     pendingInvoices: {},
@@ -196,6 +200,17 @@ const Dashboard = () => {
           onClose={() => setShowWelcome(false)} 
         />
         <ProfessionalDashboard />
+        <CookieConsentBanner 
+          analyticsConfig={{
+            googleAnalytics: {
+              trackingId: 'GA_DEMO_ID',
+              enabled: true
+            }
+          }}
+          onConsentChange={(status) => {
+            console.log('Cookie consent changed:', status);
+          }}
+        />
       </AppLayout>
     );
   }
@@ -225,19 +240,16 @@ const Dashboard = () => {
         onClose={() => setShowWelcome(false)} 
       />
       <div className="h-full space-y-6 fade-in" style={professionalContainerStyle}>
-        <div data-tour="dashboard-welcome">
+        <div data-tour="dashboard-welcome" className="-mt-4">
           <div className="flex items-center gap-2">
             <DisplayMD>
               {userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
             </DisplayMD>
-            <HelpTooltip 
+            <HelpTooltip
               content="This dashboard provides an overview of your business finances, including income, pending invoices, and client metrics."
               title="Dashboard Overview"
             />
           </div>
-          <BodyLG className="text-muted-foreground mt-2">
-            {tenantName ? t('dashboard.tenant_overview', { tenant: tenantName }) : t('dashboard.overview')}
-          </BodyLG>
         </div>
         
         <div 
@@ -360,6 +372,18 @@ const Dashboard = () => {
             }
           ]}
           className="mt-6"
+        />
+        
+        <CookieConsentBanner 
+          analyticsConfig={{
+            googleAnalytics: {
+              trackingId: 'GA_DEMO_ID',
+              enabled: true
+            }
+          }}
+          onConsentChange={(status) => {
+            console.log('Cookie consent changed:', status);
+          }}
         />
       </div>
     </AppLayout>

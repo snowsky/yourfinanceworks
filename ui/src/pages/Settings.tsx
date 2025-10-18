@@ -21,6 +21,8 @@ import { SearchStatus } from "@/components/search/SearchStatus";
 import { api } from "@/lib/api";
 import { getErrorMessage } from '@/lib/api';
 import APIClientManagement from "@/components/APIClientManagement/APIClientManagement";
+import CookieSettings from "@/components/settings/CookieSettings";
+import { getCurrentUser } from "@/utils/auth";
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -30,6 +32,10 @@ const Settings = () => {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Get current user and check if admin
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
 
   // Backend hardcoded English defaults used for detection
   const BACKEND_DEFAULT_NOTES = t('settings.thank_you');
@@ -151,10 +157,11 @@ const Settings = () => {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
 
-  // Get tab from URL parameters
+  // Get tab from URL parameters, default to 'cookies' for non-admin users
   const [activeTab, setActiveTab] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('tab') || 'company';
+    const defaultTab = isAdmin ? 'company' : 'cookies';
+    return urlParams.get('tab') || defaultTab;
   });
 
   // Update active tab when URL changes
@@ -203,6 +210,12 @@ const Settings = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
+        // Only fetch admin settings if user is admin
+        if (!isAdmin) {
+          setLoading(false);
+          return;
+        }
+        
         const settings = await settingsApi.getSettings();
         
         // Update state with fetched settings
@@ -359,8 +372,14 @@ const Settings = () => {
       }
     };
 
-    fetchSettings();
-  }, []);
+    // Only fetch admin settings if user is admin
+    if (isAdmin) {
+      fetchSettings();
+    } else {
+      // For non-admin users, just set loading to false
+      setLoading(false);
+    }
+  }, [isAdmin]);
 
   const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -391,6 +410,9 @@ const Settings = () => {
   };
 
   const testEmailConfiguration = async () => {
+    // Only allow admin to test email configuration
+    if (!isAdmin) return;
+    
     const testEmail = prompt("Enter email address to send test email to:");
     if (!testEmail) return;
 
@@ -407,6 +429,9 @@ const Settings = () => {
   };
 
   const handleSave = async () => {
+    // Only allow admin to save settings
+    if (!isAdmin) return;
+    
     setSaving(true);
     try {
       // Upload logo first if there's a new file
@@ -528,6 +553,9 @@ const Settings = () => {
   };
 
   const handleSaveTaxSettings = async () => {
+    // Only allow admin to save tax settings
+    if (!isAdmin) return;
+    
     setSaving(true);
     try {
       // This would typically call an API endpoint to save tax settings
@@ -547,6 +575,9 @@ const Settings = () => {
   };
 
   const handleExportData = async () => {
+    // Only allow admin to export data
+    if (!isAdmin) return;
+    
     setExporting(true);
     try {
       await settingsApi.exportData();
@@ -571,6 +602,9 @@ const Settings = () => {
   };
 
   const handleImportData = async () => {
+    // Only allow admin to import data
+    if (!isAdmin) return;
+    
     if (!selectedFile) {
       toast.error(t('settings.please_select_file_to_import'));
       return;
@@ -594,6 +628,9 @@ const Settings = () => {
 
   // Discount rules management functions
   const handleCreateDiscountRule = async () => {
+    // Only allow admin to create discount rules
+    if (!isAdmin) return;
+    
     try {
       const rule = await discountRulesApi.createDiscountRule({ ...newDiscountRule, currency: newDiscountRule.currency || "USD" });
       setDiscountRules([...discountRules, rule]);
@@ -615,6 +652,9 @@ const Settings = () => {
   };
 
   const handleUpdateDiscountRule = async () => {
+    // Only allow admin to update discount rules
+    if (!isAdmin) return;
+    
     if (!editingDiscountRule) return;
     
     try {
@@ -644,6 +684,9 @@ const Settings = () => {
   };
 
   const handleDeleteDiscountRule = async (id: number) => {
+    // Only allow admin to delete discount rules
+    if (!isAdmin) return;
+    
     if (!confirm(t('settings.confirm_delete_discount_rule'))) return;
     
     try {
@@ -696,6 +739,9 @@ const Settings = () => {
 
   // Handle AI Assistant toggle with immediate save
   const handleAIAssistantToggle = async (checked: boolean) => {
+    // Only allow admin to toggle AI assistant
+    if (!isAdmin) return;
+    
     console.log('AI Assistant Toggle:', { from: aiAssistantEnabled, to: checked });
     
     // Update local state immediately for UI responsiveness
@@ -764,6 +810,9 @@ const Settings = () => {
   };
 
   const handleCreateAIConfig = async () => {
+    // Only allow admin to create AI configs
+    if (!isAdmin) return;
+    
     try {
       await aiConfigApi.createAIConfig(newAIConfig);
       toast.success(t('settings.ai_config_created'));
@@ -778,6 +827,9 @@ const Settings = () => {
   };
 
   const handleUpdateAIConfig = async () => {
+    // Only allow admin to update AI configs
+    if (!isAdmin) return;
+    
     if (!editingAIConfig) return;
     
     try {
@@ -794,6 +846,9 @@ const Settings = () => {
   };
 
   const handleDeleteAIConfig = async (id: number) => {
+    // Only allow admin to delete AI configs
+    if (!isAdmin) return;
+    
     if (!confirm(t('settings.confirm_delete_ai_config'))) return;
     
     try {
@@ -809,6 +864,9 @@ const Settings = () => {
   };
 
   const handleTestAIConfig = async (id: number) => {
+    // Only allow admin to test AI configs
+    if (!isAdmin) return;
+    
     try {
       console.log(`Testing AI config ${id}...`);
       const result = await aiConfigApi.testAIConfig(id);
@@ -830,6 +888,9 @@ const Settings = () => {
   };
 
   const handleTestNewAIConfig = async () => {
+    // Only allow admin to test new AI configs
+    if (!isAdmin) return;
+    
     setTestingNewConfig(true);
     setTestResult(null);
     try {
@@ -868,6 +929,9 @@ const Settings = () => {
   };
 
   const handleMarkAsTested = async (id: number) => {
+    // Only allow admin to mark AI configs as tested
+    if (!isAdmin) return;
+    
     try {
       await aiConfigApi.markAsTested(id);
       toast.success(t('settings.ai_config_marked_as_tested'));
@@ -1007,6 +1071,9 @@ const Settings = () => {
   };
 
   const handleSaveNotifications = async () => {
+    // Only allow admin to save notification settings
+    if (!isAdmin) return;
+    
     setSavingNotifications(true);
     try {
       const response = await api.put('/notifications/settings', notificationSettings);
@@ -1020,6 +1087,9 @@ const Settings = () => {
   };
 
   const handleTestNotification = async () => {
+    // Only allow admin to test notifications
+    if (!isAdmin) return;
+    
     try {
       await api.post('/notifications/test');
       toast.success(t('settings.test_notification_sent_successfully'));
@@ -1044,25 +1114,37 @@ const Settings = () => {
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
         <div>
-          <h1 className="text-3xl font-bold">{t('settings.title')}</h1>
-          <p className="text-muted-foreground">{t('settings.description')}</p>
+          <h1 className="text-3xl font-bold">
+            {isAdmin ? t('settings.title') : t('settings.preferences_title', 'Preferences')}
+          </h1>
+          <p className="text-muted-foreground">
+            {isAdmin ? t('settings.description') : t('settings.preferences_description', 'Manage your personal preferences and privacy settings.')}
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="flex w-full flex-wrap gap-1 h-auto justify-start">
-            <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
-            <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
-            <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
-            <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
-            <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
-            <TabsTrigger value="api-keys" className="text-xs md:text-sm">{t('settings.tabs.api_keys')}</TabsTrigger>
-            <TabsTrigger value="search" className="text-xs md:text-sm">{t('settings.tabs.search')}</TabsTrigger>
-            <TabsTrigger value="email-notifications" className="text-xs md:text-sm">{t('settings.tabs.email_notifications')}</TabsTrigger>
-            <TabsTrigger value="tax-integration" className="text-xs md:text-sm">{t('settings.tabs.tax_integration')}</TabsTrigger>
-            <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
+                <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
+                <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
+                <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
+                <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
+                <TabsTrigger value="api-keys" className="text-xs md:text-sm">{t('settings.tabs.api_keys')}</TabsTrigger>
+                <TabsTrigger value="search" className="text-xs md:text-sm">{t('settings.tabs.search')}</TabsTrigger>
+                <TabsTrigger value="email-notifications" className="text-xs md:text-sm">{t('settings.tabs.email_notifications')}</TabsTrigger>
+                <TabsTrigger value="tax-integration" className="text-xs md:text-sm">{t('settings.tabs.tax_integration')}</TabsTrigger>
+              </>
+            )}
+            <TabsTrigger value="cookies" className="text-xs md:text-sm">{t('settings.tabs.cookies')}</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
+            )}
           </TabsList>
           
-          <TabsContent value="company" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="company" className="mt-6">
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>{t('settings.user_profile')}</CardTitle>
@@ -1227,9 +1309,11 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="invoices" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="invoices" className="mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.invoice_settings')}</CardTitle>
@@ -1313,9 +1397,11 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="currencies" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="currencies" className="mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.currency_management')}</CardTitle>
@@ -1324,9 +1410,11 @@ const Settings = () => {
                 <CurrencyManager />
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="discount-rules" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="discount-rules" className="mt-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1395,9 +1483,11 @@ const Settings = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="ai-config" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="ai-config" className="mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.ai_configuration')}</CardTitle>
@@ -1505,13 +1595,17 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="search" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="search" className="mt-6">
             <SearchStatus />
-          </TabsContent>
+            </TabsContent>
+          )}
           
-          <TabsContent value="email-notifications" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="email-notifications" className="mt-6">
             <div className="space-y-6">
               {/* Email Configuration Section */}
               <Card>
@@ -1944,9 +2038,11 @@ const Settings = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+            </TabsContent>
+          )}
 
-          <TabsContent value="tax-integration" className="mt-6">
+          {isAdmin && (
+            <TabsContent value="tax-integration" className="mt-6">
             <div className="space-y-6">
               {/* Tax Service Configuration Section */}
               <Card>
@@ -2108,10 +2204,15 @@ const Settings = () => {
                 </CardContent>
               </Card>
             </div>
+            </TabsContent>
+          )}
+
+          <TabsContent value="cookies" className="space-y-6">
+            <CookieSettings />
           </TabsContent>
 
-
-          <TabsContent value="export" className="space-y-6">
+          {isAdmin && (
+            <TabsContent value="export" className="space-y-6">
             {/* Data Overview Section */}
             <Card>
               <CardHeader>
@@ -2423,11 +2524,14 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
+          )}
 
-          <TabsContent value="api-keys" className="mt-6">
-            <APIClientManagement />
-          </TabsContent>
+          {isAdmin && (
+            <TabsContent value="api-keys" className="mt-6">
+              <APIClientManagement />
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* AI Configuration Dialog */}
