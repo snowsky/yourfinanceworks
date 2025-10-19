@@ -17,7 +17,7 @@ ui/yarn-error.log*
 ui/.pnpm-debug.log*
 
 # env files
-ui/.env*
+ui/.env
 
 # vercel
 ui/.vercel

@@ -16,6 +16,8 @@ import { CalendarIcon, X, Eye } from 'lucide-react';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
+import ExpenseSummary from '@/components/expenses/ExpenseSummary';
+import ExpenseCharts from '@/components/expenses/ExpenseCharts';
 import { format, parseISO, isValid } from 'date-fns';
 import { 
   AlertDialog,
@@ -29,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, MoreHorizontal, Edit, Package } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, MoreHorizontal, Edit, Package, ArrowDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -198,22 +200,42 @@ const Expenses = () => {
       const currentUserId = currentUser?.id;
 
       // Filter expenses: only show expenses created by current user AND exclude pending approval expenses
-      const filteredData = data.filter(expense =>
-        expense.user_id === currentUserId &&
-        expense.status !== 'pending_approval'
-      );
+      console.log('Raw expense data:', data);
+      console.log('Current user ID:', currentUserId, 'Type:', typeof currentUserId);
+      const filteredData = data.filter(expense => {
+        // Convert both to numbers for comparison to handle type mismatches
+        const matchesUser = Number(expense.user_id) === Number(currentUserId);
+        const notPendingApproval = expense.status !== 'pending_approval';
+        console.log(`Expense ${expense.id}: user_id=${expense.user_id} (${typeof expense.user_id}), status=${expense.status}, matchesUser=${matchesUser}, notPendingApproval=${notPendingApproval}`);
+        return matchesUser && notPendingApproval;
+      });
+      console.log('Filtered expenses:', filteredData);
+      
+      // Reset to page 1 if current page has no results but we're not on page 1
+      if (filteredData.length === 0 && page > 1) {
+        setPage(1);
+        return;
+      }
+      
       setExpenses(filteredData);
-      // Probe next page existence precisely
-      try {
-        const probe = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: skip + pageSize, limit: 1 });
-        // Apply the same filtering to probe results (ownership + status filtering)
-        const filteredProbe = probe.filter(expense =>
-          expense.user_id === currentUserId &&
-          expense.status !== 'pending_approval'
-        );
-        setHasNextPage(Array.isArray(filteredProbe) && filteredProbe.length > 0);
-      } catch {
-        setHasNextPage(filteredData.length === pageSize);
+      
+      // If we got fewer results than pageSize, there's no next page
+      if (filteredData.length < pageSize) {
+        setHasNextPage(false);
+      } else {
+        // Probe next page existence precisely
+        try {
+          const probe = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: skip + pageSize, limit: 1 });
+          // Apply the same filtering to probe results (ownership + status filtering)
+          const filteredProbe = probe.filter(expense => {
+            const matchesUser = Number(expense.user_id) === Number(currentUserId);
+            const notPendingApproval = expense.status !== 'pending_approval';
+            return matchesUser && notPendingApproval;
+          });
+          setHasNextPage(Array.isArray(filteredProbe) && filteredProbe.length > 0);
+        } catch {
+          setHasNextPage(false);
+        }
       }
     } catch (e) {
       toast.error('Failed to load expenses');
@@ -498,6 +520,16 @@ const Expenses = () => {
           </div>
           {canPerformActions() && (
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const expenseList = document.getElementById('expense-list');
+                  expenseList?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                <ArrowDown className="w-4 h-4 mr-2" />
+                {t('expenses.view_expense_list')}
+              </Button>
               <div className="flex">
                 <Button onClick={openCreate} className="rounded-r-none border-r-0">
                   <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
@@ -526,9 +558,11 @@ const Expenses = () => {
           )}
         </div>
 
+        {/* Expense Summary and Analytics */}
+        <ExpenseSummary />
+        <ExpenseCharts />
 
-
-        <Card className="slide-in">
+        <Card id="expense-list" className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <CardTitle>{t('expenses.list_title')}</CardTitle>
@@ -575,7 +609,7 @@ const Expenses = () => {
                   {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
                 </label>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('page_size', { defaultValue: 'Page size' })}</span>
+                  <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
                     <SelectTrigger className="w-[100px]">
                       <SelectValue />
@@ -620,7 +654,7 @@ const Expenses = () => {
                     }
                   }}
                 >
-                  {t('add')}
+                  {t('expenses.add')}
                 </Button>
                 <Button
                   variant="outline"
@@ -639,7 +673,7 @@ const Expenses = () => {
                     }
                   }}
                 >
-                  {t('remove')}
+                  {t('expenses.remove')}
                 </Button>
               </div>
             </div>
@@ -706,7 +740,7 @@ const Expenses = () => {
                                 {canPerformActions() && (
                                   <button
                                     className="ml-1 text-muted-foreground hover:text-foreground"
-                                    aria-label={t('remove', { defaultValue: 'Remove' })}
+                                    aria-label={t('expenses.remove')}
                                     onClick={async () => {
                                       try {
                                         const next = (e.labels || []).filter((l) => l !== lab);
@@ -841,7 +875,7 @@ const Expenses = () => {
                                   <DropdownMenuItem asChild>
                                     <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
                                       <Edit className="w-4 h-4 mr-2" />
-                                      {t('edit', { defaultValue: 'Edit' })}
+                                      {t('expenses.edit')}
                                     </Link>
                                   </DropdownMenuItem>
                                 )}
@@ -864,8 +898,8 @@ const Expenses = () => {
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('delete')}</AlertDialogAction>
+                                        <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
                                       </AlertDialogFooter>
                                     </AlertDialogContent>
                                   </AlertDialog>
@@ -930,7 +964,7 @@ const Expenses = () => {
                 <CurrencySelector
                   value={newExpense.currency || 'USD'}
                   onValueChange={(v) => setNewExpense({ ...newExpense, currency: v })}
-                  placeholder={t('select_currency')}
+                  placeholder={t('expenses.select_currency')}
                 />
               </div>
               <div>
@@ -978,7 +1012,7 @@ const Expenses = () => {
                   onValueChange={(v) => setNewExpense({ ...newExpense, category: v })}
                 >
                   <SelectTrigger className="w-full">
-                     <SelectValue placeholder={t('select_category', { defaultValue: 'Select category' }) as string} />
+                     <SelectValue placeholder={t('expenses.select_category') as string} />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
@@ -1114,7 +1148,7 @@ const Expenses = () => {
               </div>
             </div>
             <div className="p-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('cancel')}</Button>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('expenses.cancel')}</Button>
               <Button onClick={handleCreate} disabled={submitNewForApproval && !selectedNewApproverId}>
                 {submitNewForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.buttons.create')}
               </Button>
@@ -1142,7 +1176,7 @@ const Expenses = () => {
                 <CurrencySelector
                   value={editExpense.currency || 'USD'}
                   onValueChange={(v) => setEditExpense({ ...editExpense, currency: v })}
-                  placeholder={t('select_currency')}
+                  placeholder={t('expenses.select_currency')}
                 />
               </div>
               <div>
@@ -1176,7 +1210,7 @@ const Expenses = () => {
                   onValueChange={(v) => setEditExpense({ ...editExpense, category: v })}
                 >
                   <SelectTrigger className="w-full">
-                     <SelectValue placeholder={t('select_category', { defaultValue: 'Select category' }) as string} />
+                     <SelectValue placeholder={t('expenses.select_category') as string} />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
@@ -1269,7 +1303,7 @@ const Expenses = () => {
               </div>
             </div>
             <div className="p-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t('cancel')}</Button>
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>{t('expenses.cancel')}</Button>
               <Button onClick={handleUpdate}>{t('expenses.buttons.save')}</Button>
             </div>
           </DialogContent>
@@ -1361,6 +1395,3 @@ const Expenses = () => {
 };
 
 export default Expenses;
-
-
-

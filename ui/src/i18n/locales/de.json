@@ -530,6 +530,7 @@
       "email_notifications": "E-Mail & Benachrichtigungen",
       "tax_integration": "Steuerintegration",
       "approval_rules": "Genehmigungsregeln",
+      "cookies": "Cookie-Einstellungen",
       "export": "Datenverwaltung",
       "add_rule": "Regel hinzufügen",
       "rule_name": "Regelname",
@@ -1089,7 +1090,36 @@
     "this_expense_will_be_submitted_for_approval": "Diese Ausgabe wird zur Genehmigung eingereicht",
     "select_approver": "Genehmiger auswählen",
     "choose_an_approver": "Einen Genehmiger wählen",
-    "no_expenses_yet": "Noch keine Ausgaben"
+    "no_expenses_yet": "Noch keine Ausgaben",
+    "create_and_submit_for_approval": "Erstellen und zur Genehmigung Einreichen",
+    "expense_categories": "Ausgabenkategorien",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "page_size": "Seitengröße",
+    "select_currency": "Währung auswählen",
+    "select_category": "Kategorie auswählen",
+    "detailed_trend_data": "Detaillierte Trenddaten",
+    "expense_trends_over_time": "Ausgabentrends im Zeitverlauf",
+    "total_expenses": "Gesamtausgaben",
+    "total_transactions": "Gesamttransaktionen",
+    "average_expense": "Durchschnittliche Ausgabe",
+    "date_range": "Datumsbereich",
+    "month_view": "Monatsansicht",
+    "period": "Zeitraum",
+    "general": "Allgemein",
+    "trend_direction": "Trendrichtung",
+    "expense_trends": "Ausgabentrends",
+    "time_range": "Zeitbereich",
+    "group_by": "Gruppieren nach",
+    "chart_type": "Diagrammtyp",
+    "refresh": "Aktualisieren",
+    "total_amount": "Gesamtbetrag",
+    "volatility": "Volatilität",
+    "period_amount_transactions_average": "Zeitraum\tBetrag\tTransaktionen\tDurchschnitt",
+    "view_expense_list": "Ausgabenliste Anzeigen"
   },
   "email": {
     "subject": "Betreff",
@@ -2039,6 +2069,93 @@
       "unsnooze_failed": "Fehler beim Reaktivieren der Erinnerung",
       "delete_failed": "Fehler beim Löschen der Erinnerung",
       "load_failed": "Fehler beim Laden der Erinnerungen"
+    }
+  },
+  "cookieConsent": {
+    "banner": {
+      "message": "Wir verwenden Cookies, um Ihre Erfahrung zu verbessern. Durch die Fortsetzung stimmen Sie der Verwendung von Cookies zu.",
+      "acceptAll": "Alle Akzeptieren",
+      "managePreferences": "Einstellungen Verwalten",
+      "ariaLabel": "Cookie-Einverständnis-Benachrichtigung",
+      "acceptAriaLabel": "Alle Cookies akzeptieren und Banner schließen",
+      "manageAriaLabel": "Cookie-Einstellungen öffnen, um Ihre Auswahl anzupassen",
+      "acceptedAnnouncement": "Alle Cookies wurden akzeptiert. Das Banner wurde geschlossen.",
+      "preferencesAnnouncement": "Cookie-Einstellungen-Dialog wird geöffnet.",
+      "keyboardInstructions": "Verwenden Sie Tab, um zwischen den Schaltflächen zu navigieren. Drücken Sie Escape, um zu 'Einstellungen Verwalten' zu wechseln. Drücken Sie Enter oder Leertaste, um Schaltflächen zu aktivieren."
+    },
+    "preferences": {
+      "title": "Cookie-Einstellungen",
+      "description": "Verwalten Sie Ihre Cookie-Einstellungen. Sie können verschiedene Arten von Cookies unten aktivieren oder deaktivieren.",
+      "closeAriaLabel": "Cookie-Einstellungen schließen",
+      "cancel": "Abbrechen",
+      "savePreferences": "Einstellungen Speichern",
+      "categories": {
+        "essential": {
+          "title": "Notwendige Cookies",
+          "description": "Diese Cookies sind für das Funktionieren der Website erforderlich und können nicht ausgeschaltet werden. Sie werden normalerweise nur als Reaktion auf Ihre Aktionen gesetzt, die einer Anfrage für Dienste entsprechen.",
+          "alwaysOn": "Immer An",
+          "ariaLabel": "Notwendige Cookies sind immer aktiviert"
+        },
+        "analytics": {
+          "title": "Analyse-Cookies",
+          "description": "Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren, indem sie Informationen anonym sammeln und melden. Dies hilft uns, die Leistung unserer Website zu verbessern.",
+          "enableAriaLabel": "Analyse-Cookies aktivieren",
+          "disableAriaLabel": "Analyse-Cookies deaktivieren",
+          "on": "An",
+          "off": "Aus"
+        },
+        "marketing": {
+          "title": "Marketing-Cookies",
+          "description": "Diese Cookies werden verwendet, um Ihnen relevantere Werbung zu liefern, die Ihren Interessen entspricht. Sie können auch verwendet werden, um die Anzahl der Anzeigen zu begrenzen, die Sie sehen.",
+          "enableAriaLabel": "Marketing-Cookies aktivieren",
+          "disableAriaLabel": "Marketing-Cookies deaktivieren",
+          "on": "An",
+          "off": "Aus"
+        }
+      }
+    },
+    "settings": {
+      "title": "Cookie-Einstellungen",
+      "description": "Verwalten Sie Ihre Cookie- und Tracking-Einstellungen. Diese Einstellungen steuern, wie wir Daten sammeln und verwenden, um Ihre Erfahrung zu verbessern.",
+      "loading": "Cookie-Einstellungen werden geladen...",
+      "acceptAll": "Alle Akzeptieren",
+      "rejectOptional": "Optionale Ablehnen",
+      "alwaysActive": "Immer Aktiv",
+      "enabled": "Aktiviert",
+      "unsavedChanges": "Sie haben ungespeicherte Änderungen",
+      "reset": "Zurücksetzen",
+      "saveChanges": "Änderungen Speichern",
+      "saving": "Wird gespeichert...",
+      "upToDate": "Ihre Einstellungen sind gespeichert und aktuell",
+      "additionalInfo": "Zusätzliche Informationen",
+      "infoPoints": {
+        "stored": "Ihre Einstellungen werden lokal gespeichert und für zukünftige Besuche gespeichert",
+        "changeable": "Sie können diese Einstellungen jederzeit ändern",
+        "functionality": "Einige Funktionen funktionieren möglicherweise nicht ordnungsgemäß, wenn bestimmte Cookies deaktiviert sind",
+        "compliance": "Wir entsprechen der DSGVO und anderen Datenschutzbestimmungen"
+      },
+      "categories": {
+        "essential": {
+          "title": "Notwendige Cookies",
+          "description": "Notwendige Cookies, die für das ordnungsgemäße Funktionieren der Website erforderlich sind. Dazu gehören Authentifizierung, Sicherheit und grundlegende Funktionalitäts-Cookies, die nicht deaktiviert werden können.",
+          "ariaLabel": "Notwendige Cookies (immer aktiviert)"
+        },
+        "analytics": {
+          "title": "Analyse-Cookies",
+          "description": "Helfen Sie uns zu verstehen, wie Sie unsere Website nutzen, indem Sie anonyme Nutzungsstatistiken sammeln. Dies umfasst Seitenaufrufe, Benutzerinteraktionen und Leistungsmetriken.",
+          "ariaLabel": "Analyse-Cookies"
+        },
+        "marketing": {
+          "title": "Marketing-Cookies",
+          "description": "Werden verwendet, um Besucher über Websites hinweg zu verfolgen und relevante Werbung zu zeigen. Dies umfasst Conversion-Tracking, Remarketing und personalisierte Anzeigenauslieferung.",
+          "ariaLabel": "Marketing-Cookies"
+        }
+      },
+      "messages": {
+        "saveSuccess": "Cookie-Einstellungen erfolgreich gespeichert",
+        "saveError": "Fehler beim Speichern der Cookie-Einstellungen",
+        "resetInfo": "Änderungen auf zuletzt gespeicherte Einstellungen zurückgesetzt"
+      }
     }
   }
 }

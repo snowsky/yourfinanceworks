@@ -1804,6 +1804,59 @@ export const expenseApi = {
       method: 'POST',
       body: JSON.stringify({ expenses }),
     }),
+
+  // Expense Analytics
+  getExpenseSummary: (params?: {
+    period?: string;
+    start_date?: string;
+    end_date?: string;
+    compare_with_previous?: boolean;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.period) searchParams.set('period', params.period);
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    if (params?.compare_with_previous !== undefined) searchParams.set('compare_with_previous', params.compare_with_previous.toString());
+    return apiRequest<{
+      period: any;
+      current_period: any;
+      previous_period?: any;
+      changes?: any;
+      category_breakdown: any[];
+      daily_totals: any[];
+    }>(`/expenses/analytics/summary${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+  },
+
+  getExpenseTrends: (params?: {
+    days?: number;
+    group_by?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.days) searchParams.set('days', params.days.toString());
+    if (params?.group_by) searchParams.set('group_by', params.group_by);
+    return apiRequest<{
+      period: any;
+      trends: any[];
+      analysis: any;
+    }>(`/expenses/analytics/trends${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+  },
+
+  getExpenseCategoriesAnalytics: (params?: {
+    start_date?: string;
+    end_date?: string;
+    category_filter?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    if (params?.category_filter) searchParams.set('category_filter', params.category_filter);
+    return apiRequest<{
+      date_range: any;
+      grand_total: number;
+      categories: any[];
+      total_categories: number;
+    }>(`/expenses/analytics/categories${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+  },
 };
 
 // Dashboard API

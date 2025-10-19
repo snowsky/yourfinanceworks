@@ -527,6 +527,7 @@
       "email_notifications": "Correo & Notificaciones",
       "tax_integration": "Integración Fiscal",
       "approval_rules": "Reglas de Aprobación",
+      "cookies": "Configuración de Cookies",
       "export": "Gestión de Datos",
       "add_rule": "Agregar Regla",
       "rule_name": "Nombre de la Regla",
@@ -1114,7 +1115,36 @@
     "this_expense_will_be_submitted_for_approval": "Este gasto será enviado para aprobación",
     "select_approver": "Seleccionar Aprobador",
     "choose_an_approver": "Elegir un aprobador",
-    "no_expenses_yet": "Aún no hay gastos"
+    "no_expenses_yet": "Aún no hay gastos",
+    "create_and_submit_for_approval": "Crear y Enviar para Aprobación",
+    "expense_categories": "Categorías de Gastos",
+    "add": "Agregar",
+    "remove": "Eliminar",
+    "edit": "Editar",
+    "delete": "Borrar",
+    "cancel": "Cancelar",
+    "page_size": "Tamaño de página",
+    "select_currency": "Seleccionar moneda",
+    "select_category": "Seleccionar categoría",
+    "detailed_trend_data": "Datos de Tendencia Detallados",
+    "expense_trends_over_time": "Tendencias de Gastos en el Tiempo",
+    "total_expenses": "Gastos Totales",
+    "total_transactions": "Transacciones Totales",
+    "average_expense": "Gasto Promedio",
+    "date_range": "Rango de Fechas",
+    "month_view": "vista mensual",
+    "period": "Período",
+    "general": "General",
+    "trend_direction": "Dirección de Tendencia",
+    "expense_trends": "Tendencias de Gastos",
+    "time_range": "Rango de Tiempo",
+    "group_by": "Agrupar por",
+    "chart_type": "Tipo de Gráfico",
+    "refresh": "Actualizar",
+    "total_amount": "Monto Total",
+    "volatility": "Volatilidad",
+    "period_amount_transactions_average": "Período\tMonto\tTransacciones\tPromedio",
+    "view_expense_list": "Ver Lista de Gastos"
   },
   "email": {
     "subject": "Asunto",
@@ -2065,6 +2095,93 @@
       "unsnooze_failed": "Error al reactivar el recordatorio",
       "delete_failed": "Error al eliminar el recordatorio",
       "load_failed": "Error al cargar los recordatorios"
+    }
+  },
+  "cookieConsent": {
+    "banner": {
+      "message": "Utilizamos cookies para mejorar su experiencia. Al continuar, acepta nuestro uso de cookies.",
+      "acceptAll": "Aceptar Todas",
+      "managePreferences": "Gestionar Preferencias",
+      "ariaLabel": "Notificación de consentimiento de cookies",
+      "acceptAriaLabel": "Aceptar todas las cookies y cerrar este banner",
+      "manageAriaLabel": "Abrir preferencias de cookies para personalizar sus opciones",
+      "acceptedAnnouncement": "Todas las cookies han sido aceptadas. El banner ha sido cerrado.",
+      "preferencesAnnouncement": "Abriendo diálogo de preferencias de cookies.",
+      "keyboardInstructions": "Use Tab para navegar entre botones. Presione Escape para enfocar en Gestionar Preferencias. Presione Enter o Espacio para activar botones."
+    },
+    "preferences": {
+      "title": "Preferencias de Cookies",
+      "description": "Gestione sus preferencias de cookies. Puede habilitar o deshabilitar diferentes tipos de cookies a continuación.",
+      "closeAriaLabel": "Cerrar preferencias de cookies",
+      "cancel": "Cancelar",
+      "savePreferences": "Guardar Preferencias",
+      "categories": {
+        "essential": {
+          "title": "Cookies Esenciales",
+          "description": "Estas cookies son necesarias para que el sitio web funcione y no se pueden desactivar. Generalmente solo se establecen en respuesta a acciones realizadas por usted que equivalen a una solicitud de servicios.",
+          "alwaysOn": "Siempre Activas",
+          "ariaLabel": "Las cookies esenciales están siempre habilitadas"
+        },
+        "analytics": {
+          "title": "Cookies de Análisis",
+          "description": "Estas cookies nos ayudan a entender cómo los visitantes interactúan con nuestro sitio web recopilando y reportando información de forma anónima. Esto nos ayuda a mejorar el rendimiento de nuestro sitio web.",
+          "enableAriaLabel": "Habilitar cookies de análisis",
+          "disableAriaLabel": "Deshabilitar cookies de análisis",
+          "on": "Activadas",
+          "off": "Desactivadas"
+        },
+        "marketing": {
+          "title": "Cookies de Marketing",
+          "description": "Estas cookies se utilizan para entregar anuncios más relevantes para usted y sus intereses. También pueden usarse para limitar el número de veces que ve un anuncio.",
+          "enableAriaLabel": "Habilitar cookies de marketing",
+          "disableAriaLabel": "Deshabilitar cookies de marketing",
+          "on": "Activadas",
+          "off": "Desactivadas"
+        }
+      }
+    },
+    "settings": {
+      "title": "Preferencias de Cookies",
+      "description": "Gestione sus preferencias de cookies y seguimiento. Estas configuraciones controlan cómo recopilamos y utilizamos datos para mejorar su experiencia.",
+      "loading": "Cargando sus preferencias de cookies...",
+      "acceptAll": "Aceptar Todas",
+      "rejectOptional": "Rechazar Opcionales",
+      "alwaysActive": "Siempre Activas",
+      "enabled": "Habilitadas",
+      "unsavedChanges": "Tiene cambios sin guardar",
+      "reset": "Restablecer",
+      "saveChanges": "Guardar Cambios",
+      "saving": "Guardando...",
+      "upToDate": "Sus preferencias están guardadas y actualizadas",
+      "additionalInfo": "Información Adicional",
+      "infoPoints": {
+        "stored": "Sus preferencias se almacenan localmente y se recordarán para futuras visitas",
+        "changeable": "Puede cambiar estas configuraciones en cualquier momento",
+        "functionality": "Algunas funciones pueden no funcionar correctamente si ciertas cookies están deshabilitadas",
+        "compliance": "Cumplimos con GDPR y otras regulaciones de privacidad"
+      },
+      "categories": {
+        "essential": {
+          "title": "Cookies Esenciales",
+          "description": "Cookies esenciales requeridas para que el sitio web funcione correctamente. Estas incluyen autenticación, seguridad y cookies de funcionalidad básica que no pueden ser deshabilitadas.",
+          "ariaLabel": "Cookies esenciales (siempre habilitadas)"
+        },
+        "analytics": {
+          "title": "Cookies de Análisis",
+          "description": "Nos ayudan a entender cómo usa nuestro sitio web recopilando estadísticas de uso anónimas. Esto incluye vistas de página, interacciones de usuario y métricas de rendimiento.",
+          "ariaLabel": "Cookies de análisis"
+        },
+        "marketing": {
+          "title": "Cookies de Marketing",
+          "description": "Utilizadas para rastrear visitantes a través de sitios web y mostrar anuncios relevantes. Esto incluye seguimiento de conversiones, remarketing y entrega de anuncios personalizados.",
+          "ariaLabel": "Cookies de marketing"
+        }
+      },
+      "messages": {
+        "saveSuccess": "Preferencias de cookies guardadas exitosamente",
+        "saveError": "Error al guardar las preferencias de cookies",
+        "resetInfo": "Cambios restablecidos a las preferencias guardadas anteriormente"
+      }
     }
   }
 }

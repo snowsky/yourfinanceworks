@@ -89,6 +89,7 @@ class ExpenseUpdate(BaseModel):
 
 class Expense(ExpenseBase):
     id: int
+    user_id: int
     created_at: datetime
     updated_at: datetime
     receipt_filename: Optional[str] = None  # legacy single receipt

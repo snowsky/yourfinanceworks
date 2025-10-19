@@ -619,6 +619,134 @@ class GetStorageUsageArgs(BaseModel):
 class GetPrimaryImageArgs(BaseModel):
     item_id: int = Field(description="ID of inventory item")
 
+# Reminder Management Argument Schemas
+class ListRemindersArgs(BaseModel):
+    page: int = Field(default=1, ge=1, description="Page number")
+    per_page: int = Field(default=20, ge=1, le=100, description="Items per page")
+    status: Optional[List[str]] = Field(default=None, description="Filter by status")
+    priority: Optional[List[str]] = Field(default=None, description="Filter by priority")
+    search: Optional[str] = Field(default=None, description="Search in title and description")
+
+class GetReminderArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder")
+
+class CreateReminderArgs(BaseModel):
+    title: str = Field(description="Reminder title")
+    description: Optional[str] = Field(default=None, description="Reminder description")
+    due_date: str = Field(description="Due date (ISO format)")
+    assigned_to_id: int = Field(description="User ID to assign to")
+    priority: str = Field(default="medium", description="Priority level")
+    recurrence_pattern: str = Field(default="none", description="Recurrence pattern")
+    tags: Optional[List[str]] = Field(default=None, description="Tags")
+
+class UpdateReminderArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder")
+    title: Optional[str] = Field(default=None, description="New title")
+    description: Optional[str] = Field(default=None, description="New description")
+    due_date: Optional[str] = Field(default=None, description="New due date")
+    priority: Optional[str] = Field(default=None, description="New priority")
+
+class UpdateReminderStatusArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder")
+    status: str = Field(description="New status")
+    completion_notes: Optional[str] = Field(default=None, description="Completion notes")
+    snoozed_until: Optional[str] = Field(default=None, description="Snooze until date")
+
+class UnsnoozeReminderArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder to unsnooze")
+
+class DeleteReminderArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder to delete")
+
+class BulkUpdateRemindersArgs(BaseModel):
+    reminder_ids: List[int] = Field(description="List of reminder IDs")
+    status: Optional[str] = Field(default=None, description="New status")
+    priority: Optional[str] = Field(default=None, description="New priority")
+
+class GetReminderNotificationsArgs(BaseModel):
+    reminder_id: int = Field(description="ID of the reminder")
+
+class GetDueTodayRemindersArgs(BaseModel):
+    pass  # No arguments needed
+
+class GetOverdueRemindersArgs(BaseModel):
+    pass  # No arguments needed
+
+class GetUnreadNotificationCountArgs(BaseModel):
+    pass  # No arguments needed
+
+class GetRecentNotificationsArgs(BaseModel):
+    limit: int = Field(default=20, ge=1, le=100, description="Maximum notifications")
+
+class MarkNotificationReadArgs(BaseModel):
+    notification_id: int = Field(description="ID of the notification")
+
+class MarkAllNotificationsReadArgs(BaseModel):
+    pass  # No arguments needed
+
+class DismissNotificationArgs(BaseModel):
+    notification_id: int = Field(description="ID of the notification")
+
+# Approval Management Argument Schemas
+class GetAvailableApproversArgs(BaseModel):
+    pass  # No arguments needed
+
+class SubmitExpenseForApprovalArgs(BaseModel):
+    expense_id: int = Field(description="ID of the expense to submit")
+    notes: Optional[str] = Field(default=None, description="Optional submission notes")
+    approver_id: Optional[int] = Field(default=None, description="Optional specific approver ID")
+
+class GetPendingApprovalsArgs(BaseModel):
+    limit: Optional[int] = Field(default=None, ge=1, le=100, description="Maximum number of results")
+    offset: Optional[int] = Field(default=None, ge=0, description="Number of results to skip")
+
+class GetPendingApprovalsSummaryArgs(BaseModel):
+    pass  # No arguments needed
+
+class ApproveExpenseArgs(BaseModel):
+    approval_id: int = Field(description="ID of the approval to approve")
+    notes: Optional[str] = Field(default=None, description="Optional approval notes")
+
+class RejectExpenseArgs(BaseModel):
+    approval_id: int = Field(description="ID of the approval to reject")
+    rejection_reason: str = Field(description="Required rejection reason")
+    notes: Optional[str] = Field(default=None, description="Optional additional notes")
+
+class GetApprovalHistoryArgs(BaseModel):
+    expense_id: int = Field(description="ID of the expense")
+
+class GetApprovalMetricsArgs(BaseModel):
+    approver_id: Optional[int] = Field(default=None, description="Filter by specific approver ID")
+
+class GetApprovalDashboardStatsArgs(BaseModel):
+    pass  # No arguments needed
+
+class GetApprovedExpensesArgs(BaseModel):
+    skip: int = Field(default=0, ge=0, description="Number of records to skip")
+    limit: int = Field(default=50, ge=1, le=100, description="Maximum number of records")
+
+class GetProcessedExpensesArgs(BaseModel):
+    skip: int = Field(default=0, ge=0, description="Number of records to skip")
+    limit: int = Field(default=50, ge=1, le=100, description="Maximum number of records")
+
+class CreateApprovalDelegationArgs(BaseModel):
+    delegate_id: int = Field(description="ID of the user to delegate to")
+    start_date: str = Field(description="Delegation start date (YYYY-MM-DD)")
+    end_date: str = Field(description="Delegation end date (YYYY-MM-DD)")
+    is_active: bool = Field(default=True, description="Whether delegation is active")
+
+class GetApprovalDelegationsArgs(BaseModel):
+    include_inactive: bool = Field(default=False, description="Include inactive delegations")
+
+class UpdateApprovalDelegationArgs(BaseModel):
+    delegation_id: int = Field(description="ID of the delegation to update")
+    start_date: Optional[str] = Field(default=None, description="New start date")
+    end_date: Optional[str] = Field(default=None, description="New end date")
+    is_active: Optional[bool] = Field(default=None, description="New active status")
+
+class DeactivateApprovalDelegationArgs(BaseModel):
+    delegation_id: int = Field(description="ID of the delegation to deactivate")
+
 # Bank Statement Management Argument Schemas
 class ListBankStatementsArgs(BaseModel):
     skip: int = Field(default=0, description="Number of statements to skip for pagination")
@@ -2737,6 +2865,104 @@ class InvoiceTools:
         except Exception as e:
             return {"success": False, "error": f"Failed to get expense inventory summary: {e}"}
 
+    async def adjust_stock(self, item_id: int, quantity: float, reason: str = "Manual adjustment") -> Dict[str, Any]:
+        """Adjust stock levels for an inventory item"""
+        try:
+            response = await self.api_client._make_request("POST", f"/inventory/items/{item_id}/stock/adjust", json={"quantity": quantity, "reason": reason})
+            return {"success": True, "data": response, "message": "Stock adjusted successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to adjust stock: {e}"}
+
+    async def get_low_stock_items(self) -> Dict[str, Any]:
+        """Get items with low stock levels"""
+        try:
+            response = await self.api_client._make_request("GET", "/inventory/stock/low-stock")
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} low stock items"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get low stock items: {e}"}
+
+    async def get_item_by_barcode(self, barcode: str) -> Dict[str, Any]:
+        """Get inventory item by barcode"""
+        try:
+            response = await self.api_client._make_request("GET", f"/inventory/items/barcode/{barcode}")
+            return {"success": True, "data": response, "message": "Item retrieved by barcode"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get item by barcode: {e}"}
+
+    async def validate_barcode(self, barcode: str) -> Dict[str, Any]:
+        """Validate a barcode"""
+        try:
+            response = await self.api_client._make_request("POST", "/inventory/barcode/validate", json={"barcode": barcode})
+            return {"success": True, "data": response, "message": "Barcode validated"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to validate barcode: {e}"}
+
+    async def check_stock_availability(self, item_id: int, requested_quantity: float) -> Dict[str, Any]:
+        """Check if requested quantity is available"""
+        try:
+            response = await self.api_client._make_request("GET", f"/inventory/items/{item_id}/availability", params={"requested_quantity": requested_quantity})
+            return {"success": True, "data": response, "message": "Stock availability checked"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to check stock availability: {e}"}
+
+    async def get_recent_movements(self, days: int = 7, limit: int = 50) -> Dict[str, Any]:
+        """Get recent stock movements"""
+        try:
+            response = await self.api_client._make_request("GET", "/inventory/movements/recent", params={"days": days, "limit": limit})
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} recent movements"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get recent movements: {e}"}
+
+    async def get_stock_movements_by_reference(self, reference_type: str, reference_id: int) -> Dict[str, Any]:
+        """Get stock movements by reference"""
+        try:
+            response = await self.api_client._make_request("GET", f"/inventory/movements/by-reference/{reference_type}/{reference_id}")
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} movements"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get movements by reference: {e}"}
+
+    async def get_category_performance_report(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+        """Get category performance report"""
+        try:
+            params = {}
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+            response = await self.api_client._make_request("GET", "/inventory/reports/categories", params=params)
+            return {"success": True, "data": response, "message": "Category performance report retrieved"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get category performance: {e}"}
+
+    async def get_profitability_analysis(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+        """Get profitability analysis"""
+        try:
+            params = {}
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+            response = await self.api_client._make_request("GET", "/inventory/reports/profitability", params=params)
+            return {"success": True, "data": response, "message": "Profitability analysis retrieved"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get profitability analysis: {e}"}
+
+    async def get_sales_velocity_analysis(self, days: int = 30) -> Dict[str, Any]:
+        """Get sales velocity analysis"""
+        try:
+            response = await self.api_client._make_request("GET", "/inventory/analytics/sales-velocity", params={"days": days})
+            return {"success": True, "data": response, "message": f"Sales velocity for {days} days retrieved"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get sales velocity: {e}"}
+
+    async def validate_invoice_stock_availability(self, invoice_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Validate stock availability for invoice items"""
+        try:
+            response = await self.api_client._make_request("POST", "/inventory/invoice-items/validate-stock", json={"invoice_items": invoice_items})
+            return {"success": True, "data": response, "message": "Stock validation completed"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to validate stock: {e}"}
+
     async def get_linked_invoices_for_inventory_item(self, item_id: int) -> Dict[str, Any]:
         """Get all invoices that contain this inventory item"""
         try:
@@ -3090,6 +3316,423 @@ class InvoiceTools:
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to get primary image: {e}"}
+
+    # === Reminder Management Tools ===
+
+    async def list_reminders(self, page: int = 1, per_page: int = 20, status: Optional[List[str]] = None, priority: Optional[List[str]] = None, search: Optional[str] = None) -> Dict[str, Any]:
+        """List reminders with filtering and pagination"""
+        try:
+            params = {"page": page, "per_page": per_page}
+            if status:
+                params["status"] = status
+            if priority:
+                params["priority"] = priority
+            if search:
+                params["search"] = search
+            
+            response = await self.api_client._make_request("GET", "/reminders", params=params)
+            return {
+                "success": True,
+                "data": response.get("items", []),
+                "total": response.get("total", 0),
+                "page": response.get("page", page),
+                "pages": response.get("pages", 1),
+                "message": f"Found {response.get('total', 0)} reminders"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to list reminders: {e}"}
+
+    async def get_reminder(self, reminder_id: int) -> Dict[str, Any]:
+        """Get a specific reminder"""
+        try:
+            response = await self.api_client._make_request("GET", f"/reminders/{reminder_id}")
+            return {"success": True, "data": response, "message": "Reminder retrieved successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get reminder: {e}"}
+
+    async def create_reminder(self, title: str, due_date: str, assigned_to_id: int, description: Optional[str] = None, priority: str = "medium", recurrence_pattern: str = "none", tags: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Create a new reminder"""
+        try:
+            payload = {
+                "title": title,
+                "due_date": due_date,
+                "assigned_to_id": assigned_to_id,
+                "priority": priority,
+                "recurrence_pattern": recurrence_pattern
+            }
+            if description:
+                payload["description"] = description
+            if tags:
+                payload["tags"] = tags
+            
+            response = await self.api_client._make_request("POST", "/reminders", json=payload)
+            return {"success": True, "data": response, "message": "Reminder created successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to create reminder: {e}"}
+
+    async def update_reminder(self, reminder_id: int, title: Optional[str] = None, description: Optional[str] = None, due_date: Optional[str] = None, priority: Optional[str] = None) -> Dict[str, Any]:
+        """Update a reminder"""
+        try:
+            payload = {}
+            if title:
+                payload["title"] = title
+            if description:
+                payload["description"] = description
+            if due_date:
+                payload["due_date"] = due_date
+            if priority:
+                payload["priority"] = priority
+            
+            response = await self.api_client._make_request("PUT", f"/reminders/{reminder_id}", json=payload)
+            return {"success": True, "data": response, "message": "Reminder updated successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to update reminder: {e}"}
+
+    async def update_reminder_status(self, reminder_id: int, status: str, completion_notes: Optional[str] = None, snoozed_until: Optional[str] = None) -> Dict[str, Any]:
+        """Update reminder status"""
+        try:
+            payload = {"status": status}
+            if completion_notes:
+                payload["completion_notes"] = completion_notes
+            if snoozed_until:
+                payload["snoozed_until"] = snoozed_until
+            
+            response = await self.api_client._make_request("PATCH", f"/reminders/{reminder_id}/status", json=payload)
+            return {"success": True, "data": response, "message": f"Reminder status updated to {status}"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to update reminder status: {e}"}
+
+    async def unsnooze_reminder(self, reminder_id: int) -> Dict[str, Any]:
+        """Unsnooze a reminder"""
+        try:
+            response = await self.api_client._make_request("POST", f"/reminders/{reminder_id}/unsnooze")
+            return {"success": True, "data": response, "message": "Reminder unsnoozed successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to unsnooze reminder: {e}"}
+
+    async def delete_reminder(self, reminder_id: int) -> Dict[str, Any]:
+        """Delete a reminder"""
+        try:
+            await self.api_client._make_request("DELETE", f"/reminders/{reminder_id}")
+            return {"success": True, "message": "Reminder deleted successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to delete reminder: {e}"}
+
+    async def bulk_update_reminders(self, reminder_ids: List[int], status: Optional[str] = None, priority: Optional[str] = None) -> Dict[str, Any]:
+        """Bulk update multiple reminders"""
+        try:
+            payload = {"reminder_ids": reminder_ids}
+            if status:
+                payload["status"] = status
+            if priority:
+                payload["priority"] = priority
+            
+            response = await self.api_client._make_request("POST", "/reminders/bulk-update", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "updated_count": response.get("updated_count", 0),
+                "message": f"Updated {response.get('updated_count', 0)} reminders"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to bulk update reminders: {e}"}
+
+    async def get_reminder_notifications(self, reminder_id: int) -> Dict[str, Any]:
+        """Get notifications for a reminder"""
+        try:
+            response = await self.api_client._make_request("GET", f"/reminders/{reminder_id}/notifications")
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} notifications"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get reminder notifications: {e}"}
+
+    async def get_due_today_reminders(self) -> Dict[str, Any]:
+        """Get reminders due today"""
+        try:
+            response = await self.api_client._make_request("GET", "/reminders/due/today")
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} reminders due today"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get due today reminders: {e}"}
+
+    async def get_overdue_reminders(self) -> Dict[str, Any]:
+        """Get overdue reminders"""
+        try:
+            response = await self.api_client._make_request("GET", "/reminders/overdue")
+            return {"success": True, "data": response, "count": len(response), "message": f"Found {len(response)} overdue reminders"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get overdue reminders: {e}"}
+
+    async def get_unread_notification_count(self) -> Dict[str, Any]:
+        """Get count of unread notifications"""
+        try:
+            response = await self.api_client._make_request("GET", "/reminders/notifications/unread-count")
+            return {"success": True, "data": response, "count": response.get("count", 0), "message": f"{response.get('count', 0)} unread notifications"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get unread notification count: {e}"}
+
+    async def get_recent_notifications(self, limit: int = 20) -> Dict[str, Any]:
+        """Get recent notifications"""
+        try:
+            params = {"limit": limit}
+            response = await self.api_client._make_request("GET", "/reminders/notifications/recent", params=params)
+            items = response.get("items", [])
+            return {"success": True, "data": items, "count": len(items), "message": f"Found {len(items)} recent notifications"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get recent notifications: {e}"}
+
+    async def mark_notification_read(self, notification_id: int) -> Dict[str, Any]:
+        """Mark a notification as read"""
+        try:
+            response = await self.api_client._make_request("POST", f"/reminders/notifications/{notification_id}/read")
+            return {"success": True, "data": response, "message": "Notification marked as read"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to mark notification as read: {e}"}
+
+    async def mark_all_notifications_read(self) -> Dict[str, Any]:
+        """Mark all notifications as read"""
+        try:
+            response = await self.api_client._make_request("POST", "/reminders/notifications/mark-all-read")
+            return {"success": True, "data": response, "message": "All notifications marked as read"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to mark all notifications as read: {e}"}
+
+    async def dismiss_notification(self, notification_id: int) -> Dict[str, Any]:
+        """Dismiss a notification"""
+        try:
+            await self.api_client._make_request("DELETE", f"/reminders/notifications/{notification_id}")
+            return {"success": True, "message": "Notification dismissed successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to dismiss notification: {e}"}
+
+    # === Approval Management Tools ===
+
+    async def get_available_approvers(self) -> Dict[str, Any]:
+        """Get list of available approvers"""
+        try:
+            response = await self.api_client._make_request("GET", "/approvals/approvers")
+            return {
+                "success": True,
+                "data": response,
+                "count": len(response),
+                "message": f"Found {len(response)} available approvers"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get available approvers: {e}"}
+
+    async def submit_expense_for_approval(self, expense_id: int, notes: Optional[str] = None, approver_id: Optional[int] = None) -> Dict[str, Any]:
+        """Submit an expense for approval"""
+        try:
+            payload = {"expense_id": expense_id}
+            if notes:
+                payload["notes"] = notes
+            if approver_id:
+                payload["approver_id"] = approver_id
+            
+            response = await self.api_client._make_request("POST", f"/approvals/expenses/{expense_id}/submit-approval", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Expense submitted for approval successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to submit expense for approval: {e}"}
+
+    async def get_pending_approvals(self, limit: Optional[int] = None, offset: Optional[int] = None) -> Dict[str, Any]:
+        """Get pending approvals for current user"""
+        try:
+            params = {}
+            if limit:
+                params["limit"] = limit
+            if offset:
+                params["offset"] = offset
+            
+            response = await self.api_client._make_request("GET", "/approvals/pending", params=params)
+            return {
+                "success": True,
+                "data": response.get("approvals", []),
+                "total": response.get("total", 0),
+                "message": f"Found {response.get('total', 0)} pending approvals"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get pending approvals: {e}"}
+
+    async def get_pending_approvals_summary(self) -> Dict[str, Any]:
+        """Get summary of pending approvals"""
+        try:
+            response = await self.api_client._make_request("GET", "/approvals/pending/summary")
+            return {
+                "success": True,
+                "data": response,
+                "message": "Pending approvals summary retrieved"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get pending approvals summary: {e}"}
+
+    async def approve_expense(self, approval_id: int, notes: Optional[str] = None) -> Dict[str, Any]:
+        """Approve an expense"""
+        try:
+            payload = {"status": "approved"}
+            if notes:
+                payload["notes"] = notes
+            
+            response = await self.api_client._make_request("POST", f"/approvals/{approval_id}/approve", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Expense approved successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to approve expense: {e}"}
+
+    async def reject_expense(self, approval_id: int, rejection_reason: str, notes: Optional[str] = None) -> Dict[str, Any]:
+        """Reject an expense"""
+        try:
+            payload = {
+                "status": "rejected",
+                "rejection_reason": rejection_reason
+            }
+            if notes:
+                payload["notes"] = notes
+            
+            response = await self.api_client._make_request("POST", f"/approvals/{approval_id}/reject", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Expense rejected successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to reject expense: {e}"}
+
+    async def get_approval_history(self, expense_id: int) -> Dict[str, Any]:
+        """Get approval history for an expense"""
+        try:
+            response = await self.api_client._make_request("GET", f"/approvals/history/{expense_id}")
+            return {
+                "success": True,
+                "data": response,
+                "message": "Approval history retrieved successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get approval history: {e}"}
+
+    async def get_approval_metrics(self, approver_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get approval workflow metrics"""
+        try:
+            params = {}
+            if approver_id:
+                params["approver_id"] = approver_id
+            
+            response = await self.api_client._make_request("GET", "/approvals/metrics", params=params)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Approval metrics retrieved successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get approval metrics: {e}"}
+
+    async def get_approval_dashboard_stats(self) -> Dict[str, Any]:
+        """Get approval dashboard statistics"""
+        try:
+            response = await self.api_client._make_request("GET", "/approvals/dashboard-stats")
+            return {
+                "success": True,
+                "data": response,
+                "message": "Dashboard statistics retrieved successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get dashboard stats: {e}"}
+
+    async def get_approved_expenses(self, skip: int = 0, limit: int = 50) -> Dict[str, Any]:
+        """Get expenses approved by current user"""
+        try:
+            params = {"skip": skip, "limit": limit}
+            response = await self.api_client._make_request("GET", "/approvals/approved-expenses", params=params)
+            return {
+                "success": True,
+                "data": response.get("expenses", []),
+                "total": response.get("total", 0),
+                "message": f"Found {response.get('total', 0)} approved expenses"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get approved expenses: {e}"}
+
+    async def get_processed_expenses(self, skip: int = 0, limit: int = 50) -> Dict[str, Any]:
+        """Get expenses processed (approved/rejected) by current user"""
+        try:
+            params = {"skip": skip, "limit": limit}
+            response = await self.api_client._make_request("GET", "/approvals/processed-expenses", params=params)
+            return {
+                "success": True,
+                "data": response.get("expenses", []),
+                "total": response.get("total", 0),
+                "message": f"Found {response.get('total', 0)} processed expenses"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get processed expenses: {e}"}
+
+    async def create_approval_delegation(self, delegate_id: int, start_date: str, end_date: str, is_active: bool = True) -> Dict[str, Any]:
+        """Create an approval delegation"""
+        try:
+            payload = {
+                "delegate_id": delegate_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "is_active": is_active
+            }
+            response = await self.api_client._make_request("POST", "/approvals/delegate", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Approval delegation created successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to create approval delegation: {e}"}
+
+    async def get_approval_delegations(self, include_inactive: bool = False) -> Dict[str, Any]:
+        """Get approval delegations for current user"""
+        try:
+            params = {"include_inactive": include_inactive}
+            response = await self.api_client._make_request("GET", "/approvals/delegates", params=params)
+            return {
+                "success": True,
+                "data": response,
+                "count": len(response),
+                "message": f"Found {len(response)} delegations"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get approval delegations: {e}"}
+
+    async def update_approval_delegation(self, delegation_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None, is_active: Optional[bool] = None) -> Dict[str, Any]:
+        """Update an approval delegation"""
+        try:
+            payload = {}
+            if start_date:
+                payload["start_date"] = start_date
+            if end_date:
+                payload["end_date"] = end_date
+            if is_active is not None:
+                payload["is_active"] = is_active
+            
+            response = await self.api_client._make_request("PUT", f"/approvals/delegates/{delegation_id}", json=payload)
+            return {
+                "success": True,
+                "data": response,
+                "message": "Approval delegation updated successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to update approval delegation: {e}"}
+
+    async def deactivate_approval_delegation(self, delegation_id: int) -> Dict[str, Any]:
+        """Deactivate an approval delegation"""
+        try:
+            response = await self.api_client._make_request("DELETE", f"/approvals/delegates/{delegation_id}")
+            return {
+                "success": True,
+                "data": response,
+                "message": "Approval delegation deactivated successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to deactivate approval delegation: {e}"}
 
     # === Bank Statement Management Tools ===
 

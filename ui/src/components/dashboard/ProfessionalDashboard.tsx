@@ -13,7 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-import { PageHeader, ContentSection, GridLayout } from '@/components/ui/professional-layout';
+import { ContentSection, GridLayout } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { QuickActions } from './QuickActions';
@@ -206,42 +206,38 @@ export function ProfessionalDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="space-y-8 p-6 md:p-8">
+    <div className="h-full space-y-6 fade-in">
         {/* Page Header */}
-        <PageHeader
-          title={userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}
-          description={t('dashboard.overview')}
-          breadcrumbs={[
-            { label: 'Dashboard' }
-          ]}
-          actions={
-            <div className="flex items-center gap-3">
-              <HelpCenter />
-              <ProfessionalButton
-                variant="gradient"
-                size="sm"
-                className="group"
-                onClick={() => {
-                  // Scroll to Quick Actions section
-                  const quickActionsElement = document.querySelector('[data-section="quick-actions"]');
-                  if (quickActionsElement) {
-                    quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Add a subtle highlight effect
-                    quickActionsElement.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2');
-                    setTimeout(() => {
-                      quickActionsElement.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2');
-                    }, 2000);
-                  }
-                }}
-              >
-                <Zap className="h-4 w-4" />
-                Quick Actions
-                <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-              </ProfessionalButton>
-            </div>
-          }
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
+            <p className="text-muted-foreground">{t('dashboard.overview')}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <HelpCenter />
+            <ProfessionalButton
+              variant="gradient"
+              size="sm"
+              className="group"
+              onClick={() => {
+                // Scroll to Quick Actions section
+                const quickActionsElement = document.querySelector('[data-section="quick-actions"]');
+                if (quickActionsElement) {
+                  quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  // Add a subtle highlight effect
+                  quickActionsElement.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                  setTimeout(() => {
+                    quickActionsElement.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                  }, 2000);
+                }
+              }}
+            >
+              <Zap className="h-4 w-4" />
+              Quick Actions
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+            </ProfessionalButton>
+          </div>
+        </div>
 
         {/* Metrics Grid */}
         <ContentSection title="Key Metrics" description="Overview of your business performance">
@@ -410,6 +406,5 @@ export function ProfessionalDashboard() {
           </ProfessionalCard>
         </div>
       </div>
-    </div>
   );
 }

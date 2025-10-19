@@ -621,6 +621,7 @@
       "email_notifications": "Email & Notifications",
       "tax_integration": "Tax Integration",
       "approval_rules": "Approval Rules",
+      "cookies": "Cookie Settings",
       "export": "Data Management",
       "add_rule": "Add Rule",
       "rule_name": "Rule Name",
@@ -1183,7 +1184,36 @@
     "no_expenses_yet": "No expenses yet",
     "this_expense_will_be_submitted_for_approval": "This expense will be submitted for approval",
     "select_approver": "Select Approver",
-    "choose_an_approver": "Choose an approver"
+    "choose_an_approver": "Choose an approver",
+    "create_and_submit_for_approval": "Create & Submit for Approval",
+    "expense_categories": "Expense Categories",
+    "add": "Add",
+    "remove": "Remove",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "page_size": "Page size",
+    "select_currency": "Select currency",
+    "select_category": "Select category",
+    "detailed_trend_data": "Detailed Trend Data",
+    "expense_trends_over_time": "Expense Trends Over Time",
+    "total_expenses": "Total Expenses",
+    "total_transactions": "Total Transactions",
+    "average_expense": "Average Expense",
+    "date_range": "Date Range",
+    "month_view": "month view",
+    "period": "Period",
+    "general": "General",
+    "trend_direction": "Trend Direction",
+    "expense_trends": "Expense Trends",
+    "time_range": "Time Range",
+    "group_by": "Group by",
+    "chart_type": "Chart Type",
+    "refresh": "Refresh",
+    "total_amount": "Total Amount",
+    "volatility": "Volatility",
+    "period_amount_transactions_average": "Period\tAmount\tTransactions\tAverage",
+    "view_expense_list": "View Expense List"
   },
   "email": {
     "subject": "Subject",
@@ -2092,6 +2122,93 @@
       "unsnooze_failed": "Failed to unsnooze reminder",
       "delete_failed": "Failed to delete reminder",
       "load_failed": "Failed to load reminders"
+    }
+  },
+  "cookieConsent": {
+    "banner": {
+      "message": "We use cookies to improve your experience. By continuing, you agree to our use of cookies.",
+      "acceptAll": "Accept All",
+      "managePreferences": "Manage Preferences",
+      "ariaLabel": "Cookie consent notification",
+      "acceptAriaLabel": "Accept all cookies and dismiss this banner",
+      "manageAriaLabel": "Open cookie preferences to customize your choices",
+      "acceptedAnnouncement": "All cookies have been accepted. The banner has been dismissed.",
+      "preferencesAnnouncement": "Opening cookie preferences dialog.",
+      "keyboardInstructions": "Use Tab to navigate between buttons. Press Escape to focus on Manage Preferences. Press Enter or Space to activate buttons."
+    },
+    "preferences": {
+      "title": "Cookie Preferences",
+      "description": "Manage your cookie preferences. You can enable or disable different types of cookies below.",
+      "closeAriaLabel": "Close cookie preferences",
+      "cancel": "Cancel",
+      "savePreferences": "Save Preferences",
+      "categories": {
+        "essential": {
+          "title": "Essential Cookies",
+          "description": "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you which amount to a request for services.",
+          "alwaysOn": "Always On",
+          "ariaLabel": "Essential cookies are always enabled"
+        },
+        "analytics": {
+          "title": "Analytics Cookies",
+          "description": "These cookies help us understand how visitors interact with our website by collecting and reporting information anonymously. This helps us improve our website performance.",
+          "enableAriaLabel": "Enable analytics cookies",
+          "disableAriaLabel": "Disable analytics cookies",
+          "on": "On",
+          "off": "Off"
+        },
+        "marketing": {
+          "title": "Marketing Cookies",
+          "description": "These cookies are used to deliver advertisements more relevant to you and your interests. They may also be used to limit the number of times you see an advertisement.",
+          "enableAriaLabel": "Enable marketing cookies",
+          "disableAriaLabel": "Disable marketing cookies",
+          "on": "On",
+          "off": "Off"
+        }
+      }
+    },
+    "settings": {
+      "title": "Cookie Preferences",
+      "description": "Manage your cookie and tracking preferences. These settings control how we collect and use data to improve your experience.",
+      "loading": "Loading your cookie preferences...",
+      "acceptAll": "Accept All",
+      "rejectOptional": "Reject Optional",
+      "alwaysActive": "Always Active",
+      "enabled": "Enabled",
+      "unsavedChanges": "You have unsaved changes",
+      "reset": "Reset",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "upToDate": "Your preferences are saved and up to date",
+      "additionalInfo": "Additional Information",
+      "infoPoints": {
+        "stored": "Your preferences are stored locally and will be remembered for future visits",
+        "changeable": "You can change these settings at any time",
+        "functionality": "Some features may not work properly if certain cookies are disabled",
+        "compliance": "We comply with GDPR and other privacy regulations"
+      },
+      "categories": {
+        "essential": {
+          "title": "Essential Cookies",
+          "description": "Essential cookies required for the website to function properly. These include authentication, security, and basic functionality cookies that cannot be disabled.",
+          "ariaLabel": "Essential cookies (always enabled)"
+        },
+        "analytics": {
+          "title": "Analytics Cookies",
+          "description": "Help us understand how you use our website by collecting anonymous usage statistics. This includes page views, user interactions, and performance metrics.",
+          "ariaLabel": "Analytics cookies"
+        },
+        "marketing": {
+          "title": "Marketing Cookies",
+          "description": "Used to track visitors across websites and show relevant advertisements. This includes conversion tracking, remarketing, and personalized ad delivery.",
+          "ariaLabel": "Marketing cookies"
+        }
+      },
+      "messages": {
+        "saveSuccess": "Cookie preferences saved successfully",
+        "saveError": "Failed to save cookie preferences",
+        "resetInfo": "Changes reset to last saved preferences"
+      }
     }
   }
 }

@@ -1,27 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  DollarSign, 
-  FileText, 
-  Users, 
+import {
+  DollarSign,
+  FileText,
+  Users,
   Settings,
   Plus,
   Search,
   Download,
-  Edit,
-  Trash2,
-  Eye,
-  Star,
-  Heart,
-  Bookmark,
-  Share,
   Filter,
-  Calendar,
-  Bell,
-  User,
-  Lock,
   Mail,
   Phone
 } from 'lucide-react';
+import InvoiceTrackingExample from '@/components/examples/InvoiceTrackingExample';
+import TrackingExample from '@/components/examples/TrackingExample';
 
 import { PageHeader, ContentSection, GridLayout, StackLayout, EmptyState } from './professional-layout';
 import { ProfessionalCard, MetricCard } from './professional-card';
@@ -364,9 +355,32 @@ export function DesignSystemShowcase() {
           />
         </ContentSection>
 
+        {/* Tracking Examples */}
+        <ContentSection
+          title="Tracking Examples"
+          description="Interactive examples of tracking integration and business events"
+          variant="card"
+        >
+          <div className="space-y-8">
+            {/* General Tracking Example */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">General Tracking Example</h3>
+              <p className="text-muted-foreground mb-4">Demo showing analytics and marketing tracking with consent management</p>
+              <TrackingExample />
+            </div>
+
+            {/* Business Tracking Example */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Invoice Tracking Example</h3>
+              <p className="text-muted-foreground mb-4">Demo showing business event tracking for invoice operations</p>
+              <InvoiceTrackingExample />
+            </div>
+          </div>
+        </ContentSection>
+
         {/* Color Palette */}
-        <ContentSection 
-          title="Color System" 
+        <ContentSection
+          title="Color System"
           description="Professional color palette for financial applications"
           variant="card"
         >

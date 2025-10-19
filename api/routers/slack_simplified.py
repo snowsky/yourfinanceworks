@@ -47,7 +47,15 @@ class SlackCommandParser:
             'outstanding_balance': [r'outstanding balance'],
             'invoice_stats': [r'invoice stats', r'statistics'],
             'analyze_patterns': [r'analyze patterns', r'invoice analysis'],
-            'business_recommendations': [r'recommendations', r'business advice']
+            'business_recommendations': [r'recommendations', r'business advice'],
+            'list_expenses': [r'list expenses?', r'show expenses?'],
+            'list_payments': [r'list payments?', r'show payments?'],
+            'pending_approvals': [r'pending approvals?', r'my approvals?'],
+            'list_reminders': [r'list reminders?', r'show reminders?', r'my reminders?'],
+            'due_today': [r'due today', r'reminders today'],
+            'overdue_reminders': [r'overdue reminders?'],
+            'low_stock': [r'low stock', r'inventory alerts?'],
+            'list_inventory': [r'list inventory', r'show inventory']
         }
     
     def parse(self, text: str) -> Dict[str, Any]:
@@ -98,6 +106,22 @@ class SlackInvoiceBot:
                 return await self._analyze_patterns(db)
             elif operation == 'business_recommendations':
                 return await self._get_recommendations(db)
+            elif operation == 'list_expenses':
+                return await self._list_expenses(db)
+            elif operation == 'list_payments':
+                return await self._list_payments(db)
+            elif operation == 'pending_approvals':
+                return await self._pending_approvals(db)
+            elif operation == 'list_reminders':
+                return await self._list_reminders(db)
+            elif operation == 'due_today':
+                return await self._due_today(db)
+            elif operation == 'overdue_reminders':
+                return await self._overdue_reminders(db)
+            elif operation == 'low_stock':
+                return await self._low_stock(db)
+            elif operation == 'list_inventory':
+                return await self._list_inventory(db)
             else:
                 return self._help_response()
         
@@ -384,6 +408,179 @@ class SlackInvoiceBot:
         except Exception as e:
             return self._error_response(f"Failed to get recommendations: {str(e)}")
     
+    async def _list_expenses(self, db: Session) -> Dict[str, Any]:
+        """List recent expenses"""
+        try:
+            from models.models_per_tenant import Expense
+            expenses = db.query(Expense).order_by(Expense.expense_date.desc()).limit(10).all()
+            
+            if not expenses:
+                return self._success_response("No expenses found")
+            
+            text = "💳 *Recent Expenses:*\n"
+            total = 0
+            for exp in expenses:
+                text += f"• ${exp.amount:.2f} - {exp.category} - {exp.vendor or 'N/A'}\n"
+                total += exp.amount
+            text += f"\n💰 Total: ${total:.2f}"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to list expenses: {str(e)}")
+    
+    async def _list_payments(self, db: Session) -> Dict[str, Any]:
+        """List recent payments"""
+        try:
+            payments = db.query(Payment).order_by(Payment.payment_date.desc()).limit(10).all()
+            
+            if not payments:
+                return self._success_response("No payments found")
+            
+            text = "💵 *Recent Payments:*\n"
+            total = 0
+            for payment in payments:
+                text += f"• ${payment.amount:.2f} - {payment.payment_method}\n"
+                total += payment.amount
+            text += f"\n💰 Total: ${total:.2f}"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to list payments: {str(e)}")
+    
+    async def _pending_approvals(self, db: Session) -> Dict[str, Any]:
+        """Get pending approvals"""
+        try:
+            from models.models_per_tenant import ExpenseApproval, Expense
+            approvals = db.query(ExpenseApproval).join(Expense).filter(
+                ExpenseApproval.status == 'pending'
+            ).limit(10).all()
+            
+            if not approvals:
+                return self._success_response("🎉 No pending approvals!")
+            
+            text = f"⏳ *{len(approvals)} Pending Approvals:*\n"
+            for approval in approvals:
+                expense = db.query(Expense).filter(Expense.id == approval.expense_id).first()
+                if expense:
+                    text += f"• ${expense.amount:.2f} - {expense.category}\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to get pending approvals: {str(e)}")
+    
+    async def _list_reminders(self, db: Session) -> Dict[str, Any]:
+        """List active reminders"""
+        try:
+            from models.models_per_tenant import Reminder
+            reminders = db.query(Reminder).filter(
+                Reminder.status.in_(['pending', 'snoozed']),
+                Reminder.is_deleted == False
+            ).order_by(Reminder.due_date).limit(10).all()
+            
+            if not reminders:
+                return self._success_response("No active reminders")
+            
+            text = "🔔 *Active Reminders:*\n"
+            for reminder in reminders:
+                status_emoji = "⏰" if reminder.status == 'pending' else "😴"
+                text += f"{status_emoji} {reminder.title} - Due: {reminder.due_date.strftime('%Y-%m-%d')}\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to list reminders: {str(e)}")
+    
+    async def _due_today(self, db: Session) -> Dict[str, Any]:
+        """Get reminders due today"""
+        try:
+            from models.models_per_tenant import Reminder
+            from datetime import timezone
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+            
+            reminders = db.query(Reminder).filter(
+                Reminder.status == 'pending',
+                Reminder.due_date >= today_start,
+                Reminder.due_date < today_end,
+                Reminder.is_deleted == False
+            ).all()
+            
+            if not reminders:
+                return self._success_response("🎉 No reminders due today!")
+            
+            text = f"📅 *{len(reminders)} Reminders Due Today:*\n"
+            for reminder in reminders:
+                text += f"• {reminder.title}\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to get due today reminders: {str(e)}")
+    
+    async def _overdue_reminders(self, db: Session) -> Dict[str, Any]:
+        """Get overdue reminders"""
+        try:
+            from models.models_per_tenant import Reminder
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
+            
+            reminders = db.query(Reminder).filter(
+                Reminder.status == 'pending',
+                Reminder.due_date < now,
+                Reminder.is_deleted == False
+            ).all()
+            
+            if not reminders:
+                return self._success_response("🎉 No overdue reminders!")
+            
+            text = f"⚠️ *{len(reminders)} Overdue Reminders:*\n"
+            for reminder in reminders:
+                days_overdue = (now - reminder.due_date).days
+                text += f"• {reminder.title} ({days_overdue}d overdue)\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to get overdue reminders: {str(e)}")
+    
+    async def _low_stock(self, db: Session) -> Dict[str, Any]:
+        """Get low stock inventory items"""
+        try:
+            from models.models_per_tenant import InventoryItem
+            items = db.query(InventoryItem).filter(
+                InventoryItem.track_stock == True,
+                InventoryItem.current_stock <= InventoryItem.minimum_stock,
+                InventoryItem.is_active == True
+            ).limit(10).all()
+            
+            if not items:
+                return self._success_response("🎉 No low stock items!")
+            
+            text = f"📦 *{len(items)} Low Stock Items:*\n"
+            for item in items:
+                text += f"• {item.name}: {item.current_stock} (min: {item.minimum_stock})\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to get low stock items: {str(e)}")
+    
+    async def _list_inventory(self, db: Session) -> Dict[str, Any]:
+        """List inventory items"""
+        try:
+            from models.models_per_tenant import InventoryItem
+            items = db.query(InventoryItem).filter(
+                InventoryItem.is_active == True
+            ).limit(10).all()
+            
+            if not items:
+                return self._success_response("No inventory items found")
+            
+            text = "📦 *Inventory Items:*\n"
+            for item in items:
+                stock_info = f" ({item.current_stock} in stock)" if item.track_stock else ""
+                text += f"• {item.name} - ${item.unit_price:.2f}{stock_info}\n"
+            
+            return self._success_response(text)
+        except Exception as e:
+            return self._error_response(f"Failed to list inventory: {str(e)}")
+    
     def _success_response(self, text: str) -> Dict[str, Any]:
         """Format success response for Slack"""
         return {
@@ -405,21 +602,27 @@ class SlackInvoiceBot:
 
 *Clients:*
 • `create client John Doe, email: john@example.com`
-• `list clients`
-• `find client John`
+• `list clients` | `find client John`
 
 *Invoices:*
 • `create invoice for John Doe, amount: 500, due: 2024-02-15`
-• `list invoices`
+• `list invoices` | `overdue invoices`
+
+*Expenses & Payments:*
+• `list expenses` | `list payments`
+
+*Approvals:*
+• `pending approvals` | `my approvals`
+
+*Reminders:*
+• `list reminders` | `due today` | `overdue reminders`
+
+*Inventory:*
+• `list inventory` | `low stock`
 
 *Reports:*
-• `overdue invoices`
-• `outstanding balance`
-• `invoice stats`
-
-*AI Analysis:*
-• `analyze patterns`
-• `recommendations`
+• `outstanding balance` | `invoice stats`
+• `analyze patterns` | `recommendations`
         """
         return self._success_response(help_text.strip())
 

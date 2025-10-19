@@ -461,8 +461,8 @@ export function AppSidebar() {
   ];
 
   const settingsMenuItems = [
-    // Only show Settings for admin users in their owned organization
-    ...((!roleLoading && isAdminEffective && isPrimaryTenant) ? [{
+    // Show Settings for all users
+    ...((!roleLoading) ? [{
       path: '/settings',
       label: t('navigation.settings'),
       icon: <Settings className="w-5 h-5" />,
