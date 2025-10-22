@@ -25,7 +25,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -34,9 +33,10 @@ import {
   DialogFooter,
   DialogTrigger
 } from "@/components/ui/dialog";
-import { Loader2, Plus, UserPlus, Check, X, Eye } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@/lib/api';
+import { JoinRequestsTable } from '@/components/JoinRequestsTable';
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -62,27 +62,12 @@ type Invite = {
   invited_by?: string;
 };
 
-type JoinRequest = {
-  id: number;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  organization_name: string;
-  requested_role: string;
-  message?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  created_at: string;
-  reviewed_at?: string;
-  reviewed_by_name?: string;
-  rejection_reason?: string;
-  notes?: string;
-};
+
 
 export default function UsersPage() {
   const { t } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -107,17 +92,6 @@ export default function UsersPage() {
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
-
-  // Join request management states
-  const [processingJoinRequest, setProcessingJoinRequest] = useState(false);
-  const [joinRequestDialogOpen, setJoinRequestDialogOpen] = useState(false);
-  const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
-  const [joinRequestForm, setJoinRequestForm] = useState({
-    status: 'approved' as 'approved' | 'rejected',
-    approved_role: '',
-    rejection_reason: '',
-    notes: ''
-  });
 
   // Get current user id from localStorage
   let currentUserId: number | null = null;
@@ -156,21 +130,9 @@ export default function UsersPage() {
     }
   };
 
-  const fetchJoinRequests = async () => {
-    try {
-      const res = await api.get("/organization-join/pending");
-      setJoinRequests(Array.isArray(res) ? res : []);
-    } catch (e: any) {
-      console.error("Failed to fetch join requests:", e);
-      // Don't show error toast for join requests as it's not critical
-      setJoinRequests([]); // Set empty array on error
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
     fetchInvites();
-    fetchJoinRequests();
   }, []);
 
   // Refetch data when tenant changes
@@ -179,7 +141,6 @@ export default function UsersPage() {
       if (e.key === 'selected_tenant_id') {
         fetchUsers();
         fetchInvites();
-        fetchJoinRequests();
       }
     };
     
@@ -357,51 +318,7 @@ export default function UsersPage() {
     }
   };
 
-  // Join request handlers
-  const handleJoinRequestAction = async (requestId: number, action: 'approved' | 'rejected', data: any) => {
-    setProcessingJoinRequest(true);
-    try {
-      await api.post(`/organization-join/${requestId}/approve`, data);
-      toast.success(action === 'approved' ? 'Join request approved successfully' : 'Join request rejected successfully');
-      fetchJoinRequests();
-      fetchUsers(); // Refresh users list as new user might be added
-    } catch (err: any) {
-      console.error("Failed to process join request:", err);
-      toast.error(getErrorMessage(err, t));
-    } finally {
-      setProcessingJoinRequest(false);
-    }
-  };
 
-  const openJoinRequestDialog = (request: JoinRequest, action: 'approved' | 'rejected') => {
-    setSelectedJoinRequest(request);
-    setJoinRequestForm({
-      status: action,
-      approved_role: action === 'approved' ? request.requested_role : '',
-      rejection_reason: '',
-      notes: ''
-    });
-    setJoinRequestDialogOpen(true);
-  };
-
-  const handleJoinRequestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedJoinRequest) return;
-    
-    await handleJoinRequestAction(selectedJoinRequest.id, joinRequestForm.status, joinRequestForm);
-    setJoinRequestDialogOpen(false);
-    setSelectedJoinRequest(null);
-  };
-
-  const getJoinRequestStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'approved': return 'text-green-600 bg-green-50 border-green-200';
-      case 'rejected': return 'text-red-600 bg-red-50 border-red-200';
-      case 'expired': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
 
   // Filter users by search query
   const filteredUsers = users.filter(user =>
@@ -558,119 +475,9 @@ export default function UsersPage() {
         </Card>
 
         {/* Join Requests Section */}
-        <Card className="slide-in">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5" />
-              Join Requests ({joinRequests.filter(req => req.status === 'pending').length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Applicant</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Requested Role</TableHead>
-                    <TableHead>Message</TableHead>
-                    <TableHead>Applied</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        <div className="flex justify-center items-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          Loading join requests...
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (!joinRequests || joinRequests.length === 0) ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        No join requests found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    joinRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {request.first_name && request.last_name
-                                ? `${request.first_name} ${request.last_name}`
-                                : 'Unknown Name'
-                              }
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{request.email}</TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {request.requested_role}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="max-w-xs">
-                            {request.message ? (
-                              <p className="text-sm text-gray-600 truncate" title={request.message}>
-                                {request.message}
-                              </p>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(request.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getJoinRequestStatusColor(request.status)}`}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {request.status === 'pending' && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => openJoinRequestDialog(request, 'approved')}
-                                disabled={processingJoinRequest}
-                                className="bg-green-600 hover:bg-green-700 h-8 px-2 text-xs"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => openJoinRequestDialog(request, 'rejected')}
-                                disabled={processingJoinRequest}
-                                className="h-8 px-2 text-xs"
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                          {request.status !== 'pending' && request.reviewed_at && (
-                            <div className="text-xs text-gray-500">
-                              {request.status === 'approved' ? 'Approved' : 'Rejected'} on {new Date(request.reviewed_at).toLocaleDateString()}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="slide-in">
+          <JoinRequestsTable showAsCard={true} onRequestProcessed={fetchUsers} />
+        </div>
 
         <Card className="slide-in">
           <CardHeader className="pb-3">
@@ -860,90 +667,7 @@ export default function UsersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Join Request Approval/Rejection Dialog */}
-        <Dialog open={joinRequestDialogOpen} onOpenChange={setJoinRequestDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {joinRequestForm.status === 'approved' ? 'Approve' : 'Reject'} Join Request
-              </DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                {selectedJoinRequest?.email}
-              </p>
-            </DialogHeader>
-            <form onSubmit={handleJoinRequestSubmit} className="space-y-4">
-              <div className="space-y-3">
-                {selectedJoinRequest && (
-                  <div className="bg-gray-50 p-3 rounded-md space-y-2">
-                    <div><strong>Name:</strong> {selectedJoinRequest.first_name} {selectedJoinRequest.last_name}</div>
-                    <div><strong>Email:</strong> {selectedJoinRequest.email}</div>
-                    <div><strong>Requested Role:</strong> {selectedJoinRequest.requested_role}</div>
-                    {selectedJoinRequest.message && (
-                      <div><strong>Message:</strong> {selectedJoinRequest.message}</div>
-                    )}
-                  </div>
-                )}
 
-                {joinRequestForm.status === 'approved' && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Assign Role</label>
-                    <Select
-                      value={joinRequestForm.approved_role}
-                      onValueChange={(value) => setJoinRequestForm({...joinRequestForm, approved_role: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {joinRequestForm.status === 'rejected' && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Reason for Rejection</label>
-                    <Textarea
-                      value={joinRequestForm.rejection_reason}
-                      onChange={(e) => setJoinRequestForm({...joinRequestForm, rejection_reason: e.target.value})}
-                      placeholder="Explain why this request is being rejected..."
-                      rows={3}
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Admin Notes (Optional)</label>
-                  <Textarea
-                    value={joinRequestForm.notes}
-                    onChange={(e) => setJoinRequestForm({...joinRequestForm, notes: e.target.value})}
-                    placeholder="Add any internal notes..."
-                    rows={2}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setJoinRequestDialogOpen(false)} disabled={processingJoinRequest}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={processingJoinRequest || (joinRequestForm.status === 'approved' && !joinRequestForm.approved_role)}
-                  className={joinRequestForm.status === 'approved' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
-                >
-                  {processingJoinRequest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {joinRequestForm.status === 'approved' ? 'Approve Request' : 'Reject Request'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );
