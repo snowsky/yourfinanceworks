@@ -25,11 +25,11 @@ async def get_ai_status(
     if not current_user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Use the same priority logic as PDF processing
+    # Use the same priority logic as PDF processing, prioritizing default
     ai_config = db.query(AIConfigModel).filter(
         AIConfigModel.is_active == True,
         AIConfigModel.tested == True
-    ).first()
+    ).order_by(AIConfigModel.is_default.desc()).first()
     
     if ai_config:
         config_source = "ai_config"
@@ -256,11 +256,11 @@ async def process_pdf(
         active_config = None
         config_source = "manual"
         
-        # 1. Check if AI config is set up and tested
+        # 1. Check if AI config is set up and tested, prioritizing default
         ai_config = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
             AIConfigModel.tested == True
-        ).first()
+        ).order_by(AIConfigModel.is_default.desc()).first()
         
         if ai_config:
             active_config = ai_config

@@ -291,20 +291,29 @@ def cancel_ocr_tasks_for_expense(expense_id: int) -> None:
 
 
 async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Run OCR using Ollama OCR library if available, else return empty result."""
+    """Run OCR using the configured AI provider. Currently only supports Ollama for OCR."""
     try:
-        from ollama_ocr import OCRProcessor  # type: ignore
-
         # Use AI config from database if available, otherwise fallback to environment variables
         if ai_config:
+            provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name", "llama3.2-vision:11b")
             base_url = ai_config.get("provider_url", "http://localhost:11434")
+            
+            logger.info(f"🔧 OCR using AI config: provider={provider_name} model={model_name} file={file_path}")
+            
+            # Currently, OCR is only supported with Ollama
+            if provider_name != "ollama":
+                logger.warning(f"⚠️ OCR not supported for provider '{provider_name}'. OCR requires Ollama. Skipping OCR processing.")
+                return {
+                    "error": f"OCR not supported for provider '{provider_name}'. Please configure Ollama for OCR processing.",
+                    "provider_not_supported": True
+                }
+            
             # For Ollama, we need to append /api/generate to the base URL
-            if ai_config.get("provider_name") == "ollama" and not base_url.endswith("/api/generate"):
+            if not base_url.endswith("/api/generate"):
                 ocr_endpoint = f"{base_url}/api/generate"
             else:
                 ocr_endpoint = base_url
-            logger.info(f"Starting OCR with AI config: file={file_path} model={model_name} endpoint={ocr_endpoint}")
         else:
             # Fallback to environment variables (legacy behavior)
             model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
@@ -314,7 +323,10 @@ async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None, a
             if not ocr_endpoint:
                 base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
                 ocr_endpoint = f"{base_url}/api/generate"  # Default Ollama endpoint
-            logger.info(f"Starting OCR with env vars: file={file_path} model={model_name} endpoint={ocr_endpoint}")
+            logger.info(f"⚠️ OCR using environment variables: model={model_name} endpoint={ocr_endpoint} file={file_path}")
+
+        # Import and initialize Ollama OCR processor
+        from ollama_ocr import OCRProcessor  # type: ignore
         ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
         prompt = custom_prompt or (
             "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
@@ -372,7 +384,7 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         ai_row = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
             AIConfigModel.tested == True
-        ).first()
+        ).order_by(AIConfigModel.is_default.desc()).first()
         if ai_row:
             ai_config = {
                 "provider_name": ai_row.provider_name,
@@ -389,11 +401,13 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
     result = await _run_ollama_ocr(file_path, ai_config=ai_config)
 
-    # Track AI usage if ai_config was used
-    if ai_config:
+    # Track AI usage if ai_config was used and OCR was actually attempted
+    if ai_config and not result.get("provider_not_supported"):
         logger.info(f"🔍 About to track AI usage for config: {ai_config}")
         track_ai_usage(db, ai_config)
         logger.info("✅ AI usage tracking completed")
+    elif result.get("provider_not_supported"):
+        logger.info(f"⚠️ Skipping AI usage tracking - OCR not supported for provider: {ai_config.get('provider_name') if ai_config else 'unknown'}")
 
     # Update DB with result if still not overridden
     expense = db.query(Expense).filter(Expense.id == expense_id).first()

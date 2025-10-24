@@ -87,6 +87,17 @@ SUPPORTED_PROVIDERS = {
         default_model="gpt-4",
         default_max_tokens=4096
     ),
+    "openrouter": AIProviderInfo(
+        name="openrouter",
+        display_name="OpenRouter",
+        description="Access 100+ AI models through a single API with competitive pricing",
+        website="https://openrouter.ai",
+        models=["openai/gpt-4", "openai/gpt-4-turbo", "anthropic/claude-3-sonnet", "anthropic/claude-3-opus", "meta-llama/llama-3.1-8b-instruct"],
+        supports_ocr=True,
+        requires_api_key=True,
+        default_model="openai/gpt-4",
+        default_max_tokens=4096
+    ),
     "anthropic": AIProviderInfo(
         name="anthropic",
         display_name="Anthropic",

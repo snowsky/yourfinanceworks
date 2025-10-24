@@ -931,11 +931,11 @@ async def get_ai_status(
     try:
         from models.models_per_tenant import AIConfig as AIConfigModel
         
-        # Check if there's at least one active and tested AI configuration
+        # Check if there's at least one active and tested AI configuration, prioritizing default
         active_config = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
             AIConfigModel.tested == True
-        ).first()
+        ).order_by(AIConfigModel.is_default.desc()).first()
         
         return {
             "configured": active_config is not None

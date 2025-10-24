@@ -23,6 +23,62 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+def _extract_meaningful_error(error_str: str) -> str:
+    """Extract meaningful error message from technical error strings."""
+    import re
+    
+    # Common patterns to extract meaningful errors
+    patterns = [
+        # Ollama model not found: {"error":"model 'llama2' not found"}
+        r'"error":"([^"]+)"',
+        # OpenAI/OpenRouter API errors: "message": "..."
+        r'"message":\s*"([^"]+)"',
+        # General API connection errors
+        r'APIConnectionError:\s*(.+?)(?:\n|$)',
+        r'AuthenticationError:\s*(.+?)(?:\n|$)',
+        r'RateLimitError:\s*(.+?)(?:\n|$)',
+        # LiteLLM specific errors
+        r'litellm\.\w+Error:\s*(.+?)(?:\n|$)',
+        # Connection refused or timeout
+        r'Connection refused|timeout|timed out',
+        # Model not found patterns
+        r"model '[^']+' not found",
+        r"Model '[^']+' not found",
+    ]
+    
+    # Try each pattern
+    for pattern in patterns:
+        match = re.search(pattern, error_str, re.IGNORECASE)
+        if match:
+            if match.groups():
+                extracted = match.group(1).strip()
+            else:
+                extracted = match.group(0).strip()
+            
+            # Add helpful suggestions for common errors
+            if "not found" in extracted.lower() and "model" in extracted.lower():
+                extracted += ". Please check if the model is available in your Ollama installation."
+            elif "connection refused" in extracted.lower():
+                extracted += ". Please check if the service is running and accessible."
+            elif "incorrect api key" in extracted.lower():
+                extracted += ". Please verify your API key is correct."
+            
+            return extracted
+    
+    # If no pattern matches, try to extract the last meaningful line
+    lines = error_str.split('\n')
+    for line in reversed(lines):
+        line = line.strip()
+        if line and not line.startswith('Traceback') and not line.startswith('File '):
+            # Remove common prefixes
+            for prefix in ['litellm.', 'openai.', 'anthropic.', 'Exception: ', 'Error: ']:
+                if line.startswith(prefix):
+                    line = line[len(prefix):]
+            return line
+    
+    # Fallback to original error if nothing else works
+    return error_str[:200] + "..." if len(error_str) > 200 else error_str
+
 @router.get("/", response_model=List[AIConfigSchema])
 async def get_ai_configs(
     db: Session = Depends(get_db),
@@ -183,6 +239,8 @@ async def test_ai_config(
                 model_name = f"ollama/{db_config.model_name}"
             elif db_config.provider_name == "openai":
                 model_name = db_config.model_name
+            elif db_config.provider_name == "openrouter":
+                model_name = db_config.model_name  # OpenRouter uses the full model name as-is
             elif db_config.provider_name == "anthropic":
                 model_name = db_config.model_name
             elif db_config.provider_name == "google":
@@ -200,6 +258,11 @@ async def test_ai_config(
             # Add provider-specific configuration
             if db_config.provider_name == "openai" and db_config.api_key:
                 kwargs["api_key"] = db_config.api_key
+            elif db_config.provider_name == "openrouter":
+                if db_config.api_key:
+                    kwargs["api_key"] = db_config.api_key
+                # Set the OpenRouter API base URL
+                kwargs["api_base"] = db_config.provider_url or "https://openrouter.ai/api/v1"
             elif db_config.provider_name == "anthropic" and db_config.api_key:
                 kwargs["api_key"] = db_config.api_key
             elif db_config.provider_name == "google" and db_config.api_key:
@@ -235,11 +298,14 @@ async def test_ai_config(
             end_time = datetime.now(timezone.utc)
             response_time = (end_time - start_time).total_seconds() * 1000
 
+            # Extract meaningful error message
+            error_message = _extract_meaningful_error(str(e))
+
             return AIConfigTestResponse(
                 success=False,
-                message=f"Configuration test failed: {str(e)}",
+                message=f"Configuration test failed: {error_message}",
                 response_time_ms=response_time,
-                error=str(e)
+                error=error_message
             )
     except HTTPException:
         raise

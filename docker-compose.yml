@@ -236,13 +236,13 @@ services:
       # Logging
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # LLM Configuration
-      - LLM_API_BASE=http://host.docker.internal:11434
-      - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
+      - LLM_API_BASE=http://192.168.86.32:11434
+      - OLLAMA_API_BASE=http://192.168.86.32:11434 # OLLAMA_API_BASE is used by Ollama service
       - LLM_MODEL_INVOICES=gpt-oss:latest
       - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
       - LLM_MODEL_EXPENSES=llama3.2-vision:11b
       # OCR Configuration
-      - OLLAMA_OCR_ENDPOINT=http://host.docker.internal:11434/api/generate
+      - OLLAMA_OCR_ENDPOINT=http://192.168.86.32:11434/api/generate
       - OLLAMA_OCR_MODEL=llama3.2-vision:11b
     depends_on:
       kafka:

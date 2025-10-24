@@ -41,11 +41,11 @@ def test_ocr_ai_config():
         return False
     
     try:
-        # Test fetching AI config (same logic as OCR service)
+        # Test fetching AI config (same logic as OCR service), prioritizing default
         ai_row = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
             AIConfigModel.tested == True
-        ).first()
+        ).order_by(AIConfigModel.is_default.desc()).first()
         
         if ai_row:
             ai_config = {

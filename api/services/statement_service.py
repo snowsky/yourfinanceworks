@@ -212,6 +212,507 @@ class OllamaCallbackHandler(BaseCallbackHandler):
             self.total_tokens += response.llm_output.get('token_usage', {}).get('total_tokens', 0)
 
 
+class UniversalBankTransactionExtractor:
+    """
+    Universal bank transaction extractor that supports multiple LLM providers via LiteLLM.
+    Supports: OpenAI, OpenRouter, Anthropic, Google, Ollama, and other LiteLLM-compatible providers.
+    """
+    
+    def __init__(self, 
+                 ai_config: Dict[str, Any],
+                 temperature: float = 0.1,
+                 chunk_size: int = 3000,
+                 chunk_overlap: int = 150,
+                 request_timeout: int = 120):
+        """
+        Initialize the extractor with AI configuration
+        
+        Args:
+            ai_config: AI configuration dict with provider_name, model_name, api_key, provider_url
+            temperature: Temperature for LLM responses
+            chunk_size: Size of text chunks
+            chunk_overlap: Overlap between chunks
+            request_timeout: Timeout for requests
+        """
+        if not LANGCHAIN_AVAILABLE:
+            raise ImportError("LangChain is required for UniversalBankTransactionExtractor. Please install langchain package.")
+        
+        self.ai_config = ai_config
+        self.provider_name = ai_config.get("provider_name", "openai")
+        self.model_name = ai_config.get("model_name", "gpt-4")
+        self.api_key = ai_config.get("api_key")
+        self.provider_url = ai_config.get("provider_url")
+        self.temperature = temperature
+        self.request_timeout = request_timeout
+        
+        logger.info(f"🚀 Initializing UniversalBankTransactionExtractor: {self.provider_name} / {self.model_name}")
+        
+        # Test provider connection
+        self._test_provider_connection()
+        
+        # Initialize text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=["\n\n", "\n", " ", ""],
+            keep_separator=False
+        )
+        
+        # Available PDF loaders (same as original)
+        self.pdf_loaders = {}
+        if LANGCHAIN_AVAILABLE:
+            try:
+                self.pdf_loaders['pypdf'] = {
+                    'class': PyPDFLoader,
+                    'description': 'Fast, basic PDF text extraction',
+                    'best_for': 'Simple text-based PDFs'
+                }
+            except: pass
+            
+            try:
+                self.pdf_loaders['pymupdf'] = {
+                    'class': PyMuPDFLoader,
+                    'description': 'High-quality text extraction with metadata',
+                    'best_for': 'Most PDF types, good balance of speed and quality'
+                }
+            except: pass
+            
+            try:
+                self.pdf_loaders['pdfplumber'] = {
+                    'class': PDFPlumberLoader,
+                    'description': 'Excellent for tables and structured data',
+                    'best_for': 'Bank statements with tables'
+                }
+            except: pass
+        
+        # Setup prompts
+        self.extraction_prompt = self._create_extraction_prompt()
+        
+    def _test_provider_connection(self):
+        """Test connection to the configured provider"""
+        try:
+            from litellm import completion
+            
+            # Prepare model name and parameters for LiteLLM
+            model_name = self._format_model_name()
+            kwargs = self._prepare_litellm_kwargs()
+            
+            # Simple test call
+            kwargs.update({
+                "model": model_name,
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 10,
+                "temperature": 0.1
+            })
+            
+            logger.info(f"🔍 Testing connection to {self.provider_name} with model {model_name}")
+            response = completion(**kwargs)
+            
+            if response and response.choices:
+                logger.info(f"✅ Successfully connected to {self.provider_name}")
+            else:
+                raise Exception("No response received")
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to {self.provider_name}: {e}")
+            raise Exception(f"Provider connection failed: {e}")
+    
+    def _format_model_name(self) -> str:
+        """Format model name for LiteLLM based on provider"""
+        if self.provider_name == "ollama":
+            return f"ollama/{self.model_name}"
+        elif self.provider_name == "openrouter":
+            return self.model_name  # OpenRouter uses full model names like "openai/gpt-4"
+        else:
+            return self.model_name  # OpenAI, Anthropic, etc. use model names directly
+    
+    def _prepare_litellm_kwargs(self) -> Dict[str, Any]:
+        """Prepare LiteLLM kwargs based on provider"""
+        kwargs = {}
+        
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        
+        if self.provider_url:
+            kwargs["api_base"] = self.provider_url
+        
+        # Provider-specific configurations
+        if self.provider_name == "ollama" and not self.provider_url:
+            kwargs["api_base"] = "http://localhost:11434"
+        
+        return kwargs
+    
+    def _create_extraction_prompt(self) -> PromptTemplate:
+        """Create extraction prompt optimized for universal providers"""
+        
+        template = """You are a financial data extraction expert. Extract bank transactions from the text below.
+
+RULES:
+1. Look for dates, descriptions, and amounts
+2. Amounts with "-" or in parentheses are debits (money out)
+3. Positive amounts are credits (money in)
+4. Convert dates to YYYY-MM-DD format
+5. Extract merchant names clearly
+6. Only extract actual transactions, not headers or summaries
+
+TEXT:
+{text}
+
+Return ONLY a JSON array like this example:
+[
+  {{"date": "2024-01-15", "description": "GROCERY STORE", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56}},
+  {{"date": "2024-01-16", "description": "SALARY DEPOSIT", "amount": 2500.00, "transaction_type": "credit", "balance": 3689.89}}
+]
+
+JSON:"""
+        
+        return PromptTemplate(
+            template=template,
+            input_variables=["text"]
+        )
+    
+    def extract_transactions_with_litellm(self, text: str) -> List[Dict]:
+        """Extract transactions using LiteLLM"""
+        try:
+            from litellm import completion
+            
+            model_name = self._format_model_name()
+            kwargs = self._prepare_litellm_kwargs()
+            
+            kwargs.update({
+                "model": model_name,
+                "messages": [{"role": "user", "content": self.extraction_prompt.format(text=text)}],
+                "max_tokens": 2000,
+                "temperature": self.temperature
+            })
+            
+            logger.info(f"🔄 Processing text chunk with {self.provider_name} ({len(text)} chars)")
+            
+            response = completion(**kwargs)
+            
+            if response and response.choices:
+                result_text = response.choices[0].message.content
+                return self._parse_response(result_text)
+            else:
+                logger.warning("No response received from LLM")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error in LiteLLM extraction: {e}")
+            return []
+    
+    def _parse_response(self, response: str) -> List[Dict]:
+        """Parse LLM response to extract transactions"""
+        try:
+            # Clean the response
+            response = response.strip()
+            
+            # Remove any markdown formatting
+            response = re.sub(r'```json\s*', '', response)
+            response = re.sub(r'```\s*', '', response)
+            
+            # Find JSON content
+            json_patterns = [
+                r'\[[\s\S]*?\]',  # Standard JSON array
+                r'\{[\s\S]*?\}',  # Single JSON object
+            ]
+            
+            for pattern in json_patterns:
+                matches = re.findall(pattern, response)
+                for match in matches:
+                    try:
+                        data = json.loads(match)
+                        
+                        if isinstance(data, list):
+                            return data
+                        elif isinstance(data, dict):
+                            return [data]
+                            
+                    except json.JSONDecodeError:
+                        continue
+            
+            # If no JSON found, try to extract transaction-like patterns
+            return self._extract_with_regex(response)
+            
+        except Exception as e:
+            logger.error(f"Error parsing LLM response: {e}")
+            return []
+    
+    def _extract_with_regex(self, text: str) -> List[Dict]:
+        """Fallback extraction using regex patterns"""
+        transactions = []
+        
+        # Look for transaction-like patterns
+        patterns = [
+            r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
+            r'(\d{4}-\d{2}-\d{2})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, text, re.MULTILINE)
+            for match in matches:
+                try:
+                    date, desc, amount = match
+                    amount_float = float(amount.replace('$', '').replace(',', ''))
+                    
+                    transactions.append({
+                        'date': date,
+                        'description': desc.strip(),
+                        'amount': amount_float,
+                        'transaction_type': 'debit' if amount_float < 0 else 'credit'
+                    })
+                except:
+                    continue
+        
+        return transactions
+    
+    # Include the same PDF loading and processing methods as the original class
+    def load_pdf_with_langchain(self, pdf_path: str, loader_names: List[str] = None) -> List[Document]:
+        """Load PDF using LangChain loaders with automatic fallback"""
+        pdf_path = Path(pdf_path)
+        
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
+        if loader_names is None:
+            loader_names = ['pymupdf', 'pdfplumber', 'pypdf']
+        
+        last_error = None
+        
+        for loader_name in loader_names:
+            if loader_name not in self.pdf_loaders:
+                continue
+            
+            try:
+                logger.info(f"Trying {loader_name} loader...")
+                loader_class = self.pdf_loaders[loader_name]['class']
+                loader = loader_class(str(pdf_path))
+                
+                documents = loader.load()
+                
+                if documents and any(doc.page_content.strip() for doc in documents):
+                    logger.info(f"Successfully loaded with {loader_name}")
+                    return documents
+                    
+            except Exception as e:
+                last_error = e
+                logger.error(f"{loader_name} failed: {str(e)[:100]}...")
+                continue
+        
+        raise Exception(f"All PDF loaders failed. Last error: {last_error}")
+    
+    def preprocess_documents(self, documents: List[Document]) -> List[Document]:
+        """Preprocess documents with cleaning and chunking"""
+        
+        logger.info("Preprocessing documents...")
+        
+        # Combine all pages
+        full_text = ""
+        for doc in documents:
+            content = doc.page_content
+            
+            # Clean PDF artifacts
+            content = re.sub(r'Page \d+ of \d+', '', content)
+            content = re.sub(r'Statement Period:.*?\n', '', content)
+            content = re.sub(r'Account Summary.*?\n', '', content)
+            content = re.sub(r'\s+', ' ', content)
+            
+            full_text += content + "\n\n"
+        
+        # Split into chunks
+        chunks = self.text_splitter.split_text(full_text)
+        
+        processed_docs = []
+        for i, chunk in enumerate(chunks):
+            if chunk.strip():
+                processed_docs.append(Document(
+                    page_content=chunk,
+                    metadata={
+                        "chunk": i,
+                        "source": documents[0].metadata.get("source", "unknown"),
+                        "chunk_size": len(chunk)
+                    }
+                ))
+        
+        logger.info(f"Created {len(processed_docs)} chunks for processing")
+        return processed_docs
+    
+    def extract_transactions_from_documents(self, documents: List[Document]) -> List[Dict]:
+        """Extract transactions using LiteLLM"""
+        
+        all_transactions = []
+        
+        logger.info(f"Extracting transactions from {len(documents)} chunks using {self.provider_name}")
+        
+        for i, doc in enumerate(documents):
+            logger.info(f"Processing chunk {i+1}/{len(documents)} (size: {len(doc.page_content)} chars)")
+            
+            try:
+                start_time = time.time()
+                
+                # Use LiteLLM for extraction
+                chunk_transactions = self.extract_transactions_with_litellm(doc.page_content)
+                
+                processing_time = time.time() - start_time
+                logger.info(f"   Processed in {processing_time:.2f}s")
+                
+                if chunk_transactions:
+                    logger.info(f"   Found {len(chunk_transactions)} transactions")
+                    all_transactions.extend(chunk_transactions)
+                else:
+                    logger.info(f"   No transactions found")
+                    
+            except Exception as e:
+                logger.error(f"Error processing chunk {i+1}: {e}")
+                continue
+        
+        logger.info(f"Total transactions found: {len(all_transactions)}")
+        if all_transactions:
+            logger.info(f"Sample transaction: {all_transactions[0]}")
+        return all_transactions
+    
+    def process_pdf(self, 
+                   pdf_path: str,
+                   loader_names: List[str] = None,
+                   categorize: bool = False,  # Simplified for now
+                   save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
+        """Main method to process PDF using LiteLLM"""
+        
+        logger.info(f"Processing bank statement with {self.provider_name}: {pdf_path}")
+        logger.info(f"Using model: {self.model_name}")
+        
+        try:
+            # Load PDF
+            documents = self.load_pdf_with_langchain(pdf_path, loader_names)
+            
+            # Preprocess documents
+            processed_docs = self.preprocess_documents(documents)
+            
+            if save_debug:
+                debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([
+                    f"CHUNK {i+1}:\n{doc.page_content}" 
+                    for i, doc in enumerate(processed_docs)
+                ])
+                with open("universal_debug_chunks.txt", "w", encoding="utf-8") as f:
+                    f.write(debug_text)
+                logger.info("Debug chunks saved to universal_debug_chunks.txt")
+            
+            # Extract transactions
+            transactions = self.extract_transactions_from_documents(processed_docs)
+            
+            if not transactions:
+                logger.error("No transactions found")
+                return pd.DataFrame() if pd else []
+            
+            # Basic validation and cleaning
+            result = self.validate_and_clean_data(transactions)
+            
+            logger.info(f"Successfully processed {len(result) if hasattr(result, '__len__') else 'unknown'} transactions")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing PDF: {e}")
+            return pd.DataFrame() if pd else []
+    
+    def validate_and_clean_data(self, transactions: List[Dict]) -> Union[pd.DataFrame, List[Dict]]:
+        """Basic validation and cleaning of extracted transaction data"""
+        
+        if not transactions:
+            return pd.DataFrame() if pd else []
+        
+        logger.info("Validating and cleaning data...")
+        
+        if not pd:
+            # Fallback to basic validation without pandas
+            return self._basic_validate_and_clean(transactions)
+        
+        df = pd.DataFrame(transactions)
+        initial_count = len(df)
+        logger.info(f"DataFrame created with {initial_count} transactions")
+        
+        # Ensure required columns
+        required_cols = ['date', 'description', 'amount', 'transaction_type']
+        for col in required_cols:
+            if col not in df.columns:
+                if col == 'transaction_type':
+                    df[col] = df.get('amount', 0).apply(
+                        lambda x: 'credit' if x > 0 else 'debit'
+                    )
+                else:
+                    df[col] = None
+        
+        # Data type conversions
+        if 'amount' in df.columns:
+            df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+        
+        if 'balance' in df.columns:
+            df['balance'] = pd.to_numeric(df['balance'], errors='coerce')
+        
+        # Remove invalid rows
+        before_dropna = len(df)
+        df = df.dropna(subset=['date', 'amount'])
+        after_dropna = len(df)
+        if before_dropna != after_dropna:
+            logger.info(f"Removed {before_dropna - after_dropna} transactions with missing date/amount")
+
+        # Remove duplicates
+        before_dedup = len(df)
+        df = df.drop_duplicates(subset=['date', 'description', 'amount']).reset_index(drop=True)
+        after_dedup = len(df)
+        if before_dedup != after_dedup:
+            logger.info(f"Removed {before_dedup - after_dedup} duplicate transactions")
+        
+        # Sort by date
+        if not df.empty:
+            df = df.sort_values('date').reset_index(drop=True)
+        
+        cleaned_count = len(df)
+        if cleaned_count < initial_count:
+            logger.info(f"Removed {initial_count - cleaned_count} invalid/duplicate transactions")
+        
+        return df
+    
+    def _basic_validate_and_clean(self, transactions: List[Dict]) -> List[Dict]:
+        """Basic validation without pandas"""
+        cleaned = []
+        seen = set()
+        
+        for txn in transactions:
+            # Ensure required fields
+            if not all(key in txn for key in ['date', 'description', 'amount']):
+                continue
+            
+            # Add transaction_type if missing
+            if 'transaction_type' not in txn:
+                txn['transaction_type'] = 'credit' if float(txn.get('amount', 0)) > 0 else 'debit'
+            
+            # Normalize date
+            try:
+                txn['date'] = _normalize_date(str(txn['date']))
+            except:
+                continue
+            
+            # Validate amount
+            try:
+                txn['amount'] = float(txn['amount'])
+            except:
+                continue
+            
+            # Deduplicate
+            key = (txn['date'], txn['description'], round(txn['amount'], 2))
+            if key not in seen:
+                seen.add(key)
+                cleaned.append(txn)
+        
+        # Sort by date
+        try:
+            cleaned.sort(key=lambda x: x['date'])
+        except:
+            pass
+        
+        return cleaned
+
+
 class BankTransactionExtractor:
     # TODO: Currently tested with Ollama only - need to refactor to support other LLM vendors
     # Support needed for: OpenAI, Anthropic, Google PaLM, Azure OpenAI, AWS Bedrock, etc.
@@ -1234,60 +1735,102 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
         base_url = "http://localhost:11434"
         
         if ai_config:
+            provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name", "gpt-oss:latest")
-            if ai_config.get("provider_url"):
-                url = ai_config.get("provider_url")
-                if url:
-                    m = re.match(r"^(https?://[^/]+)(/api.*)?$", url.strip())
-                    base_url = m.group(1) if m else url.strip()
+            logger.info(f"🔧 Using AI config from database: {provider_name} model={model_name}")
+            
+            # Use the new UniversalBankTransactionExtractor for all providers
+            try:
+                extractor = UniversalBankTransactionExtractor(
+                    ai_config=ai_config,
+                    temperature=0.1,
+                    chunk_size=3000,
+                    chunk_overlap=150,
+                    request_timeout=120
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize UniversalBankTransactionExtractor: {e}")
+                logger.info("Falling back to regex extraction")
+                # Fallback to regex extraction
+                try:
+                    from pathlib import Path as _P
+                    ext = _P(pdf_path).suffix.lower()
+                    if ext == ".csv":
+                        txns = _parse_csv_file_basic(pdf_path)
+                    else:
+                        try:
+                            from pypdf import PdfReader
+                        except ImportError:
+                            logger.error("pypdf not available for fallback extraction")
+                            return []
+                        texts = []
+                        with open(pdf_path, "rb") as f:
+                            reader = PdfReader(f)
+                            for page in reader.pages:
+                                texts.append(page.extract_text() or "")
+                        raw_text = "\n\n".join(texts)
+                        text = _preprocess_bank_text(raw_text)
+                        txns = _enhanced_regex_extraction(text)
+                    return txns
+                except Exception as fallback_e:
+                    logger.error(f"Fallback extraction failed: {fallback_e}")
+                    return []
         else:
+            # Fallback to environment variables - create ai_config from env vars
             model_name = os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
             base_url = os.getenv("LLM_API_BASE", "http://localhost:11434")
-        
-        # Initialize BankTransactionExtractor
-        try:
-            extractor = BankTransactionExtractor(
-                model_name=model_name,
-                ollama_base_url=base_url,
-                temperature=0.1,
-                chunk_size=3000,
-                chunk_overlap=150,
-                request_timeout=120
-            )
-        except Exception as e:
-            logger.warning(f"Failed to initialize BankTransactionExtractor: {e}")
-            logger.info("Falling back to legacy regex extraction")
-            # Fallback to simple PDF loading and regex extraction
+            logger.info(f"⚠️ Using environment variables: model={model_name} base_url={base_url}")
+            
+            # Create ai_config from environment variables
+            ai_config = {
+                "provider_name": "ollama",
+                "model_name": model_name,
+                "provider_url": base_url,
+                "api_key": None
+            }
+            
             try:
-                from pathlib import Path as _P
-                ext = _P(pdf_path).suffix.lower()
-                if ext == ".csv":
-                    # Robust CSV fallback parser that skips preamble lines
-                    txns = _parse_csv_file_basic(pdf_path)
-                else:
-                    # Simple fallback PDF loader
-                    try:
-                        from pypdf import PdfReader
-                    except ImportError:
-                        logger.error("pypdf not available for fallback extraction")
-                        raise BankLLMUnavailableError("LLM not reachable and fallback unavailable")
-                    texts = []
-                    with open(pdf_path, "rb") as f:
-                        reader = PdfReader(f)
-                        for page in reader.pages:
-                            texts.append(page.extract_text() or "")
-                    raw_text = "\n\n".join(texts)
-                    text = _preprocess_bank_text(raw_text)
-                    txns = _enhanced_regex_extraction(text)
-                if not txns:
-                    # Signal to caller to retry later
-                    raise BankLLMUnavailableError("LLM not reachable; no transactions via fallback")
-                return txns
-            except BankLLMUnavailableError:
-                raise
-            except Exception as fallback_e:
-                logger.error(f"Fallback extraction also failed: {fallback_e}")
-                raise BankLLMUnavailableError("LLM not reachable and fallback failed")
+                extractor = UniversalBankTransactionExtractor(
+                    ai_config=ai_config,
+                    temperature=0.1,
+                    chunk_size=3000,
+                    chunk_overlap=150,
+                    request_timeout=120
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize BankTransactionExtractor: {e}")
+                logger.info("Falling back to legacy regex extraction")
+                # Fallback to simple PDF loading and regex extraction
+                try:
+                    from pathlib import Path as _P
+                    ext = _P(pdf_path).suffix.lower()
+                    if ext == ".csv":
+                        # Robust CSV fallback parser that skips preamble lines
+                        txns = _parse_csv_file_basic(pdf_path)
+                    else:
+                        # Simple fallback PDF loader
+                        try:
+                            from pypdf import PdfReader
+                        except ImportError:
+                            logger.error("pypdf not available for fallback extraction")
+                            raise BankLLMUnavailableError("LLM not reachable and fallback unavailable")
+                        texts = []
+                        with open(pdf_path, "rb") as f:
+                            reader = PdfReader(f)
+                            for page in reader.pages:
+                                texts.append(page.extract_text() or "")
+                        raw_text = "\n\n".join(texts)
+                        text = _preprocess_bank_text(raw_text)
+                        txns = _enhanced_regex_extraction(text)
+                    if not txns:
+                        # Signal to caller to retry later
+                        raise BankLLMUnavailableError("LLM not reachable; no transactions via fallback")
+                    return txns
+                except BankLLMUnavailableError:
+                    raise
+                except Exception as fallback_e:
+                    logger.error(f"Fallback extraction also failed: {fallback_e}")
+                    raise BankLLMUnavailableError("LLM not reachable and fallback failed")
         
         # Dispatch based on file extension (supports PDF and CSV)
         from pathlib import Path as _P
@@ -1469,30 +2012,58 @@ class BankStatementExtractor:
 def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
     """Lightweight reachability check for the bank LLM endpoint/model.
 
-    Returns True if the configured base URL responds and the model appears among tags.
+    Returns True if the configured provider is reachable. Supports all LiteLLM-compatible providers.
     """
     try:
-        model_name = "gpt-oss:latest"
-        base_url = "http://localhost:11434"
+        if not ai_config:
+            # Fallback to environment variables (assume Ollama)
+            ai_config = {
+                "provider_name": "ollama",
+                "model_name": os.getenv("OLLAMA_MODEL", "gpt-oss:latest"),
+                "provider_url": os.getenv("LLM_API_BASE", "http://localhost:11434"),
+                "api_key": None
+            }
+        
+        provider_name = ai_config.get("provider_name", "ollama")
+        logger.info(f"🔍 Testing reachability for provider: {provider_name}")
+        
+        # For Ollama, test the /api/tags endpoint
+        if provider_name == "ollama":
+            model_name = ai_config.get("model_name", "gpt-oss:latest")
+            provider_url = ai_config.get("provider_url", "http://localhost:11434")
+            
+            if provider_url:
+                # Clean up the URL and extract base URL
+                url = provider_url.strip().rstrip('/')
+                m = re.match(r"^(https?://[^/]+)(/api.*)?$", url)
+                base_url = m.group(1) if m else url
+            else:
+                base_url = "http://localhost:11434"
 
-        if ai_config:
-            model_name = ai_config.get("model_name", model_name)
-            if ai_config.get("provider_url"):
-                url = ai_config.get("provider_url")
-                if url:
-                    m = re.match(r"^(https?://[^/]+)(/api.*)?$", url.strip())
-                    base_url = m.group(1) if m else url.strip()
+            resp = requests.get(f"{base_url}/api/tags", timeout=3)
+            if resp.status_code != 200:
+                return False
+            data = resp.json() or {}
+            models = [m.get("name") for m in (data.get("models") or [])]
+            return model_name in models
+        
         else:
-            model_name = os.getenv("OLLAMA_MODEL", model_name)
-            base_url = os.getenv("LLM_API_BASE", base_url)
-
-        resp = requests.get(f"{base_url}/api/tags", timeout=3)
-        if resp.status_code != 200:
-            return False
-        data = resp.json() or {}
-        models = [m.get("name") for m in (data.get("models") or [])]
-        # Consider reachable only if the target model is explicitly present.
-        # If the models list is empty or the model is missing, treat as unreachable to avoid false positives.
-        return model_name in models
-    except Exception:
+            # For other providers, use LiteLLM to test connection
+            try:
+                from litellm import completion
+                
+                # Create a temporary extractor to test connection
+                temp_extractor = UniversalBankTransactionExtractor(
+                    ai_config=ai_config,
+                    temperature=0.1
+                )
+                # If initialization succeeds, the connection test passed
+                return True
+                
+            except Exception as e:
+                logger.warning(f"LiteLLM connection test failed for {provider_name}: {e}")
+                return False
+        
+    except Exception as e:
+        logger.warning(f"Reachability check failed: {e}")
         return False

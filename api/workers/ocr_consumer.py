@@ -309,11 +309,11 @@ def main() -> int:
                             except Exception:
                                 pass
                         else:
-                            # Fetch active AI config for tenant, if any
+                            # Fetch active AI config for tenant, prioritizing default
                             ai_row = db.query(AIConfigModel).filter(
                                 AIConfigModel.is_active == True,
                                 AIConfigModel.tested == True
-                            ).first()
+                            ).order_by(AIConfigModel.is_default.desc()).first()
                             ai_conf = None
                             if ai_row:
                                 ai_conf = {
@@ -322,6 +322,9 @@ def main() -> int:
                                     "api_key": ai_row.api_key,
                                     "model_name": ai_row.model_name,
                                 }
+                                logger.info(f"🔧 Using AI config from database: {ai_row.provider_name} ({ai_row.model_name}) at {ai_row.provider_url}")
+                            else:
+                                logger.warning("⚠️ No AI config found in database, will use environment variables")
                             # Retry up to 5 times on LLM errors with incremental backoff
                             attempts = int(payload.get("attempt", 0))
                             max_attempts = int(os.getenv("BANK_LLM_MAX_ATTEMPTS", "5"))
@@ -448,11 +451,11 @@ def main() -> int:
                         # Expect payload to include a temp file path and a generated task_id
                         task_id = str(payload.get("task_id"))
                         file_path = str(payload.get("file_path"))
-                        # Load AI config
+                        # Load AI config, prioritizing default
                         ai_row = db.query(AIConfigModel).filter(
                             AIConfigModel.is_active == True,
                             AIConfigModel.tested == True
-                        ).first()
+                        ).order_by(AIConfigModel.is_default.desc()).first()
                         if not ai_row:
                             # Fallback to environment configuration
                             model_name = os.getenv("LLM_MODEL_INVOICES") or os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")

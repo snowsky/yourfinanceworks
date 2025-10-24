@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Loader2, Download, Database, Upload, Plus, Edit, Trash2, Calculator, CheckCircle, XCircle } from "lucide-react";
-import { settingsApi, discountRulesApi, aiConfigApi, DiscountRule, DiscountRuleCreate, AIConfig, AIConfigCreate } from "@/lib/api";
+import { settingsApi, discountRulesApi, aiConfigApi, DiscountRule, DiscountRuleCreate, AIConfig, AIConfigCreate, AIProviderInfo } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -76,6 +76,7 @@ const Settings = () => {
   const [loadingAiConfigs, setLoadingAiConfigs] = useState(false);
   const [showAIConfigDialog, setShowAIConfigDialog] = useState(false);
   const [editingAIConfig, setEditingAIConfig] = useState<AIConfig | null>(null);
+  const [supportedProviders, setSupportedProviders] = useState<Record<string, AIProviderInfo>>({});
   const [newAIConfig, setNewAIConfig] = useState<AIConfigCreate>({
     provider_name: "openai",
     provider_url: "",
@@ -86,6 +87,12 @@ const Settings = () => {
   });
   const [testingNewConfig, setTestingNewConfig] = useState(false);
   const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
+
+  // Helper function to check if a provider requires an API key
+  const providerRequiresApiKey = (providerName: string): boolean => {
+    const provider = supportedProviders[providerName];
+    return provider ? provider.requires_api_key : true; // Default to requiring API key if unknown
+  };
   
   const [invoiceSettings, setInvoiceSettings] = useState({
     prefix: "INV-",
@@ -309,6 +316,14 @@ const Settings = () => {
           toast.error(t('settings.failed_to_load_ai_configurations'));
         } finally {
           setLoadingAiConfigs(false);
+        }
+
+        // Fetch supported providers
+        try {
+          const response = await aiConfigApi.getSupportedProviders();
+          setSupportedProviders(response.providers);
+        } catch (error) {
+          console.error("Failed to fetch supported providers:", error);
         }
         
         // Fetch notification settings
@@ -974,16 +989,30 @@ const Settings = () => {
   };
 
   const handleProviderChange = (provider: string) => {
+    // Get default model from supported providers if available
+    const providerInfo = supportedProviders[provider];
+    const defaultModel = providerInfo?.default_model || 
+      (provider === "openai" ? "gpt-4" :
+       provider === "openrouter" ? "openai/gpt-4" :
+       provider === "ollama" ? "llama3.2-vision:11b" :
+       provider === "anthropic" ? "claude-3-sonnet" :
+       provider === "google" ? "gemini-pro" :
+       "model-name");
+
+    // Set default provider URLs
+    const defaultProviderUrl = 
+      provider === "openrouter" ? "https://openrouter.ai/api/v1" :
+      provider === "anthropic" ? "https://api.anthropic.com" :
+      provider === "google" ? "https://generativelanguage.googleapis.com" :
+      provider === "ollama" ? "http://localhost:11434" :
+      provider === "openai" ? "" : // OpenAI uses default endpoint
+      "";
+
     setNewAIConfig(prev => ({
       ...prev,
       provider_name: provider,
-      model_name: 
-        provider === "openai" ? "gpt-4" :
-        provider === "openrouter" ? "openai/gpt-4" :
-        provider === "ollama" ? "llama2" :
-        provider === "anthropic" ? "claude-3-sonnet" :
-        provider === "google" ? "gemini-pro" :
-        "model-name"
+      model_name: defaultModel,
+      provider_url: defaultProviderUrl
     }));
   };
 
@@ -2610,14 +2639,23 @@ const Settings = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="api_key">{t('settings.api_key')}</Label>
+                <Label htmlFor="api_key">
+                  {t('settings.api_key')}
+                  {!providerRequiresApiKey(newAIConfig.provider_name) && (
+                    <span className="text-sm text-muted-foreground ml-1">(Optional)</span>
+                  )}
+                </Label>
                 <Input
                   id="api_key"
                   name="api_key"
                   type="password"
                   value={newAIConfig.api_key}
                   onChange={handleAIConfigChange}
-                  placeholder={t('settings.enter_api_key')}
+                  placeholder={
+                    providerRequiresApiKey(newAIConfig.provider_name) 
+                      ? t('settings.enter_api_key')
+                      : "Optional - leave empty for local providers"
+                  }
                 />
               </div>
               
@@ -2685,7 +2723,7 @@ const Settings = () => {
                 <Button
                   variant="outline"
                   onClick={handleTestNewAIConfig}
-                  disabled={testingNewConfig || !newAIConfig.api_key || !newAIConfig.model_name}
+                  disabled={testingNewConfig || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key)}
                 >
                   {testingNewConfig ? (
                     <>

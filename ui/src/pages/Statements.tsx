@@ -577,7 +577,7 @@ export default function Statements() {
                   Edit transactions and save
                 </div>
                 <div className="flex items-center gap-2">
-                  {(detail?.status === 'failed' || (detail?.status === 'processed' && (detail?.extracted_count || 0) === 0)) && (
+                  {(detail?.status === 'failed' || detail?.status === 'processed') && (
                     <Button
                       variant="destructive"
                       onClick={async () => {
