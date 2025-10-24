@@ -2712,29 +2712,20 @@ const Settings = () => {
               <Button variant="outline" onClick={() => setShowAIConfigDialog(false)}>
                 {t('settings.cancel')}
               </Button>
-              {editingAIConfig ? (
-                <Button
-                  variant="outline"
-                  onClick={() => handleTestAIConfig(editingAIConfig.id)}
-                >
-                  {t('settings.test')}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleTestNewAIConfig}
-                  disabled={testingNewConfig || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key)}
-                >
-                  {testingNewConfig ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t('common.loading')}
-                    </>
-                  ) : (
-                    t('settings.test')
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleTestNewAIConfig}
+                disabled={testingNewConfig || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key)}
+              >
+                {testingNewConfig ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('common.loading')}
+                  </>
+                ) : (
+                  t('settings.test')
+                )}
+              </Button>
               <Button
                 onClick={editingAIConfig ? handleUpdateAIConfig : handleCreateAIConfig}
               >

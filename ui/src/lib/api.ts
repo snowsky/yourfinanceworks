@@ -637,6 +637,17 @@ export interface AIConfigTestResponse {
   error?: string;
 }
 
+export interface AIConfigTestWithOverrides {
+  provider_name?: string;
+  provider_url?: string;
+  api_key?: string;
+  model_name?: string;
+  max_tokens?: number;
+  temperature?: number;
+  custom_prompt?: string;
+  test_text?: string;
+}
+
 export interface AIProviderInfo {
   name: string;
   display_name: string;
@@ -2144,6 +2155,11 @@ export const aiConfigApi = {
     apiRequest<AIConfigTestResponse>(`/ai-config/${id}/test`, {
       method: 'POST',
       body: JSON.stringify(testRequest || {}),
+    }),
+  testAIConfigWithOverrides: (testRequest: AIConfigTestWithOverrides) =>
+    apiRequest<AIConfigTestResponse>(`/ai-config/test-with-overrides`, {
+      method: 'POST',
+      body: JSON.stringify(testRequest),
     }),
   getSupportedProviders: () => apiRequest<{providers: Record<string, AIProviderInfo>, count: number}>("/ai-config/providers"),
   getConfigUsage: (id: number) => apiRequest<{

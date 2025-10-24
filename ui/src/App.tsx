@@ -29,7 +29,6 @@ import Statements from "./pages/Statements";
 import Settings from "./pages/Settings";
 import Users from "./pages/Users";
 import SuperAdmin from "./pages/SuperAdmin";
-import AIProviderManagement from "./pages/AIProviderManagement";
 import NotFound from "./pages/NotFound";
 import AIAssistant from "./components/AIAssistant";
 import { Toaster } from "sonner";
@@ -136,7 +135,6 @@ const AppContent = () => {
           <Route path="/approvals/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><AppLayout><ApprovalReportsPage /></AppLayout></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/statements" element={<ProtectedRoute><Statements /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/ai-providers" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><TenantProtectedRoute requirePrimaryTenant={true}><AIProviderManagement /></TenantProtectedRoute></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/organization-join-requests" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><OrganizationJoinRequests /></RoleProtectedRoute></ProtectedRoute>} />
           <Route path="/super-admin" element={<ProtectedRoute><TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute></ProtectedRoute>} />

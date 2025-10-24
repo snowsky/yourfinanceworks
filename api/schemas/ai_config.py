@@ -46,6 +46,20 @@ class AIConfigTestRequest(BaseModel):
     custom_prompt: Optional[str] = None
     test_text: Optional[str] = None
 
+class AIConfigTestWithOverrides(BaseModel):
+    """AI configuration test request schema with override parameters."""
+    # Override fields for testing unsaved changes
+    provider_name: Optional[str] = None
+    provider_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model_name: Optional[str] = None
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+
+    # Test content
+    custom_prompt: Optional[str] = None
+    test_text: Optional[str] = None
+
 class AIConfigTestResponse(BaseModel):
     """AI configuration test response schema."""
     success: bool

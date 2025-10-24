@@ -322,7 +322,7 @@ class UniversalBankTransactionExtractor:
         if self.provider_name == "ollama":
             return f"ollama/{self.model_name}"
         elif self.provider_name == "openrouter":
-            return self.model_name  # OpenRouter uses full model names like "openai/gpt-4"
+            return f"openrouter/{self.model_name}"  # OpenRouter requires "openrouter/" prefix for proper routing
         else:
             return self.model_name  # OpenAI, Anthropic, etc. use model names directly
     

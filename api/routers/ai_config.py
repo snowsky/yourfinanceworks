@@ -11,6 +11,7 @@ from schemas.ai_config import (
     AIConfigUpdate,
     AIConfig as AIConfigSchema,
     AIConfigTestRequest,
+    AIConfigTestWithOverrides,
     AIConfigTestResponse,
     SUPPORTED_PROVIDERS
 )
@@ -26,7 +27,7 @@ router = APIRouter(
 def _extract_meaningful_error(error_str: str) -> str:
     """Extract meaningful error message from technical error strings."""
     import re
-    
+
     # Common patterns to extract meaningful errors
     patterns = [
         # Ollama model not found: {"error":"model 'llama2' not found"}
@@ -45,7 +46,7 @@ def _extract_meaningful_error(error_str: str) -> str:
         r"model '[^']+' not found",
         r"Model '[^']+' not found",
     ]
-    
+
     # Try each pattern
     for pattern in patterns:
         match = re.search(pattern, error_str, re.IGNORECASE)
@@ -54,7 +55,7 @@ def _extract_meaningful_error(error_str: str) -> str:
                 extracted = match.group(1).strip()
             else:
                 extracted = match.group(0).strip()
-            
+
             # Add helpful suggestions for common errors
             if "not found" in extracted.lower() and "model" in extracted.lower():
                 extracted += ". Please check if the model is available in your Ollama installation."
@@ -62,9 +63,9 @@ def _extract_meaningful_error(error_str: str) -> str:
                 extracted += ". Please check if the service is running and accessible."
             elif "incorrect api key" in extracted.lower():
                 extracted += ". Please verify your API key is correct."
-            
+
             return extracted
-    
+
     # If no pattern matches, try to extract the last meaningful line
     lines = error_str.split('\n')
     for line in reversed(lines):
@@ -75,9 +76,11 @@ def _extract_meaningful_error(error_str: str) -> str:
                 if line.startswith(prefix):
                     line = line[len(prefix):]
             return line
-    
+
     # Fallback to original error if nothing else works
     return error_str[:200] + "..." if len(error_str) > 200 else error_str
+
+
 
 @router.get("/", response_model=List[AIConfigSchema])
 async def get_ai_configs(
@@ -106,7 +109,7 @@ async def create_ai_config(
     """Create a new AI configuration"""
     # Only tenant admins can create AI configs
     require_admin(current_user, "create AI configurations")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # If this is set as default, unset other defaults
@@ -115,7 +118,7 @@ async def create_ai_config(
             db.query(AIConfigModel).filter(
                 AIConfigModel.is_default == True
             ).update({"is_default": False})
-        
+
         # No tenant_id needed since each tenant has its own database
         db_config = AIConfigModel(**config.model_dump())
         db.add(db_config)
@@ -156,9 +159,10 @@ async def update_ai_config(
                 AIConfigModel.is_default == True,
                 AIConfigModel.id != config_id
             ).update({"is_default": False})
-        
+
         # Update only provided fields
         update_data = config.model_dump(exclude_unset=True)
+
         for field, value in update_data.items():
             setattr(db_config, field, value)
         
@@ -202,6 +206,112 @@ async def delete_ai_config(
             detail=f"Failed to delete AI configuration: {str(e)}"
         )
 
+@router.post("/test-with-overrides", response_model=AIConfigTestResponse)
+async def test_ai_config_with_overrides(
+    test_request: AIConfigTestWithOverrides,
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Test an AI configuration with override parameters for unsaved changes."""
+    try:
+        start_time = datetime.now(timezone.utc)
+        test_text = test_request.test_text or \
+                   "Hello! This is a test message to verify the AI configuration is working."
+
+        # Validate required override fields
+        if not test_request.provider_name:
+            raise HTTPException(status_code=400, detail="provider_name is required")
+        if not test_request.model_name:
+            raise HTTPException(status_code=400, detail="model_name is required")
+
+        try:
+            # Import litellm here to avoid circular imports
+            try:
+                from litellm import completion
+            except ImportError:
+                return AIConfigTestResponse(
+                    success=False,
+                    message="LiteLLM not installed. Please install it with: pip install litellm"
+                )
+
+            # Prepare the completion call with proper model formatting using override values
+            model_name = test_request.model_name
+            provider_name = test_request.provider_name
+
+            # Format model name based on provider for LiteLLM
+            if provider_name == "ollama":
+                model_name = f"ollama/{model_name}"
+            elif provider_name == "openrouter":
+                model_name = f"openrouter/{model_name}"
+
+            # Use override values with defaults
+            max_tokens = min(test_request.max_tokens or 4096, 100)  # Limit for testing
+            temperature = test_request.temperature if test_request.temperature is not None else 0.1
+
+            kwargs = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": test_text}],
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+
+            # Add provider-specific configuration using override values
+            if provider_name == "openai" and test_request.api_key:
+                kwargs["api_key"] = test_request.api_key
+            elif provider_name == "openrouter":
+                if test_request.api_key:
+                    kwargs["api_key"] = test_request.api_key
+                # Set the OpenRouter API base URL
+                kwargs["api_base"] = test_request.provider_url or "https://openrouter.ai/api/v1"
+            elif provider_name == "anthropic" and test_request.api_key:
+                kwargs["api_key"] = test_request.api_key
+            elif provider_name == "google" and test_request.api_key:
+                kwargs["api_key"] = test_request.api_key
+            elif provider_name == "ollama" and test_request.provider_url:
+                kwargs["api_base"] = test_request.provider_url
+            elif provider_name == "custom":
+                if test_request.api_key:
+                    kwargs["api_key"] = test_request.api_key
+                if test_request.provider_url:
+                    kwargs["api_base"] = test_request.provider_url
+
+            # Enable debug logging for LiteLLM
+            import litellm
+            litellm._turn_on_debug()
+
+            # Make the test call
+            response = completion(**kwargs)
+
+            end_time = datetime.now(timezone.utc)
+            response_time = (end_time - start_time).total_seconds() * 1000
+
+            return AIConfigTestResponse(
+                success=True,
+                message="Configuration test successful",
+                response_time_ms=response_time,
+                response=response.choices[0].message.content if response.choices else "No response"
+            )
+
+        except Exception as e:
+            end_time = datetime.now(timezone.utc)
+            response_time = (end_time - start_time).total_seconds() * 1000
+
+            # Extract meaningful error message
+            error_message = _extract_meaningful_error(str(e))
+
+            return AIConfigTestResponse(
+                success=False,
+                message=f"Configuration test failed: {error_message}",
+                response_time_ms=response_time,
+                error=error_message
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to test AI configuration: {str(e)}"
+        )
+
 @router.post("/{config_id}/test", response_model=AIConfigTestResponse)
 async def test_ai_config(
     config_id: int,
@@ -236,17 +346,9 @@ async def test_ai_config(
 
             # Format model name based on provider for LiteLLM
             if db_config.provider_name == "ollama":
-                model_name = f"ollama/{db_config.model_name}"
-            elif db_config.provider_name == "openai":
-                model_name = db_config.model_name
+                model_name = f"ollama/{model_name}"
             elif db_config.provider_name == "openrouter":
-                model_name = db_config.model_name  # OpenRouter uses the full model name as-is
-            elif db_config.provider_name == "anthropic":
-                model_name = db_config.model_name
-            elif db_config.provider_name == "google":
-                model_name = db_config.model_name
-            elif db_config.provider_name == "custom":
-                model_name = db_config.model_name
+                model_name = f"openrouter/{model_name}"  # OpenRouter requires "openrouter/" prefix for proper routing
 
             kwargs = {
                 "model": model_name,
@@ -275,6 +377,10 @@ async def test_ai_config(
                 if db_config.provider_url:
                     kwargs["api_base"] = db_config.provider_url
 
+            # Enable debug logging for LiteLLM
+            import litellm
+            litellm._turn_on_debug()
+
             # Make the test call
             response = completion(**kwargs)
 
@@ -300,6 +406,10 @@ async def test_ai_config(
 
             # Extract meaningful error message
             error_message = _extract_meaningful_error(str(e))
+
+            # Mark as not tested if the test failed
+            db_config.tested = False
+            db.commit()
 
             return AIConfigTestResponse(
                 success=False,
