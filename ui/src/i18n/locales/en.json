@@ -1184,6 +1184,7 @@
     "ready_to_process": "Ready to process {{count}} item(s)",
     "approval_workflow": "Approval Workflow",
     "submit_this_expense_for_approval_after_creation": "Submit this expense for approval after creation",
+    "submit_this_expense_for_approval_after_saving_changes": "Submit this expense for approval after saving changes",
     "inventory_integration": "Inventory Integration",
     "no_expenses_yet": "No expenses yet",
     "this_expense_will_be_submitted_for_approval": "This expense will be submitted for approval",

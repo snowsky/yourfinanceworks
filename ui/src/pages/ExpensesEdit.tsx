@@ -295,7 +295,7 @@ export default function ExpensesEdit() {
             {(form as any)?.analysis_status && (
               <div className="text-sm text-muted-foreground">
                 {t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}: <span className="capitalize">{(form as any).analysis_status}</span>
-                {(form as any)?.analysis_error && (
+                {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
                   <span className="text-red-600 ml-2">({(form as any).analysis_error})</span>
                 )}
               </div>

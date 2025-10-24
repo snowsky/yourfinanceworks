@@ -1089,6 +1089,7 @@
     "ready_to_process": "Prêt à traiter {{count}} article(s)",
     "approval_workflow": "Flux d'Approbation",
     "submit_this_expense_for_approval_after_creation": "Soumettre cette dépense pour approbation après la création",
+    "submit_this_expense_for_approval_after_saving_changes": "Soumettre cette dépense pour approbation après l'enregistrement des modifications",
     "inventory_integration": "Intégration d'Inventaire",
     "no_expenses_yet": "Aucune dépense encore",
     "this_expense_will_be_submitted_for_approval": "Cette dépense sera soumise pour approbation",

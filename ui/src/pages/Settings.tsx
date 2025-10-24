@@ -84,6 +84,7 @@ const Settings = () => {
     model_name: "gpt-4",
     is_active: true,
     is_default: false,
+    ocr_enabled: false,
   });
   const [testingNewConfig, setTestingNewConfig] = useState(false);
   const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
@@ -969,6 +970,7 @@ const Settings = () => {
       is_active: config.is_active,
       is_default: config.is_default,
       tested: config.tested,
+      ocr_enabled: config.ocr_enabled || false,
     });
     setShowAIConfigDialog(true);
   };
@@ -983,6 +985,7 @@ const Settings = () => {
       is_active: true,
       is_default: false,
       tested: false,
+      ocr_enabled: false,
     });
     setTestResult(null);
     setShowAIConfigDialog(true);
@@ -2685,6 +2688,15 @@ const Settings = () => {
                     onCheckedChange={(checked) => handleAIConfigToggleChange('tested', checked)}
                   />
                   <Label htmlFor="tested">{t('settings.mark_as_tested')}</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="ocr_enabled"
+                    checked={newAIConfig.ocr_enabled || false}
+                    onCheckedChange={(checked) => handleAIConfigToggleChange('ocr_enabled', checked)}
+                  />
+                  <Label htmlFor="ocr_enabled">OCR Enabled</Label>
                 </div>
               </div>
               

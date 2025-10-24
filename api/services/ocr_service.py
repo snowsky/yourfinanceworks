@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -290,73 +291,178 @@ def cancel_ocr_tasks_for_expense(expense_id: int) -> None:
     # No-op: If using Kafka, consider producing a cancel message or managing an outbox/processing table.
 
 
-async def _run_ollama_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Run OCR using the configured AI provider. Currently only supports Ollama for OCR."""
+async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Run OCR using the configured AI provider. Supports multiple providers via LiteLLM."""
     try:
         # Use AI config from database if available, otherwise fallback to environment variables
         if ai_config:
             provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name", "llama3.2-vision:11b")
             base_url = ai_config.get("provider_url", "http://localhost:11434")
-            
+            api_key = ai_config.get("api_key")
+
             logger.info(f"🔧 OCR using AI config: provider={provider_name} model={model_name} file={file_path}")
-            
-            # Currently, OCR is only supported with Ollama
-            if provider_name != "ollama":
-                logger.warning(f"⚠️ OCR not supported for provider '{provider_name}'. OCR requires Ollama. Skipping OCR processing.")
+
+            # Check if OCR is enabled for this provider configuration
+            if not ai_config.get("ocr_enabled", False):
+                logger.warning(f"⚠️ OCR not enabled for provider '{provider_name}'. Please enable OCR in AI configuration settings.")
                 return {
-                    "error": f"OCR not supported for provider '{provider_name}'. Please configure Ollama for OCR processing.",
-                    "provider_not_supported": True
+                    "error": f"OCR not enabled for provider '{provider_name}'. Please enable OCR in AI configuration settings.",
+                    "ocr_not_enabled": True
                 }
-            
-            # For Ollama, we need to append /api/generate to the base URL
-            if not base_url.endswith("/api/generate"):
+        else:
+            # Fallback to environment variables (legacy behavior)
+            # Detect provider from environment variables
+            env_api_base = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE")
+            env_api_key = os.getenv("LLM_API_KEY")
+
+            if env_api_base and ("openrouter.ai" in env_api_base or "openrouter" in env_api_base):
+                provider_name = "openrouter"
+            elif env_api_base and ("api.openai.com" in env_api_base or "openai" in env_api_base):
+                provider_name = "openai"
+            elif env_api_base and ("anthropic" in env_api_base):
+                provider_name = "anthropic"
+            elif env_api_base and ("google" in env_api_base):
+                provider_name = "google"
+            elif env_api_base or os.getenv("OLLAMA_MODEL"):
+                provider_name = "ollama"
+            elif env_api_key:
+                provider_name = "openai"  # Default to OpenAI if API key present
+            else:
+                provider_name = "ollama"  # Final fallback
+
+            model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
+            base_url = env_api_base or "http://localhost:11434"
+            api_key = env_api_key
+            logger.info(f"⚠️ OCR using environment variables: provider={provider_name} model={model_name} endpoint={base_url} file={file_path}")
+
+        # Handle different providers
+        if provider_name == "ollama":
+            # Use Ollama OCR library for Ollama provider
+            # Don't append /api/generate if it's already a non-Ollama provider URL
+            if not base_url.endswith("/api/generate") and "openrouter.ai" not in base_url and "api.openai.com" not in base_url:
                 ocr_endpoint = f"{base_url}/api/generate"
             else:
                 ocr_endpoint = base_url
-        else:
-            # Fallback to environment variables (legacy behavior)
-            model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
-            # Configure the complete endpoint URL for ollama-ocr library
-            # If OLLAMA_OCR_ENDPOINT is set, use it directly, otherwise construct from base URL
-            ocr_endpoint = os.getenv("OLLAMA_OCR_ENDPOINT")
-            if not ocr_endpoint:
-                base_url = os.getenv("LLM_API_BASE") or os.getenv("OLLAMA_API_BASE") or "http://localhost:11434"
-                ocr_endpoint = f"{base_url}/api/generate"  # Default Ollama endpoint
-            logger.info(f"⚠️ OCR using environment variables: model={model_name} endpoint={ocr_endpoint} file={file_path}")
 
-        # Import and initialize Ollama OCR processor
-        from ollama_ocr import OCRProcessor  # type: ignore
-        ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
-        prompt = custom_prompt or (
-            "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
-            "Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes. "
-            "If a field is unknown, set it to null. Do not include any prose."
-        )
-        loop = asyncio.get_running_loop()
-        # Run blocking call in thread to avoid blocking event loop
-        import time
-        t0 = time.time()
-        result = await loop.run_in_executor(
-            None,
-            lambda: ocr.process_image(
-                image_path=file_path, format_type="json", custom_prompt=prompt, language="English"
-            ),
-        )
-        dt = (time.time() - t0) * 1000
-        if isinstance(result, str):
-            logger.info(f"OCR raw result (str) length={len(result)} duration_ms={dt:.0f}")
+            from ollama_ocr import OCRProcessor  # type: ignore
+            ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
+            prompt = custom_prompt or (
+                "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
+                "Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes. "
+                "If a field is unknown, set it to null. Do not include any prose."
+            )
+            loop = asyncio.get_running_loop()
+            import time
+            t0 = time.time()
+            result = await loop.run_in_executor(
+                None,
+                lambda: ocr.process_image(
+                    image_path=file_path, format_type="json", custom_prompt=prompt, language="English"
+                ),
+            )
+            dt = (time.time() - t0) * 1000
+            if isinstance(result, str):
+                logger.info(f"OCR raw result (str) length={len(result)} duration_ms={dt:.0f}")
+            else:
+                try:
+                    logger.info(f"OCR result keys={list(result.keys()) if isinstance(result, dict) else 'n/a'} duration_ms={dt:.0f}")
+                except Exception:
+                    logger.info(f"OCR result type={type(result)} duration_ms={dt:.0f}")
+            if isinstance(result, str):
+                parsed = _extract_json_from_text(result)
+                if parsed is not None:
+                    return parsed
+                return {"raw": result}
+            return result or {}
+
         else:
+            # Use LiteLLM for other providers (OpenAI, Anthropic, Google, etc.)
             try:
-                logger.info(f"OCR result keys={list(result.keys()) if isinstance(result, dict) else 'n/a'} duration_ms={dt:.0f}")
-            except Exception:
-                logger.info(f"OCR result type={type(result)} duration_ms={dt:.0f}")
-        if isinstance(result, str):
-            parsed = _extract_json_from_text(result)
-            if parsed is not None:
-                return parsed
-            return {"raw": result}
-        return result or {}
+                from litellm import completion
+
+                # Format model name for LiteLLM
+                if provider_name == "openai":
+                    litellm_model = model_name
+                elif provider_name == "anthropic":
+                    litellm_model = f"anthropic/{model_name}"
+                elif provider_name == "google":
+                    litellm_model = f"google/{model_name}"
+                elif provider_name == "openrouter":
+                    litellm_model = f"openrouter/{model_name}"
+                else:
+                    litellm_model = f"{provider_name}/{model_name}"
+
+                # Prepare API key and base URL
+                kwargs = {"model": litellm_model}
+                if api_key:
+                    kwargs["api_key"] = api_key
+                if base_url and provider_name != "openai":  # OpenAI has default base URL
+                    kwargs["api_base"] = base_url
+
+                # Encode image to base64
+                with open(file_path, "rb") as image_file:
+                    image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+                # Determine image format
+                if file_path.lower().endswith('.png'):
+                    image_format = "png"
+                elif file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
+                    image_format = "jpeg"
+                elif file_path.lower().endswith('.webp'):
+                    image_format = "webp"
+                else:
+                    image_format = "png"  # Default fallback
+
+                prompt = custom_prompt or (
+                    "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
+                    "Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes. "
+                    "If a field is unknown, set it to null. Do not include any prose."
+                )
+
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/{image_format};base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+
+                import time
+                t0 = time.time()
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: completion(messages=messages, **kwargs)
+                )
+                dt = (time.time() - t0) * 1000
+                logger.info(f"OCR via LiteLLM result duration_ms={dt:.0f}")
+
+                if response and response.choices and len(response.choices) > 0:
+                    content = response.choices[0].message.content
+                    if isinstance(content, str):
+                        # Try to parse JSON from response
+                        parsed = _extract_json_from_text(content)
+                        if parsed is not None:
+                            return parsed
+                        return {"raw": content}
+                    else:
+                        return {"raw": str(content)}
+                else:
+                    return {"error": "No response from AI provider"}
+
+            except ImportError:
+                return {"error": "LiteLLM not available for non-Ollama providers"}
+            except Exception as e:
+                logger.error(f"LiteLLM OCR processing failed: {e}")
+                return {"error": f"LiteLLM OCR failed: {str(e)}"}
+
     except Exception as e:
         logger.error(f"OCR processing failed: {e}")
         return {"error": str(e)}
@@ -381,25 +487,37 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
     # Fetch AI config from database (same pattern as bank statement service)
     ai_config = None
     try:
+        # First try to find an AI config with OCR enabled
         ai_row = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
-            AIConfigModel.tested == True
+            AIConfigModel.tested == True,
+            AIConfigModel.ocr_enabled == True
         ).order_by(AIConfigModel.is_default.desc()).first()
+
         if ai_row:
             ai_config = {
                 "provider_name": ai_row.provider_name,
                 "provider_url": ai_row.provider_url,
                 "api_key": ai_row.api_key,
                 "model_name": ai_row.model_name,
+                "ocr_enabled": ai_row.ocr_enabled,
             }
-            logger.info(f"Using AI config from database: provider={ai_row.provider_name}, model={ai_row.model_name}")
+            logger.info(f"Using OCR-enabled AI config from database: provider={ai_row.provider_name}, model={ai_row.model_name}")
         else:
-            logger.info("No active AI config found in database, falling back to environment variables")
+            # If no OCR-enabled config found, check if any active config exists and log the issue
+            any_active_config = db.query(AIConfigModel).filter(
+                AIConfigModel.is_active == True,
+                AIConfigModel.tested == True
+            ).first()
+            if any_active_config:
+                logger.warning(f"No OCR-enabled AI config found. Active config exists for {any_active_config.provider_name} but OCR is not enabled. Falling back to environment variables.")
+            else:
+                logger.info("No active AI config found in database, falling back to environment variables")
     except Exception as e:
         logger.warning(f"Failed to fetch AI config from database: {e}, falling back to environment variables")
 
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
-    result = await _run_ollama_ocr(file_path, ai_config=ai_config)
+    result = await _run_ocr(file_path, ai_config=ai_config)
 
     # Track AI usage if ai_config was used and OCR was actually attempted
     if ai_config and not result.get("provider_not_supported"):
@@ -426,6 +544,18 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                 expense.analysis_result = {"error": "unknown"}
             expense.analysis_status = "failed"
             expense.analysis_error = str(result.get("error"))
+            # Clear any previous successful analysis data to avoid confusion
+            expense.amount = expense.amount if expense.amount not in (None, 0) else None
+            expense.total_amount = expense.total_amount if expense.total_amount not in (None, 0) else None
+            expense.currency = expense.currency if expense.currency else None
+            expense.expense_date = expense.expense_date if expense.expense_date else None
+            expense.category = expense.category if expense.category else None
+            expense.vendor = expense.vendor if expense.vendor else None
+            expense.tax_rate = expense.tax_rate if expense.tax_rate not in (None, 0) else None
+            expense.tax_amount = expense.tax_amount if expense.tax_amount not in (None, 0) else None
+            expense.payment_method = expense.payment_method if expense.payment_method else None
+            expense.reference_number = expense.reference_number if expense.reference_number else None
+            expense.notes = expense.notes if expense.notes else None
         else:
             # Map fields robustly
             extracted = result if isinstance(result, dict) else {}

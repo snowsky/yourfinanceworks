@@ -1114,6 +1114,7 @@
     "ready_to_process": "Listo para procesar {{count}} artículo(s)",
     "approval_workflow": "Flujo de Aprobación",
     "submit_this_expense_for_approval_after_creation": "Enviar este gasto para aprobación después de la creación",
+    "submit_this_expense_for_approval_after_saving_changes": "Enviar este gasto para aprobación después de guardar los cambios",
     "inventory_integration": "Integración de Inventario",
     "this_expense_will_be_submitted_for_approval": "Este gasto será enviado para aprobación",
     "select_approver": "Seleccionar Aprobador",
