@@ -74,4 +74,4 @@ azure-keyvault-secrets==4.8.0  # Azure Key Vault secrets
 azure-identity==1.19.0  # Azure authentication
 hvac==2.3.0  # HashiCorp Vault client
 tenacity==9.0.0  # Retry logic for key vault operations
-cryptography==44.0.0  # Cryptographic operations
+cryptography==44.0.1  # Cryptographic operations
