@@ -1039,7 +1039,7 @@ const Settings = () => {
       const formData = new FormData();
       formData.append('file', logoFile);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'}/settings/upload-logo`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/settings/upload-logo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -1318,9 +1318,9 @@ const Settings = () => {
                       <div className="space-y-2">
                         <Label>{t('settings.logo_preview')}</Label>
                         <div className="flex items-center space-x-4">
-                          <img 
-                            src={logoPreview || `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}${companyInfo.logo}`} 
-                            alt="Company Logo" 
+                          <img
+                            src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
+                            alt="Company Logo"
                             className="w-16 h-16 object-contain border rounded"
                             onError={(e) => {
                               console.error('Failed to load logo image:', e);
