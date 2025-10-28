@@ -1587,8 +1587,40 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             console.log("No change in payment amount, skipping payment processing");
           }
           
+          // Handle attachment upload if there's an attachment
+          if (invoiceAttachment && invoice.id) {
+            console.log("🔍 HANDLING ATTACHMENT UPLOAD for updated invoice");
+            try {
+              console.log("✅ STARTING ATTACHMENT UPLOAD for updated invoice:", invoice.id);
+              const uploadResult = await invoiceApi.uploadAttachment(invoice.id, invoiceAttachment);
+              console.log("✅ UPLOAD API CALL COMPLETED - Upload result:", uploadResult);
+
+              // Update local state to reflect the attachment
+              setAttachmentInfo({
+                has_attachment: true,
+                filename: uploadResult.filename
+              });
+
+              // Clear the uploaded attachment from state since it's now saved
+              setInvoiceAttachment(null);
+
+              // Notify parent component about the update if callback exists
+              if (onInvoiceUpdate) {
+                const updatedInvoice = await invoiceApi.getInvoice(invoice.id);
+                onInvoiceUpdate(updatedInvoice);
+              }
+
+              console.log("✅ ATTACHMENT UPLOAD COMPLETED for updated invoice");
+
+            } catch (attachmentError) {
+              console.error("❌ ATTACHMENT UPLOAD FAILED for updated invoice:", attachmentError);
+              toast.error("Invoice updated successfully, but attachment upload failed");
+              // Don't return here, continue with success flow
+            }
+          }
+
           toast.success("Invoice updated successfully!");
-          
+
           // Redirect to invoices list after successful update
           navigate('/invoices');
           return;
@@ -1602,7 +1634,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         const subtotal = data.items.reduce((sum, item) => 
           sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0
         );
-        
+
         let discount = 0;
         if (data.discountType === "rule" && appliedDiscountRule) {
           if (appliedDiscountRule.discount_type === "percentage") {
@@ -1615,7 +1647,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         } else {
           discount = Math.min(data.discountValue || 0, subtotal);
         }
-        
+
         const totalAmount = Math.max(0, subtotal - discount);
 
         // Prepare request payload for new invoice
@@ -1685,7 +1717,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             console.log("✅ STARTING ATTACHMENT UPLOAD for new invoice:", newInvoice.id);
             const uploadResult = await invoiceApi.uploadAttachment(newInvoice.id, invoiceAttachment);
             console.log("✅ UPLOAD API CALL COMPLETED - Upload result:", uploadResult);
-            
+
             // Update attachment info and preview invoice
             setAttachmentInfo({
               has_attachment: true,
@@ -4184,8 +4216,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               {invoiceAttachment.name}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {t('invoices.size')}: {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB
-                              {(invoice?.id || previewInvoice?.id) && " • Click download to open the file"}
+                              {t('invoices.size')}: {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB • {t('invoices.attachment_ready_to_save')}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -4212,59 +4243,6 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               }}
                             >
                               <Eye className="w-4 h-4 mr-2" />
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="default"
-                              onClick={() => {
-                                const invoiceId = invoice?.id || previewInvoice?.id;
-                                if (!invoiceId) {
-                                  toast.error(t('invoices.save_invoice_first'));
-                                  return;
-                                }
-                                
-                                const token = localStorage.getItem('token');
-                                const tenantId = localStorage.getItem('selected_tenant_id') || 
-                                  (() => {
-                                    try {
-                                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                                      return user.tenant_id?.toString();
-                                    } catch { return undefined; }
-                                  })();
-                                
-                                fetch(`${API_BASE_URL}/invoices/${invoiceId}/download-attachment`, {
-                                  method: 'GET',
-                                  headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'X-Tenant-ID': tenantId || '1'
-                                  }
-                                })
-                                .then(response => {
-                                  if (!response.ok) {
-                                    throw new Error(`Download failed: ${response.status}`);
-                                  }
-                                  return response.blob();
-                                })
-                                .then(blob => {
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  const filename = invoice?.attachment_filename || previewInvoice?.attachment_filename || 'attachment.pdf';
-                                  a.download = filename;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  window.URL.revokeObjectURL(url);
-                                  document.body.removeChild(a);
-                                })
-                                .catch(error => {
-                                  console.error('Download failed:', error);
-                                  toast.error(t('invoices.download_failed'));
-                                });
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              {t('invoices.download')}
                             </Button>
                           </div>
                         </div>

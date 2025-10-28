@@ -243,20 +243,24 @@ async def create_invoice(
         
         # Create history entry for invoice creation
         from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
+        from utils.audit_sanitizer import sanitize_history_values
+
+        current_values = {
+            'number': db_invoice.number,
+            'amount': db_invoice.amount,
+            'currency': db_invoice.currency,
+            'status': db_invoice.status,
+            'due_date': db_invoice.due_date.isoformat() if db_invoice.due_date else None,
+            'notes': db_invoice.notes  # This will be sanitized
+        }
+        
         creation_history = InvoiceHistoryModel(
             invoice_id=db_invoice.id,
             user_id=current_user.id,
             action='creation',
             details=f'Invoice {db_invoice.number} created',
             previous_values=None,
-            current_values={
-                'number': db_invoice.number,
-                'amount': db_invoice.amount,
-                'currency': db_invoice.currency,
-                'status': db_invoice.status,
-                'due_date': db_invoice.due_date.isoformat() if db_invoice.due_date else None,
-                'notes': db_invoice.notes
-            }
+            current_values=sanitize_history_values(current_values)
         )
         db.add(creation_history)
         
@@ -270,7 +274,10 @@ async def create_invoice(
         except Exception as e:
             logger.warning(f"Failed to send invoice creation notification: {str(e)}")
         
-        # Log audit event
+        # Log audit event (sanitize sensitive data)
+        from utils.audit_sanitizer import sanitize_for_context
+        audit_details = sanitize_for_context(invoice.model_dump(), 'invoice_creation')
+
         log_audit_event(
             db=db,
             user_id=current_user.id,
@@ -279,7 +286,7 @@ async def create_invoice(
             resource_type="invoice",
             resource_id=str(db_invoice.id),
             resource_name=f"Invoice {db_invoice.number}",
-            details=invoice.model_dump(),
+            details=audit_details,
             status="success"
         )
         
@@ -1069,8 +1076,8 @@ async def read_invoice(
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
             "items": items_data,
             "show_discount_in_pdf": invoice.show_discount_in_pdf,
-            "has_attachment": bool(invoice.attachment_filename) if invoice.attachment_filename is not None else False,
-            "attachment_filename": invoice.attachment_filename if invoice.attachment_filename is not None else None,
+            "has_attachment": len(new_attachments) > 0 or bool(invoice.attachment_filename),
+            "attachment_filename": new_attachments[0].filename if new_attachments else invoice.attachment_filename,
             "attachments": [{
                 "id": att.id,
                 "filename": att.filename,
@@ -1376,29 +1383,35 @@ async def update_invoice(
 
         # Only create history entry if there are actual changes
         if changes and len(changes) > 0:
+            from utils.audit_sanitizer import sanitize_history_values
+
+            previous_values = {
+                'currency': old_currency,
+                'discount_value': old_discount_value,
+                'discount_type': old_discount_type,
+                'amount': old_amount,
+                'notes': old_notes,  # This will be sanitized
+                'client_id': old_client_id,
+                'show_discount_in_pdf': old_show_discount_in_pdf
+            }
+
+            current_values = {
+                'currency': db_invoice.currency,
+                'discount_value': db_invoice.discount_value,
+                'discount_type': db_invoice.discount_type,
+                'amount': db_invoice.amount,
+                'notes': db_invoice.notes,  # This will be sanitized
+                'show_discount_in_pdf': db_invoice.show_discount_in_pdf,
+                'client_id': db_invoice.client_id
+            }
+
             history_entry = InvoiceHistoryModel(
                 invoice_id=invoice_id,
                 user_id=current_user.id,
                 action='update',
                 details='; '.join(changes),
-                previous_values={
-                    'currency': old_currency,
-                    'discount_value': old_discount_value,
-                    'discount_type': old_discount_type,
-                    'amount': old_amount,
-                    'notes': old_notes,
-                    'client_id': old_client_id,
-                    'show_discount_in_pdf': old_show_discount_in_pdf
-                },
-                current_values={
-                    'currency': db_invoice.currency,
-                    'discount_value': db_invoice.discount_value,
-                    'discount_type': db_invoice.discount_type,
-                    'amount': db_invoice.amount,
-                    'notes': db_invoice.notes,
-                    'show_discount_in_pdf': db_invoice.show_discount_in_pdf,
-                    'client_id': db_invoice.client_id
-                }
+                previous_values=sanitize_history_values(previous_values),
+                current_values=sanitize_history_values(current_values)
             )
             db.add(history_entry)
             # Recalculate subtotal and amount based on updated items and discount
@@ -1435,12 +1448,12 @@ async def update_invoice(
                 details={"changes": changes},
                 status="success"
             )
-            
+
             # Get updated items to include in response with inventory information
             items = db.query(InvoiceItem).options(
                 joinedload(InvoiceItem.inventory_item)
             ).filter(InvoiceItem.invoice_id == invoice_id).all()
-            
+
             items_data = []
             for item in items:
                 item_data = {
@@ -1453,7 +1466,7 @@ async def update_invoice(
                     "amount": item.amount,
                     "unit_of_measure": item.unit_of_measure
                 }
-                
+
                 # Add inventory item details if linked
                 if item.inventory_item_id and item.inventory_item:
                     item_data["inventory_item"] = {
@@ -1475,15 +1488,15 @@ async def update_invoice(
                     }
                 else:
                     item_data["inventory_item"] = None
-                    
+
                 items_data.append(item_data)
-            
+
             logger.info(f"Returning {len(items_data)} items in response: {[{'id': item['id'], 'description': item['description'], 'description_length': len(item['description']) if item['description'] else 0} for item in items_data]}")
-            
+
             # Get client name and total paid for response
             client = db.query(Client).filter(Client.id == db_invoice.client_id).first()
             total_paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.invoice_id == invoice_id).scalar() or 0
-            
+
             # Convert to response format
             # Get new-style attachments for update endpoint
             from models.models_per_tenant import InvoiceAttachment
@@ -1491,7 +1504,7 @@ async def update_invoice(
                 InvoiceAttachment.invoice_id == invoice_id,
                 InvoiceAttachment.is_active == True
             ).all()
-            
+
             invoice_dict = {
                 "id": db_invoice.id,
                 "number": db_invoice.number,
@@ -1529,7 +1542,7 @@ async def update_invoice(
             items = db.query(InvoiceItem).options(
                 joinedload(InvoiceItem.inventory_item)
             ).filter(InvoiceItem.invoice_id == invoice_id).all()
-            
+
             items_data = []
             for item in items:
                 item_data = {
@@ -1542,7 +1555,7 @@ async def update_invoice(
                     "amount": item.amount,
                     "unit_of_measure": item.unit_of_measure
                 }
-                
+
                 # Add inventory item details if linked
                 if item.inventory_item_id and item.inventory_item:
                     item_data["inventory_item"] = {
@@ -1564,20 +1577,20 @@ async def update_invoice(
                     }
                 else:
                     item_data["inventory_item"] = None
-                    
+
                 items_data.append(item_data)
-            
+
             # Get client name and total paid for response
             client = db.query(Client).filter(Client.id == db_invoice.client_id).first()
             total_paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.invoice_id == invoice_id).scalar() or 0
-            
+
             # Get new-style attachments for update endpoint (no changes case)
             from models.models_per_tenant import InvoiceAttachment
             new_attachments = db.query(InvoiceAttachment).filter(
                 InvoiceAttachment.invoice_id == invoice_id,
                 InvoiceAttachment.is_active == True
             ).all()
-            
+
             return {
                 "id": db_invoice.id,
                 "number": db_invoice.number,
@@ -1633,7 +1646,7 @@ async def delete_invoice(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).first()
-        
+
         if db_invoice is None:
             raise HTTPException(
                 status_code=404,
@@ -1664,7 +1677,7 @@ async def delete_invoice(
         db_invoice.is_deleted = True
         db_invoice.deleted_at = datetime.now(timezone.utc)
         db_invoice.deleted_by = current_user.id
-        
+
         # Log the deletion in invoice history
         from models.models_per_tenant import InvoiceHistory
         history_entry = InvoiceHistory(
@@ -1675,7 +1688,6 @@ async def delete_invoice(
             current_values={"is_deleted": True, "deleted_at": db_invoice.deleted_at.isoformat()}
         )
         db.add(history_entry)
-        
         db.commit()
 
         # Audit log for soft delete
@@ -1690,7 +1702,7 @@ async def delete_invoice(
             details={"message": "Invoice moved to recycle bin"},
             status="success"
         )
-        
+
         return RecycleBinResponse(
             message="Invoice moved to recycle bin successfully",
             invoice_id=invoice_id,
@@ -1715,7 +1727,7 @@ async def send_invoice_email(
     """Send invoice via email - redirect to email service"""
     from fastapi import Request
     from fastapi.responses import RedirectResponse
-    
+
     # This endpoint redirects to the email service
     # In a real application, you might want to handle this differently
     return {
@@ -1760,14 +1772,14 @@ async def calculate_discount(
         discount_rules = db.query(DiscountRule).filter(
             DiscountRule.is_active == True
         ).order_by(DiscountRule.priority.desc(), DiscountRule.min_amount.desc()).all()
-        
+
         # Find the first applicable rule
         applicable_rule = None
         for rule in discount_rules:
             if subtotal >= rule.min_amount:
                 applicable_rule = rule
                 break
-        
+
         if not applicable_rule:
             return {
                 "discount_type": "none",
@@ -1775,13 +1787,13 @@ async def calculate_discount(
                 "discount_amount": 0,
                 "applied_rule": None
             }
-        
+
         # Calculate discount amount
         if applicable_rule.discount_type == "percentage":
             discount_amount = (subtotal * applicable_rule.discount_value) / 100
         else:  # fixed amount
             discount_amount = min(applicable_rule.discount_value, subtotal)
-        
+
         return {
             "discount_type": applicable_rule.discount_type,
             "discount_value": applicable_rule.discount_value,
@@ -1807,6 +1819,10 @@ async def get_invoice_history(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get update history for a specific invoice, including user name"""
+    # Set tenant context for proper decryption of user names
+    from models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
     try:
         from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
 
@@ -1818,25 +1834,36 @@ async def get_invoice_history(
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
 
-        # Join with User to get user name (first_name + last_name)
-        history = (
-            db.query(
-                InvoiceHistoryModel,
-                (func.coalesce(User.first_name, '') + ' ' + func.coalesce(User.last_name, '')).label("user_name")
-            )
-            .join(User, InvoiceHistoryModel.user_id == User.id)
-            .filter(
-                InvoiceHistoryModel.invoice_id == invoice_id
-            )
+        # Get history entries first
+        history_entries = (
+            db.query(InvoiceHistoryModel)
+            .filter(InvoiceHistoryModel.invoice_id == invoice_id)
             .order_by(InvoiceHistoryModel.created_at.desc())
             .all()
         )
 
+        # Get unique user IDs from history
+        user_ids = list(set(h.user_id for h in history_entries))
+
+        # Fetch users separately to ensure proper decryption
+        users = {}
+        if user_ids:
+            user_records = db.query(User).filter(User.id.in_(user_ids)).all()
+            for user in user_records:
+                # Access the encrypted fields to trigger decryption
+                first_name = user.first_name or ''
+                last_name = user.last_name or ''
+                full_name = f"{first_name} {last_name}".strip()
+                if not full_name:
+                    # Fallback to email if no name
+                    full_name = user.email or f"User {user.id}"
+                users[user.id] = full_name
+
         # Return as list of dicts with user_name
         result = []
-        for h, user_name in history:
+        for h in history_entries:
             entry = h.__dict__.copy()
-            entry["user_name"] = user_name
+            entry["user_name"] = users.get(h.user_id, f"User {h.user_id}")
             result.append(entry)
 
         # Return only the actual history entries from the database
@@ -1859,18 +1886,18 @@ async def create_invoice_history_entry(
     """Create a new history entry for an invoice"""
     try:
         from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
-        
+
         # Verify invoice exists (no tenant_id filtering needed since we're in the tenant's database)
         invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id
         ).first()
-        
+
         if not invoice:
             raise HTTPException(
                 status_code=404,
                 detail="Invoice not found"
             )
-        
+
         # Create history entry
         db_history = InvoiceHistoryModel(
             invoice_id=invoice_id,
@@ -1880,13 +1907,13 @@ async def create_invoice_history_entry(
             previous_values=history_entry.previous_values,
             current_values=history_entry.current_values
         )
-        
+
         db.add(db_history)
         db.commit()
         db.refresh(db_history)
-        
+
         return db_history
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1895,7 +1922,6 @@ async def create_invoice_history_entry(
             status_code=500,
             detail="Failed to create invoice history entry"
         )
-
 
 
 @router.get("/{invoice_id}/pdf")
@@ -1973,10 +1999,10 @@ async def upload_invoice_attachment(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).first()
-        
+
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
-        
+
         # Validate file type
         allowed_types = {
             'application/pdf': '.pdf',
@@ -1985,13 +2011,13 @@ async def upload_invoice_attachment(
             'image/jpeg': '.jpg',
             'image/png': '.png'
         }
-        
+
         if file.content_type not in allowed_types:
             raise HTTPException(
                 status_code=400,
                 detail="File type not allowed. Supported types: PDF, DOC, DOCX, JPG, PNG"
             )
-        
+
         # Enforce max file size (e.g., 10 MB)
         MAX_BYTES = 10 * 1024 * 1024
         contents = await file.read()
@@ -2002,20 +2028,20 @@ async def upload_invoice_attachment(
             )
         # Reset file to allow saving later
         await file.seek(0)
-        
+
         # Basic content sniffing for PDFs (starts with %PDF)
         if file.content_type == 'application/pdf':
             header_bytes = contents[:4]
             if header_bytes != b'%PDF':
                 raise HTTPException(status_code=400, detail="Invalid PDF file")
-        
+
         # Create tenant-scoped attachments directory
         from models.database import get_tenant_context
         tenant_id = get_tenant_context()
         tenant_folder = f"tenant_{tenant_id}" if tenant_id else "tenant_unknown"
         attachments_dir = Path("attachments") / tenant_folder / "invoices"
         attachments_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Sanitize filename and ensure safe extension
         original_name = file.filename or "attachment"
         # Remove any path components and unsafe characters
@@ -2026,7 +2052,7 @@ async def upload_invoice_attachment(
         ext_from_ct = allowed_types[file.content_type]
         ext_from_name = os.path.splitext(base_name)[1].lower()
         file_extension = ext_from_ct if ext_from_ct else (ext_from_name if ext_from_name in allowed_types.values() else ".bin")
-        
+
         # Create filename in format: invoice_<id>_<sanitized>.ext
         filename = f"invoice_{invoice_id}_{name_without_ext}{file_extension}"
         file_path = attachments_dir / filename
@@ -2034,7 +2060,7 @@ async def upload_invoice_attachment(
         # Validate file path before any file operations
         from utils.file_validation import validate_file_path
         validated_path = validate_file_path(str(file_path), must_exist=False)
-        
+
         # Remove old attachment if exists
         if invoice.attachment_path and os.path.exists(invoice.attachment_path):
             try:
@@ -2043,16 +2069,16 @@ async def upload_invoice_attachment(
                 logger.info(f"Removed old attachment: {invoice.attachment_path}")
             except Exception as e:
                 logger.warning(f"Failed to remove old attachment: {e}")
-        
+
         # Save file safely (we already validated size via in-memory read cap)
         with open(validated_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        
+
         # Update invoice with attachment info
         invoice.attachment_path = str(file_path)
         invoice.attachment_filename = file.filename
         invoice.updated_at = datetime.now(timezone.utc)
-        
+
         # Create history entry for attachment upload
         from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         history_entry = InvoiceHistoryModel(
@@ -2067,10 +2093,10 @@ async def upload_invoice_attachment(
             }
         )
         db.add(history_entry)
-        
+
         logger.info(f"🔍 BEFORE COMMIT - invoice {invoice_id}: path={file_path}, filename={file.filename}")
         logger.info(f"🔍 BEFORE COMMIT - invoice object: attachment_path={invoice.attachment_path}, attachment_filename={invoice.attachment_filename}")
-        
+
         try:
             db.commit()
             logger.info(f"✅ DATABASE COMMIT SUCCESSFUL for invoice {invoice_id}")
@@ -2078,20 +2104,20 @@ async def upload_invoice_attachment(
             logger.error(f"❌ DATABASE COMMIT FAILED for invoice {invoice_id}: {commit_error}")
             db.rollback()
             raise
-        
+
         db.refresh(invoice)
-        
+
         logger.info(f"✅ AFTER COMMIT - invoice {invoice_id}: attachment_path={invoice.attachment_path}, attachment_filename={invoice.attachment_filename}")
-        
+
         # Verify the data was saved by querying again
         verification_invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         logger.info(f"🔍 VERIFICATION QUERY - invoice {invoice_id}: attachment_path={verification_invoice.attachment_path}, attachment_filename={verification_invoice.attachment_filename}")
         logger.info(f"🔍 VERIFICATION QUERY - has_attachment would be: {bool(verification_invoice.attachment_filename)}")
-        
+
         # Also check what the API response would return
         api_has_attachment = bool(verification_invoice.attachment_filename)
         logger.info(f"🔍 API RESPONSE CHECK - has_attachment: {api_has_attachment}, attachment_filename: '{verification_invoice.attachment_filename}'")
-        
+
         logger.info(f"✅ UPLOAD ENDPOINT SUCCESS - Returning response for invoice {invoice_id}")
         return {
             "message": "Attachment uploaded successfully",
@@ -2101,7 +2127,7 @@ async def upload_invoice_attachment(
             "attachment_filename": verification_invoice.attachment_filename,
             "has_attachment": api_has_attachment
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2124,23 +2150,23 @@ async def download_invoice_attachment(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).first()
-        
+
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
-        
+
         if not invoice.attachment_path or not invoice.attachment_filename:
             raise HTTPException(status_code=404, detail="No attachment found for this invoice")
-        
+
         # Validate file path
         from utils.file_validation import validate_file_path
         validated_path = validate_file_path(invoice.attachment_path)
-        
+
         return FileResponse(
             path=validated_path,
             filename=invoice.attachment_filename,
             media_type='application/octet-stream'
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2244,27 +2270,27 @@ async def upload_invoice_attachment_new(
     try:
         # Check if user has permission
         require_non_viewer(current_user, "upload attachments")
-        
+
         # Verify invoice exists
         invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).first()
-        
+
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
-        
+
         # Basic validation
         if attachment_type and attachment_type not in ['image', 'document']:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="attachment_type must be 'image' or 'document'"
             )
-        
+
         # Default to document if not specified
         if not attachment_type:
             attachment_type = "document"
-        
+
         # Validate file type before reading
         if not file.filename:
             raise HTTPException(status_code=400, detail="Filename is required")
@@ -2273,16 +2299,16 @@ async def upload_invoice_attachment_new(
         allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'}
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(allowed_extensions)}")
-        
+
         # Read file content for validation
         file_content = await file.read()
-        
+
         if not file_content:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Empty file provided"
             )
-        
+
         # Validate file size (max 10MB)
         MAX_FILE_SIZE = 10 * 1024 * 1024
         if len(file_content) > MAX_FILE_SIZE:
@@ -2293,7 +2319,7 @@ async def upload_invoice_attachment_new(
         import uuid
         import hashlib
         from pathlib import Path
-        
+
         # Create attachments directory
         from models.database import get_tenant_context
         from utils.file_validation import validate_file_path
@@ -2305,7 +2331,7 @@ async def upload_invoice_attachment_new(
         tenant_folder = f"tenant_{tenant_id}"
         attachments_dir = Path("attachments") / tenant_folder / "invoices"
         attachments_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Generate unique filename with validated extension
         file_extension = Path(file.filename or "attachment").suffix
         if file_extension not in allowed_extensions:

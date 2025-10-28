@@ -35,6 +35,10 @@ def get_audit_logs(
 ):
     require_admin(current_user, "view audit logs")
     
+    # Set tenant context for proper decryption
+    from models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
     try:
         query = db.query(AuditLogModel)
         if user_id:
@@ -75,6 +79,10 @@ def get_audit_log(
 ):
     require_admin(current_user, "view audit logs")
     
+    # Set tenant context for proper decryption
+    from models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
     try:
         audit_log = db.query(AuditLogModel).filter(AuditLogModel.id == audit_log_id).first()
         if not audit_log:

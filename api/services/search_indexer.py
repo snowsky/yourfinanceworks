@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from models.models_per_tenant import Invoice, Client, Payment, Expense, BankStatement
 from services.search_service import search_service
@@ -39,7 +39,8 @@ class SearchIndexer:
         try:
             # Get client info
             client = connection.execute(
-                f"SELECT * FROM clients WHERE id = {target.client_id}"
+                text("SELECT * FROM clients WHERE id = :client_id"),
+                {"client_id": target.client_id}
             ).fetchone()
             
             if client:
@@ -67,7 +68,8 @@ class SearchIndexer:
             
             # Get client info
             client = connection.execute(
-                f"SELECT * FROM clients WHERE id = {target.client_id}"
+                text("SELECT * FROM clients WHERE id = :client_id"),
+                {"client_id": target.client_id}
             ).fetchone()
             
             if client:
@@ -122,13 +124,15 @@ class SearchIndexer:
         try:
             # Get invoice and client info
             invoice = connection.execute(
-                f"SELECT * FROM invoices WHERE id = {target.invoice_id}"
+                text("SELECT * FROM invoices WHERE id = :invoice_id"),
+                {"invoice_id": target.invoice_id}
             ).fetchone()
             
             client = None
             if invoice:
                 client = connection.execute(
-                    f"SELECT * FROM clients WHERE id = {invoice.client_id}"
+                    text("SELECT * FROM clients WHERE id = :client_id"),
+                    {"client_id": invoice.client_id}
                 ).fetchone()
             
             invoice_obj = None
@@ -159,13 +163,15 @@ class SearchIndexer:
         try:
             # Get invoice and client info
             invoice = connection.execute(
-                f"SELECT * FROM invoices WHERE id = {target.invoice_id}"
+                text("SELECT * FROM invoices WHERE id = :invoice_id"),
+                {"invoice_id": target.invoice_id}
             ).fetchone()
             
             client = None
             if invoice:
                 client = connection.execute(
-                    f"SELECT * FROM clients WHERE id = {invoice.client_id}"
+                    text("SELECT * FROM clients WHERE id = :client_id"),
+                    {"client_id": invoice.client_id}
                 ).fetchone()
             
             invoice_obj = None
