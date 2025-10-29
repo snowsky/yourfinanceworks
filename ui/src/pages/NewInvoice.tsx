@@ -108,6 +108,11 @@ const NewInvoice = () => {
         date: invoiceData?.date ? new Date(invoiceData.date) : new Date(),
       });
 
+      console.log('📄 PDF IMPORT - Setting attachment:', {
+        fileName: pdfFile.name,
+        fileSize: pdfFile.size,
+        fileType: pdfFile.type
+      });
       setAttachment(pdfFile);
       setShowForm(true);
 

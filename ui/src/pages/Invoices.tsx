@@ -23,7 +23,7 @@ import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 
 
 const formatStatus = (status: string) => {
-  return status.split('_').map(word => 
+  return status.split('_').map(word =>
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ');
 };
@@ -53,11 +53,13 @@ const Invoices = () => {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
+  const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
+  const [invoiceToPermanentlyDelete, setInvoiceToPermanentlyDelete] = useState<number | null>(null);
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
   const [statusFilter, setStatusFilter] = useState("all");
-  
+
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
     try {
@@ -75,7 +77,7 @@ const Invoices = () => {
     }
     return null;
   };
-  
+
   // Update tenant ID when it changes
   useEffect(() => {
     const updateTenantId = () => {
@@ -85,18 +87,18 @@ const Invoices = () => {
         setCurrentTenantId(tenantId);
       }
     };
-    
+
     updateTenantId();
-    
+
     // Listen for storage changes
     const handleStorageChange = () => {
       updateTenantId();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentTenantId]);
-  
+
   useEffect(() => {
     const fetchInvoices = async () => {
       setLoading(true);
@@ -115,10 +117,10 @@ const Invoices = () => {
         setLoading(false);
       }
     };
-    
+
     fetchInvoices();
   }, [statusFilter, currentTenantId]); // Use state variable as dependency
-  
+
   const fetchDeletedInvoices = async () => {
     try {
       setRecycleBinLoading(true);
@@ -139,7 +141,7 @@ const Invoices = () => {
 
   const confirmDeleteInvoice = async () => {
     if (!invoiceToDelete) return;
-    
+
     try {
       await invoiceApi.deleteInvoice(invoiceToDelete);
       toast.success(t('invoices.delete_success'));
@@ -183,18 +185,25 @@ const Invoices = () => {
     }
   };
 
-  const handlePermanentDelete = async (invoiceId: number) => {
-    if (!confirm('Are you sure you want to permanently delete this invoice? This action cannot be undone.')) {
-      return;
-    }
+  const handlePermanentDelete = (invoiceId: number) => {
+    console.log('📄 INVOICES PAGE handlePermanentDelete called with invoiceId:', invoiceId);
+    setInvoiceToPermanentlyDelete(invoiceId);
+    setPermanentDeleteModalOpen(true);
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!invoiceToPermanentlyDelete) return;
 
     try {
-      await api.delete(`/invoices/${invoiceId}/permanent`);
-      toast.success('Invoice permanently deleted');
+      await api.delete(`/invoices/${invoiceToPermanentlyDelete}/permanent`);
+      toast.success(t('recycleBin.invoice_permanently_deleted'));
       fetchDeletedInvoices();
     } catch (error) {
       console.error('Failed to permanently delete invoice:', error);
       toast.error('Failed to permanently delete invoice');
+    } finally {
+      setPermanentDeleteModalOpen(false);
+      setInvoiceToPermanentlyDelete(null);
     }
   };
 
@@ -222,7 +231,7 @@ const Invoices = () => {
   };
 
   const filteredInvoices = (invoices || []).filter(invoice => {
-    const matchesSearch = 
+    const matchesSearch =
       invoice.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (invoice.client_name && invoice.client_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -239,12 +248,12 @@ const Invoices = () => {
           </div>
           {canPerformAction && (
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleToggleRecycleBin}
                 className="whitespace-nowrap"
               >
-                <Trash2 className="mr-2 h-4 w-4" /> 
+                <Trash2 className="mr-2 h-4 w-4" />
                 {t('recycleBin.title')}
                 {showRecycleBin ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
               </Button>
@@ -332,8 +341,8 @@ const Invoices = () => {
                             <TableCell>{invoice.deleted_by_username || t('recycleBin.unknown')}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   onClick={() => handleRestoreInvoice(invoice.id)}
                                   className="text-green-600 hover:text-green-700 hover:bg-green-50"
@@ -341,8 +350,8 @@ const Invoices = () => {
                                 >
                                   <RotateCcw className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   onClick={() => handlePermanentDelete(invoice.id)}
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -479,11 +488,11 @@ const Invoices = () => {
                           </TableCell>
                           <TableCell>
                             <Badge className={
-                              invoice.status === 'paid' ? 'status-paid' : 
-                              invoice.status === 'pending' ? 'status-pending' : 
-                              invoice.status === 'overdue' ? 'status-overdue' :
-                              invoice.status === 'partially_paid' ? 'status-partially-paid' :
-                              'bg-muted/50 text-muted-foreground'
+                              invoice.status === 'paid' ? 'status-paid' :
+                                invoice.status === 'pending' ? 'status-pending' :
+                                  invoice.status === 'overdue' ? 'status-overdue' :
+                                    invoice.status === 'partially_paid' ? 'status-partially-paid' :
+                                      'bg-muted/50 text-muted-foreground'
                             }>
                               {formatStatus(invoice.status)}
                             </Badge>
@@ -496,16 +505,16 @@ const Invoices = () => {
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                 </Link>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   onClick={() => handleCloneInvoice(invoice.id)}
                                   title="Clone invoice"
                                 >
                                   <Copy className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   onClick={() => handleDeleteInvoice(invoice.id)}
                                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -532,6 +541,25 @@ const Invoices = () => {
 
 
       </div>
+
+      {/* Permanent Delete Modal */}
+      <AlertDialog open={permanentDeleteModalOpen} onOpenChange={setPermanentDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('invoices.permanent_delete_confirm_title', 'Permanently Delete Invoice')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('invoices.permanent_delete_confirm_description', 'Are you sure you want to permanently delete this invoice? This action cannot be undone and the invoice will be completely removed from the system.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('invoices.permanent_delete', 'Permanently Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Invoice Modal */}
       <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>

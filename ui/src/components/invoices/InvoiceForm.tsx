@@ -107,6 +107,14 @@ interface InvoiceFormProps {
 }
 
 export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialData, attachment, prefillNewClient, openNewClientOnInit }: InvoiceFormProps) {
+  console.log('📄 INVOICE FORM - Received props:', {
+    hasAttachment: !!attachment,
+    attachmentName: attachment?.name,
+    attachmentSize: attachment?.size,
+    hasInitialData: !!initialData,
+    isEdit
+  });
+  
   const navigate = useNavigate();
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -342,6 +350,17 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
           tenantApi.getTenantInfo()
         ]);
         setClients(clientsData);
+        console.log("🔍 Loaded clients:", clientsData.map(c => ({ id: c.id, name: c.name, email: c.email })));
+
+        // Check if the currently selected client exists in the loaded clients
+        const currentClientId = form.getValues("client");
+        if (currentClientId && !clientsData.find(c => c.id.toString() === currentClientId)) {
+          console.log("🔍 Current client ID not found in loaded clients, clearing selection:", currentClientId);
+          form.setValue("client", "");
+          form.clearErrors("client");
+          toast.info("The previously selected client is no longer available. Please select a client.");
+        }
+
         setAvailableDiscountRules(discountRulesData);
         setTenantInfo(tenantData);
 
@@ -439,6 +458,24 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       address: "",
       preferred_currency: tenantInfo?.default_currency || "USD",
     });
+  };
+
+  const refreshClientList = async () => {
+    try {
+      const clientsData = await clientApi.getClients();
+      setClients(clientsData);
+
+      // Check if the currently selected client still exists
+      const currentClientId = form.getValues("client");
+      if (currentClientId && !clientsData.find(c => c.id.toString() === currentClientId)) {
+        console.log("🔍 Current client no longer exists, clearing selection");
+        form.setValue("client", "");
+        form.clearErrors("client");
+        toast.info("The selected client is no longer available. Please select a different client.");
+      }
+    } catch (error) {
+      console.error("Failed to refresh client list:", error);
+    }
   };
 
 
@@ -590,7 +627,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                 form.setValue(key as any, value);
               }
             });
-            addValidation({ type: "info", message: "Draft loaded from previous session" });
+            addValidation({ type: "info", message: t('invoices.draft_loaded_from_previous_session') });
           }
         } catch (error) {
           console.error('Failed to load draft:', error);
@@ -687,6 +724,11 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     }
 
     if (attachment) {
+      console.log("🔍 SETTING ATTACHMENT FROM PROPS:", {
+        name: attachment.name,
+        size: attachment.size,
+        type: attachment.type
+      });
       setInvoiceAttachment(attachment);
       appliedSomething = true;
     }
@@ -700,6 +742,19 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       form.trigger();
     }
   }, [initialData, attachment, isEdit, form]);
+
+  // Separate useEffect to handle attachment prop changes
+  useEffect(() => {
+    if (attachment && !isEdit) {
+      console.log("🔍 ATTACHMENT PROP CHANGED - Setting attachment:", {
+        name: attachment.name,
+        size: attachment.size,
+        type: attachment.type
+      });
+      setInvoiceAttachment(attachment);
+      console.log("🔍 ATTACHMENT STATE SET - invoiceAttachment should now be:", attachment.name);
+    }
+  }, [attachment, isEdit]);
 
   // Reset form when invoice changes (for editing)
   useEffect(() => {
@@ -1299,6 +1354,38 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     console.log("🔥 onSubmit called", { isEdit, data });
     console.log("🔥 Form data validation:", form.formState.errors);
     console.log("🔥 Form is valid:", form.formState.isValid);
+
+    // Additional validation check for client
+    if (!data.client || data.client.trim() === "") {
+      console.log("🔥 Client validation failed - no client selected");
+      toast.error("Please select a client before creating the invoice");
+      form.setError("client", {
+        type: "manual",
+        message: "Client is required"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    // Check if the selected client exists in the clients list
+    const selectedClient = clients.find(c => c.id.toString() === data.client);
+    if (!selectedClient) {
+      console.log("🔥 Client validation failed - selected client not found in clients list");
+      console.log("🔥 Selected client ID:", data.client);
+      console.log("🔥 Available clients:", clients.map(c => ({ id: c.id, name: c.name })));
+
+      // Refresh the client list to make sure we have the latest data
+      await refreshClientList();
+
+      toast.error("The selected client no longer exists. Please select a different client.");
+      form.setError("client", {
+        type: "manual",
+        message: "Selected client not found. Please choose a different client."
+      });
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitting(true);
     try {
       // Update preview before submitting
@@ -1788,6 +1875,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   }, [customFields, form]);
 
 
+  console.log("🔍 InvoiceForm RENDER:", {
+    loading,
+    isEdit,
+    hasInvoiceAttachment: !!invoiceAttachment,
+    attachmentName: invoiceAttachment?.name,
+    hasAttachmentProp: !!attachment
+  });
+
   if (loading) {
     console.log("🔍 InvoiceForm: Showing loading state");
     return (
@@ -1892,6 +1987,23 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
               {!isEdit && <AutoSaveIndicator status={autoSaveStatus} lastSaved={lastSaved} />}
             </div>
 
+            {/* Show attachment indicator if PDF was uploaded */}
+            {invoiceAttachment && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-900">
+                      📄 PDF Uploaded: {invoiceAttachment.name}
+                    </p>
+                    <p className="text-xs text-green-700">
+                      Attachment will be saved with the invoice • {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <InlineValidation messages={validationMessages.filter(msg =>
               msg.message.includes('client') || msg.message.includes('Client')
             )} />
@@ -1907,13 +2019,25 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       <SmartClientSelector
                         clients={clients}
                         value={field.value}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          console.log("🔍 Client selection changed:", value);
+                          field.onChange(value);
+                          // Clear any existing client error when a client is selected
+                          if (value && value.trim() !== "") {
+                            form.clearErrors("client");
+                          }
+                        }}
                         onCreateNew={() => setShowNewClientDialog(true)}
                         placeholder={t('invoices.select_a_client')}
                         disabled={isInvoicePaid}
                       />
                     </FormControl>
                     <FormMessage />
+                    {form.formState.errors.client && (
+                      <div className="text-red-500 text-sm mt-1 font-medium bg-red-50 border border-red-200 rounded p-2">
+                        ⚠️ {form.formState.errors.client.message}
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
@@ -2503,6 +2627,30 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     {t('invoices.supported_formats')}: PDF, DOC, DOCX, JPG, PNG
                   </p>
                 </div>
+                
+                {/* Show selected attachment */}
+                {invoiceAttachment && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-900">{invoiceAttachment.name}</p>
+                        <p className="text-xs text-blue-700">
+                          {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB • Ready to upload
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setInvoiceAttachment(null)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2515,6 +2663,37 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
   return (
     <div className="w-full px-6 py-6 space-y-6">
+      
+      {/* Global attachment indicator */}
+      {invoiceAttachment && !isEdit && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <FileText className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-gray-900">
+                📄 PDF Uploaded Successfully
+              </h4>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">{invoiceAttachment.name}</span> • {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                This file will be attached to your invoice when you save it.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setInvoiceAttachment(null)}
+              className="text-gray-500 hover:text-red-600"
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Form mode selector for new invoices */}
       {!isEdit && (
@@ -2570,7 +2749,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         // Quick Create Form (Single Page)
         <Card>
           <CardHeader>
-            <CardTitle>Create Invoice - Quick Mode</CardTitle>
+            <CardTitle>{t('invoices.create_invoice_quick_mode')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -2591,8 +2770,13 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             clients={clients}
                             value={field.value}
                             onValueChange={(value) => {
+                              console.log("🔍 Client selection changed (form 2):", value);
                               field.onChange(value);
                               form.trigger("client");
+                              // Clear any existing client error when a client is selected
+                              if (value && value.trim() !== "") {
+                                form.clearErrors("client");
+                              }
                               const selectedClient = clients.find(c => c.id.toString() === value);
                               if (selectedClient?.preferred_currency && !isInvoicePaid) {
                                 form.setValue("currency", selectedClient.preferred_currency);
@@ -2613,6 +2797,11 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                           </Button>
                         </div>
                         <FormMessage />
+                        {form.formState.errors.client && (
+                          <div className="text-red-500 text-sm mt-1 font-medium bg-red-50 border border-red-200 rounded p-2">
+                            ⚠️ {form.formState.errors.client.message}
+                          </div>
+                        )}
                       </FormItem>
                     )}
                   />
@@ -3025,8 +3214,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     {/* Discount Rule Indicator */}
                     {form.watch("discountType") === "rule" && appliedDiscountRule && (
                       <div className={`text-sm p-4 rounded-md border ${calculateSubtotal() >= appliedDiscountRule.min_amount
-                          ? "text-blue-600 bg-blue-50 border-blue-200"
-                          : "text-orange-600 bg-orange-50 border-orange-200"
+                        ? "text-blue-600 bg-blue-50 border-blue-200"
+                        : "text-orange-600 bg-orange-50 border-orange-200"
                         }`}>
                         <div className="flex items-center justify-between">
                           <div>
@@ -3112,7 +3301,16 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                   <Button
                     type="submit"
                     disabled={submitting}
-                    onClick={() => console.log("🔥 Create Invoice button clicked")}
+                    onClick={async () => {
+                      console.log("🔥 Create Invoice button clicked");
+                      // Trigger validation before submit
+                      const isValid = await form.trigger();
+                      console.log("🔥 Form validation result:", isValid);
+                      console.log("🔥 Form errors:", form.formState.errors);
+                      if (!isValid) {
+                        console.log("🔥 Form validation failed, preventing submit");
+                      }
+                    }}
                   >
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('invoices.create_invoice')}
@@ -3230,8 +3428,13 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                 clients={clients}
                                 value={field.value}
                                 onValueChange={(value) => {
+                                  console.log("🔍 Client selection changed (form 3):", value);
                                   field.onChange(value);
                                   form.trigger("client");
+                                  // Clear any existing client error when a client is selected
+                                  if (value && value.trim() !== "") {
+                                    form.clearErrors("client");
+                                  }
                                   const selectedClient = clients.find(c => c.id.toString() === value);
                                   if (selectedClient?.preferred_currency && !isInvoicePaid) {
                                     form.setValue("currency", selectedClient.preferred_currency);
@@ -3254,6 +3457,11 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               )}
                             </div>
                             <FormMessage />
+                            {form.formState.errors.client && (
+                              <div className="text-red-500 text-sm mt-1 font-medium bg-red-50 border border-red-200 rounded p-2">
+                                ⚠️ {form.formState.errors.client.message}
+                              </div>
+                            )}
                           </FormItem>
                         )}
                       />
@@ -3829,8 +4037,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                       {/* Discount Rule Indicator */}
                       {form.watch("discountType") === "rule" && appliedDiscountRule && (
                         <div className={`text-sm p-4 rounded-md border ${calculateSubtotal() >= appliedDiscountRule.min_amount
-                            ? "text-blue-600 bg-blue-50 border-blue-200"
-                            : "text-orange-600 bg-orange-50 border-orange-200"
+                          ? "text-blue-600 bg-blue-50 border-blue-200"
+                          : "text-orange-600 bg-orange-50 border-orange-200"
                           }`}>
                           <div className="font-medium mb-2">
                             {calculateSubtotal() >= appliedDiscountRule.min_amount ? t('invoices.applied_discount_rule') : t('invoices.discount_rule_not_applied')}
@@ -3843,8 +4051,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             <div><span className="font-medium">{t('invoices.discount_amount')}:</span> -${calculateDiscount().toFixed(2)}</div>
                           </div>
                           <div className={`text-xs mt-2 pt-2 border-t ${calculateSubtotal() >= appliedDiscountRule.min_amount
-                              ? "text-blue-500 border-blue-200"
-                              : "text-orange-500 border-orange-200"
+                            ? "text-blue-500 border-blue-200"
+                            : "text-orange-500 border-orange-200"
                             }`}>
                             {calculateSubtotal() >= appliedDiscountRule.min_amount ? t('invoices.this_discount_rule_was_automatically_applied_based_on_your_invoice_subtotal') : t('invoices.this_discount_rule_requires_a_minimum_subtotal_of', { amount: appliedDiscountRule.min_amount.toFixed(2) })}
                           </div>
@@ -4039,6 +4247,30 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             {t('invoices.supported_formats')}: PDF, DOC, DOCX, JPG, PNG
                           </p>
                         </div>
+                        
+                        {/* Show selected attachment for new invoices */}
+                        {invoiceAttachment && (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-600" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-blue-900">{invoiceAttachment.name}</p>
+                                <p className="text-xs text-blue-700">
+                                  {(invoiceAttachment.size / 1024 / 1024).toFixed(2)} MB • Ready to upload
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setInvoiceAttachment(null)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {isEdit && (
@@ -4217,6 +4449,14 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                         )}
 
                       {/* Show uploaded attachment for new invoices */}
+                      {(() => {
+                        console.log("🔍 ATTACHMENT DISPLAY CHECK:", {
+                          hasInvoiceAttachment: !!invoiceAttachment,
+                          attachmentName: invoiceAttachment?.name,
+                          isEdit: isEdit
+                        });
+                        return null;
+                      })()}
                       {invoiceAttachment && (
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 p-4 bg-white rounded-lg border border-blue-200 shadow-sm">

@@ -68,6 +68,8 @@ async def create_invoice(
     current_user: MasterUser = Depends(get_current_user)
 ):
     logger.info("Invoice create endpoint called")
+    logger.info(f"Invoice data received: {invoice}")
+    logger.info(f"Current user: {current_user.email if current_user else 'None'}")
     # Check if user has permission to create invoices
     require_non_viewer(current_user, "create invoices")
     
@@ -396,6 +398,7 @@ async def create_invoice(
             InvoiceAttachment.is_active == True
         ).all()
 
+        logger.info(f"Invoice created successfully with ID: {invoice.id}")
         return {
             "id": invoice.id,
             "number": invoice.number,
@@ -430,7 +433,8 @@ async def create_invoice(
             } for att in new_attachments],
             "attachment_count": len(new_attachments)
         }
-    except HTTPException:
+    except HTTPException as he:
+        logger.error(f"HTTPException in create_invoice: {he.status_code} - {he.detail}")
         raise
     except Exception as e:
         logger.error(f"Error in create_invoice: {str(e)}")

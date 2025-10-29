@@ -321,6 +321,8 @@
   "invoices": {
     "title": "Factures",
     "new_invoice": "Nouvelle Facture",
+    "create_invoice_quick_mode": "Créer une Facture - Mode Rapide",
+    "draft_loaded_from_previous_session": "Brouillon chargé de la session précédente",
     "inventory_invoice_description": "Créer une nouvelle facture avec intégration d'inventaire - sélectionnez des articles de votre catalogue d'inventaire",
     "edit_invoice": "Modifier la Facture",
     "clone_invoice": "Cloner",

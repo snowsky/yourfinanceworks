@@ -29,6 +29,7 @@ const RecycleBin = () => {
   const [loading, setLoading] = useState(true);
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
+  const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDeletedInvoices();
@@ -59,8 +60,11 @@ const RecycleBin = () => {
   };
 
   const handlePermanentDelete = (invoiceId: number) => {
+    console.log('🗑️ RECYCLE BIN handlePermanentDelete called with invoiceId:', invoiceId);
+    console.log('🗑️ RECYCLE BIN Setting modal state to true');
     setInvoiceToDelete(invoiceId);
     setPermanentDeleteModalOpen(true);
+    console.log('🗑️ RECYCLE BIN Modal state set, invoiceToDelete:', invoiceId, 'modalOpen:', true);
   };
 
   const confirmPermanentDelete = async () => {
@@ -87,11 +91,11 @@ const RecycleBin = () => {
     }
   };
 
-  const handleEmptyRecycleBin = async () => {
-    if (!confirm(t('recycleBin.confirm_empty_recycle_bin'))) {
-      return;
-    }
+  const handleEmptyRecycleBin = () => {
+    setEmptyRecycleBinModalOpen(true);
+  };
 
+  const confirmEmptyRecycleBin = async () => {
     try {
       await api.post('/invoices/recycle-bin/empty');
       toast.success(t('recycleBin.recycle_bin_emptied_successfully'));
@@ -99,6 +103,8 @@ const RecycleBin = () => {
     } catch (error) {
       console.error('Failed to empty recycle bin:', error);
       toast.error(t('recycleBin.failed_to_empty_recycle_bin'));
+    } finally {
+      setEmptyRecycleBinModalOpen(false);
     }
   };
 
@@ -114,8 +120,8 @@ const RecycleBin = () => {
             <p className="text-muted-foreground">{t('recycleBin.description')}</p>
           </div>
           {deletedInvoices.length > 0 && (
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleEmptyRecycleBin}
               className="sm:self-end whitespace-nowrap"
             >
@@ -124,7 +130,7 @@ const RecycleBin = () => {
             </Button>
           )}
         </div>
-        
+
         <Card className="slide-in">
           <CardHeader className="pb-3">
             <CardTitle>{t('recycleBin.deleted_invoices')}</CardTitle>
@@ -167,8 +173,8 @@ const RecycleBin = () => {
                         <TableCell>{invoice.deleted_by_username || t('recycleBin.unknown')}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handleRestore(invoice.id)}
                               className="text-green-600 hover:text-green-700 hover:bg-green-50"
@@ -176,8 +182,8 @@ const RecycleBin = () => {
                             >
                               <RotateCcw className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => handlePermanentDelete(invoice.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -219,6 +225,25 @@ const RecycleBin = () => {
             <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t('invoices.permanent_delete', 'Permanently Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Empty Recycle Bin Modal */}
+      <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('recycleBin.empty_recycle_bin_confirm_title', 'Empty Recycle Bin')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('recycleBin.empty_recycle_bin_confirm_description', 'Are you sure you want to permanently delete all invoices in the recycle bin? This action cannot be undone and all deleted invoices will be completely removed from the system.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEmptyRecycleBin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('recycleBin.empty_recycle_bin', 'Empty Recycle Bin')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

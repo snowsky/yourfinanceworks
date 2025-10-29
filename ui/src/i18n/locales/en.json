@@ -378,6 +378,8 @@
     "title": "Invoices",
     "description": "Create and manage your invoices",
     "new_invoice": "New Invoice",
+    "create_invoice_quick_mode": "Create Invoice - Quick Mode",
+    "draft_loaded_from_previous_session": "Draft loaded from previous session",
     "inventory_invoice_description": "Create a new invoice with inventory integration - select items from your inventory catalog",
     "edit_invoice": "Edit Invoice",
     "clone_invoice": "Clone",
@@ -1223,6 +1225,8 @@
     "failed_to_permanently_delete_invoice": "Failed to permanently delete invoice",
     "failed_to_load_deleted_invoices": "Failed to load deleted invoices",
     "confirm_empty_recycle_bin": "Are you sure you want to permanently delete ALL invoices in the recycle bin? This action cannot be undone.",
+    "empty_recycle_bin_confirm_title": "Empty Recycle Bin",
+    "empty_recycle_bin_confirm_description": "Are you sure you want to permanently delete all invoices in the recycle bin? This action cannot be undone and all deleted invoices will be completely removed from the system.",
     "recycle_bin_emptied_successfully": "Recycle bin emptied successfully",
     "failed_to_empty_recycle_bin": "Failed to empty recycle bin"
   },

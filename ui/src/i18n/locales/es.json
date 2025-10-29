@@ -322,6 +322,8 @@
     "title": "Facturas",
     "description": "Crear y gestionar tus facturas",
     "new_invoice": "Nueva Factura",
+    "create_invoice_quick_mode": "Crear Factura - Modo Rápido",
+    "draft_loaded_from_previous_session": "Borrador cargado de la sesión anterior",
     "inventory_invoice_description": "Crear una nueva factura con integración de inventario - seleccione artículos de su catálogo de inventario",
     "edit_invoice": "Editar Factura",
     "clone_invoice": "Clonar",

@@ -592,8 +592,8 @@ async def delete_user(
     master_db.delete(user)
     master_db.commit()
     
-    # Log audit event
-    log_audit_event(
+    # Log audit event in master database
+    log_audit_event_master(
         db=master_db,
         user_id=current_user.id,
         user_email=current_user.email,
@@ -602,6 +602,7 @@ async def delete_user(
         resource_id=str(user_id),
         resource_name=f"{user.first_name} {user.last_name}",
         details={"deleted_user_email": user.email},
+        tenant_id=current_user.tenant_id,
         status="success"
     )
     
