@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, date, timezone, timedelta
@@ -897,38 +897,95 @@ async def upload_receipt(
         contents = await file.read()
         if len(contents) > MAX_BYTES:
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB")
-        await file.seek(0)
 
+        # Get tenant context
         from models.database import get_tenant_context
         tenant_id = get_tenant_context()
-        tenant_folder = f"tenant_{tenant_id}" if tenant_id else "tenant_unknown"
-        receipts_dir = Path("attachments") / tenant_folder / "expenses"
-        receipts_dir.mkdir(parents=True, exist_ok=True)
+        if not tenant_id:
+            raise HTTPException(status_code=500, detail="Tenant context not available")
 
+        # Sanitize filename
         original_name = file.filename or "receipt"
         base_name = os.path.basename(original_name)
         base_name = re.sub(r"[^A-Za-z0-9._-]", "_", base_name)
-        name_without_ext = os.path.splitext(base_name)[0][:100]
-        ext_from_ct = allowed_types[file.content_type]
-        ext_from_name = os.path.splitext(base_name)[1].lower()
-        file_extension = ext_from_ct if ext_from_ct else (ext_from_name if ext_from_name in allowed_types.values() else ".bin")
-
-        # Use UUID to avoid filename collisions
-        unique_suffix = str(uuid.uuid4())
-        filename = f"expense_{expense_id}_{name_without_ext}_{unique_suffix}{file_extension}"
-        file_path = receipts_dir / filename
 
         # Enforce maximum of 10 attachments
         existing_count = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense_id).count()
         if existing_count >= 10:
             raise HTTPException(status_code=400, detail="Maximum of 10 attachments per expense")
 
-        # Validate file path before writing
-        from utils.file_validation import validate_file_path
-        validated_path = validate_file_path(str(file_path), must_exist=False)
-
-        with open(validated_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Initialize cloud storage service
+        from services.cloud_storage_service import CloudStorageService
+        from storage_config.cloud_storage_config import get_cloud_storage_config
+        
+        try:
+            cloud_config = get_cloud_storage_config()
+            cloud_storage_service = CloudStorageService(db, cloud_config)
+            
+            # Store file using cloud storage with automatic fallback
+            storage_result = await cloud_storage_service.store_file(
+                file_content=contents,
+                tenant_id=str(tenant_id),
+                item_id=expense_id,
+                attachment_type="expenses",
+                original_filename=base_name,
+                user_id=current_user.id,
+                metadata={
+                    'content_type': file.content_type,
+                    'expense_id': expense_id
+                }
+            )
+            
+            if not storage_result.success:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to store file: {storage_result.error_message}"
+                )
+            
+            # Determine storage location and file path
+            if storage_result.file_url:
+                # Cloud storage - use file_key as path
+                file_path = storage_result.file_key
+                file_size = storage_result.file_size or len(contents)
+                is_cloud_stored = True
+            else:
+                # Local storage fallback - construct traditional path
+                tenant_folder = f"tenant_{tenant_id}"
+                receipts_dir = Path("attachments") / tenant_folder / "expenses"
+                name_without_ext = os.path.splitext(base_name)[0][:100]
+                ext_from_ct = allowed_types[file.content_type]
+                unique_suffix = str(uuid.uuid4())
+                filename = f"expense_{expense_id}_{name_without_ext}_{unique_suffix}{ext_from_ct}"
+                file_path = str(receipts_dir / filename)
+                file_size = len(contents)
+                is_cloud_stored = False
+            
+            logger.info(f"File stored successfully: {file_path} (cloud: {is_cloud_stored})")
+            
+        except Exception as e:
+            logger.error(f"Cloud storage service error: {e}")
+            # Fallback to local storage
+            tenant_folder = f"tenant_{tenant_id}"
+            receipts_dir = Path("attachments") / tenant_folder / "expenses"
+            receipts_dir.mkdir(parents=True, exist_ok=True)
+            
+            name_without_ext = os.path.splitext(base_name)[0][:100]
+            ext_from_ct = allowed_types[file.content_type]
+            unique_suffix = str(uuid.uuid4())
+            filename = f"expense_{expense_id}_{name_without_ext}_{unique_suffix}{ext_from_ct}"
+            file_path = receipts_dir / filename
+            
+            # Validate file path before writing
+            from utils.file_validation import validate_file_path
+            validated_path = validate_file_path(str(file_path), must_exist=False)
+            
+            with open(validated_path, "wb") as buffer:
+                buffer.write(contents)
+            
+            file_path = str(file_path)
+            file_size = len(contents)
+            is_cloud_stored = False
+            logger.info(f"File stored locally as fallback: {file_path}")
 
         # Save as attachment record
         from models.models_per_tenant import ExpenseAttachment as EAtt
@@ -936,8 +993,8 @@ async def upload_receipt(
             expense_id=expense_id,
             filename=file.filename,
             content_type=file.content_type,
-            size_bytes=os.path.getsize(file_path),
-            file_path=str(file_path),
+            size_bytes=file_size,
+            file_path=file_path,
             uploaded_by=current_user.id,
         )
         db.add(attachment)
@@ -979,7 +1036,7 @@ async def upload_receipt(
         return {
             "message": "Attachment uploaded successfully",
             "filename": file.filename,
-            "size": os.path.getsize(file_path),
+            "size": file_size,
             "file_path": str(file_path),
         }
     except HTTPException:
@@ -1077,6 +1134,7 @@ async def delete_expense_attachment(
     att = db.query(ExpenseAttachment).filter(ExpenseAttachment.id == attachment_id, ExpenseAttachment.expense_id == expense_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    
     # Prevent deleting attachments for expenses already analyzed as done
     try:
         exp = db.query(Expense).filter(Expense.id == expense_id).first()
@@ -1086,12 +1144,50 @@ async def delete_expense_attachment(
         raise
     except Exception as e:
         logger.warning(f"Failed to verify expense status before deleting attachment: {e}")
-    # Try to remove file from disk
+    
+    # Try to remove file from storage (cloud or local)
     try:
-        if att.file_path and os.path.exists(att.file_path):
-            os.remove(att.file_path)
+        if att.file_path:
+            # Check if this is a cloud storage file
+            if not att.file_path.startswith('/') and not att.file_path.startswith('attachments'):
+                # This is likely a cloud storage file key - delete from cloud storage
+                try:
+                    from services.cloud_storage_service import CloudStorageService
+                    from storage_config.cloud_storage_config import get_cloud_storage_config
+                    from models.database import get_tenant_context
+                    
+                    tenant_id = get_tenant_context()
+                    if tenant_id:
+                        cloud_config = get_cloud_storage_config()
+                        cloud_storage_service = CloudStorageService(db, cloud_config)
+                        
+                        # Delete file from cloud storage
+                        delete_result = await cloud_storage_service.delete_file(
+                            file_key=att.file_path,
+                            tenant_id=str(tenant_id),
+                            user_id=current_user.id
+                        )
+                        
+                        if delete_result.success:
+                            logger.info(f"Successfully deleted file from cloud storage: {att.file_path}")
+                        else:
+                            logger.warning(f"Failed to delete file from cloud storage: {delete_result.error_message}")
+                    else:
+                        logger.warning("No tenant context available for cloud storage deletion")
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to delete file from cloud storage: {e}")
+            else:
+                # Local file - delete from disk
+                if os.path.exists(att.file_path):
+                    os.remove(att.file_path)
+                    logger.info(f"Successfully deleted local file: {att.file_path}")
+                else:
+                    logger.warning(f"Local file not found: {att.file_path}")
     except Exception as e:
         logger.warning(f"Failed to remove attachment file: {e}")
+    
+    # Delete attachment record from database
     db.delete(att)
     db.commit()
     return None
@@ -1104,21 +1200,89 @@ async def download_expense_attachment(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
+    # Set tenant context for encryption operations
+    from models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    logger.info(f"Downloading attachment {attachment_id} for expense {expense_id}, tenant {current_user.tenant_id}")
+
     att = db.query(ExpenseAttachment).filter(
         ExpenseAttachment.id == attachment_id,
         ExpenseAttachment.expense_id == expense_id
     ).first()
     if not att:
+        logger.error(f"Attachment {attachment_id} not found for expense {expense_id}")
         raise HTTPException(status_code=404, detail="Attachment not found")
     if not att.file_path:
+        logger.error(f"Attachment {attachment_id} has no file_path")
         raise HTTPException(status_code=404, detail="Attachment file not found")
 
-    # Validate file path before serving
-    from utils.file_validation import validate_file_path
-    validated_path = validate_file_path(att.file_path)
+    logger.info(f"Attachment found: id={att.id}, file_path='{att.file_path}', filename='{att.filename}'")
 
-    media_type = att.content_type or 'application/octet-stream'
-    return FileResponse(path=validated_path, filename=att.filename, media_type=media_type)
+    # Check if this is a cloud storage file (file_path doesn't start with local path)
+    if not att.file_path.startswith('/') and not att.file_path.startswith('attachments'):
+        # This is a cloud storage file - download directly using boto3
+        try:
+            import boto3
+            from botocore.config import Config
+            import os
+            from io import BytesIO
+
+            logger.info(f"Downloading S3 file directly: key='{att.file_path}'")
+
+            # Get AWS credentials from environment
+            aws_access_key = os.getenv('AWS_S3_ACCESS_KEY_ID')
+            aws_secret_key = os.getenv('AWS_S3_SECRET_ACCESS_KEY')
+            aws_region = os.getenv('AWS_S3_REGION', 'us-east-1')
+            bucket_name = os.getenv('AWS_S3_BUCKET_NAME')
+
+            if not all([aws_access_key, aws_secret_key, bucket_name]):
+                logger.error("Missing AWS S3 configuration")
+                raise Exception("AWS S3 configuration incomplete")
+
+            # Create S3 client
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key,
+                region_name=aws_region,
+                config=Config(signature_version='s3v4')
+            )
+
+            # Download file content
+            response = s3_client.get_object(Bucket=bucket_name, Key=att.file_path)
+
+            file_content = response['Body'].read()
+            content_length = len(file_content)
+
+            logger.info(f"Downloaded S3 file: size={content_length}, type={response.get('ContentType', 'application/octet-stream')}")
+
+            # Return file content directly
+            media_type = att.content_type or response.get('ContentType', 'application/octet-stream')
+
+            return StreamingResponse(
+                BytesIO(file_content),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"attachment; filename={att.filename}",
+                    "Content-Length": str(content_length)
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"S3 download exception: {e}")
+            # Fall back to local file handling
+            raise Exception(f"S3 download error: {e}")
+
+    # Local file or cloud storage fallback - serve directly
+    try:
+        from utils.file_validation import validate_file_path
+        validated_path = validate_file_path(att.file_path)
+        media_type = att.content_type or 'application/octet-stream'
+        return FileResponse(path=validated_path, filename=att.filename, media_type=media_type)
+    except Exception as e:
+        logger.error(f"Failed to serve local file: {e}")
+        raise HTTPException(status_code=404, detail="Attachment file not accessible")
 
 
 # Expense Analytics Endpoints

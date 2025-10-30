@@ -171,6 +171,43 @@ class CircuitBreaker:
             self._record_failure()
             raise e
 
+    async def call_async(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Call an async function through the circuit breaker.
+
+        Args:
+            func: The async function to call
+            *args, **kwargs: Arguments to pass to the function
+
+        Returns:
+            Result of the function call
+
+        Raises:
+            CircuitBreakerOpenException: If circuit is OPEN
+            Exception: Any exception raised by the function
+        """
+        if self._state == CircuitBreakerState.OPEN:
+            if self._should_attempt_reset():
+                logger.info(f"Circuit breaker {self.name} attempting recovery")
+                self._state = CircuitBreakerState.HALF_OPEN
+                self._success_count = 0
+            else:
+                raise CircuitBreakerOpenException(
+                    self.name, self._failure_count, self._last_failure_time
+                )
+
+        try:
+            result = await func(*args, **kwargs)
+            self._record_success()
+            return result
+        except self.expected_exception as e:
+            self._record_failure()
+            raise e
+        except Exception as e:
+            # For unexpected exceptions, we still record as failure but re-raise as-is
+            self._record_failure()
+            raise e
+
     def __call__(self, func: Callable) -> Callable:
         """
         Decorator to wrap a function with circuit breaker protection.
@@ -244,6 +281,10 @@ class CloudProviderCircuitBreaker:
     def call(self, func: Callable, *args, **kwargs) -> Any:
         """Execute function through circuit breaker."""
         return self.circuit_breaker.call(func, *args, **kwargs)
+
+    async def call_async(self, func: Callable, *args, **kwargs) -> Any:
+        """Execute async function through circuit breaker."""
+        return await self.circuit_breaker.call_async(func, *args, **kwargs)
 
     def get_health_status(self) -> dict:
         """Get health status."""

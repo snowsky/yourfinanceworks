@@ -76,12 +76,18 @@ class AttachmentResponse(AttachmentBase):
     """Response schema for attachment data"""
     id: int = Field(..., description="Attachment ID")
     item_id: int = Field(..., description="Inventory item ID")
-    file_path: str = Field(..., description="Relative file path")
-    file_hash: str = Field(..., description="SHA-256 file hash")
+    file_path: str = Field(..., description="Relative file path or cloud storage key")
+    file_hash: Optional[str] = Field(None, description="SHA-256 file hash")
     thumbnail_path: Optional[str] = Field(None, description="Thumbnail file path")
     uploader_name: Optional[str] = Field(None, description="Name of uploader")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
+    
+    # Cloud storage URLs (populated dynamically)
+    download_url: Optional[str] = Field(None, description="Temporary download URL")
+    view_url: Optional[str] = Field(None, description="Temporary view URL")
+    thumbnail_url: Optional[str] = Field(None, description="Thumbnail URL")
+    storage_provider: Optional[str] = Field(None, description="Storage provider used")
 
 
 class AttachmentOrder(BaseModel):

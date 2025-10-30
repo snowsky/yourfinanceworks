@@ -945,6 +945,85 @@ class ReminderNotification(Base):
     
     # Ensure we don't send duplicate notifications
     __table_args__ = (
-        UniqueConstraint('reminder_id', 'user_id', 'notification_type', 'scheduled_for', 
+        UniqueConstraint('reminder_id', 'user_id', 'notification_type', 'scheduled_for',
                         name='unique_reminder_notification'),
     )
+
+
+# --- Cloud Storage Models ---
+
+class CloudStorageConfiguration(Base):
+    """
+    Model for storing cloud storage provider configurations per tenant.
+    Supports multiple providers with encrypted credentials.
+    """
+    __tablename__ = "cloud_storage_configurations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # No tenant_id needed since each tenant has its own database
+    provider = Column(String(50), nullable=False, index=True)  # aws_s3, azure_blob, gcp_storage, local
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    is_primary = Column(Boolean, default=False, nullable=False)
+
+    # Encrypted configuration JSON containing provider-specific settings
+    encrypted_configuration = Column(String, nullable=False)  # Use plain string instead of encrypted column
+
+    # Configuration metadata
+    configuration_version = Column(Integer, default=1, nullable=False)
+    last_tested_at = Column(DateTime(timezone=True), nullable=True)
+    test_status = Column(String(20), nullable=True)  # success, failed, pending
+    test_error_message = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<CloudStorageConfiguration(id={self.id}, provider='{self.provider}', enabled={self.is_enabled})>"
+
+
+class StorageOperationLog(Base):
+    """
+    Log of storage operations for audit and monitoring purposes.
+    Tracks all file operations across different storage providers.
+    """
+    __tablename__ = "storage_operation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # No tenant_id needed since each tenant has its own database
+
+    # Operation details
+    operation_type = Column(String(20), nullable=False, index=True)  # upload, download, delete, migrate
+    file_key = Column(String(500), nullable=False, index=True)  # Storage key/path
+    original_filename = Column(String(255), nullable=True)
+
+    # Provider and result information
+    provider = Column(String(50), nullable=False, index=True)  # aws_s3, azure_blob, gcp_storage, local
+    success = Column(Boolean, nullable=False, index=True)
+    error_message = Column(Text, nullable=True)
+
+    # File metadata
+    file_size = Column(Integer, nullable=True)  # File size in bytes
+    content_type = Column(String(100), nullable=True)
+    checksum = Column(String(64), nullable=True)  # SHA-256 checksum for integrity
+
+    # Performance metrics
+    duration_ms = Column(Integer, nullable=True)  # Operation duration in milliseconds
+    retry_count = Column(Integer, default=0, nullable=False)
+
+    # User and context information
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # User who initiated the operation
+    ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6 address
+    user_agent = Column(String(500), nullable=True)
+
+    # Additional metadata
+    operation_metadata = Column(JSON, nullable=True)  # Additional operation-specific data
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+    # Relationships
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<StorageOperationLog(id={self.id}, operation='{self.operation_type}', provider='{self.provider}', success={self.success})>"

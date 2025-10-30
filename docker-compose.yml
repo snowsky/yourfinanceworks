@@ -93,6 +93,7 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
+
       # ============================================================================
       # Database Encryption Configuration
       # ============================================================================

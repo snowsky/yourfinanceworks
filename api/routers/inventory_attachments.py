@@ -36,6 +36,59 @@ router = APIRouter(
 def get_attachment_service(db: Session = Depends(get_db)) -> AttachmentService:
     return AttachmentService(db)
 
+# Helper function to populate attachment URLs
+async def populate_attachment_urls(
+    attachment: ItemAttachment,
+    attachment_service: AttachmentService,
+    user_id: int
+) -> AttachmentResponse:
+    """
+    Create AttachmentResponse with populated URLs for cloud storage compatibility.
+    
+    Args:
+        attachment: ItemAttachment database model
+        attachment_service: AttachmentService instance
+        user_id: Current user ID
+        
+    Returns:
+        AttachmentResponse with populated URLs
+    """
+    response = AttachmentResponse.from_orm(attachment)
+    
+    # Add uploader information
+    if attachment.uploader:
+        response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+    
+    try:
+        # Get download URL
+        download_url = await attachment_service.get_file_url(
+            attachment_id=attachment.id,
+            user_id=user_id,
+            expiry_seconds=3600
+        )
+        if download_url:
+            response.download_url = download_url
+            response.view_url = download_url  # Same URL for now
+        
+        # Determine storage provider based on file path
+        if attachment.file_path:
+            if attachment.file_path.startswith('tenant_') and '/' in attachment.file_path:
+                # This looks like a cloud storage key
+                response.storage_provider = "cloud"
+            elif attachment.file_path.startswith('/'):
+                # This looks like a local file path
+                response.storage_provider = "local"
+            else:
+                response.storage_provider = "unknown"
+        
+        # TODO: Add thumbnail URL support when image processing is updated for cloud storage
+        
+    except Exception as e:
+        logger.warning(f"Failed to populate URLs for attachment {attachment.id}: {e}")
+        # Continue without URLs rather than failing
+    
+    return response
+
 # === Upload and Management Endpoints ===
 
 @router.post("/", response_model=AttachmentResponse)
@@ -112,12 +165,8 @@ async def upload_attachment(
                 detail="Failed to upload attachment"
             )
 
-        # Convert to response model
-        response = AttachmentResponse.from_orm(attachment)
-
-        # Add uploader information
-        if attachment.uploader:
-            response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+        # Convert to response model with populated URLs
+        response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
 
         logger.info(f"User {current_user.id} uploaded attachment {attachment.id} for item {item_id}")
         return response
@@ -165,9 +214,7 @@ async def get_attachments(
         # Convert to response models
         responses = []
         for attachment in attachments:
-            response = AttachmentResponse.from_orm(attachment)
-            if attachment.uploader:
-                response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+            response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
             responses.append(response)
 
         return responses
@@ -205,10 +252,7 @@ async def get_attachment(
                 detail="Attachment not found"
             )
 
-        response = AttachmentResponse.from_orm(attachment)
-        if attachment.uploader:
-            response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
-
+        response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
         return response
 
     except HTTPException:
@@ -261,9 +305,7 @@ async def update_attachment(
                 detail="Attachment not found"
             )
 
-        response = AttachmentResponse.from_orm(attachment)
-        if attachment.uploader:
-            response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+        response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
 
         logger.info(f"User {current_user.id} updated attachment {attachment_id}")
         return response
@@ -359,9 +401,7 @@ async def set_primary_image(
                 detail="Failed to set primary image. Attachment may not exist or may not be an image."
             )
 
-        response = AttachmentResponse.from_orm(attachment)
-        if attachment.uploader:
-            response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+        response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
 
         logger.info(f"User {current_user.id} set attachment {attachment_id} as primary for item {item_id}")
         return response
@@ -406,9 +446,7 @@ async def reorder_attachments(
         # Convert to response models
         responses = []
         for attachment in updated_attachments:
-            response = AttachmentResponse.from_orm(attachment)
-            if attachment.uploader:
-                response.uploader_name = f"{attachment.uploader.first_name or ''} {attachment.uploader.last_name or ''}".strip()
+            response = await populate_attachment_urls(attachment, attachment_service, current_user.id)
             responses.append(response)
 
         logger.info(f"User {current_user.id} reordered {len(responses)} attachments for item {item_id}")
@@ -498,6 +536,8 @@ async def download_attachment(
 
     - **item_id**: Inventory item ID
     - **attachment_id**: Attachment ID
+    
+    Returns either a redirect to cloud storage URL or serves the file directly for local storage.
     """
     try:
         attachment = attachment_service.get_attachment_by_id(attachment_id)
@@ -508,26 +548,58 @@ async def download_attachment(
                 detail="Attachment not found"
             )
 
-        # Validate file path before reading
-        from utils.file_validation import validate_file_path
-        validated_path = validate_file_path(attachment.file_path)
-
-        # Read file and return
-        with open(validated_path, 'rb') as f:
-            file_content = f.read()
-
-        # Return file with appropriate headers
-        response = Response(
-            content=file_content,
-            media_type=attachment.content_type or 'application/octet-stream'
+        # Try to get a temporary URL for the file (works for both cloud and local storage)
+        file_url = await attachment_service.get_file_url(
+            attachment_id=attachment_id,
+            user_id=current_user.id,
+            expiry_seconds=3600  # 1 hour expiry
         )
+        
+        if file_url:
+            # For cloud storage, redirect to the temporary URL
+            if file_url.startswith('http'):
+                from fastapi.responses import RedirectResponse
+                logger.info(f"User {current_user.id} redirected to cloud URL for attachment {attachment_id}")
+                return RedirectResponse(url=file_url, status_code=302)
+            
+            # For local storage, redirect to the local file serving endpoint
+            elif file_url.startswith('/api/'):
+                from fastapi.responses import RedirectResponse
+                logger.info(f"User {current_user.id} redirected to local URL for attachment {attachment_id}")
+                return RedirectResponse(url=file_url, status_code=302)
+        
+        # Fallback: try to serve file directly if it's local
+        if attachment.file_path and attachment.file_path.startswith('/'):
+            try:
+                # Validate file path before reading
+                from utils.file_validation import validate_file_path
+                validated_path = validate_file_path(attachment.file_path)
 
-        # Set download headers
-        filename = attachment.filename or f"attachment_{attachment.id}"
-        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+                # Read file and return
+                with open(validated_path, 'rb') as f:
+                    file_content = f.read()
 
-        logger.info(f"User {current_user.id} downloaded attachment {attachment_id}")
-        return response
+                # Return file with appropriate headers
+                response = Response(
+                    content=file_content,
+                    media_type=attachment.content_type or 'application/octet-stream'
+                )
+
+                # Set download headers
+                filename = attachment.filename or f"attachment_{attachment.id}"
+                response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+                logger.info(f"User {current_user.id} downloaded attachment {attachment_id} directly")
+                return response
+                
+            except Exception as e:
+                logger.error(f"Failed to serve local file: {e}")
+        
+        # File not accessible
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not accessible"
+        )
 
     except HTTPException:
         raise
@@ -590,10 +662,7 @@ async def get_primary_image(
                 detail="No primary image found for this item"
             )
 
-        response = AttachmentResponse.from_orm(primary_image)
-        if primary_image.uploader:
-            response.uploader_name = f"{primary_image.uploader.first_name or ''} {primary_image.uploader.last_name or ''}".strip()
-
+        response = await populate_attachment_urls(primary_image, attachment_service, current_user.id)
         return response
 
     except HTTPException:

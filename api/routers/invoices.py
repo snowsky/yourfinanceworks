@@ -2073,7 +2073,7 @@ async def upload_invoice_attachment(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    """Upload an attachment for an invoice"""
+    """Upload an attachment for an invoice using cloud storage with local fallback"""
     logger.info(f"🔍 UPLOAD ENDPOINT CALLED - invoice_id: {invoice_id}, filename: {file.filename}, content_type: {file.content_type}")
     try:
         # Verify invoice exists
@@ -2108,8 +2108,6 @@ async def upload_invoice_attachment(
                 status_code=400,
                 detail="File too large. Maximum size is 10 MB"
             )
-        # Reset file to allow saving later
-        await file.seek(0)
 
         # Basic content sniffing for PDFs (starts with %PDF)
         if file.content_type == 'application/pdf':
@@ -2117,40 +2115,16 @@ async def upload_invoice_attachment(
             if header_bytes != b'%PDF':
                 raise HTTPException(status_code=400, detail="Invalid PDF file")
 
-        # Create tenant-scoped attachments directory
+        # Get tenant context
         from models.database import get_tenant_context
         tenant_id = get_tenant_context()
-        tenant_folder = f"tenant_{tenant_id}" if tenant_id else "tenant_unknown"
-        attachments_dir = Path("attachments") / tenant_folder / "invoices"
-        attachments_dir.mkdir(parents=True, exist_ok=True)
+        if not tenant_id:
+            raise HTTPException(status_code=500, detail="Tenant context not available")
 
-        # Sanitize filename and ensure safe extension
+        # Sanitize filename
         original_name = file.filename or "attachment"
-        # Remove any path components and unsafe characters
         base_name = os.path.basename(original_name)
         base_name = re.sub(r"[^A-Za-z0-9._-]", "_", base_name)
-        name_without_ext = os.path.splitext(base_name)[0][:100]
-        # Prefer extension from content type; fallback to sanitized original
-        ext_from_ct = allowed_types[file.content_type]
-        ext_from_name = os.path.splitext(base_name)[1].lower()
-        file_extension = ext_from_ct if ext_from_ct else (ext_from_name if ext_from_name in allowed_types.values() else ".bin")
-
-        # Create filename in format: invoice_<id>_<sanitized>.ext
-        filename = f"invoice_{invoice_id}_{name_without_ext}{file_extension}"
-        file_path = attachments_dir / filename
-
-        # Validate file path before any file operations
-        from utils.file_validation import validate_file_path
-        validated_path = validate_file_path(str(file_path), must_exist=False)
-
-        # Remove old attachment if exists
-        if invoice.attachment_path and os.path.exists(invoice.attachment_path):
-            try:
-                old_validated_path = validate_file_path(invoice.attachment_path)
-                os.remove(old_validated_path)
-                logger.info(f"Removed old attachment: {invoice.attachment_path}")
-            except Exception as e:
-                logger.warning(f"Failed to remove old attachment: {e}")
 
         # Deactivate any existing new-style attachments
         from models.models_per_tenant import InvoiceAttachment
@@ -2163,28 +2137,101 @@ async def upload_invoice_attachment(
             existing_attachment.is_active = False
             existing_attachment.updated_at = datetime.now(timezone.utc)
 
-        # Save file safely (we already validated size via in-memory read cap)
-        with open(validated_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Initialize cloud storage service
+        from services.cloud_storage_service import CloudStorageService
+        from storage_config.cloud_storage_config import get_cloud_storage_config
+        
+        try:
+            cloud_config = get_cloud_storage_config()
+            cloud_storage_service = CloudStorageService(db, cloud_config)
+            
+            # Store file using cloud storage with automatic fallback
+            storage_result = await cloud_storage_service.store_file(
+                file_content=contents,
+                tenant_id=str(tenant_id),
+                item_id=invoice_id,
+                attachment_type="invoices",
+                original_filename=base_name,
+                user_id=current_user.id,
+                metadata={
+                    'content_type': file.content_type,
+                    'invoice_id': invoice_id
+                }
+            )
+            
+            if not storage_result.success:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to store file: {storage_result.error_message}"
+                )
+            
+            # Determine storage location and file path
+            if storage_result.file_url:
+                # Cloud storage - use file_key as path
+                file_path = storage_result.file_key
+                stored_filename = storage_result.file_key
+                is_cloud_stored = True
+            else:
+                # Local storage fallback - construct traditional path
+                tenant_folder = f"tenant_{tenant_id}"
+                attachments_dir = Path("attachments") / tenant_folder / "invoices"
+                name_without_ext = os.path.splitext(base_name)[0][:100]
+                ext_from_ct = allowed_types[file.content_type]
+                filename = f"invoice_{invoice_id}_{name_without_ext}{ext_from_ct}"
+                file_path = str(attachments_dir / filename)
+                stored_filename = filename
+                is_cloud_stored = False
+            
+            logger.info(f"File stored successfully: {file_path} (cloud: {is_cloud_stored})")
+            
+        except Exception as e:
+            logger.error(f"Cloud storage service error: {e}")
+            # Fallback to local storage
+            tenant_folder = f"tenant_{tenant_id}"
+            attachments_dir = Path("attachments") / tenant_folder / "invoices"
+            attachments_dir.mkdir(parents=True, exist_ok=True)
+            
+            name_without_ext = os.path.splitext(base_name)[0][:100]
+            ext_from_ct = allowed_types[file.content_type]
+            filename = f"invoice_{invoice_id}_{name_without_ext}{ext_from_ct}"
+            file_path = attachments_dir / filename
+            
+            # Validate file path before any file operations
+            from utils.file_validation import validate_file_path
+            validated_path = validate_file_path(str(file_path), must_exist=False)
+            
+            # Remove old attachment if exists
+            if invoice.attachment_path and os.path.exists(invoice.attachment_path):
+                try:
+                    old_validated_path = validate_file_path(invoice.attachment_path)
+                    os.remove(old_validated_path)
+                    logger.info(f"Removed old attachment: {invoice.attachment_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove old attachment: {e}")
+            
+            # Save file locally
+            with open(validated_path, "wb") as buffer:
+                buffer.write(contents)
+            
+            file_path = str(file_path)
+            stored_filename = filename
+            is_cloud_stored = False
+            logger.info(f"File stored locally as fallback: {file_path}")
 
         # Update invoice with attachment info (old system for backward compatibility)
-        invoice.attachment_path = str(file_path)
+        invoice.attachment_path = file_path
         invoice.attachment_filename = file.filename
         invoice.updated_at = datetime.now(timezone.utc)
 
-        # Also create new-style attachment record for consistency
-        from models.models_per_tenant import InvoiceAttachment
+        # Create new-style attachment record
         import hashlib
-
-        # Calculate file hash
         file_hash = hashlib.sha256(contents).hexdigest()
 
-        # Create new-style attachment record
         new_attachment = InvoiceAttachment(
             invoice_id=invoice_id,
             filename=file.filename or "attachment",
-            stored_filename=filename,
-            file_path=str(file_path),
+            stored_filename=stored_filename,
+            file_path=file_path,
             file_size=len(contents),
             content_type=file.content_type,
             file_hash=file_hash,
@@ -2264,7 +2311,7 @@ async def download_invoice_attachment(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    """Download an invoice attachment (supports both old and new attachment systems)"""
+    """Download an invoice attachment (supports both cloud and local storage)"""
     try:
         # Verify invoice exists
         invoice = db.query(Invoice).filter(
@@ -2283,24 +2330,97 @@ async def download_invoice_attachment(
         ).first()
 
         if new_attachment:
-            # Use new-style attachment
-            from utils.file_validation import validate_file_path
-            validated_path = validate_file_path(new_attachment.file_path)
-            return FileResponse(
-                path=validated_path,
-                filename=new_attachment.filename,
-                media_type=new_attachment.content_type or 'application/octet-stream'
-            )
+            # Check if this is a cloud storage file (file_path doesn't start with local path)
+            if not new_attachment.file_path.startswith('/') and not new_attachment.file_path.startswith('attachments'):
+                # This is likely a cloud storage file key - generate redirect URL
+                try:
+                    from services.cloud_storage_service import CloudStorageService
+                    from storage_config.cloud_storage_config import get_cloud_storage_config
+                    from models.database import get_tenant_context
+                    from fastapi.responses import RedirectResponse
+                    
+                    tenant_id = get_tenant_context()
+                    if tenant_id:
+                        cloud_config = get_cloud_storage_config()
+                        cloud_storage_service = CloudStorageService(db, cloud_config)
+                        
+                        # Retrieve file URL from cloud storage
+                        storage_result = await cloud_storage_service.retrieve_file(
+                            file_key=new_attachment.file_path,
+                            tenant_id=str(tenant_id),
+                            user_id=current_user.id,
+                            generate_url=True,
+                            expiry_seconds=3600  # 1 hour expiry
+                        )
+                        
+                        if storage_result.success and storage_result.file_url:
+                            # Redirect to cloud storage URL
+                            return RedirectResponse(url=storage_result.file_url, status_code=302)
+                        else:
+                            logger.warning(f"Failed to get cloud storage URL: {storage_result.error_message}")
+                            
+                except Exception as e:
+                    logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
+            
+            # Local file or cloud storage fallback - serve directly
+            try:
+                from utils.file_validation import validate_file_path
+                validated_path = validate_file_path(new_attachment.file_path)
+                return FileResponse(
+                    path=validated_path,
+                    filename=new_attachment.filename,
+                    media_type=new_attachment.content_type or 'application/octet-stream'
+                )
+            except Exception as e:
+                logger.error(f"Failed to serve local file: {e}")
+                raise HTTPException(status_code=404, detail="Attachment file not accessible")
 
         # Fall back to old-style attachment
         if invoice.attachment_path and invoice.attachment_filename:
-            from utils.file_validation import validate_file_path
-            validated_path = validate_file_path(invoice.attachment_path)
-            return FileResponse(
-                path=validated_path,
-                filename=invoice.attachment_filename,
-                media_type='application/octet-stream'
-            )
+            # Check if this is a cloud storage file
+            if not invoice.attachment_path.startswith('/') and not invoice.attachment_path.startswith('attachments'):
+                # This is likely a cloud storage file key - generate redirect URL
+                try:
+                    from services.cloud_storage_service import CloudStorageService
+                    from storage_config.cloud_storage_config import get_cloud_storage_config
+                    from models.database import get_tenant_context
+                    from fastapi.responses import RedirectResponse
+                    
+                    tenant_id = get_tenant_context()
+                    if tenant_id:
+                        cloud_config = get_cloud_storage_config()
+                        cloud_storage_service = CloudStorageService(db, cloud_config)
+                        
+                        # Retrieve file URL from cloud storage
+                        storage_result = await cloud_storage_service.retrieve_file(
+                            file_key=invoice.attachment_path,
+                            tenant_id=str(tenant_id),
+                            user_id=current_user.id,
+                            generate_url=True,
+                            expiry_seconds=3600  # 1 hour expiry
+                        )
+                        
+                        if storage_result.success and storage_result.file_url:
+                            # Redirect to cloud storage URL
+                            return RedirectResponse(url=storage_result.file_url, status_code=302)
+                        else:
+                            logger.warning(f"Failed to get cloud storage URL: {storage_result.error_message}")
+                            
+                except Exception as e:
+                    logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
+            
+            # Local file - serve directly
+            try:
+                from utils.file_validation import validate_file_path
+                validated_path = validate_file_path(invoice.attachment_path)
+                return FileResponse(
+                    path=validated_path,
+                    filename=invoice.attachment_filename,
+                    media_type='application/octet-stream'
+                )
+            except Exception as e:
+                logger.error(f"Failed to serve local file: {e}")
+                raise HTTPException(status_code=404, detail="Attachment file not accessible")
 
         # No attachment found
         raise HTTPException(status_code=404, detail="No attachment found for this invoice")
@@ -2602,13 +2722,47 @@ async def delete_invoice_attachment(
         db.add(history_entry)
         db.commit()
 
-        # Optionally remove the physical file after successful database update
+        # Remove the physical file after successful database update (cloud or local)
         try:
-            if attachment.file_path and os.path.exists(attachment.file_path):
-                from utils.file_validation import validate_file_path
-                validated_path = validate_file_path(attachment.file_path)
-                os.remove(validated_path)
-                logger.info(f"Removed attachment file: {attachment.file_path}")
+            if attachment.file_path:
+                # Check if this is a cloud storage file
+                if not attachment.file_path.startswith('/') and not attachment.file_path.startswith('attachments'):
+                    # This is likely a cloud storage file key - delete from cloud storage
+                    try:
+                        from services.cloud_storage_service import CloudStorageService
+                        from storage_config.cloud_storage_config import get_cloud_storage_config
+                        from models.database import get_tenant_context
+                        
+                        tenant_id = get_tenant_context()
+                        if tenant_id:
+                            cloud_config = get_cloud_storage_config()
+                            cloud_storage_service = CloudStorageService(db, cloud_config)
+                            
+                            # Delete file from cloud storage
+                            delete_result = await cloud_storage_service.delete_file(
+                                file_key=attachment.file_path,
+                                tenant_id=str(tenant_id),
+                                user_id=current_user.id
+                            )
+                            
+                            if delete_result.success:
+                                logger.info(f"Successfully deleted file from cloud storage: {attachment.file_path}")
+                            else:
+                                logger.warning(f"Failed to delete file from cloud storage: {delete_result.error_message}")
+                        else:
+                            logger.warning("No tenant context available for cloud storage deletion")
+                            
+                    except Exception as e:
+                        logger.warning(f"Failed to delete file from cloud storage: {e}")
+                else:
+                    # Local file - delete from disk
+                    if os.path.exists(attachment.file_path):
+                        from utils.file_validation import validate_file_path
+                        validated_path = validate_file_path(attachment.file_path)
+                        os.remove(validated_path)
+                        logger.info(f"Successfully deleted local file: {attachment.file_path}")
+                    else:
+                        logger.warning(f"Local file not found: {attachment.file_path}")
         except Exception as e:
             logger.warning(f"Failed to remove attachment file {attachment.file_path}: {e}")
             # Don't fail the deletion if file removal fails

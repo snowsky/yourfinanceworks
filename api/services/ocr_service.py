@@ -508,6 +508,68 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
 async def process_attachment_inline(db: Session, expense_id: int, attachment_id: int, file_path: str) -> None:
     """Fallback inline processing when Kafka is not configured."""
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
+
+    # Check if this is a cloud storage file that needs to be downloaded
+    if not os.path.exists(file_path):
+        logger.info(f"File path '{file_path}' doesn't exist locally - attempting cloud storage download...")
+
+        try:
+            # Use the cloud storage service to retrieve the file
+            from services.cloud_storage_service import CloudStorageService
+            from storage_config.cloud_storage_config import get_cloud_storage_config
+            from models.database import get_tenant_context
+            import tempfile
+
+            # Get tenant context
+            tenant_id = get_tenant_context()
+            if not tenant_id:
+                raise Exception("No tenant context available for cloud storage access")
+
+            # Initialize cloud storage service
+            cloud_config = get_cloud_storage_config()
+            cloud_storage_service = CloudStorageService(db, cloud_config)
+
+            # Try to retrieve the file using the stored file_path as the key
+            retrieve_result = await cloud_storage_service.retrieve_file(
+                file_key=file_path,
+                tenant_id=str(tenant_id),
+                user_id=1,  # System user for OCR processing
+                generate_url=False  # We want the actual file content
+            )
+
+            if retrieve_result.success and retrieve_result.metadata and 'content' in retrieve_result.metadata:
+                # Create temporary file with the downloaded content
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment_id}_{os.path.basename(file_path)}") as temp_file:
+                    temp_file.write(retrieve_result.metadata['content'])
+                    temp_path = temp_file.name
+
+                # Verify the file was created
+                if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
+                    raise Exception(f"Failed to create temporary file or empty content: {temp_path}")
+
+                # Update file_path to use the temporary file
+                original_file_path = file_path
+                file_path = temp_path
+                logger.info(f"Successfully downloaded cloud file from '{original_file_path}' to '{file_path}' for OCR processing")
+            else:
+                raise Exception(f"Failed to retrieve file from cloud storage: {retrieve_result.error_message}")
+
+        except Exception as e:
+            logger.error(f"Failed to download cloud storage file {file_path}: {e}")
+            # Update expense status to failed
+            try:
+                from models.models_per_tenant import Expense
+                expense = db.query(Expense).filter(Expense.id == expense_id).first()
+                if expense:
+                    expense.analysis_status = "failed"
+                    expense.analysis_error = f"Failed to access attachment file: {str(e)}"
+                    db.commit()
+                logger.error(f"OCR failed - could not download cloud file for expense {expense_id}: {e}")
+            except Exception as db_error:
+                logger.error(f"Failed to update expense status after cloud download error: {db_error}")
+            return
+    else:
+        logger.info(f"Using local file path: {file_path}")
     from models.models_per_tenant import Expense, AIConfig as AIConfigModel  # local import to avoid circulars
     from models.database import set_tenant_context  # Import tenant context management
     
@@ -853,6 +915,14 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             logger.error(f"Failed to reset expense {expense_id} status: {reset_error}")
             db.rollback()
 
+    # Clean up temporary files if we downloaded from cloud storage
+    if 'is_temp_file' in locals() and is_temp_file and os.path.exists(file_path):
+        try:
+            logger.info(f"Cleaning up temporary file: {file_path}")
+            os.remove(file_path)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to clean up temporary file {file_path}: {cleanup_error}")
+
 
 def queue_or_process_attachment(db: Session, tenant_id: Optional[int], expense_id: int, attachment_id: int, file_path: str) -> None:
     """Publish OCR job to Kafka if available, otherwise process inline in background."""
@@ -882,5 +952,3 @@ def queue_or_process_attachment(db: Session, tenant_id: Optional[int], expense_i
         except RuntimeError:
             # If no running loop (sync context), schedule with new loop via thread
             asyncio.run(process_attachment_inline(db, expense_id, attachment_id, file_path))
-
-

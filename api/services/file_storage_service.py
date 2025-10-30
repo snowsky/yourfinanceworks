@@ -3,20 +3,33 @@ File Storage Service for Inventory Attachments
 
 Handles secure file storage, retrieval, and management for inventory attachments.
 Provides tenant-scoped storage with proper security measures.
+
+This service now implements the CloudStorageProvider interface for compatibility
+with the unified cloud storage abstraction layer.
 """
 import os
 import uuid
 import hashlib
 import mimetypes
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from dataclasses import dataclass
 import logging
 from datetime import datetime
 
-from config import config
+from config import config as app_config
 from services.file_security_service import file_security_service
 from utils.file_validation import validate_file_path
+
+# Import cloud storage interfaces
+from services.cloud_storage.provider import (
+    CloudStorageProvider, 
+    StorageResult, 
+    StorageConfig, 
+    StorageProvider,
+    FileMetadata,
+    HealthCheckResult
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +56,31 @@ class FileInfo:
     file_path: Optional[str] = None
 
 
-class FileStorageService:
+class FileStorageService(CloudStorageProvider):
     """
     Service for secure file storage and retrieval operations.
     Handles tenant-scoped storage with proper security measures.
+    
+    Now implements CloudStorageProvider interface for compatibility with
+    the unified cloud storage abstraction layer.
     """
 
-    def __init__(self):
-        self.base_path = Path(config.UPLOAD_PATH)
-        self.max_file_size = config.MAX_UPLOAD_SIZE
+    def __init__(self, storage_config: Optional[StorageConfig] = None):
+        # Initialize CloudStorageProvider if config provided
+        if storage_config:
+            super().__init__(storage_config)
+            provider_config = storage_config.config or {}
+            self.base_path = Path(provider_config.get('base_path', app_config.UPLOAD_PATH))
+            self.max_file_size = provider_config.get('max_file_size', app_config.MAX_UPLOAD_SIZE)
+            self.api_base_url = provider_config.get('api_base_url', 'http://localhost:8000/api/v1')
+        else:
+            # Legacy initialization for backward compatibility
+            self.base_path = Path(app_config.UPLOAD_PATH)
+            self.max_file_size = app_config.MAX_UPLOAD_SIZE
+            self.api_base_url = 'http://localhost:8000/api/v1'
+            self.provider_type = StorageProvider.LOCAL
+            self._last_health_check = None
+        
         self.ensure_base_directory()
 
     def ensure_base_directory(self) -> None:
@@ -427,6 +456,355 @@ class FileStorageService:
                 'total_size': 0,
                 'error': str(e)
             }
+
+    # CloudStorageProvider interface methods
+    
+    def _generate_file_key(
+        self, 
+        tenant_id: str, 
+        item_id: int, 
+        attachment_type: str, 
+        filename: str
+    ) -> str:
+        """Generate a file key that matches the existing storage structure."""
+        return f"tenant_{tenant_id}/{attachment_type}/{filename}"
+    
+    def _get_file_path_from_key(self, file_key: str) -> Path:
+        """Convert file key to full file path."""
+        return self.base_path / file_key
+    
+    def _generate_file_url(self, file_key: str) -> str:
+        """Generate a URL for accessing the file through the API."""
+        import urllib.parse
+        encoded_key = urllib.parse.quote(file_key, safe='')
+        return f"{self.api_base_url}/files/serve/{encoded_key}"
+
+    async def upload_file(
+        self, 
+        file_content: bytes, 
+        file_key: str, 
+        content_type: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> StorageResult:
+        """
+        Upload file using CloudStorageProvider interface.
+        
+        This method provides compatibility with the cloud storage abstraction layer
+        while maintaining the existing file storage functionality.
+        """
+        start_time = datetime.now()
+        
+        try:
+            # Validate file size
+            if len(file_content) > self.max_file_size:
+                return StorageResult(
+                    success=False,
+                    error_message=f"File size {len(file_content)} exceeds maximum {self.max_file_size}",
+                    provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local'
+                )
+            
+            # Get full file path
+            file_path = self._get_file_path_from_key(file_key)
+            
+            # Ensure directory exists
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write file to disk
+            with open(file_path, 'wb') as f:
+                f.write(file_content)
+            
+            # Calculate operation duration
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            
+            # Generate file URL
+            file_url = self._generate_file_url(file_key)
+            
+            logger.info(f"Successfully uploaded file to local storage: {file_key}")
+            
+            return StorageResult(
+                success=True,
+                file_url=file_url,
+                file_key=file_key,
+                file_size=len(file_content),
+                content_type=content_type,
+                provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local',
+                operation_duration_ms=duration_ms,
+                metadata=metadata
+            )
+            
+        except Exception as e:
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            logger.error(f"Failed to upload file {file_key} to local storage: {e}")
+            
+            return StorageResult(
+                success=False,
+                error_message=f"Failed to upload file: {str(e)}",
+                provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local',
+                operation_duration_ms=duration_ms
+            )
+
+    async def download_file(self, file_key: str) -> StorageResult:
+        """Download file using CloudStorageProvider interface."""
+        start_time = datetime.now()
+        
+        try:
+            file_path = self._get_file_path_from_key(file_key)
+            
+            if not file_path.exists():
+                return StorageResult(
+                    success=False,
+                    error_message=f"File not found: {file_key}",
+                    provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local'
+                )
+            
+            # For local storage, we return the URL instead of file content
+            file_url = self._generate_file_url(file_key)
+            
+            # Get file metadata
+            stat = file_path.stat()
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            
+            return StorageResult(
+                success=True,
+                file_url=file_url,
+                file_key=file_key,
+                file_size=stat.st_size,
+                content_type=content_type,
+                provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local',
+                operation_duration_ms=duration_ms
+            )
+            
+        except Exception as e:
+            duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            logger.error(f"Failed to download file {file_key} from local storage: {e}")
+            
+            return StorageResult(
+                success=False,
+                error_message=f"Failed to download file: {str(e)}",
+                provider=self.provider_type.value if hasattr(self, 'provider_type') else 'local',
+                operation_duration_ms=duration_ms
+            )
+
+    async def get_file_url(
+        self, 
+        file_key: str, 
+        expiry_seconds: int = 3600
+    ) -> Optional[str]:
+        """Generate access URL for file."""
+        try:
+            file_path = self._get_file_path_from_key(file_key)
+            
+            if not file_path.exists():
+                return None
+            
+            return self._generate_file_url(file_key)
+            
+        except Exception as e:
+            logger.error(f"Failed to generate URL for file {file_key}: {e}")
+            return None
+
+    async def list_files(
+        self, 
+        prefix: str = "", 
+        limit: int = 100,
+        continuation_token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """List files with given prefix."""
+        try:
+            files = []
+            search_path = self.base_path
+            
+            if prefix:
+                search_path = self.base_path / prefix
+            
+            if not search_path.exists():
+                return {
+                    'files': [],
+                    'count': 0,
+                    'has_more': False,
+                    'continuation_token': None
+                }
+            
+            # Walk through directory structure
+            for root, dirs, filenames in os.walk(search_path):
+                for filename in filenames:
+                    file_path = Path(root) / filename
+                    
+                    # Generate file key relative to base path
+                    try:
+                        relative_path = file_path.relative_to(self.base_path)
+                        file_key = str(relative_path).replace('\\', '/')
+                        
+                        # Apply prefix filter
+                        if prefix and not file_key.startswith(prefix):
+                            continue
+                        
+                        # Get file metadata
+                        stat = file_path.stat()
+                        content_type, _ = mimetypes.guess_type(str(file_path))
+                        
+                        files.append({
+                            'key': file_key,
+                            'size': stat.st_size,
+                            'content_type': content_type,
+                            'last_modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            'url': self._generate_file_url(file_key)
+                        })
+                        
+                        # Apply limit
+                        if len(files) >= limit:
+                            break
+                            
+                    except ValueError:
+                        # Skip files outside base path
+                        continue
+                
+                if len(files) >= limit:
+                    break
+            
+            return {
+                'files': files,
+                'count': len(files),
+                'has_more': False,
+                'continuation_token': None
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to list files with prefix {prefix}: {e}")
+            return {
+                'files': [],
+                'count': 0,
+                'has_more': False,
+                'continuation_token': None,
+                'error': str(e)
+            }
+
+    async def file_exists(self, file_key: str) -> bool:
+        """Check if file exists in storage."""
+        try:
+            file_path = self._get_file_path_from_key(file_key)
+            return file_path.exists()
+        except Exception as e:
+            logger.error(f"Failed to check if file exists {file_key}: {e}")
+            return False
+
+    async def get_file_metadata(self, file_key: str) -> Optional[FileMetadata]:
+        """Get metadata for a file."""
+        try:
+            file_path = self._get_file_path_from_key(file_key)
+            
+            if not file_path.exists():
+                return None
+            
+            stat = file_path.stat()
+            content_type, _ = mimetypes.guess_type(str(file_path))
+            
+            # Calculate file checksum
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+                checksum = hashlib.sha256(file_content).hexdigest()
+            
+            # Extract tenant_id from file_key if possible
+            tenant_id = None
+            if file_key.startswith('tenant_'):
+                parts = file_key.split('/')
+                if len(parts) > 0:
+                    tenant_part = parts[0]  # e.g., "tenant_1"
+                    tenant_id = tenant_part.replace('tenant_', '')
+            
+            return FileMetadata(
+                file_key=file_key,
+                file_size=stat.st_size,
+                content_type=content_type or 'application/octet-stream',
+                created_at=datetime.fromtimestamp(stat.st_ctime),
+                modified_at=datetime.fromtimestamp(stat.st_mtime),
+                tenant_id=tenant_id,
+                checksum=checksum
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get metadata for file {file_key}: {e}")
+            return None
+
+    async def health_check(self) -> HealthCheckResult:
+        """Check provider health status."""
+        start_time = datetime.now()
+        
+        try:
+            # Check if base directory exists and is writable
+            if not self.base_path.exists():
+                return HealthCheckResult(
+                    provider=self.provider_type if hasattr(self, 'provider_type') else StorageProvider.LOCAL,
+                    healthy=False,
+                    error_message=f"Base directory does not exist: {self.base_path}",
+                    last_check=datetime.now()
+                )
+            
+            # Test write access by creating a temporary file
+            test_file = self.base_path / '.health_check_test'
+            try:
+                with open(test_file, 'w') as f:
+                    f.write('health_check')
+                test_file.unlink()  # Clean up
+            except Exception as e:
+                return HealthCheckResult(
+                    provider=self.provider_type if hasattr(self, 'provider_type') else StorageProvider.LOCAL,
+                    healthy=False,
+                    error_message=f"Cannot write to base directory: {str(e)}",
+                    last_check=datetime.now()
+                )
+            
+            # Calculate response time
+            response_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+            
+            # Get storage statistics
+            total_size = 0
+            file_count = 0
+            
+            try:
+                for root, dirs, files in os.walk(self.base_path):
+                    for file in files:
+                        file_path = Path(root) / file
+                        try:
+                            total_size += file_path.stat().st_size
+                            file_count += 1
+                        except:
+                            pass  # Skip files we can't access
+            except:
+                pass  # Don't fail health check if we can't get stats
+            
+            result = HealthCheckResult(
+                provider=self.provider_type if hasattr(self, 'provider_type') else StorageProvider.LOCAL,
+                healthy=True,
+                response_time_ms=response_time_ms,
+                last_check=datetime.now(),
+                additional_info={
+                    'base_path': str(self.base_path),
+                    'total_files': file_count,
+                    'total_size_bytes': total_size,
+                    'max_file_size': self.max_file_size
+                }
+            )
+            
+            if hasattr(self, '_last_health_check'):
+                self._last_health_check = result
+            
+            return result
+            
+        except Exception as e:
+            result = HealthCheckResult(
+                provider=self.provider_type if hasattr(self, 'provider_type') else StorageProvider.LOCAL,
+                healthy=False,
+                error_message=f"Health check failed: {str(e)}",
+                last_check=datetime.now()
+            )
+            
+            if hasattr(self, '_last_health_check'):
+                self._last_health_check = result
+            
+            return result
 
 
 # Global instance

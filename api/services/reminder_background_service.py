@@ -84,48 +84,62 @@ class ReminderBackgroundService:
     async def _process_all_tenant_reminders(self) -> None:
         """Process reminders for all tenants."""
         try:
-            # In a multi-tenant system, we would iterate through all tenant databases
-            # For now, we'll process the main tenant database
-            async with self.execution_semaphore:
-                await self._process_tenant_reminders()
-                
+            # Get all existing tenant IDs
+            from services.tenant_database_manager import tenant_db_manager
+            tenant_ids = tenant_db_manager.get_existing_tenant_ids()
+
+            logger.info(f"Processing reminders for {len(tenant_ids)} tenants")
+
+            # Process reminders for each tenant
+            for tenant_id in tenant_ids:
+                async with self.execution_semaphore:
+                    await self._process_tenant_reminders(tenant_id)
+
         except Exception as e:
             logger.error(f"Error processing tenant reminders: {str(e)}")
     
-    async def _process_tenant_reminders(self) -> Dict[str, Any]:
+    async def _process_tenant_reminders(self, tenant_id: int) -> Dict[str, Any]:
         """Process reminders for a single tenant."""
         try:
-            # Get database session
-            db = next(get_db())
-            
+            # Set tenant context for this background operation
+            from models.database import set_tenant_context
+            set_tenant_context(tenant_id)
+
+            # Get tenant-specific database session
+            from services.tenant_database_manager import tenant_db_manager
+            SessionLocalTenant = tenant_db_manager.get_tenant_session(tenant_id)
+            db = SessionLocalTenant()
+
             try:
                 scheduler = ReminderScheduler(db)
-                
+
                 # Process due reminders
                 due_stats = scheduler.process_due_reminders()
-                logger.info(f"Processed due reminders: {due_stats}")
-                
+                logger.info(f"Processed due reminders for tenant {tenant_id}: {due_stats}")
+
                 # Send upcoming reminder notifications (24 hours in advance)
                 upcoming_stats = scheduler.send_upcoming_reminders(advance_days=1)
-                logger.info(f"Processed upcoming reminders: {upcoming_stats}")
-                
+                logger.info(f"Processed upcoming reminders for tenant {tenant_id}: {upcoming_stats}")
+
                 # Cleanup old notifications once per day (roughly)
                 if self._should_cleanup():
                     cleanup_count = scheduler.cleanup_old_notifications()
-                    logger.info(f"Cleaned up {cleanup_count} old notifications")
-                
+                    logger.info(f"Cleaned up {cleanup_count} old notifications for tenant {tenant_id}")
+
                 return {
+                    "tenant_id": tenant_id,
                     "due_reminders": due_stats,
                     "upcoming_reminders": upcoming_stats,
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
-                
+
             finally:
                 db.close()
-                
+
         except Exception as e:
-            logger.error(f"Error processing tenant reminders: {str(e)}")
+            logger.error(f"Error processing tenant reminders for tenant {tenant_id}: {str(e)}")
             return {
+                "tenant_id": tenant_id,
                 "error": str(e),
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
@@ -152,7 +166,23 @@ class ReminderBackgroundService:
     async def process_reminders_now(self) -> Dict[str, Any]:
         """Manually trigger reminder processing (for testing/admin use)."""
         logger.info("Manually triggered reminder processing")
-        return await self._process_tenant_reminders()
+
+        # Get all existing tenant IDs
+        from services.tenant_database_manager import tenant_db_manager
+        tenant_ids = tenant_db_manager.get_existing_tenant_ids()
+
+        logger.info(f"Manually processing reminders for {len(tenant_ids)} tenants")
+
+        results = []
+        for tenant_id in tenant_ids:
+            result = await self._process_tenant_reminders(tenant_id)
+            results.append(result)
+
+        return {
+            "total_tenants": len(tenant_ids),
+            "results": results,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
 
 
 # Global service instance

@@ -5,8 +5,12 @@ import signal
 import sys
 from typing import Optional
 from types import SimpleNamespace
+from dotenv import load_dotenv
 
 from datetime import datetime, timezone
+
+# Load environment variables from .env file
+load_dotenv()
 
 from services.ocr_service import process_attachment_inline
 from models.database import set_tenant_context

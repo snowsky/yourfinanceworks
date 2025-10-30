@@ -45,7 +45,9 @@ from routers import (
     approvals,  # Add the new approvals router
     approval_reports,  # Add the new approval reports router
     organization_join,  # Add the new organization join router
-    reminders  # Add the new reminders router
+    reminders,  # Add the new reminders router
+    files,  # Add the new files router
+    cloud_storage  # Add the new cloud storage router
 )
 from models.database import engine
 from models import models
@@ -234,6 +236,8 @@ app.include_router(approvals.router, prefix="/api/v1") # Include the new approva
 app.include_router(approval_reports.router, prefix="/api/v1") # Include the new approval reports router
 app.include_router(organization_join.router, prefix="/api/v1") # Include the new organization join router
 app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"]) # Include the new reminders router
+app.include_router(files.router, prefix="/api/v1") # Include the new files router
+app.include_router(cloud_storage.router, prefix="/api/v1") # Include the new cloud storage router
 
 @app.get("/")
 def read_root():

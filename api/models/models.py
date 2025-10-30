@@ -447,3 +447,36 @@ class OrganizationJoinRequest(Base):
 
     def __repr__(self):
         return f"<OrganizationJoinRequest(id={self.id}, email='{self.email}', tenant_id={self.tenant_id}, status='{self.status}')>"
+
+
+class CloudStorageConfiguration(Base):
+    """
+    Model for storing cloud storage provider configurations per tenant.
+    Supports multiple providers with encrypted credentials.
+    """
+    __tablename__ = "cloud_storage_configurations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)  # None for global config
+    provider = Column(String(50), nullable=False, index=True)  # aws_s3, azure_blob, gcp_storage, local
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    is_primary = Column(Boolean, default=False, nullable=False)
+    
+    # Encrypted configuration JSON containing provider-specific settings
+    encrypted_configuration = Column(Text, nullable=False)
+    
+    # Configuration metadata
+    configuration_version = Column(Integer, default=1, nullable=False)
+    last_tested_at = Column(DateTime(timezone=True), nullable=True)
+    test_status = Column(String(20), nullable=True)  # success, failed, pending
+    test_error_message = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+
+    def __repr__(self):
+        return f"<CloudStorageConfiguration(id={self.id}, tenant_id={self.tenant_id}, provider='{self.provider}', enabled={self.is_enabled})>"

@@ -7,8 +7,10 @@ from pydantic import BaseModel
 
 from models.database import get_master_db
 from models.models import (
-    Tenant, MasterUser, User, Client, ClientNote, Invoice, Payment, Settings, CurrencyRate, DiscountRule, AIConfig, user_tenant_association
+    Tenant, MasterUser, User, Client, ClientNote, Invoice, Payment, Settings, CurrencyRate, DiscountRule, AIConfig, TenantKey,
+    OrganizationJoinRequest, InvoiceHistory, AuditLog, user_tenant_association
 )
+from models.api_models import APIClient, ExternalTransaction, ClientPermission
 from models.models_per_tenant import User as TenantUser
 from schemas.user import UserCreate, UserUpdate, UserList, UserRoleUpdate
 from schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
@@ -252,17 +254,52 @@ async def delete_tenant(
             detail="Cannot delete your own tenant"
         )
 
-    # Manually delete all related data for this tenant
-    master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).delete()
-    master_db.query(User).filter(User.tenant_id == tenant_id).delete()
-    master_db.query(ClientNote).filter(ClientNote.tenant_id == tenant_id).delete()
-    master_db.query(Payment).filter(Payment.tenant_id == tenant_id).delete()
-    master_db.query(Invoice).filter(Invoice.tenant_id == tenant_id).delete()
-    master_db.query(Client).filter(Client.tenant_id == tenant_id).delete()
-    master_db.query(Settings).filter(Settings.tenant_id == tenant_id).delete()
-    master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
-    master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
-    master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
+    try:
+        # Manually delete all related data for this tenant
+        # Delete records that reference the tenant (in order to avoid foreign key constraints)
+        
+        # Delete API-related records first
+        master_db.query(ExternalTransaction).filter(ExternalTransaction.tenant_id == tenant_id).delete()
+        
+        # Delete client permissions for API clients belonging to this tenant
+        api_client_ids = master_db.query(APIClient.id).filter(APIClient.tenant_id == tenant_id).subquery()
+        master_db.query(ClientPermission).filter(ClientPermission.client_id.in_(api_client_ids)).delete(synchronize_session=False)
+        
+        master_db.query(APIClient).filter(APIClient.tenant_id == tenant_id).delete()
+        
+        # Note: StorageOperationLog and CloudStorageConfiguration are in tenant databases, not master
+        
+        # Delete audit logs for this tenant
+        master_db.query(AuditLog).filter(AuditLog.tenant_id == tenant_id).delete()
+        
+        # Delete organization join requests
+        master_db.query(OrganizationJoinRequest).filter(OrganizationJoinRequest.tenant_id == tenant_id).delete()
+        
+        # Delete tenant keys (encryption keys)
+        master_db.query(TenantKey).filter(TenantKey.tenant_id == tenant_id).delete()
+        
+        # Delete core business records
+        # Delete user-tenant associations first
+        master_db.execute(user_tenant_association.delete().where(user_tenant_association.c.tenant_id == tenant_id))
+        
+        master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).delete()
+        master_db.query(User).filter(User.tenant_id == tenant_id).delete()
+        master_db.query(ClientNote).filter(ClientNote.tenant_id == tenant_id).delete()
+        master_db.query(InvoiceHistory).filter(InvoiceHistory.tenant_id == tenant_id).delete()
+        master_db.query(Payment).filter(Payment.tenant_id == tenant_id).delete()
+        master_db.query(Invoice).filter(Invoice.tenant_id == tenant_id).delete()
+        master_db.query(Client).filter(Client.tenant_id == tenant_id).delete()
+        master_db.query(Settings).filter(Settings.tenant_id == tenant_id).delete()
+        master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
+        master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
+        master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
+        
+    except Exception as e:
+        master_db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete tenant data: {str(e)}"
+        )
 
     # Delete tenant database first
     success = tenant_db_manager.drop_tenant_database(tenant_id)
