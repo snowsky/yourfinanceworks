@@ -152,17 +152,76 @@ async def process_statement_pdf(
         file_extension = '.pdf'  # Default to PDF
     
     try:
-        with tempfile.NamedTemporaryFile(
-            delete=False, 
-            suffix=file_extension,
-            prefix=f"api_statement_{uuid.uuid4().hex[:8]}_"
-        ) as temp_file:
-            temp_file.write(file_content)
-            temp_file_path = temp_file.name
+        # Store file in cloud storage for processing and audit trail
+        stored_file_path = None
+        cloud_file_key = None
         
-        # Validate temporary file path
+        try:
+            from services.cloud_storage_service import CloudStorageService
+            from settings.cloud_storage_config import get_cloud_storage_config
+            
+            cloud_config = get_cloud_storage_config()
+            cloud_storage_service = CloudStorageService(db, cloud_config)
+            
+            # Generate unique file key for cloud storage
+            file_key = f"bank_statements/api/{api_client.client_id}/{uuid.uuid4().hex}_{safe_filename}"
+            
+            # Store file in cloud storage
+            storage_result = await cloud_storage_service.store_file(
+                file_content=file_content,
+                tenant_id=str(api_client.tenant_id),
+                item_id=0,  # Use 0 for external API uploads
+                attachment_type="bank_statements",
+                original_filename=safe_filename,
+                user_id=1,  # Use admin user for external API uploads
+                metadata={
+                    "original_filename": safe_filename,
+                    "api_client_id": str(api_client.client_id),
+                    "api_client_name": api_client.client_name,
+                    "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                    "file_size": len(file_content),
+                    "document_type": "bank_statement",
+                    "file_key": file_key  # Store the original file key in metadata
+                }
+            )
+            
+            if storage_result.success:
+                cloud_file_key = file_key
+                logger.info(f"Bank statement stored in cloud storage: {file_key}")
+                
+                # For processing, we still need a local temporary file
+                with tempfile.NamedTemporaryFile(
+                    delete=False, 
+                    suffix=file_extension,
+                    prefix=f"api_statement_{uuid.uuid4().hex[:8]}_"
+                ) as temp_file:
+                    temp_file.write(file_content)
+                    stored_file_path = temp_file.name
+            else:
+                logger.warning(f"Cloud storage failed, using temporary file: {storage_result.error}")
+                # Fallback to temporary file
+                with tempfile.NamedTemporaryFile(
+                    delete=False, 
+                    suffix=file_extension,
+                    prefix=f"api_statement_{uuid.uuid4().hex[:8]}_"
+                ) as temp_file:
+                    temp_file.write(file_content)
+                    stored_file_path = temp_file.name
+                    
+        except ImportError:
+            logger.info("Cloud storage not available, using temporary file")
+            # Fallback to temporary file
+            with tempfile.NamedTemporaryFile(
+                delete=False, 
+                suffix=file_extension,
+                prefix=f"api_statement_{uuid.uuid4().hex[:8]}_"
+            ) as temp_file:
+                temp_file.write(file_content)
+                stored_file_path = temp_file.name
+        
+        # Validate file path
         from utils.file_validation import validate_file_path
-        temp_file_path = validate_file_path(temp_file_path)
+        temp_file_path = validate_file_path(stored_file_path)
 
         logger.info(f"Processing statement file for API client {api_client.client_name}: {file.filename}")
         
@@ -173,9 +232,48 @@ async def process_statement_pdf(
                 detail="AI processing service is not available. Please ensure the AI provider is configured in Settings > AI Configuration and the service is running."
             )
         
-        # Process the file using the statement service
+        # Process the file using the unified OCR service
         try:
-            transactions = process_bank_pdf_with_llm(temp_file_path)
+            from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+            
+            # Configure OCR service with AI config from database
+            ai_config = None
+            try:
+                from models.models_per_tenant import AIConfig as AIConfigModel
+                ai_row = db.query(AIConfigModel).filter(
+                    AIConfigModel.is_active == True,
+                    AIConfigModel.tested == True
+                ).order_by(AIConfigModel.is_default.desc()).first()
+                
+                if ai_row:
+                    ai_config = {
+                        "provider_name": ai_row.provider_name,
+                        "model_name": ai_row.model_name,
+                        "api_key": ai_row.api_key,
+                        "provider_url": ai_row.provider_url,
+                    }
+                    logger.info(f"Using AI config: {ai_row.provider_name} ({ai_row.model_name})")
+            except Exception as e:
+                logger.warning(f"Failed to load AI config from database: {e}")
+            
+            # Create OCR service
+            ocr_config = OCRConfig(
+                ai_config=ai_config,
+                enable_unstructured=True,
+                enable_tesseract_fallback=True,
+                timeout_seconds=300
+            )
+            ocr_service = UnifiedOCRService(ocr_config)
+            
+            # Extract text from bank statement
+            text_result = ocr_service.extract_text(temp_file_path, DocumentType.BANK_STATEMENT)
+            
+            if not text_result.success:
+                raise Exception(f"Text extraction failed: {text_result.error_message}")
+            
+            # For now, use the existing transaction extraction logic
+            # TODO: Integrate transaction parsing into unified service
+            transactions = process_bank_pdf_with_llm(temp_file_path, ai_config)
         except BankLLMUnavailableError:
             raise HTTPException(
                 status_code=503,
@@ -234,19 +332,27 @@ async def process_statement_pdf(
         api_client.total_transactions_submitted += len(transactions)
         db.commit()
 
-        # Log audit event
+        # Log audit event with cloud storage information
+        audit_details = {
+            "api_client_id": api_client.client_id,
+            "filename": file.filename,
+            "transactions_count": len(transactions),
+            "file_size": len(file_content)
+        }
+        
+        if cloud_file_key:
+            audit_details["cloud_storage_key"] = cloud_file_key
+            audit_details["storage_method"] = "cloud_storage"
+        else:
+            audit_details["storage_method"] = "temporary_file"
+        
         log_audit_event(
             db=db,
             user_id=int(auth_context.user_id),
             action="api_statement_processed",
             resource_type="statement",
             resource_id=None,
-            details={
-                "api_client_id": api_client.client_id,
-                "filename": file.filename,
-                "transactions_count": len(transactions),
-                "file_size": len(file_content)
-            }
+            details=audit_details
         )
 
         # Return response based on requested format
@@ -263,8 +369,12 @@ async def process_statement_pdf(
                 from utils.file_validation import validate_file_path
                 validated_temp_path = validate_file_path(temp_file_path)
                 os.unlink(validated_temp_path)
-        except Exception:
-            pass
+                logger.debug(f"Cleaned up temporary file: {validated_temp_path}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up temporary file: {e}")
+        
+        # Note: Cloud storage files are kept for audit trail and potential reprocessing
+        # They can be cleaned up later by a scheduled cleanup job if needed
 
 
 def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: str) -> StreamingResponse:

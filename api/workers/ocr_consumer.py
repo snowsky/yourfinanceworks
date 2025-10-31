@@ -365,10 +365,13 @@ def main() -> int:
                 elif topic_name == bank_topic:
                     try:
                         from models.models_per_tenant import BankStatement, BankStatementTransaction, AIConfig as AIConfigModel
+                        # Import statement service functions first (needed for both unified and legacy)
                         try:
                             from services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
+                            statement_service_available = True
                         except ImportError as import_err:
                             logger.error(f"Failed to import statement service (likely LangChain dependency issue): {import_err}")
+                            statement_service_available = False
                             # Mark statement as failed due to dependency issue
                             stmt = db.query(BankStatement).filter(BankStatement.id == int(payload.get("statement_id"))).first()
                             if stmt:
@@ -383,6 +386,14 @@ def main() -> int:
                             except Exception:
                                 pass
                             continue
+                        
+                        # Try to use UnifiedOCRService first, fallback to legacy service
+                        use_unified_ocr = True
+                        try:
+                            from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+                        except ImportError as unified_import_err:
+                            logger.warning(f"UnifiedOCRService not available, using legacy service: {unified_import_err}")
+                            use_unified_ocr = False
                         statement_id = int(payload.get("statement_id"))
                         file_path = str(payload.get("file_path"))
                         logger.info(f"Processing bank statement: id={statement_id} tenant_id={tenant_id} file={file_path}")
@@ -413,17 +424,63 @@ def main() -> int:
                             attempts = int(payload.get("attempt", 0))
                             max_attempts = int(os.getenv("BANK_LLM_MAX_ATTEMPTS", "5"))
                             backoff_base_ms = int(os.getenv("BANK_LLM_BACKOFF_BASE_MS", "2000"))
-                            # Pre-check LLM availability to distinguish outages from valid zero-transaction statements
-                            llm_ok = is_bank_llm_reachable(ai_conf)
                             try:
-                                txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                                if use_unified_ocr:
+                                    # Use UnifiedOCRService for bank statement processing
+                                    logger.info(f"Using UnifiedOCRService for bank statement {statement_id}")
+                                    
+                                    ocr_config = OCRConfig(
+                                        ai_config=ai_conf,
+                                        enable_unstructured=True,
+                                        enable_tesseract_fallback=True,
+                                        timeout_seconds=300
+                                    )
+                                    
+                                    ocr_service = UnifiedOCRService(ocr_config)
+                                    
+                                    # Extract text first
+                                    text_result = ocr_service.extract_text(file_path, DocumentType.BANK_STATEMENT)
+                                    
+                                    if text_result.success:
+                                        logger.info(f"✅ Text extraction successful: {text_result.text_length} chars using {text_result.method.value}")
+                                        # For now, still use legacy transaction parsing
+                                        # TODO: Integrate transaction parsing into unified service
+                                        txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                                    else:
+                                        raise Exception(f"UnifiedOCR text extraction failed: {text_result.error_message}")
+                                else:
+                                    # Pre-check LLM availability to distinguish outages from valid zero-transaction statements
+                                    llm_ok = is_bank_llm_reachable(ai_conf)
+                                    txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                                
                                 logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
-                            except BankLLMUnavailableError as llm_err:
-                                if attempts + 1 >= max_attempts:
-                                    logger.error(f"Bank LLM unavailable after {attempts+1} attempts for statement_id={statement_id}: {llm_err}")
-                                    # Mark statement as failed and commit offset
+                            except Exception as e:
+                                # Handle BankLLMUnavailableError if statement service is available
+                                if statement_service_available and hasattr(e, '__class__') and e.__class__.__name__ == 'BankLLMUnavailableError':
+                                    if attempts + 1 >= max_attempts:
+                                        logger.error(f"Bank LLM unavailable after {attempts+1} attempts for statement_id={statement_id}: {e}")
+                                        # Mark statement as failed and commit offset
+                                        try:
+                                            stmt.status = "failed"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                    # Requeue with backoff
+                                    from time import sleep
+                                    delay_ms = min(60000, backoff_base_ms * (attempts + 1))
+                                    logger.warning(f"LLM unavailable, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms}ms")
+                                    sleep(delay_ms / 1000.0)
+                                    from services.ocr_service import publish_bank_statement_task
+                                    payload.update({"attempt": attempts + 1})
+                                    publish_bank_statement_task(payload)
+                                    # Mark current as failed processing attempt and commit so we don't tight-loop
                                     try:
-                                        stmt.status = "failed"
+                                        stmt.status = "processing"
                                         db.commit()
                                     except Exception:
                                         db.rollback()
@@ -431,25 +488,19 @@ def main() -> int:
                                         consumer.commit(message=msg, asynchronous=False)
                                     except Exception:
                                         pass
-                                    continue
-                                # Requeue with backoff
-                                from time import sleep
-                                delay_ms = min(60000, backoff_base_ms * (attempts + 1))
-                                logger.warning(f"LLM unavailable, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms}ms")
-                                sleep(delay_ms / 1000.0)
-                                from services.ocr_service import publish_bank_statement_task
-                                payload.update({"attempt": attempts + 1})
-                                publish_bank_statement_task(payload)
-                                # Mark current as failed processing attempt and commit so we don't tight-loop
-                                try:
-                                    stmt.status = "processing"
-                                    db.commit()
-                                except Exception:
-                                    db.rollback()
-                                try:
-                                    consumer.commit(message=msg, asynchronous=False)
-                                except Exception:
-                                    pass
+                                else:
+                                    # Handle other exceptions
+                                    logger.error(f"Failed processing bank statement: {e}")
+                                    try:
+                                        stmt.status = "failed"
+                                        stmt.error_message = str(e)
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
                                 continue
                             except Exception as processing_err:
                                 # Enhanced OCR-specific exception handling with comprehensive retry logic

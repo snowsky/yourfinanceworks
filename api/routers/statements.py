@@ -78,6 +78,44 @@ async def upload_statements(
             with open(out_path, "wb") as out:
                 shutil.copyfileobj(f.file, out)
 
+            # Upload to cloud storage
+            cloud_file_url = None
+            try:
+                from services.cloud_storage_service import CloudStorageService
+                from settings.cloud_storage_config import get_cloud_storage_config
+                
+                cloud_config = get_cloud_storage_config()
+                cloud_storage_service = CloudStorageService(db, cloud_config)
+                
+                # Upload file to cloud storage
+                storage_result = await cloud_storage_service.store_file(
+                    file_content=contents,
+                    tenant_id=str(tenant_id),
+                    item_id=0,  # Will be updated after statement is created
+                    attachment_type="bank_statements",
+                    original_filename=name,
+                    user_id=current_user.id,
+                    metadata={
+                        "original_filename": name,
+                        "stored_filename": stored_filename,
+                        "uploaded_at": datetime.utcnow().isoformat(),
+                        "file_size": len(contents),
+                        "document_type": "bank_statement",
+                        "upload_method": "internal_api"
+                    }
+                )
+                
+                if storage_result.success:
+                    cloud_file_url = storage_result.file_url
+                    logger.info(f"Bank statement uploaded to cloud storage: {cloud_file_url}")
+                else:
+                    logger.warning(f"Cloud storage upload failed, using local file: {storage_result.error}")
+                    
+            except ImportError:
+                logger.info("Cloud storage not available, using local file only")
+            except Exception as e:
+                logger.error(f"Cloud storage upload failed: {e}")
+
             # Create statement in processing state and enqueue OCR task
             statement = BankStatement(
                 tenant_id=tenant_id,

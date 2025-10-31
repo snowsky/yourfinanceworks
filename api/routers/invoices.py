@@ -2628,7 +2628,76 @@ async def upload_invoice_attachment_new(
         db.commit()
         db.refresh(attachment)
 
-        return {
+        # Process invoice with OCR if it's a document that could contain invoice data
+        ocr_result = None
+        if attachment_type == "document" and file_ext in {'.pdf', '.jpg', '.jpeg', '.png'}:
+            try:
+                from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+                from models.models_per_tenant import AIConfig as AIConfigModel
+                
+                # Get AI config for OCR processing
+                ai_config = None
+                try:
+                    ai_row = db.query(AIConfigModel).filter(
+                        AIConfigModel.is_active == True,
+                        AIConfigModel.tested == True,
+                        AIConfigModel.ocr_enabled == True
+                    ).order_by(AIConfigModel.is_default.desc()).first()
+                    
+                    if ai_row:
+                        ai_config = {
+                            "provider_name": ai_row.provider_name,
+                            "model_name": ai_row.model_name,
+                            "api_key": ai_row.api_key,
+                            "provider_url": ai_row.provider_url,
+                        }
+                        logger.info(f"Using AI config for invoice OCR: {ai_row.provider_name} ({ai_row.model_name})")
+                except Exception as e:
+                    logger.warning(f"Failed to load AI config for invoice OCR: {e}")
+                
+                if ai_config:
+                    # Configure OCR service
+                    ocr_config = OCRConfig(
+                        ai_config=ai_config,
+                        enable_ai_vision=True,
+                        timeout_seconds=120
+                    )
+                    
+                    ocr_service = UnifiedOCRService(ocr_config)
+                    
+                    # Extract structured data from invoice
+                    extraction_result = await ocr_service.extract_structured_data(
+                        validated_path, 
+                        DocumentType.INVOICE
+                    )
+                    
+                    if extraction_result.success:
+                        ocr_result = {
+                            "success": True,
+                            "data": extraction_result.structured_data,
+                            "processing_time": extraction_result.processing_time,
+                            "method": extraction_result.method.value
+                        }
+                        logger.info(f"✅ Invoice OCR successful: {len(extraction_result.structured_data or {})} fields extracted")
+                    else:
+                        ocr_result = {
+                            "success": False,
+                            "error": extraction_result.error_message
+                        }
+                        logger.warning(f"Invoice OCR failed: {extraction_result.error_message}")
+                else:
+                    logger.info("No OCR-enabled AI config available for invoice processing")
+                    
+            except ImportError:
+                logger.info("UnifiedOCRService not available for invoice processing")
+            except Exception as e:
+                logger.error(f"Invoice OCR processing failed: {e}")
+                ocr_result = {
+                    "success": False,
+                    "error": str(e)
+                }
+
+        response = {
             "id": attachment.id,
             "invoice_id": invoice_id,
             "filename": attachment.filename,
@@ -2640,6 +2709,12 @@ async def upload_invoice_attachment_new(
             "status": "success",
             "message": "Attachment uploaded successfully"
         }
+        
+        # Include OCR results if available
+        if ocr_result:
+            response["ocr_result"] = ocr_result
+            
+        return response
 
     except HTTPException:
         raise

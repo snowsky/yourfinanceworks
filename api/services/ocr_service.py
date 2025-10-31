@@ -886,7 +886,40 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             logger.debug("AI config fetch failed due to encryption/decryption error (details not logged for security)")
 
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
-    result = await _run_ocr(file_path, ai_config=ai_config)
+    
+    # Use UnifiedOCRService for expense processing
+    try:
+        from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+        
+        # Configure OCR service
+        ocr_config = OCRConfig(
+            ai_config=ai_config,
+            enable_ai_vision=True,
+            enable_fallback_parsing=True,
+            timeout_seconds=300,
+            max_retries=3
+        )
+        
+        ocr_service = UnifiedOCRService(ocr_config)
+        
+        # Extract structured data from expense receipt
+        ocr_result = await ocr_service.extract_structured_data(file_path, DocumentType.EXPENSE_RECEIPT)
+        
+        if ocr_result.success:
+            result = ocr_result.structured_data or {}
+            logger.info(f"✅ Unified OCR extraction successful: {len(result)} fields extracted in {ocr_result.processing_time:.2f}s using {ocr_result.method.value}")
+        else:
+            logger.error(f"❌ Unified OCR extraction failed: {ocr_result.error_message}")
+            # Fallback to legacy OCR for backward compatibility
+            logger.info("Falling back to legacy OCR processing...")
+            result = await _run_ocr(file_path, ai_config=ai_config)
+            
+    except ImportError as e:
+        logger.warning(f"UnifiedOCRService not available, using legacy OCR: {e}")
+        result = await _run_ocr(file_path, ai_config=ai_config)
+    except Exception as e:
+        logger.error(f"UnifiedOCRService failed, using legacy OCR: {e}")
+        result = await _run_ocr(file_path, ai_config=ai_config)
 
     # Track AI usage if ai_config was used and OCR was actually attempted
     if ai_config and not result.get("provider_not_supported"):
