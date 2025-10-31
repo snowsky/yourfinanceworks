@@ -38,14 +38,28 @@ export function InvoiceChart() {
 
     // Initialize chart data for the last 6 months for each currency
     const months = [];
+    const today = new Date();
+    
     for (let i = 0; i < 6; i++) {
-      const month = new Date();
-      month.setMonth(month.getMonth() - 5 + i);
+      // Calculate target month and year more reliably
+      let targetMonth = today.getMonth() - 5 + i;
+      let targetYear = today.getFullYear();
+      
+      // Handle year boundary crossing
+      while (targetMonth < 0) {
+        targetMonth += 12;
+        targetYear -= 1;
+      }
+      
+      // Create date with first day of target month to avoid day overflow issues
+      const month = new Date(targetYear, targetMonth, 1);
       const monthName = month.toLocaleString('default', { month: 'short' });
       const year = month.getFullYear().toString().slice(2);
       const label = `${monthName} '${year}`;
       months.push(label);
     }
+    
+
 
     // Process invoices and group by currency
     invoiceData.forEach(invoice => {
