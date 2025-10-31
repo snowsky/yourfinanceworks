@@ -20,7 +20,7 @@ from utils.rbac import require_admin
 from services.cloud_storage_service import CloudStorageService
 from services.attachment_migration_service import AttachmentMigrationService
 from services.storage_monitoring_service import StorageMonitoringService
-from storage_config.cloud_storage_config import get_cloud_storage_config, CloudStorageConfig
+from settings.cloud_storage_config import get_cloud_storage_config, CloudStorageConfig
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

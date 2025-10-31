@@ -22,7 +22,7 @@ from services.storage_monitoring_service import (
 )
 from services.cloud_storage.provider import StorageProvider, HealthCheckResult
 from models.models import StorageOperationLog, Tenant
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 
 @pytest.fixture

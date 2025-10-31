@@ -21,7 +21,7 @@ from sqlalchemy import func, and_, or_
 from models.models import Tenant
 from models.models_per_tenant import StorageOperationLog
 from services.cloud_storage.provider import StorageProvider
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 logger = logging.getLogger(__name__)
 

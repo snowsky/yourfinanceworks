@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import requests
-from services.ocr_service import track_ai_usage
+from services.ocr_service import track_ai_usage, track_ocr_usage
 from utils.file_validation import validate_file_path
 
 logger = logging.getLogger(__name__)
@@ -34,15 +34,15 @@ try:
         UnstructuredPDFLoader,
         CSVLoader,
     )
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain.schema import Document
-    from langchain.prompts import PromptTemplate, ChatPromptTemplate
-    from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
-    from langchain.chains import LLMChain
-    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    from langchain_core.documents import Document
+    from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+    from langchain_core.output_parsers import PydanticOutputParser
+    # LLMChain is deprecated in LangChain v1.0+, we'll use direct LLM calls instead
+    from langchain_core.callbacks import BaseCallbackHandler
     from langchain_community.llms import Ollama
     from langchain_community.chat_models import ChatOllama
-    from langchain.schema import HumanMessage, SystemMessage, AIMessage
+    from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     logger.warning("LangChain not available - falling back to basic functionality")
@@ -51,22 +51,20 @@ except ImportError:
         def __init__(self, page_content="", metadata=None):
             self.page_content = page_content
             self.metadata = metadata or {}
-    
+
     class BaseCallbackHandler:
         pass
-    
+
     class PromptTemplate:
         def __init__(self, template="", input_variables=None):
             self.template = template
             self.input_variables = input_variables or []
-    
-    class LLMChain:
-        def __init__(self, llm=None, prompt=None):
-            pass
-        
-        def run(self, **kwargs):
-            raise NotImplementedError("LangChain not available")
-    
+
+        def format(self, **kwargs):
+            return self.template.format(**kwargs)
+
+    # LLMChain is deprecated in LangChain v1.0+, no fallback needed
+
     class RecursiveCharacterTextSplitter:
         def __init__(self, **kwargs):
             self.chunk_size = kwargs.get('chunk_size', 3000)
@@ -83,7 +81,7 @@ except ImportError:
                 chunks.append(chunk)
                 i += self.chunk_size - self.chunk_overlap
             return chunks
-    
+
     LANGCHAIN_AVAILABLE = False
 
 # Pydantic models for structured output - optional (migrate to field_validator)
@@ -107,16 +105,16 @@ except ImportError:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
                 setattr(self, k, v)
-    
+
     def Field(**kwargs):
         return None
-    
+
     def validator(field_name):
         def decorator(func):
             return func
         return decorator
     field_validator = validator  # type: ignore
-    
+
     TypingList = List
     PYDANTIC_AVAILABLE = False
 
@@ -202,11 +200,11 @@ class OllamaCallbackHandler(BaseCallbackHandler):
         self.total_tokens = 0
         self.total_time = 0
         self.request_count = 0
-    
+
     def on_llm_start(self, serialized, prompts, **kwargs):
         self.start_time = time.time()
         self.request_count += 1
-    
+
     def on_llm_end(self, response, **kwargs):
         self.total_time += time.time() - self.start_time
         if hasattr(response, 'llm_output') and response.llm_output:
@@ -217,6 +215,7 @@ class UniversalBankTransactionExtractor:
     """
     Universal bank transaction extractor that supports multiple LLM providers via LiteLLM.
     Supports: OpenAI, OpenRouter, Anthropic, Google, Ollama, and other LiteLLM-compatible providers.
+    Enhanced with OCR fallback capability for scanned documents.
     """
     
     def __init__(self, 
@@ -236,8 +235,12 @@ class UniversalBankTransactionExtractor:
             request_timeout: Timeout for requests
         """
         if not LANGCHAIN_AVAILABLE:
-            raise ImportError("LangChain is required for UniversalBankTransactionExtractor. Please install langchain package.")
-        
+            logger.error("LangChain is not available for UniversalBankTransactionExtractor. Bank statement processing will be limited.")
+            # Don't raise an error, just log it and continue with limited functionality
+            self.langchain_available = False
+        else:
+            self.langchain_available = True
+
         self.ai_config = ai_config
         self.provider_name = ai_config.get("provider_name", "openai")
         self.model_name = ai_config.get("model_name", "gpt-4")
@@ -251,6 +254,15 @@ class UniversalBankTransactionExtractor:
         # Test provider connection
         self._test_provider_connection()
         
+        # Initialize enhanced PDF text extractor with OCR fallback
+        try:
+            from services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+            self.text_extractor = EnhancedPDFTextExtractor(ai_config)
+            logger.info("✅ Enhanced PDF text extractor with OCR fallback initialized")
+        except ImportError as e:
+            logger.warning(f"Enhanced PDF extractor not available: {e}")
+            self.text_extractor = None
+        
         # Initialize text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
@@ -258,8 +270,8 @@ class UniversalBankTransactionExtractor:
             separators=["\n\n", "\n", " ", ""],
             keep_separator=False
         )
-        
-        # Available PDF loaders (same as original)
+
+        # Available PDF loaders (fallback when enhanced extractor not available)
         self.pdf_loaders = {}
         if LANGCHAIN_AVAILABLE:
             try:
@@ -269,7 +281,7 @@ class UniversalBankTransactionExtractor:
                     'best_for': 'Simple text-based PDFs'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['pymupdf'] = {
                     'class': PyMuPDFLoader,
@@ -277,7 +289,7 @@ class UniversalBankTransactionExtractor:
                     'best_for': 'Most PDF types, good balance of speed and quality'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['pdfplumber'] = {
                     'class': PDFPlumberLoader,
@@ -285,19 +297,19 @@ class UniversalBankTransactionExtractor:
                     'best_for': 'Bank statements with tables'
                 }
             except: pass
-        
+
         # Setup prompts
         self.extraction_prompt = self._create_extraction_prompt()
-        
+
     def _test_provider_connection(self):
         """Test connection to the configured provider"""
         try:
             from litellm import completion
-            
+
             # Prepare model name and parameters for LiteLLM
             model_name = self._format_model_name()
             kwargs = self._prepare_litellm_kwargs()
-            
+
             # Simple test call
             kwargs.update({
                 "model": model_name,
@@ -305,19 +317,19 @@ class UniversalBankTransactionExtractor:
                 "max_tokens": 10,
                 "temperature": 0.1
             })
-            
+
             logger.info(f"🔍 Testing connection to {self.provider_name} with model {model_name}")
             response = completion(**kwargs)
-            
+
             if response and response.choices:
                 logger.info(f"✅ Successfully connected to {self.provider_name}")
             else:
                 raise Exception("No response received")
-                
+
         except Exception as e:
             logger.error(f"❌ Failed to connect to {self.provider_name}: {e}")
             raise Exception(f"Provider connection failed: {e}")
-    
+
     def _format_model_name(self) -> str:
         """Format model name for LiteLLM based on provider"""
         if self.provider_name == "ollama":
@@ -326,26 +338,26 @@ class UniversalBankTransactionExtractor:
             return f"openrouter/{self.model_name}"  # OpenRouter requires "openrouter/" prefix for proper routing
         else:
             return self.model_name  # OpenAI, Anthropic, etc. use model names directly
-    
+
     def _prepare_litellm_kwargs(self) -> Dict[str, Any]:
         """Prepare LiteLLM kwargs based on provider"""
         kwargs = {}
-        
+
         if self.api_key:
             kwargs["api_key"] = self.api_key
-        
+
         if self.provider_url:
             kwargs["api_base"] = self.provider_url
-        
+
         # Provider-specific configurations
         if self.provider_name == "ollama" and not self.provider_url:
             kwargs["api_base"] = "http://localhost:11434"
-        
+
         return kwargs
-    
+
     def _create_extraction_prompt(self) -> PromptTemplate:
         """Create extraction prompt optimized for universal providers"""
-        
+
         template = """You are a financial data extraction expert. Extract bank transactions from the text below.
 
 RULES:
@@ -366,96 +378,96 @@ Return ONLY a JSON array like this example:
 ]
 
 JSON:"""
-        
+
         return PromptTemplate(
             template=template,
             input_variables=["text"]
         )
-    
+
     def extract_transactions_with_litellm(self, text: str) -> List[Dict]:
         """Extract transactions using LiteLLM"""
         try:
             from litellm import completion
-            
+
             model_name = self._format_model_name()
             kwargs = self._prepare_litellm_kwargs()
-            
+
             kwargs.update({
                 "model": model_name,
                 "messages": [{"role": "user", "content": self.extraction_prompt.format(text=text)}],
                 "max_tokens": 2000,
                 "temperature": self.temperature
             })
-            
+
             logger.info(f"🔄 Processing text chunk with {self.provider_name} ({len(text)} chars)")
-            
+
             response = completion(**kwargs)
-            
+
             if response and response.choices:
                 result_text = response.choices[0].message.content
                 return self._parse_response(result_text)
             else:
                 logger.warning("No response received from LLM")
                 return []
-                
+
         except Exception as e:
             logger.error(f"Error in LiteLLM extraction: {e}")
             return []
-    
+
     def _parse_response(self, response: str) -> List[Dict]:
         """Parse LLM response to extract transactions"""
         try:
             # Clean the response
             response = response.strip()
-            
+
             # Remove any markdown formatting
             response = re.sub(r'```json\s*', '', response)
             response = re.sub(r'```\s*', '', response)
-            
+
             # Find JSON content
             json_patterns = [
                 r'\[[\s\S]*?\]',  # Standard JSON array
                 r'\{[\s\S]*?\}',  # Single JSON object
             ]
-            
+
             for pattern in json_patterns:
                 matches = re.findall(pattern, response)
                 for match in matches:
                     try:
                         data = json.loads(match)
-                        
+
                         if isinstance(data, list):
                             return data
                         elif isinstance(data, dict):
                             return [data]
-                            
+
                     except json.JSONDecodeError:
                         continue
-            
+
             # If no JSON found, try to extract transaction-like patterns
             return self._extract_with_regex(response)
-            
+
         except Exception as e:
             logger.error(f"Error parsing LLM response: {e}")
             return []
-    
+
     def _extract_with_regex(self, text: str) -> List[Dict]:
         """Fallback extraction using regex patterns"""
         transactions = []
-        
+
         # Look for transaction-like patterns
         patterns = [
             r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
             r'(\d{4}-\d{2}-\d{2})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
         ]
-        
+
         for pattern in patterns:
             matches = re.findall(pattern, text, re.MULTILINE)
             for match in matches:
                 try:
                     date, desc, amount = match
                     amount_float = float(amount.replace('$', '').replace(',', ''))
-                    
+
                     transactions.append({
                         'date': date,
                         'description': desc.strip(),
@@ -464,9 +476,9 @@ JSON:"""
                     })
                 except:
                     continue
-        
+
         return transactions
-    
+
     # Include the same PDF loading and processing methods as the original class
     def load_pdf_with_langchain(self, pdf_path: str, loader_names: List[str] = None) -> List[Document]:
         """Load PDF using LangChain loaders with automatic fallback"""
@@ -477,58 +489,58 @@ JSON:"""
             logger.error(str(e))
             raise FileNotFoundError(f"Invalid PDF path: {e}")
         pdf_path = Path(safe_path)
-        
+
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF file not found: {pdf_path}")
-        
+
         if loader_names is None:
             loader_names = ['pymupdf', 'pdfplumber', 'pypdf']
-        
+
         last_error = None
-        
+
         for loader_name in loader_names:
             if loader_name not in self.pdf_loaders:
                 continue
-            
+
             try:
                 logger.info(f"Trying {loader_name} loader...")
                 loader_class = self.pdf_loaders[loader_name]['class']
                 loader = loader_class(str(pdf_path))
-                
+
                 documents = loader.load()
-                
+
                 if documents and any(doc.page_content.strip() for doc in documents):
                     logger.info(f"Successfully loaded with {loader_name}")
                     return documents
-                    
+
             except Exception as e:
                 last_error = e
                 logger.error(f"{loader_name} failed: {str(e)[:100]}...")
                 continue
-        
+
         raise Exception(f"All PDF loaders failed. Last error: {last_error}")
-    
+
     def preprocess_documents(self, documents: List[Document]) -> List[Document]:
         """Preprocess documents with cleaning and chunking"""
-        
+
         logger.info("Preprocessing documents...")
-        
+
         # Combine all pages
         full_text = ""
         for doc in documents:
             content = doc.page_content
-            
+
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
             content = re.sub(r'Statement Period:.*?\n', '', content)
             content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
-            
+
             full_text += content + "\n\n"
-        
+
         # Split into chunks
         chunks = self.text_splitter.split_text(full_text)
-        
+
         processed_docs = []
         for i, chunk in enumerate(chunks):
             if chunk.strip():
@@ -540,64 +552,94 @@ JSON:"""
                         "chunk_size": len(chunk)
                     }
                 ))
-        
+
         logger.info(f"Created {len(processed_docs)} chunks for processing")
         return processed_docs
-    
+
     def extract_transactions_from_documents(self, documents: List[Document]) -> List[Dict]:
         """Extract transactions using LiteLLM"""
-        
+
         all_transactions = []
-        
+
         logger.info(f"Extracting transactions from {len(documents)} chunks using {self.provider_name}")
-        
+
         for i, doc in enumerate(documents):
             logger.info(f"Processing chunk {i+1}/{len(documents)} (size: {len(doc.page_content)} chars)")
-            
+
             try:
                 start_time = time.time()
-                
+
                 # Use LiteLLM for extraction
                 chunk_transactions = self.extract_transactions_with_litellm(doc.page_content)
-                
+
                 processing_time = time.time() - start_time
                 logger.info(f"   Processed in {processing_time:.2f}s")
-                
+
                 if chunk_transactions:
                     logger.info(f"   Found {len(chunk_transactions)} transactions")
                     all_transactions.extend(chunk_transactions)
                 else:
                     logger.info(f"   No transactions found")
-                    
+
             except Exception as e:
                 logger.error(f"Error processing chunk {i+1}: {e}")
                 continue
-        
+
         logger.info(f"Total transactions found: {len(all_transactions)}")
         if all_transactions:
             logger.info(f"Sample transaction: {all_transactions[0]}")
         return all_transactions
-    
+
     def process_pdf(self, 
                    pdf_path: str,
                    loader_names: List[str] = None,
                    categorize: bool = False,  # Simplified for now
                    save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
-        """Main method to process PDF using LiteLLM"""
-        
+        """Main method to process PDF using LiteLLM with OCR fallback support"""
+
         logger.info(f"Processing bank statement with {self.provider_name}: {pdf_path}")
         logger.info(f"Using model: {self.model_name}")
-        
+
+        extraction_method = "unknown"
+        processing_time = 0.0
+
         try:
-            # Load PDF
-            documents = self.load_pdf_with_langchain(pdf_path, loader_names)
-            
+            # Use enhanced text extractor with OCR fallback if available
+            if self.text_extractor:
+                extraction_result = self.text_extractor.extract_text(pdf_path)
+                text = extraction_result.text
+                extraction_method = extraction_result.method
+                processing_time = extraction_result.processing_time
+
+                # Track extraction method for analytics
+                self._track_extraction_method(extraction_method, pdf_path, processing_time)
+
+                # Store extraction metadata for later AI usage tracking
+                self.last_extraction_method = extraction_method
+                self.last_processing_time = processing_time
+                self.last_text_length = len(text)
+
+                # Notify user about processing completion
+                try:
+                    from utils.ocr_notifications import notify_ocr_processing_completed
+                    # We'll add transaction count after processing
+                except ImportError:
+                    pass
+
+                # Create documents from extracted text
+                documents = [Document(page_content=text, metadata={"source": pdf_path, "extraction_method": extraction_method})]
+            else:
+                # Fallback to original PDF loading method
+                logger.warning("Enhanced text extractor not available, using fallback PDF loading")
+                documents = self.load_pdf_with_langchain(pdf_path, loader_names)
+                extraction_method = "pdf_loader_fallback"
+
             # Preprocess documents
             processed_docs = self.preprocess_documents(documents)
-            
+
             if save_debug:
                 debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([
-                    f"CHUNK {i+1}:\n{doc.page_content}" 
+                    f"CHUNK {i+1} (method: {extraction_method}):\n{doc.page_content}" 
                     for i, doc in enumerate(processed_docs)
                 ])
                 with open("universal_debug_chunks.txt", "w", encoding="utf-8") as f:
@@ -611,32 +653,82 @@ JSON:"""
                 logger.error("No transactions found")
                 return pd.DataFrame() if pd else []
             
+            # Add extraction method metadata to transactions
+            for transaction in transactions:
+                transaction['_extraction_method'] = extraction_method
+                transaction['_processing_time'] = processing_time
+            
             # Basic validation and cleaning
             result = self.validate_and_clean_data(transactions)
             
-            logger.info(f"Successfully processed {len(result) if hasattr(result, '__len__') else 'unknown'} transactions")
+            transaction_count = len(result) if hasattr(result, '__len__') else 0
+            logger.info(f"Successfully processed {transaction_count} transactions using {extraction_method}")
+
+            # Notify user about processing completion
+            try:
+                from utils.ocr_notifications import notify_ocr_processing_completed
+                notify_ocr_processing_completed(
+                    pdf_path,
+                    transaction_count,
+                    processing_time,
+                    extraction_method
+                )
+            except ImportError:
+                pass
+
             return result
-            
+
         except Exception as e:
-            logger.error(f"Error processing PDF: {e}")
+            logger.error(f"Error processing PDF with {extraction_method}: {e}")
+
+            # Track failed extraction attempt
+            try:
+                from services.bank_statement_analytics_service import track_bank_statement_extraction
+                from models.database import get_db
+
+                db = next(get_db())
+                track_bank_statement_extraction(
+                    db=db,
+                    method=extraction_method,
+                    pdf_path=pdf_path,
+                    processing_time=processing_time,
+                    text_length=getattr(self, 'last_text_length', 0),
+                    word_count=getattr(self, 'last_text_length', 0) // 5,
+                    success=False,
+                    ai_config=self.ai_config,
+                    error_details=str(e)
+                )
+            except Exception as track_error:
+                logger.warning(f"Failed to track failed extraction: {track_error}")
+
+            # Import OCR exceptions for specific error handling
+            try:
+                from exceptions.bank_ocr_exceptions import OCRUnavailableError, OCRTimeoutError, OCRProcessingError
+
+                if isinstance(e, (OCRUnavailableError, OCRTimeoutError, OCRProcessingError)):
+                    # Re-raise OCR-specific exceptions for upstream handling
+                    raise
+            except ImportError:
+                pass
+
             return pd.DataFrame() if pd else []
-    
+
     def validate_and_clean_data(self, transactions: List[Dict]) -> Union[pd.DataFrame, List[Dict]]:
         """Basic validation and cleaning of extracted transaction data"""
-        
+
         if not transactions:
             return pd.DataFrame() if pd else []
-        
+
         logger.info("Validating and cleaning data...")
-        
+
         if not pd:
             # Fallback to basic validation without pandas
             return self._basic_validate_and_clean(transactions)
-        
+
         df = pd.DataFrame(transactions)
         initial_count = len(df)
         logger.info(f"DataFrame created with {initial_count} transactions")
-        
+
         # Ensure required columns
         required_cols = ['date', 'description', 'amount', 'transaction_type']
         for col in required_cols:
@@ -647,14 +739,14 @@ JSON:"""
                     )
                 else:
                     df[col] = None
-        
+
         # Data type conversions
         if 'amount' in df.columns:
             df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
-        
+
         if 'balance' in df.columns:
             df['balance'] = pd.to_numeric(df['balance'], errors='coerce')
-        
+
         # Remove invalid rows
         before_dropna = len(df)
         df = df.dropna(subset=['date', 'amount'])
@@ -668,63 +760,189 @@ JSON:"""
         after_dedup = len(df)
         if before_dedup != after_dedup:
             logger.info(f"Removed {before_dedup - after_dedup} duplicate transactions")
-        
+
         # Sort by date
         if not df.empty:
             df = df.sort_values('date').reset_index(drop=True)
-        
+
         cleaned_count = len(df)
         if cleaned_count < initial_count:
             logger.info(f"Removed {initial_count - cleaned_count} invalid/duplicate transactions")
-        
+
         return df
-    
+
     def _basic_validate_and_clean(self, transactions: List[Dict]) -> List[Dict]:
         """Basic validation without pandas"""
         cleaned = []
         seen = set()
-        
+
         for txn in transactions:
             # Ensure required fields
             if not all(key in txn for key in ['date', 'description', 'amount']):
                 continue
-            
+
             # Add transaction_type if missing
             if 'transaction_type' not in txn:
                 txn['transaction_type'] = 'credit' if float(txn.get('amount', 0)) > 0 else 'debit'
-            
+
             # Normalize date
             try:
                 txn['date'] = _normalize_date(str(txn['date']))
             except:
                 continue
-            
+
             # Validate amount
             try:
                 txn['amount'] = float(txn['amount'])
             except:
                 continue
-            
+
             # Deduplicate
             key = (txn['date'], txn['description'], round(txn['amount'], 2))
             if key not in seen:
                 seen.add(key)
                 cleaned.append(txn)
-        
+
         # Sort by date
         try:
             cleaned.sort(key=lambda x: x['date'])
         except:
             pass
-        
+
         return cleaned
+
+    def _track_extraction_method(self, method: str, pdf_path: str, processing_time: float) -> None:
+        """
+        Track extraction method usage for analytics.
+
+        Args:
+            method: Extraction method used ("pdf_loader" or "ocr")
+            pdf_path: Path to the processed file
+            processing_time: Time taken for extraction
+        """
+        from pathlib import Path
+
+        logger.info(
+            f"📊 Extraction method tracking: method={method} "
+            f"file={Path(pdf_path).name} time={processing_time:.2f}s"
+        )
+
+        # Track using the analytics service
+        try:
+            from services.bank_statement_analytics_service import track_bank_statement_extraction
+            from models.database import get_db
+
+            # Get database session for tracking
+            db = next(get_db())
+
+            # Calculate text metrics if available
+            text_length = getattr(self, 'last_text_length', 0)
+            word_count = text_length // 5 if text_length > 0 else 0  # Rough estimate
+
+            # Track the extraction attempt
+            track_bank_statement_extraction(
+                db=db,
+                method=method,
+                pdf_path=pdf_path,
+                processing_time=processing_time,
+                text_length=text_length,
+                word_count=word_count,
+                success=True,  # Assume success if we're tracking
+                ai_config=self.ai_config
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to track extraction method with analytics service: {e}")
+            # Don't fail the main operation if tracking fails
+
+    def create_processing_result(
+        self,
+        transactions: List[Dict],
+        extraction_method: str,
+        processing_time: float,
+        pdf_path: str,
+        text_length: int = 0,
+        word_count: int = 0,
+        success: bool = True,
+        errors: Optional[List[str]] = None
+    ) -> 'BankStatementProcessingResult':
+        """
+        Create a comprehensive processing result with all metadata.
+
+        Args:
+            transactions: List of extracted transactions
+            extraction_method: Method used for extraction
+            processing_time: Time taken for processing
+            pdf_path: Path to the processed file
+            text_length: Length of extracted text
+            word_count: Number of words in extracted text
+            success: Whether processing was successful
+            errors: List of error messages if any
+
+        Returns:
+            BankStatementProcessingResult with comprehensive metadata
+        """
+        try:
+            from models.bank_statement_processing import (
+                create_processing_result,
+                ExtractionMethod,
+                ProcessingStatus
+            )
+
+            # Map extraction method string to enum
+            method_mapping = {
+                "pdf_loader": ExtractionMethod.PDF_LOADER,
+                "ocr": ExtractionMethod.OCR,
+                "pdf_loader_insufficient": ExtractionMethod.PDF_LOADER_INSUFFICIENT,
+                "pdf_loader_fallback": ExtractionMethod.PDF_LOADER
+            }
+
+            method_enum = method_mapping.get(extraction_method, ExtractionMethod.PDF_LOADER)
+            status = ProcessingStatus.SUCCESS if success else ProcessingStatus.FAILED
+
+            # Create processing result with comprehensive metadata
+            result = create_processing_result(
+                transactions=transactions,
+                extraction_method=method_enum,
+                processing_time=processing_time,
+                text_length=text_length,
+                word_count=word_count,
+                file_path=pdf_path,
+                status=status,
+                ai_config_used=self.ai_config,
+                ocr_engine="tesseract" if extraction_method == "ocr" else None,
+                pdf_loader_used=getattr(self, 'last_pdf_loader_used', None),
+                contains_bank_keywords=True,  # Assume true for bank statements
+                is_scanned=extraction_method == "ocr"
+            )
+
+            # Add any errors
+            if errors:
+                for error in errors:
+                    result.add_error(error)
+
+            # Mark as completed
+            result.mark_completed()
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to create processing result: {e}")
+            # Return a minimal result structure
+            return {
+                "transactions": transactions,
+                "extraction_method": extraction_method,
+                "processing_time": processing_time,
+                "success": success,
+                "error": str(e)
+            }
 
 
 class BankTransactionExtractor:
     # TODO: Currently tested with Ollama only - need to refactor to support other LLM vendors
     # Support needed for: OpenAI, Anthropic, Google PaLM, Azure OpenAI, AWS Bedrock, etc.
     # Consider implementing LLM provider abstraction layer for vendor-agnostic interface
-    
+
     def __init__(self, 
                  model_name: str = "gpt-oss:latest",
                  ollama_base_url: str = "http://localhost:11434",
@@ -734,7 +952,7 @@ class BankTransactionExtractor:
                  request_timeout: int = 120):
         """
         Initialize the extractor with Ollama
-        
+
         Args:
             model_name: Ollama model name (e.g., 'llama2:7b', 'mistral:7b', 'codellama:7b')
             ollama_base_url: Ollama server URL
@@ -744,45 +962,59 @@ class BankTransactionExtractor:
             request_timeout: Timeout for Ollama requests
         """
         if not LANGCHAIN_AVAILABLE:
-            raise ImportError("LangChain is required for BankTransactionExtractor. Please install langchain package.")
-        
+            logger.error("LangChain is not available for BankTransactionExtractor. Bank statement processing will be limited.")
+            # Don't raise an error, just log it and continue with limited functionality
+            self.langchain_available = False
+        else:
+            self.langchain_available = True
+
         self.model_name = model_name
         self.ollama_base_url = ollama_base_url
         self.temperature = temperature
         self.request_timeout = request_timeout
-        
-        # Test Ollama connection
-        self._test_ollama_connection()
-        
-        # Initialize callback handler
-        self.callback_handler = OllamaCallbackHandler()
-        
-        # Initialize Ollama LLM with proper endpoint
-        self.llm = ChatOllama(
-            model=model_name,
-            base_url=ollama_base_url,
-            temperature=temperature,
-            timeout=request_timeout,
-            callbacks=[self.callback_handler]
-        )
-        
-        # For simpler prompts, use the basic Ollama LLM
-        self.simple_llm = Ollama(
-            model=model_name,
-            base_url=ollama_base_url,
-            temperature=temperature,
-            timeout=request_timeout,
-            callbacks=[self.callback_handler]
-        )
-        
-        # Initialize text splitter (smaller chunks for local models)
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", " ", ""],
-            keep_separator=False
-        )
-        
+
+        if self.langchain_available:
+            # Test Ollama connection
+            self._test_ollama_connection()
+
+            # Initialize callback handler
+            self.callback_handler = OllamaCallbackHandler()
+
+            # Initialize Ollama LLM with proper endpoint
+            self.llm = ChatOllama(
+                model=model_name,
+                base_url=ollama_base_url,
+                temperature=temperature,
+                timeout=request_timeout,
+                callbacks=[self.callback_handler]
+            )
+
+            # For simpler prompts, use the basic Ollama LLM
+            self.simple_llm = Ollama(
+                model=model_name,
+                base_url=ollama_base_url,
+                temperature=temperature,
+                timeout=request_timeout,
+                callbacks=[self.callback_handler]
+            )
+
+            # Initialize text splitter (smaller chunks for local models)
+            self.text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                separators=["\n\n", "\n", " ", ""],
+                keep_separator=False
+            )
+        else:
+            # Initialize fallback components
+            self.callback_handler = None
+            self.llm = None
+            self.simple_llm = None
+            self.text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap
+            )
+
         # Available PDF loaders (only add if available)
         self.pdf_loaders = {}
         if LANGCHAIN_AVAILABLE:
@@ -793,7 +1025,7 @@ class BankTransactionExtractor:
                     'best_for': 'Simple text-based PDFs'
                 }
             except: pass
-            
+
             # CSV loader
             try:
                 # Note: CSVLoader loads rows as Documents with page_content as a string
@@ -810,7 +1042,7 @@ class BankTransactionExtractor:
                     'best_for': 'Most PDF types, good balance of speed and quality'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['pdfminer'] = {
                     'class': PDFMinerLoader,
@@ -818,7 +1050,7 @@ class BankTransactionExtractor:
                     'best_for': 'Complex layouts, precise text positioning'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['pdfium2'] = {
                     'class': PyPDFium2Loader,
@@ -826,7 +1058,7 @@ class BankTransactionExtractor:
                     'best_for': 'Modern PDFs, good performance'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['pdfplumber'] = {
                     'class': PDFPlumberLoader,
@@ -834,7 +1066,7 @@ class BankTransactionExtractor:
                     'best_for': 'Bank statements with tables'
                 }
             except: pass
-            
+
             try:
                 self.pdf_loaders['unstructured'] = {
                     'class': UnstructuredPDFLoader,
@@ -842,15 +1074,15 @@ class BankTransactionExtractor:
                     'best_for': 'Messy or poorly formatted PDFs'
                 }
             except: pass
-        
+
         # Setup prompts (optimized for local models)
         self.extraction_prompt = self._create_extraction_prompt()
         self.categorization_prompt = self._create_categorization_prompt()
-        
-        # Create chains
-        self.extraction_chain = LLMChain(llm=self.simple_llm, prompt=self.extraction_prompt)
-        self.categorization_chain = LLMChain(llm=self.simple_llm, prompt=self.categorization_prompt)
-    
+
+        # Store prompts for direct LLM usage (LLMChain is deprecated in v1.0+)
+        self.extraction_prompt_template = self.extraction_prompt
+        self.categorization_prompt_template = self.categorization_prompt
+
     def _test_ollama_connection(self):
         """Test connection to Ollama server"""
         try:
@@ -859,7 +1091,7 @@ class BankTransactionExtractor:
                 available_models = [model['name'] for model in response.json()['models']]
                 logger.info(f"Connected to Ollama server")
                 logger.info(f"Available models: {', '.join(available_models)}")
-                
+
                 if self.model_name not in available_models:
                     logger.warning(f"Model '{self.model_name}' not found!")
                     logger.warning(f"Run: ollama pull {self.model_name}")
@@ -868,7 +1100,7 @@ class BankTransactionExtractor:
                     logger.info(f"Using model: {self.model_name}")
             else:
                 raise Exception(f"Ollama server responded with status {response.status_code}")
-                
+
         except requests.exceptions.ConnectionError:
             logger.error("Cannot connect to Ollama server")
             logger.error("Make sure Ollama is running: ollama serve")
@@ -877,10 +1109,10 @@ class BankTransactionExtractor:
         except Exception as e:
             logger.error(f"Ollama connection test failed: {e}")
             raise
-    
+
     def _create_extraction_prompt(self) -> PromptTemplate:
         """Create extraction prompt optimized for local models"""
-        
+    
         template = """You are a financial data extraction expert. Extract bank transactions from the text below.
 
 RULES:
@@ -906,10 +1138,10 @@ JSON:"""
             template=template,
             input_variables=["text"]
         )
-    
+
     def _create_categorization_prompt(self) -> PromptTemplate:
         """Create categorization prompt optimized for local models"""
-        
+
         template = """Categorize these transaction descriptions into spending categories.
 
 CATEGORIES:
@@ -927,7 +1159,7 @@ JSON:"""
             template=template,
             input_variables=["descriptions"]
         )
-    
+
     def get_ollama_models(self) -> List[str]:
         """Get list of available Ollama models"""
         try:
@@ -937,7 +1169,7 @@ JSON:"""
             return []
         except:
             return []
-    
+
     def pull_model(self, model_name: str) -> bool:
         """Pull a model from Ollama registry"""
         try:
@@ -951,7 +1183,7 @@ JSON:"""
         except Exception as e:
             logger.error(f"Failed to pull model: {e}")
             return False
-    
+
     def load_pdf_with_langchain(self, 
                                pdf_path: str, 
                                loader_names: List[str] = None) -> List[Document]:
@@ -963,35 +1195,35 @@ JSON:"""
             logger.error(str(e))
             raise FileNotFoundError(f"Invalid PDF path: {e}")
         pdf_path = Path(safe_path)
-        
+
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF file not found: {pdf_path}")
-        
+
         if loader_names is None:
             loader_names = ['pymupdf', 'pdfplumber', 'pdfium2', 'pypdf']
-        
+
         last_error = None
-        
+
         for loader_name in loader_names:
             if loader_name not in self.pdf_loaders:
                 continue
-            
+
             try:
                 logger.info(f"Trying {loader_name} loader...")
                 loader_class = self.pdf_loaders[loader_name]['class']
                 loader = loader_class(str(pdf_path))
-                
+
                 documents = loader.load()
-                
+
                 if documents and any(doc.page_content.strip() for doc in documents):
                     logger.info(f"Successfully loaded with {loader_name}")
                     return documents
-                    
+
             except Exception as e:
                 last_error = e
                 logger.error(f"{loader_name} failed: {str(e)[:100]}...")
                 continue
-        
+
         raise Exception(f"All PDF loaders failed. Last error: {last_error}")
 
     def load_csv_with_langchain(self, csv_path: str) -> List[Document]:
@@ -1060,28 +1292,28 @@ JSON:"""
         except Exception as e:
             logger.error(f"Failed to load CSV: {e}")
             return []
-    
+
     def preprocess_documents(self, documents: List[Document]) -> List[Document]:
         """Preprocess documents with cleaning and chunking"""
-        
+
         logger.info("Preprocessing documents...")
-        
+
         # Combine all pages
         full_text = ""
         for doc in documents:
             content = doc.page_content
-            
+
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
             content = re.sub(r'Statement Period:.*?\n', '', content)
             content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
-            
+
             full_text += content + "\n\n"
-        
+
         # Split into smaller chunks for local models
         chunks = self.text_splitter.split_text(full_text)
-        
+
         processed_docs = []
         for i, chunk in enumerate(chunks):
             if chunk.strip():
@@ -1093,63 +1325,67 @@ JSON:"""
                         "chunk_size": len(chunk)
                     }
                 ))
-        
+
         logger.info(f"Created {len(processed_docs)} chunks for processing")
         return processed_docs
-    
+
     def extract_transactions_from_documents(self, documents: List[Document]) -> List[Dict]:
         """Extract transactions using Ollama"""
-        
+
         all_transactions = []
-        
+
         logger.info(f"Extracting transactions from {len(documents)} chunks using Ollama...")
-        
+
         for i, doc in enumerate(documents):
             logger.info(f"Processing chunk {i+1}/{len(documents)} (size: {len(doc.page_content)} chars)")
-            
+
             try:
                 start_time = time.time()
-                
-                # Use the extraction chain
-                result = self.extraction_chain.run(text=doc.page_content)
-                
+
+                # Use direct LLM call (LLMChain is deprecated)
+                if self.langchain_available and self.simple_llm:
+                    formatted_prompt = self.extraction_prompt_template.format(text=doc.page_content)
+                    result = self.simple_llm.invoke(formatted_prompt)
+                else:
+                    result = ""
+
                 processing_time = time.time() - start_time
                 logger.info(f"   Processed in {processing_time:.2f}s")
-                
+
                 # Parse the result
                 chunk_transactions = self._parse_ollama_response(result)
-                
+
                 if chunk_transactions:
                     logger.info(f"   Found {len(chunk_transactions)} transactions")
                     all_transactions.extend(chunk_transactions)
                 else:
                     logger.info(f"   No transactions found")
-                    
+
             except Exception as e:
                 logger.error(f"Error processing chunk {i+1}: {e}")
                 continue
-        
+
         logger.info(f"Total transactions found: {len(all_transactions)}")
         if all_transactions:
             logger.info(f"Sample transaction: {all_transactions[0]}")
         return all_transactions
-    
+
     def _parse_ollama_response(self, response: str) -> List[Dict]:
         """Parse Ollama response to extract transactions"""
         try:
             # Clean the response
             response = response.strip()
-            
+
             # Remove any markdown formatting
             response = re.sub(r'```json\s*', '', response)
             response = re.sub(r'```\s*', '', response)
-            
+
             # Find JSON content - be more flexible with local model responses
             json_patterns = [
                 r'\[[\s\S]*?\]',  # Standard JSON array
                 r'\{[\s\S]*?\}',  # Single JSON object
             ]
-            
+
             for pattern in json_patterns:
                 matches = re.findall(pattern, response)
                 for match in matches:
@@ -1160,34 +1396,34 @@ JSON:"""
                             return data
                         elif isinstance(data, dict):
                             return [data]
-                            
+
                     except json.JSONDecodeError:
                         continue
-            
+
             # If no JSON found, try to extract transaction-like patterns
             return self._extract_with_regex(response)
-            
+
         except Exception as e:
             logger.error(f"Error parsing Ollama response: {e}")
             return []
-    
+
     def _extract_with_regex(self, text: str) -> List[Dict]:
         """Fallback extraction using regex patterns"""
         transactions = []
-        
+
         # Look for transaction-like patterns
         patterns = [
             r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
             r'(\d{4}-\d{2}-\d{2})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
         ]
-        
+
         for pattern in patterns:
             matches = re.findall(pattern, text, re.MULTILINE)
             for match in matches:
                 try:
                     date, desc, amount = match
                     amount_float = float(amount.replace('$', '').replace(',', ''))
-                    
+
                     transactions.append({
                         'date': date,
                         'description': desc.strip(),
@@ -1196,85 +1432,90 @@ JSON:"""
                     })
                 except:
                     continue
-        
+
         return transactions
-    
+
     def categorize_transactions(self, transactions: List[Dict]) -> List[Dict]:
         """Categorize transactions using Ollama"""
-        
+
         if not transactions:
             return transactions
-        
+
         logger.info("Categorizing transactions with Ollama...")
-        
+
         descriptions = [t.get('description', 'Unknown') for t in transactions]
-        
+
         try:
             start_time = time.time()
-            
-            result = self.categorization_chain.run(
-                descriptions=json.dumps(descriptions)
-            )
-            
+
+            # Use direct LLM call (LLMChain is deprecated)
+            if self.langchain_available and self.simple_llm:
+                formatted_prompt = self.categorization_prompt_template.format(
+                    descriptions=json.dumps(descriptions)
+                )
+                result = self.simple_llm.invoke(formatted_prompt)
+            else:
+                result = ""
+
             processing_time = time.time() - start_time
             logger.info(f"Categorization completed in {processing_time:.2f}s")
-            
+
             categories = self._parse_categories(result)
-            
+
             # Assign categories
             for i, category in enumerate(categories):
                 if i < len(transactions):
                     transactions[i]['category'] = category
-                    
+
         except Exception as e:
             logger.error(f"Error in categorization: {e}")
             # Assign default categories
             for transaction in transactions:
                 transaction['category'] = 'Other'
-        
+
         return transactions
-    
+
     def _parse_categories(self, response: str) -> List[str]:
         """Parse category response from Ollama"""
         try:
             response = response.strip()
-            
+
             # Remove markdown
             response = re.sub(r'```json\s*', '', response)
             response = re.sub(r'```\s*', '', response)
-            
+
             # Find JSON array
             json_match = re.search(r'\[.*?\]', response, re.DOTALL)
             if json_match:
                 categories = json.loads(json_match.group())
                 return categories if isinstance(categories, list) else []
-            
+
             return []
-            
+
         except Exception as e:
             logger.error(f"Error parsing categories: {e}")
             return []
-    
+
     def validate_and_clean_data(self, transactions: List[Dict]) -> Union[pd.DataFrame, List[Dict]]:
         """Validate and clean extracted transaction data"""
-        
+
         if not transactions:
             return pd.DataFrame() if pd else []
-        
+
         logger.info("Validating and cleaning data...")
-        
+
         if not pd:
             # Fallback to basic validation without pandas
             logger.warning("Pandas not available - using basic validation")
             return self._basic_validate_and_clean(transactions)
-        
+
         df = pd.DataFrame(transactions)
         initial_count = len(df)
         logger.info(f"DataFrame created with {initial_count} transactions")
         if initial_count > 0:
             logger.info(f"DataFrame columns: {list(df.columns)}")
             logger.info(f"First row: {df.iloc[0].to_dict()}")
-        
+
         # Standardize columns
         column_mapping = {
             'trans_date': 'date',
@@ -1286,7 +1527,7 @@ JSON:"""
             'type': 'transaction_type'
         }
         df = df.rename(columns=column_mapping)
-        
+
         # Ensure required columns
         required_cols = ['date', 'description', 'amount', 'transaction_type']
         for col in required_cols:
@@ -1297,7 +1538,7 @@ JSON:"""
                     )
                 else:
                     df[col] = None
-        
+
         # Data type conversions
         if 'date' in df.columns:
             logger.info(f"Converting dates. Sample values: {df['date'].head().tolist()}")
@@ -1315,7 +1556,7 @@ JSON:"""
 
         if 'balance' in df.columns:
             df['balance'] = pd.to_numeric(df['balance'], errors='coerce')
-        
+
         # Remove invalid rows
         before_dropna = len(df)
         df = df.dropna(subset=['date', 'amount'])
@@ -1329,74 +1570,74 @@ JSON:"""
         after_dedup = len(df)
         if before_dedup != after_dedup:
             logger.info(f"Removed {before_dedup - after_dedup} duplicate transactions")
-        
+
         # Sort by date
         if not df.empty:
             df = df.sort_values('date').reset_index(drop=True)
-        
+
         cleaned_count = len(df)
         if cleaned_count < initial_count:
             logger.info(f"Removed {initial_count - cleaned_count} invalid/duplicate transactions")
-        
+
         return df
-    
+
     def _basic_validate_and_clean(self, transactions: List[Dict]) -> List[Dict]:
         """Basic validation without pandas"""
         cleaned = []
         seen = set()
-        
+
         for txn in transactions:
             # Ensure required fields
             if not all(key in txn for key in ['date', 'description', 'amount']):
                 continue
-            
+
             # Add transaction_type if missing
             if 'transaction_type' not in txn:
                 txn['transaction_type'] = 'credit' if float(txn.get('amount', 0)) > 0 else 'debit'
-            
+
             # Normalize date
             try:
                 txn['date'] = _normalize_date(str(txn['date']))
             except:
                 continue
-            
+
             # Validate amount
             try:
                 txn['amount'] = float(txn['amount'])
             except:
                 continue
-            
+
             # Deduplicate
             key = (txn['date'], txn['description'], round(txn['amount'], 2))
             if key not in seen:
                 seen.add(key)
                 cleaned.append(txn)
-        
+
         # Sort by date
         try:
             cleaned.sort(key=lambda x: x['date'])
         except:
             pass
-        
+
         return cleaned
-    
+
     def process_pdf(self, 
                    pdf_path: str,
                    loader_names: List[str] = None,
                    categorize: bool = True,
                    save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
         """Main method to process PDF using Ollama"""
-        
+
         logger.info(f"Processing bank statement with Ollama: {pdf_path}")
         logger.info(f"Using model: {self.model_name}")
-        
+
         try:
             # Load PDF
             documents = self.load_pdf_with_langchain(pdf_path, loader_names)
-            
+
             # Preprocess documents
             processed_docs = self.preprocess_documents(documents)
-            
+
             if save_debug:
                 debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([
                     f"CHUNK {i+1}:\n{doc.page_content}" 
@@ -1405,33 +1646,33 @@ JSON:"""
                 with open("ollama_debug_chunks.txt", "w", encoding="utf-8") as f:
                     f.write(debug_text)
                 logger.info("Debug chunks saved to ollama_debug_chunks.txt")
-            
+
             # Extract transactions
             transactions = self.extract_transactions_from_documents(processed_docs)
-            
+
             if not transactions:
                 logger.error("No transactions found")
                 return pd.DataFrame() if pd else []
-            
+
             # Categorize transactions
             if categorize:
                 transactions = self.categorize_transactions(transactions)
-            
+
             # Validate and clean data
             logger.info(f"About to validate {len(transactions)} transactions")
             if transactions:
                 logger.info(f"First transaction before validation: {transactions[0]}")
             result = self.validate_and_clean_data(transactions)
-            
+
             # Print performance stats
             self._print_performance_stats()
-            
+
             if pd and hasattr(result, '__len__'):
                 logger.info(f"Successfully processed {len(result)} transactions")
             else:
                 logger.info(f"Successfully processed {len(result) if isinstance(result, list) else 'unknown'} transactions")
             return result
-            
+
         except Exception as e:
             logger.error(f"Error processing PDF: {e}")
             return pd.DataFrame() if pd else []
@@ -1485,7 +1726,7 @@ JSON:"""
         except Exception as e:
             logger.error(f"Error processing CSV: {e}")
             return pd.DataFrame() if pd else []
-    
+
     def _print_performance_stats(self):
         """Print Ollama performance statistics"""
         logger.info(f"Ollama Performance Stats:")
@@ -1499,7 +1740,7 @@ JSON:"""
 def _normalize_date(value: str) -> str:
     """Normalize date using exact patterns from test-main.py"""
     value = value.strip()
-    
+
     # Standard date formats from test-main.py validator
     fmts = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d', '%Y%m%d']
     for fmt in fmts:
@@ -1508,7 +1749,7 @@ def _normalize_date(value: str) -> str:
             return dt.strftime('%Y-%m-%d')
         except ValueError:
             continue
-    
+
     # If all else fails, return the original value
     logger.warning(f"Could not normalize date: {value}")
     return value
@@ -1544,20 +1785,20 @@ JSON:"""
 def _enhanced_regex_extraction(text: str) -> List[Dict[str, Any]]:
     """Legacy function - use BankTransactionExtractor._extract_with_regex instead"""
     transactions = []
-    
+
     # Look for transaction-like patterns - exact from test-main.py
     patterns = [
         r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
         r'(\d{4}-\d{2}-\d{2})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
     ]
-    
+
     for pattern in patterns:
         matches = re.findall(pattern, text, re.MULTILINE)
         for match in matches:
             try:
                 date, desc, amount = match
                 amount_float = float(amount.replace('$', '').replace(',', ''))
-                
+
                 transactions.append({
                     'date': date,
                     'description': desc.strip(),
@@ -1566,20 +1807,20 @@ def _enhanced_regex_extraction(text: str) -> List[Dict[str, Any]]:
                 })
             except:
                 continue
-    
+
     return transactions
 
 
 def _preprocess_bank_text(raw_text: str) -> str:
     """Legacy function - use BankTransactionExtractor.preprocess_documents instead"""
     text = raw_text
-    
+
     # Clean PDF artifacts - exact from test-main.py
     text = re.sub(r'Page \d+ of \d+', '', text)
     text = re.sub(r'Statement Period:.*?\n', '', text)
     text = re.sub(r'Account Summary.*?\n', '', text)
     text = re.sub(r'\s+', ' ', text)
-    
+
     return text.strip()
 
 
@@ -1902,14 +2143,75 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
 
             # Track AI usage if ai_config was used and we have a db session
             if ai_config and db:
-                track_ai_usage(db, ai_config)
+                # Get extraction method information from extractor if available
+                extraction_method = getattr(extractor, 'last_extraction_method', 'unknown')
+                processing_time = getattr(extractor, 'last_processing_time', 0.0)
+                text_length = getattr(extractor, 'last_text_length', 0)
+                
+                # Use enhanced OCR tracking with extraction method metadata
+                if extraction_method == 'ocr':
+                    track_ocr_usage(
+                        db=db,
+                        ai_config=ai_config,
+                        extraction_method=extraction_method,
+                        processing_time=processing_time,
+                        text_length=text_length
+                    )
+                else:
+                    # Track regular AI usage for PDF extraction
+                    track_ai_usage(
+                        db=db,
+                        ai_config=ai_config,
+                        operation_type="pdf_extraction",
+                        metadata={
+                            "extraction_method": extraction_method,
+                            "processing_time": processing_time,
+                            "text_length": text_length,
+                            "transaction_count": len(transactions)
+                        }
+                    )
 
             return transactions
         else:
             return []
             
     except Exception as e:
-        logger.error(f"Processing failed: {e}")
+        # Handle OCR-specific exceptions with proper error messages
+        try:
+            from exceptions.bank_ocr_exceptions import (
+                OCRUnavailableError,
+                OCRTimeoutError, 
+                OCRProcessingError,
+                OCRInvalidFileError,
+                is_retryable_ocr_error,
+                get_retry_delay
+            )
+            
+            if isinstance(e, OCRUnavailableError):
+                logger.warning(f"OCR unavailable for {pdf_path}: {e}")
+                # Continue to fallback extraction
+            elif isinstance(e, OCRTimeoutError):
+                logger.error(f"OCR timeout for {pdf_path}: {e}")
+                # For timeout errors, we might want to raise BankLLMUnavailableError to signal retry
+                if is_retryable_ocr_error(e):
+                    retry_delay = get_retry_delay(e)
+                    logger.info(f"OCR timeout is retryable, suggested retry delay: {retry_delay}s")
+                    raise BankLLMUnavailableError(f"OCR processing timed out, retry recommended: {e}")
+            elif isinstance(e, OCRProcessingError):
+                logger.error(f"OCR processing failed for {pdf_path}: {e}")
+                if is_retryable_ocr_error(e):
+                    retry_delay = get_retry_delay(e)
+                    logger.info(f"OCR error is retryable, suggested retry delay: {retry_delay}s")
+                    raise BankLLMUnavailableError(f"OCR processing failed temporarily, retry recommended: {e}")
+            elif isinstance(e, OCRInvalidFileError):
+                logger.error(f"Invalid file for OCR processing {pdf_path}: {e}")
+                return []  # Don't retry for invalid files
+            else:
+                logger.error(f"Processing failed: {e}")
+                
+        except ImportError:
+            logger.error(f"Processing failed: {e}")
+        
         # Final fallback to regex extraction
         try:
             from pathlib import Path as _P

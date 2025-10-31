@@ -20,7 +20,7 @@ from services.image_processing_service import image_processing_service, ImagePro
 from services.file_security_service import file_security_service, ValidationResult
 from utils.file_validation import validate_file_path
 from config import config
-from storage_config.cloud_storage_config import get_cloud_storage_config
+from settings.cloud_storage_config import get_cloud_storage_config
 
 logger = logging.getLogger(__name__)
 

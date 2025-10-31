@@ -25,7 +25,7 @@ from services.cloud_storage.disaster_recovery_service import (
 )
 from services.cloud_storage.disaster_recovery_testing import DisasterRecoveryTestSuite
 from services.cloud_storage.factory import StorageProviderFactory
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 # Configure logging
 logging.basicConfig(

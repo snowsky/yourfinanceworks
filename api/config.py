@@ -41,13 +41,13 @@ class Config:
 
     # Tenant settings
     MULTI_TENANT: bool = os.getenv("MULTI_TENANT", "true").lower() == "true"
-    
+
     # Cache settings
     REDIS_URL: Optional[str] = os.getenv("REDIS_URL")
     CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     CACHE_DEFAULT_TTL: int = int(os.getenv("CACHE_DEFAULT_TTL", "3600"))  # 1 hour
     CACHE_MAX_MEMORY_SIZE: int = int(os.getenv("CACHE_MAX_MEMORY_SIZE", "100"))
-    
+
     # Performance settings
     QUERY_OPTIMIZATION_ENABLED: bool = os.getenv("QUERY_OPTIMIZATION_ENABLED", "true").lower() == "true"
     SLOW_QUERY_THRESHOLD: float = float(os.getenv("SLOW_QUERY_THRESHOLD", "5.0"))

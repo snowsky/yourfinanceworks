@@ -17,7 +17,7 @@ from services.storage_monitoring_service import (
     AlertingConfig
 )
 from services.cloud_storage.provider import StorageProvider
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 
 async def main():

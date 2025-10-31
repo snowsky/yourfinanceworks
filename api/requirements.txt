@@ -14,7 +14,7 @@ fastapi-users[sqlalchemy]==14.0.1
 fastapi-users[oauth]==14.0.1
 httpx-oauth>=0.16.1
 httpx==0.28.1
-msal==1.31.0  # Microsoft Authentication Library for Azure AD SSO
+msal==1.34.0  # Microsoft Authentication Library for Azure AD SSO
 setuptools==80.9.0
 
 # PostgreSQL driver
@@ -23,18 +23,25 @@ psycopg2-binary==2.9.10
 # Email service dependencies
 boto3==1.40.1  # AWS SES
 azure-communication-email==1.0.0  # Azure Email Services
-requests==2.32.4  # For Mailgun HTTP API
+requests>=2.32.5  # For Mailgun HTTP API
 jinja2==3.1.6  # Email templating
 reportlab==4.4.3  # PDF generation for email attachments
 
 # AI/LLM dependencies
 openai==1.68.2  # OpenAI client (compatible with litellm)
 litellm==1.75.0  # Unified interface for multiple LLM providers
-langchain==0.3.27  # LangChain for PDF processing
-langchain-community==0.3.27  # LangChain community components
+langchain==1.0.3  # LangChain main package
+langchain-community==0.4.1  # LangChain community components
+langchain-core==1.0.2  # LangChain core components
+langchain-text-splitters==1.0.0  # LangChain text splitters
 pypdf>=6.1.3  # Modern PDF processing (successor to PyPDF2)
 ollama==0.5.1  # Ollama client
 ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
+
+# OCR dependencies for bank statement fallback
+unstructured[pdf]==0.18.15  # UnstructuredLoader with PDF support
+pytesseract==0.3.13  # Python wrapper for Tesseract OCR
+tesseract==0.1.3  # Tesseract OCR engine Python bindings
 
 # Security fix for HTTP Request Smuggling vulnerability
 h11==0.16.0

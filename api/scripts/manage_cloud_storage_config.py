@@ -30,7 +30,7 @@ from datetime import datetime
 # Add the API directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from storage_config.cloud_storage_config import (
+from settings.cloud_storage_config import (
     CloudStorageConfig, 
     StorageProvider,
     CloudStorageConfigurationManager

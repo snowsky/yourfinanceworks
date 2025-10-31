@@ -770,7 +770,6 @@ class CloudStorageConfigurationManager:
             elif config.get('credentials_path'):
                 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = config['credentials_path']
             
-            # Create storage client
             client = storage.Client(project=config.get('project_id'))
             
             # Test bucket access

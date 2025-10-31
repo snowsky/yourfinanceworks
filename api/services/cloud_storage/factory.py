@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from .provider import CloudStorageProvider, StorageProvider, StorageConfig, HealthCheckResult
 from integrations.circuit_breaker import CloudProviderCircuitBreaker
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ class StorageProviderFactory:
             StorageConfig or None if not configured
         """
         # Convert our StorageProvider enum to the config's StorageProvider enum
-        from storage_config.cloud_storage_config import StorageProvider as ConfigStorageProvider
+        from settings.cloud_storage_config import StorageProvider as ConfigStorageProvider
         
         try:
             config_provider_type = ConfigStorageProvider(provider_type.value)

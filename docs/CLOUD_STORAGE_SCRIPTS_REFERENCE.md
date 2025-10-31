@@ -365,7 +365,7 @@ STORAGE_VERSIONING_ENABLED=true
 
 All scripts integrate with the existing cloud storage system:
 
-- **`storage_config.cloud_storage_config`** - Configuration classes
+- **`settings.cloud_storage_config`** - Configuration classes
 - **`CloudStorageConfig`** - Main configuration class
 - **`CloudStorageConfigurationManager`** - Configuration management
 - **`StorageProvider`** - Provider enumeration
@@ -540,6 +540,6 @@ grep -E "(ConfigurationError|ValidationError)" /var/log/app.log
 - **Main Documentation**: `docs/CLOUD_STORAGE_DEPLOYMENT_GUIDE.md`
 - **Configuration Guide**: `api/config/README.md`
 - **Source Code**: `api/scripts/` directory
-- **Configuration Classes**: `api/storage_config/cloud_storage_config.py`
+- **Configuration Classes**: `api/settings/cloud_storage_config.py`
 
 For additional support, refer to the troubleshooting sections in the main deployment guide or contact the development team.

@@ -229,29 +229,81 @@ def main() -> int:
                             db.rollback()
                         # Process with OCR (uses updated process_attachment_inline that fetches AI config)
                         logger.info(f"Processing OCR for expense {expense_id}, attachment {attachment_id}")
-                        import asyncio
-                        asyncio.get_event_loop().run_until_complete(
-                            process_attachment_inline(db, expense_id, attachment_id, file_path)
-                        )
-                        logger.info(f"Completed OCR processing for expense {expense_id}")
-                        # Refresh status and commit offset only if parsed as done
+                        try:
+                            import asyncio
+                            asyncio.get_event_loop().run_until_complete(
+                                process_attachment_inline(db, expense_id, attachment_id, file_path)
+                            )
+                            logger.info(f"Completed OCR processing for expense {expense_id}")
+                        except Exception as ocr_processing_error:
+                            # Handle OCR-specific exceptions during expense processing
+                            try:
+                                from exceptions.bank_ocr_exceptions import (
+                                    OCRTimeoutError,
+                                    OCRProcessingError,
+                                    is_retryable_ocr_error,
+                                    get_retry_delay
+                                )
+                                
+                                # Handle OCR timeout specifically for expenses
+                                if isinstance(ocr_processing_error, OCRTimeoutError):
+                                    logger.warning(f"OCR timeout for expense_id={expense_id}, attempt={attempt+1}")
+                                    # Mark expense as failed for timeout
+                                    try:
+                                        exp.analysis_status = "failed"
+                                        exp.analysis_error = f"OCR timeout: {ocr_processing_error.message}"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                elif is_retryable_ocr_error(ocr_processing_error):
+                                    logger.warning(f"Retryable OCR error for expense_id={expense_id}: {ocr_processing_error}")
+                                    # Mark expense as failed for retryable errors (will be retried below)
+                                    try:
+                                        exp.analysis_status = "failed"
+                                        exp.analysis_error = f"OCR error: {str(ocr_processing_error)}"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                else:
+                                    # Non-retryable OCR error
+                                    logger.error(f"Non-retryable OCR error for expense_id={expense_id}: {ocr_processing_error}")
+                                    try:
+                                        exp.analysis_status = "failed"
+                                        exp.analysis_error = f"OCR processing failed: {str(ocr_processing_error)}"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                            except ImportError:
+                                logger.warning("OCR exception classes not available, treating as generic error")
+                                try:
+                                    exp.analysis_status = "failed"
+                                    exp.analysis_error = f"OCR processing failed: {str(ocr_processing_error)}"
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                        
+                        # Refresh status and handle message acknowledgment based on OCR processing result
                         try:
                             db.refresh(exp)
                         except Exception as e:
                             logger.warning(f"Failed to refresh expense {expense_id}: {e}")
+                        
+                        # Enhanced message acknowledgment for OCR operations
                         if getattr(exp, "analysis_status", None) == "done":
                             try:
                                 consumer.commit(message=msg, asynchronous=False)
                                 logger.info(f"Committed Kafka offset for expense_id={expense_id} (done)")
                             except Exception as e:
-                                logger.error(f"Failed to commit Kafka offset: {e}")
+                                logger.error(f"Failed to commit Kafka offset for successful OCR: {e}")
+                                # Even if commit fails, publish the result
                             try:
                                 from services.ocr_service import publish_ocr_result
                                 publish_ocr_result(expense_id, tenant_id, status="done")
+                                logger.info(f"Published OCR success result for expense_id={expense_id}")
                             except Exception as e:
                                 logger.error(f"Failed to publish OCR result for expense_id={expense_id}: {e}")
                         elif getattr(exp, "analysis_status", None) == "failed":
-                            # Retry with backoff and DLQ after max attempts
+                            # Enhanced retry logic with OCR-specific handling
                             MAX_ATTEMPTS = int(os.getenv("KAFKA_OCR_MAX_ATTEMPTS", "5"))
                             if attempt + 1 >= MAX_ATTEMPTS:
                                 logger.warning(f"OCR failed for expense_id={expense_id}. Sending to DLQ after {attempt+1} attempts.")
@@ -267,6 +319,7 @@ def main() -> int:
                                             "attachment_id": attachment_id,
                                             "file_path": file_path,
                                             "attempt": attempt + 1,
+                                            "error": getattr(exp, "analysis_error", "Unknown error"),
                                             "ts": datetime.now(timezone.utc).isoformat(),
                                         }
                                         producer.produce(dlq_topic, key=str(expense_id), value=json.dumps(dlq_event).encode("utf-8"))
@@ -284,9 +337,17 @@ def main() -> int:
                                 except Exception as e:
                                     logger.error(f"Failed to publish to DLQ: {e}")
                             else:
-                                # Requeue with incremented attempt and simple time-based backoff (client-side)
+                                # Requeue with OCR-aware backoff strategy
                                 try:
-                                    backoff_ms = min(60000, 1000 * (2 ** attempt))
+                                    # Check if this was an OCR timeout to use longer backoff
+                                    error_msg = getattr(exp, "analysis_error", "")
+                                    if "timeout" in error_msg.lower():
+                                        # Use longer backoff for timeout errors
+                                        backoff_ms = min(300000, 60000 * (attempt + 1))  # 1-5 minutes
+                                    else:
+                                        # Standard exponential backoff
+                                        backoff_ms = min(60000, 1000 * (2 ** attempt))
+                                    
                                     logger.warning(f"Requeueing expense_id={expense_id} attempt={attempt+1} after backoff_ms={backoff_ms}")
                                     from time import sleep
                                     sleep(backoff_ms / 1000.0)
@@ -304,7 +365,24 @@ def main() -> int:
                 elif topic_name == bank_topic:
                     try:
                         from models.models_per_tenant import BankStatement, BankStatementTransaction, AIConfig as AIConfigModel
-                        from services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
+                        try:
+                            from services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
+                        except ImportError as import_err:
+                            logger.error(f"Failed to import statement service (likely LangChain dependency issue): {import_err}")
+                            # Mark statement as failed due to dependency issue
+                            stmt = db.query(BankStatement).filter(BankStatement.id == int(payload.get("statement_id"))).first()
+                            if stmt:
+                                try:
+                                    stmt.status = "failed"
+                                    stmt.error_message = f"LangChain dependency missing: {import_err}"
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                            try:
+                                consumer.commit(message=msg, asynchronous=False)
+                            except Exception:
+                                pass
+                            continue
                         statement_id = int(payload.get("statement_id"))
                         file_path = str(payload.get("file_path"))
                         logger.info(f"Processing bank statement: id={statement_id} tenant_id={tenant_id} file={file_path}")
@@ -363,6 +441,201 @@ def main() -> int:
                                 payload.update({"attempt": attempts + 1})
                                 publish_bank_statement_task(payload)
                                 # Mark current as failed processing attempt and commit so we don't tight-loop
+                                try:
+                                    stmt.status = "processing"
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                                try:
+                                    consumer.commit(message=msg, asynchronous=False)
+                                except Exception:
+                                    pass
+                                continue
+                            except Exception as processing_err:
+                                # Enhanced OCR-specific exception handling with comprehensive retry logic
+                                try:
+                                    from exceptions.bank_ocr_exceptions import (
+                                        OCRUnavailableError,
+                                        OCRTimeoutError,
+                                        OCRProcessingError,
+                                        OCRInvalidFileError,
+                                        OCRInsufficientTextError,
+                                        OCRConfigurationError,
+                                        OCRDependencyMissingError,
+                                        is_retryable_ocr_error,
+                                        get_retry_delay
+                                    )
+                                    
+                                    # Handle OCR timeout errors with extended retry logic
+                                    if isinstance(processing_err, OCRTimeoutError):
+                                        if attempts + 1 >= max_attempts:
+                                            logger.error(f"OCR timeout after {attempts+1} attempts for statement_id={statement_id}: {processing_err}")
+                                            try:
+                                                stmt.status = "failed"
+                                                stmt.error_message = f"OCR timeout after {attempts+1} attempts: {processing_err.message}"
+                                                db.commit()
+                                            except Exception:
+                                                db.rollback()
+                                            try:
+                                                consumer.commit(message=msg, asynchronous=False)
+                                            except Exception:
+                                                pass
+                                            continue
+                                        
+                                        # Retry with exponentially increasing delay for OCR timeouts
+                                        from time import sleep
+                                        base_delay = get_retry_delay(processing_err) or 120  # Default 2 minutes
+                                        exponential_delay = base_delay * (2 ** min(attempts, 3))  # Cap exponential growth
+                                        delay_ms = min(600000, exponential_delay * 1000)  # Max 10 minutes
+                                        logger.warning(f"OCR timeout, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms/1000:.0f}s")
+                                        sleep(delay_ms / 1000.0)
+                                        from services.ocr_service import publish_bank_statement_task
+                                        payload.update({"attempt": attempts + 1})
+                                        publish_bank_statement_task(payload)
+                                        try:
+                                            stmt.status = "processing"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                        
+                                    # Handle transient OCR processing errors
+                                    elif isinstance(processing_err, OCRProcessingError) and processing_err.is_transient:
+                                        if attempts + 1 >= max_attempts:
+                                            logger.error(f"Transient OCR processing failed after {attempts+1} attempts for statement_id={statement_id}: {processing_err}")
+                                            try:
+                                                stmt.status = "failed"
+                                                stmt.error_message = f"OCR processing failed after {attempts+1} attempts: {processing_err.message}"
+                                                db.commit()
+                                            except Exception:
+                                                db.rollback()
+                                            try:
+                                                consumer.commit(message=msg, asynchronous=False)
+                                            except Exception:
+                                                pass
+                                            continue
+                                        
+                                        # Retry transient OCR errors with moderate delay
+                                        from time import sleep
+                                        retry_delay = get_retry_delay(processing_err) or 60
+                                        delay_ms = min(300000, retry_delay * 1000 * (attempts + 1))  # Increasing delay
+                                        logger.warning(f"Transient OCR error, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms/1000:.0f}s")
+                                        sleep(delay_ms / 1000.0)
+                                        from services.ocr_service import publish_bank_statement_task
+                                        payload.update({"attempt": attempts + 1})
+                                        publish_bank_statement_task(payload)
+                                        try:
+                                            stmt.status = "processing"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                        
+                                    # Handle non-retryable OCR errors - fail immediately
+                                    elif isinstance(processing_err, (
+                                        OCRUnavailableError, 
+                                        OCRInvalidFileError, 
+                                        OCRConfigurationError,
+                                        OCRDependencyMissingError
+                                    )):
+                                        logger.error(f"Non-retryable OCR error for statement_id={statement_id}: {processing_err}")
+                                        try:
+                                            stmt.status = "failed"
+                                            stmt.error_message = f"OCR error: {processing_err.message}"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                        
+                                    # Handle non-transient OCR processing errors
+                                    elif isinstance(processing_err, (OCRProcessingError, OCRInsufficientTextError)):
+                                        logger.error(f"Non-transient OCR error for statement_id={statement_id}: {processing_err}")
+                                        try:
+                                            stmt.status = "failed"
+                                            stmt.error_message = f"OCR processing error: {processing_err.message}"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                        
+                                    # Handle generic retryable OCR errors using the utility function
+                                    elif is_retryable_ocr_error(processing_err):
+                                        if attempts + 1 >= max_attempts:
+                                            logger.error(f"Retryable OCR error failed after {attempts+1} attempts for statement_id={statement_id}: {processing_err}")
+                                            try:
+                                                stmt.status = "failed"
+                                                stmt.error_message = f"OCR error after {attempts+1} attempts: {str(processing_err)}"
+                                                db.commit()
+                                            except Exception:
+                                                db.rollback()
+                                            try:
+                                                consumer.commit(message=msg, asynchronous=False)
+                                            except Exception:
+                                                pass
+                                            continue
+                                        
+                                        # Retry with suggested delay
+                                        from time import sleep
+                                        retry_delay = get_retry_delay(processing_err) or 60
+                                        delay_ms = min(300000, retry_delay * 1000)
+                                        logger.warning(f"Retryable OCR error, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms/1000:.0f}s")
+                                        sleep(delay_ms / 1000.0)
+                                        from services.ocr_service import publish_bank_statement_task
+                                        payload.update({"attempt": attempts + 1})
+                                        publish_bank_statement_task(payload)
+                                        try:
+                                            stmt.status = "processing"
+                                            db.commit()
+                                        except Exception:
+                                            db.rollback()
+                                        try:
+                                            consumer.commit(message=msg, asynchronous=False)
+                                        except Exception:
+                                            pass
+                                        continue
+                                        
+                                except ImportError:
+                                    logger.warning("OCR exception classes not available, using generic error handling")
+                                
+                                # Generic error handling for non-OCR exceptions
+                                logger.error(f"Processing error for statement_id={statement_id}: {processing_err}")
+                                if attempts + 1 >= max_attempts:
+                                    try:
+                                        stmt.status = "failed"
+                                        stmt.error_message = f"Processing failed after {attempts+1} attempts: {str(processing_err)}"
+                                        db.commit()
+                                    except Exception:
+                                        db.rollback()
+                                    try:
+                                        consumer.commit(message=msg, asynchronous=False)
+                                    except Exception:
+                                        pass
+                                    continue
+                                
+                                # Retry with standard backoff for generic errors
+                                from time import sleep
+                                delay_ms = min(60000, backoff_base_ms * (attempts + 1))
+                                logger.warning(f"Processing error, retrying statement_id={statement_id} attempt={attempts+1} after {delay_ms/1000:.0f}s")
+                                sleep(delay_ms / 1000.0)
+                                from services.ocr_service import publish_bank_statement_task
+                                payload.update({"attempt": attempts + 1})
+                                publish_bank_statement_task(payload)
                                 try:
                                     stmt.status = "processing"
                                     db.commit()

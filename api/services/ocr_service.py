@@ -9,6 +9,12 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from models.models_per_tenant import AIConfig as AIConfigModel
+from settings.ocr_config import get_ocr_config, check_ocr_dependencies, is_ocr_available
+from exceptions.bank_ocr_exceptions import (
+    OCRUnavailableError,
+    OCRDependencyMissingError,
+    OCRConfigurationError
+)
 
 def _resolve_log_level(name: str) -> int:
     try:
@@ -20,10 +26,18 @@ logging.basicConfig(level=_resolve_log_level(os.getenv("LOG_LEVEL", "INFO")))
 logger = logging.getLogger(__name__)
 
 
-def track_ai_usage(db: Session, ai_config: Dict[str, Any]) -> None:
-    """Track AI usage by incrementing the usage_count for the given AI config."""
+def track_ai_usage(db: Session, ai_config: Dict[str, Any], operation_type: str = "general", metadata: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Track AI usage by incrementing the usage_count for the given AI config.
+
+    Args:
+        db: Database session
+        ai_config: AI configuration dictionary
+        operation_type: Type of operation (e.g., 'ocr', 'pdf_extraction', 'general')
+        metadata: Additional metadata about the operation
+    """
     try:
-        logger.info(f"🎯 track_ai_usage called with: {ai_config}")
+        logger.info(f"🎯 track_ai_usage called with: {ai_config}, operation_type: {operation_type}")
         if not ai_config or 'provider_name' not in ai_config:
             logger.warning("❌ ai_config is None or missing provider_name")
             return
@@ -43,8 +57,22 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any]) -> None:
             old_count = db_config.usage_count
             db_config.usage_count += 1
             db_config.last_used_at = datetime.now(timezone.utc)
+ 
+            # Track OCR-specific usage if this is an OCR operation
+            if operation_type == "ocr":
+                # Initialize OCR usage count if not present
+                if not hasattr(db_config, 'ocr_usage_count') or db_config.ocr_usage_count is None:
+                    db_config.ocr_usage_count = 0
+                db_config.ocr_usage_count += 1
+                logger.info(f"🔍 Tracked OCR usage for {provider_name}/{model_name}: OCR count = {db_config.ocr_usage_count}")
+
             db.commit()
-            logger.info(f"✅ Tracked AI usage for {provider_name}/{model_name}: {old_count} → {db_config.usage_count}")
+            logger.info(f"✅ Tracked AI usage for {provider_name}/{model_name}: {old_count} → {db_config.usage_count} (operation: {operation_type})")
+
+            # Log additional metadata if provided
+            if metadata:
+                logger.info(f"📊 Operation metadata: {metadata}")
+
         else:
             logger.warning(f"❌ Could not find AI config to track usage: {provider_name}/{model_name}")
             # Log all available configs for debugging
@@ -53,6 +81,98 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any]) -> None:
     except Exception as e:
         logger.error(f"❌ Failed to track AI usage: {e}")
         # Don't raise exception to avoid breaking the main functionality
+
+
+def track_ocr_usage(db: Session, ai_config: Dict[str, Any], extraction_method: str, processing_time: Optional[float] = None, text_length: Optional[int] = None) -> None:
+    """
+    Track OCR-specific usage with detailed metadata.
+
+    Args:
+        db: Database session
+        ai_config: AI configuration dictionary
+        extraction_method: Method used ('pdf_loader' or 'ocr')
+        processing_time: Time taken for processing in seconds
+        text_length: Length of extracted text
+    """
+    metadata = {
+        "extraction_method": extraction_method,
+        "processing_time": processing_time,
+        "text_length": text_length,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Track general AI usage with OCR-specific metadata
+    track_ai_usage(db, ai_config, operation_type="ocr", metadata=metadata)
+
+    # Log OCR-specific metrics for monitoring
+    logger.info(f"📈 OCR Usage Metrics - Method: {extraction_method}, Time: {processing_time:.2f}s, Text Length: {text_length}")
+
+
+def get_ai_usage_stats(db: Session, provider_name: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Get AI usage statistics including OCR-specific metrics.
+
+    Args:
+        db: Database session
+        provider_name: Optional filter by provider name
+
+    Returns:
+        Dictionary with usage statistics
+    """
+    try:
+        query = db.query(AIConfigModel).filter(AIConfigModel.is_active == True)
+        if provider_name:
+            query = query.filter(AIConfigModel.provider_name == provider_name)
+
+        configs = query.all()
+        stats = {
+            "total_configs": len(configs),
+            "total_usage": sum(c.usage_count or 0 for c in configs),
+            "total_ocr_usage": sum(getattr(c, 'ocr_usage_count', 0) or 0 for c in configs),
+            "configs": []
+        }
+
+        for config in configs:
+            config_stats = {
+                "provider_name": config.provider_name,
+                "model_name": config.model_name,
+                "usage_count": config.usage_count or 0,
+                "ocr_usage_count": getattr(config, 'ocr_usage_count', 0) or 0,
+                "ocr_enabled": getattr(config, 'ocr_enabled', False),
+                "last_used_at": config.last_used_at.isoformat() if config.last_used_at else None
+            }
+            stats["configs"].append(config_stats)
+
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to get AI usage stats: {e}")
+        return {"error": str(e)}
+
+
+def publish_ocr_usage_metrics(db: Session, operation_type: str, extraction_method: str, processing_time: float, success: bool) -> None:
+    """
+    Publish OCR usage metrics for monitoring and analytics.
+
+    Args:
+        db: Database session
+        operation_type: Type of operation ('bank_statement', 'expense', 'invoice')
+        extraction_method: Method used ('pdf_loader', 'ocr')
+        processing_time: Processing time in seconds
+        success: Whether the operation was successful
+    """
+    try:
+        # This could be extended to publish to monitoring systems like Prometheus, CloudWatch, etc.
+        logger.info(
+            f"📊 OCR Metrics - Operation: {operation_type}, Method: {extraction_method}, "
+            f"Time: {processing_time:.2f}s, Success: {success}"
+        )
+
+        # Example: Could publish to a metrics collection service
+        # metrics_client.increment(f"ocr.{operation_type}.{extraction_method}.{'success' if success else 'failure'}")
+        # metrics_client.histogram(f"ocr.{operation_type}.processing_time", processing_time)
+        
+    except Exception as e:
+        logger.error(f"Failed to publish OCR usage metrics: {e}")
 
 # Keep producers alive across calls so messages can be delivered before process exit
 _PRODUCER_CACHE: dict[str, dict[str, any]] = {}
@@ -86,10 +206,10 @@ def _looks_like_base64_encrypted(value: str) -> bool:
     """Check if a value looks like base64 encoded encrypted data."""
     if not isinstance(value, str) or len(value) < 20:
         return False
-    
+
     import re
     base64_pattern = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
-    
+
     # If it contains common plain text patterns, it's probably not encrypted
     if '@' in value and '.' in value:  # Looks like email
         return False
@@ -97,7 +217,7 @@ def _looks_like_base64_encrypted(value: str) -> bool:
         return False
     if len(value) < 30:  # Encrypted data is usually longer
         return False
-    
+
     # Check if it matches base64 pattern and is long enough
     return base64_pattern.match(value) and len(value) > 30
 
@@ -127,7 +247,6 @@ def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
                         break
         start_idx = text.find('{', start_idx + 1)
     return None
-
 
 
 def _get_kafka_producer():
@@ -304,6 +423,124 @@ def flush_all_producers(timeout_sec: float = 10.0) -> None:
             entry["producer"].flush(timeout_sec)
         except Exception:
             pass
+
+
+def initialize_ocr_dependencies() -> Dict[str, Any]:
+    """
+    Initialize and check OCR dependencies for bank statement processing.
+
+    Returns:
+        Dictionary with initialization status and available components
+    """
+    logger.info("Initializing OCR dependencies for bank statement processing...")
+
+    try:
+        # Get OCR configuration
+        ocr_config = get_ocr_config()
+        logger.info(f"OCR Configuration loaded: enabled={ocr_config.enabled}")
+
+        # Check dependencies
+        dependencies = check_ocr_dependencies()
+        logger.info(f"OCR Dependencies: {dependencies}")
+
+        # Check overall availability
+        available = is_ocr_available()
+        logger.info(f"OCR Available: {available}")
+
+        # Initialize components based on configuration
+        components = {}
+
+        if ocr_config.enabled and available:
+            # Try to initialize UnstructuredLoader
+            try:
+                if ocr_config.use_unstructured_api:
+                    logger.info("Initializing Unstructured API client...")
+                    components["unstructured_api"] = True
+                else:
+                    logger.info("Initializing local Tesseract OCR...")
+                    # Test tesseract availability
+                    import pytesseract
+                    version = pytesseract.get_tesseract_version()
+                    logger.info(f"Tesseract version: {version}")
+                    components["tesseract"] = True
+
+            except Exception as e:
+                logger.error(f"Failed to initialize OCR components: {e}")
+                components["error"] = str(e)
+
+        return {
+            "status": "success",
+            "config": ocr_config.to_dict(),
+            "dependencies": dependencies,
+            "available": available,
+            "components": components
+        }
+
+    except Exception as e:
+        logger.error(f"OCR initialization failed: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "available": False
+        }
+
+
+def validate_ocr_setup() -> None:
+    """
+    Validate OCR setup and raise appropriate exceptions if not configured properly.
+
+    Raises:
+        OCRUnavailableError: If OCR is not available
+        OCRDependencyMissingError: If required dependencies are missing
+        OCRConfigurationError: If configuration is invalid
+    """
+    try:
+        ocr_config = get_ocr_config()
+
+        if not ocr_config.enabled:
+            raise OCRUnavailableError("OCR is disabled in configuration")
+
+        dependencies = check_ocr_dependencies()
+
+        # Check for required dependencies
+        if not dependencies["unstructured"]:
+            raise OCRDependencyMissingError(
+                "unstructured package is required",
+                missing_dependency="unstructured"
+            )
+
+        if not dependencies["unstructured"]:
+            raise OCRDependencyMissingError(
+                "unstructured package is required",
+                missing_dependency="unstructured"
+            )
+
+        # Check specific configuration requirements
+        if ocr_config.use_unstructured_api:
+            if not ocr_config.unstructured_api_key:
+                raise OCRConfigurationError(
+                    "Unstructured API key is required when using API mode",
+                    config_key="unstructured_api_key"
+                )
+        else:
+            if not dependencies["pytesseract"]:
+                raise OCRDependencyMissingError(
+                    "pytesseract package is required for local OCR",
+                    missing_dependency="pytesseract"
+                )
+
+            if not dependencies["tesseract_binary"]:
+                raise OCRDependencyMissingError(
+                    "Tesseract binary is required for local OCR",
+                    missing_dependency="tesseract"
+                )
+
+        logger.info("OCR setup validation passed")
+
+    except (OCRUnavailableError, OCRDependencyMissingError, OCRConfigurationError):
+        raise
+    except Exception as e:
+        raise OCRConfigurationError(f"OCR setup validation failed: {e}")
 
 
 def cancel_ocr_tasks_for_expense(expense_id: int) -> None:
@@ -516,7 +753,7 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         try:
             # Use the cloud storage service to retrieve the file
             from services.cloud_storage_service import CloudStorageService
-            from storage_config.cloud_storage_config import get_cloud_storage_config
+            from settings.cloud_storage_config import get_cloud_storage_config
             from models.database import get_tenant_context
             import tempfile
 
@@ -654,10 +891,24 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
     # Track AI usage if ai_config was used and OCR was actually attempted
     if ai_config and not result.get("provider_not_supported"):
         logger.info(f"🔍 About to track AI usage for config: {ai_config}")
-        track_ai_usage(db, ai_config)
-        logger.info("✅ AI usage tracking completed")
+        # Calculate processing metadata
+        text_length = len(result.get("raw", "")) if isinstance(result, dict) and "raw" in result else 0
+        if isinstance(result, dict):
+            # Count total characters in all string values
+            text_length = sum(len(str(v)) for v in result.values() if isinstance(v, str))
+        
+        # Track OCR-specific usage with metadata
+        track_ocr_usage(
+            db=db,
+            ai_config=ai_config,
+            extraction_method="ocr",
+            text_length=text_length
+        )
+        logger.info("✅ OCR AI usage tracking completed")
     elif result.get("provider_not_supported"):
         logger.info(f"⚠️ Skipping AI usage tracking - OCR not supported for provider: {ai_config.get('provider_name') if ai_config else 'unknown'}")
+    elif result.get("ocr_not_enabled"):
+        logger.info(f"⚠️ Skipping AI usage tracking - OCR not enabled for provider: {ai_config.get('provider_name') if ai_config else 'unknown'}")
 
     # Update DB with result if still not overridden
     expense = db.query(Expense).filter(Expense.id == expense_id).first()

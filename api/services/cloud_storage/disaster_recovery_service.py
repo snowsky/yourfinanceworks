@@ -25,7 +25,7 @@ from .provider import (
 )
 from .factory import StorageProviderFactory
 from models.models_per_tenant import StorageOperationLog
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 logger = logging.getLogger(__name__)
 

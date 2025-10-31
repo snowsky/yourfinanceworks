@@ -31,7 +31,7 @@ from models.models_per_tenant import StorageOperationLog
 from models.models_per_tenant import ItemAttachment
 from services.cloud_storage_service import CloudStorageService
 from services.file_storage_service import file_storage_service
-from storage_config.cloud_storage_config import get_cloud_storage_config
+from settings.cloud_storage_config import get_cloud_storage_config
 from config import config
 
 logger = logging.getLogger(__name__)

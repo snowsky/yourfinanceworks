@@ -182,22 +182,58 @@ async def process_statement_pdf(
                 detail="AI processing service temporarily unavailable. Please check Settings > AI Configuration and ensure the AI service is running and accessible."
             )
         except Exception as e:
+            # Handle OCR-specific exceptions with detailed user feedback
+            try:
+                from exceptions.bank_ocr_exceptions import (
+                    OCRUnavailableError,
+                    OCRTimeoutError,
+                    OCRProcessingError,
+                    OCRInvalidFileError,
+                    get_retry_delay
+                )
+
+                if isinstance(e, OCRTimeoutError):
+                    retry_delay = get_retry_delay(e)
+                    detail = f"Document processing is taking longer than expected due to OCR requirements. This typically happens with scanned documents. Please try again in {retry_delay or 60} seconds."
+                    raise HTTPException(status_code=503, detail=detail)
+
+                elif isinstance(e, OCRUnavailableError):
+                    detail = "OCR processing is required for this document but is not available. Please contact your administrator to enable OCR functionality."
+                    raise HTTPException(status_code=503, detail=detail)
+
+                elif isinstance(e, OCRProcessingError):
+                    if e.is_transient:
+                        retry_delay = get_retry_delay(e)
+                        detail = f"Document processing temporarily failed. Please try again in {retry_delay or 30} seconds."
+                        raise HTTPException(status_code=503, detail=detail)
+                    else:
+                        detail = "Failed to process document. The file may be corrupted or in an unsupported format."
+                        raise HTTPException(status_code=422, detail=detail)
+
+                elif isinstance(e, OCRInvalidFileError):
+                    detail = "Invalid file for processing. Please ensure the file is a valid PDF bank statement."
+                    raise HTTPException(status_code=422, detail=detail)
+
+            except ImportError:
+                pass
+
+            # Generic error handling
             logger.error(f"Error processing statement: {e}")
             raise HTTPException(
                 status_code=500,
                 detail="Failed to process statement file. Please check that the file is a valid bank statement and try again."
             )
-        
+
         if not transactions:
             raise HTTPException(
                 status_code=422,
                 detail="No transactions found in the provided file. This could mean: 1) The file doesn't contain transaction data, 2) The file format is not supported, or 3) The AI service needs to be configured in Settings > AI Configuration."
             )
-        
+
         # Update API client usage statistics
         api_client.total_transactions_submitted += len(transactions)
         db.commit()
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -212,14 +248,14 @@ async def process_statement_pdf(
                 "file_size": len(file_content)
             }
         )
-        
+
         # Return response based on requested format
         if format.lower() == "json":
             return {"transactions": transactions}
         else:
             # Default to CSV format
             return _create_csv_response(transactions, file.filename)
-    
+
     finally:
         # Clean up temporary file
         try:
@@ -233,10 +269,10 @@ async def process_statement_pdf(
 
 def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: str) -> StreamingResponse:
     """Create a CSV streaming response from transactions."""
-    
+
     def generate_csv():
         output = io.StringIO()
-        
+
         if not transactions:
             # Return empty CSV with headers
             writer = csv.writer(output)
@@ -244,12 +280,12 @@ def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: 
             output.seek(0)
             yield output.getvalue()
             return
-        
+
         # Write CSV headers
         fieldnames = ['date', 'description', 'amount', 'transaction_type', 'category', 'balance']
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
-        
+
         # Write transaction data
         for transaction in transactions:
             # Ensure all required fields are present
@@ -262,17 +298,17 @@ def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: 
                 'balance': transaction.get('balance', '')
             }
             writer.writerow(row)
-        
+
         output.seek(0)
         yield output.getvalue()
-    
+
     # Generate filename for download - sanitize to prevent path traversal
     import re
     safe_filename = os.path.basename(original_filename)  # Remove any path components
     safe_filename = re.sub(r'[^A-Za-z0-9._-]', '_', safe_filename)  # Remove unsafe characters
     base_name = Path(safe_filename).stem
     csv_filename = f"{base_name}_transactions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    
+
     return StreamingResponse(
         generate_csv(),
         media_type="text/csv",
@@ -288,16 +324,16 @@ async def health_check(
 ) -> Dict[str, Any]:
     """
     Health check endpoint for API clients.
-    
+
     **Authentication**: Requires valid API key.
-    
+
     **Returns**: API client status and service availability.
     """
-    
+
     # Check AI service availability
     ai_service_available = is_bank_llm_reachable()
     overall_status = "healthy" if ai_service_available else "degraded"
-    
+
     return {
         "status": overall_status,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -318,21 +354,21 @@ async def get_usage_stats(
 ) -> Dict[str, Any]:
     """
     Get usage statistics for the authenticated API client.
-    
+
     **Authentication**: Requires valid API key.
-    
+
     **Returns**: Usage statistics including request counts and limits.
     """
-    
+
     # Get API client
     api_client = db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
         APIClient.is_active == True
     ).first()
-    
+
     if not api_client:
         raise HTTPException(status_code=404, detail="API client not found")
-    
+
     return {
         "client_id": api_client.client_id,
         "client_name": api_client.client_name,

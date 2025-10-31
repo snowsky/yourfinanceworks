@@ -2139,7 +2139,7 @@ async def upload_invoice_attachment(
 
         # Initialize cloud storage service
         from services.cloud_storage_service import CloudStorageService
-        from storage_config.cloud_storage_config import get_cloud_storage_config
+        from settings.cloud_storage_config import get_cloud_storage_config
         
         try:
             cloud_config = get_cloud_storage_config()
@@ -2335,7 +2335,7 @@ async def download_invoice_attachment(
                 # This is likely a cloud storage file key - generate redirect URL
                 try:
                     from services.cloud_storage_service import CloudStorageService
-                    from storage_config.cloud_storage_config import get_cloud_storage_config
+                    from settings.cloud_storage_config import get_cloud_storage_config
                     from models.database import get_tenant_context
                     from fastapi.responses import RedirectResponse
                     
@@ -2382,7 +2382,7 @@ async def download_invoice_attachment(
                 # This is likely a cloud storage file key - generate redirect URL
                 try:
                     from services.cloud_storage_service import CloudStorageService
-                    from storage_config.cloud_storage_config import get_cloud_storage_config
+                    from settings.cloud_storage_config import get_cloud_storage_config
                     from models.database import get_tenant_context
                     from fastapi.responses import RedirectResponse
                     
@@ -2730,7 +2730,7 @@ async def delete_invoice_attachment(
                     # This is likely a cloud storage file key - delete from cloud storage
                     try:
                         from services.cloud_storage_service import CloudStorageService
-                        from storage_config.cloud_storage_config import get_cloud_storage_config
+                        from settings.cloud_storage_config import get_cloud_storage_config
                         from models.database import get_tenant_context
                         
                         tenant_id = get_tenant_context()

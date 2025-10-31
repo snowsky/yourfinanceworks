@@ -40,7 +40,7 @@ from services.cloud_storage.circuit_breaker import (
 )
 from models.models import Tenant
 from models.models_per_tenant import StorageOperationLog, CloudStorageConfiguration
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 
 logger = logging.getLogger(__name__)
 

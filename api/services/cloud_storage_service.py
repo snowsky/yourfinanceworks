@@ -30,7 +30,7 @@ from services.cloud_storage.disaster_recovery_service import (
     ReplicationConfig,
     ReplicationStatus
 )
-from storage_config.cloud_storage_config import CloudStorageConfig
+from settings.cloud_storage_config import CloudStorageConfig
 from models.models_per_tenant import StorageOperationLog
 from integrations.circuit_breaker import CircuitBreakerOpenException
 
