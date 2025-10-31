@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -78,6 +79,8 @@ export default function Statements() {
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('bank');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const readOnly = detail?.status === 'processing';
 
   const formatStatus = (value?: string | null) => {
@@ -370,6 +373,26 @@ export default function Statements() {
     }
   };
 
+  const confirmDeleteStatement = async () => {
+    if (!statementToDelete) return;
+
+    try {
+      await bankStatementApi.delete(statementToDelete);
+      toast.success(t('statements.statement_deleted'));
+      await loadList();
+      if (selected === statementToDelete) {
+        setSelected(null);
+        setDetail(null);
+        setRows([]);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || t('statements.failed_to_delete'));
+    } finally {
+      setDeleteModalOpen(false);
+      setStatementToDelete(null);
+    }
+  };
+
   // DRY helpers for preview/download
   const handlePreview = async (id: number) => {
     try {
@@ -467,20 +490,9 @@ export default function Statements() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={async () => {
-                              if (!confirm(t('statements.delete_confirm'))) return;
-                              try {
-                                await bankStatementApi.delete(s.id);
-                                toast.success(t('statements.statement_deleted'));
-                                await loadList();
-                                if (selected === s.id) {
-                                  setSelected(null);
-                                  setDetail(null);
-                                  setRows([]);
-                                }
-                              } catch (e: any) {
-                                toast.error(e?.message || t('statements.failed_to_delete'));
-                              }
+                            onClick={() => {
+                              setStatementToDelete(s.id);
+                              setDeleteModalOpen(true);
                             }}
                           >
                             <Trash2 className="w-4 h-4 mr-1" /> {t('statements.delete')}
@@ -1140,6 +1152,25 @@ export default function Statements() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Statement Modal */}
+        <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('statements.delete_confirm_title', 'Delete Statement')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('statements.delete_confirm_description', 'Are you sure you want to delete this bank statement? This action cannot be undone.')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteStatement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('statements.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
