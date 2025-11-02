@@ -1,0 +1,52 @@
+{{- if .Values.kafdrop.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafdrop
+  namespace: {{ include "invoice-app.namespace" . }}
+  labels:
+    {{- include "invoice-app.labels" . | nindent 4 }}
+    app: kafdrop
+spec:
+  selector:
+    app: kafdrop
+  ports:
+    - protocol: TCP
+      port: {{ .Values.kafdrop.port }}
+      targetPort: {{ .Values.kafdrop.port }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafdrop
+  namespace: {{ include "invoice-app.namespace" . }}
+  labels:
+    {{- include "invoice-app.labels" . | nindent 4 }}
+    app: kafdrop
+spec:
+  replicas: {{ .Values.kafdrop.replicas }}
+  selector:
+    matchLabels:
+      app: kafdrop
+  template:
+    metadata:
+      labels:
+        app: kafdrop
+    spec:
+      containers:
+        - name: kafdrop
+          image: {{ include "invoice-app.image" (dict "repository" .Values.kafdrop.image.repository "tag" .Values.kafdrop.image.tag) }}
+          env:
+            - name: KAFKA_BROKERCONNECT
+              value: kafka:9092
+            - name: JVM_OPTS
+              value: -Xms32M -Xmx64M
+          ports:
+            - containerPort: {{ .Values.kafdrop.port }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.kafdrop.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+{{- end }}

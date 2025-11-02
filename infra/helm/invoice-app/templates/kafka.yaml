@@ -1,8 +1,12 @@
+{{- if .Values.kafka.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: kafka
-  namespace: invoice-app
+  namespace: {{ include "invoice-app.namespace" . }}
+  labels:
+    {{- include "invoice-app.labels" . | nindent 4 }}
+    app: kafka
 spec:
   selector:
     app: kafka
@@ -18,13 +22,16 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kafka
-  namespace: invoice-app
+  namespace: {{ include "invoice-app.namespace" . }}
+  labels:
+    {{- include "invoice-app.labels" . | nindent 4 }}
+    app: kafka
 spec:
   selector:
     matchLabels:
       app: kafka
   serviceName: kafka
-  replicas: 1
+  replicas: {{ .Values.kafka.replicas }}
   template:
     metadata:
       labels:
@@ -32,7 +39,7 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: confluentinc/cp-kafka:7.6.1
+          image: {{ include "invoice-app.image" (dict "repository" .Values.kafka.image.repository "tag" .Values.kafka.image.tag) }}
           ports:
             - containerPort: 9092
               name: broker
@@ -84,5 +91,5 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 5Gi
-
+            storage: {{ .Values.kafka.storage }}
+{{- end }}

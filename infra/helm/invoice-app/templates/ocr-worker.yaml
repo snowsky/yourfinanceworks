@@ -1,0 +1,59 @@
+{{- if .Values.ocrWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocr-worker
+  namespace: {{ include "invoice-app.namespace" . }}
+  labels:
+    {{- include "invoice-app.labels" . | nindent 4 }}
+    app: ocr-worker
+spec:
+  replicas: {{ .Values.ocrWorker.replicas }}
+  selector:
+    matchLabels:
+      app: ocr-worker
+  template:
+    metadata:
+      labels:
+        app: ocr-worker
+    spec:
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command: ["/bin/sh","-c"]
+          args:
+            - >-
+              until nc -z kafka.{{ include "invoice-app.namespace" . }}.svc.cluster.local 9092; do echo waiting for kafka; sleep 2; done;
+      containers:
+        - name: ocr-worker
+          image: {{ include "invoice-app.image" (dict "repository" .Values.ocrWorker.image.repository "tag" .Values.ocrWorker.image.tag) }}
+          imagePullPolicy: {{ include "invoice-app.imagePullPolicy" . }}
+          env:
+            - name: DATABASE_URL
+              value: postgresql://{{ .Values.api.env.MASTER_DATABASE_USER }}:{{ .Values.api.env.MASTER_DATABASE_PASSWORD }}@{{ .Values.api.env.MASTER_DATABASE_HOST }}:{{ .Values.api.env.MASTER_DATABASE_PORT }}/{{ .Values.postgresql.auth.database }}
+            - name: MULTITENANT_MODE
+              value: {{ .Values.api.env.MULTITENANT_MODE | quote }}
+            - name: TENANT_DATABASE_PREFIX
+              value: {{ .Values.api.env.TENANT_DATABASE_PREFIX | quote }}
+            - name: MASTER_DATABASE_HOST
+              value: {{ .Values.api.env.MASTER_DATABASE_HOST | quote }}
+            - name: MASTER_DATABASE_PORT
+              value: {{ .Values.api.env.MASTER_DATABASE_PORT | quote }}
+            - name: MASTER_DATABASE_USER
+              value: {{ .Values.api.env.MASTER_DATABASE_USER | quote }}
+            - name: MASTER_DATABASE_PASSWORD
+              value: {{ .Values.api.env.MASTER_DATABASE_PASSWORD | quote }}
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.api.env.KAFKA_BOOTSTRAP_SERVERS | quote }}
+            - name: KAFKA_OCR_TOPIC
+              value: {{ .Values.api.env.KAFKA_OCR_TOPIC | quote }}
+            - name: KAFKA_OCR_GROUP
+              value: {{ .Values.api.env.KAFKA_OCR_GROUP | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.ocrWorker.env.LOG_LEVEL | quote }}
+            - name: OLLAMA_API_BASE
+              value: {{ .Values.ocrWorker.env.OLLAMA_API_BASE | quote }}
+            - name: LLM_MODEL_EXPENSES
+              value: {{ .Values.ocrWorker.env.LLM_MODEL_EXPENSES | quote }}
+          command: ["python","-m","workers.ocr_consumer"]
+{{- end }}
