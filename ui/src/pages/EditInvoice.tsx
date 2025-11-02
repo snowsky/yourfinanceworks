@@ -9,10 +9,9 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Package } from "lucide-react";
+import { Loader2, Package, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { format } from 'date-fns';
 
 const EditInvoice = () => {
   const { t } = useTranslation();
@@ -189,6 +188,14 @@ const EditInvoice = () => {
                 >
                   {t('invoices.link_expense')}
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/expenses/new?amount=${invoice?.amount || 0}&currency=${invoice?.currency || 'USD'}&invoiceId=${invoice?.id}`)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('invoices.create_expense')}
+                </Button>
               </div>
               <div className="rounded-md border">
                 <Table>
@@ -254,6 +261,7 @@ const EditInvoice = () => {
             />
           )}
         </div>
+
       </div>
     </AppLayout>
   );

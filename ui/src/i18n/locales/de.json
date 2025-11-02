@@ -331,7 +331,6 @@
     "outstanding_label": "Ausstehend",
     "total_amount": "Gesamtbetrag",
     "invoice_number": "Rechnungsnummer",
-    "client": "Kunde",
     "invoice_date": "Rechnungsdatum",
     "due_date": "Fälligkeitsdatum",
     "status": {
@@ -541,7 +540,17 @@
     "failed_to_link_expense": "Ausgabe konnte nicht verknüpft werden",
     "failed_to_unlink_expense": "Ausgabe konnte nicht entknüpft werden",
     "invoice_ready_to_be_created": "Rechnung kann erstellt werden",
-    "invoice_ready_to_be_updated": "Rechnung kann aktualisiert werden"
+    "invoice_ready_to_be_updated": "Rechnung kann aktualisiert werden",
+    "payment_added": "Zahlung Hinzugefügt",
+    "paid_amount_updated": "Bezahlter Betrag Aktualisiert",
+    "payment_reduced": "Zahlung Reduziert",
+    "payment_amount_changed_via_invoice_form": "Zahlungsbetrag über Rechnungsformular geändert",
+    "payment_amount_reduced_via_invoice_form": "Zahlungsbetrag über Rechnungsformular reduziert",
+    "create_expense": "Ausgabe Erstellen",
+    "payer": "Zahler",
+    "select_payer": "Zahler auswählen",
+    "you": "Sie",
+    "client": "Kunde"
   },
   "clients": {
     "title": "Kunden",
@@ -2406,5 +2415,5 @@
     "empty_recycle_bin_confirm_description": "Sind Sie sicher, dass Sie alle Rechnungen im Papierkorb endgültig löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und alle gelöschten Rechnungen werden vollständig aus dem System entfernt.",
     "recycle_bin_emptied_successfully": "Papierkorb erfolgreich geleert",
     "failed_to_empty_recycle_bin": "Fehler beim Leeren des Papierkorbs"
-  }
+    }
 }

@@ -97,6 +97,7 @@ class Invoice(Base):
     subtotal = Column(Float, nullable=False)  # Amount before discount
     custom_fields = Column(EncryptedJSON(),nullable=True)  # Encrypted JSON for sensitive custom data
     show_discount_in_pdf = Column(Boolean, default=True, nullable=False)
+    payer = Column(String, default="Client", nullable=False)  # Who is paying the invoice: 'You' or 'Client'
     attachment_path = Column(String, nullable=True)  # Path to uploaded attachment file
     attachment_filename = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     
@@ -333,7 +334,7 @@ class AuditLog(Base):
     resource_type = Column(String, nullable=False)  # user, client, invoice, payment, settings, etc.
     resource_id = Column(String, nullable=True)  # ID of the affected resource
     resource_name = Column(String, nullable=True)  # Human-readable name of the resource
-    details = Column(EncryptedJSON(),nullable=True)  # Encrypted sensitive audit details
+    details = Column(JSON, nullable=True)  # Audit details (not encrypted to avoid JSON parsing issues)
     ip_address = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     user_agent = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     status = Column(String, default="success", nullable=False)  # success, error, warning

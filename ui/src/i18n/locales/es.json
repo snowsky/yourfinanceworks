@@ -333,7 +333,6 @@
     "outstanding_label": "Pendiente",
     "total_amount": "Monto Total",
     "invoice_number": "Número de Factura",
-    "client": "Cliente",
     "invoice_date": "Fecha de Factura",
     "due_date": "Fecha de Vencimiento",
     "status": {
@@ -563,7 +562,17 @@
     "successfully_extracted_data": "Datos extraídos exitosamente de {{fileName}}",
     "pdf_processing_failed": "Error al Procesar PDF",
     "failed_to_process_file": "Error al procesar {{fileName}}: {{error}}",
-    "imported_from_pdf": "Importado desde PDF: {{fileName}}"
+    "imported_from_pdf": "Importado desde PDF: {{fileName}}",
+    "payment_added": "Pago Agregado",
+    "paid_amount_updated": "Monto Pagado Actualizado",
+    "payment_reduced": "Pago Reducido",
+    "payment_amount_changed_via_invoice_form": "Monto del pago cambiado a través del formulario de factura",
+    "payment_amount_reduced_via_invoice_form": "Monto del pago reducido a través del formulario de factura",
+    "create_expense": "Crear Gasto",
+    "payer": "Pagador",
+    "select_payer": "Seleccionar pagador",
+    "you": "Tú",
+    "client": "Cliente"
   },
   "clients": {
     "title": "Clientes",

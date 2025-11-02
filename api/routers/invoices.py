@@ -132,7 +132,8 @@ async def create_invoice(
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             custom_fields=invoice.custom_fields,
-            show_discount_in_pdf=invoice.show_discount_in_pdf
+            show_discount_in_pdf=invoice.show_discount_in_pdf,
+            payer=invoice.payer
         )
         
         # Calculate subtotal and amount
@@ -421,6 +422,7 @@ async def create_invoice(
             "items": items_data,
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
             "show_discount_in_pdf": invoice.show_discount_in_pdf,
+            "payer": invoice.payer,
             "has_attachment": get_attachment_info(invoice, new_attachments)[0],
             "attachment_filename": get_attachment_info(invoice, new_attachments)[1],
             "attachments": [{
@@ -489,7 +491,8 @@ async def clone_invoice(
             is_recurring=source_invoice.is_recurring,
             recurring_frequency=source_invoice.recurring_frequency,
             custom_fields=source_invoice.custom_fields,
-            show_discount_in_pdf=source_invoice.show_discount_in_pdf
+            show_discount_in_pdf=source_invoice.show_discount_in_pdf,
+            payer=source_invoice.payer
         )
 
         # If the original has items, recalc subtotal/amount like create endpoint
@@ -608,6 +611,7 @@ async def clone_invoice(
             "items": items_data,
             "custom_fields": cloned_invoice.custom_fields if cloned_invoice.custom_fields is not None else {},
             "show_discount_in_pdf": cloned_invoice.show_discount_in_pdf,
+            "payer": cloned_invoice.payer,
             "has_attachment": False,
             "attachment_filename": None,
             "attachments": [],
@@ -680,6 +684,7 @@ async def read_invoices(
                 "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
                 "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
                 "show_discount_in_pdf": invoice.show_discount_in_pdf,
+                "payer": invoice.payer,
                 "has_attachment": get_attachment_info(invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(invoice, new_attachments)[1]
             }
@@ -1114,6 +1119,7 @@ async def read_invoice(
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
             "items": items_data,
             "show_discount_in_pdf": invoice.show_discount_in_pdf,
+            "payer": invoice.payer,
             "has_attachment": get_attachment_info(invoice, new_attachments)[0],
             "attachment_filename": get_attachment_info(invoice, new_attachments)[1],
             "attachments": [{
@@ -1608,6 +1614,7 @@ async def update_invoice(
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
                 "items": items_data,
                 "show_discount_in_pdf": db_invoice.show_discount_in_pdf,
+                "payer": db_invoice.payer,
                 "has_attachment": get_attachment_info(db_invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(db_invoice, new_attachments)[1],
                 "attachments": [{
@@ -1694,6 +1701,7 @@ async def update_invoice(
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
                 "items": items_data,
                 "show_discount_in_pdf": db_invoice.show_discount_in_pdf,
+                "payer": db_invoice.payer,
                 "has_attachment": get_attachment_info(db_invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(db_invoice, new_attachments)[1],
                 "attachments": [{

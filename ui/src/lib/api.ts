@@ -87,6 +87,7 @@ export interface Invoice {
   show_discount_in_pdf?: boolean; // New property added
   has_attachment?: boolean;
   attachment_filename?: string;
+  payer?: string;
 }
 
 export const linkApi = {
@@ -1433,6 +1434,7 @@ export const invoiceApi = {
         recurring_frequency: apiInvoice.recurring_frequency,
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
+        payer: apiInvoice.payer || 'Client',
       }));
       
       console.log("Mapped invoices with paid amounts:", mappedInvoices);
@@ -1484,7 +1486,13 @@ export const invoiceApi = {
         show_discount_in_pdf: apiResponse.show_discount_in_pdf || false, // Map show_discount_in_pdf from API response
         has_attachment: apiResponse.has_attachment || false,
         attachment_filename: apiResponse.attachment_filename || undefined,
+        payer: apiResponse.payer || 'Client',
       };
+
+      console.log("🔍 API RESPONSE PAYER DEBUG:", {
+        'raw apiResponse.payer': apiResponse.payer,
+        'mapped payer': invoice.payer
+      });
       
       console.log("🔍 API CLIENT - Raw apiResponse keys:", Object.keys(apiResponse));
       console.log("🔍 API CLIENT - Raw apiResponse:", JSON.stringify(apiResponse, null, 2));
@@ -1522,12 +1530,13 @@ export const invoiceApi = {
     custom_fields?: Record<string, any>;
     show_discount_in_pdf?: boolean;
     items?: any[];
-  }) => 
+    payer?: string;
+  }) =>
     apiRequest<Invoice>('/invoices/', {
       method: 'POST',
       body: JSON.stringify(invoiceData),
     }),
-  updateInvoice: (id: number, invoiceData: Partial<Invoice>) =>
+  updateInvoice: (id: number, invoiceData: Partial<Invoice & { payer?: string }>) =>
     apiRequest<Invoice>(`/invoices/${id}`, {
       method: 'PUT',
       body: JSON.stringify(invoiceData),
@@ -1889,11 +1898,12 @@ export const dashboardApi = {
       console.log('Dashboard API - Processing invoices:', invoices.length);
       invoices.forEach(invoice => {
         const currency = invoice.currency || 'USD';
-        console.log(`Invoice ${invoice.number}: status=${invoice.status}, amount=${invoice.amount}, paid_amount=${invoice.paid_amount}, currency=${currency}`);
-        
-        if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
+        console.log(`Invoice ${invoice.number}: status=${invoice.status}, amount=${invoice.amount}, paid_amount=${invoice.paid_amount}, currency=${currency}, payer=${invoice.payer}`);
+
+        // Only count income from invoices where the payer is 'Client'
+        if ((invoice.status === 'paid' || invoice.status === 'partially_paid') && invoice.payer === 'Client') {
           totalIncome[currency] = (totalIncome[currency] || 0) + invoice.paid_amount;
-          console.log(`Added to totalIncome[${currency}]: ${invoice.paid_amount}`);
+          console.log(`Added to totalIncome[${currency}]: ${invoice.paid_amount} (payer: ${invoice.payer})`);
         }
         // Calculate pending amounts for invoices that are not fully paid
         if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {

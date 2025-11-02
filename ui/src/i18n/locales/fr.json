@@ -332,7 +332,6 @@
     "outstanding_label": "Restant dû",
     "total_amount": "Montant Total",
     "invoice_number": "Numéro de Facture",
-    "client": "Client",
     "invoice_date": "Date de Facture",
     "due_date": "Date d'échéance",
     "status": {
@@ -563,7 +562,17 @@
     "successfully_extracted_data": "Données extraites avec succès de {{fileName}}",
     "pdf_processing_failed": "Échec du Traitement PDF",
     "failed_to_process_file": "Échec du traitement de {{fileName}} : {{error}}",
-    "imported_from_pdf": "Importé depuis PDF : {{fileName}}"
+    "imported_from_pdf": "Importé depuis PDF : {{fileName}}",
+    "payment_added": "Paiement Ajouté",
+    "paid_amount_updated": "Montant Payé Mis à Jour",
+    "payment_reduced": "Paiement Réduit",
+    "payment_amount_changed_via_invoice_form": "Montant du paiement modifié via le formulaire de facture",
+    "payment_amount_reduced_via_invoice_form": "Montant du paiement réduit via le formulaire de facture",
+    "create_expense": "Créer une Dépense",
+    "payer": "Payeur",
+    "select_payer": "Sélectionner le payeur",
+    "you": "Vous",
+    "client": "Client"
   },
   "clients": {
     "title": "Clients",
