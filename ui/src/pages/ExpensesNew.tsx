@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,13 +24,21 @@ import { useTranslation } from 'react-i18next';
 
 export default function ExpensesNew() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
+
+  // Get prefill values from URL parameters
+  const prefillAmount = searchParams.get('amount');
+  const prefillCurrency = searchParams.get('currency');
+  const prefillInvoiceId = searchParams.get('invoiceId');
+
   const [form, setForm] = useState<Partial<Expense>>({
-    amount: 0,
-    currency: 'USD',
+    amount: prefillAmount ? Number(prefillAmount) : 0,
+    currency: prefillCurrency || 'USD',
     expense_date: new Date().toISOString().split('T')[0],
     category: 'General',
     status: 'recorded',
+    invoice_id: prefillInvoiceId ? Number(prefillInvoiceId) : undefined,
   });
   const [files, setFiles] = useState<FileData[]>([]);
   const [saving, setSaving] = useState(false);

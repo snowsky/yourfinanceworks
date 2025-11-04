@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, LoginRequest, SignupRequest } from '@/types';
+import { User, LoginRequest } from '@/types';
+import { SignupData, User as ApiUser } from '@/services/api';
 import apiService from '@/services/api';
 
 interface AuthContextType {
@@ -8,7 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
-  signup: (userData: SignupRequest) => Promise<void>;
+  signup: (userData: SignupData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -29,6 +30,21 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+
+  // Helper function to convert API User to local User type
+  const convertApiUserToUser = (apiUser: ApiUser | null): User | null => {
+    if (!apiUser) return null;
+    return {
+      id: apiUser.id.toString(),
+      email: apiUser.email,
+      full_name: `${apiUser.first_name} ${apiUser.last_name}`,
+      role: apiUser.role as 'admin' | 'user' | 'viewer',
+      tenant_id: apiUser.tenant_id.toString(),
+      is_active: apiUser.is_active,
+      created_at: apiUser.created_at,
+      updated_at: apiUser.updated_at || apiUser.created_at,
+    };
+  };
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = await AsyncStorage.getItem('auth_token');
       if (token) {
         const currentUser = await apiService.getCurrentUser();
-        setUser(currentUser);
+        setUser(convertApiUserToUser(currentUser));
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -54,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       const response = await apiService.login(credentials);
-      setUser(response.user);
+      setUser(convertApiUserToUser(response.user));
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -63,11 +79,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (userData: SignupRequest) => {
+  const signup = async (userData: SignupData) => {
     try {
       setIsLoading(true);
       const response = await apiService.signup(userData);
-      setUser(response.user);
+      setUser(convertApiUserToUser(response.user));
     } catch (error) {
       console.error('Signup failed:', error);
       throw error;
@@ -91,7 +107,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshUser = async () => {
     try {
       const currentUser = await apiService.getCurrentUser();
-      setUser(currentUser);
+      setUser(convertApiUserToUser(currentUser));
     } catch (error) {
       console.error('User refresh failed:', error);
       await logout();

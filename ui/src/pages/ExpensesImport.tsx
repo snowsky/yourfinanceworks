@@ -72,16 +72,17 @@ export default function ExpensesImport() {
     }
     
     setProcessing(false);
-    
+
     // Add completion notification based on upload success only
     if (errorCount === 0) {
       addNotification?.('success', 'Expense Files Uploaded', `Successfully uploaded ${successCount} expense files. AI analysis in progress.`);
+      navigate('/expenses');
     } else if (successCount > 0) {
       addNotification?.('error', 'Expense Upload Partial', `Uploaded ${successCount} files successfully, ${errorCount} failed.`);
     } else {
       addNotification?.('error', 'Expense Upload Failed', `Failed to upload all ${errorCount} expense files.`);
     }
-    
+
     toast.success('Import completed');
   };
 

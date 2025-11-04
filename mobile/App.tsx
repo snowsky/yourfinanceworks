@@ -293,15 +293,23 @@ const App: React.FC = () => {
   }) => {
     try {
       const totalAmount = formData.items.reduce((sum, item) => sum + item.amount, 0);
-      const dueDate = new Date(formData.dueDate).toISOString();
-      logger.debug('dueDate', dueDate);
+      
+      logger.debug('Processing invoice update in handleUpdateInvoice', {
+        invoiceId,
+        client: formData.client
+      });
+      
+      const clientId = parseInt(formData.client);
+      if (isNaN(clientId)) {
+        throw new Error(`Invalid client ID: ${formData.client}`);
+      }
       
       const invoiceData: UpdateInvoiceData = {
-        client_id: parseInt(formData.client),
+        client_id: clientId,
         amount: totalAmount,
         currency: formData.currency,
         date: formData.date,
-        due_date: dueDate,
+        due_date: formData.dueDate,
         status: formData.status as any,
         notes: formData.notes,
         items: formData.items.map(item => ({

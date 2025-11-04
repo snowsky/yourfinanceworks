@@ -179,16 +179,25 @@ async def create_client(
     require_non_viewer(current_user, "create clients")
     
     try:
+        logger.info(f"DEBUG: Attempting to create client: name='{client.name}', email='{client.email}'")
+
         # Check for existing client with same name and email to prevent duplicates
-        existing_client = db.query(Client).filter(
-            Client.name == client.name,
-            Client.email == client.email
-        ).first()
-        if existing_client:
-            raise HTTPException(
-                status_code=400,
-                detail=CLIENT_ALREADY_EXISTS
-            )
+        # Since name and email are encrypted, we need to check all existing clients
+        # and compare decrypted values
+        # TODO: For better performance with large datasets, consider:
+        # 1. Using database triggers for duplicate prevention
+        # 2. Maintaining a separate unencrypted index table for lookups
+        # 3. Using hash-based lookups with pre-computed hashes
+        existing_clients = db.query(Client).all()
+        for existing_client in existing_clients:
+            if existing_client.name == client.name and existing_client.email == client.email:
+                logger.warning(f"Attempted to create duplicate client: name='{client.name}', email='{client.email}'")
+                raise HTTPException(
+                    status_code=400,
+                    detail=CLIENT_ALREADY_EXISTS
+                )
+
+        logger.info("DEBUG: No duplicate client found, proceeding with creation")
         
         # Prepare client data
         client_data = client.model_dump()
@@ -289,7 +298,7 @@ async def update_client(
 ):
     # Check if user has permission to update clients
     require_non_viewer(current_user, "update clients")
-    
+
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_client = db.query(Client).filter(
@@ -300,12 +309,25 @@ async def update_client(
                 status_code=404,
                 detail=CLIENT_NOT_FOUND
             )
-        
-        # Update client fields, excluding email
+
         update_data = client.model_dump(exclude_unset=True)
-        if 'email' in update_data:
-            del update_data['email']  # Remove email from update data
-        
+
+        # Check for duplicate client with same name and email (excluding current client)
+        if 'name' in update_data and 'email' in update_data:
+            # Since name and email are encrypted, we need to check all existing clients
+            # and compare decrypted values
+            existing_clients = db.query(Client).filter(Client.id != client_id).all()
+            for existing_client in existing_clients:
+                if existing_client.name == update_data['name'] and existing_client.email == update_data['email']:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=CLIENT_ALREADY_EXISTS
+                    )
+
+        # # Update client fields, excluding email
+        # if 'email' in update_data:
+        #     del update_data['email']  # Remove email from update data
+
         for field, value in update_data.items():
             setattr(db_client, field, value)
         db_client.updated_at = datetime.now(timezone.utc)

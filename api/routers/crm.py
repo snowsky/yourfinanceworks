@@ -52,8 +52,15 @@ async def create_client_note(
             details=note.model_dump(),
             status="success",
         )
-        # Return before closing session to avoid DetachedInstanceError
-        result = db_note
+        # Convert to dict before closing session to avoid DetachedInstanceError
+        result = {
+            "id": db_note.id,
+            "note": db_note.note,
+            "user_id": db_note.user_id,
+            "client_id": db_note.client_id,
+            "created_at": db_note.created_at.isoformat() if db_note.created_at else None,
+            "updated_at": db_note.updated_at.isoformat() if db_note.updated_at else None
+        }
         return result
     finally:
         db.close()
@@ -102,8 +109,15 @@ async def update_client_note(
             details={"note": note.note},
             status="success",
         )
-        # Return before closing session to avoid DetachedInstanceError
-        result = db_note
+        # Convert to dict before closing session to avoid DetachedInstanceError
+        result = {
+            "id": db_note.id,
+            "note": db_note.note,
+            "user_id": db_note.user_id,
+            "client_id": db_note.client_id,
+            "created_at": db_note.created_at.isoformat() if db_note.created_at else None,
+            "updated_at": db_note.updated_at.isoformat() if db_note.updated_at else None
+        }
         return result
     finally:
         db.close()
@@ -168,8 +182,18 @@ async def get_client_notes(
             raise HTTPException(status_code=404, detail="Client not found")
 
         notes = db.query(ClientNote).filter(ClientNote.client_id == client_id).all()
-        # Return before closing session to avoid DetachedInstanceError
-        result = notes
+        # Convert to dict before closing session to avoid DetachedInstanceError
+        result = [
+            {
+                "id": note.id,
+                "note": note.note,
+                "user_id": note.user_id,
+                "client_id": note.client_id,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None
+            }
+            for note in notes
+        ]
         return result
     finally:
         db.close()

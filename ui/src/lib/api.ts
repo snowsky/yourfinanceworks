@@ -87,6 +87,7 @@ export interface Invoice {
   show_discount_in_pdf?: boolean; // New property added
   has_attachment?: boolean;
   attachment_filename?: string;
+  payer?: string;
 }
 
 export const linkApi = {
@@ -836,7 +837,7 @@ export async function apiRequest<T>(
         // Show toast and redirect to login
         toast.error('Session expired. Please log in again.');
         // Use window.location.replace for reliability
-        window.location.replace('/login');
+        setTimeout(() => window.location.replace('/login'), 100);
         throw new Error('Authentication failed. Please log in again.');
       }
       
@@ -1433,6 +1434,7 @@ export const invoiceApi = {
         recurring_frequency: apiInvoice.recurring_frequency,
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
+        payer: apiInvoice.payer || 'Client',
       }));
       
       console.log("Mapped invoices with paid amounts:", mappedInvoices);
@@ -1484,7 +1486,13 @@ export const invoiceApi = {
         show_discount_in_pdf: apiResponse.show_discount_in_pdf || false, // Map show_discount_in_pdf from API response
         has_attachment: apiResponse.has_attachment || false,
         attachment_filename: apiResponse.attachment_filename || undefined,
+        payer: apiResponse.payer || 'Client',
       };
+
+      console.log("🔍 API RESPONSE PAYER DEBUG:", {
+        'raw apiResponse.payer': apiResponse.payer,
+        'mapped payer': invoice.payer
+      });
       
       console.log("🔍 API CLIENT - Raw apiResponse keys:", Object.keys(apiResponse));
       console.log("🔍 API CLIENT - Raw apiResponse:", JSON.stringify(apiResponse, null, 2));
@@ -1522,12 +1530,13 @@ export const invoiceApi = {
     custom_fields?: Record<string, any>;
     show_discount_in_pdf?: boolean;
     items?: any[];
-  }) => 
+    payer?: string;
+  }) =>
     apiRequest<Invoice>('/invoices/', {
       method: 'POST',
       body: JSON.stringify(invoiceData),
     }),
-  updateInvoice: (id: number, invoiceData: Partial<Invoice>) =>
+  updateInvoice: (id: number, invoiceData: Partial<Invoice & { payer?: string }>) =>
     apiRequest<Invoice>(`/invoices/${id}`, {
       method: 'PUT',
       body: JSON.stringify(invoiceData),
@@ -1885,15 +1894,17 @@ export const dashboardApi = {
       // Group totals by currency
       const totalIncome: Record<string, number> = {};
       const pendingInvoices: Record<string, number> = {};
-      
+      const totalExpenses: Record<string, number> = {};
+
       console.log('Dashboard API - Processing invoices:', invoices.length);
       invoices.forEach(invoice => {
         const currency = invoice.currency || 'USD';
-        console.log(`Invoice ${invoice.number}: status=${invoice.status}, amount=${invoice.amount}, paid_amount=${invoice.paid_amount}, currency=${currency}`);
-        
-        if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
+        console.log(`Invoice ${invoice.number}: status=${invoice.status}, amount=${invoice.amount}, paid_amount=${invoice.paid_amount}, currency=${currency}, payer=${invoice.payer}`);
+
+        // Only count income from invoices where the payer is 'Client'
+        if ((invoice.status === 'paid' || invoice.status === 'partially_paid') && invoice.payer === 'Client') {
           totalIncome[currency] = (totalIncome[currency] || 0) + invoice.paid_amount;
-          console.log(`Added to totalIncome[${currency}]: ${invoice.paid_amount}`);
+          console.log(`Added to totalIncome[${currency}]: ${invoice.paid_amount} (payer: ${invoice.payer})`);
         }
         // Calculate pending amounts for invoices that are not fully paid
         if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {
@@ -1905,20 +1916,36 @@ export const dashboardApi = {
           }
         }
       });
-      
-      console.log('Final dashboard stats:', { totalIncome, pendingInvoices });
-      
+
+      // Fetch and calculate total expenses
+      try {
+        const expenses = await expenseApi.getExpenses();
+        console.log('Dashboard API - Processing expenses:', expenses.length);
+        expenses.forEach(expense => {
+          const currency = expense.currency || 'USD';
+          const amount = expense.total_amount || expense.amount || 0;
+          console.log(`Expense ${expense.id}: amount=${amount}, currency=${currency}`);
+
+          totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
+          console.log(`Added to totalExpenses[${currency}]: ${amount}`);
+        });
+      } catch (error) {
+        console.error('Failed to fetch expenses for dashboard:', error);
+      }
+
+      console.log('Final dashboard stats:', { totalIncome, pendingInvoices, totalExpenses });
+
       const invoicesPaid = (invoices || []).filter(invoice => invoice.status === 'paid').length;
       const invoicesPending = (invoices || []).filter(invoice => invoice.status === 'pending').length;
       const invoicesOverdue = (invoices || []).filter(invoice => invoice.status === 'overdue').length;
-      
+
       // Calculate trends by comparing current month vs previous month
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
       const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-      
+
       // Helper function to calculate total for a specific month
       const calculateMonthlyTotal = (targetMonth: number, targetYear: number) => {
         return (invoices || [])
@@ -1930,7 +1957,7 @@ export const dashboardApi = {
           })
           .reduce((sum, invoice) => sum + (invoice.paid_amount || 0), 0);
       };
-      
+
       // Helper function to calculate pending for a specific month
       const calculateMonthlyPending = (targetMonth: number, targetYear: number) => {
         return (invoices || [])
@@ -1945,7 +1972,7 @@ export const dashboardApi = {
             return sum + (outstandingAmount > 0 ? outstandingAmount : 0);
           }, 0);
       };
-      
+
       // Helper function to calculate client count for a specific month
       const calculateMonthlyClients = (targetMonth: number, targetYear: number) => {
         const clientIds = new Set();
@@ -1958,7 +1985,7 @@ export const dashboardApi = {
           .forEach(invoice => clientIds.add(invoice.client_id));
         return clientIds.size;
       };
-      
+
       // Helper function to calculate overdue count for a specific month
       const calculateMonthlyOverdue = (targetMonth: number, targetYear: number) => {
         return (invoices || [])
@@ -1969,7 +1996,7 @@ export const dashboardApi = {
                    invoice.status === 'overdue';
           }).length;
       };
-      
+
       // Calculate current and previous month totals
       const currentMonthIncome = calculateMonthlyTotal(currentMonth, currentYear);
       const previousMonthIncome = calculateMonthlyTotal(previousMonth, previousYear);
@@ -1979,18 +2006,18 @@ export const dashboardApi = {
       const previousMonthClients = calculateMonthlyClients(previousMonth, previousYear);
       const currentMonthOverdue = calculateMonthlyOverdue(currentMonth, currentYear);
       const previousMonthOverdue = calculateMonthlyOverdue(previousMonth, previousYear);
-      
+
       // Calculate percentage changes
       const calculatePercentageChange = (current: number, previous: number) => {
         if (previous === 0) return current > 0 ? 100 : 0;
         return ((current - previous) / previous) * 100;
       };
-      
+
       const incomeTrend = calculatePercentageChange(currentMonthIncome, previousMonthIncome);
       const pendingTrend = calculatePercentageChange(currentMonthPending, previousMonthPending);
       const clientsTrend = calculatePercentageChange(currentMonthClients, previousMonthClients);
       const overdueTrend = calculatePercentageChange(currentMonthOverdue, previousMonthOverdue);
-      
+
       console.log('Trend calculations:', {
         currentMonthIncome,
         previousMonthIncome,
@@ -2005,10 +2032,11 @@ export const dashboardApi = {
         previousMonthOverdue,
         overdueTrend
       });
-      
+
       return {
         totalIncome,
         pendingInvoices,
+        totalExpenses,
         totalClients,
         invoicesPaid,
         invoicesPending,
@@ -2025,6 +2053,7 @@ export const dashboardApi = {
       return {
         totalIncome: {},
         pendingInvoices: {},
+        totalExpenses: {},
         totalClients: 0,
         invoicesPaid: 0,
         invoicesPending: 0,
@@ -2055,22 +2084,22 @@ export const settingsApi = {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to export data');
     }
-    
+
     // Get filename from response headers or create a default one
     const contentDisposition = response.headers.get('content-disposition');
     let filename = `data_export_${new Date().toISOString().split('T')[0]}.sqlite`;
-    
+
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
       if (filenameMatch) {
         filename = filenameMatch[1];
       }
     }
-    
+
     // Create blob and download
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
@@ -2086,7 +2115,7 @@ export const settingsApi = {
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await fetch(`${API_BASE_URL}/settings/import-data`, {
       method: 'POST',
       headers: {
@@ -2094,12 +2123,12 @@ export const settingsApi = {
       },
       body: formData,
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.detail || 'Failed to import data');
     }
-    
+
     return await response.json();
   },
 };
@@ -2258,7 +2287,7 @@ export const handleReportError = (error: any): ReportApiError => {
     // Handle generic error
     reportError.message = error.message || 'An unexpected error occurred';
   }
-  
+
   reportError.status = error.status;
   return reportError;
 };
@@ -2292,7 +2321,7 @@ export const getReportErrorMessage = (error: ReportApiError): string => {
 
 export const showReportError = (error: ReportApiError) => {
   const message = getReportErrorMessage(error);
-  
+
   // Show suggestions if available
   if (error.suggestions && error.suggestions.length > 0) {
     const suggestionText = error.suggestions.join(' ');
@@ -2300,7 +2329,7 @@ export const showReportError = (error: ReportApiError) => {
   } else {
     toast.error(message);
   }
-  
+
   // Log detailed error for debugging
   console.error('Report API Error:', {
     code: error.error_code,
@@ -2322,7 +2351,7 @@ export const reportApi = {
       throw reportError;
     }
   },
-  
+
   generateReport: async (request: ReportGenerateRequest) => {
     try {
       return await apiRequest<ReportResult>("/reports/generate", {
@@ -2335,7 +2364,7 @@ export const reportApi = {
       throw reportError;
     }
   },
-  
+
   previewReport: async (request: ReportPreviewRequest) => {
     try {
       return await apiRequest<ReportData>("/reports/preview", {
@@ -2348,29 +2377,29 @@ export const reportApi = {
       throw reportError;
     }
   },
-  
+
   // Template management
   getTemplates: () => apiRequest<{ templates: ReportTemplate[]; total: number }>("/reports/templates"),
-  
+
   getTemplate: (id: number) => apiRequest<ReportTemplate>(`/reports/templates/${id}`),
-  
+
   createTemplate: (template: ReportTemplateCreate) =>
     apiRequest<ReportTemplate>("/reports/templates", {
       method: 'POST',
       body: JSON.stringify(template),
     }),
-  
+
   updateTemplate: (id: number, template: Partial<ReportTemplateCreate>) =>
     apiRequest<ReportTemplate>(`/reports/templates/${id}`, {
       method: 'PUT',
       body: JSON.stringify(template),
     }),
-  
+
   deleteTemplate: (id: number) =>
     apiRequest(`/reports/templates/${id}`, {
       method: 'DELETE',
     }),
-  
+
   // Report history
   getHistory: (limit?: number, offset?: number, reportType?: string, status?: string) => {
     const params = new URLSearchParams();
@@ -2397,7 +2426,7 @@ export const reportApi = {
       method: 'POST',
       body: JSON.stringify(shareSettings),
     }),
-  
+
   downloadReport: async (reportId: number) => {
     try {
       console.log('DownloadReport: Starting download for report ID:', reportId);

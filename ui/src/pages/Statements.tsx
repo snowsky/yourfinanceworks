@@ -1096,7 +1096,7 @@ export default function Statements() {
                   </div>
                   <input
                     type="file"
-                    accept=".pdf,.csv,application/pdf,text/csv,application/vnd.ms-excel"
+                    accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
                     multiple
                     className="hidden"
                     id="file-upload"
@@ -1113,7 +1113,7 @@ export default function Statements() {
                     Choose Files
                   </label>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Supports PDF and CSV files (max 12 files)
+                    Supports PDF, CSV, and image files (JPG, PNG, WebP) (max 12 files)
                   </div>
                 </div>
                 {files.length > 0 && (

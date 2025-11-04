@@ -161,10 +161,12 @@ async def create_expense(
 
         tax_amount = expense.tax_amount
         total_amount = expense.total_amount
-        if tax_amount is None and expense.tax_rate is not None:
-            tax_amount = float(expense.amount) * float(expense.tax_rate) / 100.0
-        if total_amount is None:
-            total_amount = float(expense.amount) + float(tax_amount or 0)
+        if expense.amount is not None:
+            if expense.amount is not None:
+                if tax_amount is None and expense.tax_rate is not None:
+                    tax_amount = float(expense.amount) * float(expense.tax_rate) / 100.0
+                if total_amount is None:
+                    total_amount = float(expense.amount) + float(tax_amount or 0)
 
         # Validate invoice exists if provided
         if expense.invoice_id is not None:
@@ -280,7 +282,7 @@ async def create_expense(
                     )
 
         db_expense = Expense(
-            amount=float(expense.amount),
+            amount=float(expense.amount) if expense.amount is not None else None,
             currency=currency_code,
             expense_date=expense_dt,
             category=expense.category,
@@ -454,9 +456,10 @@ async def bulk_create_expenses(
             tax_amount = expense.tax_amount
             total_amount = expense.total_amount
             if tax_amount is None and expense.tax_rate is not None:
-                tax_amount = float(expense.amount) * float(expense.tax_rate) / 100.0
-            if total_amount is None:
-                total_amount = float(expense.amount) + float(tax_amount or 0)
+                if expense.amount is not None:
+                    tax_amount = float(expense.amount) * float(expense.tax_rate) / 100.0
+                    if total_amount is None:
+                        total_amount = float(expense.amount) + float(tax_amount or 0)
 
             if expense.invoice_id is not None:
                 inv = db.query(Invoice).filter(Invoice.id == expense.invoice_id).first()
@@ -583,14 +586,17 @@ async def update_expense(
                 raise HTTPException(status_code=400, detail=f"Invoice {update_data['invoice_id']} not found")
 
         # Recalculate tax/total if needed
-        amount = float(update_data.get("amount", db_expense.amount))
+        amount = update_data.get("amount", db_expense.amount)
+        if amount is not None:
+            amount = float(amount)
         tax_rate = update_data.get("tax_rate", db_expense.tax_rate)
         tax_amount = update_data.get("tax_amount", db_expense.tax_amount)
         total_amount = update_data.get("total_amount", db_expense.total_amount)
-        if tax_amount is None and tax_rate is not None:
-            tax_amount = float(amount) * float(tax_rate) / 100.0
-        if total_amount is None:
-            total_amount = float(amount) + float(tax_amount or 0)
+        if amount is not None:
+            if tax_amount is None and tax_rate is not None:
+                tax_amount = float(amount) * float(tax_rate) / 100.0
+            if total_amount is None:
+                total_amount = float(amount) + float(tax_amount or 0)
 
         update_data["tax_amount"] = tax_amount
         update_data["total_amount"] = total_amount
@@ -708,7 +714,10 @@ async def update_expense(
             update_data["labels"] = norm or None
 
         for k, v in update_data.items():
-            setattr(db_expense, k, v if k != "amount" else float(v))
+            if k == "amount":
+                setattr(db_expense, k, float(v) if v is not None else None)
+            else:
+                setattr(db_expense, k, v)
         # Any manual update marks manual_override true and halts analysis
         db_expense.manual_override = True
         # If analysis was queued/processing, mark as cancelled and try to cancel downstream
@@ -879,7 +888,7 @@ async def upload_receipt(
 
         # Validate file extension
         file_ext = os.path.splitext(file.filename.lower())[1]
-        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png'}
+        allowed_extensions = {'.pdf', '.jpg', '.jpeg', '.png', '.heic'}
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"File type not allowed. Supported: {', '.join(allowed_extensions)}")
 
@@ -888,9 +897,11 @@ async def upload_receipt(
             'application/pdf': '.pdf',
             'image/jpeg': '.jpg',
             'image/png': '.png',
+            'image/heic': '.heic',
+            'image/heif': '.heif',
         }
         if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="File type not allowed. Supported: PDF, JPG, PNG")
+            raise HTTPException(status_code=400, detail="File type not allowed. Supported: PDF, JPG, PNG, HEIC, HEIF")
 
         # Read and validate file size
         MAX_BYTES = 10 * 1024 * 1024
@@ -1075,14 +1086,14 @@ async def reprocess_expense(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    """Reprocess expense OCR analysis for pending/queued expenses."""
+    """Reprocess expense OCR analysis for expenses that can be reprocessed."""
     require_non_viewer(current_user, "reprocess expenses")
     try:
         expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
-        
-        if expense.analysis_status not in ["pending", "queued", "failed"]:
+
+        if expense.analysis_status not in ["not_started", "pending", "queued", "failed"]:
             raise HTTPException(status_code=400, detail=f"Cannot reprocess expense with status: {expense.analysis_status}")
         
         # Find the most recent attachment

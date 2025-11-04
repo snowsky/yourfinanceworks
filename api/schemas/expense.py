@@ -5,7 +5,7 @@ from constants.expense_status import ExpenseStatus
 
 
 class ExpenseBase(BaseModel):
-    amount: float = Field(..., description="Expense amount before tax")
+    amount: Optional[float] = Field(None, description="Expense amount before tax (optional when attachments present)")
     currency: str = Field("USD", description="Currency code for the expense")
     expense_date: date = Field(default_factory=date.today, description="Date of the expense")
     category: str = Field(..., description="Expense category (e.g., Travel, Meals, Software)")
@@ -36,13 +36,19 @@ class ExpenseBase(BaseModel):
     manual_override: Optional[bool] = Field(False, description="True if user manually edited; stops further analysis")
     disable_ai_recognition: Optional[bool] = Field(False, description="Disable AI document recognition for this expense")
 
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        """Allow None amount when attachments are present (will be extracted via OCR)"""
+        return v
+
     @field_validator('status')
     @classmethod
     def validate_status(cls, v):
         if v not in ExpenseStatus.get_all_values():
             raise ValueError(f'Invalid status. Must be one of: {", ".join(ExpenseStatus.get_all_values())}')
         return v
-    
+
     @field_validator('expense_date', mode='before')
     @classmethod
     def convert_datetime_to_date(cls, v):

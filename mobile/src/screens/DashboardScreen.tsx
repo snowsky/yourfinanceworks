@@ -48,6 +48,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalIncome: {},
     pendingInvoices: {},
+    totalExpenses: {},
     totalClients: 0,
     invoicesPaid: 0,
     invoicesPending: 0,
@@ -295,31 +296,38 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         <View style={styles.statsGrid}>
           <StatCard
-            title={t('dashboard.total_income')}
+            title={t('dashboard.stats.total_income')}
             value={formatMultiCurrencyString(dashboardStats.totalIncome)}
             icon="cash-outline"
-            description={t('dashboard.revenue_from_paid')}
+            description={t('dashboard.stats.revenue_from_paid')}
             color="#10B981"
           />
           <StatCard
-            title={t('dashboard.pending_amount')}
+            title={t('dashboard.stats.total_expenses')}
+            value={formatMultiCurrencyString(dashboardStats.totalExpenses)}
+            icon="wallet-outline"
+            description={t('dashboard.stats.total_business_expenses')}
+            color="#8B5CF6"
+          />
+          <StatCard
+            title={t('dashboard.stats.pending_amount')}
             value={formatMultiCurrencyString(dashboardStats.pendingInvoices)}
             icon="document-text-outline"
-            description={t('dashboard.awaiting_payment')}
+            description={t('dashboard.stats.awaiting_payment')}
             color="#F59E0B"
           />
           <StatCard
-            title={t('dashboard.total_clients')}
+            title={t('dashboard.stats.total_clients')}
             value={dashboardStats.totalClients.toString()}
             icon="people-outline"
-            description={t('dashboard.active_clients')}
+            description={t('dashboard.stats.active_clients')}
             color="#3B82F6"
           />
           <StatCard
-            title={t('dashboard.overdue_invoices')}
+            title={t('dashboard.stats.overdue_invoices')}
             value={dashboardStats.invoicesOverdue.toString()}
             icon="alert-circle-outline"
-            description={t('dashboard.past_due_invoices')}
+            description={t('dashboard.stats.past_due_invoices')}
             color="#EF4444"
           />
         </View>

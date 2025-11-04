@@ -104,12 +104,25 @@ const Settings = () => {
     auto_reminders: true,
   });
 
-  const [taxSettings, setTaxSettings] = useState({
-    enabled: true,
-    base_url: "http://192.168.86.39:8001",
-    api_key: "ak_Pw0viX75yYrLT8tUmS2c912gDDrLsR4qvtIO8XRrruU",
-    timeout: 30,
-    retry_attempts: 3,
+  const [taxSettings, setTaxSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('taxSettings');
+      return saved ? JSON.parse(saved) : {
+        enabled: true,
+        base_url: "",
+        api_key: "",
+        timeout: 30,
+        retry_attempts: 3,
+      };
+    } catch {
+      return {
+        enabled: true,
+        base_url: "",
+        api_key: "",
+        timeout: 30,
+        retry_attempts: 3,
+      };
+    }
   });
   const [testingTaxConnection, setTestingTaxConnection] = useState(false);
   const [taxTestResult, setTaxTestResult] = useState<{success: boolean, message: string} | null>(null);
@@ -157,6 +170,27 @@ const Settings = () => {
     payment_created: true,
     payment_updated: false,
     payment_deleted: true,
+    // Expense operations
+    expense_created: true,
+    expense_updated: false,
+    expense_deleted: true,
+    expense_approved: true,
+    expense_rejected: true,
+    expense_submitted: true,
+    // Inventory operations
+    inventory_created: true,
+    inventory_updated: false,
+    inventory_deleted: true,
+    inventory_low_stock: true,
+    inventory_out_of_stock: true,
+    // Statement operations
+    statement_generated: true,
+    statement_sent: true,
+    statement_overdue: true,
+    // Reminder operations
+    reminder_created: true,
+    reminder_sent: true,
+    reminder_overdue: true,
     settings_updated: false,
     notification_email: "",
     daily_summary: false,
@@ -180,6 +214,23 @@ const Settings = () => {
       setActiveTab(tab);
     }
   }, []);
+
+  // Update URL when active tab changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab');
+
+    if (activeTab !== currentTab) {
+      if (activeTab) {
+        urlParams.set('tab', activeTab);
+      } else {
+        urlParams.delete('tab');
+      }
+
+      const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [activeTab]);
 
   // Handle highlighting for AI Assistant toggle
   useEffect(() => {
@@ -347,6 +398,27 @@ const Settings = () => {
             payment_created?: boolean;
             payment_updated?: boolean;
             payment_deleted?: boolean;
+            // Expense operations
+            expense_created?: boolean;
+            expense_updated?: boolean;
+            expense_deleted?: boolean;
+            expense_approved?: boolean;
+            expense_rejected?: boolean;
+            expense_submitted?: boolean;
+            // Inventory operations
+            inventory_created?: boolean;
+            inventory_updated?: boolean;
+            inventory_deleted?: boolean;
+            inventory_low_stock?: boolean;
+            inventory_out_of_stock?: boolean;
+            // Statement operations
+            statement_generated?: boolean;
+            statement_sent?: boolean;
+            statement_overdue?: boolean;
+            // Reminder operations
+            reminder_created?: boolean;
+            reminder_sent?: boolean;
+            reminder_overdue?: boolean;
             settings_updated?: boolean;
             notification_email?: string;
             daily_summary?: boolean;
@@ -354,26 +426,47 @@ const Settings = () => {
           };
           const notifData = await api.get<NotificationSettingsResponse>('/notifications/settings');
           setNotificationSettings({
-            user_created: notifData.user_created || false,
-            user_updated: notifData.user_updated || false,
-            user_deleted: notifData.user_deleted || false,
-            user_login: notifData.user_login || false,
-            client_created: notifData.client_created || true,
-            client_updated: notifData.client_updated || false,
-            client_deleted: notifData.client_deleted || true,
-            invoice_created: notifData.invoice_created || true,
-            invoice_updated: notifData.invoice_updated || false,
-            invoice_deleted: notifData.invoice_deleted || true,
-            invoice_sent: notifData.invoice_sent || true,
-            invoice_paid: notifData.invoice_paid || true,
-            invoice_overdue: notifData.invoice_overdue || true,
-            payment_created: notifData.payment_created || true,
-            payment_updated: notifData.payment_updated || false,
-            payment_deleted: notifData.payment_deleted || true,
-            settings_updated: notifData.settings_updated || false,
-            notification_email: notifData.notification_email || "",
-            daily_summary: notifData.daily_summary || false,
-            weekly_summary: notifData.weekly_summary || false,
+            user_created: notifData.user_created ?? false,
+            user_updated: notifData.user_updated ?? false,
+            user_deleted: notifData.user_deleted ?? false,
+            user_login: notifData.user_login ?? false,
+            client_created: notifData.client_created ?? true,
+            client_updated: notifData.client_updated ?? false,
+            client_deleted: notifData.client_deleted ?? true,
+            invoice_created: notifData.invoice_created ?? true,
+            invoice_updated: notifData.invoice_updated ?? false,
+            invoice_deleted: notifData.invoice_deleted ?? true,
+            invoice_sent: notifData.invoice_sent ?? true,
+            invoice_paid: notifData.invoice_paid ?? true,
+            invoice_overdue: notifData.invoice_overdue ?? true,
+            payment_created: notifData.payment_created ?? true,
+            payment_updated: notifData.payment_updated ?? false,
+            payment_deleted: notifData.payment_deleted ?? true,
+            // Expense operations
+            expense_created: notifData.expense_created ?? true,
+            expense_updated: notifData.expense_updated ?? false,
+            expense_deleted: notifData.expense_deleted ?? true,
+            expense_approved: notifData.expense_approved ?? true,
+            expense_rejected: notifData.expense_rejected ?? true,
+            expense_submitted: notifData.expense_submitted ?? true,
+            // Inventory operations
+            inventory_created: notifData.inventory_created ?? true,
+            inventory_updated: notifData.inventory_updated ?? false,
+            inventory_deleted: notifData.inventory_deleted ?? true,
+            inventory_low_stock: notifData.inventory_low_stock ?? true,
+            inventory_out_of_stock: notifData.inventory_out_of_stock ?? true,
+            // Statement operations
+            statement_generated: notifData.statement_generated ?? true,
+            statement_sent: notifData.statement_sent ?? true,
+            statement_overdue: notifData.statement_overdue ?? true,
+            // Reminder operations
+            reminder_created: notifData.reminder_created ?? true,
+            reminder_sent: notifData.reminder_sent ?? true,
+            reminder_overdue: notifData.reminder_overdue ?? true,
+            settings_updated: notifData.settings_updated ?? false,
+            notification_email: notifData.notification_email ?? "",
+            daily_summary: notifData.daily_summary ?? false,
+            weekly_summary: notifData.weekly_summary ?? false,
           });
         } catch (error) {
           console.error("Failed to fetch notification settings:", error);
@@ -1154,24 +1247,24 @@ const Settings = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex w-full flex-wrap gap-1 h-auto justify-start">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
+          <TabsList className="flex w-full flex-wrap gap-2 h-auto justify-start max-w-full overflow-x-auto">
             {isAdmin && (
               <>
-                <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
-                <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
-                <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
-                <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
-                <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
-                <TabsTrigger value="api-keys" className="text-xs md:text-sm">{t('settings.tabs.api_keys')}</TabsTrigger>
-                <TabsTrigger value="search" className="text-xs md:text-sm">{t('settings.tabs.search')}</TabsTrigger>
-                <TabsTrigger value="email-notifications" className="text-xs md:text-sm">{t('settings.tabs.email_notifications')}</TabsTrigger>
-                <TabsTrigger value="tax-integration" className="text-xs md:text-sm">{t('settings.tabs.tax_integration')}</TabsTrigger>
+                <TabsTrigger value="company" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.company')}</TabsTrigger>
+                <TabsTrigger value="invoices" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.invoices')}</TabsTrigger>
+                <TabsTrigger value="currencies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.currencies')}</TabsTrigger>
+                <TabsTrigger value="discount-rules" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.discount_rules')}</TabsTrigger>
+                <TabsTrigger value="ai-config" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.ai_config')}</TabsTrigger>
+                <TabsTrigger value="api-keys" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.api_keys')}</TabsTrigger>
+                <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>
+                <TabsTrigger value="email-notifications" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.email_notifications')}</TabsTrigger>
+                <TabsTrigger value="tax-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.tax_integration')}</TabsTrigger>
               </>
             )}
-            <TabsTrigger value="cookies" className="text-xs md:text-sm">{t('settings.tabs.cookies')}</TabsTrigger>
+            <TabsTrigger value="cookies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.cookies')}</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
+              <TabsTrigger value="export" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export')}</TabsTrigger>
             )}
           </TabsList>
           
@@ -1805,16 +1898,16 @@ const Settings = () => {
               {/* Notification Settings Section */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Notification Settings</CardTitle>
+                  <CardTitle>{t('settings.notification_settings_title')}</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Configure which operations trigger email notifications
+                    {t('settings.notification_settings_description')}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {loadingNotifications ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      <span className="text-sm text-muted-foreground">Loading notification settings...</span>
+                      <span className="text-sm text-muted-foreground">{t('settings.loading_notification_settings')}</span>
                     </div>
                   ) : (
                     <>
@@ -2021,14 +2114,212 @@ const Settings = () => {
                         </div>
                       </div>
 
+                      {/* Expense Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">{t('settings.expense_operations')}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_created')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_created_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_updated')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_updated_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_deleted')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_deleted_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_deleted', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_approved')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_approved_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_approved}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_approved', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_rejected')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_rejected_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_rejected}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_rejected', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.expense_submitted')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.expense_submitted_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.expense_submitted}
+                              onCheckedChange={(checked) => handleNotificationToggle('expense_submitted', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Inventory Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">{t('settings.inventory_operations')}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.inventory_created')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.inventory_created_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.inventory_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('inventory_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.inventory_updated')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.inventory_updated_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.inventory_updated}
+                              onCheckedChange={(checked) => handleNotificationToggle('inventory_updated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.inventory_deleted')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.inventory_deleted_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.inventory_deleted}
+                              onCheckedChange={(checked) => handleNotificationToggle('inventory_deleted', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.inventory_low_stock')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.inventory_low_stock_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.inventory_low_stock}
+                              onCheckedChange={(checked) => handleNotificationToggle('inventory_low_stock', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.inventory_out_of_stock')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.inventory_out_of_stock_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.inventory_out_of_stock}
+                              onCheckedChange={(checked) => handleNotificationToggle('inventory_out_of_stock', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Statement Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">{t('settings.statement_operations')}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.statement_generated')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.statement_generated_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.statement_generated}
+                              onCheckedChange={(checked) => handleNotificationToggle('statement_generated', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.statement_sent')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.statement_sent_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.statement_sent}
+                              onCheckedChange={(checked) => handleNotificationToggle('statement_sent', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.statement_overdue')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.statement_overdue_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.statement_overdue}
+                              onCheckedChange={(checked) => handleNotificationToggle('statement_overdue', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reminder Operations */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">{t('settings.reminder_operations')}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.reminder_created')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.reminder_created_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.reminder_created}
+                              onCheckedChange={(checked) => handleNotificationToggle('reminder_created', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.reminder_sent')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.reminder_sent_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.reminder_sent}
+                              onCheckedChange={(checked) => handleNotificationToggle('reminder_sent', checked)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>{t('settings.reminder_overdue')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.reminder_overdue_description')}</p>
+                            </div>
+                            <Switch
+                              checked={notificationSettings.reminder_overdue}
+                              onCheckedChange={(checked) => handleNotificationToggle('reminder_overdue', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Summary Notifications */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold">Summary Notifications</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <Label>Daily Summary</Label>
-                              <p className="text-sm text-muted-foreground">Daily activity summary</p>
+                              <Label>{t('settings.daily_summary')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.daily_summary_description')}</p>
                             </div>
                             <Switch
                               checked={notificationSettings.daily_summary}
@@ -2037,8 +2328,8 @@ const Settings = () => {
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <Label>Weekly Summary</Label>
-                              <p className="text-sm text-muted-foreground">Weekly activity summary</p>
+                              <Label>{t('settings.weekly_summary')}</Label>
+                              <p className="text-sm text-muted-foreground">{t('settings.weekly_summary_description')}</p>
                             </div>
                             <Switch
                               checked={notificationSettings.weekly_summary}
@@ -2055,14 +2346,14 @@ const Settings = () => {
                           variant="outline"
                           onClick={handleTestNotification}
                         >
-                          Send Test Notification
+                          {t('settings.send_test_notification')}
                         </Button>
                         <Button
                           onClick={handleSaveNotifications}
                           disabled={savingNotifications}
                         >
                           {savingNotifications && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Save Notification Settings
+                          {t('settings.save_notification_settings')}
                         </Button>
                       </div>
                     </>
@@ -2568,7 +2859,7 @@ const Settings = () => {
 
         {/* AI Configuration Dialog */}
         <Dialog open={showAIConfigDialog} onOpenChange={setShowAIConfigDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[650px]">
             <DialogHeader>
               <DialogTitle>
                 {editingAIConfig ? t('settings.edit_ai_configuration') : t('settings.add_ai_configuration')}

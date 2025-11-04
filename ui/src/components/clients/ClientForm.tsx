@@ -67,9 +67,10 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
     setSubmitting(true);
     try {
       if (isEdit && client) {
-        // Update existing client - exclude email from updates
+        // Update existing client - include email in updates
         const updateData = {
           name: data.name,
+          email: data.email,
           phone: data.phone,
           address: data.address,
           company: data.company,
@@ -123,40 +124,23 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
               )}
             />
 
-            {!isEdit ? (
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('clientForm.email')}</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        placeholder={t('clientForm.emailPlaceholder')} 
-                        type="email" 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : (
-              <FormItem>
-                <FormLabel>{t('clientForm.email')}</FormLabel>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
-                    {client?.email || t('clientForm.noEmailProvided')}
-                  </div>
-                  <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    {t('clientForm.readOnly')}
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t('clientForm.emailCannotBeChanged')}
-                </p>
-              </FormItem>
-            )}
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('clientForm.email')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder={t('clientForm.emailPlaceholder')}
+                      type="email"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

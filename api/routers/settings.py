@@ -87,6 +87,7 @@ async def update_settings(
     # Only admins can update settings
     require_admin(current_user, "update settings")
     
+
     
     tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
@@ -113,6 +114,7 @@ async def update_settings(
     
     # Update invoice settings in tenant database
     invoice_settings = settings.get("invoice_settings", {})
+
     if invoice_settings:
         # Get or create invoice settings record
         invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
@@ -535,7 +537,7 @@ async def import_tenant_data(
                     note_count = 0
                     for note in client_notes:
                         new_client_id = old_to_new_client_ids.get(note.client_id)
-                        new_user_id = old_to_new_user_ids.get(note.user_id) if hasattr(note, 'user_id') else current_user.id
+                        new_user_id = old_to_new_user_ids.get(note.user_id, current_user.id)
                         if new_client_id:
                             new_note = ClientNote(
                                 note=note.note,

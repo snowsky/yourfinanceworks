@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Optional, Dict, Any, Union
 from datetime import datetime
+import json
 
 class AuditLogBase(BaseModel):
     user_id: int
@@ -9,7 +10,7 @@ class AuditLogBase(BaseModel):
     resource_type: str
     resource_id: Optional[str] = None
     resource_name: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[Union[Dict[str, Any], str]] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     status: str = "success"
@@ -23,6 +24,21 @@ class AuditLog(AuditLogBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('details', mode='before')
+    @classmethod
+    def parse_details(cls, v):
+        """Parse details field - handle both string and dict formats"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                # Try to parse JSON string
+                return json.loads(v)
+            except (json.JSONDecodeError, ValueError):
+                # If parsing fails, return as a dict with the string value
+                return {"raw_data": v}
+        return v
 
 class AuditLogFilter(BaseModel):
     user_id: Optional[int] = None

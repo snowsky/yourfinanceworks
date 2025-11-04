@@ -1,5 +1,75 @@
 /* Professional UI Enhancements */
 
+/* Enhanced Tabs Styling */
+.tabs-professional .tabs-list {
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.6), hsl(var(--muted) / 0.4));
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border) / 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.dark .tabs-professional .tabs-list {
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.4), hsl(var(--muted) / 0.2));
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.tabs-professional .tabs-trigger {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.tabs-professional .tabs-trigger:hover {
+  background: hsl(var(--background) / 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tabs-professional .tabs-trigger[data-state="active"] {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 hsl(var(--background));
+  border: 1px solid hsl(var(--border) / 0.8);
+}
+
+.tabs-professional .tabs-trigger[data-state="active"]::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+  border-radius: 1px;
+}
+
+.dark .tabs-professional .tabs-trigger[data-state="active"] {
+  background: hsl(var(--background) / 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 hsl(var(--background));
+}
+
+.tabs-professional .tabs-content {
+  animation: slideInFromBottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive Tabs */
+@media (max-width: 768px) {
+  .tabs-professional .tabs-list {
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .tabs-professional .tabs-trigger {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    min-width: auto;
+    white-space: nowrap;
+  }
+}
+
 /* Enhanced Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

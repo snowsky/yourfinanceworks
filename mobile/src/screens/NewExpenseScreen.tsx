@@ -58,8 +58,15 @@ const NewExpenseScreen: React.FC<NewExpenseScreenProps> = ({
   });
 
   const handleSubmit = async () => {
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+    // Allow saving without amount if there's a receipt attachment (matching web behavior)
+    if (receiptFiles.length === 0 && (!formData.amount || parseFloat(formData.amount) <= 0)) {
+      Alert.alert('Error', 'Please enter a valid amount or upload a receipt');
+      return;
+    }
+
+    // If amount is provided, validate it
+    if (formData.amount && (isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0)) {
+      Alert.alert('Error', 'Please enter a valid amount greater than 0');
       return;
     }
 
@@ -72,7 +79,7 @@ const NewExpenseScreen: React.FC<NewExpenseScreenProps> = ({
     try {
       const expenseData = {
         ...formData,
-        amount: parseFloat(formData.amount),
+        amount: formData.amount && formData.amount.trim() !== '' ? parseFloat(formData.amount) : undefined,
       };
 
       const newExpense = await apiService.createExpense(expenseData);
@@ -102,7 +109,9 @@ const NewExpenseScreen: React.FC<NewExpenseScreenProps> = ({
       ]);
     } catch (error) {
       console.error('Failed to create expense:', error);
-      Alert.alert('Error', 'Failed to create expense');
+      // Show actual error message instead of generic one
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create expense';
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -303,7 +312,7 @@ const NewExpenseScreen: React.FC<NewExpenseScreenProps> = ({
           {/* Amount and Currency */}
           <View style={styles.row}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Amount *</Text>
+              <Text style={styles.label}>Amount{receiptFiles.length === 0 ? ' *' : ''}</Text>
               <TextInput
                 style={styles.input}
                 value={formData.amount}
@@ -401,7 +410,7 @@ const NewExpenseScreen: React.FC<NewExpenseScreenProps> = ({
           <FileUpload
             title="Receipt"
             maxFiles={1}
-            allowedTypes={['image/jpeg', 'image/png', 'image/jpg']}
+            allowedTypes={['image/jpeg', 'image/png', 'image/jpg', 'image/heic', 'image/heif']}
             onFilesSelected={handleFilesSelected}
             selectedFiles={receiptFiles}
             onRemoveFile={handleRemoveFile}

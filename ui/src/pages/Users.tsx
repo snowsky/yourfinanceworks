@@ -33,6 +33,16 @@ import {
   DialogFooter,
   DialogTrigger
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { Loader2, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@/lib/api';
@@ -92,6 +102,10 @@ export default function UsersPage() {
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [userToReset, setUserToReset] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Get current user id from localStorage
   let currentUserId: number | null = null;
@@ -161,7 +175,7 @@ export default function UsersPage() {
     setInviting(true);
     try {
       await api.post("/auth/invite", inviteForm);
-      toast.success(t('users.inviteSent'));
+      toast.success(t('users.invite_user'));
       setInviteForm({ email: "", first_name: "", last_name: "", role: "user" });
       setInviteDialogOpen(false);
       fetchInvites();
@@ -178,7 +192,7 @@ export default function UsersPage() {
       console.log("Updating role for user", userId, "to", newRole);
       await api.put(`/auth/users/${userId}/role`, { role: newRole });
       console.log("Role update successful");
-      toast.success(t('users.roleUpdated'));
+      toast.success(t('users.role_updated'));
       fetchUsers();
     } catch (err: any) {
       console.error("Failed to update role:", err);
@@ -230,7 +244,7 @@ export default function UsersPage() {
     setActivating(true);
     try {
       await api.post(`/auth/invites/${activationInvite.id}/activate`, activationForm);
-      toast.success(t('users.userActivated'));
+      toast.success(t('users.user_activated'));
       closeActivationDialog();
       fetchUsers();
       fetchInvites();
@@ -279,19 +293,39 @@ export default function UsersPage() {
     }
   };
 
-  const handleResetPassword = async (userId: number, userEmail: string) => {
-    const newPassword = prompt(t('users.enterNewPassword', { email: userEmail }));
-    if (!newPassword || newPassword.length < 6) {
-      if (newPassword !== null) {
-        toast.error(t('users.passwordTooShort'));
-      }
+  const openResetPasswordModal = (user: User) => {
+    setUserToReset(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetPasswordModalOpen(true);
+  };
+
+  const closeResetPasswordModal = () => {
+    setResetPasswordModalOpen(false);
+    setUserToReset(null);
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToReset) return;
+
+    if (newPassword.length < 6) {
+      toast.error(t('users.passwordTooShort'));
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error(t('users.passwordsDoNotMatch'));
       return;
     }
 
     setResettingPassword(true);
     try {
-      await superAdminApi.resetUserPassword(userId, newPassword, false);
+      await superAdminApi.resetUserPassword(userToReset.id, newPassword, false);
       toast.success(t('users.passwordReset'));
+      closeResetPasswordModal();
     } catch (err: any) {
       console.error("Failed to reset password:", err);
       toast.error(getErrorMessage(err, t));
@@ -336,24 +370,24 @@ export default function UsersPage() {
       <div className="h-full space-y-6 fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{t('users.organizationUsers')}</h1>
-            <p className="text-muted-foreground">{t('users.manageOrganizationUsers')}</p>
+            <h1 className="text-3xl font-bold">{t('users.organization_users')}</h1>
+            <p className="text-muted-foreground">{t('users.manageorganization_users')}</p>
           </div>
           <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
               <Button className="sm:self-end whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" /> {t('users.inviteUser')}
+                <Plus className="mr-2 h-4 w-4" /> {t('users.invite_user')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{t('users.inviteUser')}</DialogTitle>
+                <DialogTitle>{t('users.invite_user')}</DialogTitle>
               </DialogHeader>
               <form className="space-y-4" onSubmit={handleInvite}>
                 <Input
                   name="email"
                   type="email"
-                  placeholder={t('users.emailPlaceholder')}
+                  placeholder={t('users.email_placeholder')}
                   value={inviteForm.email}
                   onChange={handleInviteChange}
                   required
@@ -361,13 +395,13 @@ export default function UsersPage() {
                 <div className="flex gap-2">
                   <Input
                     name="first_name"
-                    placeholder={t('users.firstNamePlaceholder')}
+                    placeholder={t('users.first_name_placeholder')}
                     value={inviteForm.first_name}
                     onChange={handleInviteChange}
                   />
                   <Input
                     name="last_name"
-                    placeholder={t('users.lastNamePlaceholder')}
+                    placeholder={t('users.last_name_placeholder')}
                     value={inviteForm.last_name}
                     onChange={handleInviteChange}
                   />
@@ -377,7 +411,7 @@ export default function UsersPage() {
                   onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('users.rolePlaceholder')} />
+                    <SelectValue placeholder={t('users.role_placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {ROLES.map((role) => (
@@ -400,7 +434,7 @@ export default function UsersPage() {
 
         <Card className="slide-in">
           <CardHeader className="pb-3">
-            <CardTitle>{t('users.allInvites')}</CardTitle>
+            <CardTitle>{t('users.all_invites')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -411,7 +445,7 @@ export default function UsersPage() {
                     <TableHead>{t('users.name')}</TableHead>
                     <TableHead>{t('users.role')}</TableHead>
                     <TableHead>{t('users.status')}</TableHead>
-                    <TableHead>{t('users.invitedBy')}</TableHead>
+                    <TableHead>{t('users.invited_by')}</TableHead>
                     <TableHead>{t('users.expires')}</TableHead>
                     <TableHead>{t('users.actions')}</TableHead>
                   </TableRow>
@@ -429,7 +463,7 @@ export default function UsersPage() {
                   ) : (!invites || invites.length === 0) ? (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center">
-                        {t('users.noInvitesFound')}
+                        {t('users.no_invites_found')}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -482,10 +516,10 @@ export default function UsersPage() {
         <Card className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>{t('users.currentUsers')}</CardTitle>
+              <CardTitle>{t('users.no_invites_found')}</CardTitle>
               <div className="relative max-w-sm">
                 <Input
-                  placeholder={t('users.searchUsersPlaceholder')}
+                  placeholder={t('users.search_users_placeholder')}
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -512,14 +546,14 @@ export default function UsersPage() {
                       <TableCell colSpan={6} className="h-24 text-center">
                         <div className="flex justify-center items-center">
                           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          {t('users.loadingUsers')}
+                          {t('users.loading_users')}
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (!filteredUsers || filteredUsers.length === 0) ? (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        {t('users.noUsersFound')}
+                        {t('users.no_users_found')}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -563,7 +597,7 @@ export default function UsersPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleResetPassword(user.id, user.email)}
+                              onClick={() => openResetPasswordModal(user)}
                               disabled={resettingPassword}
                               className="h-8 px-2 text-xs"
                               title={t('users.resetPassword')}
@@ -608,7 +642,7 @@ export default function UsersPage() {
                     name="first_name"
                     value={activationForm.first_name}
                     onChange={handleActivationFormChange}
-                    placeholder={t('users.firstNamePlaceholder')}
+                    placeholder={t('users.first_name_placeholder')}
                     className="flex-1"
                   />
                   <Input
@@ -616,7 +650,7 @@ export default function UsersPage() {
                     name="last_name"
                     value={activationForm.last_name}
                     onChange={handleActivationFormChange}
-                    placeholder={t('users.lastNamePlaceholder')}
+                    placeholder={t('users.last_name_placeholder')}
                     className="flex-1"
                   />
                 </div>
@@ -667,8 +701,70 @@ export default function UsersPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Reset Password Modal */}
+        <AlertDialog open={resetPasswordModalOpen} onOpenChange={setResetPasswordModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('users.resetPassword')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('users.resetPasswordDescription', { email: userToReset?.email })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t('users.newPassword')}
+                  </label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder={t('users.enterNewPassword')}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t('users.confirmPassword')}
+                  </label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder={t('users.confirmNewPassword')}
+                    required
+                  />
+                </div>
+                {newPassword && newPassword.length > 0 && newPassword.length < 6 && (
+                  <div className="text-xs text-red-600">
+                    {t('users.passwordTooShort')}
+                  </div>
+                )}
+                {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                  <div className="text-xs text-red-600">
+                    {t('users.passwordsDoNotMatch')}
+                  </div>
+                )}
+              </div>
+              <AlertDialogFooter className="flex gap-2">
+                <AlertDialogCancel disabled={resettingPassword}>
+                  {t('common.cancel')}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  type="submit"
+                  disabled={resettingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {resettingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {t('users.resetPassword')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </form>
+          </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </AppLayout>
   );
-} 
+}

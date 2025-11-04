@@ -16,7 +16,7 @@ const LanguageSwitcher: React.FC = () => {
 
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
   
-  logger.debug('LanguageSwitcher rendering', { currentLanguage: i18n.language, currentLanguage });
+  logger.debug('LanguageSwitcher rendering', { currentLanguage: i18n.language, currentLanguageObj: currentLanguage });
   logger.debug('i18n object', i18n);
   logger.debug('Available languages', languages);
 

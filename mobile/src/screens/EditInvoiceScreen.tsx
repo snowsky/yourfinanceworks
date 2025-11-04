@@ -71,8 +71,12 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
     date: (() => {
       try {
         if (invoice.date) {
+          // Check if it's already a valid date string format
+          if (typeof invoice.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice.date)) {
+            return invoice.date;
+          }
           const dateObj = new Date(invoice.date);
-          if (!isNaN(dateObj.getTime())) {
+          if (!isNaN(dateObj.getTime()) && dateObj.getTime() > 0) {
             return dateObj.toISOString().split('T')[0];
           }
         }
@@ -85,8 +89,12 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
     dueDate: (() => {
       try {
         if (invoice.due_date) {
+          // Check if it's already a valid date string format
+          if (typeof invoice.due_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice.due_date)) {
+            return invoice.due_date;
+          }
           const dateObj = new Date(invoice.due_date);
-          if (!isNaN(dateObj.getTime())) {
+          if (!isNaN(dateObj.getTime()) && dateObj.getTime() > 0) {
             return dateObj.toISOString().split('T')[0];
           }
         }
@@ -457,31 +465,31 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
         }))
       });
 
-      // Prepare update data - include attachment deletion if needed
+      // Prepare update data for the onUpdateInvoice function
+      // Note: The App.tsx handleUpdateInvoice function expects the original field names
       let updateData = {
-        ...formData,
-        // Map field names to match API expectations
-        client_id: parseInt(formData.client),
-        amount: calculateTotal(),
-        due_date: formData.dueDate,
-        paid_amount: formData.paidAmount
+        client: formData.client, // Keep as string for App.tsx to parse
+        invoiceNumber: formData.invoiceNumber,
+        currency: formData.currency,
+        date: formData.date,
+        dueDate: formData.dueDate,
+        status: formData.status,
+        paidAmount: formData.paidAmount,
+        items: formData.items,
+        notes: formData.notes,
+        attachment_filename: undefined as string | null | undefined
       };
 
-      // Remove fields that don't match API interface
-      delete (updateData as any).client;
-      delete (updateData as any).invoiceNumber;
-      delete (updateData as any).dueDate;
-      delete (updateData as any).paidAmount;
-
-      logger.debug('Field mapping completed', {
-        originalPaidAmount: formData.paidAmount,
-        mappedPaidAmount: updateData.paid_amount,
+      logger.debug('Update data prepared', {
+        client: updateData.client,
+        paidAmount: updateData.paidAmount,
         updateDataKeys: Object.keys(updateData),
         updateDataSnippet: {
-          client_id: updateData.client_id,
-          amount: updateData.amount,
-          paid_amount: updateData.paid_amount,
-          status: updateData.status
+          client: updateData.client,
+          status: updateData.status,
+          currency: updateData.currency,
+          date: updateData.date,
+          dueDate: updateData.dueDate
         }
       });
 
@@ -518,7 +526,9 @@ const EditInvoiceScreen: React.FC<EditInvoiceScreenProps> = ({
       await Promise.all(
         filesToUpload.map(file => uploadAttachmentToInvoice(invoice.id, file))
       );
-      logger.debug('About to call refreshInvoiceData');          logger.error('Failed to upload attachments', uploadError);
+      logger.debug('About to call refreshInvoiceData');
+        } catch (uploadError) {
+          logger.error('Failed to upload attachments', uploadError);
           Alert.alert('Warning', 'Invoice updated but some attachments failed to upload. You can upload them later.');
         } finally {
           setUploadingAttachments(false);
