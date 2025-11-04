@@ -289,7 +289,9 @@ def publish_ocr_task(message: Dict[str, Any]) -> bool:
             f"Publishing OCR message: expense_id={message.get('expense_id')} tenant_id={message.get('tenant_id')} attachment_id={message.get('attachment_id')} attempt={attempt}"
         )
         headers = [("attempt", str(attempt))]
-        producer.produce(topic, value=payload, key=str(message.get("expense_id")), headers=headers)
+        # Use a combination of tenant_id and expense_id for better distribution
+        key = f"{message.get('tenant_id')}_{message.get('expense_id')}"
+        producer.produce(topic, value=payload, key=key, headers=headers)
         producer.flush(10.0)
         logger.info(f"Published OCR task to Kafka topic={topic} expense_id={message.get('expense_id')}")
         return True
