@@ -5,6 +5,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/professional-enhancements.css';
+
 /* Professional UI Enhancements - Critical Styles */
 
 /* Enhanced Scrollbars */

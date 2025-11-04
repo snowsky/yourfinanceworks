@@ -215,6 +215,23 @@ const Settings = () => {
     }
   }, []);
 
+  // Update URL when active tab changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab');
+
+    if (activeTab !== currentTab) {
+      if (activeTab) {
+        urlParams.set('tab', activeTab);
+      } else {
+        urlParams.delete('tab');
+      }
+
+      const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [activeTab]);
+
   // Handle highlighting for AI Assistant toggle
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1230,24 +1247,24 @@ const Settings = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex w-full flex-wrap gap-1 h-auto justify-start">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
+          <TabsList className="flex w-full flex-wrap gap-2 h-auto justify-start max-w-full overflow-x-auto">
             {isAdmin && (
               <>
-                <TabsTrigger value="company" className="text-xs md:text-sm">{t('settings.tabs.company')}</TabsTrigger>
-                <TabsTrigger value="invoices" className="text-xs md:text-sm">{t('settings.tabs.invoices')}</TabsTrigger>
-                <TabsTrigger value="currencies" className="text-xs md:text-sm">{t('settings.tabs.currencies')}</TabsTrigger>
-                <TabsTrigger value="discount-rules" className="text-xs md:text-sm">{t('settings.tabs.discount_rules')}</TabsTrigger>
-                <TabsTrigger value="ai-config" className="text-xs md:text-sm">{t('settings.tabs.ai_config')}</TabsTrigger>
-                <TabsTrigger value="api-keys" className="text-xs md:text-sm">{t('settings.tabs.api_keys')}</TabsTrigger>
-                <TabsTrigger value="search" className="text-xs md:text-sm">{t('settings.tabs.search')}</TabsTrigger>
-                <TabsTrigger value="email-notifications" className="text-xs md:text-sm">{t('settings.tabs.email_notifications')}</TabsTrigger>
-                <TabsTrigger value="tax-integration" className="text-xs md:text-sm">{t('settings.tabs.tax_integration')}</TabsTrigger>
+                <TabsTrigger value="company" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.company')}</TabsTrigger>
+                <TabsTrigger value="invoices" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.invoices')}</TabsTrigger>
+                <TabsTrigger value="currencies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.currencies')}</TabsTrigger>
+                <TabsTrigger value="discount-rules" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.discount_rules')}</TabsTrigger>
+                <TabsTrigger value="ai-config" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.ai_config')}</TabsTrigger>
+                <TabsTrigger value="api-keys" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.api_keys')}</TabsTrigger>
+                <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>
+                <TabsTrigger value="email-notifications" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.email_notifications')}</TabsTrigger>
+                <TabsTrigger value="tax-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.tax_integration')}</TabsTrigger>
               </>
             )}
-            <TabsTrigger value="cookies" className="text-xs md:text-sm">{t('settings.tabs.cookies')}</TabsTrigger>
+            <TabsTrigger value="cookies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.cookies')}</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="export" className="text-xs md:text-sm">{t('settings.tabs.export')}</TabsTrigger>
+              <TabsTrigger value="export" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export')}</TabsTrigger>
             )}
           </TabsList>
           
