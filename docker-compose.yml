@@ -65,7 +65,7 @@ services:
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       - KAFKA_BANK_TOPIC=bank_statements_ocr
-      - KAFKA_OCR_TOPIC_PARTITIONS=${KAFKA_OCR_TOPIC_PARTITIONS:2}
+      - KAFKA_OCR_TOPIC_PARTITIONS=${KAFKA_OCR_TOPIC_PARTITIONS:-}
       # LLM Configuration
       - LLM_API_BASE=http://host.docker.internal:11434
       - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
