@@ -97,6 +97,7 @@ class Invoice(Base):
     subtotal = Column(Float, nullable=False)  # Amount before discount
     custom_fields = Column(EncryptedJSON(),nullable=True)  # Encrypted JSON for sensitive custom data
     show_discount_in_pdf = Column(Boolean, default=True, nullable=False)
+    payer = Column(String, default="Client", nullable=False)  # Who is paying the invoice: 'You' or 'Client'
     attachment_path = Column(String, nullable=True)  # Path to uploaded attachment file
     attachment_filename = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     
@@ -143,7 +144,7 @@ class Expense(Base):
     id = Column(Integer, primary_key=True, index=True)
     # No tenant_id needed since each tenant has its own database
 
-    amount = Column(Float, nullable=False)
+    amount = Column(Float, nullable=True)
     currency = Column(String, default="USD", nullable=False)
     expense_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     category = Column(String, nullable=False)
@@ -333,7 +334,7 @@ class AuditLog(Base):
     resource_type = Column(String, nullable=False)  # user, client, invoice, payment, settings, etc.
     resource_id = Column(String, nullable=True)  # ID of the affected resource
     resource_name = Column(String, nullable=True)  # Human-readable name of the resource
-    details = Column(EncryptedJSON(),nullable=True)  # Encrypted sensitive audit details
+    details = Column(JSON, nullable=True)  # Audit details (not encrypted to avoid JSON parsing issues)
     ip_address = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     user_agent = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     status = Column(String, default="success", nullable=False)  # success, error, warning
@@ -426,9 +427,56 @@ class EmailNotificationSettings(Base):
     payment_updated = Column(Boolean, default=False)
     payment_deleted = Column(Boolean, default=True)
     
+    # Expense operation notifications
+    expense_created = Column(Boolean, default=True)
+    expense_updated = Column(Boolean, default=False)
+    expense_deleted = Column(Boolean, default=True)
+    expense_approved = Column(Boolean, default=True)
+    expense_rejected = Column(Boolean, default=True)
+    expense_submitted = Column(Boolean, default=True)
+    expense_imported = Column(Boolean, default=True)
+    expense_analysis_completed = Column(Boolean, default=True)
+    expense_analysis_failed = Column(Boolean, default=True)
+    
+    # Inventory operation notifications
+    inventory_created = Column(Boolean, default=True)
+    inventory_updated = Column(Boolean, default=False)
+    inventory_deleted = Column(Boolean, default=True)
+    inventory_low_stock = Column(Boolean, default=True)
+    inventory_out_of_stock = Column(Boolean, default=True)
+    inventory_stock_movement = Column(Boolean, default=False)
+    inventory_category_created = Column(Boolean, default=False)
+    inventory_category_updated = Column(Boolean, default=False)
+    inventory_category_deleted = Column(Boolean, default=True)
+    
+    # Statement operation notifications
+    statement_generated = Column(Boolean, default=True)
+    statement_sent = Column(Boolean, default=True)
+    statement_overdue = Column(Boolean, default=True)
+    statement_uploaded = Column(Boolean, default=True)
+    statement_processed = Column(Boolean, default=True)
+    statement_processing_failed = Column(Boolean, default=True)
+    statement_transaction_created = Column(Boolean, default=False)
+    
     # Settings operation notifications
     settings_updated = Column(Boolean, default=False)
-    
+
+    # Organization join request notifications
+    organization_join_request_created = Column(Boolean, default=True)  # Admin gets notified of new requests
+
+    # Reminder notifications
+    reminder_created = Column(Boolean, default=True)  # Reminder is created
+    reminder_sent = Column(Boolean, default=True)  # Reminder is sent
+    reminder_overdue = Column(Boolean, default=True)  # Reminder is overdue
+    reminder_due = Column(Boolean, default=True)  # Reminder is due
+    reminder_upcoming = Column(Boolean, default=True)  # Reminder is due soon
+    reminder_assigned = Column(Boolean, default=True)  # Reminder assigned to user
+    reminder_completed = Column(Boolean, default=False)  # Reminder completed by someone else
+
+    # Reminder notification preferences
+    reminder_advance_days = Column(Integer, default=1)  # How many days in advance to send upcoming notifications
+    reminder_notification_frequency = Column(String, default="immediate")  # immediate, daily_digest
+
     # Approval operation notifications
     expense_submitted_for_approval = Column(Boolean, default=True)
     expense_approved = Column(Boolean, default=True)
@@ -445,12 +493,12 @@ class EmailNotificationSettings(Base):
     
     # Approval notification channel preferences
     approval_notification_channels = Column(JSON, default=["email"], nullable=False)  # ["email", "in_app"] or ["email"] or ["in_app"]
-    
+
     # Additional notification preferences
     notification_email = Column(String, nullable=True)  # Override email for notifications
     daily_summary = Column(Boolean, default=False)
     weekly_summary = Column(Boolean, default=False)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

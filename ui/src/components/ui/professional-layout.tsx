@@ -113,7 +113,7 @@ ContentSection.displayName = "ContentSection";
 
 // Grid Layout Component
 interface GridLayoutProps extends React.HTMLAttributes<HTMLDivElement> {
-  cols?: 1 | 2 | 3 | 4 | 6 | 12;
+  cols?: 1 | 2 | 3 | 4 | 5 | 6 | 12;
   gap?: 'sm' | 'md' | 'lg' | 'xl';
   responsive?: boolean;
 }
@@ -125,6 +125,7 @@ const GridLayout = React.forwardRef<HTMLDivElement, GridLayoutProps>(
       2: 'grid-cols-2',
       3: 'grid-cols-3',
       4: 'grid-cols-4',
+      5: 'grid-cols-5',
       6: 'grid-cols-6',
       12: 'grid-cols-12'
     };

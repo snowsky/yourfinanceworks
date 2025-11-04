@@ -9,7 +9,6 @@ from fastapi.responses import StreamingResponse, FileResponse
 import mimetypes
 from utils.pdf_generator import generate_invoice_pdf
 import os
-import shutil
 from pathlib import Path
 import re
 
@@ -31,9 +30,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_attachment_info(invoice, new_attachments):
-    """Helper function to get attachment info considering both old and new style attachments"""
-    has_attachment = len(new_attachments) > 0 or bool(invoice.attachment_filename)
-    attachment_filename = new_attachments[0].filename if new_attachments else invoice.attachment_filename
+    """Helper function to get attachment info from modern attachment system"""
+    has_attachment = len(new_attachments) > 0
+    attachment_filename = new_attachments[0].filename if new_attachments else None
+    
+    # Fallback to legacy fields only if no modern attachments exist
+    if not has_attachment and hasattr(invoice, 'attachment_filename') and invoice.attachment_filename:
+        has_attachment = True
+        attachment_filename = invoice.attachment_filename
+    
     return has_attachment, attachment_filename
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -133,7 +138,8 @@ async def create_invoice(
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             custom_fields=invoice.custom_fields,
-            show_discount_in_pdf=invoice.show_discount_in_pdf
+            show_discount_in_pdf=invoice.show_discount_in_pdf,
+            payer=invoice.payer
         )
         
         # Calculate subtotal and amount
@@ -422,6 +428,7 @@ async def create_invoice(
             "items": items_data,
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
             "show_discount_in_pdf": invoice.show_discount_in_pdf,
+            "payer": invoice.payer,
             "has_attachment": get_attachment_info(invoice, new_attachments)[0],
             "attachment_filename": get_attachment_info(invoice, new_attachments)[1],
             "attachments": [{
@@ -490,7 +497,8 @@ async def clone_invoice(
             is_recurring=source_invoice.is_recurring,
             recurring_frequency=source_invoice.recurring_frequency,
             custom_fields=source_invoice.custom_fields,
-            show_discount_in_pdf=source_invoice.show_discount_in_pdf
+            show_discount_in_pdf=source_invoice.show_discount_in_pdf,
+            payer=source_invoice.payer
         )
 
         # If the original has items, recalc subtotal/amount like create endpoint
@@ -609,6 +617,7 @@ async def clone_invoice(
             "items": items_data,
             "custom_fields": cloned_invoice.custom_fields if cloned_invoice.custom_fields is not None else {},
             "show_discount_in_pdf": cloned_invoice.show_discount_in_pdf,
+            "payer": cloned_invoice.payer,
             "has_attachment": False,
             "attachment_filename": None,
             "attachments": [],
@@ -681,6 +690,7 @@ async def read_invoices(
                 "subtotal": float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
                 "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
                 "show_discount_in_pdf": invoice.show_discount_in_pdf,
+                "payer": invoice.payer,
                 "has_attachment": get_attachment_info(invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(invoice, new_attachments)[1]
             }
@@ -1115,6 +1125,7 @@ async def read_invoice(
             "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
             "items": items_data,
             "show_discount_in_pdf": invoice.show_discount_in_pdf,
+            "payer": invoice.payer,
             "has_attachment": get_attachment_info(invoice, new_attachments)[0],
             "attachment_filename": get_attachment_info(invoice, new_attachments)[1],
             "attachments": [{
@@ -1609,6 +1620,7 @@ async def update_invoice(
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
                 "items": items_data,
                 "show_discount_in_pdf": db_invoice.show_discount_in_pdf,
+                "payer": db_invoice.payer,
                 "has_attachment": get_attachment_info(db_invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(db_invoice, new_attachments)[1],
                 "attachments": [{
@@ -1695,6 +1707,7 @@ async def update_invoice(
                 "subtotal": float(db_invoice.subtotal) if db_invoice.subtotal else float(db_invoice.amount),
                 "items": items_data,
                 "show_discount_in_pdf": db_invoice.show_discount_in_pdf,
+                "payer": db_invoice.payer,
                 "has_attachment": get_attachment_info(db_invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(db_invoice, new_attachments)[1],
                 "attachments": [{
@@ -2332,36 +2345,49 @@ async def download_invoice_attachment(
         if new_attachment:
             # Check if this is a cloud storage file (file_path doesn't start with local path)
             if not new_attachment.file_path.startswith('/') and not new_attachment.file_path.startswith('attachments'):
-                # This is likely a cloud storage file key - generate redirect URL
+                # This is likely a cloud storage file key - download and serve directly
                 try:
                     from services.cloud_storage_service import CloudStorageService
                     from settings.cloud_storage_config import get_cloud_storage_config
                     from models.database import get_tenant_context
-                    from fastapi.responses import RedirectResponse
-                    
+                    from fastapi.responses import StreamingResponse
+                    import io
+
                     tenant_id = get_tenant_context()
                     if tenant_id:
                         cloud_config = get_cloud_storage_config()
                         cloud_storage_service = CloudStorageService(db, cloud_config)
-                        
-                        # Retrieve file URL from cloud storage
+
+                        # Download file content from cloud storage
                         storage_result = await cloud_storage_service.retrieve_file(
                             file_key=new_attachment.file_path,
                             tenant_id=str(tenant_id),
                             user_id=current_user.id,
-                            generate_url=True,
-                            expiry_seconds=3600  # 1 hour expiry
+                            generate_url=False,  # Download content instead of URL
+                            expiry_seconds=3600
                         )
-                        
-                        if storage_result.success and storage_result.file_url:
-                            # Redirect to cloud storage URL
-                            return RedirectResponse(url=storage_result.file_url, status_code=302)
+
+                        if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                            # Return file content as streaming response with attachment disposition
+                            headers = {
+                                "Content-Disposition": f"attachment; filename={new_attachment.filename or 'attachment'}",
+                                # Add CORS headers for browser access
+                                "Access-Control-Allow-Origin": "*",
+                                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                                "Access-Control-Allow-Headers": "*"
+                            }
+
+                            return StreamingResponse(
+                                io.BytesIO(storage_result.metadata['content']),
+                                media_type=new_attachment.content_type or 'application/octet-stream',
+                                headers=headers
+                            )
                         else:
-                            logger.warning(f"Failed to get cloud storage URL: {storage_result.error_message}")
-                            
+                            logger.warning(f"Failed to download from cloud storage: {storage_result.error_message}")
+
                 except Exception as e:
                     logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
-            
+
             # Local file or cloud storage fallback - serve directly
             try:
                 from utils.file_validation import validate_file_path
@@ -2379,36 +2405,49 @@ async def download_invoice_attachment(
         if invoice.attachment_path and invoice.attachment_filename:
             # Check if this is a cloud storage file
             if not invoice.attachment_path.startswith('/') and not invoice.attachment_path.startswith('attachments'):
-                # This is likely a cloud storage file key - generate redirect URL
+                # This is likely a cloud storage file key - download and serve directly
                 try:
                     from services.cloud_storage_service import CloudStorageService
                     from settings.cloud_storage_config import get_cloud_storage_config
                     from models.database import get_tenant_context
-                    from fastapi.responses import RedirectResponse
-                    
+                    from fastapi.responses import StreamingResponse
+                    import io
+
                     tenant_id = get_tenant_context()
                     if tenant_id:
                         cloud_config = get_cloud_storage_config()
                         cloud_storage_service = CloudStorageService(db, cloud_config)
-                        
-                        # Retrieve file URL from cloud storage
+
+                        # Download file content from cloud storage
                         storage_result = await cloud_storage_service.retrieve_file(
                             file_key=invoice.attachment_path,
                             tenant_id=str(tenant_id),
                             user_id=current_user.id,
-                            generate_url=True,
-                            expiry_seconds=3600  # 1 hour expiry
+                            generate_url=False,  # Download content instead of URL
+                            expiry_seconds=3600
                         )
-                        
-                        if storage_result.success and storage_result.file_url:
-                            # Redirect to cloud storage URL
-                            return RedirectResponse(url=storage_result.file_url, status_code=302)
+
+                        if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                            # Return file content as streaming response with attachment disposition
+                            headers = {
+                                "Content-Disposition": f"attachment; filename={invoice.attachment_filename or 'attachment'}",
+                                # Add CORS headers for browser access
+                                "Access-Control-Allow-Origin": "*",
+                                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                                "Access-Control-Allow-Headers": "*"
+                            }
+
+                            return StreamingResponse(
+                                io.BytesIO(storage_result.metadata['content']),
+                                media_type='application/octet-stream',
+                                headers=headers
+                            )
                         else:
-                            logger.warning(f"Failed to get cloud storage URL: {storage_result.error_message}")
-                            
+                            logger.warning(f"Failed to download from cloud storage: {storage_result.error_message}")
+
                 except Exception as e:
                     logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
-            
+
             # Local file - serve directly
             try:
                 from utils.file_validation import validate_file_path
@@ -2432,7 +2471,7 @@ async def download_invoice_attachment(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to download attachment: {str(e)}"
-        ) 
+        )
 
 
 @router.get("/{invoice_id}/attachment-info")
@@ -2484,24 +2523,78 @@ async def preview_invoice_attachment(
         if not invoice.attachment_path:
             raise HTTPException(status_code=404, detail="Attachment file not found")
 
-        # Validate file path
-        from utils.file_validation import validate_file_path
-        validated_path = validate_file_path(invoice.attachment_path)
+        # Check if this is a cloud storage file (file_path doesn't start with local path)
+        if not invoice.attachment_path.startswith('/') and not invoice.attachment_path.startswith('attachments'):
+            # This is likely a cloud storage file key - download and serve directly
+            try:
+                from services.cloud_storage_service import CloudStorageService
+                from settings.cloud_storage_config import get_cloud_storage_config
+                from models.database import get_tenant_context
+                from fastapi.responses import StreamingResponse
+                import io
 
-        # Guess media type from filename; fallback to octet-stream
-        media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
-        media_type = media_type or "application/octet-stream"
+                tenant_id = get_tenant_context()
+                if tenant_id:
+                    cloud_config = get_cloud_storage_config()
+                    cloud_storage_service = CloudStorageService(db, cloud_config)
 
-        headers = {
-            # Inline to allow preview in browser tabs for supported types (e.g., PDF, images)
-            "Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}"
-        }
-        return FileResponse(
-            path=validated_path,
-            filename=invoice.attachment_filename,
-            media_type=media_type,
-            headers=headers
-        )
+                    # Download file content from cloud storage
+                    storage_result = await cloud_storage_service.retrieve_file(
+                        file_key=invoice.attachment_path,
+                        tenant_id=str(tenant_id),
+                        user_id=current_user.id,
+                        generate_url=False,  # Download content instead of URL
+                        expiry_seconds=3600
+                    )
+
+                    if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                        # Guess media type from filename; fallback to octet-stream
+                        media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
+                        media_type = media_type or "application/octet-stream"
+
+                        headers = {
+                            # Inline to allow preview in browser tabs for supported types (e.g., PDF, images)
+                            "Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}",
+                            # Add CORS headers for browser access
+                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Methods": "GET, OPTIONS",
+                            "Access-Control-Allow-Headers": "*"
+                        }
+
+                        # Return file content as streaming response
+                        return StreamingResponse(
+                            io.BytesIO(storage_result.metadata['content']),
+                            media_type=media_type,
+                            headers=headers
+                        )
+                    else:
+                        logger.warning(f"Failed to download from cloud storage: {storage_result.error_message}")
+
+            except Exception as e:
+                logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
+
+        # Local file or cloud storage fallback - serve directly
+        try:
+            from utils.file_validation import validate_file_path
+            validated_path = validate_file_path(invoice.attachment_path)
+            # Guess media type from filename; fallback to octet-stream
+            media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
+            media_type = media_type or "application/octet-stream"
+
+            headers = {
+                # Inline to allow preview in browser tabs for supported types (e.g., PDF, images)
+                "Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}"
+            }
+            return FileResponse(
+                path=validated_path,
+                filename=invoice.attachment_filename,
+                media_type=media_type,
+                headers=headers
+            )
+        except Exception as e:
+            logger.error(f"Failed to serve local file: {e}")
+            raise HTTPException(status_code=404, detail="Attachment file not accessible")
+
     except HTTPException:
         raise
     except Exception as e:

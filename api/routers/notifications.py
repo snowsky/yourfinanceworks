@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List
 import logging
 
@@ -25,24 +26,14 @@ async def get_notification_settings(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get current user's notification settings"""
-    # Manually set tenant context and get tenant database
     try:
-        # Find or create the tenant user by email
-        tenant_user = db.query(User).filter(User.email == current_user.email).first()
+        # Look for existing tenant user by ID (not email to avoid duplicates)
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
         if not tenant_user:
-            # Create user in tenant database
-            tenant_user = User(
-                email=current_user.email,
-                hashed_password=current_user.hashed_password,
-                is_active=current_user.is_active,
-                is_superuser=current_user.is_superuser,
-                role=current_user.role,
-                first_name=current_user.first_name,
-                last_name=current_user.last_name
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
             )
-            db.add(tenant_user)
-            db.commit()
-            db.refresh(tenant_user)
         
         settings = db.query(EmailNotificationSettings).filter(
             EmailNotificationSettings.user_id == tenant_user.id
@@ -56,6 +47,8 @@ async def get_notification_settings(
             db.refresh(settings)
         
         return settings
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting notification settings: {str(e)}")
         raise HTTPException(
@@ -67,7 +60,7 @@ async def get_notification_settings(
 async def update_notification_settings(
     settings_update: EmailNotificationSettingsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Update current user's notification settings"""
     try:
@@ -115,7 +108,7 @@ async def update_notification_settings(
 @router.post("/test")
 async def test_notification(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Send a test notification to verify settings"""
     try:
@@ -150,10 +143,18 @@ async def test_notification(
         # Create notification service
         notification_service = NotificationService(db, email_service)
         
+        # Look for existing tenant user by ID
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
+            )
+        
         # Send test notification
         success = notification_service.send_operation_notification(
             event_type="settings_updated",
-            user_id=current_user.id,
+            user_id=tenant_user.id,
             resource_type="notification",
             resource_id="test",
             resource_name="Test Notification",
@@ -183,17 +184,25 @@ async def test_notification(
 @router.get("/approval-preferences", response_model=dict)
 async def get_approval_notification_preferences(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Get current user's approval notification preferences"""
     try:
+        # Look for existing tenant user by ID
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
+            )
+        
         settings = db.query(EmailNotificationSettings).filter(
-            EmailNotificationSettings.user_id == current_user.id
+            EmailNotificationSettings.user_id == tenant_user.id
         ).first()
         
         if not settings:
             # Create default settings
-            settings = EmailNotificationSettings(user_id=current_user.id)
+            settings = EmailNotificationSettings(user_id=tenant_user.id)
             db.add(settings)
             db.commit()
             db.refresh(settings)
@@ -225,16 +234,24 @@ async def get_approval_notification_preferences(
 async def update_approval_notification_preferences(
     preferences: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Update current user's approval notification preferences"""
     try:
+        # Look for existing tenant user by ID
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
+            )
+        
         settings = db.query(EmailNotificationSettings).filter(
-            EmailNotificationSettings.user_id == current_user.id
+            EmailNotificationSettings.user_id == tenant_user.id
         ).first()
         
         if not settings:
-            settings = EmailNotificationSettings(user_id=current_user.id)
+            settings = EmailNotificationSettings(user_id=tenant_user.id)
             db.add(settings)
         
         # Update approval frequency preferences
@@ -291,8 +308,8 @@ async def update_approval_notification_preferences(
         # Log audit event
         log_audit_event(
             db=db,
-            user_id=current_user.id,
-            user_email=current_user.email,
+            user_id=tenant_user.id,
+            user_email=tenant_user.email,
             action="UPDATE",
             resource_type="approval_notification_preferences",
             resource_id=str(settings.id),
@@ -316,7 +333,7 @@ async def update_approval_notification_preferences(
 @router.post("/send-digest")
 async def send_approval_digest(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Send approval digest notification (for testing purposes)"""
     try:
@@ -396,9 +413,17 @@ async def send_approval_digest(
             ]
         }
         
+        # Look for existing tenant user by ID
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
+            )
+        
         # Send digest
         success = notification_service.send_approval_daily_digest(
-            user_id=current_user.id,
+            user_id=tenant_user.id,
             digest_data=digest_data
         )
         
@@ -417,4 +442,52 @@ async def send_approval_digest(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send approval digest"
+        )
+
+@router.get("/expense-preferences", response_model=dict)
+async def get_expense_notification_preferences(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Get current user's expense notification preferences"""
+    try:
+        # Look for existing tenant user by ID
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database"
+            )
+        
+        settings = db.query(EmailNotificationSettings).filter(
+            EmailNotificationSettings.user_id == tenant_user.id
+        ).first()
+
+        if not settings:
+            # Create default settings
+            settings = EmailNotificationSettings(user_id=tenant_user.id)
+            db.add(settings)
+            db.commit()
+            db.refresh(settings)
+        
+        # Return expense-specific preferences
+        return {
+            "expense_notification_frequency": settings.expense_notification_frequency,
+            "expense_reminder_frequency": settings.expense_reminder_frequency,
+            "expense_notification_channels": settings.expense_notification_channels,
+            "expense_events": {
+                "expense_submitted": settings.expense_submitted,
+                "expense_updated": settings.expense_updated,
+                "expense_approved": settings.expense_approved,
+                "expense_rejected": settings.expense_rejected,
+                "expense_paid": settings.expense_paid,
+                "expense_commented": settings.expense_commented,
+                "expense_reminder": settings.expense_reminder
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting expense notification preferences: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get expense notification preferences"
         )

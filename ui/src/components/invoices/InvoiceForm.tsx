@@ -82,6 +82,7 @@ const formSchema = z.object({
       return new Set(keys).size === keys.length;
     }, { message: "Custom field names must be unique" }),
   showDiscountInPdf: z.boolean().optional().default(false),
+  payer: z.enum(["You", "Client"] as const).default("Client"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -294,16 +295,16 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       const paymentHistory = invoicePayments
         .map(payment => {
           // Determine the action and details based on how the payment was created
-          let action = 'Payment Added';
+          let action = t('invoices.payment_added');
           let details = `${payment.payment_method} - ${payment.reference_number || 'No reference'}`;
           // Always use current user for payment history entries
           let userName = currentUser;
           if (payment.notes && payment.notes.includes('Payment entered via invoice form')) {
-            action = 'Paid Amount Updated';
-            details = `Payment amount changed via invoice form`;
+            action = t('invoices.paid_amount_updated');
+            details = t('invoices.payment_amount_changed_via_invoice_form');
           } else if (payment.notes && payment.notes.includes('Payment reduced via invoice form')) {
-            action = 'Payment Reduced';
-            details = `Payment amount reduced via invoice form`;
+            action = t('invoices.payment_reduced');
+            details = t('invoices.payment_amount_reduced_via_invoice_form');
           }
 
           return {
@@ -591,6 +592,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       discountValue: invoice?.discount_value || 0,
       customFields: customFields,
       showDiscountInPdf: invoice?.show_discount_in_pdf || false,
+      payer: (invoice as any)?.payer || "Client",
     },
     mode: "onSubmit"
   });
@@ -863,10 +865,12 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
           form.setValue("discountType", formData.discountType);
           form.setValue("discountValue", formData.discountValue);
           form.setValue("currency", formData.currency);
+          form.setValue("payer", (invoice as any)?.payer || "Client");
           console.log("Form values after setting:", {
             discountType: form.getValues("discountType"),
             discountValue: form.getValues("discountValue"),
-            currency: form.getValues("currency")
+            currency: form.getValues("currency"),
+            payer: form.getValues("payer")
           });
         }, 100);
       }
@@ -1078,6 +1082,15 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
   // For new invoices, isInvoicePaid should always be false
   const isInvoicePaid = isEdit && currentStatus === "paid";
+
+  // Debug logging for button state
+  console.log("🔍 UPDATE BUTTON DEBUG:", {
+    isEdit,
+    currentStatus,
+    isInvoicePaid,
+    submitting,
+    buttonDisabled: submitting || isInvoicePaid
+  });
 
 
   // Calculation functions - moved here to avoid lexical declaration errors
@@ -1514,6 +1527,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
               return acc;
             }, {}),
             show_discount_in_pdf: data.showDiscountInPdf,
+            payer: data.payer,
           };
 
           console.log("Custom fields from form data:", data.customFields);
@@ -1787,6 +1801,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
             return Object.keys(cf).length > 0 ? cf : undefined;
           })(),
           show_discount_in_pdf: data.showDiscountInPdf,
+          payer: data.payer,
         };
         console.log("Invoice data being sent:", invoiceData);
 
@@ -2077,6 +2092,50 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                         disabled={isInvoicePaid}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="payer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payer</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payer" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="You">You</SelectItem>
+                        <SelectItem value="Client">Client</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="payer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payer</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isInvoicePaid}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payer" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="You">You</SelectItem>
+                        <SelectItem value="Client">Client</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -2806,7 +2865,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     )}
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <FormField
                       control={form.control}
                       name="invoiceNumber"
@@ -2838,8 +2897,31 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                               value={field.value || ""}
                               onValueChange={field.onChange}
                               placeholder="Select currency"
+                              disabled={isInvoicePaid}
                             />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="payer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('invoices.payer')}</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select payer" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="You">{t('invoices.you')}</SelectItem>
+                              <SelectItem value="Client">{t('invoices.client')}</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -3466,7 +3548,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                         )}
                       />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <FormField
                           control={form.control}
                           name="invoiceNumber"
@@ -3499,8 +3581,31 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                                   value={field.value || ""}
                                   onValueChange={field.onChange}
                                   placeholder="Select currency"
+                                  disabled={isInvoicePaid}
                                 />
                               </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="payer"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Payer</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isInvoicePaid}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select payer" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="You">You</SelectItem>
+                                  <SelectItem value="Client">Client</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -3614,9 +3719,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder={t('invoices.select_status')}>
-                                    {field.value && formatStatus(field.value)}
-                                  </SelectValue>
+                                  <SelectValue placeholder={t('invoices.select_status')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -4503,7 +4606,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                     <div className="flex justify-end gap-4">
                       <Button
                         type="submit"
-                        disabled={submitting || isInvoicePaid}
+                        disabled={submitting}
                       >
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {t('invoices.update_invoice')}

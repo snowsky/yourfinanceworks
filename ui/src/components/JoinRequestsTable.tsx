@@ -166,12 +166,12 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">{t('organizationJoinRequests.loadingRequests')}</p>
+          <p className="mt-2 text-gray-600">{t('organizationJoinRequests.loading_requests')}</p>
         </div>
       ) : requests.length === 0 ? (
         <div className="text-center py-8">
           <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">{t('organizationJoinRequests.noPendingRequests')}</p>
+          <p className="text-gray-500">{t('organizationJoinRequests.no_pending_requests')}</p>
         </div>
       ) : (
         <Table>
@@ -412,24 +412,24 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
 
             {approvalForm.status === 'rejected' && (
               <div>
-                <Label htmlFor="rejection_reason">{t('organizationJoinRequests.reasonForRejection')}</Label>
+                <Label htmlFor="rejection_reason">{t('organizationJoinRequests.reason_for_rejection')}</Label>
                 <Textarea
                   id="rejection_reason"
                   value={approvalForm.rejection_reason}
                   onChange={(e) => setApprovalForm({...approvalForm, rejection_reason: e.target.value})}
-                  placeholder={t('organizationJoinRequests.explainRejection')}
+                  placeholder={t('organizationJoinRequests.explain_rejection')}
                   rows={3}
                 />
               </div>
             )}
 
             <div>
-              <Label htmlFor="notes">{t('organizationJoinRequests.adminNotes')}</Label>
+              <Label htmlFor="notes">{t('organizationJoinRequests.admin_notes')}</Label>
               <Textarea
                 id="notes"
                 value={approvalForm.notes}
                 onChange={(e) => setApprovalForm({...approvalForm, notes: e.target.value})}
-                placeholder={t('organizationJoinRequests.addInternalNotes')}
+                placeholder={t('organizationJoinRequests.add_internal_notes')}
                 rows={2}
               />
             </div>

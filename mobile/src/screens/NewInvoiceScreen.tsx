@@ -658,7 +658,7 @@ const NewInvoiceScreen: React.FC<NewInvoiceScreenProps> = ({
           onPress={() => setShowAddClientModal(true)}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addClientText}>{t('invoices.add_new_client')}</Text>
+          <Text style={styles.addClientText}>{t('clients.add_new_client')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -66,7 +66,7 @@ export const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({
       if (!hasPermission) return;
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
         quality: 0.8,
         allowsMultipleSelection: multiple,
@@ -109,7 +109,7 @@ export const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({
       if (!hasPermission) return;
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -145,16 +145,14 @@ export const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: allowedTypes.includes('application/pdf') ? 'application/pdf' : '*/*',
-        multiple: multiple,
       });
 
-      if (result.type === 'success') {
-        const files: FileData[] = Array.isArray(result) ? result : [result];
-        const fileData: FileData[] = files.map(file => ({
-          uri: file.uri,
-          name: file.name,
-          type: file.mimeType || 'application/octet-stream',
-          size: file.size,
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const fileData: FileData[] = result.assets.map(asset => ({
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType || 'application/octet-stream',
+          size: asset.size,
         }));
 
         onFilesSelected(fileData);
@@ -172,7 +170,7 @@ export const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({
 
     return (
       <View key={index} style={styles.filePreview}>
-        {isImage ? (
+        {isImage && file.uri ? (
           <Image source={{ uri: file.uri }} style={styles.fileImage} />
         ) : (
           <View style={styles.fileIcon}>

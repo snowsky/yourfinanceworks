@@ -65,6 +65,7 @@ services:
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       - KAFKA_BANK_TOPIC=bank_statements_ocr
+      - KAFKA_OCR_TOPIC_PARTITIONS=${KAFKA_OCR_TOPIC_PARTITIONS:-}
       # LLM Configuration
       - LLM_API_BASE=http://host.docker.internal:11434
       - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
@@ -80,7 +81,7 @@ services:
       # Enable/disable tax service integration
       - TAX_SERVICE_ENABLED=${TAX_SERVICE_ENABLED:-true}
       # Base URL for tax service API endpoint
-      - TAX_SERVICE_BASE_URL=${TAX_SERVICE_BASE_URL:-http://192.168.86.39:8001}
+      - TAX_SERVICE_BASE_URL=${TAX_SERVICE_BASE_URL:-http://192.168.86.32:8001}
       # API key for authenticating with tax service
       - TAX_SERVICE_API_KEY=${TAX_SERVICE_API_KEY:-ak_Pw0viX75yYrLT8tUmS2c912gDDrLsR4qvtIO8XRrruU}
       # Timeout for tax service requests (in seconds)
@@ -259,7 +260,8 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: invoice_app_ocr_worker
+    deploy:
+      replicas: 2 #variable is not supported ${KAFKA_OCR_TOPIC_PARTITIONS:2}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

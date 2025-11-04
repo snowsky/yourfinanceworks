@@ -232,6 +232,7 @@ export interface DiscountCalculation {
 export interface DashboardStats {
   totalIncome: Record<string, number>;
   pendingInvoices: Record<string, number>;
+  totalExpenses: Record<string, number>;
   totalClients: number;
   invoicesPaid: number;
   invoicesPending: number;
@@ -338,6 +339,10 @@ export async function apiRequest<T>(
         // Clear invalid token and redirect to login
         await AsyncStorage.removeItem(TOKEN_KEY);
         await AsyncStorage.removeItem(USER_KEY);
+        // Trigger 401 error handler if set
+        if (on401Error) {
+          on401Error();
+        }
         throw new Error('Authentication failed. Please log in again.');
       }
 
@@ -440,13 +445,13 @@ class ApiService {
     try {
       // Log request details for debugging
       if (options.method === 'PUT' && endpoint.includes('/invoices/')) {
-        logger.log('🚀 API PUT Request to invoices:', {
+        logger.log(`🚀 API PUT Request to invoices: ${JSON.stringify({
           url,
           endpoint,
           method: options.method,
           body: options.body ? JSON.parse(options.body as string) : null,
           headers: requestOptions.headers
-        });
+        })}`);
       }
 
       const response = await fetch(url, requestOptions);
@@ -640,11 +645,57 @@ class ApiService {
   }
 
   async createInvoice(invoiceData: CreateInvoiceData): Promise<Invoice> {
+    // Helper function to safely convert date to ISO format
+    const convertDateToISO = (dateStr: string | undefined): string | undefined => {
+      if (!dateStr) return undefined;
+      
+      try {
+        logger.debug('Converting date to ISO:', { input: dateStr, type: typeof dateStr });
+        
+        // Check if it's already in ISO format (contains 'T')
+        if (dateStr.includes('T')) {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) {
+            logger.error('Invalid ISO date string:', dateStr);
+            return undefined;
+          }
+          const isoString = date.toISOString();
+          logger.debug('Converted ISO date:', { input: dateStr, output: isoString });
+          return isoString;
+        }
+        
+        // If it's a date string like "2025-11-03", add time component
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const date = new Date(dateStr + 'T00:00:00.000Z');
+          if (isNaN(date.getTime())) {
+            logger.error('Invalid date string:', dateStr);
+            return undefined;
+          }
+          const isoString = date.toISOString();
+          logger.debug('Converted simple date:', { input: dateStr, output: isoString });
+          return isoString;
+        }
+        
+        // For other formats, try to parse directly
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+          logger.error('Invalid date format:', dateStr);
+          return undefined;
+        }
+        const isoString = date.toISOString();
+        logger.debug('Converted other date format:', { input: dateStr, output: isoString });
+        return isoString;
+      } catch (error) {
+        logger.error('Error converting date to ISO format:', { error: error instanceof Error ? error.message : String(error), input: dateStr });
+        return undefined;
+      }
+    };
+
     // Convert date strings to ISO format for the API
     const requestData = {
       ...invoiceData,
-      date: invoiceData.date ? new Date(invoiceData.date + 'T00:00:00').toISOString() : undefined,
-      due_date: invoiceData.due_date ? new Date(invoiceData.due_date + 'T00:00:00').toISOString() : undefined,
+      date: convertDateToISO(invoiceData.date),
+      due_date: convertDateToISO(invoiceData.due_date),
     };
     
     return await this.request<Invoice>('/invoices/', {
@@ -654,17 +705,70 @@ class ApiService {
   }
 
   async updateInvoice(invoiceId: number, invoiceData: UpdateInvoiceData): Promise<Invoice> {
-    logger.log('📝 updateInvoice called with:', {
+    logger.log(`📝 updateInvoice called with: ${JSON.stringify({
       invoiceId,
       invoiceData,
       paidAmount: invoiceData.paid_amount,
       hasPaidAmount: 'paid_amount' in invoiceData,
       allKeys: Object.keys(invoiceData)
-    });
+    })}`);
+
+    // Helper function to safely convert date to ISO format
+    const convertDateToISO = (dateStr: string): string | undefined => {
+      if (!dateStr) return undefined;
+      
+      try {
+        logger.debug('Converting date to ISO:', { input: dateStr, type: typeof dateStr });
+        
+        // Check if it's already in ISO format (contains 'T')
+        if (dateStr.includes('T')) {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) {
+            logger.error('Invalid ISO date string:', dateStr);
+            return undefined;
+          }
+          const isoString = date.toISOString();
+          logger.debug('Converted ISO date:', { input: dateStr, output: isoString });
+          return isoString;
+        }
+        
+        // If it's a date string like "2025-11-03", add time component
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const date = new Date(dateStr + 'T00:00:00.000Z');
+          if (isNaN(date.getTime())) {
+            logger.error('Invalid date string:', dateStr);
+            return undefined;
+          }
+          const isoString = date.toISOString();
+          logger.debug('Converted simple date:', { input: dateStr, output: isoString });
+          return isoString;
+        }
+        
+        // For other formats, try to parse directly
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+          logger.error('Invalid date format:', dateStr);
+          return undefined;
+        }
+        const isoString = date.toISOString();
+        logger.debug('Converted other date format:', { input: dateStr, output: isoString });
+        return isoString;
+      } catch (error) {
+        logger.error('Error converting date to ISO format:', { error: error instanceof Error ? error.message : String(error), input: dateStr });
+        return undefined;
+      }
+    };
+
+    // Convert date strings to ISO format for the API
+    const requestData = {
+      ...invoiceData,
+      date: convertDateToISO(invoiceData.date),
+      due_date: convertDateToISO(invoiceData.due_date),
+    };
 
     const response = await this.request<any>(`/invoices/${invoiceId}`, {
       method: 'PUT',
-      body: JSON.stringify(invoiceData),
+      body: JSON.stringify(requestData),
     });
     return {
       ...response,
@@ -757,16 +861,17 @@ class ApiService {
       // Group income by currency
       const totalIncome: Record<string, number> = {};
       const pendingInvoices: Record<string, number> = {};
-      
+      const totalExpenses: Record<string, number> = {};
+
       invoices.forEach(invoice => {
         const currency = invoice.currency || 'USD';
-        
+
         // Calculate total income (paid invoices)
         if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
           const paidAmount = invoice.paid_amount || 0;
           totalIncome[currency] = (totalIncome[currency] || 0) + paidAmount;
         }
-        
+
         // Calculate pending amount (unpaid invoices)
         if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {
           const outstandingAmount = invoice.amount - (invoice.paid_amount || 0);
@@ -775,6 +880,18 @@ class ApiService {
           }
         }
       });
+
+      // Fetch and calculate total expenses
+      try {
+        const expenses = await this.request<Expense[]>('/expenses/');
+        expenses.forEach(expense => {
+          const currency = expense.currency || 'USD';
+          const amount = expense.total_amount || expense.amount || 0;
+          totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
+        });
+      } catch (error) {
+        logger.error('Failed to fetch expenses for dashboard:', error);
+      }
 
       // Count invoices by status
       const invoicesPaid = (invoices || []).filter(inv => inv.status === 'paid').length;
@@ -863,6 +980,7 @@ class ApiService {
       return {
         totalIncome,
         pendingInvoices,
+        totalExpenses,
         totalClients: clients.length,
         invoicesPaid,
         invoicesPending,
@@ -879,6 +997,7 @@ class ApiService {
       return {
         totalIncome: {},
         pendingInvoices: {},
+        totalExpenses: {},
         totalClients: 0,
         invoicesPaid: 0,
         invoicesPending: 0,
@@ -892,7 +1011,7 @@ class ApiService {
     try {
       const token = await this.getToken();
       if (!token) return false;
-      
+
       // Verify token is still valid
       await this.getCurrentUser();
       return true;
@@ -959,6 +1078,9 @@ class ApiService {
   }
 
   async createExpense(expenseData: Partial<Expense>): Promise<Expense> {
+    // Log the expense data being sent for debugging
+    logger.log(`📤 Creating expense with data: ${JSON.stringify(expenseData)}`);
+
     return await this.request<Expense>('/expenses/', {
       method: 'POST',
       body: JSON.stringify(expenseData),

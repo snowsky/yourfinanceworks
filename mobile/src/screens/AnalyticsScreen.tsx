@@ -28,6 +28,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
   const [stats, setStats] = useState<DashboardStats>({
     totalIncome: {},
     pendingInvoices: {},
+    totalExpenses: {},
     totalClients: 0,
     invoicesPaid: 0,
     invoicesPending: 0,

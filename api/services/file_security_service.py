@@ -59,7 +59,8 @@ class FileSecurityService:
         return {
             'images': [
                 'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
-                'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'
+                'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml',
+                'image/heic', 'image/heif'
             ],
             'documents': [
                 'application/pdf', 'application/msword',

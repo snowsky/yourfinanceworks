@@ -39,7 +39,7 @@ SECRET_KEY = os.getenv("SECRET_KEY") or ("dev-insecure-key" if DEBUG else None)
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be set in the environment for production use")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 # Simple in-memory rate limiting (per email) to deter brute-force attacks
 # Note: For multi-instance deployments, replace with a shared store (e.g., Redis)
@@ -392,39 +392,53 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     # Also create user in tenant database
     from models.database import set_tenant_context
     set_tenant_context(tenant_id)
-    
+
     try:
-        logger.info(f"Creating user in tenant DB {tenant_id} for {user.email}")
+        logger.info(f"Creating/updating user in tenant DB {tenant_id} for {user.email}")
         tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
         tenant_db = tenant_session()
         try:
-            # Import the tenant-specific User model (without tenant_id column)
-            # from models.models_per_tenant import User as TenantUser
-            
-            # Create tenant user using the tenant-specific User model
-            tenant_user = TenantUser(
-                id=db_user.id,  # Use same ID as master user
-                email=user.email,
-                hashed_password=hashed_password,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                role=user_role,
-                is_active=user.is_active,
-                is_superuser=user.is_superuser,
-                is_verified=True  # Auto-verify new users during registration
-            )
-            
-            tenant_db.add(tenant_user)
-            tenant_db.commit()
-            logger.info(f"Created user {tenant_user.id} in tenant DB {tenant_id} for {user.email}")
-            
+            # Check if tenant user already exists
+            existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == db_user.id).first()
+
+            if existing_tenant_user:
+                # Update existing tenant user
+                existing_tenant_user.email = user.email
+                existing_tenant_user.hashed_password = hashed_password
+                existing_tenant_user.first_name = user.first_name
+                existing_tenant_user.last_name = user.last_name
+                existing_tenant_user.role = user_role
+                existing_tenant_user.is_active = user.is_active
+                existing_tenant_user.is_superuser = user.is_superuser
+                existing_tenant_user.is_verified = True  # Auto-verify new users during registration
+                existing_tenant_user.updated_at = datetime.now(timezone.utc)
+                tenant_db.commit()
+                logger.info(f"Updated existing user {existing_tenant_user.id} in tenant DB {tenant_id} for {user.email}")
+            else:
+                # Create new tenant user
+                tenant_user = TenantUser(
+                    id=db_user.id,  # Use same ID as master user
+                    email=user.email,
+                    hashed_password=hashed_password,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    role=user_role,
+                    is_active=user.is_active,
+                    is_superuser=user.is_superuser,
+                    is_verified=True  # Auto-verify new users during registration
+                )
+
+                tenant_db.add(tenant_user)
+                tenant_db.commit()
+                logger.info(f"Created user {tenant_user.id} in tenant DB {tenant_id} for {user.email}")
+
         finally:
             try:
                 tenant_db.close()
             except Exception:
                 pass
     except Exception as e:
-        logger.error(f"Failed to create tenant user for {user.email} in tenant DB {tenant_id}: {str(e)}")
+        logger.error(f"Failed to create/update tenant user for {user.email} in tenant DB {tenant_id}: {str(e)}")
         logger.error(traceback.format_exc())
         # If tenant user creation fails, rollback master user creation
         db.delete(db_user)
@@ -1247,10 +1261,25 @@ async def accept_invite(
     set_tenant_context(invite.tenant_id)
     tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
     try:
-        existing_tenant_user = tenant_db.query(TenantUser).filter(
-            TenantUser.email == invite.email
-        ).first()
+        # Check if tenant user already exists by ID (preferred) or email
+        existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == master_user.id).first()
         if not existing_tenant_user:
+            # Also check by email as fallback
+            existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.email == invite.email).first()
+
+        if existing_tenant_user:
+            # Update existing tenant user
+            existing_tenant_user.email = invite.email
+            existing_tenant_user.hashed_password = master_user.hashed_password
+            existing_tenant_user.first_name = invite_data.first_name or invite.first_name
+            existing_tenant_user.last_name = invite_data.last_name or invite.last_name
+            existing_tenant_user.role = invite.role
+            existing_tenant_user.is_verified = True
+            existing_tenant_user.is_superuser = False
+            existing_tenant_user.updated_at = datetime.now(timezone.utc)
+            tenant_db.commit()
+        else:
+            # Create new tenant user
             tenant_user = TenantUser(
                 id=master_user.id,
                 email=invite.email,
@@ -1263,14 +1292,6 @@ async def accept_invite(
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()
-        else:
-            # Update role if needed to reflect the invited role
-            try:
-                if existing_tenant_user.role != invite.role:
-                    existing_tenant_user.role = invite.role
-                    tenant_db.commit()
-            except Exception:
-                pass
         user = master_user
     except Exception as e:
         # If tenant user creation fails, rollback master user to avoid inconsistent state
@@ -1681,10 +1702,26 @@ async def admin_activate_user(
     set_tenant_context(invite.tenant_id)
     tenant_db = tenant_db_manager.get_tenant_session(invite.tenant_id)()
     try:
-        existing_tenant_user = tenant_db.query(TenantUser).filter(
-            TenantUser.email == invite.email
-        ).first()
+        # Check if tenant user already exists by ID (preferred) or email
+        existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == master_user.id).first()
         if not existing_tenant_user:
+            # Also check by email as fallback
+            existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.email == invite.email).first()
+
+        if existing_tenant_user:
+            # Update existing tenant user
+            existing_tenant_user.email = invite.email
+            existing_tenant_user.hashed_password = master_user.hashed_password
+            existing_tenant_user.first_name = activation_data.first_name or invite.first_name
+            existing_tenant_user.last_name = activation_data.last_name or invite.last_name
+            existing_tenant_user.role = invite.role
+            existing_tenant_user.is_verified = True
+            existing_tenant_user.is_superuser = False
+            existing_tenant_user.must_reset_password = master_user.must_reset_password
+            existing_tenant_user.updated_at = datetime.now(timezone.utc)
+            tenant_db.commit()
+        else:
+            # Create new tenant user
             tenant_user = TenantUser(
                 id=master_user.id,
                 email=invite.email,
@@ -1698,14 +1735,6 @@ async def admin_activate_user(
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()
-        else:
-            # Update role if needed to reflect the invited role
-            try:
-                if existing_tenant_user.role != invite.role:
-                    existing_tenant_user.role = invite.role
-                    tenant_db.commit()
-            except Exception:
-                pass
 
         # Ensure return user object
         user = master_user

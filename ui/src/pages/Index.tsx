@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/lib/api';
 import { useState, useEffect } from "react";
-import { BarChart, DollarSign, FileText, Users } from "lucide-react";
+import { BarChart, DollarSign, FileText, Users, TrendingDown } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentInvoices } from "@/components/dashboard/RecentInvoices";
 import { InvoiceChart } from "@/components/dashboard/InvoiceChart";
@@ -25,6 +25,7 @@ const Dashboard = () => {
   const [dashboardStats, setDashboardStats] = useState({
     totalIncome: {},
     pendingInvoices: {},
+    totalExpenses: {},
     totalClients: 0,
     invoicesPaid: 0,
     invoicesPending: 0,
@@ -253,7 +254,7 @@ const Dashboard = () => {
         </div>
         
         <div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 slide-in" 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 slide-in" 
           data-tour="dashboard-stats"
           style={professionalContainerStyle}
         >
@@ -266,6 +267,16 @@ const Dashboard = () => {
             loading={loading}
             variant="success"
             onClick={() => console.log('Navigate to income details')}
+          />
+          <StatCard
+            title={t('dashboard.stats.total_expenses')}
+            value={formatMultiCurrencyString(dashboardStats.totalExpenses)}
+            icon={TrendingDown}
+            description={t('dashboard.stats.expenses_description')}
+            trend={{ value: 0, isPositive: false }}
+            loading={loading}
+            variant="info"
+            onClick={() => console.log('Navigate to expenses')}
           />
           <StatCard
             title={t('dashboard.stats.pending_amount')}

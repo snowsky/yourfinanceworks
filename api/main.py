@@ -149,9 +149,7 @@ else:
         allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
     else:
         allowed_origins = [
-            "http://localhost:8080", "http://localhost:3000", 
-            "http://192.168.86.39", "http://192.168.86.39:8080",
-            "http://192.168.65.1"
+            "http://localhost:8080", "http://localhost:3000"
         ]
     allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "True").lower() == "true"
 

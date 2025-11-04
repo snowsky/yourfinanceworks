@@ -42,7 +42,7 @@ export function MobileUserProfile({
             }}
           />
         ) : (
-          <Building2 className="h-4 w-4" alt="Fallback Company Logo" />
+          <Building2 className="h-4 w-4" />
         )}
         <span className="truncate">{companyName}</span>
       </div>

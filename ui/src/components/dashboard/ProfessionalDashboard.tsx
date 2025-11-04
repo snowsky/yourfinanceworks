@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 interface DashboardStats {
   totalIncome: Record<string, number>;
   pendingInvoices: Record<string, number>;
+  totalExpenses: Record<string, number>;
   totalClients: number;
   invoicesPaid: number;
   invoicesPending: number;
@@ -45,6 +46,7 @@ export function ProfessionalDashboard() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalIncome: {},
     pendingInvoices: {},
+    totalExpenses: {},
     totalClients: 0,
     invoicesPaid: 0,
     invoicesPending: 0,
@@ -169,6 +171,17 @@ export function ProfessionalDashboard() {
       variant: 'success' as const
     },
     {
+      title: t('dashboard.stats.total_expenses'),
+      value: formatMultiCurrencyString(dashboardStats.totalExpenses),
+      change: {
+        value: 0, // We can add expense trends later if needed
+        type: 'increase' as const
+      },
+      icon: TrendingUp,
+      description: t('dashboard.stats.expenses_description'),
+      variant: 'info' as const
+    },
+    {
       title: t('dashboard.stats.pending_amount'),
       value: formatMultiCurrencyString(dashboardStats.pendingInvoices),
       change: {
@@ -241,7 +254,7 @@ export function ProfessionalDashboard() {
 
         {/* Metrics Grid */}
         <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')}>
-          <GridLayout cols={4} gap="lg" responsive>
+          <GridLayout cols={5} gap="lg" responsive>
             {metrics.map((metric, index) => (
               <MetricCard
                 key={index}

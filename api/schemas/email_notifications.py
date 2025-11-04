@@ -27,6 +27,37 @@ class EmailNotificationSettingsBase(BaseModel):
     payment_updated: bool = False
     payment_deleted: bool = True
     
+    # Expense operation notifications
+    expense_created: bool = True
+    expense_updated: bool = False
+    expense_deleted: bool = True
+    expense_approved: bool = True
+    expense_rejected: bool = True
+    expense_submitted: bool = True
+    expense_imported: bool = True
+    expense_analysis_completed: bool = True
+    expense_analysis_failed: bool = True
+    
+    # Inventory operation notifications
+    inventory_created: bool = True
+    inventory_updated: bool = False
+    inventory_deleted: bool = True
+    inventory_low_stock: bool = True
+    inventory_out_of_stock: bool = True
+    inventory_stock_movement: bool = False
+    inventory_category_created: bool = False
+    inventory_category_updated: bool = False
+    inventory_category_deleted: bool = True
+    
+    # Statement operation notifications
+    statement_generated: bool = True
+    statement_sent: bool = True
+    statement_overdue: bool = True
+    statement_uploaded: bool = True
+    statement_processed: bool = True
+    statement_processing_failed: bool = True
+    statement_transaction_created: bool = False
+    
     # Settings operation notifications
     settings_updated: bool = False
     
@@ -51,8 +82,10 @@ class EmailNotificationSettingsBase(BaseModel):
     approval_notification_channels: List[str] = ["email"]  # ["email", "in_app"] or ["email"] or ["in_app"]
     
     # Reminder notifications
-    reminder_due: bool = True
+    reminder_created: bool = True
+    reminder_sent: bool = True
     reminder_overdue: bool = True
+    reminder_due: bool = True
     reminder_upcoming: bool = True
     reminder_assigned: bool = True
     reminder_completed: bool = False
