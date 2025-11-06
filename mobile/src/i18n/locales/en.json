@@ -732,7 +732,6 @@
     "choose_file": "Choose file",
     "no_file_selected": "No file selected",
     "failed_to_save_ai_assistant_setting": "Failed to save AI Assistant setting.",
-    "no_ai_config_found": "No AI configuration found. Please configure an AI provider in Settings > AI Provider Configurations.",
     "notification_settings_saved_successfully": "Notification settings saved successfully",
     "test_notification_sent_successfully": "Test notification sent successfully",
     "loading_settings": "Loading settings...",
@@ -1323,8 +1322,7 @@
     "recentInvoices": "Recent Invoices",
     "invoicePatternAnalysis": "Invoice Pattern Analysis",
     "recommendations": "Recommendations",
-    "error_message": "Sorry, I encountered an error. Please try again or check your AI configuration.",
-    "no_ai_config_found": "No AI configuration found. Please check your AI configuration."
+    "error_message": "Sorry, I encountered an error. Please try again or check your AI configuration."
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Consider implementing stricter payment terms.",

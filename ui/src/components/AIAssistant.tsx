@@ -794,19 +794,12 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         // Handle expense queries using the AI chat endpoint with MCP tools
         console.log('AI Assistant: Detected expense query, using chat endpoint with MCP');
         
-        // Check if we have a default AI configuration
-        if (!defaultAIConfig) {
-          const errorMessage = t('settings.no_ai_config_found');
-          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: errorMessage }]);
-          setIsThinking(false);
-          setIsGenerating(false);
-          return;
-        }
-        
         const response = await api.post('/ai/chat', {
           message: textToSend,
-          config_id: defaultAIConfig.id
+          config_id: defaultAIConfig?.id || 0
         }) as any;
+
+        console.log('AI Assistant: Expense response:', response);
 
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
@@ -818,7 +811,11 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           setIsThinking(false);
           setIsGenerating(false);
         } else {
-          throw new Error('Failed to get AI response');
+          const errorMsg = response.error || 'Failed to get AI response';
+          console.error('AI Assistant: Error from backend:', errorMsg);
+          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={errorMsg} /> }]);
+          setIsThinking(false);
+          setIsGenerating(false);
         }
       } else if (
         lowerText.includes('statement') || lowerText.includes('statements') ||
@@ -827,22 +824,13 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       ) {
         // Handle bank statement queries using the AI chat endpoint with MCP tools
         console.log('AI Assistant: Detected bank statement query, using chat endpoint with MCP');
-        console.log('AI Assistant: defaultAIConfig check:', { defaultAIConfig, aiConfigs, aiConfigsLoading });
-        
-        // Check if we have a default AI configuration
-        if (!defaultAIConfig) {
-          console.log('AI Assistant: No defaultAIConfig found for bank statement query');
-          const errorMessage = t('settings.no_ai_config_found');
-          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: errorMessage }]);
-          setIsThinking(false);
-          setIsGenerating(false);
-          return;
-        }
         
         const response = await api.post('/ai/chat', {
           message: textToSend,
-          config_id: defaultAIConfig.id
+          config_id: defaultAIConfig?.id || 0
         }) as any;
+
+        console.log('AI Assistant: Statement response:', response);
 
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
@@ -854,29 +842,23 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           setIsThinking(false);
           setIsGenerating(false);
         } else {
-          throw new Error('Failed to get AI response');
+          const errorMsg = response.error || 'Failed to get AI response';
+          console.error('AI Assistant: Error from backend:', errorMsg);
+          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={errorMsg} /> }]);
+          setIsThinking(false);
+          setIsGenerating(false);
         }
       } else {
         // Use the regular chat endpoint
-        // console.log('AI Assistant: Using chat endpoint');
-        
-        // Check if we have a default AI configuration
-        if (!defaultAIConfig) {
-          // console.log('AI Assistant: No default AI config found:', { aiConfigs, defaultAIConfig });
-          const errorMessage = t('settings.no_ai_config_found');
-          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: errorMessage }]);
-          setIsThinking(false);
-          setIsGenerating(false);
-          return;
-        }
-        
         const response = await aiApiRequest('/ai/chat', {
           method: 'POST',
           body: JSON.stringify({
             message: textToSend,
-            config_id: defaultAIConfig.id
+            config_id: defaultAIConfig?.id || 0
           })
         }) as any;
+
+        console.log('AI Assistant: Chat response:', response);
 
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
@@ -888,7 +870,11 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           setIsThinking(false);
           setIsGenerating(false);
         } else {
-          throw new Error('Failed to get AI response');
+          const errorMsg = response.error || 'Failed to get AI response';
+          console.error('AI Assistant: Error from backend:', errorMsg);
+          setMessages((prev) => [...prev.slice(0, -1), { id: prev.length, sender: 'ai', text: <EnhancedAIResponse text={errorMsg} /> }]);
+          setIsThinking(false);
+          setIsGenerating(false);
         }
       }
     } catch (error) {

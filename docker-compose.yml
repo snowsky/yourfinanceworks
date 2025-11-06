@@ -29,6 +29,8 @@ services:
       context: ./api
       dockerfile: Dockerfile
     container_name: invoice_app_api
+    env_file:
+      - api/.env
     environment:
       # Master database for tenant management
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master

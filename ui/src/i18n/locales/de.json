@@ -907,7 +907,6 @@
     "choose_file": "Datei auswählen",
     "no_file_selected": "Keine Datei ausgewählt",
     "failed_to_save_ai_assistant_setting": "KI-Assistent-Einstellung konnte nicht gespeichert werden.",
-    "no_ai_config_found": "Keine KI-Konfiguration gefunden. Bitte konfigurieren Sie einen KI-Anbieter in Einstellungen > KI-Anbieter-Konfigurationen.",
     "notification_settings_saved_successfully": "Benachrichtigungseinstellungen erfolgreich gespeichert",
     "test_notification_sent_successfully": "Testbenachrichtigung erfolgreich gesendet",
     "loading_settings": "Einstellungen werden geladen...",
@@ -1689,7 +1688,6 @@
     "implement_stricter_terms": "Strengere Zahlungsbedingungen implementieren",
     "review_business_processes": "Überprüfen Sie Ihre Rechnungs- und Zahlungseinzugsprozesse",
     "error_message": "Entschuldigung, ich bin auf einen Fehler gestoßen. Bitte versuchen Sie es erneut oder überprüfen Sie Ihre KI-Konfiguration.",
-    "no_ai_config_found": "Keine KI-Konfiguration gefunden.",
     "chatHistoryRetentionNotice": "Chat-Verlauf wird für {{days}} Tage aufbewahrt"
   },
   "recommendations": {

@@ -987,7 +987,6 @@
     "discount_value": "Valor del Descuento",
     "currency": "Moneda",
     "error_message": "Lo sentimos, encontramos un error. Por favor intenta de nuevo o verifica tu configuración de IA.",
-    "no_ai_config_found": "No se encontró configuración de IA. Por favor configura un proveedor de IA en Configuración > Configuraciones de Proveedor de IA.",
     "suggestActions": "Sugerencias",
     "showPaymentCharts": "Mostrar gráficos de pagos",
     "paymentCharts": "Gráficos de Pagos",

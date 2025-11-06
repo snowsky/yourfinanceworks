@@ -727,7 +727,6 @@
     "choose_file": "Choisir un fichier",
     "no_file_selected": "Aucun fichier sélectionné",
     "failed_to_save_ai_assistant_setting": "Échec de l'enregistrement du paramètre de l'Assistant IA.",
-    "no_ai_config_found": "Aucune configuration IA trouvée. Veuillez configurer un fournisseur d'IA dans Paramètres > Configurations du fournisseur IA.",
     "notification_settings_saved_successfully": "Paramètres de notification enregistrés avec succès",
     "test_notification_sent_successfully": "Notification de test envoyée avec succès",
     "loading_settings": "Chargement des paramètres...",
@@ -1377,8 +1376,7 @@
     "follow_up_recent_invoices": "Suivre les factures récentes",
     "implement_stricter_terms": "Mettre en place des conditions de paiement plus strictes",
     "review_business_processes": "Examinez vos processus de facturation et de recouvrement des paiements",
-    "error_message": "Désolé, j'ai rencontré une erreur. Veuillez réessayer ou vérifier votre configuration d'IA.",
-    "no_ai_config_found": "Aucune configuration d'IA trouvée. Veuillez vérifier votre configuration d'IA."
+    "error_message": "Désolé, j'ai rencontré une erreur. Veuillez réessayer ou vérifier votre configuration d'IA."
   },
   "currency_manager": {
     "custom_currencies": "Devises personnalisées",

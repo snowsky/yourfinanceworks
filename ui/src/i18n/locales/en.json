@@ -987,7 +987,6 @@
     "choose_file": "Choose file",
     "no_file_selected": "No file selected",
     "failed_to_save_ai_assistant_setting": "Failed to save AI Assistant setting.",
-    "no_ai_config_found": "No AI configuration found. Please configure an AI provider in Settings > AI Provider Configurations.",
     "notification_settings_saved_successfully": "Notification settings saved successfully",
     "test_notification_sent_successfully": "Test notification sent successfully",
     "loading_settings": "Loading settings...",
@@ -1799,7 +1798,6 @@
     "implement_stricter_terms": "Implement stricter payment terms",
     "review_business_processes": "Review your invoicing and payment collection processes",
     "error_message": "Sorry, I encountered an error. Please try again or check your AI configuration.",
-    "no_ai_config_found": "No AI configuration found. Please check your AI configuration.",
     "chatHistoryRetentionNotice": "Chat history will be retained for {{days}} days"
   },
   "recommendations": {
