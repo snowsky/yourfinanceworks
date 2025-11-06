@@ -1,0 +1,119 @@
+COMMERCIAL LICENSE AGREEMENT
+
+This Commercial License Agreement (the "Agreement") is entered into as of [DATE] (the "Effective Date"), by and between [YOUR COMPANY NAME], a [LEGAL ENTITY TYPE] organized and existing under the laws of [JURISDICTION], with its principal place of business at [ADDRESS] ("Licensor"), and [LICENSEE COMPANY NAME], a [LEGAL ENTITY TYPE] organized and existing under the laws of [JURISDICTION], with its principal place of business at [ADDRESS] ("Licensee").
+
+WHEREAS, Licensor owns certain proprietary software known as "Invoice Management Application" (the "Software"); and
+
+WHEREAS, Licensee desires to obtain a commercial license to use the Software for proprietary purposes without the restrictions of the GNU General Public License v3; and
+
+WHEREAS, Licensor is willing to grant such a license to Licensee on the terms and conditions set forth herein;
+
+NOW, THEREFORE, in consideration of the mutual promises and covenants contained herein, the parties agree as follows:
+
+1. DEFINITIONS
+
+1.1 "Software" means the Invoice Management Application software, including all source code, object code, documentation, and related materials provided by Licensor.
+
+1.2 "Licensed Product" means any product or service that incorporates or is derived from the Software.
+
+1.3 "SaaS Offering" means any software-as-a-service, platform-as-a-service, or hosted service offering that provides access to the Software or derivatives thereof to third parties.
+
+1.4 "Business Management Platform" means a comprehensive enterprise software platform that includes multiple business functions such as financial management, CRM, inventory, analytics, and reporting capabilities.
+
+1.5 "Territory" means worldwide, unless otherwise specified in the license key or purchase order.
+
+2. LICENSE GRANT
+
+2.1 Subject to the terms and conditions of this Agreement, Licensor hereby grants to Licensee a non-exclusive, non-transferable, royalty-bearing license to:
+
+   a) Use the Software in object code form for Licensee's internal business operations;
+   b) Modify the Software for Licensee's internal use;
+   c) Incorporate the Software into Licensee's proprietary products and services;
+   d) Distribute the Software as part of Licensee's proprietary products, provided that the Software is not distributed as standalone software;
+
+2.2 Licensee may not:
+   a) Distribute the Software in source code form;
+   b) Sublicense, sell, or otherwise transfer the Software as a standalone product;
+   c) Use the Software to offer a SaaS Offering that directly competes with Licensor's invoice management SaaS services;
+   d) Use the Software to provide hosted invoice management services to third parties as a primary business offering;
+   e) Remove or alter any copyright, trademark, or proprietary notices in the Software;
+
+2.3 SaaS Restrictions: Licensee may use the Software in a SaaS Offering only if:
+   a) The SaaS Offering is part of a comprehensive Business Management Platform that includes multiple integrated business functions beyond invoice management;
+   b) The Software is used as an integrated component within the Business Management Platform;
+   c) The primary value proposition of the SaaS Offering is not invoice management but rather the broader business management capabilities;
+   d) Licensee provides Licensor with quarterly reports of SaaS usage and revenue;
+
+3. FEES AND PAYMENT
+
+3.1 Licensee shall pay Licensor the following fees:
+   - One-time license fee: $[AMOUNT] USD
+   - Annual maintenance and support fee: $[AMOUNT] USD (due annually on the anniversary of the Effective Date)
+   - SaaS usage fee (if applicable): $[AMOUNT] per active user per month for any SaaS deployment
+
+3.2 All fees are non-refundable and exclude applicable taxes.
+
+3.3 Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is less.
+
+4. SUPPORT AND MAINTENANCE
+
+4.1 Licensor shall provide technical support for the Software for a period of [NUMBER] year(s) from the Effective Date.
+
+4.2 Support includes:
+   - Email-based technical support during business hours
+   - Bug fixes for critical issues
+   - Access to software updates and patches
+
+5. WARRANTY AND LIMITATION OF LIABILITY
+
+5.1 Licensor warrants that it has the right to grant the license granted herein.
+
+5.2 EXCEPT AS EXPRESSLY PROVIDED ABOVE, THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+5.3 IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, OR USE, ARISING OUT OF OR IN CONNECTION WITH THIS AGREEMENT OR THE USE OF THE SOFTWARE.
+
+5.4 Licensor's total liability under this Agreement shall not exceed the amount of fees paid by Licensee in the twelve (12) months preceding the claim.
+
+6. INTELLECTUAL PROPERTY
+
+6.1 Licensee acknowledges that the Software contains valuable trade secrets and confidential information owned by Licensor.
+
+6.2 Licensee agrees not to reverse engineer, decompile, or disassemble the Software except as permitted by applicable law.
+
+6.3 Any modifications or improvements made by Licensee to the Software shall be owned by Licensor.
+
+7. TERM AND TERMINATION
+
+7.1 This Agreement shall commence on the Effective Date and continue for a period of [NUMBER] year(s), unless terminated earlier as provided herein.
+
+7.2 Either party may terminate this Agreement upon thirty (30) days written notice if the other party materially breaches this Agreement and fails to cure such breach within the notice period.
+
+7.3 Upon termination, Licensee shall cease all use of the Software and destroy all copies in its possession.
+
+8. CONFIDENTIALITY
+
+8.1 Each party agrees to maintain the confidentiality of the other party's proprietary information and to use such information only for purposes of this Agreement.
+
+9. GOVERNING LAW
+
+9.1 This Agreement shall be governed by and construed in accordance with the laws of [JURISDICTION], without regard to its conflict of laws principles.
+
+10. GENERAL PROVISIONS
+
+10.1 This Agreement constitutes the entire agreement between the parties and supersedes all prior agreements.
+
+10.2 Any amendments must be in writing and signed by both parties.
+
+10.3 If any provision is held invalid, the remaining provisions shall remain in effect.
+
+10.4 Licensee may not assign this Agreement without Licensor's prior written consent.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date.
+
+LICENSOR: _______________________________    LICENSEE: _______________________________
+[YOUR COMPANY NAME]                        [LICENSEE COMPANY NAME]
+
+By: _____________________________________    By: _____________________________________
+Name: ___________________________________    Name: ___________________________________
+Title: ___________________________________    Title: ___________________________________
+Date: ____________________________________    Date: ____________________________________

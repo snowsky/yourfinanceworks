@@ -591,7 +591,7 @@ This project is dual-licensed under two options:
 2. **Commercial License**:
    - Available for proprietary use, allowing integration into closed-source software without GPLv3 obligations.
    - Suitable for businesses or commercial applications.
-   - To obtain a commercial license, contact us at [email@example.com].
+   - To obtain a commercial license, contact us at [YOUR EMAIL ADDRESS] or visit [YOUR WEBSITE].
    - See [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt) for more information.
 
 ## 🆘 Support
