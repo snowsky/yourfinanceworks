@@ -86,3 +86,5 @@ cryptography==44.0.1  # Cryptographic operations
 # Export Destination
 azure-storage-blob==12.27.1
 google-cloud-storage==3.5.0
+protobuf>=4.25.8 # not directly required, pinned by Snyk to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
