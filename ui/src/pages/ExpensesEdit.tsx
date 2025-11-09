@@ -35,6 +35,7 @@ export default function ExpensesEdit() {
   const [attachments, setAttachments] = useState<ExpenseAttachmentMeta[]>([]);
   const [pendingDelete, setPendingDelete] = useState<Set<number>>(new Set());
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
+  const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
   const [newLabel, setNewLabel] = useState<string>('');
   
@@ -553,12 +554,32 @@ export default function ExpensesEdit() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={async () => {
-                            const blob = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
-                            const url = URL.createObjectURL(blob);
-                            setPreview({ open: true, url, contentType: att.content_type || null, filename: att.filename || null });
-                          }}>
-                            <Eye className="w-4 h-4 mr-2" />
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={async () => {
+                              setPreviewLoading(att.id);
+                              try {
+                                const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
+                                const url = URL.createObjectURL(blob);
+                                setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
+                              } finally {
+                                setPreviewLoading(null);
+                              }
+                            }}
+                            disabled={previewLoading === att.id}
+                          >
+                            {previewLoading === att.id ? (
+                              <>
+                                <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                {t('common.loading')}
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4 mr-2" />
+                                {t('expenses.preview')}
+                              </>
+                            )}
                           </Button>
                           <Button
                             variant={pendingDelete.has(att.id) ? 'outline' : 'destructive'}

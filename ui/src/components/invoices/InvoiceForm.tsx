@@ -190,7 +190,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   const [invoiceAttachment, setInvoiceAttachment] = useState<File | null>(null);
   const [attachmentInfo, setAttachmentInfo] = useState<{ has_attachment: boolean, filename?: string } | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
-
+  const [attachmentPreviewLoading, setAttachmentPreviewLoading] = useState<{ type: 'existing' | 'new'; loading: boolean }>({ type: 'existing', loading: false });
 
   // Custom fields state for UI
   const [customFields, setCustomFields] = useState<{ key: string; value: string }[]>(() => {

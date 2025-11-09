@@ -1198,6 +1198,7 @@ async def delete_expense_attachment(
 async def download_expense_attachment(
     expense_id: int,
     attachment_id: int,
+    inline: bool = False,  # Set to True for preview, False for download
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1220,8 +1221,67 @@ async def download_expense_attachment(
 
     logger.info(f"Attachment found: id={att.id}, file_path='{att.file_path}', filename='{att.filename}'")
 
-    # Check if this is a cloud storage file (file_path doesn't start with local path)
-    if not att.file_path.startswith('/') and not att.file_path.startswith('attachments'):
+    # Import os for environment variable check
+    import os
+
+    # Check if cloud storage is enabled
+    cloud_enabled = os.getenv('CLOUD_STORAGE_ENABLED', 'false').lower() == 'true'
+
+    # PRIORITY 1: Check if local file exists first
+    local_file_exists = False
+    try:
+        from utils.file_validation import validate_file_path
+        validated_path = validate_file_path(att.file_path)
+        local_file_exists = os.path.exists(validated_path)
+        if local_file_exists:
+            logger.info(f"Local file exists at: {validated_path}")
+    except Exception as e:
+        logger.debug(f"Local file check failed: {e}")
+
+    # If local file exists, serve it directly
+    if local_file_exists:
+        try:
+            from io import BytesIO
+            import mimetypes
+
+            # Determine content type - try to guess from filename first
+            media_type = att.content_type
+            if not media_type or media_type == 'application/octet-stream':
+                # Try to guess from filename
+                guessed_type, _ = mimetypes.guess_type(att.filename or validated_path)
+                if guessed_type:
+                    media_type = guessed_type
+                    logger.info(f"Guessed content type from filename '{att.filename}': {media_type}")
+                else:
+                    media_type = 'application/octet-stream'
+
+            disposition = "inline" if inline else "attachment"
+
+            with open(validated_path, 'rb') as f:
+                file_content = f.read()
+
+            logger.info(f"Serving local file: size={len(file_content)}, type={media_type}")
+
+            return StreamingResponse(
+                BytesIO(file_content),
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f"{disposition}; filename={att.filename}",
+                    "Content-Length": str(len(file_content))
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to serve local file, will try cloud: {e}")
+
+    # PRIORITY 2: Try cloud storage if enabled and local file doesn't exist
+    # Check if this is potentially a cloud file
+    is_cloud_file = (
+        cloud_enabled and 
+        not att.file_path.startswith('/') and 
+        not att.file_path.startswith('attachments/')
+    )
+
+    if is_cloud_file:
         # This is a cloud storage file - download directly using boto3
         try:
             import boto3
@@ -1231,15 +1291,51 @@ async def download_expense_attachment(
 
             logger.info(f"Downloading S3 file directly: key='{att.file_path}'")
 
-            # Get AWS credentials from environment
+            # Determine if this is a batch file or manual upload
+            is_batch_file = att.file_path.startswith('batch_files/')
+
+            # Get AWS credentials
             aws_access_key = os.getenv('AWS_S3_ACCESS_KEY_ID')
             aws_secret_key = os.getenv('AWS_S3_SECRET_ACCESS_KEY')
             aws_region = os.getenv('AWS_S3_REGION', 'us-east-1')
             bucket_name = os.getenv('AWS_S3_BUCKET_NAME')
+            path_prefix = None
+
+            # Get path prefix from export destination for batch files (but use env credentials)
+            if is_batch_file:
+                try:
+                    from models.models_per_tenant import ExportDestinationConfig
+                    from services.export_destination_service import ExportDestinationService
+                    
+                    export_service = ExportDestinationService(db, current_user.tenant_id)
+                    
+                    # Get default S3 export destination
+                    export_dest = db.query(ExportDestinationConfig).filter(
+                        ExportDestinationConfig.tenant_id == current_user.tenant_id,
+                        ExportDestinationConfig.destination_type == 's3',
+                        ExportDestinationConfig.is_active == True
+                    ).order_by(ExportDestinationConfig.is_default.desc()).first()
+                    
+                    if export_dest:
+                        try:
+                            credentials = export_service.get_decrypted_credentials(export_dest.id)
+                            if credentials:
+                                # Only get path_prefix, use environment credentials for actual S3 access
+                                path_prefix = credentials.get('path_prefix')
+                                logger.info(f"Batch file - using environment credentials with export destination path_prefix: '{path_prefix}'")
+                        except Exception as e:
+                            logger.warning(f"Failed to decrypt export destination credentials: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to get export destination config: {e}")
+            else:
+                logger.info(f"Manual upload - using environment credentials")
 
             if not all([aws_access_key, aws_secret_key, bucket_name]):
                 logger.error("Missing AWS S3 configuration")
                 raise Exception("AWS S3 configuration incomplete")
+
+            # Log credentials being used (mask sensitive data)
+            logger.info(f"S3 Config - Region: {aws_region}, Bucket: {bucket_name}, Access Key: {aws_access_key[:10]}...")
 
             # Create S3 client
             s3_client = boto3.client(
@@ -1250,40 +1346,89 @@ async def download_expense_attachment(
                 config=Config(signature_version='s3v4')
             )
 
+            # Construct S3 key
+            s3_key = att.file_path
+            
+            # Check if this is a batch file (starts with batch_files/)
+            is_batch_file = s3_key.startswith('batch_files/')
+            
+            if is_batch_file and path_prefix:
+                # Batch file - reconstruct S3 key as: {path_prefix}/{job_id}/{original_filename}
+                import re
+                
+                # Extract generated filename from path: batch_files/tenant_X/{path_prefix}/{job_id}_{index}_{timestamp}.ext
+                match = re.search(r'batch_files/tenant_\d+/[^/]+/(.+)$', att.file_path)
+                if match:
+                    generated_filename = match.group(1)  # job_id_index_timestamp.ext
+                    
+                    # Extract job_id from generated filename (format: job_id_index_timestamp.ext)
+                    job_id_match = re.match(r'([^_]+)_\d+_\d+\..+$', generated_filename)
+                    if job_id_match:
+                        job_id = job_id_match.group(1)
+                        normalized_prefix = path_prefix.strip('/')
+                        # Use the original filename from the attachment record
+                        original_filename = att.filename or generated_filename
+                        s3_key = f"{normalized_prefix}/{job_id}/{original_filename}"
+                        logger.info(f"Batch file - reconstructed S3 key with original filename: '{s3_key}'")
+                    else:
+                        # Fallback: use original filename with path_prefix
+                        normalized_prefix = path_prefix.strip('/')
+                        original_filename = att.filename or generated_filename
+                        s3_key = f"{normalized_prefix}/{original_filename}"
+                        logger.info(f"Batch file - fallback S3 key: '{s3_key}'")
+                else:
+                    logger.warning(f"Could not parse batch file path: {att.file_path}, using as-is")
+            else:
+                # Manual upload - use file_path as-is (already in correct format like tenant_1/expenses/file.jpg)
+                logger.info(f"Manual upload - using file_path as-is: '{s3_key}'")
+            
+            logger.info(f"Attempting S3 download with key: '{s3_key}'")
+
             # Download file content
-            response = s3_client.get_object(Bucket=bucket_name, Key=att.file_path)
+            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
 
             file_content = response['Body'].read()
             content_length = len(file_content)
 
             logger.info(f"Downloaded S3 file: size={content_length}, type={response.get('ContentType', 'application/octet-stream')}")
 
-            # Return file content directly
-            media_type = att.content_type or response.get('ContentType', 'application/octet-stream')
+            # Determine content type - prioritize attachment record, then guess from filename, then S3 metadata
+            media_type = att.content_type
+            if not media_type or media_type == 'application/octet-stream' or media_type == 'text/csv':
+                # Try to guess from filename
+                import mimetypes
+                guessed_type, _ = mimetypes.guess_type(att.filename or '')
+                if guessed_type:
+                    media_type = guessed_type
+                    logger.info(f"Guessed content type from filename: {media_type}")
+                else:
+                    media_type = response.get('ContentType', 'application/octet-stream')
+            
+            logger.info(f"Using content type: {media_type}")
+            
+            # Use inline disposition for preview, attachment for download
+            disposition = "inline" if inline else "attachment"
 
             return StreamingResponse(
                 BytesIO(file_content),
                 media_type=media_type,
                 headers={
-                    "Content-Disposition": f"attachment; filename={att.filename}",
+                    "Content-Disposition": f"{disposition}; filename={att.filename}",
                     "Content-Length": str(content_length)
                 }
             )
 
         except Exception as e:
-            logger.error(f"S3 download exception: {e}")
-            # Fall back to local file handling
-            raise Exception(f"S3 download error: {e}")
-
-    # Local file or cloud storage fallback - serve directly
-    try:
-        from utils.file_validation import validate_file_path
-        validated_path = validate_file_path(att.file_path)
-        media_type = att.content_type or 'application/octet-stream'
-        return FileResponse(path=validated_path, filename=att.filename, media_type=media_type)
-    except Exception as e:
-        logger.error(f"Failed to serve local file: {e}")
-        raise HTTPException(status_code=404, detail="Attachment file not accessible")
+            logger.error(f"S3 download failed: {e}")
+            # Both local and cloud failed
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Attachment file not accessible (tried local and cloud storage)"
+            )
+    
+    # If we reach here, cloud storage is not enabled and local file doesn't exist
+    logger.error(f"File not found: local file doesn't exist and cloud storage not enabled")
+    raise HTTPException(status_code=404, detail="Attachment file not found")
 
 
 # Basic Expense Analytics Endpoints (for Expenses page summary)

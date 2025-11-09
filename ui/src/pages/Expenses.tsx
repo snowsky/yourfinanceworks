@@ -107,19 +107,23 @@ const Expenses = () => {
   const [selectedNewApproverId, setSelectedNewApproverId] = useState<string>('');
   const [availableNewApprovers, setAvailableNewApprovers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
+  const [previewLoading, setPreviewLoading] = useState<{ expenseId: number; attachmentId: number } | null>(null);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
-  
+
   // Inventory consumption state for new expense
   const [isNewInventoryConsumption, setIsNewInventoryConsumption] = useState(false);
   const [newConsumptionItems, setNewConsumptionItems] = useState<any[]>([]);
-  
+
   // Inventory consumption state for edit expense
   const [isEditInventoryConsumption, setIsEditInventoryConsumption] = useState(false);
   const [editConsumptionItems, setEditConsumptionItems] = useState<any[]>([]);
 
   // Processing lock state for expenses
   const [processingLocks, setProcessingLocks] = useState<Set<number>>(new Set());
+
+  // Creating state for new expense modal
+  const [creating, setCreating] = useState(false);
 
   // Fetch invoice options for linking
   useEffect(() => {
@@ -204,15 +208,15 @@ const Expenses = () => {
         limit: pageSize,
         excludeStatus: 'pending_approval' // Exclude pending approval expenses from the API
       });
-      
+
       // Reset to page 1 if current page has no results but we're not on page 1
       if (data.length === 0 && page > 1) {
         setPage(1);
         return;
       }
-      
+
       setExpenses(data);
-      
+
       // Determine if there's a next page based on the current page and total results
       // If we got exactly pageSize results, there might be more, so probe the next page
       if (data.length === pageSize) {
@@ -307,17 +311,24 @@ const Expenses = () => {
   };
 
   const handleCreate = async () => {
+    // Prevent multiple submissions
+    if (creating) return;
+    
+    setCreating(true);
     try {
       if ((!newExpense.amount || Number(newExpense.amount) === 0) && !newReceiptFile) {
         toast.error('Amount is required unless importing from a file');
+        setCreating(false);
         return;
       }
       if (!newExpense.category) {
         toast.error('Category is required');
+        setCreating(false);
         return;
       }
       if (isNewInventoryConsumption && (!newConsumptionItems || newConsumptionItems.length === 0)) {
         toast.error('Inventory consumption must include at least one item');
+        setCreating(false);
         return;
       }
       const payload = {
@@ -380,6 +391,8 @@ const Expenses = () => {
       setIsCreateOpen(false);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create expense');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -1236,9 +1249,19 @@ const Expenses = () => {
               </div>
             </div>
             <div className="p-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('expenses.cancel')}</Button>
-              <Button onClick={handleCreate} disabled={submitNewForApproval && !selectedNewApproverId}>
-                {submitNewForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.buttons.create')}
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateOpen(false)}
+                disabled={creating}
+              >
+                {t('expenses.cancel')}
+              </Button>
+              <Button
+                onClick={handleCreate}
+                disabled={creating || (submitNewForApproval && !selectedNewApproverId)}
+                className={creating ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
+              >
+                {creating ? t('common.saving') : (submitNewForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.buttons.create'))}
               </Button>
             </div>
           </DialogContent>
@@ -1449,12 +1472,25 @@ const Expenses = () => {
                           size="sm"
                           onClick={async () => {
                             if (!attachmentPreviewOpen.expenseId) return;
-                            const blob = await expenseApi.downloadAttachmentBlob(attachmentPreviewOpen.expenseId, att.id);
-                            const url = URL.createObjectURL(blob);
-                            setPreview({ open: true, url, contentType: att.content_type || null, filename: att.filename || null });
+                            setPreviewLoading({ expenseId: attachmentPreviewOpen.expenseId, attachmentId: att.id });
+                            try {
+                              const { blob, contentType } = await expenseApi.downloadAttachmentBlob(attachmentPreviewOpen.expenseId, att.id);
+                              const url = URL.createObjectURL(blob);
+                              setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
+                            } finally {
+                              setPreviewLoading(null);
+                            }
                           }}
+                          disabled={previewLoading?.expenseId === attachmentPreviewOpen.expenseId && previewLoading?.attachmentId === att.id}
                         >
-                          {t('expenses.preview')}
+                          {previewLoading?.expenseId === attachmentPreviewOpen.expenseId && previewLoading?.attachmentId === att.id ? (
+                            <>
+                              <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            t('expenses.preview')
+                          )}
                         </Button>
                       </div>
                     </li>

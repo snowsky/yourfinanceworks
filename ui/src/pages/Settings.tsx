@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 import { getErrorMessage } from '@/lib/api';
 import APIClientManagement from "@/components/APIClientManagement/APIClientManagement";
 import CookieSettings from "@/components/settings/CookieSettings";
+import ExportDestinationsTab from "@/components/settings/ExportDestinationsTab";
 import { getCurrentUser } from "@/utils/auth";
 
 const Settings = () => {
@@ -1260,6 +1261,7 @@ const Settings = () => {
                 <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>
                 <TabsTrigger value="email-notifications" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.email_notifications')}</TabsTrigger>
                 <TabsTrigger value="tax-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.tax_integration')}</TabsTrigger>
+                <TabsTrigger value="export-destinations" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export_destinations')}</TabsTrigger>
               </>
             )}
             <TabsTrigger value="cookies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.cookies')}</TabsTrigger>
@@ -2527,6 +2529,12 @@ const Settings = () => {
                 </CardContent>
               </Card>
             </div>
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="export-destinations" className="mt-6">
+              <ExportDestinationsTab isAdmin={isAdmin} />
             </TabsContent>
           )}
 

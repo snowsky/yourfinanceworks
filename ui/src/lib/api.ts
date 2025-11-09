@@ -1797,7 +1797,7 @@ export const expenseApi = {
   deleteAttachment: async (expenseId: number, attachmentId: number) => {
     return apiRequest(`/expenses/${expenseId}/attachments/${attachmentId}`, { method: 'DELETE' });
   },
-  downloadAttachmentBlob: async (expenseId: number, attachmentId: number): Promise<Blob> => {
+  downloadAttachmentBlob: async (expenseId: number, attachmentId: number, inline: boolean = true): Promise<{ blob: Blob; contentType: string | null }> => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
@@ -1810,14 +1810,16 @@ export const expenseApi = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download`;
+    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
     const resp = await fetch(url, { headers });
     if (!resp.ok) {
       const text = await resp.text();
       try { throw new Error(JSON.parse(text).detail || 'Failed to download'); }
       catch { throw new Error(text || 'Failed to download'); }
     }
-    return await resp.blob();
+    const blob = await resp.blob();
+    const contentType = resp.headers.get('content-type');
+    return { blob, contentType };
   },
   reprocessExpense: (expenseId: number) =>
     apiRequest<{ message: string; status: string }>(`/expenses/${expenseId}/reprocess`, {
@@ -3048,4 +3050,88 @@ export const activityApi = {
       return activityDate >= new Date(startDate) && activityDate <= new Date(endDate);
     });
   }
+};
+
+// ============================================================================
+// Export Destination API Types
+// ============================================================================
+
+export interface ExportDestination {
+  id: number;
+  tenant_id: number;
+  name: string;
+  destination_type: 's3' | 'azure' | 'gcs' | 'google_drive';
+  is_active: boolean;
+  is_default: boolean;
+  config?: Record<string, any>;
+  masked_credentials?: Record<string, string>;
+  last_test_at?: string;
+  last_test_success?: boolean;
+  last_test_error?: string;
+  created_at: string;
+  updated_at?: string;
+  created_by?: number;
+}
+
+export interface ExportDestinationCreate {
+  name: string;
+  destination_type: 's3' | 'azure' | 'gcs' | 'google_drive';
+  credentials: Record<string, any>;
+  config?: Record<string, any>;
+  is_default?: boolean;
+}
+
+export interface ExportDestinationUpdate {
+  name?: string;
+  credentials?: Record<string, any>;
+  config?: Record<string, any>;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+
+export interface ExportDestinationTestResult {
+  success: boolean;
+  message: string;
+  error_details?: string;
+  tested_at: string;
+}
+
+// ============================================================================
+// Export Destination API Methods
+// ============================================================================
+
+export const exportDestinationApi = {
+  // Get all export destinations for the current tenant
+  getDestinations: () =>
+    apiRequest<ExportDestination[]>('/export-destinations/'),
+
+  // Get a specific export destination
+  getDestination: (id: number) =>
+    apiRequest<ExportDestination>(`/export-destinations/${id}`),
+
+  // Create a new export destination
+  createDestination: (data: ExportDestinationCreate) =>
+    apiRequest<ExportDestination>('/export-destinations/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Update an export destination
+  updateDestination: (id: number, data: ExportDestinationUpdate) =>
+    apiRequest<ExportDestination>(`/export-destinations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // Delete an export destination
+  deleteDestination: (id: number) =>
+    apiRequest<{ message: string }>(`/export-destinations/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Test connection to an export destination
+  testConnection: (id: number) =>
+    apiRequest<ExportDestinationTestResult>(`/export-destinations/${id}/test`, {
+      method: 'POST',
+    }),
 };

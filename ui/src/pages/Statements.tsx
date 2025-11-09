@@ -70,6 +70,7 @@ export default function Statements() {
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
@@ -396,6 +397,7 @@ export default function Statements() {
   // DRY helpers for preview/download
   const handlePreview = async (id: number) => {
     try {
+      setPreviewLoading(id);
       const { blob, contentType } = await bankStatementApi.fetchFileBlob(id, true);
       const type = contentType || blob.type || 'application/pdf';
       setPreviewType(type);
@@ -414,6 +416,8 @@ export default function Statements() {
       setPreviewOpen(true);
     } catch (e: any) {
       toast.error(e?.message || t('statements.failed_to_preview'));
+    } finally {
+      setPreviewLoading(null);
     }
   };
 
@@ -481,8 +485,22 @@ export default function Statements() {
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
                             <Eye className="w-4 h-4 mr-1" /> {t('statements.open')}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handlePreview(s.id)}>
-                            <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePreview(s.id)}
+                            disabled={previewLoading === s.id}
+                          >
+                            {previewLoading === s.id ? (
+                              <>
+                                <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                              </>
+                            )}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)}>
                             <Download className="w-4 h-4 mr-1" /> {t('statements.download')}
@@ -561,8 +579,21 @@ export default function Statements() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => selected && handlePreview(selected)}>
-                    <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                  <Button
+                    variant="outline"
+                    onClick={() => selected && handlePreview(selected)}
+                    disabled={previewLoading === selected}
+                  >
+                    {previewLoading === selected ? (
+                      <>
+                        <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                      </>
+                    )}
                   </Button>
                   <Button variant="outline" onClick={() => selected && handleDownload(selected, detail?.original_filename)}>
                     <Download className="w-4 h-4 mr-1" /> {t('statements.download')}

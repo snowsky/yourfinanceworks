@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,9 @@ export default function ExpensesNew() {
   });
   const [files, setFiles] = useState<FileData[]>([]);
   const [saving, setSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isProcessingRef = useRef(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
   const [isInventoryPurchase, setIsInventoryPurchase] = useState(false);
   const [inventoryPurchaseItems, setInventoryPurchaseItems] = useState<any[]>([]);
@@ -184,11 +187,41 @@ export default function ExpensesNew() {
     }
   };
 
-  const onSubmit = async () => {
-    try {
-      setSaving(true);
+  const onSubmit = useCallback(async (event?: React.MouseEvent) => {
+    // Prevent default behavior and stop propagation immediately
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
+    // Check if already processing - return early if so
+    if (isProcessingRef.current || isSubmitting) {
+      return;
+    }
+
+    // Immediately disable button and set processing state
+    if (buttonRef.current) {
+      buttonRef.current.disabled = true;
+      buttonRef.current.style.pointerEvents = 'none';
+      buttonRef.current.style.opacity = '0.5';
+      buttonRef.current.style.cursor = 'not-allowed';
+    }
+
+    isProcessingRef.current = true;
+    setIsSubmitting(true);
+    setSaving(true);
+
+    try {
       if (!validateExpenseForm()) {
+        // Re-enable button on validation failure
+        if (buttonRef.current) {
+          buttonRef.current.disabled = false;
+          buttonRef.current.style.pointerEvents = 'auto';
+          buttonRef.current.style.opacity = '1';
+          buttonRef.current.style.cursor = 'pointer';
+        }
+        isProcessingRef.current = false;
+        setIsSubmitting(false);
         return;
       }
 
@@ -198,9 +231,13 @@ export default function ExpensesNew() {
         // Store the created expense ID and show approval dialog
         setCreatedExpenseId(created.id);
         setShowApprovalDialog(true);
+        // Keep button disabled when showing approval dialog
       } else {
         toast.success(isInventoryConsumption ? t('expenses.consumption_expense_created_successfully') : t('expenses.expense_created'));
-        window.history.back();
+        // Small delay to show success message before navigating
+        setTimeout(() => {
+          window.history.back();
+        }, 1000);
       }
     } catch (e: any) {
       const addNotification = (window as any).addAINotification;
@@ -208,10 +245,42 @@ export default function ExpensesNew() {
         addNotification?.('error', 'Expense Processing Failed', `Failed to process expense receipts: ${e?.message || 'Unknown error'}`);
       }
       toast.error(e?.message || t('expenses.failed_to_create'));
+      // Re-enable button on error
+      if (buttonRef.current) {
+        buttonRef.current.disabled = false;
+        buttonRef.current.style.pointerEvents = 'auto';
+        buttonRef.current.style.opacity = '1';
+        buttonRef.current.style.cursor = 'pointer';
+      }
+      isProcessingRef.current = false;
+      setIsSubmitting(false);
     } finally {
       setSaving(false);
     }
+  }, [submitForApproval, isInventoryConsumption, files, isSubmitting]);
+
+  // Reset button state when approval dialog is closed
+  const handleApprovalDialogClose = (open: boolean) => {
+    setShowApprovalDialog(open);
+    if (!open) {
+      // When dialog is closed (either submitted or cancelled), reset processing state and re-enable button
+      if (buttonRef.current) {
+        buttonRef.current.disabled = false;
+        buttonRef.current.style.pointerEvents = 'auto';
+        buttonRef.current.style.opacity = '1';
+        buttonRef.current.style.cursor = 'pointer';
+      }
+      isProcessingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
+
+  // Cleanup effect to reset processing state
+  useEffect(() => {
+    return () => {
+      isProcessingRef.current = false;
+    };
+  }, []);
 
   return (
     <AppLayout>
@@ -502,8 +571,19 @@ export default function ExpensesNew() {
         </Card>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.history.back()}>{t('common.cancel')}</Button>
-          <Button onClick={onSubmit} disabled={saving || (submitForApproval && !selectedApproverId)}>
+          <Button 
+            variant="outline" 
+            onClick={() => window.history.back()}
+            disabled={saving || isSubmitting}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            ref={buttonRef}
+            onClick={onSubmit}
+            disabled={saving || isSubmitting || (submitForApproval && !selectedApproverId)}
+            className={(saving || isSubmitting) ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
+          >
             {saving ? t('common.saving') : (submitForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.create_expense'))}
           </Button>
         </div>
@@ -511,7 +591,7 @@ export default function ExpensesNew() {
         {/* Approval Submission Dialog */}
         <ApprovalSubmissionDialog
           open={showApprovalDialog}
-          onOpenChange={setShowApprovalDialog}
+          onOpenChange={handleApprovalDialogClose}
           onConfirm={handleApprovalSubmission}
           expenseAmount={Number(form.amount || 0)}
           currency={form.currency || 'USD'}

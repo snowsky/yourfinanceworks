@@ -55,7 +55,11 @@
     "selected": "sélectionné",
     "unknownVendor": "Fournisseur Inconnu",
     "refresh": "Actualiser",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "hide": "Masquer",
+    "show": "Afficher"
   },
   "navigation": {
     "dashboard": "Tableau de Bord",

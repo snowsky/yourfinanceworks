@@ -44,7 +44,8 @@
     "navigation": "Navigation",
     "current_language": "Langue Actuelle",
     "available_languages": "Langues Disponibles",
-    "view_all": "Voir Tout"
+    "view_all": "Voir Tout",
+    "create": "Créer"
   },
   "navigation": {
     "dashboard": "Tableau de Bord",

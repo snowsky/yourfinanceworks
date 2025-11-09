@@ -325,9 +325,9 @@ export default function ExpensesView() {
                           {att.filename}
                         </div>
                         <Button variant="outline" size="sm" onClick={async () => {
-                          const blob = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
+                          const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
                           const url = URL.createObjectURL(blob);
-                          setPreview({ open: true, url, contentType: att.content_type || null, filename: att.filename || null });
+                          setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
                         }}>
                           <Eye className="w-4 h-4 mr-2" />
                           {t('common.view')}

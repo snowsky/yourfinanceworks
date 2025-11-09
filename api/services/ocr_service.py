@@ -196,6 +196,94 @@ def publish_ocr_usage_metrics(db: Session, operation_type: str, extraction_metho
 
 # Keep producers alive across calls so messages can be delivered before process exit
 _PRODUCER_CACHE: dict[str, dict[str, any]] = {}
+def _parse_csv_like_response(text: str) -> Optional[Dict[str, Any]]:
+    """Parse CSV-like responses that some AI models return instead of JSON."""
+    import re
+
+    # Check if this looks like a CSV response (comma-separated values)
+    if ',' not in text or '{' in text:
+        return None
+
+    # Try to parse as comma-separated values
+    parts = [p.strip() for p in text.split(',')]
+
+    if len(parts) < 3:
+        return None
+
+    data: Dict[str, Any] = {}
+
+    # Smart parsing: detect what each field contains
+    for i, value in enumerate(parts):
+        value = value.strip()
+
+        # Skip null/empty values
+        if value.lower() in ('null', 'none', 'n/a', ''):
+            continue
+
+        # Check for currency code (3 uppercase letters)
+        if re.match(r'^[A-Z]{3}$', value):
+            if 'currency' not in data:
+                data['currency'] = value
+                continue
+
+        # Check for date (YYYY-MM-DD or similar)
+        if re.match(r'^\d{4}[-/]\d{2}[-/]\d{2}$', value):
+            if 'expense_date' not in data:
+                data['expense_date'] = value
+                continue
+
+        # Check for timestamp (YYYY-MM-DD HH:MM:SS)
+        if re.match(r'^\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}', value):
+            if 'receipt_timestamp' not in data:
+                data['receipt_timestamp'] = value
+                continue
+
+        # Check for amount with currency symbol ($13.97, €10.00, etc.)
+        amount_match = re.search(r'([$€£¥₹])\s*([0-9.,]+)', value)
+        if amount_match:
+            try:
+                amount_str = amount_match.group(2).replace(',', '')
+                amount_val = float(amount_str)
+
+                # Determine if this is total_amount or regular amount
+                if 'amount' not in data:
+                    data['amount'] = amount_val
+                elif 'total_amount' not in data:
+                    data['total_amount'] = amount_val
+
+                # Extract currency from symbol if not already set
+                if 'currency' not in data:
+                    symbol = amount_match.group(1)
+                    currency_map = {'$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₹': 'INR'}
+                    data['currency'] = currency_map.get(symbol, 'USD')
+                continue
+            except:
+                pass
+
+        # Check for plain number (could be amount, tax, etc.)
+        try:
+            num_val = float(re.sub(r'[^0-9.-]', '', value))
+            if 'amount' not in data and num_val > 0:
+                data['amount'] = num_val
+            elif 'tax_amount' not in data and num_val > 0:
+                data['tax_amount'] = num_val
+            elif 'total_amount' not in data and num_val > 0:
+                data['total_amount'] = num_val
+            continue
+        except:
+            pass
+
+        # If we haven't categorized it yet, it might be vendor or category
+        if len(value) > 2 and not value.replace('.', '').replace('-', '').isdigit():
+            if 'vendor' not in data:
+                data['vendor'] = value
+            elif 'category' not in data:
+                data['category'] = value
+
+    logger.info(f"Parsed CSV-like response into {len(data)} fields: {list(data.keys())}")
+    return data if data else None
+
+
 def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
     """Heuristic parser for plain OCR text to extract likely fields."""
     import re
@@ -679,11 +767,26 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
             from ollama_ocr import OCRProcessor  # type: ignore
             ocr = OCRProcessor(model_name=model_name, base_url=ocr_endpoint)
             prompt = custom_prompt or (
-                "You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON. "
-                "Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes, receipt_timestamp (YYYY-MM-DD HH:MM:SS if available). "
-                "For receipt_timestamp, extract the exact time from the receipt if visible (not just the date). Look for timestamps like '14:32', '2:45 PM', etc. "
-                "If a field is unknown, set it to null. "
-                "IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations, no headers like '**Receipt Data Extraction**'."
+                "You are an OCR parser. Extract key expense fields from this receipt/invoice image and respond ONLY with valid JSON. "
+                "Required JSON structure:\n"
+                "{\n"
+                '  "amount": <number or null>,\n'
+                '  "currency": "<3-letter code or null>",\n'
+                '  "expense_date": "<YYYY-MM-DD or null>",\n'
+                '  "category": "<category name or null>",\n'
+                '  "vendor": "<vendor/merchant name or null>",\n'
+                '  "tax_rate": <number or null>,\n'
+                '  "tax_amount": <number or null>,\n'
+                '  "total_amount": <number or null>,\n'
+                '  "payment_method": "<method or null>",\n'
+                '  "reference_number": "<reference or null>",\n'
+                '  "notes": "<notes or null>",\n'
+                '  "receipt_timestamp": "<YYYY-MM-DD HH:MM:SS or null>"\n'
+                "}\n"
+                "For receipt_timestamp, extract the exact date and time from the receipt if visible. Look for timestamps like '14:32', '2:45 PM', etc. "
+                "If a field is not found on the receipt, set it to null. "
+                "CRITICAL: Return ONLY the JSON object with these exact keys. Do NOT return CSV, do NOT return comma-separated values, do NOT return markdown. "
+                "Example: {\"amount\": 13.97, \"currency\": \"USD\", \"expense_date\": \"2023-09-13\", \"vendor\": \"Store Name\", ...}"
             )
             loop = asyncio.get_running_loop()
             import time
@@ -1108,6 +1211,19 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             # Map fields robustly
             extracted = result if isinstance(result, dict) else {}
             logger.info(f"OCR extracted keys: {list(extracted.keys()) if isinstance(extracted, dict) else 'non-dict result'}")
+            # Debug: Log the actual extracted data to see what the AI returned
+            if isinstance(extracted, dict):
+                logger.info(f"OCR extracted data: {json.dumps(extracted, indent=2, default=str)}")
+
+                # Check if vendor field contains CSV-like data (common AI model error)
+                vendor_value = extracted.get('vendor', '')
+                if isinstance(vendor_value, str) and vendor_value.count(',') >= 3:
+                    logger.warning(f"Detected CSV-like data in vendor field: {vendor_value[:100]}...")
+                    # Try to parse as CSV
+                    csv_parsed = _parse_csv_like_response(vendor_value)
+                    if csv_parsed:
+                        logger.info(f"Successfully parsed CSV-like response, replacing extracted data")
+                        extracted = csv_parsed
 
             # If we only got raw text, first try to extract embedded JSON, then try heuristics
             if set(extracted.keys()) == {"raw"} and isinstance(extracted.get("raw"), str):

@@ -55,7 +55,11 @@
     "selected": "seleccionado",
     "unknownVendor": "Proveedor Desconocido",
     "refresh": "Actualizar",
-    "saving": "Guardando..."
+    "saving": "Guardando...",
+    "create": "Crear",
+    "update": "Actualizar",
+    "hide": "Ocultar",
+    "show": "Mostrar"
   },
   "navigation": {
     "dashboard": "Panel de Control",

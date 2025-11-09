@@ -47,7 +47,11 @@
     "navigation": "Navigation",
     "current_language": "Aktuelle Sprache",
     "available_languages": "Verfügbare Sprachen",
-    "saving": "Wird gespeichert..."
+    "saving": "Wird gespeichert...",
+    "create": "Erstellen",
+    "update": "Aktualisieren",
+    "hide": "Verbergen",
+    "show": "Anzeigen"
   },
   "navigation": {
     "dashboard": "Dashboard",
