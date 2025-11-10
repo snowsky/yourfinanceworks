@@ -1180,6 +1180,8 @@
     "failed_to_permanently_delete_invoice": "Échec de la suppression définitive de la facture",
     "failed_to_load_deleted_invoices": "Échec du chargement des factures supprimées",
     "confirm_empty_recycle_bin": "Êtes-vous sûr de vouloir supprimer définitivement TOUTES les factures de la corbeille ? Cette action ne peut pas être annulée.",
+    "empty_recycle_bin_confirm_title": "Vider la Corbeille",
+    "empty_recycle_bin_confirm_description": "Êtes-vous sûr de vouloir supprimer définitivement toutes les factures de la corbeille ? Cette action ne peut pas être annulée et toutes les factures supprimées seront complètement retirées du système.",
     "recycle_bin_emptied_successfully": "Corbeille vidée avec succès",
     "failed_to_empty_recycle_bin": "Échec de la vidange de la corbeille"
   },

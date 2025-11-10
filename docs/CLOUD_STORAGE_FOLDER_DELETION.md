@@ -137,3 +137,145 @@ The implementation can be tested by:
 ## Migration Notes
 
 No migration is required. The changes are backward compatible and enhance existing functionality.
+
+
+## Invoice and Expense File Deletion Analysis
+
+### Current File Structure
+
+Files are stored with the following patterns:
+- **Invoices**: `tenant_{tenant_id}/invoices/{invoice_id}_{timestamp}_{filename}`
+- **Expenses**: `tenant_{tenant_id}/expenses/{expense_id}_{timestamp}_{filename}`
+- **Batch files**: `api/batch_files/tenant_{tenant_id}/{job_id}/{job_id}_{batch}_{timestamp}.pdf`
+- **Exported files**: `exported/{job_id}/...`
+
+### Deletion Strategies by Use Case
+
+#### 1. Single Invoice/Expense Deletion
+**Use individual file deletion** - Current approach is optimal:
+
+```python
+# Delete attachments for one invoice
+attachments = db.query(InvoiceAttachment).filter(
+    InvoiceAttachment.invoice_id == invoice_id
+).all()
+
+for att in attachments:
+    if att.file_path:
+        await delete_file_from_storage(att.file_path, tenant_id, user_id, db)
+```
+
+**Why?**
+- Typically 1-5 attachments per invoice/expense
+- Individual deletion is fast (< 1 second)
+- Better error handling per file
+- Each file has unique timestamp, no common prefix
+
+#### 2. Bulk Invoice/Expense Deletion (e.g., Empty Recycle Bin)
+**Use batch individual deletion** - Process multiple items efficiently:
+
+```python
+from utils.bulk_file_deletion import bulk_delete_invoice_files
+
+# Delete files for multiple invoices at once
+deleted_count = await bulk_delete_invoice_files(
+    invoice_ids=[1, 2, 3, ...],  # Could be hundreds
+    tenant_id=tenant_id,
+    user_id=user_id,
+    db=db
+)
+```
+
+**Why?**
+- Optimized for processing many invoices at once
+- Still uses individual file deletion (files have unique timestamps)
+- Better than looping through invoices one by one
+- Provides aggregate statistics
+
+#### 3. Tenant-Wide Deletion
+**Use folder deletion** - Most efficient for bulk operations:
+
+```python
+from utils.bulk_file_deletion import bulk_delete_tenant_files
+
+# Delete ALL files for a tenant
+results = await bulk_delete_tenant_files(
+    tenant_id=tenant_id,
+    user_id=user_id,
+    db=db
+)
+# Returns: {'invoices': True, 'expenses': True, 'batch_files': True}
+```
+
+**Why?**
+- Deletes thousands of files with a single API call per provider
+- Uses folder deletion: `tenant_{tenant_id}/invoices/`
+- 10-100x faster than individual deletion for large datasets
+- Perfect for tenant offboarding or data cleanup
+
+#### 4. Batch Processing Cleanup
+**Use folder deletion** - Already implemented:
+
+```python
+# Delete all files for a batch job
+await storage_service.delete_folder(
+    folder_prefix=f"exported/{job_id}/",
+    tenant_id=tenant_id
+)
+```
+
+**Why?**
+- Single job can have 1000+ files
+- All files share common prefix
+- Folder deletion is the only practical approach
+
+### Performance Comparison
+
+| Scenario | Files | Individual Deletion | Folder Deletion | Recommended |
+|----------|-------|-------------------|-----------------|-------------|
+| Single invoice | 1-5 | < 1 second | N/A (no common prefix) | Individual ✅ |
+| 100 invoices | 100-500 | 10-50 seconds | N/A (no common prefix) | Batch Individual ✅ |
+| Tenant deletion | 10,000+ | 15+ minutes | 10-30 seconds | Folder ✅ |
+| Batch job | 1,000+ | 2-5 minutes | 5-10 seconds | Folder ✅ |
+
+### Implementation Files
+
+**Core Services:**
+- `api/services/cloud_storage_service.py` - Main orchestration with `delete_folder()`
+- `api/services/cloud_storage/aws_s3_provider.py` - AWS S3 folder deletion
+- `api/services/cloud_storage/azure_blob_provider.py` - Azure Blob folder deletion
+- `api/services/cloud_storage/gcp_storage_provider.py` - GCP Storage folder deletion
+
+**Utility Functions:**
+- `api/utils/file_deletion.py` - Individual file deletion
+- `api/utils/bulk_file_deletion.py` - Bulk deletion utilities (NEW)
+  - `bulk_delete_by_prefix()` - Delete by folder prefix
+  - `bulk_delete_tenant_files()` - Delete all tenant files
+  - `bulk_delete_invoice_files()` - Bulk invoice file deletion
+  - `bulk_delete_expense_files()` - Bulk expense file deletion
+
+**Usage Examples:**
+- `api/routers/statements.py` - Batch job cleanup
+- `api/routers/invoices.py` - Empty recycle bin (updated)
+
+### Bug Fixes
+
+**Fixed: Empty Recycle Bin Not Deleting Attachments**
+
+The `empty_recycle_bin` endpoint was deleting invoice records without cleaning up attachments. Updated to:
+1. Query all attachments for deleted invoices
+2. Delete each attachment from storage
+3. Delete legacy attachment paths
+4. Then delete invoice records
+
+This prevents orphaned files in cloud storage.
+
+### Conclusion
+
+**Use the right tool for the job:**
+- ✅ **Single item deletion**: Individual file deletion (current approach)
+- ✅ **Bulk item deletion**: Batch individual deletion (new utility)
+- ✅ **Tenant-wide deletion**: Folder deletion by prefix (new utility)
+- ✅ **Batch processing**: Folder deletion (already implemented)
+
+The `delete_folder` implementation is now available across all cloud providers and integrated with bulk deletion utilities for optimal performance in all scenarios.

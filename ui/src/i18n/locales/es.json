@@ -1251,6 +1251,8 @@
     "failed_to_permanently_delete_invoice": "Error al eliminar permanentemente la factura",
     "failed_to_load_deleted_invoices": "Error al cargar las facturas eliminadas",
     "confirm_empty_recycle_bin": "¿Estás seguro de que quieres eliminar permanentemente TODAS las facturas en la papelera de reciclaje? Esta acción no se puede deshacer.",
+    "empty_recycle_bin_confirm_title": "Vaciar Papelera de Reciclaje",
+    "empty_recycle_bin_confirm_description": "¿Estás seguro de que quieres eliminar permanentemente todas las facturas en la papelera de reciclaje? Esta acción no se puede deshacer y todas las facturas eliminadas serán completamente removidas del sistema.",
     "recycle_bin_emptied_successfully": "Papelera de reciclaje vaciada exitosamente",
     "failed_to_empty_recycle_bin": "Error al vaciar la papelera de reciclaje"
   },

@@ -55,6 +55,7 @@ const Invoices = () => {
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
   const [invoiceToPermanentlyDelete, setInvoiceToPermanentlyDelete] = useState<number | null>(null);
+  const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
@@ -207,6 +208,23 @@ const Invoices = () => {
     }
   };
 
+  const handleEmptyRecycleBin = () => {
+    setEmptyRecycleBinModalOpen(true);
+  };
+
+  const confirmEmptyRecycleBin = async () => {
+    try {
+      const response = await api.post<{ message: string; deleted_count: number }>('/invoices/recycle-bin/empty', {});
+      toast.success(response.message || t('recycleBin.recycle_bin_emptied_successfully'));
+      fetchDeletedInvoices();
+    } catch (error) {
+      console.error('Failed to empty recycle bin:', error);
+      toast.error(t('recycleBin.failed_to_empty_recycle_bin'));
+    } finally {
+      setEmptyRecycleBinModalOpen(false);
+    }
+  };
+
   const handleCloneInvoice = async (invoiceId: number) => {
     try {
       const newInvoice = await invoiceApi.cloneInvoice(invoiceId);
@@ -295,10 +313,23 @@ const Invoices = () => {
           <CollapsibleContent>
             <Card className="slide-in mb-6">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Trash2 className="h-5 w-5" />
-                  {t('recycleBin.title')}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" />
+                    {t('recycleBin.title')}
+                  </CardTitle>
+                  {deletedInvoices.length > 0 && canPerformAction && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleEmptyRecycleBin}
+                      className="gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t('recycleBin.empty_recycle_bin')}
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
@@ -574,6 +605,25 @@ const Invoices = () => {
             <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t('invoices.delete', 'Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Empty Recycle Bin Modal */}
+      <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('recycleBin.empty_recycle_bin_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('recycleBin.empty_recycle_bin_confirm_description')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEmptyRecycleBin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t('recycleBin.empty_recycle_bin')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

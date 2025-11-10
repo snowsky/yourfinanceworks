@@ -785,18 +785,42 @@ async def empty_recycle_bin(
         if count == 0:
             return {"message": "Recycle bin is already empty", "deleted_count": 0}
         
-        # Log the bulk deletion
-        from models.models_per_tenant import InvoiceHistory
-        history_entry = InvoiceHistory(
-            invoice_id=None,  # No specific invoice
-            user_id=current_user.id,
-            action="recycle_bin_emptied",
-            details=f"Recycle bin emptied by {current_user.email}, {count} invoices permanently deleted",
-            current_values={"deleted_count": count}
-        )
-        db.add(history_entry)
+        # Delete all attachments from storage before deleting invoices
+        try:
+            from models.models_per_tenant import InvoiceAttachment
+            
+            # Get all invoice IDs
+            invoice_ids = [inv.id for inv in deleted_invoices]
+            
+            # Get all attachments for these invoices
+            attachments = db.query(InvoiceAttachment).filter(
+                InvoiceAttachment.invoice_id.in_(invoice_ids)
+            ).all()
+            
+            # Delete attachments individually (still needed for proper cleanup)
+            for att in attachments:
+                if att.file_path:
+                    try:
+                        await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete attachment {att.file_path}: {e}")
+            
+            # Also delete legacy attachment paths
+            for invoice in deleted_invoices:
+                if invoice.attachment_path:
+                    try:
+                        await delete_file_from_storage(invoice.attachment_path, current_user.tenant_id, current_user.id, db)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete legacy attachment {invoice.attachment_path}: {e}")
+            
+            if attachments:
+                logger.info(f"Deleted {len(attachments)} attachment(s) from storage during recycle bin empty")
+        except Exception as e:
+            logger.warning(f"Failed to delete attachments during recycle bin empty: {e}")
         
         # Delete all invoices in recycle bin
+        # Note: We don't create InvoiceHistory entries here because invoice_id is required
+        # and we're deleting multiple invoices. The audit log below captures this action.
         for invoice in deleted_invoices:
             db.delete(invoice)
         
