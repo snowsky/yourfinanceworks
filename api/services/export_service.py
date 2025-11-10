@@ -83,6 +83,7 @@ class ExportService:
         'total_debits',
         'total_credits',
         'currency',
+        'transactions',
         'attachment_paths',
         'error_message'
     ]
@@ -273,6 +274,7 @@ class ExportService:
             'transactions_count': str(extracted_data.get('transaction_count', extracted_data.get('transactions_count', ''))),
             'total_debits': self._format_number(extracted_data.get('total_debits')),
             'total_credits': self._format_number(extracted_data.get('total_credits')),
+            'transactions': self._serialize_transactions(extracted_data.get('transactions', [])),
         }
         
         # Return only requested columns
@@ -343,6 +345,26 @@ class ExportService:
             return json.dumps(line_items, separators=(',', ':'))
         except Exception as e:
             logger.warning(f"Failed to serialize line items: {e}")
+            return '[]'
+    
+    def _serialize_transactions(self, transactions: Any) -> str:
+        """
+        Serialize bank statement transactions as JSON string for CSV.
+        
+        Args:
+            transactions: Transactions list
+            
+        Returns:
+            JSON string representation
+        """
+        if not transactions:
+            return '[]'
+        
+        try:
+            # Serialize as compact JSON
+            return json.dumps(transactions, separators=(',', ':'))
+        except Exception as e:
+            logger.warning(f"Failed to serialize transactions: {e}")
             return '[]'
 
     def _format_attachment_paths(self, batch_file: BatchFileProcessing) -> str:

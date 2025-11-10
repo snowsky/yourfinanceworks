@@ -580,24 +580,66 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         # Fallback to legacy service
                         txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
                     
+                    # Get cloud file URL from batch file record
+                    from models.models_per_tenant import BatchFileProcessing
+                    batch_file = db.query(BatchFileProcessing).filter(
+                        BatchFileProcessing.id == int(batch_file_id)
+                    ).first()
+                    cloud_file_url = batch_file.cloud_file_url if batch_file else None
+                    
                     # Create BankStatement record from extracted data
                     created_statement_id = None
                     try:
-                        # BankStatement model fields: tenant_id, original_filename, stored_filename, file_path, status, extracted_count, notes, labels
+                        # BankStatement model fields: tenant_id, original_filename, stored_filename, file_path, cloud_file_url, status, extracted_count, notes, labels
                         statement = BankStatement(
                             tenant_id=tenant_id,
                             original_filename=payload.get("original_filename", "batch_file"),
                             stored_filename=payload.get("stored_filename", payload.get("original_filename", "batch_file")),
                             file_path=file_path,
+                            cloud_file_url=cloud_file_url,
                             status='processed',
                             extracted_count=len(txns) if txns else 0,
                             notes=f"Batch processed from job {batch_job_id}"
                         )
                         db.add(statement)
+                        db.flush()  # Get the statement ID
+                        
+                        # Create attachment record
+                        original_filename = payload.get("original_filename", "batch_file")
+                        attachment = BankStatementAttachment(
+                            statement_id=statement.id,
+                            filename=original_filename,
+                            stored_filename=payload.get("stored_filename", original_filename),
+                            file_path=file_path,
+                            cloud_file_url=cloud_file_url,
+                            file_size=payload.get("file_size", 0),
+                            content_type='application/pdf',
+                            attachment_type='document',
+                            document_type='statement',
+                            uploaded_by=user_id
+                        )
+                        db.add(attachment)
+                        
+                        # Create transaction records
+                        from models.models_per_tenant import BankStatementTransaction
+                        if txns:
+                            for txn in txns:
+                                transaction = BankStatementTransaction(
+                                    statement_id=statement.id,
+                                    date=txn.get('date'),
+                                    description=txn.get('description', ''),
+                                    amount=txn.get('amount', 0.0),
+                                    transaction_type=txn.get('type', 'debit'),
+                                    balance=txn.get('balance'),
+                                    category=txn.get('category')
+                                )
+                                db.add(transaction)
+                            self.logger.info(f"Created {len(txns)} transaction records for statement {statement.id}")
+                        
                         db.commit()
                         
                         created_statement_id = statement.id
-                        self.logger.info(f"Created bank statement record {created_statement_id} from batch file {batch_file_id}")
+                        self.logger.info(f"Created bank statement record {created_statement_id} with {len(txns) if txns else 0} transactions and attachment from batch file {batch_file_id}, cloud_url={cloud_file_url}")
                     except Exception as e:
                         self.logger.error(f"Failed to create bank statement record: {e}")
                         db.rollback()

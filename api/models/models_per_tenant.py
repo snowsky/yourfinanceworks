@@ -356,6 +356,7 @@ class BankStatement(Base):
     original_filename = Column(String, nullable=False)
     stored_filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
+    cloud_file_url = Column(String, nullable=True)  # Cloud storage URL (S3, etc.)
     status = Column(String, default="processed", nullable=False)  # uploaded|processing|processed|failed
     extracted_count = Column(Integer, default=0, nullable=False)
     notes = Column(Text, nullable=True)
@@ -366,6 +367,7 @@ class BankStatement(Base):
 
     # Relationships
     transactions = relationship("BankStatementTransaction", back_populates="statement", cascade="all, delete-orphan")
+    attachments = relationship("BankStatementAttachment", back_populates="statement", cascade="all, delete-orphan")
 
 
 class BankStatementTransaction(Base):
@@ -390,7 +392,45 @@ class BankStatementTransaction(Base):
 
     # Relationships
     statement = relationship("BankStatement", back_populates="transactions")
-    # Note: No explicit relationship to Invoice to avoid circular import in some tooling environments
+
+
+class BankStatementAttachment(Base):
+    __tablename__ = "bank_statement_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    statement_id = Column(Integer, ForeignKey("bank_statements.id", ondelete="CASCADE"), nullable=False)
+
+    # File information
+    filename = Column(String, nullable=False)  # Original filename
+    stored_filename = Column(String, nullable=False)  # Stored filename (usually UUID-based)
+    file_path = Column(String, nullable=False)  # Full path to stored file
+    cloud_file_url = Column(String, nullable=True)  # Cloud storage URL (S3, etc.)
+    file_size = Column(Integer, nullable=False)  # File size in bytes
+    content_type = Column(String, nullable=True)  # MIME type
+    file_hash = Column(String, nullable=True)  # SHA-256 hash for integrity
+
+    # Attachment metadata
+    attachment_type = Column(String, nullable=False)  # 'image' or 'document'
+    document_type = Column(String, nullable=True)  # For documents: statement, supporting_doc, etc.
+    description = Column(Text, nullable=True)  # User-provided description
+
+    # Display and organization
+    display_order = Column(Integer, default=0, nullable=False)  # Order for display
+
+    # Upload tracking
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    upload_ip = Column(String, nullable=True)  # IP address of uploader
+
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False)  # Soft delete support
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    statement = relationship("BankStatement", back_populates="attachments")
+    uploader = relationship("User")
 
 class AIChatHistory(Base):
     __tablename__ = "ai_chat_history"
