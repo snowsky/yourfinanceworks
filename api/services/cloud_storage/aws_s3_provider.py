@@ -731,3 +731,48 @@ class AWSS3Provider(CloudStorageProvider):
             
             self._last_health_check = result
             return result
+
+    async def delete_folder(self, folder_prefix: str) -> bool:
+        """
+        Delete all objects with a given prefix (folder) from AWS S3.
+        
+        Args:
+            folder_prefix: Folder prefix (e.g., "exported/job-id/")
+            
+        Returns:
+            True if folder was deleted successfully, False otherwise
+        """
+        try:
+            # Generate S3 key with security validation
+            s3_prefix = self._generate_s3_key(folder_prefix)
+            
+            logger.info(f"Deleting folder from S3: {s3_prefix}")
+            
+            # List all objects with the prefix using paginator
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=s3_prefix)
+            
+            deleted_count = 0
+            for page in pages:
+                if 'Contents' not in page:
+                    continue
+                
+                # Delete objects in batches (S3 allows up to 1000 objects per request)
+                objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+                if objects_to_delete:
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: self.s3_client.delete_objects(
+                            Bucket=self.bucket_name,
+                            Delete={'Objects': objects_to_delete}
+                        )
+                    )
+                    deleted_count += len(objects_to_delete)
+                    logger.debug(f"Deleted batch of {len(objects_to_delete)} objects from {s3_prefix}")
+            
+            logger.info(f"Successfully deleted {deleted_count} objects from folder {s3_prefix}")
+            return deleted_count > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to delete folder {folder_prefix} from S3: {e}", exc_info=True)
+            return False

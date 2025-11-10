@@ -890,3 +890,42 @@ class AzureBlobProvider(CloudStorageProvider):
         except Exception as e:
             logger.error(f"Failed to create tenant container for {tenant_id}: {str(e)}")
             return False
+   
+ async def delete_folder(self, folder_prefix: str) -> bool:
+        """
+        Delete all blobs with a given prefix (folder) from Azure Blob Storage.
+        
+        Args:
+            folder_prefix: Folder prefix (e.g., "exported/job-id/")
+            
+        Returns:
+            True if folder was deleted successfully, False otherwise
+        """
+        try:
+            # Generate blob prefix with security validation
+            blob_prefix = self._generate_blob_name(folder_prefix)
+            
+            logger.info(f"Deleting folder from Azure Blob: {blob_prefix}")
+            
+            # List all blobs with the prefix
+            blob_list = self.container_client.list_blobs(name_starts_with=blob_prefix)
+            
+            deleted_count = 0
+            for blob in blob_list:
+                try:
+                    # Delete each blob
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda b=blob: self.container_client.delete_blob(b.name)
+                    )
+                    deleted_count += 1
+                    logger.debug(f"Deleted blob: {blob.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete blob {blob.name}: {e}")
+            
+            logger.info(f"Successfully deleted {deleted_count} blobs from folder {blob_prefix}")
+            return deleted_count > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to delete folder {folder_prefix} from Azure Blob: {e}", exc_info=True)
+            return False

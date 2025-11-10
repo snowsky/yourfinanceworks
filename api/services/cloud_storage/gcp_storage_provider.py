@@ -1048,3 +1048,41 @@ class GCPStorageProvider(CloudStorageProvider):
             'path_traversal_protection': True,
             'malicious_pattern_detection': True
         }
+    async def delete_folder(self, folder_prefix: str) -> bool:
+        """
+        Delete all objects with a given prefix (folder) from Google Cloud Storage.
+        
+        Args:
+            folder_prefix: Folder prefix (e.g., "exported/job-id/")
+            
+        Returns:
+            True if folder was deleted successfully, False otherwise
+        """
+        try:
+            # Generate object prefix with security validation
+            object_prefix = self._generate_object_name(folder_prefix)
+            
+            logger.info(f"Deleting folder from GCS: {object_prefix}")
+            
+            # List all blobs with the prefix
+            blobs = self.client.list_blobs(self.bucket_name, prefix=object_prefix)
+            
+            deleted_count = 0
+            for blob in blobs:
+                try:
+                    # Delete each blob
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda b=blob: b.delete()
+                    )
+                    deleted_count += 1
+                    logger.debug(f"Deleted object: {blob.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete object {blob.name}: {e}")
+            
+            logger.info(f"Successfully deleted {deleted_count} objects from folder {object_prefix}")
+            return deleted_count > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to delete folder {folder_prefix} from GCS: {e}", exc_info=True)
+            return False

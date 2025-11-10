@@ -625,13 +625,69 @@ async def delete_statement(
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
 
-    file_path = s.file_path
+    # Check if this statement was created from batch processing
+    from models.models_per_tenant import BatchFileProcessing
+    batch_file = db.query(BatchFileProcessing).filter(
+        BatchFileProcessing.created_statement_id == statement_id
+    ).first()
     
-    # Delete the statement file from storage (cloud and/or local)
-    if file_path:
-        await delete_file_from_storage(file_path, tenant_id, current_user.id, db)
+    if batch_file and batch_file.job_id:
+        # Get the batch job to find export destination
+        from models.models_per_tenant import BatchProcessingJob, ExportDestinationConfig
+        batch_job = db.query(BatchProcessingJob).filter(
+            BatchProcessingJob.job_id == batch_file.job_id
+        ).first()
+        
+        # Get S3 config from export destination or use default
+        bucket_name = None
+        aws_credentials = None
+        if batch_job and batch_job.export_destination_config_id:
+            export_dest = db.query(ExportDestinationConfig).filter(
+                ExportDestinationConfig.id == batch_job.export_destination_config_id
+            ).first()
+            if export_dest and export_dest.config:
+                bucket_name = export_dest.config.get('bucket_name')
+                # Get AWS credentials from export destination
+                aws_credentials = {
+                    'access_key': export_dest.config.get('access_key_id'),
+                    'secret_key': export_dest.config.get('secret_access_key'),
+                    'region': export_dest.config.get('region')
+                }
+        
+        # Delete entire batch job folder from S3
+        job_folder_prefix = f"exported/{batch_file.job_id}/"
+        logger.info(f"Deleting batch job folder from S3: {job_folder_prefix} (bucket: {bucket_name}) for statement {statement_id}")
+        
+        try:
+            from services.cloud_storage_service import CloudStorageService
+            storage_service = CloudStorageService(db)
+            
+            # Delete all files in the job folder
+            tenant_id_str = str(tenant_id)
+            result = await storage_service.delete_folder(job_folder_prefix, tenant_id_str, bucket_name, aws_credentials)
+            if result:
+                logger.info(f"Successfully deleted batch job folder: {job_folder_prefix}")
+            else:
+                logger.warning(f"Failed to delete batch job folder: {job_folder_prefix}")
+        except Exception as e:
+            logger.error(f"Exception deleting batch job folder {job_folder_prefix}: {e}", exc_info=True)
     
-    # Delete the statement record
+    # Delete all attachment files (cloud and local)
+    from models.models_per_tenant import BankStatementAttachment
+    attachments = db.query(BankStatementAttachment).filter(
+        BankStatementAttachment.statement_id == statement_id
+    ).all()
+    
+    for attachment in attachments:
+        # Delete local file if exists
+        if attachment.file_path:
+            await delete_file_from_storage(attachment.file_path, tenant_id, current_user.id, db)
+    
+    # Also delete the main statement file if it exists (for backwards compatibility)
+    if s.file_path:
+        await delete_file_from_storage(s.file_path, tenant_id, current_user.id, db)
+    
+    # Delete the statement record (cascade will delete attachments and transactions)
     try:
         db.delete(s)
         db.commit()

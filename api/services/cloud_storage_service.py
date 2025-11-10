@@ -583,6 +583,86 @@ class CloudStorageService:
         
         return deletion_success
     
+    async def delete_folder(
+        self,
+        folder_prefix: str,
+        tenant_id: str,
+        bucket_name: str = None,
+        aws_credentials: dict = None
+    ) -> bool:
+        """
+        Delete all files in a folder (prefix) from all cloud storage providers.
+        
+        Args:
+            folder_prefix: Folder prefix (e.g., "exported/job-id/")
+            tenant_id: Tenant identifier for logging
+            bucket_name: Optional bucket/container name (uses env var if not provided)
+            aws_credentials: Optional dict with access_key, secret_key, region (AWS only)
+            
+        Returns:
+            True if folder was deleted successfully from at least one provider
+        """
+        logger.info(f"Deleting folder {folder_prefix} for tenant {tenant_id}")
+        
+        deletion_success = False
+        
+        # Try to delete from all cloud providers (excluding local storage)
+        cloud_providers = [StorageProvider.AWS_S3, StorageProvider.AZURE_BLOB, StorageProvider.GCP_STORAGE]
+        
+        for provider_type in cloud_providers:
+            try:
+                provider = self.provider_factory.get_provider(provider_type)
+                if not provider:
+                    continue
+                
+                # Check if provider has delete_folder method
+                if hasattr(provider, 'delete_folder'):
+                    # Use provider's delete_folder method
+                    success = await provider.delete_folder(folder_prefix)
+                    if success:
+                        deletion_success = True
+                        logger.info(f"Successfully deleted folder {folder_prefix} from {provider_type.value}")
+                    else:
+                        logger.warning(f"Failed to delete folder {folder_prefix} from {provider_type.value}")
+                
+                elif provider_type == StorageProvider.AWS_S3 and hasattr(provider, 's3_client'):
+                    # Fallback for AWS S3 using direct S3 client access
+                    s3_client = provider.s3_client
+                    target_bucket = bucket_name or provider.bucket_name
+                    
+                    logger.info(f"Using S3 client for folder deletion, bucket: {target_bucket}")
+                    
+                    # List all objects with the prefix
+                    paginator = s3_client.get_paginator('list_objects_v2')
+                    pages = paginator.paginate(Bucket=target_bucket, Prefix=folder_prefix)
+                    
+                    deleted_count = 0
+                    for page in pages:
+                        if 'Contents' not in page:
+                            continue
+                        
+                        # Delete objects in batches
+                        objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+                        if objects_to_delete:
+                            s3_client.delete_objects(
+                                Bucket=target_bucket,
+                                Delete={'Objects': objects_to_delete}
+                            )
+                            deleted_count += len(objects_to_delete)
+                            logger.info(f"Deleted batch of {len(objects_to_delete)} files from {folder_prefix}")
+                    
+                    if deleted_count > 0:
+                        deletion_success = True
+                        logger.info(f"Successfully deleted {deleted_count} total files from folder {folder_prefix} in S3")
+                
+            except Exception as e:
+                logger.error(f"Failed to delete folder {folder_prefix} from {provider_type.value}: {e}", exc_info=True)
+        
+        if not deletion_success:
+            logger.warning(f"No cloud provider successfully deleted folder {folder_prefix}")
+        
+        return deletion_success
+    
     async def file_exists(
         self,
         file_key: str,
