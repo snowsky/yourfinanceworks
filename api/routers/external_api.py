@@ -491,8 +491,7 @@ async def get_usage_stats(
             "per_day": api_client.rate_limit_per_day
         },
         "permissions": {
-            "allowed_transaction_types": api_client.allowed_transaction_types,
-            "allowed_currencies": api_client.allowed_currencies,
+            "allowed_document_types": api_client.allowed_document_types or [],
             "max_transaction_amount": float(api_client.max_transaction_amount) if api_client.max_transaction_amount else None
         },
         "status": api_client.status,

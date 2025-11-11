@@ -4,7 +4,7 @@ Pydantic schemas for API key management and external transactions.
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from decimal import Decimal
 
 
@@ -13,8 +13,7 @@ class APIKeyCreateRequest(BaseModel):
     """Request schema for creating API keys."""
     client_name: str = Field(..., min_length=1, max_length=255, description="Name of the API client")
     client_description: Optional[str] = Field(None, description="Description of the API client")
-    allowed_transaction_types: List[str] = Field(..., min_items=1, description="Allowed transaction types")
-    allowed_currencies: Optional[List[str]] = Field(None, description="Allowed currencies (null = all)")
+    allowed_document_types: List[str] = Field(..., min_items=1, description="Allowed document types")
     max_transaction_amount: Optional[float] = Field(None, gt=0, description="Maximum transaction amount")
     rate_limit_per_minute: int = Field(60, ge=1, le=10000, description="Requests per minute limit")
     rate_limit_per_hour: int = Field(1000, ge=1, le=100000, description="Requests per hour limit")
@@ -31,7 +30,7 @@ class APIKeyResponse(BaseModel):
     api_key: str = Field(..., description="The generated API key (only shown once)")
     api_key_prefix: str
     client_name: str
-    allowed_transaction_types: List[str]
+    allowed_document_types: List[str]
     rate_limits: Dict[str, int]
     expires_at: Optional[datetime] = None
     created_at: datetime
@@ -48,8 +47,7 @@ class APIClientResponse(BaseModel):
     client_description: Optional[str]
     user_id: int
     api_key_prefix: str
-    allowed_transaction_types: List[str]
-    allowed_currencies: Optional[List[str]]
+    allowed_document_types: List[str]
     max_transaction_amount: Optional[float]
     rate_limit_per_minute: int
     rate_limit_per_hour: int
@@ -70,8 +68,7 @@ class APIClientUpdateRequest(BaseModel):
     """Request schema for updating API clients."""
     client_name: Optional[str] = Field(None, min_length=1, max_length=255)
     client_description: Optional[str] = None
-    allowed_transaction_types: Optional[List[str]] = None
-    allowed_currencies: Optional[List[str]] = None
+    allowed_document_types: Optional[List[str]] = None
     max_transaction_amount: Optional[float] = Field(None, gt=0)
     rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=10000)
     rate_limit_per_hour: Optional[int] = Field(None, ge=1, le=100000)
@@ -87,7 +84,7 @@ class OAuthClientCreateRequest(BaseModel):
     client_description: Optional[str] = None
     redirect_uris: List[str] = Field(..., min_items=1, description="Allowed redirect URIs")
     scopes: List[str] = Field(..., min_items=1, description="Allowed OAuth scopes")
-    allowed_transaction_types: List[str] = Field(..., min_items=1)
+    allowed_document_types: List[str] = Field(..., min_items=1)
     rate_limit_per_minute: int = Field(100, ge=1, le=10000)
     rate_limit_per_hour: int = Field(2000, ge=1, le=100000)
     rate_limit_per_day: int = Field(20000, ge=1, le=1000000)
@@ -116,6 +113,17 @@ class ExternalTransactionCreate(BaseModel):
     currency: str = Field("USD", min_length=3, max_length=3, description="Currency code")
     date: datetime = Field(..., description="Transaction date")
     description: str = Field(..., min_length=1, description="Transaction description")
+    
+    @field_validator('transaction_type')
+    @classmethod
+    def normalize_transaction_type(cls, v: str) -> str:
+        """Normalize transaction type to lowercase for case-insensitive validation."""
+        if isinstance(v, str):
+            normalized = v.lower().strip()
+            if normalized not in ['income', 'expense']:
+                raise ValueError(f"Transaction type must be 'income' or 'expense', got '{v}'")
+            return normalized
+        return v
     
     # Multi-currency support
     original_amount: Optional[Decimal] = Field(None, description="Original amount if converted")

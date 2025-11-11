@@ -10,6 +10,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
+from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -64,9 +65,12 @@ class BatchProcessingService:
         logger.debug(f"Generated job ID: {job_id}")
         return job_id
 
-    def determine_document_type(self, filename: str, content: Optional[bytes] = None) -> str:
+    async def determine_document_type(self, filename: str, content: Optional[bytes] = None) -> str:
         """
         Determine document type from file extension and optionally content.
+        
+        First tries filename-based heuristics. If uncertain, falls back to
+        LangChain + LLM-based classification using document content.
         
         Args:
             filename: Name of the file
@@ -74,26 +78,227 @@ class BatchProcessingService:
             
         Returns:
             Document type string ('invoice', 'expense', or 'statement')
-            
-        Note:
-            Currently uses filename-based heuristics. Can be enhanced with
-            content-based detection using magic numbers or ML classification.
         """
         filename_lower = filename.lower()
         
         # Heuristic-based detection from filename
-        if any(keyword in filename_lower for keyword in ['invoice', 'inv', 'bill']):
+        invoice_keywords = ['invoice', 'inv', 'bill']
+        expense_keywords = ['expense', 'receipt', 'exp']
+        statement_keywords = ['statement', 'bank', 'stmt']
+        
+        if any(keyword in filename_lower for keyword in invoice_keywords):
             doc_type = 'invoice'
-        elif any(keyword in filename_lower for keyword in ['expense', 'receipt', 'exp']):
+        elif any(keyword in filename_lower for keyword in expense_keywords):
             doc_type = 'expense'
-        elif any(keyword in filename_lower for keyword in ['statement', 'bank', 'stmt']):
+        elif any(keyword in filename_lower for keyword in statement_keywords):
             doc_type = 'statement'
         else:
-            # Default to expense for generic files
-            doc_type = 'expense'
+            # Filename is uncertain - try LangChain-based classification if content is available
+            if content:
+                try:
+                    doc_type = await self._classify_with_langchain(filename, content)
+                    logger.info(f"LangChain classified '{filename}' as '{doc_type}'")
+                except Exception as e:
+                    logger.warning(f"LangChain classification failed for '{filename}': {e}. Defaulting to 'expense'")
+                    doc_type = 'expense'
+            else:
+                # No content available and filename is uncertain - default to expense
+                logger.debug(f"Filename '{filename}' is uncertain and no content available. Defaulting to 'expense'")
+                doc_type = 'expense'
         
         logger.debug(f"Determined document type '{doc_type}' for file: {filename}")
         return doc_type
+    
+    async def _classify_with_langchain(self, filename: str, content: bytes) -> str:
+        """
+        Classify document type using LangChain and LLM.
+        
+        Args:
+            filename: Name of the file
+            content: File content bytes
+            
+        Returns:
+            Document type string ('invoice', 'expense', or 'statement')
+            
+        Raises:
+            Exception: If classification fails
+        """
+        import tempfile
+        import os
+        from pathlib import Path
+        
+        # Get AI configuration from settings (database) with fallback to environment variables
+        # AIConfigService.get_ai_config() handles:
+        # 1. First tries to get config from database (settings)
+        # 2. Falls back to environment variables if database config not available
+        # 3. Handles errors gracefully
+        from services.ai_config_service import AIConfigService
+        ai_config = AIConfigService.get_ai_config(self.db, component="ocr", require_ocr=False)
+        
+        if not ai_config:
+            logger.warning("No AI configuration available for LangChain classification (neither from settings nor environment variables)")
+            raise Exception("No AI configuration available")
+        
+        # Create temporary file for LangChain document loader
+        file_ext = Path(filename).suffix.lower()
+        temp_file = None
+        try:
+            # Write content to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
+                tmp.write(content)
+                temp_file = tmp.name
+            
+            # Load document using LangChain
+            documents = self._load_document_with_langchain(temp_file)
+            if not documents:
+                raise Exception("Failed to extract text from document")
+            
+            # Extract text from documents (first 2000 chars for efficiency)
+            text_content = "\n\n".join([doc.page_content for doc in documents[:3]])[:2000]
+            
+            # Classify using LLM
+            doc_type = await self._classify_text_with_llm(text_content, ai_config)
+            
+            return doc_type
+            
+        finally:
+            # Clean up temporary file
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except Exception:
+                    pass
+    
+    def _load_document_with_langchain(self, file_path: str) -> List:
+        """
+        Load document using LangChain document loaders.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            List of Document objects
+        """
+        try:
+            from langchain_community.document_loaders import (
+                PyPDFLoader,
+                PyMuPDFLoader,
+                CSVLoader,
+            )
+            from langchain_core.documents import Document
+        except ImportError:
+            logger.warning("LangChain not available for document loading")
+            raise Exception("LangChain not available")
+
+        file_ext = Path(file_path).suffix.lower()
+
+        try:
+            if file_ext == '.pdf':
+                # Try PyMuPDF first (faster), fallback to PyPDFLoader
+                try:
+                    loader = PyMuPDFLoader(file_path)
+                except Exception:
+                    loader = PyPDFLoader(file_path)
+                documents = loader.load()
+            elif file_ext == '.csv':
+                loader = CSVLoader(file_path)
+                documents = loader.load()
+            else:
+                # For images, we can't extract text directly with standard loaders
+                # Return empty list - classification will need to use vision model
+                logger.warning(f"Unsupported file type for text extraction: {file_ext}")
+                return []
+
+            return documents
+
+        except Exception as e:
+            logger.error(f"Failed to load document with LangChain: {e}")
+            raise
+
+    async def _classify_text_with_llm(self, text: str, ai_config: Dict[str, Any]) -> str:
+        """
+        Classify document type using LLM.
+
+        Args:
+            text: Extracted text from document
+            ai_config: AI configuration dictionary
+
+        Returns:
+            Document type string ('invoice', 'expense', or 'statement')
+        """
+        try:
+            from litellm import completion
+        except ImportError:
+            logger.warning("LiteLLM not available for classification")
+            raise Exception("LiteLLM not available")
+
+        provider_name = ai_config.get("provider_name", "ollama")
+        model_name = ai_config.get("model_name", "llama3.2-vision:11b")
+        base_url = ai_config.get("provider_url")  # Can be None, LiteLLM will use defaults
+        api_key = ai_config.get("api_key")
+
+        # Classification prompt
+        classification_prompt = f"""Analyze the following document text and classify it as one of these types:
+- invoice: A document requesting payment for goods/services provided (bills, invoices, bills of sale)
+- expense: A receipt or expense record showing a purchase or payment made (receipts, purchase records)
+- statement: A bank or financial statement showing account transactions (bank statements, account summaries)
+
+Document text (first 2000 characters):
+{text[:2000]}
+
+Respond with ONLY one word: invoice, expense, or statement. Do not include any explanation or additional text."""
+
+        # Prepare LLM call using LiteLLM format
+        # LiteLLM handles provider prefixes automatically, but we can be explicit
+        if provider_name == "ollama":
+            model = model_name
+        elif provider_name == "openai":
+            model = model_name  # LiteLLM defaults to OpenAI if no prefix
+        elif provider_name == "anthropic":
+            model = f"anthropic/{model_name}"
+        elif provider_name == "openrouter":
+            model = f"openrouter/{model_name}"
+        else:
+            # For other providers, use provider/model format
+            model = f"{provider_name}/{model_name}"
+        
+        kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": classification_prompt}],
+            "max_tokens": 10,
+            "temperature": 0.1,  # Low temperature for consistent classification
+        }
+
+        # Add API key if provided
+        if api_key:
+            kwargs["api_key"] = api_key
+        
+        # Add API base URL if provided (LiteLLM will use defaults if not set)
+        if base_url:
+            kwargs["api_base"] = base_url
+
+        # Call LLM (run in thread pool to avoid blocking)
+        import asyncio
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(None, lambda: completion(**kwargs))
+
+        # Extract classification from response
+        if hasattr(response, 'choices') and len(response.choices) > 0:
+            classification = response.choices[0].message.content.strip().lower()
+        else:
+            classification = str(response).strip().lower()
+
+        # Normalize response
+        if 'invoice' in classification:
+            return 'invoice'
+        elif 'expense' in classification or 'receipt' in classification:
+            return 'expense'
+        elif 'statement' in classification:
+            return 'statement'
+        else:
+            # Default fallback
+            logger.warning(f"Unclear LLM classification: '{classification}'. Defaulting to 'expense'")
+            return 'expense'
 
     def get_file_extension(self, filename: str) -> str:
         """
@@ -263,9 +468,42 @@ class BatchProcessingService:
                 document_types = []
                 for file_info in files:
                     filename = file_info.get('filename', '')
-                    doc_type = self.determine_document_type(filename)
+                    # Pass content for LangChain classification if filename is uncertain
+                    doc_type = await self.determine_document_type(filename, content=file_info.get('content'))
                     if doc_type not in document_types:
                         document_types.append(doc_type)
+
+            # Normalize document_types list to match number of files
+            # If document_types is provided, map by index (one type per file)
+            # If only one type provided, apply to all files
+            # If not provided or auto-detected, use filename-based detection per file
+            file_document_types = []
+            if document_types:
+                if len(document_types) == 1:
+                    # Single type provided: apply to all files
+                    file_document_types = [document_types[0]] * len(files)
+                elif len(document_types) == len(files):
+                    # Same number of types as files: map by index
+                    file_document_types = document_types
+                else:
+                    # Mismatch: raise error
+                    raise ValueError(
+                        f"Number of document types ({len(document_types)}) must match "
+                        f"number of files ({len(files)}) or be 1 (applied to all files). "
+                        f"Provided types: {', '.join(document_types)}"
+                    )
+            else:
+                # Auto-detect for each file (async list comprehension)
+                file_document_types = []
+                for idx, file_info in enumerate(files):
+                    # Pass content for LangChain classification if filename is uncertain
+                    doc_type = await self.determine_document_type(
+                        file_info.get('filename', f'file_{idx}'),
+                        content=file_info.get('content')
+                    )
+                    file_document_types.append(doc_type)
+                # Update document_types list for job record
+                document_types = list(set(file_document_types))
             
             # Create BatchProcessingJob record
             batch_job = BatchProcessingJob(
@@ -298,8 +536,8 @@ class BatchProcessingService:
                     file_content = file_info.get('content')
                     file_size = file_info.get('size', len(file_content) if file_content else 0)
                     
-                    # Determine document type for this file
-                    doc_type = self.determine_document_type(filename)
+                    # Use the mapped document type for this file
+                    doc_type = file_document_types[idx]
                     
                     # Generate stored filename
                     stored_filename = self._generate_stored_filename(

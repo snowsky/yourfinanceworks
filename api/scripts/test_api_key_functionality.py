@@ -65,7 +65,7 @@ def test_api_key_functionality():
     api_key_data = {
         "client_name": "Test API Client",
         "client_description": "Test client for API key functionality",
-        "allowed_transaction_types": ["income", "expense"],
+        "allowed_document_types": ["invoice", "expense"],
         "rate_limit_per_minute": 60,
         "rate_limit_per_hour": 1000,
         "rate_limit_per_day": 10000,

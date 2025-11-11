@@ -7,7 +7,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
 from models.database import get_master_db
@@ -62,14 +62,27 @@ async def create_api_key(
 ):
     """Create a new API key for external system integration."""
     
-    # Validate transaction types
-    valid_types = ["income", "expense"]
-    for tx_type in request_data.allowed_transaction_types:
-        if tx_type not in valid_types:
+    # Validate and normalize document types
+    valid_types = ["invoice", "expense", "statement"]
+    normalized_types = []
+    for doc_type in request_data.allowed_document_types:
+        # Normalize to lowercase for consistency
+        normalized = doc_type.lower().strip() if isinstance(doc_type, str) else doc_type
+        if normalized not in valid_types:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid transaction type: {tx_type}. Must be one of: {valid_types}"
+                detail=f"Invalid document type: {doc_type}. Must be one of: {valid_types}"
             )
+        normalized_types.append(normalized)
+    
+    # Use normalized types (remove duplicates while preserving order)
+    seen = set()
+    unique_normalized = []
+    for doc_type in normalized_types:
+        if doc_type not in seen:
+            seen.add(doc_type)
+            unique_normalized.append(doc_type)
+    request_data.allowed_document_types = unique_normalized
     
     # Check API key limit (max 2 per user)
     existing_clients = db.query(APIClient).filter(
@@ -104,8 +117,7 @@ async def create_api_key(
         tenant_id=current_user.tenant_id,
         api_key_hash=api_key_hash,
         api_key_prefix=api_key_prefix,
-        allowed_transaction_types=request_data.allowed_transaction_types,
-        allowed_currencies=request_data.allowed_currencies,
+        allowed_document_types=request_data.allowed_document_types,
         max_transaction_amount=request_data.max_transaction_amount,
         rate_limit_per_minute=request_data.rate_limit_per_minute,
         rate_limit_per_hour=request_data.rate_limit_per_hour,
@@ -127,7 +139,7 @@ async def create_api_key(
         api_key=api_key,  # Only returned once during creation
         api_key_prefix=api_key_prefix,
         client_name=request_data.client_name,
-        allowed_transaction_types=request_data.allowed_transaction_types,
+        allowed_document_types=request_data.allowed_document_types,
         rate_limits={
             "per_minute": request_data.rate_limit_per_minute,
             "per_hour": request_data.rate_limit_per_hour,
@@ -164,8 +176,7 @@ async def list_api_keys(
             client_description=client.client_description,
             user_id=client.user_id,
             api_key_prefix=client.api_key_prefix,
-            allowed_transaction_types=client.allowed_transaction_types,
-            allowed_currencies=client.allowed_currencies,
+            allowed_document_types=client.allowed_document_types,
             max_transaction_amount=float(client.max_transaction_amount) if client.max_transaction_amount else None,
             rate_limit_per_minute=client.rate_limit_per_minute,
             rate_limit_per_hour=client.rate_limit_per_hour,
@@ -209,8 +220,7 @@ async def get_api_key(
         client_description=api_client.client_description,
         user_id=api_client.user_id,
         api_key_prefix=api_client.api_key_prefix,
-        allowed_transaction_types=api_client.allowed_transaction_types,
-        allowed_currencies=api_client.allowed_currencies,
+        allowed_document_types=api_client.allowed_document_types,
         max_transaction_amount=float(api_client.max_transaction_amount) if api_client.max_transaction_amount else None,
         rate_limit_per_minute=api_client.rate_limit_per_minute,
         rate_limit_per_hour=api_client.rate_limit_per_hour,
@@ -249,14 +259,14 @@ async def update_api_key(
     # Update fields if provided
     update_data = request_data.dict(exclude_unset=True)
     
-    # Validate transaction types if provided
-    if "allowed_transaction_types" in update_data:
-        valid_types = ["income", "expense"]
-        for tx_type in update_data["allowed_transaction_types"]:
-            if tx_type not in valid_types:
+    # Validate document types if provided
+    if "allowed_document_types" in update_data:
+        valid_types = ["invoice", "expense", "statement"]
+        for doc_type in update_data["allowed_document_types"]:
+            if doc_type not in valid_types:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid transaction type: {tx_type}. Must be one of: {valid_types}"
+                    detail=f"Invalid document type: {doc_type}. Must be one of: {valid_types}"
                 )
     
     for field, value in update_data.items():
@@ -273,8 +283,7 @@ async def update_api_key(
         client_description=api_client.client_description,
         user_id=api_client.user_id,
         api_key_prefix=api_client.api_key_prefix,
-        allowed_transaction_types=api_client.allowed_transaction_types,
-        allowed_currencies=api_client.allowed_currencies,
+        allowed_document_types=api_client.allowed_document_types,
         max_transaction_amount=float(api_client.max_transaction_amount) if api_client.max_transaction_amount else None,
         rate_limit_per_minute=api_client.rate_limit_per_minute,
         rate_limit_per_hour=api_client.rate_limit_per_hour,
@@ -356,7 +365,7 @@ async def regenerate_api_key(
         api_key=new_api_key,  # Only returned once during regeneration
         api_key_prefix=new_api_key_prefix,
         client_name=api_client.client_name,
-        allowed_transaction_types=api_client.allowed_transaction_types,
+        allowed_document_types=api_client.allowed_document_types,
         rate_limits={
             "per_minute": api_client.rate_limit_per_minute,
             "per_hour": api_client.rate_limit_per_hour,
@@ -375,6 +384,28 @@ async def create_oauth_client(
     db: Session = Depends(get_master_db)
 ):
     """Create a new OAuth 2.0 client for enterprise integration."""
+    
+    # Validate and normalize document types
+    valid_types = ["invoice", "expense", "statement"]
+    normalized_types = []
+    for doc_type in request_data.allowed_document_types:
+        # Normalize to lowercase for consistency
+        normalized = doc_type.lower().strip() if isinstance(doc_type, str) else doc_type
+        if normalized not in valid_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid document type: {doc_type}. Must be one of: {valid_types}"
+            )
+        normalized_types.append(normalized)
+    
+    # Use normalized types (remove duplicates while preserving order)
+    seen = set()
+    unique_normalized = []
+    for doc_type in normalized_types:
+        if doc_type not in seen:
+            seen.add(doc_type)
+            unique_normalized.append(doc_type)
+    request_data.allowed_document_types = unique_normalized
     
     # Generate OAuth client credentials
     oauth_client_id = f"oauth_{secrets.token_urlsafe(16)}"
@@ -397,7 +428,7 @@ async def create_oauth_client(
         oauth_client_secret_hash=oauth_client_secret_hash,
         oauth_redirect_uris=request_data.redirect_uris,
         oauth_scopes=request_data.scopes,
-        allowed_transaction_types=request_data.allowed_transaction_types,
+        allowed_document_types=request_data.allowed_document_types,
         rate_limit_per_minute=request_data.rate_limit_per_minute,
         rate_limit_per_hour=request_data.rate_limit_per_hour,
         rate_limit_per_day=request_data.rate_limit_per_day,
@@ -451,8 +482,7 @@ async def admin_list_all_api_keys(
             client_description=client.client_description,
             user_id=client.user_id,
             api_key_prefix=client.api_key_prefix,
-            allowed_transaction_types=client.allowed_transaction_types,
-            allowed_currencies=client.allowed_currencies,
+            allowed_document_types=client.allowed_document_types,
             max_transaction_amount=float(client.max_transaction_amount) if client.max_transaction_amount else None,
             rate_limit_per_minute=client.rate_limit_per_minute,
             rate_limit_per_hour=client.rate_limit_per_hour,

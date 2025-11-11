@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 import jwt
 import httpx
-from fastapi import HTTPException, status
 
 from models.models import MasterUser, Tenant
 from models.api_models import APIClient
@@ -146,12 +145,12 @@ class ExternalAPIAuthService:
         """Get permissions for an API client based on its configuration."""
         permissions = {Permission.READ, Permission.WRITE}
         
-        # Add specific permissions based on allowed transaction types
-        if "income" in api_client.allowed_transaction_types:
+        # Add specific permissions based on allowed document types
+        if "invoice" in api_client.allowed_document_types:
             permissions.add(Permission.INVOICE_READ)
             permissions.add(Permission.INVOICE_WRITE)
         
-        if "expense" in api_client.allowed_transaction_types:
+        if "expense" in api_client.allowed_document_types:
             permissions.add(Permission.EXPENSE_READ)
             permissions.add(Permission.EXPENSE_WRITE)
         
@@ -171,20 +170,40 @@ class ExternalAPIAuthService:
     ) -> Tuple[bool, Optional[str]]:
         """Check if API client has permission for the requested operation."""
         
-        # Check transaction type permissions
-        if transaction_type not in api_client.allowed_transaction_types:
-            return False, f"Transaction type '{transaction_type}' not allowed for this API client"
+        # Normalize transaction type to lowercase for case-insensitive comparison
+        normalized_type = transaction_type.lower().strip() if isinstance(transaction_type, str) else transaction_type
         
-        # Check currency restrictions
-        if api_client.allowed_currencies and currency not in api_client.allowed_currencies:
-            return False, f"Currency '{currency}' not allowed for this API client"
+        # Check document type permissions (maps to transaction type validation)
+        document_to_transaction = {
+            'invoice': 'invoice',
+            'expense': 'expense',
+            'statement': 'statement'
+        }
         
+        # Check if the transaction type is allowed based on document types
+        allowed = False
+        for doc_type in api_client.allowed_document_types:
+            required_tx_type = document_to_transaction.get(doc_type)
+            
+            if doc_type == 'statement':
+                # For statements, allow both income and expense
+                if normalized_type in ['income', 'expense']:
+                    allowed = True
+                    break
+            elif required_tx_type == normalized_type:
+                allowed = True
+                break
+        
+        if not allowed:
+            allowed_doc_types = ', '.join(api_client.allowed_document_types)
+            return False, f"Document type for transaction type '{transaction_type}' not allowed. Allowed document types: {allowed_doc_types}"
+
         # Check amount limits
         if api_client.max_transaction_amount and amount > api_client.max_transaction_amount:
             return False, f"Transaction amount {amount} exceeds maximum allowed {api_client.max_transaction_amount}"
-        
+
         return True, None
-    
+
     async def check_rate_limits(
         self, 
         db: Session, 

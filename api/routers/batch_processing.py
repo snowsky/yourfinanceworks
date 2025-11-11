@@ -166,7 +166,13 @@ def get_batch_processing_service(
 async def upload_batch(
     files: List[UploadFile] = File(..., description="Files to process (max 50)"),
     export_destination_id: Optional[int] = Form(None, description="Export destination configuration ID (uses default if not provided)"),
-    document_types: Optional[str] = Form(None, description="Comma-separated document types (invoice,expense,statement)"),
+    document_types: Optional[str] = Form(
+        None, 
+        description="Comma-separated document types (invoice,expense,statement). "
+                    "If one type provided, applies to all files. "
+                    "If multiple types provided, must match number of files (maps by index). "
+                    "If not provided, auto-detects from filenames."
+    ),
     client_id: Optional[int] = Form(None, description="Client ID for invoice documents"),
     custom_fields: Optional[str] = Form(None, description="Comma-separated custom fields to include in export"),
     webhook_url: Optional[str] = Form(None, description="Optional webhook URL for completion notification"),
@@ -185,7 +191,10 @@ async def upload_batch(
     Args:
         files: List of files to process (max 50, max 20MB each)
         export_destination_id: ID of export destination configuration
-        document_types: Optional comma-separated document types
+        document_types: Optional comma-separated document types.
+                        If one type provided, applies to all files.
+                        If multiple types, must match number of files (maps by index).
+                        If not provided, auto-detects from filenames.
         custom_fields: Optional comma-separated fields for export
         webhook_url: Optional webhook URL for completion notification
         auth_context: Authenticated API client context (tenant_id, user_id, api_client_id, api_client)
@@ -201,6 +210,34 @@ async def upload_batch(
     try:
         # Extract authentication context from API key
         tenant_id, user_id, api_client_id, api_client = auth_context
+
+        # Validate document types early to catch permission errors before other checks
+        doc_types_list = None
+        if document_types:
+            doc_types_list = [dt.strip().lower() for dt in document_types.split(',') if dt.strip()]
+            # Validate document types
+            valid_types = {'invoice', 'expense', 'statement'}
+            invalid_types = set(doc_types_list) - valid_types
+            if invalid_types:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid document types: {', '.join(invalid_types)}. "
+                           f"Valid types: {', '.join(valid_types)}"
+                )
+
+            # Validate document types against API key's allowed document types
+            # Normalize allowed document types for comparison
+            normalized_allowed = [dt.lower().strip() if isinstance(dt, str) else dt
+                                 for dt in api_client.allowed_document_types]
+
+            # Check each document type against allowed document types
+            for doc_type in doc_types_list:
+                if doc_type not in normalized_allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Document type '{doc_type}' is not allowed for this API key. "
+                               f"Allowed types: {', '.join(api_client.allowed_document_types)}"
+                    )
 
         # If no export destination specified, use default
         if export_destination_id is None:
@@ -260,19 +297,8 @@ async def upload_batch(
                 detail=f"Maximum 50 files allowed per batch. Received {len(files)} files."
             )
 
-        # Parse document types if provided
-        doc_types_list = None
-        if document_types:
-            doc_types_list = [dt.strip() for dt in document_types.split(',') if dt.strip()]
-            # Validate document types
-            valid_types = {'invoice', 'expense', 'statement'}
-            invalid_types = set(doc_types_list) - valid_types
-            if invalid_types:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid document types: {', '.join(invalid_types)}. "
-                           f"Valid types: {', '.join(valid_types)}"
-                )
+        # Document type parsing and validation moved to earlier in the process
+        # This is now handled after file count validation to catch permission errors early
 
         # Parse custom fields if provided
         custom_fields_list = None

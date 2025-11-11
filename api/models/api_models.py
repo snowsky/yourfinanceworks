@@ -52,8 +52,7 @@ class APIClient(Base):
     oauth_scopes = Column(JSON, nullable=True)  # Array of allowed scopes
 
     # Permissions and capabilities
-    allowed_transaction_types = Column(JSON, nullable=False, default=list)  # ["income", "expense"]
-    allowed_currencies = Column(JSON, nullable=True)  # Allowed currencies, null = all
+    allowed_document_types = Column(JSON, nullable=False, default=list)  # ["invoice", "expense", "statement"]
     max_transaction_amount = Column(Numeric(precision=15, scale=2), nullable=True)  # Maximum transaction amount
 
     # Rate limiting

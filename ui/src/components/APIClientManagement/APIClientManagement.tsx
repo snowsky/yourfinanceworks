@@ -18,8 +18,7 @@ interface APIClient {
   client_description?: string;
   user_id: number;
   api_key_prefix: string;
-  allowed_transaction_types: string[];
-  allowed_currencies?: string[];
+  allowed_document_types: string[];
   max_transaction_amount?: number;
   rate_limit_per_minute: number;
   rate_limit_per_hour: number;
@@ -38,8 +37,7 @@ interface APIClient {
 interface APIKeyCreateRequest {
   client_name: string;
   client_description?: string;
-  allowed_transaction_types: string[];
-  allowed_currencies?: string[];
+  allowed_document_types: string[];
   max_transaction_amount?: number;
   rate_limit_per_minute: number;
   rate_limit_per_hour: number;
@@ -55,7 +53,7 @@ interface APIKeyResponse {
   api_key: string;
   api_key_prefix: string;
   client_name: string;
-  allowed_transaction_types: string[];
+  allowed_document_types: string[];
   rate_limits: {
     per_minute: number;
     per_hour: number;
@@ -70,23 +68,16 @@ interface OAuthClientCreateRequest {
   client_description?: string;
   redirect_uris: string[];
   scopes: string[];
-  allowed_transaction_types: string[];
+  allowed_document_types: string[];
   rate_limit_per_minute: number;
   rate_limit_per_hour: number;
   rate_limit_per_day: number;
 }
 
-const TRANSACTION_TYPES = [
-  { value: 'income', label: 'Income Transactions' },
-  { value: 'expense', label: 'Expense Transactions' }
-];
-
-const CURRENCIES = [
-  { value: 'USD', label: 'US Dollar' },
-  { value: 'CAD', label: 'Canadian Dollar' },
-  { value: 'EUR', label: 'Euro' },
-  { value: 'GBP', label: 'British Pound' },
-  { value: 'BRL', label: 'Brazilian Real' }
+const DOCUMENT_TYPES = [
+  { value: 'invoice', label: 'Invoices' },
+  { value: 'expense', label: 'Expenses' },
+  { value: 'statement', label: 'Statements' }
 ];
 
 const OAUTH_SCOPES = [
@@ -114,8 +105,7 @@ const APIClientManagement: React.FC = () => {
   const [createForm, setCreateForm] = useState<APIKeyCreateRequest>({
     client_name: '',
     client_description: '',
-    allowed_transaction_types: [],
-    allowed_currencies: [],
+    allowed_document_types: [],
     max_transaction_amount: undefined,
     rate_limit_per_minute: 60,
     rate_limit_per_hour: 1000,
@@ -132,7 +122,7 @@ const APIClientManagement: React.FC = () => {
     client_description: '',
     redirect_uris: [''],
     scopes: [],
-    allowed_transaction_types: [],
+    allowed_document_types: [],
     rate_limit_per_minute: 100,
     rate_limit_per_hour: 2000,
     rate_limit_per_day: 20000
@@ -173,8 +163,8 @@ const APIClientManagement: React.FC = () => {
         return;
       }
       
-      if (createForm.allowed_transaction_types.length === 0) {
-        toast.error('At least one transaction type is required');
+      if (createForm.allowed_document_types.length === 0) {
+        toast.error('At least one document type is required');
         return;
       }
 
@@ -187,8 +177,7 @@ const APIClientManagement: React.FC = () => {
       setCreateForm({
         client_name: '',
         client_description: '',
-        allowed_transaction_types: [],
-        allowed_currencies: [],
+        allowed_document_types: [],
         max_transaction_amount: undefined,
         rate_limit_per_minute: 60,
         rate_limit_per_hour: 1000,
@@ -216,8 +205,8 @@ const APIClientManagement: React.FC = () => {
         return;
       }
       
-      if (oauthForm.allowed_transaction_types.length === 0) {
-        toast.error('At least one transaction type is required');
+      if (oauthForm.allowed_document_types.length === 0) {
+        toast.error('At least one document type is required');
         return;
       }
 
@@ -247,7 +236,7 @@ const APIClientManagement: React.FC = () => {
         client_description: '',
         redirect_uris: [''],
         scopes: [],
-        allowed_transaction_types: [],
+        allowed_document_types: [],
         rate_limit_per_minute: 100,
         rate_limit_per_hour: 2000,
         rate_limit_per_day: 20000
@@ -340,30 +329,16 @@ const APIClientManagement: React.FC = () => {
     });
   };
 
-  const handleTransactionTypeToggle = (type: string, checked: boolean) => {
+  const handleDocumentTypeToggle = (type: string, checked: boolean) => {
     if (checked) {
       setCreateForm({
         ...createForm,
-        allowed_transaction_types: [...createForm.allowed_transaction_types, type]
+        allowed_document_types: [...createForm.allowed_document_types, type]
       });
     } else {
       setCreateForm({
         ...createForm,
-        allowed_transaction_types: createForm.allowed_transaction_types.filter(t => t !== type)
-      });
-    }
-  };
-
-  const handleCurrencyToggle = (currency: string, checked: boolean) => {
-    if (checked) {
-      setCreateForm({
-        ...createForm,
-        allowed_currencies: [...(createForm.allowed_currencies || []), currency]
-      });
-    } else {
-      setCreateForm({
-        ...createForm,
-        allowed_currencies: createForm.allowed_currencies?.filter(c => c !== currency)
+        allowed_document_types: createForm.allowed_document_types.filter(t => t !== type)
       });
     }
   };
@@ -382,16 +357,16 @@ const APIClientManagement: React.FC = () => {
     }
   };
 
-  const handleOAuthTransactionTypeToggle = (type: string, checked: boolean) => {
+  const handleOAuthDocumentTypeToggle = (type: string, checked: boolean) => {
     if (checked) {
       setOAuthForm({
         ...oauthForm,
-        allowed_transaction_types: [...oauthForm.allowed_transaction_types, type]
+        allowed_document_types: [...oauthForm.allowed_document_types, type]
       });
     } else {
       setOAuthForm({
         ...oauthForm,
-        allowed_transaction_types: oauthForm.allowed_transaction_types.filter(t => t !== type)
+        allowed_document_types: oauthForm.allowed_document_types.filter(t => t !== type)
       });
     }
   };
@@ -499,35 +474,17 @@ const APIClientManagement: React.FC = () => {
                 </div>
                 
                 <div>
-                  <Label>Transaction Types *</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {TRANSACTION_TYPES.map((type) => (
+                  <Label>Document Types *</Label>
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    {DOCUMENT_TYPES.map((type) => (
                       <div key={type.value} className="flex items-center space-x-2">
                         <Switch
                           id={type.value}
-                          checked={createForm.allowed_transaction_types.includes(type.value)}
-                          onCheckedChange={(checked) => handleTransactionTypeToggle(type.value, checked)}
+                          checked={createForm.allowed_document_types.includes(type.value)}
+                          onCheckedChange={(checked) => handleDocumentTypeToggle(type.value, checked)}
                         />
                         <Label htmlFor={type.value} className="text-sm">
                           {type.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Allowed Currencies (leave empty for all)</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {CURRENCIES.map((currency) => (
-                      <div key={currency.value} className="flex items-center space-x-2">
-                        <Switch
-                          id={currency.value}
-                          checked={createForm.allowed_currencies?.includes(currency.value) || false}
-                          onCheckedChange={(checked) => handleCurrencyToggle(currency.value, checked)}
-                        />
-                        <Label htmlFor={currency.value} className="text-sm">
-                          {currency.label}
                         </Label>
                       </div>
                     ))}
@@ -620,7 +577,7 @@ const APIClientManagement: React.FC = () => {
                     <div className="flex flex-wrap gap-2 mt-2">
                       {createForm.allowed_ip_addresses.map((ip) => (
                         <Badge key={ip} variant="secondary" className="cursor-pointer" onClick={() => removeIpAddress(ip)}>
-                          {ip} ×
+                          {ip} ✕
                         </Badge>
                       ))}
                     </div>
@@ -697,14 +654,14 @@ const APIClientManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label>Transaction Types *</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {TRANSACTION_TYPES.map((type) => (
+                  <Label>Document Types *</Label>
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    {DOCUMENT_TYPES.map((type) => (
                       <div key={type.value} className="flex items-center space-x-2">
                         <Switch
                           id={`oauth_${type.value}`}
-                          checked={oauthForm.allowed_transaction_types.includes(type.value)}
-                          onCheckedChange={(checked) => handleOAuthTransactionTypeToggle(type.value, checked)}
+                          checked={oauthForm.allowed_document_types.includes(type.value)}
+                          onCheckedChange={(checked) => handleOAuthDocumentTypeToggle(type.value, checked)}
                         />
                         <Label htmlFor={`oauth_${type.value}`} className="text-sm">
                           {type.label}
@@ -788,6 +745,7 @@ const APIClientManagement: React.FC = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       </div>
 
@@ -844,9 +802,9 @@ const APIClientManagement: React.FC = () => {
                     </ul>
                   </div>
                   <div>
-                    <span className="font-medium">Transaction Types:</span>
+                    <span className="font-medium">Document Types:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {showApiKey.allowed_transaction_types.map((type) => (
+                      {showApiKey.allowed_document_types.map((type) => (
                         <Badge key={type} variant="outline" className="text-xs">
                           {type}
                         </Badge>
@@ -1165,9 +1123,9 @@ const APIClientManagement: React.FC = () => {
                       </ul>
                     </div>
                     <div>
-                      <span className="font-medium">Transaction Types:</span>
+                      <span className="font-medium">Document Types:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {client.allowed_transaction_types.map((type) => (
+                        {client.allowed_document_types.map((type) => (
                           <Badge key={type} variant="outline" className="text-xs">
                             {type}
                           </Badge>
@@ -1175,18 +1133,12 @@ const APIClientManagement: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      {client.allowed_currencies && client.allowed_currencies.length > 0 && (
-                        <>
-                          <span className="font-medium">Currencies:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {client.allowed_currencies.map((currency) => (
-                              <Badge key={currency} variant="outline" className="text-xs">
-                                {currency}
-                              </Badge>
-                            ))}
-                          </div>
-                        </>
-                      )}
+                      <span className="font-medium">Max Amount:</span>
+                      <div className="mt-1">
+                        {client.max_transaction_amount
+                          ? `$${client.max_transaction_amount.toLocaleString()}`
+                          : 'No limit'}
+                      </div>
                     </div>
                   </div>
 
@@ -1244,7 +1196,6 @@ const APIClientManagement: React.FC = () => {
             </div>
           ))
         )}
-      </div>
       </div>
     </div>
   );
