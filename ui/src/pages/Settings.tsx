@@ -105,6 +105,8 @@ const Settings = () => {
     auto_reminders: true,
   });
 
+  const [timezone, setTimezone] = useState("UTC");
+
   const [taxSettings, setTaxSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('taxSettings');
@@ -292,6 +294,9 @@ const Settings = () => {
 
         // Set AI assistant enabled state
         setAiAssistantEnabled(settings.enable_ai_assistant ?? false);
+        
+        // Set timezone
+        setTimezone(settings.timezone || "UTC");
         
         // Update user profile with any settings that might affect it
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -567,7 +572,8 @@ const Settings = () => {
           send_copy: invoiceSettings.send_copy,
           auto_reminders: invoiceSettings.auto_reminders
         },
-        enable_ai_assistant: aiAssistantEnabled
+        enable_ai_assistant: aiAssistantEnabled,
+        timezone: timezone
       };
       
       // console.log('Settings: Saving AI Assistant state', {
@@ -1378,6 +1384,53 @@ const Settings = () => {
                     value={companyInfo.address} 
                     onChange={handleCompanyChange} 
                   />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger id="timezone">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
+                      <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
+                      <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
+                      <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
+                      <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
+                      <SelectItem value="America/Phoenix">Arizona</SelectItem>
+                      <SelectItem value="America/Anchorage">Alaska</SelectItem>
+                      <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
+                      <SelectItem value="Europe/London">London</SelectItem>
+                      <SelectItem value="Europe/Paris">Paris</SelectItem>
+                      <SelectItem value="Europe/Berlin">Berlin</SelectItem>
+                      <SelectItem value="Europe/Rome">Rome</SelectItem>
+                      <SelectItem value="Europe/Madrid">Madrid</SelectItem>
+                      <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
+                      <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
+                      <SelectItem value="Europe/Zurich">Zurich</SelectItem>
+                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                      <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
+                      <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
+                      <SelectItem value="Asia/Singapore">Singapore</SelectItem>
+                      <SelectItem value="Asia/Dubai">Dubai</SelectItem>
+                      <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
+                      <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
+                      <SelectItem value="Australia/Sydney">Sydney</SelectItem>
+                      <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
+                      <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
+                      <SelectItem value="Australia/Perth">Perth</SelectItem>
+                      <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
+                      <SelectItem value="America/Toronto">Toronto</SelectItem>
+                      <SelectItem value="America/Vancouver">Vancouver</SelectItem>
+                      <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
+                      <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
+                      <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
+                      <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
+                      <SelectItem value="Africa/Cairo">Cairo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">Select your organization's timezone for date and time display</p>
                 </div>
                 
                 <div className="space-y-2">

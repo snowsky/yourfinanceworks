@@ -31,8 +31,10 @@ class Settings(SettingsBase):
     enable_ai_assistant: bool = False
     company_info: CompanyInfo
     invoice_settings: InvoiceSettings
+    timezone: Optional[str] = "UTC"
     model_config = ConfigDict(from_attributes=True)
 
 class SettingsUpdate(BaseModel):
     company_info: Optional[CompanyInfo] = None
-    invoice_settings: Optional[InvoiceSettings] = None 
+    invoice_settings: Optional[InvoiceSettings] = None
+    timezone: Optional[str] = None 

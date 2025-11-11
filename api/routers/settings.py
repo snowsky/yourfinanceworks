@@ -71,6 +71,15 @@ async def get_settings(
             except (ValueError, TypeError):
                 ai_chat_history_retention_days = 7
 
+        # Get timezone setting from tenant database
+        timezone_setting = db.query(Settings).filter(Settings.key == "timezone").first()
+        timezone = "UTC"  # default
+        if timezone_setting and timezone_setting.value:
+            try:
+                timezone = str(timezone_setting.value)
+            except (ValueError, TypeError):
+                timezone = "UTC"
+
         # Return tenant info formatted as settings
         return {
             "company_info": {
@@ -83,7 +92,8 @@ async def get_settings(
             },
             "invoice_settings": invoice_settings,
             "enable_ai_assistant": tenant.enable_ai_assistant or False,
-            "ai_chat_history_retention_days": ai_chat_history_retention_days
+            "ai_chat_history_retention_days": ai_chat_history_retention_days,
+            "timezone": timezone
         }
     finally:
         master_db.close()
@@ -184,6 +194,32 @@ async def update_settings(
             details=invoice_settings,
             status="success"
         )
+    
+    # Update timezone setting in tenant database
+    if "timezone" in settings:
+        timezone_value = settings.get("timezone")
+        if timezone_value:
+            # Validate timezone (basic check - should be a non-empty string)
+            timezone_str = str(timezone_value).strip()
+            if not timezone_str:
+                raise HTTPException(status_code=400, detail="Timezone cannot be empty")
+            
+            # Get or create timezone setting record
+            timezone_setting = db.query(Settings).filter(Settings.key == "timezone").first()
+            
+            if timezone_setting:
+                timezone_setting.value = timezone_str
+                timezone_setting.updated_at = datetime.now(timezone.utc)
+            else:
+                timezone_setting = Settings(
+                    key="timezone",
+                    value=timezone_str,
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc)
+                )
+                db.add(timezone_setting)
+            
+            db.commit()
     
     master_db.commit()
     master_db.refresh(tenant)

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, api, linkApi } from '@/lib/api';
+import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, api, linkApi, settingsApi } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Label } from '@/components/ui/label';
@@ -124,6 +125,17 @@ const Expenses = () => {
 
   // Creating state for new expense modal
   const [creating, setCreating] = useState(false);
+
+  // Fetch settings to get timezone
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.getSettings(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Get timezone from settings, default to UTC
+  const timezone = settings?.timezone || 'UTC';
 
   // Fetch invoice options for linking
   useEffect(() => {
@@ -784,10 +796,10 @@ const Expenses = () => {
                         <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'}</span>
+                            <span>{e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { timeZone: timezone }) : 'N/A'}</span>
                             {e.receipt_timestamp && e.receipt_time_extracted && (
                               <span className="text-xs text-muted-foreground">
-                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })} UTC
+                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                           </div>

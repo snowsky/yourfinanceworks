@@ -579,6 +579,7 @@ export interface Settings {
   company_info: CompanyInfo;
   invoice_settings: InvoiceSettings;
   enable_ai_assistant?: boolean;
+  timezone?: string;
 }
 
 // AI Configuration types
