@@ -54,3 +54,5 @@ api/keys/*.pem
 !api/keys/
 !api/keys/.gitkeep
 !api/keys/public_key.pem
+
+license_server/

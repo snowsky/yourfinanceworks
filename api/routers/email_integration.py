@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from datetime import datetime
+import time
+import logging
 
 from models.database import get_db
 from models.models_per_tenant import Settings
@@ -10,6 +12,8 @@ from models.models import MasterUser
 from routers.auth import get_current_user
 from services.email_ingestion_service import EmailIngestionService
 from utils.rbac import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/email-integration", tags=["email-integration"])
 
@@ -110,6 +114,40 @@ async def update_config(
         setting.value = config_dict
     
     db.commit()
+    
+    # Publish config change event to Kafka if enabled
+    if config_dict.get("enabled", False):
+        try:
+            import os
+            import json
+            from confluent_kafka import Producer
+            
+            kafka_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+            
+            producer = Producer({
+                'bootstrap.servers': kafka_servers,
+                'client.id': 'email-integration-api'
+            })
+            
+            event = {
+                "tenant_id": current_user.tenant_id,
+                "enabled": True,
+                "timestamp": time.time()
+            }
+            
+            # Produce message
+            producer.produce(
+                'email_integration_config_changed',
+                key=str(current_user.tenant_id).encode('utf-8'),
+                value=json.dumps(event).encode('utf-8')
+            )
+            producer.flush()
+            
+            logger.info(f"Published email integration config change event for tenant {current_user.tenant_id}")
+        except Exception as e:
+            # Don't fail the request if Kafka is unavailable
+            logger.warning(f"Failed to publish config change event to Kafka: {e}")
+    
     return {"status": "success", "message": "Configuration saved"}
 
 @router.post("/test")

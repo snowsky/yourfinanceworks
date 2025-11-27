@@ -38,8 +38,6 @@ interface EmailConfig {
 const PROVIDERS = [
     { id: 'custom', name: 'Custom IMAP', host: '', port: 993 },
     { id: 'gmail', name: 'Gmail', host: 'imap.gmail.com', port: 993 },
-    { id: 'outlook', name: 'Outlook / Office 365', host: 'outlook.office365.com', port: 993 },
-    { id: 'yahoo', name: 'Yahoo Mail', host: 'imap.mail.yahoo.com', port: 993 },
 ];
 
 import { FeatureGate } from "@/components/FeatureGate";
@@ -271,12 +269,22 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                         value={PROVIDERS.find(p => p.host === config.imap_host)?.id || 'custom'}
                         onValueChange={(value) => {
                             const provider = PROVIDERS.find(p => p.id === value);
-                            if (provider && value !== 'custom') {
-                                setConfig(prev => ({
-                                    ...prev,
-                                    imap_host: provider.host,
-                                    imap_port: provider.port
-                                }));
+                            if (provider) {
+                                if (value === 'custom') {
+                                    // Clear host when custom is selected so user can enter their own
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        imap_host: '',
+                                        imap_port: 993
+                                    }));
+                                } else {
+                                    // Set predefined provider settings
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        imap_host: provider.host,
+                                        imap_port: provider.port
+                                    }));
+                                }
                             }
                         }}
                         disabled={loading}

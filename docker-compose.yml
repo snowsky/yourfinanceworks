@@ -342,6 +342,8 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+    deploy:
+      replicas: 2 # ${EMAIL_WORKER_REPLICAS:2}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -355,6 +357,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMAIL_POLL_INTERVAL=10
       - EMAIL_BATCH_SIZE=50
+      # Kafka for config change events
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       # Encryption settings
       - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
       - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
