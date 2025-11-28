@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { inventoryApi, InventoryItem } from "@/lib/api";
 import { toast } from "sonner";
-import { Scan, Camera, CheckCircle, X, Lightbulb, AlertTriangle, Loader2 } from "lucide-react";
-import { useTranslation } from 'react-i18next';
+import { Scan, Camera, CheckCircle, X, AlertTriangle, Loader2 } from "lucide-react";
 
 interface BarcodeValidationResult {
   valid: boolean;
@@ -30,7 +29,6 @@ export const BarcodeScanner = ({
   onBarcodeScanned,
   autoClose = false
 }: BarcodeScannerProps) => {
-  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
@@ -38,23 +36,62 @@ export const BarcodeScanner = ({
   const [foundItem, setFoundItem] = useState<InventoryItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const quaggaRef = useRef<any>(null);
 
-  // Mock camera scanning (in a real implementation, you'd use a barcode scanning library)
   const startCameraScan = async () => {
     try {
       setScanning(true);
-      // In a real implementation, you would:
-      // 1. Request camera permission
-      // 2. Use a barcode scanning library like QuaggaJS or ZXing
-      // 3. Process the video stream for barcodes
 
-      // For now, we'll simulate a scan
-      setTimeout(() => {
-        const mockBarcode = "123456789012"; // Mock UPC-A barcode
-        handleBarcodeDetected(mockBarcode);
-      }, 2000);
+      // Dynamically import Quagga2
+      const Quagga = (await import('@ericblade/quagga2')).default;
+      quaggaRef.current = Quagga;
+
+      // Initialize Quagga for barcode scanning
+      await Quagga.init(
+        {
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: videoRef.current,
+            constraints: {
+              width: { min: 640 },
+              height: { min: 480 },
+              facingMode: "environment",
+              aspectRatio: { min: 1, max: 100 }
+            }
+          },
+          decoder: {
+            workers: {
+              format: "ean,code_128,code_39,codabar,upc,ean_8,ean_13",
+              config: {}
+            }
+          },
+          locator: {
+            halfSample: true
+          }
+        },
+        (err: any) => {
+          if (err) {
+            console.error("Quagga initialization error:", err);
+            toast.error("Failed to access camera. Please check permissions.");
+            setScanning(false);
+            return;
+          }
+          Quagga.start();
+        }
+      );
+
+      // Handle detected barcodes
+      Quagga.onDetected((result: any) => {
+        if (result.codeResult && result.codeResult.code) {
+          const barcode = result.codeResult.code;
+          console.log("Barcode detected:", barcode);
+          stopCameraScan();
+          handleBarcodeDetected(barcode);
+        }
+      });
     } catch (error) {
       console.error("Camera access error:", error);
       toast.error("Camera access denied or not available");
@@ -64,6 +101,14 @@ export const BarcodeScanner = ({
 
   const stopCameraScan = () => {
     setScanning(false);
+    try {
+      if (quaggaRef.current) {
+        quaggaRef.current.stop();
+        quaggaRef.current.offDetected();
+      }
+    } catch (error) {
+      console.error("Error stopping Quagga:", error);
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -121,17 +166,6 @@ export const BarcodeScanner = ({
     }
   };
 
-  const generateSuggestions = async (itemName?: string, sku?: string) => {
-    if (!itemName && !sku) return;
-
-    try {
-      const response = await inventoryApi.getBarcodeSuggestions(itemName || "", sku);
-      setSuggestions(response.suggestions.slice(0, 5)); // Limit to 5 suggestions
-    } catch (error) {
-      console.error("Failed to generate suggestions:", error);
-    }
-  };
-
   const handleSuggestionClick = (suggestion: string) => {
     setManualBarcode(suggestion);
   };
@@ -178,14 +212,13 @@ export const BarcodeScanner = ({
               <CardContent className="space-y-3">
                 {scanning ? (
                   <div className="relative">
-                    <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Scanning...</p>
-                        <div className="mt-2">
-                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                        </div>
-                      </div>
+                    <div
+                      ref={videoRef}
+                      className="w-full h-48 bg-muted rounded-lg overflow-hidden"
+                      style={{ position: 'relative' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="border-2 border-green-500 w-48 h-32 rounded-lg opacity-50"></div>
                     </div>
                     <Button
                       variant="outline"
@@ -293,7 +326,7 @@ export const BarcodeScanner = ({
                         <div className="flex justify-between">
                           <span>Confidence:</span>
                           <span className="font-medium">
-                            {Math.round(validationResult.confidence * 100)}%
+                            {Math.round((validationResult.confidence || 0) * 100)}%
                           </span>
                         </div>
                       </>

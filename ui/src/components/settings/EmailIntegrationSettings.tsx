@@ -33,6 +33,7 @@ interface EmailConfig {
     folders: string[];
     allowed_senders: string;
     lookback_days: number;
+    max_emails_to_fetch: number;
 }
 
 const PROVIDERS = [
@@ -111,7 +112,8 @@ const EmailIntegrationSettingsContent: React.FC = () => {
         enabled: false,
         folders: ['INBOX'],
         allowed_senders: '',
-        lookback_days: 30
+        lookback_days: 30,
+        max_emails_to_fetch: 100,
     });
     const [loading, setLoading] = useState(false);
     const [testing, setTesting] = useState(false);
@@ -389,6 +391,23 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                         disabled={loading}
                     />
                     <p className="text-xs text-muted-foreground">{t('emailIntegration.lookbackDaysHint')}</p>
+                </div>
+
+                {/* TODO: Add i18n keys for max_emails_to_fetch */}
+                <div className="space-y-2">
+                    <Label htmlFor="max_emails_to_fetch">Max Emails to Fetch per Sync</Label>
+                    <Input
+                        id="max_emails_to_fetch"
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={config.max_emails_to_fetch}
+                        onChange={(e) => handleChange('max_emails_to_fetch', parseInt(e.target.value))}
+                        disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        Limit the number of emails to process in a single sync. A lower number can prevent timeouts on slow servers.
+                    </p>
                 </div>
 
                 <div className="flex flex-wrap gap-4 pt-4">

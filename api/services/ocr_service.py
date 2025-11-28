@@ -196,6 +196,105 @@ def publish_ocr_usage_metrics(db: Session, operation_type: str, extraction_metho
 
 # Keep producers alive across calls so messages can be delivered before process exit
 _PRODUCER_CACHE: dict[str, dict[str, any]] = {}
+def _parse_markdown_formatted_response(text: str) -> Optional[Dict[str, Any]]:
+    """Parse markdown-formatted OCR responses that some AI models return instead of JSON.
+
+    Handles formats like:
+    **Key Fields:**
+    * **Amount:** $24.45
+    * **Currency:** USD
+    * **Vendor:** Walmart
+    """
+    import re
+
+    data: Dict[str, Any] = {}
+
+    # Pattern to match markdown list items with key-value pairs
+    # Matches: * **Key:** value (note: colon is inside the bold markers)
+    # Only match lines that start with * (list marker)
+    pattern = r'^\*\s+\*\*([^*:]+):\*\*\s*(.+?)$'
+
+    matches = re.finditer(pattern, text, re.MULTILINE)
+
+    # Map markdown keys to our standard field names
+    key_mapping = {
+        'amount': 'amount',
+        'currency': 'currency',
+        'currency code': 'currency',
+        'expense date': 'expense_date',
+        'date': 'expense_date',
+        'transaction date': 'expense_date',
+        'category': 'category',
+        'vendor': 'vendor',
+        'merchant': 'vendor',
+        'store': 'vendor',
+        'tax rate': 'tax_rate',
+        'vat rate': 'tax_rate',
+        'tax amount': 'tax_amount',
+        'vat amount': 'tax_amount',
+        'total amount': 'total_amount',
+        'total': 'total_amount',
+        'payment method': 'payment_method',
+        'payment': 'payment_method',
+        'reference number': 'reference_number',
+        'reference': 'reference_number',
+        'receipt number': 'reference_number',
+        'invoice number': 'reference_number',
+        'notes': 'notes',
+        'memo': 'notes',
+        'receipt timestamp': 'receipt_timestamp',
+        'timestamp': 'receipt_timestamp',
+        'transaction time': 'receipt_timestamp',
+        'receipt time': 'receipt_timestamp',
+    }
+
+    for match in matches:
+        key = match.group(1).strip().lower()
+        value = match.group(2).strip()
+
+        # Skip header-like keys that aren't actual data fields
+        if key in ('key fields', 'note', 'notes', 'important', 'example', 'receipt json extraction'):
+            continue
+
+        # Skip empty values and common null indicators
+        if not value or value.lower() in ('none', 'null', 'n/a', '', 'unknown'):
+            continue
+
+        # Only process keys that are in our mapping
+        if key not in key_mapping:
+            continue
+
+        standard_key = key_mapping[key]
+
+        # Parse numeric values
+        if standard_key in ('amount', 'tax_rate', 'tax_amount', 'total_amount'):
+            try:
+                # Remove currency symbols and parse
+                numeric_str = re.sub(r'[^0-9.,\-]', '', value)
+                if ',' in numeric_str and '.' in numeric_str:
+                    numeric_str = numeric_str.replace(',', '')
+                else:
+                    numeric_str = numeric_str.replace(',', '.')
+                data[standard_key] = float(numeric_str)
+                continue
+            except (ValueError, AttributeError):
+                pass
+
+        # Validate timestamp before storing
+        if standard_key == 'receipt_timestamp':
+            if _validate_timestamp(value):
+                data[standard_key] = value
+            else:
+                logger.warning(f"Skipping invalid timestamp from markdown: {value}")
+            continue
+
+        # Store as string for other fields
+        data[standard_key] = value
+
+    logger.info(f"Parsed markdown response into {len(data)} fields: {list(data.keys())}")
+    return data if data else None
+
+
 def _parse_csv_like_response(text: str) -> Optional[Dict[str, Any]]:
     """Parse CSV-like responses that some AI models return instead of JSON."""
     import re
@@ -284,6 +383,33 @@ def _parse_csv_like_response(text: str) -> Optional[Dict[str, Any]]:
     return data if data else None
 
 
+def _validate_timestamp(timestamp_str: str) -> bool:
+    """Validate that a timestamp string has valid time components (hours 0-23, minutes 0-59, seconds 0-59)."""
+    import re
+
+    # Extract time components (HH:MM:SS or HH:MM)
+    time_match = re.search(r'(\d{1,2}):(\d{2})(?::(\d{2}))?', timestamp_str)
+    if not time_match:
+        return True  # No time component, so it's valid
+
+    hours = int(time_match.group(1))
+    minutes = int(time_match.group(2))
+    seconds = int(time_match.group(3)) if time_match.group(3) else 0
+
+    # Validate ranges
+    if not (0 <= hours <= 23):
+        logger.warning(f"Invalid hours in timestamp '{timestamp_str}': {hours}")
+        return False
+    if not (0 <= minutes <= 59):
+        logger.warning(f"Invalid minutes in timestamp '{timestamp_str}': {minutes}")
+        return False
+    if not (0 <= seconds <= 59):
+        logger.warning(f"Invalid seconds in timestamp '{timestamp_str}': {seconds}")
+        return False
+
+    return True
+
+
 def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
     """Heuristic parser for plain OCR text to extract likely fields."""
     import re
@@ -315,9 +441,14 @@ def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
     for pattern in combined_patterns:
         m_combined = re.search(pattern, text)
         if m_combined:
-            data["receipt_timestamp"] = m_combined.group(1)
-            timestamp_found = True
-            break
+            candidate_timestamp = m_combined.group(1)
+            # Validate the timestamp before accepting it
+            if _validate_timestamp(candidate_timestamp):
+                data["receipt_timestamp"] = candidate_timestamp
+                timestamp_found = True
+                break
+            else:
+                logger.warning(f"Skipping invalid timestamp candidate: {candidate_timestamp}")
 
     # If no combined timestamp found, try separate date and time
     if not timestamp_found:
@@ -334,8 +465,13 @@ def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
             try:
                 date_str = m_date.group(1)
                 time_str = m_time.group(1)
-                data["receipt_timestamp"] = f"{date_str} {time_str}"
-                timestamp_found = True
+                candidate_timestamp = f"{date_str} {time_str}"
+                # Validate before accepting
+                if _validate_timestamp(candidate_timestamp):
+                    data["receipt_timestamp"] = candidate_timestamp
+                    timestamp_found = True
+                else:
+                    logger.warning(f"Skipping invalid combined timestamp: {candidate_timestamp}")
             except Exception:
                 pass
         elif m_time:
@@ -343,8 +479,13 @@ def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
             try:
                 today = datetime.now().strftime("%Y-%m-%d")
                 time_str = m_time.group(1)
-                data["receipt_timestamp"] = f"{today} {time_str}"
-                timestamp_found = True
+                candidate_timestamp = f"{today} {time_str}"
+                # Validate before accepting
+                if _validate_timestamp(candidate_timestamp):
+                    data["receipt_timestamp"] = candidate_timestamp
+                    timestamp_found = True
+                else:
+                    logger.warning(f"Skipping invalid time-only timestamp: {candidate_timestamp}")
             except Exception:
                 pass
 
@@ -384,11 +525,16 @@ def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
     text = re.sub(r'```json\s*', '', text)
     text = re.sub(r'```\s*', '', text)
 
+    # Strip markdown headers and formatting
+    text = re.sub(r'^\*\*[^*]+\*\*\s*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\*\s+', '', text, flags=re.MULTILINE)
+
     try:
         # Quick path: whole text is JSON
         return json.loads(text)
     except Exception:
         pass
+
     # Find the first balanced {...} block
     start_idx = text.find('{')
     while start_idx != -1:
@@ -401,10 +547,15 @@ def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
                 if brace == 0:
                     candidate = text[start_idx:i+1]
                     try:
-                        return json.loads(candidate)
+                        parsed = json.loads(candidate)
+                        # Validate that we got a reasonable result (not just {"raw": "..."})
+                        if isinstance(parsed, dict) and len(parsed) > 0:
+                            return parsed
                     except Exception:
-                        break
+                        pass
+                    break
         start_idx = text.find('{', start_idx + 1)
+
     return None
 
 
@@ -1225,7 +1376,7 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                         logger.info(f"Successfully parsed CSV-like response, replacing extracted data")
                         extracted = csv_parsed
 
-            # If we only got raw text, first try to extract embedded JSON, then try heuristics
+            # If we only got raw text, first try to extract embedded JSON, then try markdown, then heuristics
             if set(extracted.keys()) == {"raw"} and isinstance(extracted.get("raw"), str):
                 extracted_text = extracted["raw"]
                 # Detect known OCR transport errors and fail early
@@ -1237,64 +1388,89 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                     db.commit()
                     logger.error(f"OCR transport error for expense {expense_id}: {expense.analysis_error}")
                     return
+
                 # Try to parse JSON embedded in raw text
                 parsed_json = _extract_json_from_text(extracted_text)
-                if isinstance(parsed_json, dict):
+                if isinstance(parsed_json, dict) and len(parsed_json) > 1:
                     extracted.update(parsed_json)
                     logger.info(f"Parsed embedded JSON keys: {list(parsed_json.keys())}")
                 else:
-                    try:
-                        heur = _heuristic_parse_text(extracted_text)
-                        if heur:
-                            extracted.update(heur)
-                            logger.info(f"Heuristic parse extracted keys: {list(heur.keys())}")
+                    # Try to parse markdown-formatted response
+                    parsed_markdown = _parse_markdown_formatted_response(extracted_text)
+                    if parsed_markdown and len(parsed_markdown) > 0:
+                        extracted.update(parsed_markdown)
+                        logger.info(f"Parsed markdown response keys: {list(parsed_markdown.keys())}")
+                    else:
+                        try:
+                            heur = _heuristic_parse_text(extracted_text)
+                            if heur:
+                                extracted.update(heur)
+                                logger.info(f"Heuristic parse extracted keys: {list(heur.keys())}")
 
-                            # Validate heuristic timestamp extraction quality
-                            if "receipt_timestamp" in heur:
-                                timestamp_str = heur["receipt_timestamp"]
-                                try:
-                                    from dateutil import parser as dateparser
-                                    parsed_dt = dateparser.parse(str(timestamp_str))
-                                    # Check if the parsed date is reasonable (not too far in future/past)
-                                    now = datetime.now(timezone.utc)
-                                    year_diff = abs(parsed_dt.year - now.year)
-                                    if year_diff > 5:  # More than 5 years difference seems suspicious
-                                        logger.warning(f"Heuristic timestamp seems unreasonable: {timestamp_str} (parsed as {parsed_dt})")
-                                        logger.info("Timestamp extraction quality check failed, attempting AI LLM fallback...")
-                                        # Retry with AI LLM for better timestamp extraction
-                                        retry_ai_config = ai_config or _get_ai_config_from_env()
-                                        if retry_ai_config and not ai_extraction_attempted:
-                                            try:
-                                                logger.info("🔄 Retrying with AI LLM due to questionable timestamp...")
-                                                ai_result = await _run_ocr(file_path, ai_config=retry_ai_config)
-                                                if ai_result and isinstance(ai_result, dict) and "receipt_timestamp" in ai_result:
-                                                    # Validate AI result timestamp
-                                                    ai_timestamp = ai_result["receipt_timestamp"]
-                                                    try:
-                                                        ai_parsed_dt = dateparser.parse(str(ai_timestamp))
-                                                        ai_year_diff = abs(ai_parsed_dt.year - now.year)
-                                                        if ai_year_diff <= 5:  # AI result is more reasonable
-                                                            logger.info(f"✅ AI LLM provided better timestamp: {ai_timestamp}")
-                                                            extracted.update(ai_result)
-                                                        else:
-                                                            logger.warning(f"❌ AI LLM timestamp also questionable: {ai_timestamp}")
-                                                    except Exception:
-                                                        logger.warning("❌ AI LLM timestamp parsing failed")
-                                                else:
-                                                    logger.warning("❌ AI LLM retry did not provide timestamp")
-                                            except Exception as retry_error:
-                                                logger.error(f"AI LLM retry failed: {retry_error}")
+                                # Validate heuristic timestamp extraction quality
+                                if "receipt_timestamp" in heur:
+                                    timestamp_str = heur["receipt_timestamp"]
+                                    try:
+                                        from dateutil import parser as dateparser
+                                        parsed_dt = dateparser.parse(str(timestamp_str))
+                                        # Check if the parsed date is reasonable (not too far in future/past)
+                                        now = datetime.now(timezone.utc)
+                                        year_diff = abs(parsed_dt.year - now.year)
+                                        if year_diff > 5:  # More than 5 years difference seems suspicious
+                                            logger.warning(f"Heuristic timestamp seems unreasonable: {timestamp_str} (parsed as {parsed_dt})")
+                                            logger.info("Timestamp extraction quality check failed, attempting AI LLM fallback...")
+                                            # Retry with AI LLM for better timestamp extraction
+                                            retry_ai_config = ai_config or _get_ai_config_from_env()
+                                            if retry_ai_config and not ai_extraction_attempted:
+                                                try:
+                                                    logger.info("🔄 Retrying with AI LLM due to questionable timestamp...")
+                                                    ai_result = await _run_ocr(file_path, ai_config=retry_ai_config)
+                                                    if ai_result and isinstance(ai_result, dict) and "receipt_timestamp" in ai_result:
+                                                        # Validate AI result timestamp
+                                                        ai_timestamp = ai_result["receipt_timestamp"]
+                                                        try:
+                                                            ai_parsed_dt = dateparser.parse(str(ai_timestamp))
+                                                            ai_year_diff = abs(ai_parsed_dt.year - now.year)
+                                                            if ai_year_diff <= 5:  # AI result is more reasonable
+                                                                logger.info(f"✅ AI LLM provided better timestamp: {ai_timestamp}")
+                                                                extracted.update(ai_result)
+                                                            else:
+                                                                logger.warning(f"❌ AI LLM timestamp also questionable: {ai_timestamp}")
+                                                        except Exception:
+                                                            logger.warning("❌ AI LLM timestamp parsing failed")
+                                                    else:
+                                                        logger.warning("❌ AI LLM retry did not provide timestamp")
+                                                except Exception as retry_error:
+                                                    logger.error(f"AI LLM retry failed: {retry_error}")
+                                            else:
+                                                logger.info("AI LLM retry not available for timestamp validation")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to validate heuristic timestamp '{timestamp_str}': {e}")
+                            else:
+                                logger.info("Heuristic parsing returned no data, attempting AI LLM extraction...")
+                                # Retry with AI LLM if available and not already attempted
+                                retry_ai_config = ai_config or _get_ai_config_from_env()
+                                if retry_ai_config and not ai_extraction_attempted:
+                                    try:
+                                        logger.info("🔄 Retrying with AI LLM due to failed heuristic parsing...")
+                                        ai_result = await _run_ocr(file_path, ai_config=retry_ai_config)
+                                        if ai_result and isinstance(ai_result, dict) and len(ai_result) > 1:
+                                            logger.info("✅ AI LLM retry successful, using AI results")
+                                            extracted.update(ai_result)
                                         else:
-                                            logger.info("AI LLM retry not available for timestamp validation")
-                                except Exception as e:
-                                    logger.warning(f"Failed to validate heuristic timestamp '{timestamp_str}': {e}")
-                        else:
-                            logger.info("Heuristic parsing returned no data, attempting AI LLM extraction...")
+                                            logger.warning("❌ AI LLM retry also failed")
+                                    except Exception as retry_error:
+                                        logger.error(f"AI LLM retry failed: {retry_error}")
+                                else:
+                                    logger.info("AI LLM retry not available (no config or already attempted)")
+                        except Exception as e:
+                            logger.warning(f"Heuristic parse failed: {e}")
+                            logger.info("Heuristic parsing failed, attempting AI LLM extraction...")
                             # Retry with AI LLM if available and not already attempted
                             retry_ai_config = ai_config or _get_ai_config_from_env()
                             if retry_ai_config and not ai_extraction_attempted:
                                 try:
-                                    logger.info("🔄 Retrying with AI LLM due to failed heuristic parsing...")
+                                    logger.info("🔄 Retrying with AI LLM due to heuristic parsing failure...")
                                     ai_result = await _run_ocr(file_path, ai_config=retry_ai_config)
                                     if ai_result and isinstance(ai_result, dict) and len(ai_result) > 1:
                                         logger.info("✅ AI LLM retry successful, using AI results")
@@ -1305,24 +1481,6 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                                     logger.error(f"AI LLM retry failed: {retry_error}")
                             else:
                                 logger.info("AI LLM retry not available (no config or already attempted)")
-                    except Exception as e:
-                        logger.warning(f"Heuristic parse failed: {e}")
-                        logger.info("Heuristic parsing failed, attempting AI LLM extraction...")
-                        # Retry with AI LLM if available and not already attempted
-                        retry_ai_config = ai_config or _get_ai_config_from_env()
-                        if retry_ai_config and not ai_extraction_attempted:
-                            try:
-                                logger.info("🔄 Retrying with AI LLM due to heuristic parsing failure...")
-                                ai_result = await _run_ocr(file_path, ai_config=retry_ai_config)
-                                if ai_result and isinstance(ai_result, dict) and len(ai_result) > 1:
-                                    logger.info("✅ AI LLM retry successful, using AI results")
-                                    extracted.update(ai_result)
-                                else:
-                                    logger.warning("❌ AI LLM retry also failed")
-                            except Exception as retry_error:
-                                logger.error(f"AI LLM retry failed: {retry_error}")
-                        else:
-                            logger.info("AI LLM retry not available (no config or already attempted)")
 
             def parse_number(value: Any) -> Optional[float]:
                 try:
@@ -1377,12 +1535,19 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             timestamp_str = first_key(extracted, ["receipt_timestamp", "timestamp", "transaction_time", "receipt_time"]) or None
             if timestamp_str:
                 try:
-                    from dateutil import parser as dateparser  # type: ignore
-                    parsed_timestamp = dateparser.parse(str(timestamp_str))
-                    if parsed_timestamp:
-                        expense.receipt_timestamp = parsed_timestamp
-                        expense.receipt_time_extracted = True
-                        logger.info(f"Extracted receipt timestamp: {parsed_timestamp} for expense {expense_id}")
+                    # First validate the timestamp format
+                    if not _validate_timestamp(str(timestamp_str)):
+                        logger.warning(f"Timestamp validation failed for '{timestamp_str}', skipping")
+                        expense.receipt_time_extracted = False
+                    else:
+                        from dateutil import parser as dateparser  # type: ignore
+                        parsed_timestamp = dateparser.parse(str(timestamp_str))
+                        if parsed_timestamp:
+                            expense.receipt_timestamp = parsed_timestamp
+                            expense.receipt_time_extracted = True
+                            logger.info(f"Extracted receipt timestamp: {parsed_timestamp} for expense {expense_id}")
+                        else:
+                            expense.receipt_time_extracted = False
                 except Exception as e:
                     logger.warning(f"Failed to parse receipt timestamp '{timestamp_str}': {e}")
                     expense.receipt_time_extracted = False

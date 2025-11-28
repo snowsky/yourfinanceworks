@@ -445,6 +445,7 @@ class RawEmail(Base):
     __tablename__ = "raw_emails"
 
     id = Column(Integer, primary_key=True, index=True)
+    uid = Column(Integer, index=True, nullable=True)  # IMAP UID for sync
     message_id = Column(String, index=True, nullable=True)  # IMAP Message-ID
     subject = Column(String, nullable=True)  # Temporary staging, no encryption needed
     sender = Column(String, nullable=True)  # Temporary staging, no encryption needed

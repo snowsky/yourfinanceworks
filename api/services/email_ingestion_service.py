@@ -36,29 +36,38 @@ class EmailIngestionService:
             return setting.value
         return None
 
-    def _get_last_sync_timestamp(self) -> Optional[datetime]:
-        """Get the last successful email sync timestamp."""
+    def _get_last_sync_state(self) -> Optional[Dict[str, Any]]:
+        """Get the last successful email sync state (timestamp and last UIDs)."""
         setting = self.db.query(Settings).filter(Settings.key == "last_email_sync").first()
-        if setting and setting.value and setting.value.get("timestamp"):
-            try:
-                return datetime.fromisoformat(setting.value["timestamp"])
-            except:
-                return None
+        if setting and setting.value:
+            return setting.value
         return None
 
-    def _update_last_sync_timestamp(self, timestamp: datetime):
-        """Update the last successful email sync timestamp."""
+    def _update_last_sync_state(self, timestamp: datetime, last_uids: Dict[str, int]):
+        """Update the last successful email sync state."""
         setting = self.db.query(Settings).filter(Settings.key == "last_email_sync").first()
+
+        # Preserve existing UIDs for folders not in the current sync
+        if setting and setting.value and setting.value.get("last_uids"):
+            existing_uids = setting.value.get("last_uids", {})
+            existing_uids.update(last_uids)
+            last_uids = existing_uids
+
+        new_state = {
+            "timestamp": timestamp.isoformat(),
+            "last_uids": last_uids
+        }
+
         if not setting:
             setting = Settings(
                 key="last_email_sync",
-                value={"timestamp": timestamp.isoformat()},
+                value=new_state,
                 category="system",
-                description="Last successful email sync timestamp"
+                description="Last successful email sync state (timestamp and UIDs)"
             )
             self.db.add(setting)
         else:
-            setting.value = {"timestamp": timestamp.isoformat()}
+            setting.value = new_state
         self.db.commit()
 
     def validate_config(self, config: Dict[str, Any]) -> Tuple[bool, str]:
@@ -177,199 +186,154 @@ class EmailIngestionService:
             raise e
 
     def poll_and_save(self, config: Dict[str, Any]) -> int:
-        """Connect to IMAP and save new emails to RawEmail table."""
+        """Connect to IMAP and save new emails to the database using UID-based sync."""
         count = 0
         consecutive_errors = 0
-        max_consecutive_errors = 10  # Fail after 10 consecutive errors
-        
+        max_consecutive_errors = 10
+        new_last_uids = {}
+
         try:
             mail = self._connect(config)
             folders = config.get("folders", ["INBOX"])
             allowed_senders = [s.strip().lower() for s in config.get("allowed_senders", "").split(",") if s.strip()]
-            lookback_days = config.get("lookback_days", 7)  # Configurable from UI
-            
-            logger.info(f"[CONFIG] Email sync config: folders={folders}, allowed_senders={allowed_senders}, lookback_days={lookback_days}")
-            
-            # Get last sync timestamp for optimization
-            last_sync = self._get_last_sync_timestamp()
+            lookback_days = config.get("lookback_days", 7)
+            max_emails_to_fetch = config.get("max_emails_to_fetch", 100)
+
+            logger.info(f"[CONFIG] Email sync using UID-based strategy. Folders: {folders}, Lookback: {lookback_days} days, Max Fetch: {max_emails_to_fetch}")
+
+            last_sync_state = self._get_last_sync_state()
             sync_start_time = datetime.now(timezone.utc)
-            
-            # Use last sync timestamp if available and recent, otherwise use lookback_days
-            if last_sync and (datetime.now(timezone.utc) - last_sync).days < lookback_days:
-                # Only search for emails since last sync
-                since_date = last_sync.strftime("%d-%b-%Y")
-                logger.info(f"Searching for emails since last sync: {since_date} ({last_sync.isoformat()})")
-            else:
-                # First sync or last sync too old, use lookback_days
-                since_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%d-%b-%Y")
-                logger.info(f"Searching for emails since {since_date} ({lookback_days} days ago) - first sync or timestamp too old")
+            last_uids = (last_sync_state or {}).get("last_uids", {})
 
             for folder in folders:
+                max_uid_in_folder = 0
                 try:
-                    mail.select(folder)
-                    # Search for emails since lookback date
-                    search_criteria = f'(SINCE "{since_date}")'
-                    status, messages = mail.search(None, search_criteria)
+                    mail.select(f'"{folder}"')
                     
+                    last_uid = last_uids.get(folder)
+                    search_criteria = ''
+
+                    if last_uid:
+                        search_criteria = f"UID {last_uid}:*"
+                        logger.info(f"Searching folder '{folder}' for emails with UID > {last_uid}")
+                    else:
+                        # Fallback to date-based search for the first sync of a folder
+                        since_date = (sync_start_time - timedelta(days=lookback_days)).strftime("%d-%b-%Y")
+                        search_criteria = f'SINCE "{since_date}"'
+                        logger.info(f"No last UID for folder '{folder}'. Searching for emails since {since_date}.")
+
+                    status, messages = mail.uid('search', None, search_criteria)
                     if status != "OK":
-                        logger.warning(f"Failed to search folder {folder}")
+                        logger.warning(f"Failed to search folder '{folder}'")
                         continue
 
-                    email_ids = messages[0].split()
-                    total_emails = len(email_ids)
-                    logger.info(f"Found {total_emails} emails in folder {folder} since {since_date}")
-                    
-                    # Limit to 100 most recent emails from the date range
-                    max_emails_to_fetch = 100
+                    uids = messages[0].split()
+                    total_emails = len(uids)
+                    logger.info(f"Found {total_emails} new emails in folder '{folder}'")
+
                     if total_emails > max_emails_to_fetch:
                         logger.info(f"Limiting to {max_emails_to_fetch} most recent emails (out of {total_emails})")
-                        email_ids = email_ids[-max_emails_to_fetch:]
-                    else:
-                        logger.info(f"Processing all {total_emails} emails from the last {lookback_days} days")
+                        uids = uids[-max_emails_to_fetch:]
                     
                     skipped_existing = 0
-                    skipped_filtered = 0
-                    
-                    for idx, email_id in enumerate(email_ids):
+
+                    for idx, uid in enumerate(uids):
+                        max_uid_in_folder = max(max_uid_in_folder, int(uid))
                         try:
-                            # Update status periodically
                             if idx % 10 == 0:
-                                self._update_sync_status(
-                                    "running", 
-                                    f"Processing email {idx + 1}/{len(email_ids)}...",
-                                    count,
-                                    0
-                                )
+                                self._update_sync_status("running", f"Processing email {idx + 1}/{len(uids)} in '{folder}'...", count, 0)
                             
-                            # Add rate limiting to avoid overwhelming IMAP server
                             if idx > 0 and idx % 5 == 0:
                                 time.sleep(0.5)
-                            
-                            # Fetch headers first to check Message-ID
-                            res, header_data = mail.fetch(email_id, '(BODY.PEEK[HEADER])')
+
+                            # Fetch headers first to check Message-ID and get UID
+                            res, header_data = mail.uid('fetch', uid, '(BODY.PEEK[HEADER])')
                             if res != "OK":
-                                logger.warning(f"Failed to fetch headers for email {email_id}")
+                                logger.warning(f"Failed to fetch headers for email UID {uid}")
                                 consecutive_errors += 1
                                 if consecutive_errors >= max_consecutive_errors:
-                                    raise Exception(f"Too many consecutive errors ({consecutive_errors}), aborting sync")
+                                    raise Exception(f"Too many consecutive errors, aborting sync")
                                 continue
-                                
+
                             msg_header = email.message_from_bytes(header_data[0][1])
                             message_id = msg_header.get("Message-ID")
-                            subject = msg_header.get("Subject", "(no subject)")
-                            sender = email.utils.parseaddr(msg_header.get("From", ""))[1].lower()
-                            logger.debug(f"[DEBUG] Processing email {idx + 1}/{len(email_ids)}: id={email_id}, subject='{subject}', sender='{sender}'")
-                            
-                            # Check sender filter EARLY (before fetching full body) to save bandwidth
-                            if allowed_senders and sender not in allowed_senders:
-                                logger.info(f"[FILTER] Email {email_id} filtered by sender: '{sender}' not in {allowed_senders}")
-                                skipped_filtered += 1
-                                consecutive_errors = 0  # Reset on success
-                                continue
-                            
-                            # Check if already exists
+
+                            # Check if email already exists by Message-ID
                             if message_id:
                                 from models.models_per_tenant import RawEmail
-                                exists = self.db.query(RawEmail).filter(RawEmail.message_id == message_id).first()
-                                if exists:
-                                    logger.debug(f"[DEBUG] Email already exists: {message_id}")
+                                if self.db.query(RawEmail).filter(RawEmail.message_id == message_id).first():
+                                    logger.debug(f"Email with Message-ID {message_id} (UID {uid}) already exists, skipping.")
                                     skipped_existing += 1
-                                    consecutive_errors = 0  # Reset on success
                                     continue
-                            
-                            # Fetch full body (only for accepted senders)
-                            res, msg_data = mail.fetch(email_id, "(RFC822)")
-                            if res != "OK":
-                                logger.warning(f"Failed to fetch body for email {email_id}")
-                                consecutive_errors += 1
-                                if consecutive_errors >= max_consecutive_errors:
-                                    raise Exception(f"Too many consecutive errors ({consecutive_errors}), aborting sync")
-                                continue
-                                
-                            raw_content = msg_data[0][1]
-                            msg = email.message_from_bytes(raw_content)
 
-                            logger.info(f"[ACCEPT] Email {email_id} from '{sender}' accepted (allowed_senders: {allowed_senders})")
-                            self._save_raw_email(msg, raw_content, message_id)
+                            sender = email.utils.parseaddr(msg_header.get("From", ""))[1].lower()
+                            if allowed_senders and sender not in allowed_senders:
+                                logger.info(f"Email UID {uid} from '{sender}' filtered by sender list.")
+                                continue
+
+                            # Fetch full body
+                            res, msg_data = mail.uid('fetch', uid, "(RFC822)")
+                            if res != "OK":
+                                logger.warning(f"Failed to fetch body for email UID {uid}")
+                                continue
+
+                            raw_content = msg_data[0][1]
+                            self._save_raw_email(email.message_from_bytes(raw_content), raw_content, message_id, int(uid))
                             count += 1
-                            consecutive_errors = 0  # Reset on success
-                            
-                        except imaplib.IMAP4.abort as e:
-                            logger.error(f"IMAP connection aborted processing email {email_id}: {e}")
+                            consecutive_errors = 0
+
+                        except (imaplib.IMAP4.abort, ssl.SSLError) as e:
+                            logger.error(f"Connection error processing email UID {uid}: {e}")
                             consecutive_errors += 1
                             if consecutive_errors >= max_consecutive_errors:
-                                raise Exception(f"Too many consecutive IMAP errors ({consecutive_errors}), aborting sync")
-                            # Try to reconnect after abort
+                                raise Exception(f"Too many consecutive connection errors, aborting sync.")
                             try:
                                 mail.logout()
-                            except:
-                                pass
-                            time.sleep(2)  # Longer pause before reconnecting
-                            try:
-                                logger.info(f"Attempting to reconnect to IMAP server...")
-                                mail = self._connect(config)
-                                mail.select(folder)
-                            except Exception as reconnect_error:
-                                logger.error(f"Failed to reconnect after IMAP abort: {reconnect_error}")
-                                raise
-                        except ssl.SSLError as e:
-                            logger.error(f"SSL error processing email {email_id}: {e}")
-                            consecutive_errors += 1
-                            if consecutive_errors >= max_consecutive_errors:
-                                raise Exception(f"Too many consecutive SSL errors ({consecutive_errors}), aborting sync. This may indicate an issue with the IMAP server or network.")
-                            # Try to reconnect after SSL error
-                            try:
-                                mail.logout()
-                            except:
-                                pass
-                            time.sleep(2)  # Longer pause before reconnecting
-                            try:
-                                logger.info(f"Attempting to reconnect to IMAP server after SSL error...")
-                                mail = self._connect(config)
-                                mail.select(folder)
-                            except Exception as reconnect_error:
-                                logger.error(f"Failed to reconnect after SSL error: {reconnect_error}")
-                                raise
+                            except: pass
+                            time.sleep(5)
+                            mail = self._connect(config)
+                            mail.select(f'"{folder}"')
                         except Exception as e:
-                            logger.error(f"Error processing email {email_id}: {e}", exc_info=True)
+                            logger.error(f"Error processing email UID {uid}: {e}", exc_info=True)
                             consecutive_errors += 1
                             if consecutive_errors >= max_consecutive_errors:
-                                raise Exception(f"Too many consecutive errors ({consecutive_errors}), aborting sync")
+                                raise Exception(f"Too many consecutive errors, aborting sync.")
 
                 except Exception as e:
-                    logger.error(f"Error processing folder {folder}: {e}")
-                    raise  # Re-raise to trigger failure status
-                
-                # Log summary for this folder
-                logger.info(f"[SUMMARY] Folder {folder}: checked={len(email_ids)}, new={count}, skipped_existing={skipped_existing}, skipped_filtered={skipped_filtered}")
+                    logger.error(f"Error processing folder '{folder}': {e}", exc_info=True)
+                    raise
+
+                if max_uid_in_folder > 0:
+                    new_last_uids[folder] = max_uid_in_folder
+
+                logger.info(f"[SUMMARY] Folder '{folder}': Found={total_emails}, Processed={count}, Skipped={skipped_existing}")
 
             try:
                 mail.logout()
             except:
-                pass  # Ignore logout errors
-                
+                pass
+
         except Exception as e:
-            logger.error(f"Error in poll_and_save: {e}")
-            raise  # Re-raise to be caught by sync_emails
-        
-        # Update last sync timestamp on success
-        if count >= 0:  # Even if 0 new emails, update timestamp
+            logger.error(f"Error in poll_and_save: {e}", exc_info=True)
+            raise
+
+        if new_last_uids:
             try:
-                self._update_last_sync_timestamp(sync_start_time)
-                logger.info(f"Updated last sync timestamp to {sync_start_time.isoformat()}")
+                self._update_last_sync_state(sync_start_time, new_last_uids)
+                logger.info(f"Updated last sync state. Timestamp: {sync_start_time.isoformat()}, New UIDs: {new_last_uids}")
             except Exception as e:
-                logger.warning(f"Failed to update last sync timestamp: {e}")
-            
+                logger.warning(f"Failed to update last sync state: {e}")
+
         return count
 
-    def _save_raw_email(self, msg, raw_bytes: bytes, message_id: str):
+    def _save_raw_email(self, msg, raw_bytes: bytes, message_id: str, uid: int):
         try:
             from models.models_per_tenant import RawEmail
-            
+
             subject = self._decode_header(msg.get("Subject", ""))
             sender = msg.get("From")
             recipient = msg.get("To")
-            
+
             date_tuple = email.utils.parsedate_tz(msg.get("Date"))
             if date_tuple:
                 email_date = datetime.fromtimestamp(email.utils.mktime_tz(date_tuple))
@@ -382,6 +346,7 @@ class EmailIngestionService:
                 raw_content_str = str(raw_bytes)
 
             raw_email = RawEmail(
+                uid=uid,
                 message_id=message_id,
                 subject=subject,
                 sender=sender,
@@ -400,7 +365,7 @@ class EmailIngestionService:
         """Process pending RawEmails into Expenses with AI classification."""
         from models.models_per_tenant import RawEmail
         from sqlalchemy import or_
-        
+
         # Include both pending and failed emails (with retry limit)
         pending_emails = self.db.query(RawEmail).filter(
             or_(
@@ -408,40 +373,40 @@ class EmailIngestionService:
                 (RawEmail.status == "failed") & (RawEmail.retry_count < 3)
             )
         ).limit(limit).all()
-        
+
         # Get allowed senders from settings
         allowed_senders = [s.strip().lower() for s in self.settings.get("allowed_senders", "").split(",") if s.strip()] if self.settings else []
-        
+
         logger.info(f"[PROCESS] Found {len(pending_emails)} pending/failed emails to process (limit={limit})")
-        
+
         count = 0
         for raw_email in pending_emails:
             try:
                 # Check sender filter before processing
                 sender = email.utils.parseaddr(raw_email.sender or "")[1].lower() if raw_email.sender else ""
                 logger.debug(f"[DEBUG] Processing email {raw_email.id}: subject='{raw_email.subject}', sender='{sender}'")
-                
+
                 if allowed_senders and sender not in allowed_senders:
                     logger.info(f"[FILTER] Email {raw_email.id} filtered by sender in process_pending: '{sender}' not in {allowed_senders}")
                     raw_email.status = "ignored"
                     raw_email.error_message = f"Sender '{sender}' not in allowed list"
                     self.db.commit()
                     continue
-                
+
                 raw_email.status = "processing"
                 self.db.commit()
-                
+
                 # Parse email
                 msg = email.message_from_string(raw_email.raw_content)
-                
+
                 # Extract body for classification
                 body = self._extract_body_text(msg)
-                
+
                 logger.info(f"[DEBUG] Processing email {raw_email.id}: subject='{raw_email.subject}', sender='{sender}'")
-                
+
                 # Check if AI classification is enabled
                 enable_ai = self.settings.get("enable_ai_classification", True) if self.settings else True
-                
+
                 if enable_ai:
                     # Classify email using AI
                     logger.info(f"[DEBUG] Starting AI classification for email {raw_email.id}")
@@ -449,10 +414,10 @@ class EmailIngestionService:
                         self._classify_email_async(raw_email.subject or "", body, raw_email.sender or "", msg)
                     )
                     logger.info(f"[DEBUG] Classification result for email {raw_email.id}: is_expense={classification['is_expense']}, confidence={classification['confidence']}, reasoning='{classification['reasoning']}'")
-                    
+
                     # Check confidence threshold
                     min_confidence = self.settings.get("min_confidence_threshold", 0.7) if self.settings else 0.7
-                    
+
                     if not classification["is_expense"] or classification["confidence"] < min_confidence:
                         # Not an expense, mark as ignored
                         raw_email.status = "ignored"
@@ -460,24 +425,24 @@ class EmailIngestionService:
                         self.db.commit()
                         logger.info(f"Email {raw_email.id} ignored: {classification['reasoning']}")
                         continue
-                
+
                 # Create expense with AI extraction
                 # Ensure tenant context is set for encryption
                 from models.database import set_tenant_context
                 set_tenant_context(self.tenant_id)
-                
+
                 self._create_expense_from_email(msg, raw_email, body)
-                
+
                 raw_email.status = "processed"
                 raw_email.processed_at = datetime.now(timezone.utc)
                 self.db.commit()
                 count += 1
-                
+
                 # Delete if configured
                 if self.settings and self.settings.get("delete_processed", False):
                     self.db.delete(raw_email)
                     self.db.commit()
-                    
+
             except Exception as e:
                 logger.error(f"Failed to process raw email {raw_email.id}: {e}", exc_info=True)
                 # Rollback the failed transaction
@@ -486,16 +451,16 @@ class EmailIngestionService:
                 raw_email.error_message = str(e)
                 raw_email.retry_count += 1
                 self.db.commit()
-        
+
         return count
 
     async def _classify_email_async(self, subject: str, body: str, sender: str, msg) -> Dict[str, Any]:
         """Classify email using AI."""
         has_attachments = any(part.get_filename() for part in msg.walk() if part.get_content_maintype() != 'multipart')
-        
+
         classifier = EmailClassificationService(self.db)
         return await classifier.classify_email(subject, body, sender, has_attachments)
-    
+
     def _extract_body_text(self, msg) -> str:
         """Extract plain text body from email message."""
         body = ""
@@ -514,7 +479,7 @@ class EmailIngestionService:
             except:
                 body = str(msg.get_payload())
         return body
-    
+
     async def _extract_expense_from_body_async(self, subject: str, body: str) -> Dict[str, Any]:
         """Extract expense data from email body using AI."""
         try:
@@ -523,7 +488,7 @@ class EmailIngestionService:
             if not ai_config:
                 logger.warning("No AI config available for expense extraction")
                 return {}
-            
+
             # Build extraction prompt
             prompt = f"""Extract expense/receipt information from this email.
 
@@ -546,13 +511,13 @@ Respond with ONLY valid JSON:
   "vendor": "string" or null,
   "category": "string" or null
 }}"""
-            
+
             # Call LLM
             from litellm import completion
-            
+
             provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name")
-            
+
             if provider_name == "ollama":
                 model = f"ollama/{model_name}"
                 api_base = ai_config.get("provider_url", "http://localhost:11434")
@@ -562,27 +527,27 @@ Respond with ONLY valid JSON:
             else:
                 model = f"{provider_name}/{model_name}"
                 api_base = ai_config.get("provider_url")
-            
+
             kwargs = {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "max_tokens": 300,
             }
-            
+
             if api_base:
                 kwargs["api_base"] = api_base
             if ai_config.get("api_key"):
                 kwargs["api_key"] = ai_config["api_key"]
-            
+
             # Run in executor
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, lambda: completion(**kwargs))
-            
+
             # Parse response
             content = response.choices[0].message.content.strip()
             result = self._extract_json_from_llm_response(content)
-            
+
             if result:
                 # Parse date if present
                 if result.get("expense_date"):
@@ -593,13 +558,13 @@ Respond with ONLY valid JSON:
                 
                 logger.info(f"Extracted expense data: {result}")
                 return result
-            
+
             return {}
-            
+
         except Exception as e:
             logger.error(f"Expense extraction from body failed: {e}", exc_info=True)
             return {}
-        
+
     async def _extract_from_pdf_async(self, pdf_path: str) -> Dict[str, Any]:
         """Extract expense data from PDF attachment using OCR."""
         try:
@@ -608,13 +573,13 @@ Respond with ONLY valid JSON:
             if not ai_config:
                 logger.warning("No AI config available for PDF extraction")
                 return {}
-            
+
             # Use the same OCR service as direct PDF uploads
             extracted_data = await _run_ocr(pdf_path, ai_config=ai_config)
-            
+
             logger.info(f"Extracted data from PDF: {extracted_data}")
             return extracted_data
-            
+
         except Exception as e:
             logger.error(f"PDF extraction failed: {e}", exc_info=True)
             return {}
@@ -622,17 +587,17 @@ Respond with ONLY valid JSON:
     def _extract_json_from_llm_response(self, text: str) -> Optional[Dict[str, Any]]:
         """Extract JSON from LLM response."""
         import re
-        
+
         # Remove markdown
         text = re.sub(r'```json\s*', '', text)
         text = re.sub(r'```\s*', '', text)
         text = text.strip()
-        
+
         try:
             return json.loads(text)
         except:
             pass
-        
+
         # Find JSON object
         start = text.find('{')
         end = text.rfind('}')
@@ -641,7 +606,7 @@ Respond with ONLY valid JSON:
                 return json.loads(text[start:end+1])
             except:
                 pass
-        
+
         return None
     
     def _create_expense_from_email(self, msg, raw_email, body: str = None) -> Expense:
@@ -672,20 +637,20 @@ Respond with ONLY valid JSON:
         self.db.add(expense)
         self.db.commit()
         self.db.refresh(expense)
-        
+
         # Link expense to raw email
         raw_email.expense_id = expense.id
-        
+
         # Process attachments (will update expense with attachment data if found)
         self._process_attachments(msg, expense)
-        
+
         return expense
 
     def _process_attachments(self, msg, expense: Expense):
         """Process email attachments and extract data from PDFs."""
         logger.info(f"[ATTACH] Processing attachments for expense {expense.id}")
         attachment_count = 0
-        
+
         for part in msg.walk():
             if part.get_content_maintype() == 'multipart':
                 continue
@@ -698,23 +663,23 @@ Respond with ONLY valid JSON:
                 filename = self._decode_header(filename)
                 content = part.get_payload(decode=True)
                 content_type = part.get_content_type()
-                
+
                 logger.info(f"[ATTACH] Found attachment: {filename}, type={content_type}, size={len(content)} bytes")
-                
+
                 # Save attachment first
                 file_path = self._save_attachment(expense, filename, content, content_type)
-                
+
                 # Process PDFs and images for expense data extraction
                 is_pdf = content_type == 'application/pdf' or filename.lower().endswith('.pdf')
                 is_image = content_type.startswith('image/') or filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp'))
-                
+
                 if is_pdf or is_image:
                     file_type = "PDF" if is_pdf else "Image"
                     logger.info(f"[{file_type}] Processing {file_type.lower()} attachment: {filename}")
                     try:
                         # Extract data from PDF/image using OCR
                         extracted_data = asyncio.run(self._extract_from_pdf_async(file_path))
-                        
+
                         if extracted_data:
                             # Update expense with extracted data
                             if extracted_data.get('amount'):
@@ -727,20 +692,20 @@ Respond with ONLY valid JSON:
                                 expense.vendor = extracted_data['vendor']
                             if extracted_data.get('category'):
                                 expense.category = extracted_data['category']
-                            
+
                             # Update total amount if tax info available
                             if extracted_data.get('tax_amount'):
                                 expense.tax_amount = extracted_data['tax_amount']
                             if extracted_data.get('total_amount'):
                                 expense.total_amount = extracted_data['total_amount']
-                            
+
                             self.db.commit()
                             logger.info(f"[{file_type}] Updated expense {expense.id} with {file_type.lower()} data: amount={expense.amount}, vendor={expense.vendor}")
                         else:
                             logger.warning(f"[{file_type}] No data extracted from {filename}")
                     except Exception as e:
                         logger.error(f"[{file_type}] Failed to extract data from {filename}: {e}", exc_info=True)
-        
+
         logger.info(f"[ATTACH] Processed {attachment_count} attachments for expense {expense.id}")
 
     def _decode_header(self, header_value):
@@ -766,25 +731,25 @@ Respond with ONLY valid JSON:
         base_path = os.getenv("STORAGE_PATH", "data")
         storage_dir = os.path.join(base_path, "tenants", str(self.tenant_id), "expenses", str(expense.id))
         os.makedirs(storage_dir, exist_ok=True)
-        
+
         local_file_path = os.path.join(storage_dir, filename)
-        
+
         # Always save locally first (for OCR processing)
         with open(local_file_path, "wb") as f:
             f.write(content)
-        
+
         # Try to upload to cloud storage if enabled
         cloud_file_path = None
         try:
             from settings.cloud_storage_config import get_cloud_storage_config
             cloud_config = get_cloud_storage_config()
-            
+
             if cloud_config and cloud_config.enabled:
                 logger.info(f"[CLOUD] Uploading attachment to cloud storage: {filename}")
                 from services.cloud_storage_service import CloudStorageService
-                
+
                 cloud_storage_service = CloudStorageService(self.db, cloud_config)
-                
+
                 # Upload to cloud
                 import asyncio
                 result = asyncio.run(cloud_storage_service.store_file(
@@ -800,7 +765,7 @@ Respond with ONLY valid JSON:
                         'expense_id': expense.id
                     }
                 ))
-                
+
                 if result.success:
                     cloud_file_path = result.file_key
                     logger.info(f"[CLOUD] Successfully uploaded to cloud: {cloud_file_path}")
@@ -808,7 +773,7 @@ Respond with ONLY valid JSON:
                     logger.warning(f"[CLOUD] Cloud upload failed: {result.error_message}, using local storage")
         except Exception as e:
             logger.warning(f"[CLOUD] Cloud storage upload failed: {e}, using local storage")
-        
+
         # Create attachment record with cloud path if available
         attachment = ExpenseAttachment(
             expense_id=expense.id,
@@ -820,6 +785,6 @@ Respond with ONLY valid JSON:
         )
         self.db.add(attachment)
         self.db.commit()
-        
+
         # Return local path for OCR processing (cloud files will be downloaded if needed)
         return local_file_path

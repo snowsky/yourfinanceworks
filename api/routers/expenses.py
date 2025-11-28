@@ -844,6 +844,19 @@ async def delete_expense(
         except Exception as e:
             logger.warning(f"Failed to unlink bank transactions from expense {expense_id}: {e}")
 
+        # Unlink any raw emails that reference this expense BEFORE deletion
+        try:
+            from models.models_per_tenant import RawEmail
+            linked_emails = db.query(RawEmail).filter(
+                RawEmail.expense_id == expense_id
+            ).all()
+            for email in linked_emails:
+                email.expense_id = None
+            if linked_emails:
+                logger.info(f"Unlinked {len(linked_emails)} raw emails from deleted expense {expense_id}")
+        except Exception as e:
+            logger.warning(f"Failed to unlink raw emails from expense {expense_id}: {e}")
+
         # Delete the expense (unlinking should prevent FK constraint errors)
         db.delete(db_expense)
         db.commit()

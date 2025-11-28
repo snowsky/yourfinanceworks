@@ -26,6 +26,7 @@ class EmailConfig(BaseModel):
     folders: list[str] = ["INBOX"]
     allowed_senders: str = "" # Comma separated
     lookback_days: int = 7  # Default to 7 days for recent emails
+    max_emails_to_fetch: int = 100 # Max emails to fetch in one sync
     enable_ai_classification: bool = True  # Enable AI classification
     min_confidence_threshold: float = 0.7  # Minimum confidence for expense classification
     verify_ssl: bool = True  # Verify SSL certificates (disable for testing only)
@@ -38,6 +39,7 @@ class EmailConfigResponse(BaseModel):
     folders: list[str] = ["INBOX"]
     allowed_senders: str = ""
     lookback_days: int = 7
+    max_emails_to_fetch: int = 100
     enable_ai_classification: bool = True
     min_confidence_threshold: float = 0.7
     verify_ssl: bool = True
@@ -66,6 +68,7 @@ async def get_config(
         folders=config.get("folders", ["INBOX"]),
         allowed_senders=config.get("allowed_senders", ""),
         lookback_days=config.get("lookback_days", 7),
+        max_emails_to_fetch=config.get("max_emails_to_fetch", 100),
         enable_ai_classification=config.get("enable_ai_classification", True),
         min_confidence_threshold=config.get("min_confidence_threshold", 0.7),
         verify_ssl=config.get("verify_ssl", True)

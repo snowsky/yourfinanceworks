@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch, ANY
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from services.email_ingestion_service import EmailIngestionService
 from models.models_per_tenant import Settings, Expense
 from constants.expense_status import ExpenseStatus
@@ -29,7 +29,7 @@ def test_validate_config_success(service):
         
         assert is_valid is True
         assert message == "Connection successful"
-        mock_imap.assert_called_with("imap.test.com", 993)
+        mock_imap.assert_called_with("imap.test.com", 993, ssl_context=ANY)
         mock_instance.login.assert_called_with("test@test.com", "password")
 
 def test_validate_config_failure(service):
@@ -57,7 +57,7 @@ def test_sync_emails_disabled(service, mock_db):
     service.settings = {"enabled": False}
     
     result = service.sync_emails()
-    assert result == {"processed": 0, "errors": 0}
+    assert result == {"downloaded": 0, "processed": 0}
 
 @patch("services.email_ingestion_service.EmailIngestionService._connect")
 def test_sync_emails_success(mock_connect, service, mock_db):
@@ -75,6 +75,9 @@ def test_sync_emails_success(mock_connect, service, mock_db):
     # Mock search response
     mock_mail.search.return_value = ("OK", [b"1 2"])
     
+    # Mock DB query to return None (email doesn't exist)
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+    
     # Mock fetch response
     # We need to construct a valid raw email bytes
     from email.mime.text import MIMEText
@@ -82,20 +85,27 @@ def test_sync_emails_success(mock_connect, service, mock_db):
     msg["Subject"] = "Test Subject"
     msg["From"] = "sender@example.com"
     msg["Date"] = "Wed, 25 Nov 2025 12:00:00 +0000"
+    msg["Message-ID"] = "<test-id@example.com>"
     raw_email = msg.as_bytes()
     
-    mock_mail.fetch.return_value = ("OK", [(b"1 (RFC822 {100})", raw_email)])
+    # Mock side_effect for fetch to handle both header and body requests
+    def fetch_side_effect(email_id, part):
+        if "HEADER" in part:
+            return ("OK", [(b"1 (BODY.PEEK[HEADER] {100})", raw_email)])
+        return ("OK", [(b"1 (RFC822 {100})", raw_email)])
+        
+    mock_mail.fetch.side_effect = fetch_side_effect
     
     result = service.sync_emails()
     
-    assert result["processed"] == 2 # 2 emails
-    assert result["errors"] == 0
+    assert result["downloaded"] == 2 # 2 emails downloaded
+    assert result["downloaded"] == 2
     
     # Verify search was called with SINCE criteria
-    # We default to 30 days lookback
+    # We default to 7 days lookback (not 30 as comment said)
     from datetime import datetime, timedelta
-    expected_date = (datetime.now() - timedelta(days=30)).strftime("%d-%b-%Y")
-    mock_mail.search.assert_called_with(None, f'(SINCE "{expected_date}" UNSEEN)')
+    expected_date = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%d-%b-%Y")
+    mock_mail.search.assert_called_with(None, f'(SINCE "{expected_date}")')
     
     # Verify expense creation
     assert mock_db.add.call_count == 2
@@ -124,7 +134,16 @@ def test_sync_emails_filtered_sender(mock_connect, service, mock_db):
     msg["From"] = "blocked@example.com"
     raw_email = msg.as_bytes()
     
-    mock_mail.fetch.return_value = ("OK", [(b"1 (RFC822 {100})", raw_email)])
+    msg["Message-ID"] = "<blocked-id@example.com>"
+    raw_email = msg.as_bytes()
+    
+    # Mock side_effect for fetch to handle both header and body requests
+    def fetch_side_effect(email_id, part):
+        if "HEADER" in part:
+            return ("OK", [(b"1 (BODY.PEEK[HEADER] {100})", raw_email)])
+        return ("OK", [(b"1 (RFC822 {100})", raw_email)])
+        
+    mock_mail.fetch.side_effect = fetch_side_effect
     
     result = service.sync_emails()
     
