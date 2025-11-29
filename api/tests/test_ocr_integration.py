@@ -21,10 +21,10 @@ with patch.dict('sys.modules', {
     'models.models_per_tenant': Mock()
 }):
     # Import the modules under test
-    from services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
-    from services.bank_statement_ocr_processor import BankStatementOCRProcessor
-    from settings.ocr_config import OCRConfig
-    from exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
+    from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+    from core.services.bank_statement_ocr_processor import BankStatementOCRProcessor
+    from core.settings.ocr_config import OCRConfig
+    from core.exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
 
 
 class TestEndToEndOCRProcessing:

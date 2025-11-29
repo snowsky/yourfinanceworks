@@ -5,18 +5,18 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     InventoryItem, InventoryCategory, StockMovement,
     User, Invoice, InvoiceItem, Expense
 )
-from services.inventory_service import InventoryService
-from services.stock_movement_service import StockMovementService
-from schemas.inventory import (
+from core.services.inventory_service import InventoryService
+from core.services.stock_movement_service import StockMovementService
+from core.schemas.inventory import (
     InventoryItemCreate, InventoryItemUpdate,
     InventoryCategoryCreate, InventoryCategoryUpdate,
     InventorySearchFilters, StockMovementCreate
 )
-from exceptions.inventory_exceptions import (
+from core.exceptions.inventory_exceptions import (
     ItemNotFoundException, CategoryNotFoundException,
     DuplicateSKUException, InsufficientStockException,
     StockNotTrackedException

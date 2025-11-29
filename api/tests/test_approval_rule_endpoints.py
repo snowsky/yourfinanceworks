@@ -14,10 +14,10 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
 from main import app
-from models.database import get_db
-from models.models_per_tenant import ApprovalRule, User, ExpenseApproval, Expense
-from models.models import MasterUser
-from schemas.approval import ApprovalStatus
+from core.models.database import get_db
+from core.models.models_per_tenant import ApprovalRule, User, ExpenseApproval, Expense
+from core.models.models import MasterUser
+from core.schemas.approval import ApprovalStatus
 
 
 @pytest.fixture

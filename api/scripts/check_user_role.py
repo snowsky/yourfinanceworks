@@ -7,10 +7,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
-from models.database import get_master_db
-from models.models import MasterUser
-from models.models_per_tenant import User as TenantUser
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
+from core.models.models import MasterUser
+from core.models.models_per_tenant import User as TenantUser
+from core.services.tenant_database_manager import tenant_db_manager
 
 def check_and_promote_user():
     # Get master database session

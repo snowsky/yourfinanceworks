@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from models.database import DATABASE_URL
+from core.models.database import DATABASE_URL
 import logging
 
 # Configure logging

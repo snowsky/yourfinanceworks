@@ -12,9 +12,9 @@ from sqlalchemy.orm import sessionmaker
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db_url, get_tenant_db_url
-from models.models import Tenant
-from models.models_per_tenant import EmailNotificationSettings, Base
+from core.models.database import get_master_db_url, get_tenant_db_url
+from core.models.models import Tenant
+from core.models.models_per_tenant import EmailNotificationSettings, Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

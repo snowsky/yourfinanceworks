@@ -25,7 +25,7 @@ async def test_external_api_s3_flow():
     try:
         # Step 1: Set up tenant context (simulate API client)
         print("1. Setting up tenant context...")
-        from models.database import set_tenant_context
+        from core.models.database import set_tenant_context
         
         # Use a test tenant ID
         test_tenant_id = "1"  # This should match your actual tenant
@@ -34,14 +34,14 @@ async def test_external_api_s3_flow():
         
         # Step 2: Get database session
         print("2. Getting database session...")
-        from models.database import get_db
+        from core.models.database import get_db
         db = next(get_db())
         print("   ✅ Database session obtained")
         
         # Step 3: Initialize cloud storage service
         print("3. Initializing cloud storage service...")
-        from services.cloud_storage_service import CloudStorageService
-        from settings.cloud_storage_config import get_cloud_storage_config
+        from commercial.cloud_storage.service import CloudStorageService
+        from commercial.cloud_storage.config import get_cloud_storage_config
         
         cloud_config = get_cloud_storage_config()
         cloud_storage_service = CloudStorageService(db, cloud_config)

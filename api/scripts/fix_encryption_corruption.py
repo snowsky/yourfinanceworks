@@ -26,12 +26,12 @@ def setup_environment():
 
     # Import required modules
     try:
-        from services.encryption_service import get_encryption_service
-        from services.key_management_service import get_key_management_service
-        from models.database import SessionLocal, set_tenant_context
-        from services.tenant_database_manager import tenant_db_manager
-        from models.models_per_tenant import Expense
-        from models.models import TenantKey
+        from core.services.encryption_service import get_encryption_service
+        from core.services.key_management_service import get_key_management_service
+        from core.models.database import SessionLocal, set_tenant_context
+        from core.services.tenant_database_manager import tenant_db_manager
+        from core.models.models_per_tenant import Expense
+        from core.models.models import TenantKey
         
         return {
             'encryption_service': get_encryption_service(),

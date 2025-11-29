@@ -14,8 +14,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text, Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import sessionmaker
-from models.database import SQLALCHEMY_DATABASE_URL
-from models.models import Base, InvoiceItem
+from core.models.database import SQLALCHEMY_DATABASE_URL
+from core.models.models import Base, InvoiceItem
 from sqlalchemy.engine.url import make_url
 
 # Configure logging

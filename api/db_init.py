@@ -11,11 +11,11 @@ from alembic import command
 from alembic.script import ScriptDirectory
 from alembic.runtime.migration import MigrationContext
 
-from models.models import Base
-from models.models_per_tenant import Base as TenantBase, User as TenantUser
-from models.database import SQLALCHEMY_DATABASE_URL, get_master_db, set_tenant_context
+from core.models.models import Base
+from core.models.models_per_tenant import Base as TenantBase, User as TenantUser
+from core.models.database import SQLALCHEMY_DATABASE_URL, get_master_db, set_tenant_context
 from scripts.reset_users_id_sequences import reset_all_users_id_sequences
-from services.tenant_database_manager import tenant_db_manager
+from core.services.tenant_database_manager import tenant_db_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -166,7 +166,7 @@ def sync_users_to_tenant_db(tenant_id: int):
         try:
             # Get only admin users for this tenant from master database
             # Only the first user (tenant admin) should be in both master and tenant databases
-            from models.models import Tenant, MasterUser
+            from core.models.models import Tenant, MasterUser
             master_users = master_db.query(MasterUser).filter(
                 MasterUser.tenant_id == tenant_id
             ).order_by(MasterUser.id).all()
@@ -283,12 +283,12 @@ def init_db(skip_migrations=True):
     Base.metadata.create_all(bind=engine)
 
     # Create analytics table in master DB
-    from models.analytics import Base as AnalyticsBase
+    from core.models.analytics import Base as AnalyticsBase
     AnalyticsBase.metadata.create_all(bind=engine)
 
     # Create all tables for every tenant
     master_db = next(get_master_db())
-    from models.models import Tenant
+    from core.models.models import Tenant
     tenants = master_db.query(Tenant).all()
     for tenant in tenants:
         logger.info(f"Ensuring tables for tenant {tenant.id}...")
@@ -323,7 +323,7 @@ def init_db(skip_migrations=True):
     
     try:
         # Seed default supported currencies if none exist for this tenant
-        from models.models import SupportedCurrency
+        from core.models.models import SupportedCurrency
         existing_currencies = db.query(SupportedCurrency).count()
         if existing_currencies == 0:
             default_currencies = [

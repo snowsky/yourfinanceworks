@@ -23,9 +23,9 @@ from sqlalchemy.exc import SQLAlchemyError
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import SQLALCHEMY_DATABASE_URL, engine as master_engine
-from models.models import Base, Tenant, User, Client, Invoice, Payment, Settings, ClientNote, InvoiceItem, InvoiceHistory, DiscountRule, CurrencyRate, AIConfig
-from services.tenant_database_manager import TenantDatabaseManager
+from core.models.database import SQLALCHEMY_DATABASE_URL, engine as master_engine
+from core.models.models import Base, Tenant, User, Client, Invoice, Payment, Settings, ClientNote, InvoiceItem, InvoiceHistory, DiscountRule, CurrencyRate, AIConfig
+from core.services.tenant_database_manager import TenantDatabaseManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

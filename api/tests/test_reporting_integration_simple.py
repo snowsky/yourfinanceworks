@@ -14,7 +14,7 @@ class TestReportingRBACIntegration:
     
     def test_admin_user_has_all_reporting_permissions(self):
         """Test that admin users have all reporting permissions"""
-        from utils.rbac import (
+        from core.utils.rbac import (
             can_generate_reports, can_manage_report_templates, 
             can_schedule_reports
         )
@@ -28,7 +28,7 @@ class TestReportingRBACIntegration:
     
     def test_regular_user_has_reporting_permissions(self):
         """Test that regular users have reporting permissions"""
-        from utils.rbac import (
+        from core.utils.rbac import (
             can_generate_reports, can_manage_report_templates, 
             can_schedule_reports
         )
@@ -42,7 +42,7 @@ class TestReportingRBACIntegration:
     
     def test_viewer_user_has_no_reporting_permissions(self):
         """Test that viewer users have no reporting permissions"""
-        from utils.rbac import (
+        from core.utils.rbac import (
             can_generate_reports, can_manage_report_templates, 
             can_schedule_reports
         )

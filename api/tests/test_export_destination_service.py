@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from sqlalchemy.orm import Session
 
-from services.export_destination_service import ExportDestinationService
-from models.models_per_tenant import ExportDestinationConfig
-from exceptions.encryption_exceptions import EncryptionError, DecryptionError
+from core.services.export_destination_service import ExportDestinationService
+from core.models.models_per_tenant import ExportDestinationConfig
+from core.exceptions.encryption_exceptions import EncryptionError, DecryptionError
 
 
 @pytest.fixture

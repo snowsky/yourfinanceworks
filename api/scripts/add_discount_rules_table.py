@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from models.database import SQLALCHEMY_DATABASE_URL
+from core.models.database import SQLALCHEMY_DATABASE_URL
 
 def add_discount_rules_table():
     """Add discount_rules table to the database"""

@@ -13,7 +13,7 @@ from pathlib import Path
 # Add the parent directory to the path so we can import from the API
 sys.path.append(str(Path(__file__).parent.parent))
 
-from routers.slack import SlackInvoiceBot, SlackCommandParser
+from core.routers.slack import SlackInvoiceBot, SlackCommandParser
 
 async def test_command_parser():
     """Test the command parser"""

@@ -13,7 +13,7 @@ import os
 api_dir = os.path.join(os.path.dirname(__file__), '..')
 sys.path.insert(0, api_dir)
 
-from services.ocr_service import (
+from core.services.ocr_service import (
     _validate_timestamp,
     _parse_markdown_formatted_response,
     _extract_json_from_text,

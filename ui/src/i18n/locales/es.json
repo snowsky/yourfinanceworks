@@ -1470,6 +1470,7 @@
     "choose_an_approver": "Elegir un aprobador",
     "no_expenses_yet": "Aún no hay gastos",
     "create_and_submit_for_approval": "Crear y Enviar para Aprobación",
+    "save_and_submit_for_approval": "Guardar y Enviar para Aprobación",
     "expense_categories": "Categorías de Gastos",
     "add": "Agregar",
     "remove": "Eliminar",
@@ -2633,7 +2634,7 @@
       "trialExpired": "Prueba Expirada",
       "trialEndingSoon": "Prueba Termina Pronto",
       "trialActive": "Prueba Activa",
-      "personalUse": "Uso Personal",
+      "personalUse": "Edición Core",
       "noLicense": "Sin Licencia"
     },
     "warnings": {

@@ -8,8 +8,8 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 
-from services.report_cleanup_service import ReportCleanupService, run_scheduled_cleanup, run_weekly_cleanup
-from services.report_history_service import ReportHistoryError
+from core.services.report_cleanup_service import ReportCleanupService, run_scheduled_cleanup, run_weekly_cleanup
+from core.services.report_history_service import ReportHistoryError
 
 
 class TestReportCleanupService:

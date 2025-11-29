@@ -9,8 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.models import AIConfig
-from models.database import get_db
+from core.models.models import AIConfig
+from core.models.database import get_db
 import os
 
 def test_ai_config_creation():

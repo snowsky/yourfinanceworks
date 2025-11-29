@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from models.database import get_database_url
+from core.models.database import get_database_url
 
 def migrate_database():
     """Add discount fields to invoices table"""

@@ -8,8 +8,8 @@ import sys
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from models.database import get_db
-from models.models import User
+from core.models.database import get_db
+from core.models.models import User
 
 def fix_user_role():
     """Fix the admin user role"""

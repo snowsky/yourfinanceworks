@@ -13,7 +13,7 @@ from pathlib import Path
 api_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, api_dir)
 
-from models.database import SQLALCHEMY_DATABASE_URL
+from core.models.database import SQLALCHEMY_DATABASE_URL
 from db_init import init_db
 
 # Configure logging

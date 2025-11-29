@@ -8,8 +8,8 @@ import sys
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from models.database import get_db
-from models.models import AIConfig, Tenant
+from core.models.database import get_db
+from core.models.models import AIConfig, Tenant
 from datetime import datetime, timezone
 
 def update_ai_config():

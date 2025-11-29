@@ -3,10 +3,10 @@
 import sys
 sys.path.append('./api')
 
-from models.database import get_master_db, SessionLocal
-from models.models import Tenant, MasterUser
-from services.tenant_database_manager import tenant_db_manager
-from models.models_per_tenant import Client, Invoice, Payment
+from core.models.database import get_master_db, SessionLocal
+from core.models.models import Tenant, MasterUser
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import Client, Invoice, Payment
 from sqlalchemy import func
 from collections import defaultdict
 

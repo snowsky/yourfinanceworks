@@ -4,9 +4,9 @@ Script to check if the audit_logs table exists in all tenant databases.
 """
 import os
 from sqlalchemy import create_engine, inspect
-from models.database import SQLALCHEMY_DATABASE_URL, get_master_db
-from models.models import Tenant
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import SQLALCHEMY_DATABASE_URL, get_master_db
+from core.models.models import Tenant
+from core.services.tenant_database_manager import tenant_db_manager
 
 def check_audit_logs_table():
     print("Checking audit_logs table for all tenants...")

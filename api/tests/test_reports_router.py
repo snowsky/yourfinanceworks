@@ -15,9 +15,9 @@ import tempfile
 from unittest.mock import patch, MagicMock
 
 from main import app
-from models.models import MasterUser
-from models.models_per_tenant import ReportTemplate, ScheduledReport, ReportHistory, Client, Invoice
-from schemas.report import ReportType, ExportFormat, ScheduleType
+from core.models.models import MasterUser
+from core.models.models_per_tenant import ReportTemplate, ScheduledReport, ReportHistory, Client, Invoice
+from core.schemas.report import ReportType, ExportFormat, ScheduleType
 from tests.conftest import TestingSessionLocal, create_test_user, create_test_client
 
 

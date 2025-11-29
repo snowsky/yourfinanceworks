@@ -2662,7 +2662,7 @@ class InvoiceTools:
         """Import inventory items from CSV file"""
         try:
             # Validate file path before reading
-            from utils.file_validation import validate_file_path
+            from core.utils.file_validation import validate_file_path
             validated_path = validate_file_path(file_path)
 
             # Read the file content
@@ -3128,7 +3128,7 @@ class InvoiceTools:
         """Upload an attachment for an inventory item"""
         try:
             # Validate file path before reading
-            from utils.file_validation import validate_file_path
+            from core.utils.file_validation import validate_file_path
             validated_path = validate_file_path(file_path)
 
             # Read file content

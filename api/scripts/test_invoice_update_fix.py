@@ -11,9 +11,9 @@ from typing import Dict, Any
 # Add the parent directory to the path so we can import from api
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import set_tenant_context
-from services.tenant_database_manager import tenant_db_manager
-from models.models_per_tenant import Invoice, Client, InvoiceHistory, User
+from core.models.database import set_tenant_context
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import Invoice, Client, InvoiceHistory, User
 from datetime import datetime, timezone
 
 # Configure logging
@@ -63,8 +63,8 @@ def test_invoice_update_sanitization(tenant_id: int) -> Dict[str, Any]:
         new_notes = f"Updated test note at {datetime.now().isoformat()}"
         
         # Simulate the update process that happens in the router
-        from utils.audit_sanitizer import sanitize_history_values
-        from models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
+        from core.utils.audit_sanitizer import sanitize_history_values
+        from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
 
         # Store old values
         old_notes = test_invoice.notes

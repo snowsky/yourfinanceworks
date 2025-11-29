@@ -50,7 +50,7 @@ def check_cloud_storage_config():
     logger.info("⚙️ Checking Cloud Storage Configuration...")
     
     try:
-        from settings.cloud_storage_config import get_cloud_storage_config
+        from commercial.cloud_storage.config import get_cloud_storage_config
         
         config = get_cloud_storage_config()
         
@@ -73,9 +73,9 @@ def check_cloud_storage_service():
     logger.info("🔧 Checking Cloud Storage Service...")
     
     try:
-        from services.cloud_storage_service import CloudStorageService
-        from models.database import get_db
-        from settings.cloud_storage_config import get_cloud_storage_config
+        from commercial.cloud_storage.service import CloudStorageService
+        from core.models.database import get_db
+        from commercial.cloud_storage.config import get_cloud_storage_config
         
         # Get database session
         db = next(get_db())
@@ -102,8 +102,8 @@ def test_s3_connection():
     logger.info("🌐 Testing S3 Connection...")
     
     try:
-        from settings.cloud_storage_config import get_cloud_storage_config, CloudStorageConfigurationManager
-        from settings.cloud_storage_config import StorageProvider
+        from commercial.cloud_storage.config import get_cloud_storage_config, CloudStorageConfigurationManager
+        from commercial.cloud_storage.config import StorageProvider
         
         config = get_cloud_storage_config()
         
@@ -140,7 +140,7 @@ def check_bank_statement_processing():
     try:
         # Check external API router
         logger.info("  Checking External API Router...")
-        from routers.external_api import router
+        from core.routers.external_api import router
         logger.info("  ✅ External API router loaded")
         
         # Check OCR consumer worker
@@ -150,7 +150,7 @@ def check_bank_statement_processing():
         
         # Check if cloud storage is used in bank statement processing
         import inspect
-        from routers import external_api
+        from core.routers import external_api
         
         source = inspect.getsource(external_api.process_statement_pdf)
         if "CloudStorageService" in source:

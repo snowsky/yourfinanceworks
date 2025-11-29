@@ -54,7 +54,7 @@ Copy the public key file to the keys directory:
 
 ```bash
 # Copy new public key
-cp license_server/keys/public_key_v3.pem api/keys/
+cp license_server/keys/public_key_v3.pem api/core/keys/
 
 # The application will automatically load all public_key_*.pem files
 # No code changes needed!

@@ -18,8 +18,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from main import app
-from models.models_per_tenant import User, Client, Invoice, Payment
-from schemas.report import ReportType, ExportFormat
+from core.models.models_per_tenant import User, Client, Invoice, Payment
+from core.schemas.report import ReportType, ExportFormat
 from tests.test_comprehensive_reporting_suite import TestDataFactory
 
 
@@ -220,7 +220,7 @@ class TestEndToEndReportGeneration:
                         mock_email_service.send_report_email.return_value = True
                         
                         # Simulate scheduler execution
-                        from services.report_scheduler import ReportScheduler
+                        from core.services.report_scheduler import ReportScheduler
                         scheduler = ReportScheduler(mock_db)
                         
                         with patch.object(mock_db, 'query') as mock_query:
@@ -379,7 +379,7 @@ class TestEndToEndReportGeneration:
                     mock_security_service = Mock()
                     mock_security_service_class.return_value = mock_security_service
                     
-                    from exceptions.report_exceptions import ReportAccessDeniedException
+                    from core.exceptions.report_exceptions import ReportAccessDeniedException
                     mock_security_service.validate_report_access.side_effect = ReportAccessDeniedException(
                         "Insufficient permissions"
                     )

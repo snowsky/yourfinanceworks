@@ -21,23 +21,23 @@ import tempfile
 import os
 
 from main import app
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     User, Client, Invoice, Payment, Expense, BankStatement,
     ReportTemplate, ScheduledReport, ReportHistory
 )
-from schemas.report import (
+from core.schemas.report import (
     ReportType, ExportFormat, ReportRequest, ReportTemplateCreate,
     ClientReportFilters, InvoiceReportFilters, PaymentReportFilters,
     ExpenseReportFilters, StatementReportFilters
 )
-from services.report_service import ReportService
-from services.report_scheduler import ReportScheduler
-from services.report_data_aggregator import ReportDataAggregator
-from services.report_exporter import ReportExporter
-from services.report_template_service import ReportTemplateService
-from services.report_security_service import ReportSecurityService
-from services.report_audit_service import ReportAuditService
-from exceptions.report_exceptions import (
+from core.services.report_service import ReportService
+from core.services.report_scheduler import ReportScheduler
+from core.services.report_data_aggregator import ReportDataAggregator
+from core.services.report_exporter import ReportExporter
+from core.services.report_template_service import ReportTemplateService
+from core.services.report_security_service import ReportSecurityService
+from core.services.report_audit_service import ReportAuditService
+from core.exceptions.report_exceptions import (
     ReportGenerationException, ReportAccessDeniedException,
     ReportValidationException, ReportErrorCode
 )
@@ -1198,7 +1198,7 @@ class TestSecurityAndAccessControl:
     
     def test_rate_limiting_by_user_role(self, security_service):
         """Test rate limiting based on user role"""
-        from services.report_security_service import ReportRateLimiter
+        from core.services.report_security_service import ReportRateLimiter
         
         rate_limiter = ReportRateLimiter(security_service.db)
         

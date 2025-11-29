@@ -6,8 +6,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import MasterUser, Tenant, user_tenant_association
+from core.models.database import get_master_db
+from core.models.models import MasterUser, Tenant, user_tenant_association
 from sqlalchemy.orm import joinedload
 
 def check_user_organizations():

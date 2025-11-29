@@ -5,7 +5,7 @@ Simple migration: Add user_id column to payments table in current tenant databas
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine, text
-from models.database import SQLALCHEMY_DATABASE_URL
+from core.models.database import SQLALCHEMY_DATABASE_URL
 
 def add_user_id_column():
     """Add user_id column to payments table"""

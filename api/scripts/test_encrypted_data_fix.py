@@ -15,11 +15,11 @@ import json
 # Add the parent directory to the path so we can import from api
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db, set_tenant_context
-from services.tenant_database_manager import tenant_db_manager
-from models.models_per_tenant import Invoice, Client, InvoiceHistory, AuditLog, User
-from models.models import MasterUser, Tenant
-from utils.audit_sanitizer import is_likely_encrypted_data
+from core.models.database import get_master_db, set_tenant_context
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import Invoice, Client, InvoiceHistory, AuditLog, User
+from core.models.models import MasterUser, Tenant
+from core.utils.audit_sanitizer import is_likely_encrypted_data
 from datetime import datetime, timezone
 
 # Configure logging
@@ -91,7 +91,7 @@ def create_test_invoice_with_encrypted_notes(tenant_id: int) -> Dict[str, Any]:
         tenant_db.flush()  # Get the invoice ID
         
         # Create history entry (simulating what happens in the invoice creation endpoint)
-        from utils.audit_sanitizer import sanitize_history_values
+        from core.utils.audit_sanitizer import sanitize_history_values
 
         current_values = {
             'number': test_invoice.number,

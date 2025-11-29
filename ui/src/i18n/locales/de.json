@@ -1394,6 +1394,7 @@
     "choose_an_approver": "Einen Genehmiger wählen",
     "no_expenses_yet": "Noch keine Ausgaben",
     "create_and_submit_for_approval": "Erstellen und zur Genehmigung Einreichen",
+    "save_and_submit_for_approval": "Speichern und zur Genehmigung Einreichen",
     "expense_categories": "Ausgabenkategorien",
     "add": "Hinzufügen",
     "remove": "Entfernen",
@@ -2576,7 +2577,7 @@
       "trialExpired": "Testzeitraum abgelaufen",
       "trialEndingSoon": "Testzeitraum endet bald",
       "trialActive": "Testzeitraum aktiv",
-      "personalUse": "Persönliche Nutzung",
+      "personalUse": "Core-Edition",
       "noLicense": "Keine Lizenz"
     },
     "warnings": {

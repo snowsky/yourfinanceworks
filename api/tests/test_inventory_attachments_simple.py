@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_models():
     """Test model definitions"""
-    from models.models_per_tenant import ItemAttachment, InventoryItem, User
+    from core.models.models_per_tenant import ItemAttachment, InventoryItem, User
 
     print("✓ Models imported successfully")
 
@@ -37,8 +37,8 @@ def test_models():
 
 def test_services():
     """Test service classes"""
-    from services.file_storage_service import FileStorageService
-    from services.image_processing_service import ImageProcessingService
+    from core.services.file_storage_service import FileStorageService
+    from core.services.image_processing_service import ImageProcessingService
 
     # Test service instantiation
     file_service = FileStorageService()
@@ -64,7 +64,7 @@ def test_services():
 
 def test_schemas():
     """Test Pydantic schemas"""
-    from schemas.inventory_attachments import (
+    from core.schemas.inventory_attachments import (
         AttachmentCreate,
         AttachmentUpdate,
         AttachmentOrder
@@ -98,7 +98,7 @@ def test_router_structure():
     try:
         # Import just the router components we can test
         from fastapi import APIRouter
-        from routers.inventory_attachments import router
+        from core.routers.inventory_attachments import router
 
         print("✓ Router imported successfully")
 
@@ -118,8 +118,8 @@ def test_router_structure():
 
 def test_service_layer():
     """Test service layer instantiation"""
-    from services.attachment_service import AttachmentService
-    from models.database import SessionLocal
+    from core.services.attachment_service import AttachmentService
+    from core.models.database import SessionLocal
 
     # Create service instance
     db = SessionLocal()

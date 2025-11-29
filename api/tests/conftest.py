@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-from models.models_per_tenant import Base
+from core.models.models_per_tenant import Base
 from main import app
 
 
@@ -52,7 +52,7 @@ def mock_db():
 @pytest.fixture
 def sample_inventory_category():
     """Create a sample inventory category for testing"""
-    from models.models_per_tenant import InventoryCategory
+    from core.models.models_per_tenant import InventoryCategory
     from datetime import datetime, timezone
 
     return InventoryCategory(
@@ -69,7 +69,7 @@ def sample_inventory_category():
 @pytest.fixture
 def sample_inventory_item():
     """Create a sample inventory item for testing"""
-    from models.models_per_tenant import InventoryItem
+    from core.models.models_per_tenant import InventoryItem
     from datetime import datetime, timezone
 
     return InventoryItem(
@@ -95,8 +95,8 @@ def sample_inventory_item():
 @pytest.fixture
 def sample_stock_movement():
     """Create a sample stock movement for testing"""
-    from models.models_per_tenant import StockMovement
-    from schemas.inventory import StockMovementCreate
+    from core.models.models_per_tenant import StockMovement
+    from core.schemas.inventory import StockMovementCreate
     from datetime import datetime, timezone
 
     return StockMovementCreate(
@@ -114,7 +114,7 @@ def sample_stock_movement():
 @pytest.fixture
 def sample_user():
     """Create a sample user for testing"""
-    from models.models_per_tenant import User
+    from core.models.models_per_tenant import User
 
     return User(
         id=1,
@@ -128,7 +128,7 @@ def sample_user():
 @pytest.fixture
 def sample_client():
     """Create a sample client for testing"""
-    from models.models_per_tenant import Client
+    from core.models.models_per_tenant import Client
     from datetime import datetime, timezone
 
     return Client(
@@ -144,7 +144,7 @@ def sample_client():
 @pytest.fixture
 def sample_invoice():
     """Create a sample invoice for testing"""
-    from models.models_per_tenant import Invoice
+    from core.models.models_per_tenant import Invoice
     from datetime import datetime, timezone
 
     return Invoice(
@@ -163,7 +163,7 @@ def sample_invoice():
 @pytest.fixture
 def sample_expense():
     """Create a sample expense for testing"""
-    from models.models_per_tenant import Expense
+    from core.models.models_per_tenant import Expense
     from datetime import datetime, timezone
 
     return Expense(
@@ -185,28 +185,28 @@ def sample_expense():
 @pytest.fixture
 def inventory_service(db_session):
     """Create an inventory service instance"""
-    from services.inventory_service import InventoryService
+    from core.services.inventory_service import InventoryService
     return InventoryService(db_session)
 
 
 @pytest.fixture
 def stock_movement_service(db_session):
     """Create a stock movement service instance"""
-    from services.stock_movement_service import StockMovementService
+    from core.services.stock_movement_service import StockMovementService
     return StockMovementService(db_session)
 
 
 @pytest.fixture
 def inventory_integration_service(db_session):
     """Create an inventory integration service instance"""
-    from services.inventory_integration_service import InventoryIntegrationService
+    from core.services.inventory_integration_service import InventoryIntegrationService
     return InventoryIntegrationService(db_session)
 
 
 # Test data factories
 def create_test_category(db_session, **kwargs):
     """Factory for creating test inventory categories"""
-    from models.models_per_tenant import InventoryCategory
+    from core.models.models_per_tenant import InventoryCategory
     from datetime import datetime, timezone
 
     defaults = {
@@ -228,7 +228,7 @@ def create_test_category(db_session, **kwargs):
 
 def create_test_item(db_session, **kwargs):
     """Factory for creating test inventory items"""
-    from models.models_per_tenant import InventoryItem
+    from core.models.models_per_tenant import InventoryItem
     from datetime import datetime, timezone
 
     defaults = {
@@ -258,7 +258,7 @@ def create_test_item(db_session, **kwargs):
 
 def create_test_user(db_session, **kwargs):
     """Factory for creating test users"""
-    from models.models_per_tenant import User
+    from core.models.models_per_tenant import User
 
     defaults = {
         "email": "test@example.com",
@@ -312,7 +312,7 @@ class InventoryTestHelper:
     @staticmethod
     def create_invoice_with_inventory_items(db_session, item_ids, quantities=None):
         """Create an invoice with inventory items"""
-        from models.models_per_tenant import Invoice, InvoiceItem, Client
+        from core.models.models_per_tenant import Invoice, InvoiceItem, Client
 
         if quantities is None:
             quantities = [1] * len(item_ids)
@@ -365,7 +365,7 @@ class InventoryTestHelper:
     @staticmethod
     def create_expense_inventory_purchase(db_session, item_quantities):
         """Create an expense for inventory purchase"""
-        from models.models_per_tenant import Expense, User
+        from core.models.models_per_tenant import Expense, User
 
         # Create user if needed
         user = db_session.query(User).first()

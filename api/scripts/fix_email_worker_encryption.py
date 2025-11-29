@@ -19,11 +19,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from models.database import get_master_db, set_tenant_context
-from models.models import Tenant
-from models.models_per_tenant import User, Client, ClientNote, Invoice, Payment, Expense
-from services.tenant_database_manager import tenant_db_manager
-from services.encryption_service import get_encryption_service
+from core.models.database import get_master_db, set_tenant_context
+from core.models.models import Tenant
+from core.models.models_per_tenant import User, Client, ClientNote, Invoice, Payment, Expense
+from core.services.tenant_database_manager import tenant_db_manager
+from core.services.encryption_service import get_encryption_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

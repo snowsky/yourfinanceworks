@@ -1,8 +1,8 @@
 """
 Script to create the User table in the existing database.
 """
-from models.database import engine
-from models.models import Base, User
+from core.models.database import engine
+from core.models.models import Base, User
 
 def create_user_table():
     # Create only the User table

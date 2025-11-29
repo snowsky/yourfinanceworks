@@ -13,9 +13,9 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from encryption_config import EncryptionConfig
-from services.key_management_service import KeyManagementService
-from services.encryption_service import EncryptionService
-from integrations.key_vault_factory import KeyVaultFactory
+from core.services.key_management_service import KeyManagementService
+from core.services.encryption_service import EncryptionService
+from commercial.integrations.key_vault_factory import KeyVaultFactory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

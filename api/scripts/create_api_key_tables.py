@@ -8,8 +8,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
 import os
-from models.models import Base
-from models.api_models import APIClient, ExternalTransaction, ClientPermission
+from core.models.models import Base
+from core.models.api_models import APIClient, ExternalTransaction, ClientPermission
 
 def create_api_key_tables():
     """Create API key related tables in the master database."""
@@ -26,7 +26,7 @@ def create_api_key_tables():
     # Create tables
     try:
         # Import all models to ensure they're registered with Base
-        from models.api_models import APIClient, ExternalTransaction, ClientPermission
+        from core.models.api_models import APIClient, ExternalTransaction, ClientPermission
         
         # Create the tables
         Base.metadata.create_all(bind=engine, tables=[

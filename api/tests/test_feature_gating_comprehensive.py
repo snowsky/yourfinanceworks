@@ -22,8 +22,8 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from main import app
-from services.license_service import LicenseService
-from models.models_per_tenant import Base, InstallationInfo
+from core.services.license_service import LicenseService
+from core.models.models_per_tenant import Base, InstallationInfo
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -132,7 +132,7 @@ class TestHTTP402Responses:
     def test_http_402_returned_for_unlicensed_feature(self, license_service, db_session):
         """Test that HTTP 402 is returned when feature is not licensed"""
         from fastapi import HTTPException
-        from utils.feature_gate import require_feature
+        from core.utils.feature_gate import require_feature
         
         # Create expired trial
         now = datetime.now(timezone.utc)
@@ -167,7 +167,7 @@ class TestHTTP402Responses:
     def test_http_402_includes_feature_info(self, license_service, db_session):
         """Test that HTTP 402 response includes feature information"""
         from fastapi import HTTPException
-        from utils.feature_gate import require_feature
+        from core.utils.feature_gate import require_feature
         
         # Create expired trial
         now = datetime.now(timezone.utc)
@@ -202,7 +202,7 @@ class TestHTTP402Responses:
             
     def test_http_200_with_valid_license(self, license_service, db_session):
         """Test that HTTP 200 is returned with valid license"""
-        from utils.feature_gate import require_feature
+        from core.utils.feature_gate import require_feature
         
         # Activate license
         license_key = create_valid_license(['ai_invoice'])
@@ -362,7 +362,7 @@ class TestUIFeatureVisibility:
         
     def test_feature_list_includes_metadata(self, license_service):
         """Test that feature list includes metadata for UI display"""
-        from services.feature_config_service import FeatureConfigService
+        from core.services.feature_config_service import FeatureConfigService
         
         features = FeatureConfigService.get_all_features()
         
@@ -379,7 +379,7 @@ class TestFeatureGateIntegration:
     
     def test_feature_gate_with_environment_variable_override(self):
         """Test that environment variables can override feature gates"""
-        from services.feature_config_service import FeatureConfigService
+        from core.services.feature_config_service import FeatureConfigService
         import os
         
         # Set environment variable
@@ -399,7 +399,7 @@ class TestFeatureGateIntegration:
         
     def test_feature_categories_correctly_assigned(self):
         """Test that features are correctly categorized"""
-        from services.feature_config_service import FeatureConfigService
+        from core.services.feature_config_service import FeatureConfigService
         
         ai_features = FeatureConfigService.get_features_by_category('ai')
         integration_features = FeatureConfigService.get_features_by_category('integration')

@@ -10,14 +10,14 @@ from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from exceptions.approval_exceptions import (
+from core.exceptions.approval_exceptions import (
     ValidationError, ExpenseValidationError, ApprovalConcurrencyError,
     ApprovalTimeoutError, ApprovalWorkflowError, NotificationDeliveryError
 )
-from services.approval_service import ApprovalService
-from services.approval_validation_service import ApprovalValidationService
-from models.models_per_tenant import Expense, User, ExpenseApproval, ApprovalRule
-from schemas.approval import ApprovalStatus
+from commercial.workflows.approvals.services.approval_service import ApprovalService
+from commercial.workflows.approvals.services.approval_validation_service import ApprovalValidationService
+from core.models.models_per_tenant import Expense, User, ExpenseApproval, ApprovalRule
+from core.schemas.approval import ApprovalStatus
 
 
 class TestApprovalWorkflowEdgeCases:
@@ -439,7 +439,7 @@ class TestApprovalWorkflowEdgeCases:
     
     def test_approval_rule_with_extreme_priority_values(self, validation_service):
         """Test approval rule validation with extreme priority values"""
-        from schemas.approval import ApprovalRuleCreate
+        from core.schemas.approval import ApprovalRuleCreate
         
         # Test with maximum priority
         rule_data = ApprovalRuleCreate(

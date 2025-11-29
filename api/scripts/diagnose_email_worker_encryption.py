@@ -18,12 +18,12 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
-from models.database import get_master_db, set_tenant_context
-from models.models import Tenant, TenantKey
-from models.models_per_tenant import User
-from services.tenant_database_manager import tenant_db_manager
-from services.key_management_service import get_key_management_service
-from services.encryption_service import get_encryption_service
+from core.models.database import get_master_db, set_tenant_context
+from core.models.models import Tenant, TenantKey
+from core.models.models_per_tenant import User
+from core.services.tenant_database_manager import tenant_db_manager
+from core.services.key_management_service import get_key_management_service
+from core.services.encryption_service import get_encryption_service
 from encryption_config import EncryptionConfig
 
 logging.basicConfig(level=logging.INFO)

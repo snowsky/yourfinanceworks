@@ -32,16 +32,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Service imports
-from services.ocr_service import (
+from core.services.ocr_service import (
     process_attachment_inline,
     publish_ocr_result,
     publish_ocr_task,
     release_processing_lock
 )
-from models.database import set_tenant_context
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import set_tenant_context
+from core.services.tenant_database_manager import tenant_db_manager
 from sqlalchemy.orm import Session
-from exceptions.bank_ocr_exceptions import (
+from core.exceptions.bank_ocr_exceptions import (
     OCRTimeoutError, 
     OCRProcessingError, 
     is_retryable_ocr_error,
@@ -51,7 +51,7 @@ from exceptions.bank_ocr_exceptions import (
 # Type imports for type hints
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from models.models_per_tenant import InvoiceProcessingTask
+    from core.models.models_per_tenant import InvoiceProcessingTask
 
 
 # ============================================================================
@@ -249,9 +249,9 @@ class ExpenseMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
-                    from services.batch_processing_service import BatchProcessingService
-                    from models.models_per_tenant import Expense, ExpenseAttachment, AIConfig as AIConfigModel
+                    from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+                    from commercial.batch_processing.service import BatchProcessingService
+                    from core.models.models_per_tenant import Expense, ExpenseAttachment, AIConfig as AIConfigModel
                     from datetime import datetime, timezone
 
                     # Get AI config
@@ -353,7 +353,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
             try:
                 with tenant_context(tenant_id):
                     with database_session(tenant_id) as db:
-                        from services.batch_processing_service import BatchProcessingService
+                        from commercial.batch_processing.service import BatchProcessingService
                         batch_service = BatchProcessingService(db)
                         await batch_service.process_file_completion(
                             file_id=int(batch_file_id),
@@ -378,7 +378,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from models.models_per_tenant import Expense
+                    from core.models.models_per_tenant import Expense
 
                     # Check if expense exists and is not manually overridden
                     exp = db.query(Expense).filter(Expense.id == expense_id).first()
@@ -400,7 +400,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
                         raise ProcessingError("Failed to update expense status")
 
                     # Process with OCR
-                    await process_attachment_inline(db, expense_id, attachment_id, file_path)
+                    await process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id)
 
                     # Refresh and check result
                     db.refresh(exp)
@@ -471,7 +471,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
         """Send failed message to Dead Letter Queue"""
         try:
             from confluent_kafka import Producer
-            from services.ocr_service import _get_kafka_producer
+            from core.services.ocr_service import _get_kafka_producer
 
             producer, _ = _get_kafka_producer()
             if producer:
@@ -550,9 +550,9 @@ class BankStatementMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from models.models_per_tenant import AIConfig as AIConfigModel, BankStatement, BankStatementAttachment
-                    from services.statement_service import process_bank_pdf_with_llm
-                    from services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+                    from core.models.models_per_tenant import AIConfig as AIConfigModel, BankStatement, BankStatementAttachment
+                    from core.services.statement_service import process_bank_pdf_with_llm
+                    from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
                     from datetime import datetime, timezone
                     
                     # Get AI config
@@ -582,7 +582,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
                     
                     # Get cloud file URL from batch file record
-                    from models.models_per_tenant import BatchFileProcessing
+                    from core.models.models_per_tenant import BatchFileProcessing
                     batch_file = db.query(BatchFileProcessing).filter(
                         BatchFileProcessing.id == int(batch_file_id)
                     ).first()
@@ -622,7 +622,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         db.add(attachment)
                         
                         # Create transaction records
-                        from models.models_per_tenant import BankStatementTransaction
+                        from core.models.models_per_tenant import BankStatementTransaction
                         if txns:
                             for txn in txns:
                                 transaction = BankStatementTransaction(
@@ -647,7 +647,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         # Continue anyway - we still have the extracted data
                     
                     # Update batch processing
-                    from services.batch_processing_service import BatchProcessingService
+                    from commercial.batch_processing.service import BatchProcessingService
                     batch_service = BatchProcessingService(db)
                     await batch_service.process_file_completion(
                         file_id=int(batch_file_id),
@@ -667,7 +667,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
             try:
                 with tenant_context(tenant_id):
                     with database_session(tenant_id) as db:
-                        from services.batch_processing_service import BatchProcessingService
+                        from commercial.batch_processing.service import BatchProcessingService
                         batch_service = BatchProcessingService(db)
                         await batch_service.process_file_completion(
                             file_id=int(batch_file_id),
@@ -691,8 +691,8 @@ class BankStatementMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from models.models_per_tenant import BankStatement, AIConfig as AIConfigModel
-                    from services.statement_service import process_bank_pdf_with_llm, is_bank_llm_reachable
+                    from core.models.models_per_tenant import BankStatement, AIConfig as AIConfigModel
+                    from core.services.statement_service import process_bank_pdf_with_llm, is_bank_llm_reachable
                     
                     # Get AI config
                     ai_conf = await self._get_ai_config(db)
@@ -728,7 +728,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
     
     async def _handle_statement_error(self, consumer, message, stmt, error: Exception, attempt: int, payload: Dict[str, Any]) -> ProcessingResult:
         """Handle bank statement processing errors"""
-        from services.ocr_service import publish_bank_statement_task
+        from core.services.ocr_service import publish_bank_statement_task
         
         statement_id = stmt.id
         retry_delay = calculate_backoff_delay(attempt)
@@ -769,7 +769,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
     
     async def _get_ai_config(self, db) -> Optional[Dict[str, Any]]:
         """Get AI configuration from database"""
-        from models.models_per_tenant import AIConfig as AIConfigModel
+        from core.models.models_per_tenant import AIConfig as AIConfigModel
         
         ai_row = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
@@ -800,7 +800,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
     
     async def _save_transactions(self, db, stmt, transactions: List[Dict[str, Any]]):
         """Save extracted transactions to database"""
-        from models.models_per_tenant import BankStatementTransaction
+        from core.models.models_per_tenant import BankStatementTransaction
         from datetime import datetime as dt
         
         # Delete existing transactions
@@ -904,13 +904,13 @@ class InvoiceMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from models.models_per_tenant import AIConfig as AIConfigModel, Invoice, InvoiceItem, InvoiceAttachment
-                    from routers.pdf_processor import process_pdf_with_ai
+                    from core.models.models_per_tenant import AIConfig as AIConfigModel, Invoice, InvoiceItem, InvoiceAttachment
+                    from commercial.ai.pdf_processor import process_pdf_with_ai
                     from types import SimpleNamespace
                     from datetime import datetime, timezone
                     
                     # Get batch job to retrieve client_id
-                    from models.models_per_tenant import BatchProcessingJob, Client
+                    from core.models.models_per_tenant import BatchProcessingJob, Client
                     batch_job = db.query(BatchProcessingJob).filter(
                         BatchProcessingJob.job_id == batch_job_id
                     ).first()
@@ -925,7 +925,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
                             self.logger.error(f"Batch invoice processing aborted: {error_msg}")
                             
                             # Mark file as failed without processing
-                            from services.batch_processing_service import BatchProcessingService
+                            from commercial.batch_processing.service import BatchProcessingService
                             batch_service = BatchProcessingService(db)
                             await batch_service.process_file_completion(
                                 file_id=int(batch_file_id),
@@ -996,7 +996,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
                         invoice_creation_error = str(e)
                     
                     # Update batch processing
-                    from services.batch_processing_service import BatchProcessingService
+                    from commercial.batch_processing.service import BatchProcessingService
                     batch_service = BatchProcessingService(db)
                     
                     # If invoice creation failed, mark as failed
@@ -1028,7 +1028,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
             try:
                 with tenant_context(tenant_id):
                     with database_session(tenant_id) as db:
-                        from services.batch_processing_service import BatchProcessingService
+                        from commercial.batch_processing.service import BatchProcessingService
                         batch_service = BatchProcessingService(db)
                         await batch_service.process_file_completion(
                             file_id=int(batch_file_id),
@@ -1053,8 +1053,8 @@ class InvoiceMessageHandler(BaseMessageHandler):
         try:
             with tenant_context(tenant_id):
                 with database_session(tenant_id) as db:
-                    from models.models_per_tenant import AIConfig as AIConfigModel, InvoiceProcessingTask, Client
-                    from routers.pdf_processor import process_pdf_with_ai
+                    from core.models.models_per_tenant import AIConfig as AIConfigModel, InvoiceProcessingTask, Client
+                    from commercial.ai.pdf_processor import process_pdf_with_ai
                     from types import SimpleNamespace
                     import re
                     
@@ -1107,7 +1107,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
                 tenant_id = self.extract_tenant_id(payload)
                 with tenant_context(tenant_id):
                     with database_session(tenant_id) as db:
-                        from services.batch_processing_service import BatchProcessingService
+                        from commercial.batch_processing.service import BatchProcessingService
                         batch_service = BatchProcessingService(db)
                         await batch_service.process_file_completion(
                             file_id=int(payload.get("batch_file_id")),
@@ -1122,6 +1122,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
                 tenant_id = self.extract_tenant_id(payload)
                 with tenant_context(tenant_id):
                     with database_session(tenant_id) as db:
+                        from core.models.models_per_tenant import InvoiceProcessingTask
                         task_id = str(payload.get("task_id"))
                         task = db.query(InvoiceProcessingTask).filter(
                             InvoiceProcessingTask.task_id == task_id
@@ -1141,7 +1142,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
     
     async def _get_ai_config(self, db) -> Union[SimpleNamespace, Any]:
         """Get AI configuration"""
-        from models.models_per_tenant import AIConfig as AIConfigModel
+        from core.models.models_per_tenant import AIConfig as AIConfigModel
         
         ai_row = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
@@ -1168,7 +1169,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
     
     async def _get_or_create_task(self, db, task_id: str, file_path: str, filename: str, user_id: int) -> "InvoiceProcessingTask":
         """Get existing task or create new one"""
-        from models.models_per_tenant import InvoiceProcessingTask
+        from core.models.models_per_tenant import InvoiceProcessingTask
         
         task = db.query(InvoiceProcessingTask).filter(
             InvoiceProcessingTask.task_id == task_id
@@ -1192,7 +1193,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
     
     async def _process_client_info(self, db, extracted_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process client information from extracted data"""
-        from models.models_per_tenant import Client
+        from core.models.models_per_tenant import Client
         import re
         
         client_info = extracted_data.get('bills_to', '')
@@ -1228,7 +1229,7 @@ class InvoiceMessageHandler(BaseMessageHandler):
     async def _send_invoice_notification(self, db, task_id: str, user_id: int, tenant_id: int):
         """Send invoice processing completion notification"""
         try:
-            from utils.ocr_notifications import notify_invoice_ocr_complete
+            from core.utils.ocr_notifications import notify_invoice_ocr_complete
             await notify_invoice_ocr_complete(db, task_id, user_id, tenant_id)
         except Exception as e:
             self.logger.warning(f"Failed to send invoice OCR notification: {e}")
@@ -1423,7 +1424,7 @@ class OCRConsumer:
 
         db = SessionLocalTenant()
         try:
-            from models.models_per_tenant import Expense, ExpenseAttachment
+            from core.models.models_per_tenant import Expense, ExpenseAttachment
 
             queued_expenses = db.query(Expense).filter(
                 Expense.analysis_status == ProcessingStatus.QUEUED.value
@@ -1441,7 +1442,7 @@ class OCRConsumer:
                     continue
 
                 try:
-                    from services.ocr_service import queue_or_process_attachment
+                    from core.services.ocr_service import queue_or_process_attachment
                     await queue_or_process_attachment(db, tenant_id, expense.id, attachment.id, str(attachment.file_path))
                     self.logger.info(f"Requeued queued expense_id={expense.id} tenant_id={tenant_id}")
                 except Exception as e:

@@ -16,8 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from utils.dependency_manager import dependency_manager
-    from settings.ocr_config import get_ocr_config, log_ocr_status
+    from core.utils.dependency_manager import dependency_manager
+    from core.settings.ocr_config import get_ocr_config, log_ocr_status
 except ImportError as e:
     print(f"Warning: Could not import API modules: {e}")
     dependency_manager = None

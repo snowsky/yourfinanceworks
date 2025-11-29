@@ -10,7 +10,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, patch
 
-from services.storage_monitoring_service import (
+from core.services.storage_monitoring_service import (
     StorageMonitoringService,
     AlertSeverity,
     MonitoringMetric,
@@ -20,9 +20,9 @@ from services.storage_monitoring_service import (
     StorageUsageMetrics,
     PerformanceMetrics
 )
-from services.cloud_storage.provider import StorageProvider, HealthCheckResult
-from models.models import StorageOperationLog, Tenant
-from settings.cloud_storage_config import CloudStorageConfig
+from core.interfaces.storage_provider import StorageProvider, HealthCheckResult
+from core.models.models import StorageOperationLog, Tenant
+from commercial.cloud_storage.config import CloudStorageConfig
 
 
 @pytest.fixture

@@ -22,7 +22,7 @@ This guide provides step-by-step instructions for deploying the licensing system
 - ✅ PostgreSQL database (master + tenant databases)
 - ✅ Python 3.9+ with pip
 - ✅ Alembic for database migrations
-- ✅ Public key file (`api/keys/public_key.pem`)
+- ✅ Public key file (`api/core/keys/public_key.pem`)
 - ✅ Access to production servers
 - ✅ Backup of current database
 
@@ -54,7 +54,7 @@ python scripts/generate_license_keys.py
 
 **Verify keys exist:**
 ```bash
-ls -la api/keys/
+ls -la api/core/keys/
 # Should show:
 # private_key.pem (600 permissions)
 # public_key.pem (644 permissions)
@@ -514,7 +514,7 @@ psql -h localhost -U postgres invoice_master -c "SELECT 1;"
 
 ### Issue: Public Key Not Found
 
-**Error:** `Public key not found at api/keys/public_key.pem`
+**Error:** `Public key not found at api/core/keys/public_key.pem`
 
 **Solution:**
 ```bash

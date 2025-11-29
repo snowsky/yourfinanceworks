@@ -5,10 +5,10 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sqlalchemy.orm import sessionmaker
-from models.database import engine as master_engine, get_tenant_engine
-from models.models import Tenant
-from models.models_per_tenant import ExpenseAttachment
-from services.opensearch_client import OpenSearchClient
+from core.models.database import engine as master_engine, get_tenant_engine
+from core.models.models import Tenant
+from core.models.models_per_tenant import ExpenseAttachment
+from core.services.opensearch_client import OpenSearchClient
 
 
 def main():

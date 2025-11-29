@@ -9,17 +9,17 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from exceptions.approval_exceptions import (
+from core.exceptions.approval_exceptions import (
     ValidationError, ExpenseValidationError, InsufficientApprovalPermissions,
     ExpenseAlreadyApproved, NoApprovalRuleFound, InvalidApprovalState,
     ApprovalNotFoundException, DelegationValidationError, NotificationDeliveryError,
     ApprovalWorkflowError, ApprovalConcurrencyError
 )
-from services.approval_validation_service import ApprovalValidationService
-from services.approval_notification_retry_service import ApprovalNotificationRetryService
-from services.approval_service import ApprovalService
-from models.models_per_tenant import Expense, User, ExpenseApproval, ApprovalRule
-from schemas.approval import ApprovalStatus, ApprovalRuleCreate
+from commercial.workflows.approvals.services.approval_validation_service import ApprovalValidationService
+from commercial.workflows.approvals.services.approval_notification_retry_service import ApprovalNotificationRetryService
+from commercial.workflows.approvals.services.approval_service import ApprovalService
+from core.models.models_per_tenant import Expense, User, ExpenseApproval, ApprovalRule
+from core.schemas.approval import ApprovalStatus, ApprovalRuleCreate
 
 
 class TestApprovalValidationService:

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 def test_router_structure():
     """Test that the router is properly structured"""
     try:
-        from routers.export_destinations import router
+        from core.routers.export_destinations import router
         
         # Check that router exists
         assert router is not None, "Router should not be None"
@@ -60,7 +60,7 @@ def test_router_structure():
 def test_schema_imports():
     """Test that schemas are properly imported"""
     try:
-        from schemas.export_destination import (
+        from core.schemas.export_destination import (
             ExportDestinationCreate,
             ExportDestinationUpdate,
             ExportDestinationResponse,
@@ -81,7 +81,7 @@ def test_schema_imports():
 def test_service_imports():
     """Test that service is properly imported"""
     try:
-        from services.export_destination_service import ExportDestinationService
+        from core.services.export_destination_service import ExportDestinationService
         
         print("✓ ExportDestinationService imported successfully")
         return True

@@ -17,10 +17,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from models.database import get_master_db
-from services.tenant_database_manager import tenant_db_manager
-from models.models_per_tenant import InvoiceHistory, AuditLog
-from utils.audit_sanitizer import is_likely_encrypted_data
+from core.models.database import get_master_db
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import InvoiceHistory, AuditLog
+from core.utils.audit_sanitizer import is_likely_encrypted_data
 
 # Configure logging
 logging.basicConfig(

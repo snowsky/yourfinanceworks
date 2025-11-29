@@ -16,13 +16,13 @@ def fix_router_file(file_path):
     
     # Remove set_tenant_context from imports
     content = re.sub(
-        r'from models\.database import get_db, get_master_db, set_tenant_context',
-        'from models.database import get_db, get_master_db',
+        r'from core.models\.database import get_db, get_master_db, set_tenant_context',
+        'from core.models.database import get_db, get_master_db',
         content
     )
     content = re.sub(
-        r'from models\.database import get_db, set_tenant_context',
-        'from models.database import get_db',
+        r'from core.models\.database import get_db, set_tenant_context',
+        'from core.models.database import get_db',
         content
     )
     

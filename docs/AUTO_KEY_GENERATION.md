@@ -10,12 +10,12 @@ The license system now automatically generates RSA key pairs on first startup if
 
 1. **Check for keys** in this order:
    - Environment variables (`LICENSE_PUBLIC_KEY_V2`, etc.)
-   - Files in `api/keys/` directory (`public_key_*.pem`)
-   - Default file (`api/keys/public_key.pem`)
+   - Files in `api/core/keys/` directory (`public_key_*.pem`)
+   - Default file (`api/core/keys/public_key.pem`)
 
 2. **If no keys found**:
    - Automatically generates a new 2048-bit RSA key pair
-   - Saves to `api/keys/private_key_{version}.pem` and `public_key_{version}.pem`
+   - Saves to `api/core/keys/private_key_{version}.pem` and `public_key_{version}.pem`
    - Sets secure file permissions (600 for private, 644 for public)
    - Creates a README with security notes
    - Loads the public key for immediate use
@@ -25,7 +25,7 @@ The license system now automatically generates RSA key pairs on first startup if
 ### Generated Files
 
 ```
-api/keys/
+api/core/keys/
 ├── private_key_v2.pem    # Auto-generated private key (600 permissions)
 ├── public_key_v2.pem     # Auto-generated public key (644 permissions)
 └── README.md             # Auto-generated security notes
@@ -108,7 +108,7 @@ cd license_server
 python generate_new_key_version.py --version v2
 
 # Copy to application
-cp keys/public_key_v2.pem ../api/keys/
+cp keys/public_key_v2.pem ../api/core/keys/
 
 # Deploy - uses pre-generated keys
 docker-compose up -d api
@@ -183,7 +183,7 @@ If you want to require manual key management:
 if not public_keys:
     raise RuntimeError(
         "No license keys found. Please provide keys via:\n"
-        "1. Files in api/keys/ directory\n"
+        "1. Files in api/core/keys/ directory\n"
         "2. Environment variables (LICENSE_PUBLIC_KEY_V2, etc.)\n"
         "3. Run: python api/scripts/generate_license_keys.py"
     )
@@ -216,7 +216,7 @@ docker-compose up -d
 **Solution**: Check directory permissions
 ```bash
 # Make keys directory writable
-chmod 755 api/keys/
+chmod 755 api/core/keys/
 
 # Or run with appropriate user
 docker-compose run --user $(id -u):$(id -g) api
@@ -284,7 +284,7 @@ If you previously had hardcoded keys:
 git log -p api/services/license_service.py | grep -A 10 "BEGIN PUBLIC KEY" > old_key.txt
 
 # Save as v1 (for old licenses)
-cat > api/keys/public_key_v1.pem << 'EOF'
+cat > api/core/keys/public_key_v1.pem << 'EOF'
 -----BEGIN PUBLIC KEY-----
 [paste old key]
 -----END PUBLIC KEY-----
@@ -295,13 +295,13 @@ EOF
 
 ```bash
 # Let it auto-generate as v2
-rm api/keys/public_key_v2.pem  # If exists
+rm api/core/keys/public_key_v2.pem  # If exists
 docker-compose restart api
 
 # Or manually generate
 cd license_server
 python generate_new_key_version.py --version v2
-cp keys/public_key_v2.pem ../api/keys/
+cp keys/public_key_v2.pem ../api/core/keys/
 ```
 
 ### Step 3: Update Default

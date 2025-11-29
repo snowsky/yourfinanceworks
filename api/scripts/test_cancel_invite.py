@@ -8,8 +8,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
-from models.database import get_master_db
-from models.models import MasterUser, Invite, Tenant
+from core.models.database import get_master_db
+from core.models.models import MasterUser, Invite, Tenant
 from datetime import datetime, timezone, timedelta
 import requests
 import json
@@ -77,7 +77,7 @@ def test_cancel_invite():
         print("✅ Test invite was successfully cancelled/deleted")
         
         # Check audit logs (if they exist)
-        from models.models import AuditLog
+        from core.models.models import AuditLog
         audit_logs = db.query(AuditLog).filter(
             AuditLog.resource_type == "invite",
             AuditLog.action == "DELETE"  # Note: invites still use "DELETE", only invoices use "Soft Delete"

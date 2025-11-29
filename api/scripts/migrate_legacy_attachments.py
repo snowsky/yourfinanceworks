@@ -27,16 +27,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     Invoice, Expense, InvoiceAttachment, ExpenseAttachment,
     Base as TenantBase
 )
-from models.models import Base as MasterBase
-from services.tenant_database_manager import TenantDatabaseManager
-from services.attachment_service import AttachmentService
-from services.cloud_storage_service import CloudStorageService
-from services.file_storage_service import FileStorageService
-# from utils.column_encryptor import decrypt_value  # Not needed for this migration
+from core.models.models import Base as MasterBase
+from core.services.tenant_database_manager import TenantDatabaseManager
+from core.services.attachment_service import AttachmentService
+from commercial.cloud_storage.service import CloudStorageService
+from core.services.file_storage_service import FileStorageService
+# from core.utils.column_encryptor import decrypt_value  # Not needed for this migration
 from config import config
 
 # Configure logging

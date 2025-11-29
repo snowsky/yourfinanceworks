@@ -12,9 +12,9 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from services.report_history_service import ReportHistoryService, ReportHistoryError
-from models.models_per_tenant import ReportHistory
-from schemas.report import ReportStatus, ExportFormat
+from core.services.report_history_service import ReportHistoryService, ReportHistoryError
+from core.models.models_per_tenant import ReportHistory
+from core.schemas.report import ReportStatus, ExportFormat
 
 
 class TestReportHistoryService:

@@ -9,7 +9,7 @@ from pathlib import Path
 # Add the parent directory to the path so we can import from the API
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.statement_service import process_bank_pdf_with_llm, _regex_extract_transactions, SimplePDFLoader
+from core.services.statement_service import process_bank_pdf_with_llm, _regex_extract_transactions, SimplePDFLoader
 
 def test_bank_extraction(pdf_path: str):
     """Test bank statement extraction."""

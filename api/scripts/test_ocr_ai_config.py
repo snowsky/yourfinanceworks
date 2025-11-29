@@ -8,10 +8,10 @@ import sys
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_db, set_tenant_context
-from models.models_per_tenant import AIConfig as AIConfigModel
-from models.models import Tenant
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_db, set_tenant_context
+from core.models.models_per_tenant import AIConfig as AIConfigModel
+from core.models.models import Tenant
+from core.services.tenant_database_manager import tenant_db_manager
 from sqlalchemy.orm import Session
 
 def test_ocr_ai_config():

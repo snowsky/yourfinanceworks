@@ -8,8 +8,8 @@ import sys
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from models.database import get_db
-from models.models import AIConfig
+from core.models.database import get_db
+from core.models.models import AIConfig
 from sqlalchemy.orm import Session
 
 def test_litellm_with_mcp():

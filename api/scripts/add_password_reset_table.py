@@ -11,8 +11,8 @@ from sqlalchemy.orm import sessionmaker
 # Add the parent directory to Python path so we can import our modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import engine
-from models.models import Base, PasswordResetToken
+from core.models.database import engine
+from core.models.models import Base, PasswordResetToken
 
 def create_password_reset_table():
     """Create the password reset token table in the master database"""

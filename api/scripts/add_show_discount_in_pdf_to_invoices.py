@@ -6,7 +6,7 @@ from sqlalchemy import inspect, text
 # Add project root to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from services.tenant_database_manager import tenant_db_manager
+from core.services.tenant_database_manager import tenant_db_manager
 
 async def add_column_to_invoices():
     """Adds the show_discount_in_pdf column to the invoices table in all tenant databases."""

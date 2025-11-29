@@ -117,7 +117,7 @@ def verify_migration():
 import os
 import sys
 sys.path.append('.')
-from models.database import engine
+from core.models.database import engine
 from sqlalchemy import text
 
 try:

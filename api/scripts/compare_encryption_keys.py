@@ -23,8 +23,8 @@ def main():
     logger.info("Comparing encryption keys and context...")
     
     try:
-        from models.database import set_tenant_context
-        from services.key_management_service import get_key_management_service
+        from core.models.database import set_tenant_context
+        from core.services.key_management_service import get_key_management_service
         
         # Set tenant context
         set_tenant_context(1)
@@ -46,10 +46,10 @@ def main():
             logger.error("Master key file not found")
             
         # Check database connection
-        from models.database import SessionLocal as get_db_session
+        from core.models.database import SessionLocal as get_db_session
         db = get_db_session()
         try:
-            from models.models import TenantKey
+            from core.models.models import TenantKey
             tenant_key_record = db.query(TenantKey).filter(TenantKey.tenant_id == 1).first()
             if tenant_key_record:
                 logger.info(f"Database tenant key ID: {tenant_key_record.key_id}")

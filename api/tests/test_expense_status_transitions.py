@@ -7,7 +7,7 @@ from datetime import datetime, date, timezone
 from unittest.mock import Mock
 from fastapi import HTTPException
 
-from constants.expense_status import ExpenseStatus
+from core.constants.expense_status import ExpenseStatus
 
 
 def validate_status_transition(current_status: str, new_status: str) -> bool:

@@ -10,14 +10,14 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from services.approval_analytics_service import (
+from commercial.workflows.approvals.services.approval_analytics_service import (
     ApprovalAnalyticsService, ApprovalMetrics, ApprovalPatternAnalysis,
     ApprovalComplianceReport
 )
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     ExpenseApproval, ApprovalRule, ApprovalDelegate, Expense, User
 )
-from schemas.approval import ApprovalStatus
+from core.schemas.approval import ApprovalStatus
 
 
 class TestApprovalAnalyticsService:

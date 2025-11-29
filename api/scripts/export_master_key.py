@@ -15,7 +15,7 @@ import os
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.key_management_service import get_key_management_service
+from core.services.key_management_service import get_key_management_service
 import logging
 
 logging.basicConfig(level=logging.INFO)

@@ -13,8 +13,8 @@ def fix_auth_router():
     
     # Fix malformed lines
     content = re.sub(
-        r'from services\.tenant_database_manager import tenant_db_manager    tenant_    try:',
-        'from services.tenant_database_manager import tenant_db_manager\n    tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()\n    try:',
+        r'from core.services\.tenant_database_manager import tenant_db_manager    tenant_    try:',
+        'from core.services.tenant_database_manager import tenant_db_manager\n    tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()\n    try:',
         content
     )
     

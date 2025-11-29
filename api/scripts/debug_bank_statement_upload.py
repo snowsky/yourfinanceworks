@@ -25,8 +25,8 @@ def debug_cloud_storage_service():
     try:
         # Test 1: Import cloud storage service
         print("1. Testing imports...")
-        from services.cloud_storage_service import CloudStorageService
-        from settings.cloud_storage_config import get_cloud_storage_config
+        from commercial.cloud_storage.service import CloudStorageService
+        from commercial.cloud_storage.config import get_cloud_storage_config
         print("   ✅ Imports successful")
         
         # Test 2: Get configuration
@@ -41,7 +41,7 @@ def debug_cloud_storage_service():
         
         # We need a database session, but let's try without tenant context first
         try:
-            from models.database import get_db
+            from core.models.database import get_db
             db = next(get_db())
             print("   ❌ Database requires tenant context")
         except Exception as e:
@@ -103,8 +103,8 @@ def debug_external_api_flow():
         # Test cloud storage import and config
         print("2. Testing cloud storage imports...")
         try:
-            from services.cloud_storage_service import CloudStorageService
-            from settings.cloud_storage_config import get_cloud_storage_config
+            from commercial.cloud_storage.service import CloudStorageService
+            from commercial.cloud_storage.config import get_cloud_storage_config
             
             cloud_config = get_cloud_storage_config()
             print("   ✅ Cloud storage imports successful")

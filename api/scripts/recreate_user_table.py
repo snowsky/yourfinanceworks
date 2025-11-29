@@ -1,8 +1,8 @@
 """
 Script to drop and recreate the User table with the correct schema.
 """
-from models.database import engine
-from models.models import Base, User
+from core.models.database import engine
+from core.models.models import Base, User
 
 def recreate_user_table():
     # Drop the existing User table

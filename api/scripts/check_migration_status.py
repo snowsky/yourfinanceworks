@@ -8,8 +8,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from models.database import get_master_db, DATABASE_URL
-from models.models import Tenant
+from core.models.database import get_master_db, DATABASE_URL
+from core.models.models import Tenant
 import logging
 
 # Configure logging

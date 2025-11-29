@@ -5,7 +5,7 @@ Simple test to verify rate limiting and quota enforcement.
 """
 
 import time
-from services.rate_limiter_service import RateLimiterService
+from core.services.rate_limiter_service import RateLimiterService
 
 
 def test_rate_limiting():

@@ -10,10 +10,10 @@ from datetime import datetime, timezone
 # Add the parent directory to Python path so we can import our modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import SessionLocal
-from models.models import MasterUser, Tenant
-from utils.auth import get_password_hash
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import SessionLocal
+from core.models.models import MasterUser, Tenant
+from core.utils.auth import get_password_hash
+from core.services.tenant_database_manager import tenant_db_manager
 
 def create_test_user():
     """Create a test user and tenant for password reset testing"""
@@ -74,8 +74,8 @@ def create_test_user():
         
         # Create user in tenant database
         try:
-            from models.database import set_tenant_context
-            from models.models_per_tenant import User as TenantUser
+            from core.models.database import set_tenant_context
+            from core.models.models_per_tenant import User as TenantUser
             
             set_tenant_context(test_tenant.id)
             

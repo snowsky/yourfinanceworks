@@ -22,7 +22,7 @@ from typing import Dict, Any, List, Optional, Tuple
 # Add the API directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from settings.cloud_storage_config import (
+from commercial.cloud_storage.config import (
     CloudStorageConfig, 
     StorageProvider,
     CloudStorageConfigurationManager

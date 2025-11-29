@@ -4,6 +4,7 @@ import os
 import time
 import email
 import imaplib
+import threading
 from email.header import decode_header
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
@@ -12,12 +13,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 # Import models and services
-from models.database import get_db, get_master_db, set_tenant_context
-from models.models import Tenant, Settings as MasterSettings
-from models.models_per_tenant import Settings, RawEmail, Expense, ExpenseAttachment
-from services.tenant_database_manager import tenant_db_manager
-from services.email_ingestion_service import EmailIngestionService
-from constants.expense_status import ExpenseStatus
+from core.models.database import get_db, get_master_db, set_tenant_context
+from core.models.models import Tenant, Settings as MasterSettings
+from core.models.models_per_tenant import Settings, RawEmail, Expense, ExpenseAttachment
+from core.services.tenant_database_manager import tenant_db_manager
+from commercial.integrations.email.service import EmailIngestionService
+from core.constants.expense_status import ExpenseStatus
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +32,8 @@ class EmailProcessorWorker:
         self.poll_interval = int(os.getenv("EMAIL_POLL_INTERVAL", "60"))
         self.batch_size = int(os.getenv("EMAIL_BATCH_SIZE", "10"))
         self.running = True
+        self.wake_event = None  # Will be set in start()
+        self.config_changed = threading.Event()  # Threading event for Kafka consumer to signal
 
     async def start(self):
         logger.info("Starting Email Processor Worker...")
@@ -50,21 +53,20 @@ class EmailProcessorWorker:
                 if any_enabled:
                     # Normal polling interval when at least one tenant has email integration enabled
                     logger.info(f"Email integration enabled for at least one tenant. Sleeping for {self.poll_interval} seconds...")
-                    await asyncio.sleep(self.poll_interval)
+                    # Check if config changed while sleeping
+                    if self.config_changed.wait(timeout=self.poll_interval):
+                        self.config_changed.clear()
+                        logger.info("Config changed, resuming polling...")
                 else:
                     # Sleep for 5 minutes when no tenants have email integration enabled
                     # Kafka consumer will wake us up if config changes
                     sleep_time = 300  # 5 minutes
                     logger.info(f"Email integration disabled for all tenants. Sleeping for {sleep_time} seconds (Kafka will wake on config change)...")
                     
-                    # Use an event to allow Kafka consumer to wake us up
-                    self.wake_event = asyncio.Event()
-                    try:
-                        await asyncio.wait_for(self.wake_event.wait(), timeout=sleep_time)
+                    # Wait for config change or timeout
+                    if self.config_changed.wait(timeout=sleep_time):
+                        self.config_changed.clear()
                         logger.info("Woken up by Kafka config change event!")
-                    except asyncio.TimeoutError:
-                        # Normal timeout, continue to next poll
-                        pass
                     
             except Exception as e:
                 logger.error(f"Error in main loop: {e}", exc_info=True)
@@ -77,26 +79,30 @@ class EmailProcessorWorker:
             import os
             import json
             from confluent_kafka import Consumer, KafkaError
-            
+            from confluent_kafka.admin import AdminClient, NewTopic
+
             kafka_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-            
+
+            # Ensure topic exists before subscribing
+            self._ensure_kafka_topic(kafka_servers, 'email_integration_config_changed')
+
             consumer = Consumer({
                 'bootstrap.servers': kafka_servers,
                 'group.id': 'email-worker-group',
                 'auto.offset.reset': 'latest',
                 'enable.auto.commit': True
             })
-            
+
             consumer.subscribe(['email_integration_config_changed'])
-            
+
             logger.info("Kafka consumer started, listening for email integration config changes...")
-            
+
             while True:
                 msg = consumer.poll(timeout=1.0)
-                
+
                 if msg is None:
                     continue
-                    
+
                 if msg.error():
                     if msg.error().code() == KafkaError._PARTITION_EOF:
                         continue
@@ -111,11 +117,9 @@ class EmailProcessorWorker:
                     
                     logger.info(f"Received config change event: tenant_id={tenant_id}, enabled={enabled}")
                     
-                    # Wake up the main loop if it's sleeping
-                    if hasattr(self, 'wake_event') and self.wake_event:
-                        # Schedule wake_event.set() in the main event loop
-                        loop = asyncio.new_event_loop()
-                        loop.run_until_complete(self._wake_main_loop())
+                    # Signal the main loop that config changed
+                    self.config_changed.set()
+                    logger.info("Signaled main loop about config change")
                         
                 except Exception as e:
                     logger.error(f"Error processing Kafka message: {e}", exc_info=True)
@@ -123,11 +127,35 @@ class EmailProcessorWorker:
         except Exception as e:
             logger.error(f"Kafka consumer error: {e}", exc_info=True)
             logger.warning("Kafka consumer failed, worker will rely on polling only")
-    
-    async def _wake_main_loop(self):
-        """Wake up the main loop from Kafka consumer thread."""
-        if hasattr(self, 'wake_event') and self.wake_event:
-            self.wake_event.set()
+
+    def _ensure_kafka_topic(self, kafka_servers: str, topic_name: str):
+        """Ensure a Kafka topic exists, creating it if necessary."""
+        try:
+            from confluent_kafka.admin import AdminClient, NewTopic
+
+            admin_client = AdminClient({'bootstrap.servers': kafka_servers})
+
+            # Check if topic exists
+            metadata = admin_client.list_topics(timeout=5)
+            if topic_name in metadata.topics:
+                logger.info(f"Kafka topic '{topic_name}' already exists")
+                return
+
+            # Create topic if it doesn't exist
+            logger.info(f"Creating Kafka topic '{topic_name}'...")
+            new_topic = NewTopic(topic_name, num_partitions=1, replication_factor=1)
+            fs = admin_client.create_topics([new_topic], validate_only=False)
+
+            # Wait for topic creation to complete
+            for topic, f in fs.items():
+                try:
+                    f.result(timeout=10)
+                    logger.info(f"Successfully created topic '{topic}'")
+                except Exception as e:
+                    logger.warning(f"Failed to create topic '{topic}': {e}")
+
+        except Exception as e:
+            logger.warning(f"Could not ensure Kafka topic '{topic_name}': {e}")
 
     async def process_all_tenants(self):
         """Iterate through all active tenants and process their emails.
@@ -140,17 +168,17 @@ class EmailProcessorWorker:
         try:
             tenants = db.query(Tenant).filter(Tenant.is_active == True).all()
             logger.info(f"Found {len(tenants)} active tenants to process.")
-            
+
             for tenant in tenants:
                 try:
                     # Try to acquire advisory lock for this tenant
                     # This prevents multiple workers from processing the same tenant
                     lock_acquired = self._try_acquire_tenant_lock(db, tenant.id)
-                    
+
                     if not lock_acquired:
                         logger.debug(f"Tenant {tenant.id} is being processed by another worker, skipping...")
                         continue
-                    
+
                     try:
                         tenant_has_email = await self.process_tenant(tenant.id)
                         if tenant_has_email:
@@ -158,14 +186,14 @@ class EmailProcessorWorker:
                     finally:
                         # Always release the lock
                         self._release_tenant_lock(db, tenant.id)
-                        
+
                 except Exception as e:
                     logger.error(f"Error processing tenant {tenant.id}: {e}", exc_info=True)
         finally:
             db.close()
-        
+
         return any_enabled
-    
+
     def _try_acquire_tenant_lock(self, db: Session, tenant_id: int) -> bool:
         """Try to acquire a PostgreSQL advisory lock for a tenant.
         Returns True if lock acquired, False if another worker has it.
@@ -179,14 +207,14 @@ class EmailProcessorWorker:
         except Exception as e:
             logger.warning(f"Failed to acquire lock for tenant {tenant_id}: {e}")
             return False
-    
+
     def _release_tenant_lock(self, db: Session, tenant_id: int):
         """Release the PostgreSQL advisory lock for a tenant."""
         try:
             db.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": tenant_id})
         except Exception as e:
             logger.warning(f"Failed to release lock for tenant {tenant_id}: {e}")
-    
+
     def _cleanup_all_locks(self):
         """Release all advisory locks on startup to clean up from previous runs."""
         try:
@@ -205,10 +233,10 @@ class EmailProcessorWorker:
         Returns True if email integration is enabled for this tenant, False otherwise.
         """
         logger.info(f"Processing tenant {tenant_id}...")
-        
+
         # Set tenant context
         set_tenant_context(tenant_id)
-        
+
         # Get tenant DB session
         SessionLocal = tenant_db_manager.get_tenant_session(tenant_id)
         if not SessionLocal:
@@ -221,19 +249,19 @@ class EmailProcessorWorker:
             # We can use the service to check config and run logic
             # We need a user_id for the service. 
             # We'll try to find an admin user.
-            from models.models_per_tenant import User
+            from core.models.models_per_tenant import User
             admin_user = db.query(User).filter(User.role == "admin").first()
             user_id = admin_user.id if admin_user else 1 # Fallback
-            
+
             service = EmailIngestionService(db, user_id, tenant_id)
-            
+
             # Check if enabled
             if not service.settings or not service.settings.get("enabled", False):
                 logger.debug(f"Email integration disabled for tenant {tenant_id}")
                 return False
 
             config = service.settings
-            
+
             # 1. Poll IMAP and save to RawEmail
             # Run in executor to avoid blocking the async loop with blocking I/O
             loop = asyncio.get_event_loop()
@@ -246,9 +274,9 @@ class EmailProcessorWorker:
             processed = await loop.run_in_executor(None, service.process_pending_emails, self.batch_size)
             if processed > 0:
                 logger.info(f"Tenant {tenant_id}: Processed {processed} emails.")
-            
+
             return True  # Email integration is enabled for this tenant
-            
+
         except Exception as e:
             logger.error(f"Error processing tenant {tenant_id}: {e}", exc_info=True)
             return False  # Treat errors as disabled to avoid spam

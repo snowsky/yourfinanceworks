@@ -19,9 +19,9 @@ from sqlalchemy.orm import sessionmaker
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from models.database import SQLALCHEMY_DATABASE_URL, get_master_db
-from models.models import Tenant, MasterUser
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import SQLALCHEMY_DATABASE_URL, get_master_db
+from core.models.models import Tenant, MasterUser
+from core.services.tenant_database_manager import tenant_db_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

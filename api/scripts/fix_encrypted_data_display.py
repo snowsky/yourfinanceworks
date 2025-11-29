@@ -21,11 +21,11 @@ def fix_encrypted_data_display():
     logger.info("Starting encrypted data display fix...")
     
     try:
-        from services.encryption_service import get_encryption_service
-        from services.key_management_service import get_key_management_service
-        from models.database import set_tenant_context
-        from models.models_per_tenant import Expense
-        from services.tenant_database_manager import tenant_db_manager
+        from core.services.encryption_service import get_encryption_service
+        from core.services.key_management_service import get_key_management_service
+        from core.models.database import set_tenant_context
+        from core.models.models_per_tenant import Expense
+        from core.services.tenant_database_manager import tenant_db_manager
         
         # Get services
         encryption = get_encryption_service()
@@ -145,9 +145,9 @@ def verify_fix():
     logger.info("Verifying fix...")
     
     try:
-        from models.database import set_tenant_context
-        from models.models_per_tenant import Expense
-        from services.tenant_database_manager import tenant_db_manager
+        from core.models.database import set_tenant_context
+        from core.models.models_per_tenant import Expense
+        from core.services.tenant_database_manager import tenant_db_manager
         
         tenant_ids = tenant_db_manager.get_existing_tenant_ids()
         corrupted_found = 0

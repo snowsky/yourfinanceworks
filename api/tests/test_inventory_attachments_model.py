@@ -3,7 +3,7 @@ Unit tests for ItemAttachment model and relationships
 """
 import pytest
 from sqlalchemy.orm import Session
-from models.models_per_tenant import ItemAttachment, InventoryItem, User
+from core.models.models_per_tenant import ItemAttachment, InventoryItem, User
 from datetime import datetime, timezone
 
 
@@ -52,7 +52,7 @@ def test_model_table_names():
 def test_model_imports():
     """Test that all models can be imported successfully"""
     try:
-        from models.models_per_tenant import ItemAttachment, InventoryItem, User
+        from core.models.models_per_tenant import ItemAttachment, InventoryItem, User
         assert True, "All models imported successfully"
     except ImportError as e:
         pytest.fail(f"Failed to import models: {e}")

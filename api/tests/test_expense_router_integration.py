@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
 
-from constants.expense_status import ExpenseStatus
+from core.constants.expense_status import ExpenseStatus
 
 
 class MockExpense:

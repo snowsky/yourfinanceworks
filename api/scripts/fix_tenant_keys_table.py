@@ -9,9 +9,9 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import engine, Base, get_master_db
-from models.models import TenantKey, Tenant
-from services.key_management_service import KeyManagementService
+from core.models.database import engine, Base, get_master_db
+from core.models.models import TenantKey, Tenant
+from core.services.key_management_service import KeyManagementService
 from sqlalchemy import inspect, text
 import traceback
 

@@ -18,10 +18,10 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from sqlalchemy import create_engine, text, MetaData, Table
 from sqlalchemy.orm import sessionmaker
-from models.database import get_database_url
-from services.encryption_service import get_encryption_service
+from core.models.database import get_database_url
+from core.services.encryption_service import get_encryption_service
 from encryption_config import EncryptionConfig
-from utils.column_encryptor import is_encrypted_data
+from core.utils.column_encryptor import is_encrypted_data
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

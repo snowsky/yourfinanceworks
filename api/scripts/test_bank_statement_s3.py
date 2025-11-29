@@ -16,9 +16,9 @@ load_dotenv()
 # Add the API directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.cloud_storage_service import CloudStorageService
-from settings.cloud_storage_config import get_cloud_storage_config
-from models.database import get_db
+from commercial.cloud_storage.service import CloudStorageService
+from commercial.cloud_storage.config import get_cloud_storage_config
+from core.models.database import get_db
 
 async def test_bank_statement_s3_upload():
     """Test uploading a bank statement to S3."""

@@ -21,7 +21,7 @@ def test_service_initialization():
     logger.info("Testing UnifiedOCRService initialization...")
     
     try:
-        from services.unified_ocr_service import UnifiedOCRService, OCRConfig, DocumentType
+        from core.services.unified_ocr_service import UnifiedOCRService, OCRConfig, DocumentType
         
         # Test with default config
         logger.info("✓ Testing default configuration...")
@@ -56,7 +56,7 @@ def test_document_type_detection():
     logger.info("Testing document type detection...")
     
     try:
-        from services.unified_ocr_service import UnifiedOCRService, DocumentType
+        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType
         
         service = UnifiedOCRService()
         
@@ -88,7 +88,7 @@ def test_convenience_functions():
     logger.info("Testing convenience functions...")
     
     try:
-        from services.unified_ocr_service import create_unified_ocr_service
+        from core.services.unified_ocr_service import create_unified_ocr_service
         
         # Test service creation
         logger.info("✓ Testing create_unified_ocr_service...")
@@ -116,7 +116,7 @@ async def test_async_functionality():
     logger.info("Testing async functionality...")
     
     try:
-        from services.unified_ocr_service import UnifiedOCRService, DocumentType
+        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType
         
         service = UnifiedOCRService()
         
@@ -145,7 +145,7 @@ def test_engine_availability():
     logger.info("Testing extraction engine availability...")
     
     try:
-        from services.unified_ocr_service import UnifiedOCRService
+        from core.services.unified_ocr_service import UnifiedOCRService
         
         service = UnifiedOCRService()
         status = service.get_service_status()

@@ -10,8 +10,8 @@ import io
 from unittest.mock import patch, MagicMock
 
 from main import app
-from models.models_per_tenant import InventoryItem, ItemAttachment, User
-from models.database import get_db
+from core.models.models_per_tenant import InventoryItem, ItemAttachment, User
+from core.models.database import get_db
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def test_attachment_upload_endpoint_structure(client):
 
 def test_attachment_response_models():
     """Test that response models are properly defined"""
-    from schemas.inventory_attachments import (
+    from core.schemas.inventory_attachments import (
         AttachmentResponse,
         AttachmentCreate,
         AttachmentUpdate,
@@ -108,7 +108,7 @@ def test_attachment_response_models():
 
 def test_file_storage_service_basic():
     """Test basic file storage service functionality"""
-    from services.file_storage_service import FileStorageService
+    from core.services.file_storage_service import FileStorageService
 
     service = FileStorageService()
 
@@ -126,7 +126,7 @@ def test_file_storage_service_basic():
 
 def test_image_processing_service_basic():
     """Test basic image processing service functionality"""
-    from services.image_processing_service import ImageProcessingService
+    from core.services.image_processing_service import ImageProcessingService
 
     service = ImageProcessingService()
 
@@ -144,8 +144,8 @@ def test_image_processing_service_basic():
 
 def test_attachment_service_basic():
     """Test basic attachment service functionality"""
-    from services.attachment_service import AttachmentService
-    from models.database import SessionLocal
+    from core.services.attachment_service import AttachmentService
+    from core.models.database import SessionLocal
 
     # Create service instance
     db = SessionLocal()
@@ -175,7 +175,7 @@ def test_attachment_service_basic():
 
 def test_model_relationships():
     """Test that model relationships are properly configured"""
-    from models.models_per_tenant import InventoryItem, ItemAttachment
+    from core.models.models_per_tenant import InventoryItem, ItemAttachment
 
     # Test InventoryItem has attachments relationship
     assert hasattr(InventoryItem, 'attachments')
@@ -191,7 +191,7 @@ def test_model_relationships():
 
 def test_api_router_registration():
     """Test that the attachment router is properly registered"""
-    from routers.inventory_attachments import router
+    from core.routers.inventory_attachments import router
 
     # Test that router has expected prefix (without the /api/v1 prefix that's added at app level)
     assert router.prefix == "/inventory/{item_id}/attachments"
@@ -213,10 +213,10 @@ def test_api_router_registration():
 def test_service_integration():
     """Test that services can be imported and instantiated"""
     try:
-        from services.file_storage_service import file_storage_service
-        from services.image_processing_service import image_processing_service
-        from services.attachment_service import AttachmentService
-        from models.database import SessionLocal
+        from core.services.file_storage_service import file_storage_service
+        from core.services.image_processing_service import image_processing_service
+        from core.services.attachment_service import AttachmentService
+        from core.models.database import SessionLocal
 
         # Test global instances
         assert file_storage_service is not None
@@ -237,7 +237,7 @@ def test_service_integration():
 
 def test_schema_validation():
     """Test that schemas validate correctly"""
-    from schemas.inventory_attachments import (
+    from core.schemas.inventory_attachments import (
         AttachmentCreate,
         AttachmentUpdate,
         AttachmentOrder
@@ -280,7 +280,7 @@ def test_schema_validation():
 
 def test_router_dependencies():
     """Test that router has proper dependencies"""
-    from routers.inventory_attachments import get_attachment_service, get_db
+    from core.routers.inventory_attachments import get_attachment_service, get_db
 
     # Test that dependency functions exist
     assert callable(get_attachment_service)

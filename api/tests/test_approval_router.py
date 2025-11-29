@@ -12,11 +12,11 @@ from unittest.mock import Mock, patch
 import json
 
 from main import app
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     Expense, ExpenseApproval, ApprovalRule, User, ApprovalDelegate
 )
-from schemas.approval import ApprovalStatus
-from services.approval_service import ApprovalService
+from core.schemas.approval import ApprovalStatus
+from commercial.workflows.approvals.services.approval_service import ApprovalService
 
 
 @pytest.fixture
@@ -160,7 +160,7 @@ class TestApprovalRouter:
     
     def test_submit_expense_for_approval_validation_error(self, client, mock_user, mock_approval_service):
         """Test expense submission with validation error"""
-        from services.approval_service import ValidationError
+        from commercial.workflows.approvals.services.approval_service import ValidationError
         
         mock_approval_service.submit_for_approval.side_effect = ValidationError("Expense not found")
         
@@ -181,7 +181,7 @@ class TestApprovalRouter:
     
     def test_submit_expense_already_approved(self, client, mock_user, mock_approval_service):
         """Test submitting already approved expense"""
-        from services.approval_service import ExpenseAlreadyApproved
+        from commercial.workflows.approvals.services.approval_service import ExpenseAlreadyApproved
         
         mock_approval_service.submit_for_approval.side_effect = ExpenseAlreadyApproved("Already approved")
         
@@ -237,7 +237,7 @@ class TestApprovalRouter:
     
     def test_get_pending_approvals_summary_success(self, client, mock_user, mock_approval_service):
         """Test successful retrieval of pending approvals summary"""
-        from schemas.approval import PendingApprovalSummary
+        from core.schemas.approval import PendingApprovalSummary
         
         mock_summary = PendingApprovalSummary(
             total_pending=5,
@@ -303,7 +303,7 @@ class TestApprovalRouter:
     
     def test_approve_expense_insufficient_permissions(self, client, mock_user, mock_approval_service):
         """Test approval with insufficient permissions"""
-        from services.approval_service import InsufficientApprovalPermissions
+        from commercial.workflows.approvals.services.approval_service import InsufficientApprovalPermissions
         
         mock_approval_service.approve_expense.side_effect = InsufficientApprovalPermissions("Cannot approve")
         
@@ -387,7 +387,7 @@ class TestApprovalRouter:
     
     def test_get_approval_history_success(self, client, mock_user, mock_approval_service):
         """Test successful retrieval of approval history"""
-        from schemas.approval import ExpenseApprovalHistory, ApprovalHistoryItem
+        from core.schemas.approval import ExpenseApprovalHistory, ApprovalHistoryItem
         
         history_item = ApprovalHistoryItem(
             id=1,
@@ -422,7 +422,7 @@ class TestApprovalRouter:
     
     def test_get_approval_history_expense_not_found(self, client, mock_user, mock_approval_service):
         """Test approval history for non-existent expense"""
-        from services.approval_service import ValidationError
+        from commercial.workflows.approvals.services.approval_service import ValidationError
         
         mock_approval_service.get_approval_history.side_effect = ValidationError("Expense not found")
         
@@ -437,7 +437,7 @@ class TestApprovalRouter:
     
     def test_get_approval_metrics_success(self, client, mock_user, mock_approval_service):
         """Test successful retrieval of approval metrics"""
-        from schemas.approval import ApprovalMetrics
+        from core.schemas.approval import ApprovalMetrics
         
         mock_metrics = ApprovalMetrics(
             total_approvals=10,
@@ -464,7 +464,7 @@ class TestApprovalRouter:
     
     def test_get_approval_metrics_with_approver_filter(self, client, mock_user, mock_approval_service):
         """Test approval metrics with specific approver filter"""
-        from schemas.approval import ApprovalMetrics
+        from core.schemas.approval import ApprovalMetrics
         
         mock_metrics = ApprovalMetrics(
             total_approvals=5,
@@ -564,7 +564,7 @@ class TestApprovalRouterErrorHandling:
     
     def test_invalid_approval_id(self, client, mock_user, mock_approval_service):
         """Test handling of invalid approval IDs"""
-        from services.approval_service import ValidationError
+        from commercial.workflows.approvals.services.approval_service import ValidationError
         
         mock_approval_service.approve_expense.side_effect = ValidationError("Approval not found")
         
@@ -582,7 +582,7 @@ class TestApprovalRouterErrorHandling:
     
     def test_invalid_expense_id(self, client, mock_user, mock_approval_service):
         """Test handling of invalid expense IDs"""
-        from services.approval_service import ValidationError
+        from commercial.workflows.approvals.services.approval_service import ValidationError
         
         mock_approval_service.get_approval_history.side_effect = ValidationError("Expense not found")
         

@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from models.models_per_tenant import InstallationInfo
-from services.tenant_database_manager import tenant_db_manager
-from models.database import get_master_db, set_tenant_context
+from core.models.models_per_tenant import InstallationInfo
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db, set_tenant_context
 
 def fix_installation_trial_dates():
     """Fix installation records with business usage but no trial dates"""
@@ -28,7 +28,7 @@ def fix_installation_trial_dates():
     master_db = next(get_master_db())
     
     try:
-        from models.models import Tenant
+        from core.models.models import Tenant
         tenants = master_db.query(Tenant).all()
         
         if not tenants:

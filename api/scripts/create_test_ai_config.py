@@ -5,8 +5,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from models.database import get_master_db, set_tenant_context
-from models.models_per_tenant import AIConfig
+from core.models.database import get_master_db, set_tenant_context
+from core.models.models_per_tenant import AIConfig
 from datetime import datetime, timezone
 
 def create_test_ai_config():

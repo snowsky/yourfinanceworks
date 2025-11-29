@@ -28,10 +28,10 @@ from typing import List, Dict, Optional
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from models.database import SessionLocal, get_tenant_db
-from models.models import Tenant
-from models.models_per_tenant import InstallationInfo
-from services.license_service import LicenseService
+from core.models.database import SessionLocal, get_tenant_db
+from core.models.models import Tenant
+from core.models.models_per_tenant import InstallationInfo
+from core.services.license_service import LicenseService
 
 # Import license generator if available
 try:
@@ -165,7 +165,7 @@ class CustomerMigration:
         """Get email address for tenant"""
         # Try to get admin user email from tenant
         try:
-            from models.models import User
+            from core.models.models import User
             admin_user = self.db.query(User).filter(
                 User.tenant_id == tenant.id,
                 User.role == 'admin'

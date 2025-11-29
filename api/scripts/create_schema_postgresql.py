@@ -1,4 +1,4 @@
-from models.database import engine, Base
+from core.models.database import engine, Base
 
 if __name__ == "__main__":
     print("Creating all tables in PostgreSQL database...")

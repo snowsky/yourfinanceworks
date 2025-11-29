@@ -19,8 +19,8 @@ if config.config_file_name is not None:
 
 # Import models for autogenerate support
 try:
-    from models.models import Base as MasterBase
-    from models.models_per_tenant import Base as TenantBase
+    from core.models.models import Base as MasterBase
+    from core.models.models_per_tenant import Base as TenantBase
 except ImportError:
     MasterBase = None
     TenantBase = None

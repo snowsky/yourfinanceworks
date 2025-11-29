@@ -9,10 +9,10 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from services.approval_service import ApprovalService, InsufficientApprovalPermissions
-from services.approval_permission_service import ApprovalPermissionService
-from models.models_per_tenant import User, ApprovalRule, ApprovalDelegate, Expense, ExpenseApproval
-from schemas.approval import ApprovalStatus
+from commercial.workflows.approvals.services.approval_service import ApprovalService, InsufficientApprovalPermissions
+from commercial.workflows.approvals.services.approval_permission_service import ApprovalPermissionService
+from core.models.models_per_tenant import User, ApprovalRule, ApprovalDelegate, Expense, ExpenseApproval
+from core.schemas.approval import ApprovalStatus
 
 
 class TestApprovalPermissionIntegration:

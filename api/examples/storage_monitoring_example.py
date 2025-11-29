@@ -10,14 +10,14 @@ import asyncio
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from services.storage_monitoring_service import (
+from core.services.storage_monitoring_service import (
     StorageMonitoringService,
     AlertSeverity,
     MonitoringMetric,
     AlertingConfig
 )
-from services.cloud_storage.provider import StorageProvider
-from settings.cloud_storage_config import CloudStorageConfig
+from core.interfaces.storage_provider import StorageProvider
+from commercial.cloud_storage.config import CloudStorageConfig
 
 
 async def main():

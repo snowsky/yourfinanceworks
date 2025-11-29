@@ -11,9 +11,9 @@ from pathlib import Path
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from settings.cloud_storage_config import get_cloud_storage_config
-from services.cloud_storage_service import CloudStorageService
-from models.database import get_db
+from commercial.cloud_storage.config import get_cloud_storage_config
+from commercial.cloud_storage.service import CloudStorageService
+from core.models.database import get_db
 
 async def test_s3_configuration():
     """Test S3 configuration and basic operations."""

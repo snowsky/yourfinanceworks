@@ -18,8 +18,8 @@ from datetime import datetime, timedelta, timezone
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from services.license_service import LicenseService, TRIAL_DURATION_DAYS, GRACE_PERIOD_DAYS
-from models.models_per_tenant import Base, InstallationInfo
+from core.services.license_service import LicenseService, TRIAL_DURATION_DAYS, GRACE_PERIOD_DAYS
+from core.models.models_per_tenant import Base, InstallationInfo
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

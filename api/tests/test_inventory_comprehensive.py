@@ -6,14 +6,14 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     InventoryItem, InventoryCategory, StockMovement,
     Invoice, InvoiceItem, Expense, User, Client
 )
-from services.inventory_service import InventoryService
-from services.stock_movement_service import StockMovementService
-from services.inventory_integration_service import InventoryIntegrationService
-from schemas.inventory import (
+from core.services.inventory_service import InventoryService
+from core.services.stock_movement_service import StockMovementService
+from core.services.inventory_integration_service import InventoryIntegrationService
+from core.schemas.inventory import (
     InventoryItemCreate, InventoryCategoryCreate,
     StockMovementCreate
 )

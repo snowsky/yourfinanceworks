@@ -19,8 +19,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models.models_per_tenant import Base, InstallationInfo, LicenseValidationLog
-from services.license_service import LicenseService
+from core.models.models_per_tenant import Base, InstallationInfo, LicenseValidationLog
+from core.services.license_service import LicenseService
 
 
 def create_test_license(features, duration_days=365):

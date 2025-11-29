@@ -6,7 +6,7 @@ import sqlite3
 import os
 from datetime import datetime
 from sqlalchemy import create_engine, text
-from models.database import SQLALCHEMY_DATABASE_URL
+from core.models.database import SQLALCHEMY_DATABASE_URL
 
 def migrate_database():
     """Migrate the database to add tenant support"""
@@ -150,8 +150,8 @@ def create_new_database():
     
     # This will use the SQLAlchemy models to create the database
     try:
-        from models.database import engine
-        from models import models
+        from core.models.database import engine
+        from core.models import models
         
         # Create all tables
         models.Base.metadata.create_all(bind=engine)

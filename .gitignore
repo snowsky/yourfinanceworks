@@ -49,10 +49,9 @@ api/attachments/*
 !api/attachments/.gitkeep
 
 # License signing keys (keep private key secure!)
-api/keys/*.pem
+api/core/keys/*.pem
 # But do not ignore the directory itself
-!api/keys/
-!api/keys/.gitkeep
-!api/keys/public_key.pem
+!api/core/keys/
+!api/core/keys/.gitkeep
 
 license_server/

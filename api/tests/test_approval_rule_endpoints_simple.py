@@ -14,7 +14,7 @@ def test_approval_rule_endpoint_logic():
     """Test the core logic of approval rule endpoints."""
     
     # Test data validation
-    from schemas.approval import ApprovalRuleCreate, ApprovalRuleUpdate
+    from core.schemas.approval import ApprovalRuleCreate, ApprovalRuleUpdate
     
     # Test valid approval rule creation data
     valid_create_data = {
@@ -52,7 +52,7 @@ def test_approval_rule_endpoint_logic():
 
 def test_approval_rule_validation():
     """Test approval rule validation logic."""
-    from schemas.approval import ApprovalRuleCreate
+    from core.schemas.approval import ApprovalRuleCreate
     
     # Test that max_amount validation works
     with pytest.raises(ValueError, match="max_amount must be greater than min_amount"):
@@ -66,7 +66,7 @@ def test_approval_rule_validation():
 
 def test_approval_rule_schema_defaults():
     """Test approval rule schema default values."""
-    from schemas.approval import ApprovalRuleCreate
+    from core.schemas.approval import ApprovalRuleCreate
     
     minimal_data = {
         "name": "Minimal Rule",
@@ -82,7 +82,7 @@ def test_approval_rule_schema_defaults():
 
 def test_approval_status_enum():
     """Test approval status enumeration."""
-    from schemas.approval import ApprovalStatus
+    from core.schemas.approval import ApprovalStatus
     
     assert ApprovalStatus.PENDING == "pending"
     assert ApprovalStatus.APPROVED == "approved"
@@ -92,7 +92,7 @@ def test_approval_status_enum():
 def test_schema_imports():
     """Test that schema imports work correctly."""
     try:
-        from schemas.approval import ApprovalRuleCreate, ApprovalRuleUpdate, ApprovalRule, ApprovalStatus
+        from core.schemas.approval import ApprovalRuleCreate, ApprovalRuleUpdate, ApprovalRule, ApprovalStatus
         print("Schema imports successful")
         assert True
     except ImportError as e:

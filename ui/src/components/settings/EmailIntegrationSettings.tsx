@@ -84,7 +84,7 @@ const EmailIntegrationSettings: React.FC = () => {
                                 onClick={() => window.location.href = '/settings?tab=license'}
                                 className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                                Upgrade to Business
+                                Activate Business License
                             </Button>
                             <Button
                                 variant="outline"

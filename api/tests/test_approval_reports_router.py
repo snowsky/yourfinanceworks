@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from fastapi import HTTPException
 
 from main import app
-from models.models_per_tenant import User
-from services.approval_analytics_service import (
+from core.models.models_per_tenant import User
+from commercial.workflows.approvals.services.approval_analytics_service import (
     ApprovalMetrics, ApprovalPatternAnalysis, ApprovalComplianceReport
 )
 
@@ -530,8 +530,8 @@ class TestApprovalReportsRouter:
     
     def test_date_range_parsing(self):
         """Test date range parsing helper function"""
-        from routers.approval_reports import _parse_date_range
-        from schemas.approval_reports import ApprovalAnalyticsFilters
+        from core.routers.approval_reports import _parse_date_range
+        from core.schemas.approval_reports import ApprovalAnalyticsFilters
         
         # Test last_30_days
         filters = ApprovalAnalyticsFilters(date_range="last_30_days")
@@ -556,8 +556,8 @@ class TestApprovalReportsRouter:
     
     def test_date_range_parsing_custom_missing_dates(self):
         """Test date range parsing with missing custom dates"""
-        from routers.approval_reports import _parse_date_range
-        from schemas.approval_reports import ApprovalAnalyticsFilters
+        from core.routers.approval_reports import _parse_date_range
+        from core.schemas.approval_reports import ApprovalAnalyticsFilters
         
         # Test custom range without dates
         filters = ApprovalAnalyticsFilters(date_range="custom")

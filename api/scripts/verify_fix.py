@@ -13,8 +13,8 @@ sys.modules['services.license_service'] = MagicMock()
 
 # Now import the modules we want to test
 # We need to reload them if they were already imported, but this is a fresh script
-from services.feature_config_service import FeatureConfigService
-from utils.feature_gate import require_feature
+from core.services.feature_config_service import FeatureConfigService
+from core.utils.feature_gate import require_feature
 from fastapi import HTTPException
 
 # Mock LicenseService for our specific test cases

@@ -13,9 +13,9 @@ load_dotenv()
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from models.database import get_db, set_tenant_context
-from models.models_per_tenant import Expense, ExpenseAttachment
-from services.ocr_service import queue_or_process_attachment
+from core.models.database import get_db, set_tenant_context
+from core.models.models_per_tenant import Expense, ExpenseAttachment
+from core.services.ocr_service import queue_or_process_attachment
 
 def trigger_ocr_reprocess(expense_id: int):
     """Trigger OCR reprocessing for an expense."""

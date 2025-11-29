@@ -21,7 +21,7 @@ def test_ai_assistant_license_check():
     print("=" * 60)
     
     # Import the update_settings function
-    from routers.settings import update_settings
+    from core.routers.settings import update_settings
     
     # Test Case 1: License Missing/Invalid - Should Fail
     print("\n[Test 1] Attempting to enable AI Assistant WITHOUT license...")

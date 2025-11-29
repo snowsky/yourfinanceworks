@@ -13,9 +13,9 @@ from pathlib import Path
 # Add the parent directory to the path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from models.database import SessionLocal
-from models.models import Tenant
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import SessionLocal
+from core.models.models import Tenant
+from core.services.tenant_database_manager import tenant_db_manager
 
 def run_alembic_command(command, db_type='master', tenant_id=None):
     """Run an alembic command with the appropriate environment variables."""

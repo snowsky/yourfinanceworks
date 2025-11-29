@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from sqlalchemy.orm import Session
 
-from services.batch_processing_service import BatchProcessingService
-from models.models_per_tenant import (
+from commercial.batch_processing.service import BatchProcessingService
+from core.models.models_per_tenant import (
     BatchProcessingJob,
     BatchFileProcessing,
     ExportDestinationConfig

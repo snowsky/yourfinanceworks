@@ -3,10 +3,10 @@
 import sys
 sys.path.append('./api')
 
-from models.database import get_master_db, SessionLocal
-from models.models import Client as MasterClient, Tenant, MasterUser
-from services.tenant_database_manager import tenant_db_manager
-from models.models_per_tenant import Client as TenantClient
+from core.models.database import get_master_db, SessionLocal
+from core.models.models import Client as MasterClient, Tenant, MasterUser
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import Client as TenantClient
 
 def check_client_duplicates():
     print("🔍 Checking for duplicate clients...")

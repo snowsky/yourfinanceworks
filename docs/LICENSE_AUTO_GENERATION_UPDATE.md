@@ -87,7 +87,7 @@ Application works immediately - no manual steps required!
 ## Generated Files
 
 ```
-api/keys/
+api/core/keys/
 ├── private_key_v2.pem    # Auto-generated (600 permissions)
 ├── public_key_v2.pem     # Auto-generated (644 permissions)
 └── README.md             # Auto-generated security notes
@@ -165,7 +165,7 @@ gpg -c backup/private_key_v2.pem
 # Store the .gpg file in secure location
 
 # 4. Add to .gitignore
-echo "api/keys/private_key*.pem" >> .gitignore
+echo "api/core/keys/private_key*.pem" >> .gitignore
 
 # 5. Done! Keys persist in Docker volume
 ```
@@ -198,7 +198,7 @@ No changes needed! The system will:
 
 ```bash
 # Remove existing keys (backup first!)
-mv api/keys/public_key.pem api/keys/public_key.pem.backup
+mv api/core/keys/public_key.pem api/core/keys/public_key.pem.backup
 
 # Restart - will auto-generate
 docker-compose restart api
@@ -222,7 +222,7 @@ export LICENSE_REQUIRE_MANUAL_KEYS=true
 
 ```bash
 # Test auto-generation
-rm -rf api/keys/*.pem
+rm -rf api/core/keys/*.pem
 docker-compose up api
 
 # Should see:
@@ -239,7 +239,7 @@ docker-compose exec api ls -la /app/keys/
 - **Complete Guide**: `docs/AUTO_KEY_GENERATION.md`
 - **Key Rotation**: `docs/admin-guide/LICENSE_KEY_ROTATION_GUIDE.md`
 - **File Loading**: `docs/LICENSE_KEY_FILE_LOADING.md`
-- **Keys Directory**: `api/keys/README.md`
+- **Keys Directory**: `api/core/keys/README.md`
 
 ## Summary
 

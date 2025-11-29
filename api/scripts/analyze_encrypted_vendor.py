@@ -10,8 +10,8 @@ import sys
 # Add the API directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from services.encryption_service import get_encryption_service
-from models.database import set_tenant_context
+from core.services.encryption_service import get_encryption_service
+from core.models.database import set_tenant_context
 
 def main():
     encrypted_data = "2IYTe3Opx6c7fMxkTz+CIDb2D3CnBRGiFlOrDt2gXyM9iYw="

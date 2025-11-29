@@ -19,11 +19,11 @@ from unittest.mock import Mock, patch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import statistics
 
-from services.report_service import ReportService
-from services.report_data_aggregator import ReportDataAggregator
-from services.report_exporter import ReportExporter
-from services.report_cache_service import ReportCacheService
-from schemas.report import ReportType, ExportFormat
+from core.services.report_service import ReportService
+from core.services.report_data_aggregator import ReportDataAggregator
+from core.services.report_exporter import ReportExporter
+from core.services.report_cache_service import ReportCacheService
+from core.schemas.report import ReportType, ExportFormat
 from tests.test_comprehensive_reporting_suite import TestDataFactory
 
 

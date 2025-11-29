@@ -137,7 +137,7 @@ const APIClientManagement: React.FC = () => {
                 onClick={() => window.location.href = '/settings?tab=license'}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                Upgrade to Business
+                Activate Business License
               </Button>
               <Button
                 variant="outline"
@@ -463,10 +463,10 @@ const APIClientManagementContent: React.FC = () => {
               <p className="text-gray-600">
                 Manage your API keys and OAuth clients
                 <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${clients.length >= 2
-                    ? 'bg-red-100 text-red-800'
-                    : clients.length === 1
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-green-100 text-green-800'
+                  ? 'bg-red-100 text-red-800'
+                  : clients.length === 1
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
                   }`}>
                   {clients.length}/2 API keys used
                 </span>
@@ -479,8 +479,8 @@ const APIClientManagementContent: React.FC = () => {
                 <button
                   disabled={clients.length >= 2}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 ${clients.length >= 2
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   title={clients.length >= 2 ? 'Maximum of 2 API keys allowed per user' : 'Create a new API key'}
                 >
@@ -1141,8 +1141,8 @@ const APIClientManagementContent: React.FC = () => {
                     </div>
                   </div>
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${client.is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
                     }`}>
                     {client.is_active ? 'Active' : 'Inactive'}
                   </span>

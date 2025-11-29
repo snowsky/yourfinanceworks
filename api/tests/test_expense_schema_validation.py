@@ -6,8 +6,8 @@ import pytest
 from datetime import date
 from pydantic import ValidationError
 
-from constants.expense_status import ExpenseStatus
-from schemas.expense import ExpenseCreate, ExpenseUpdate
+from core.constants.expense_status import ExpenseStatus
+from core.schemas.expense import ExpenseCreate, ExpenseUpdate
 
 
 class TestExpenseSchemaValidation:

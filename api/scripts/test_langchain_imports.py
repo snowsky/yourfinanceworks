@@ -72,7 +72,7 @@ def test_statement_service_import():
     logger.info("Testing statement service import...")
     
     try:
-        from services.statement_service import UniversalBankTransactionExtractor
+        from core.services.statement_service import UniversalBankTransactionExtractor
         logger.info("✅ UniversalBankTransactionExtractor imported successfully")
         return True
     except Exception as e:

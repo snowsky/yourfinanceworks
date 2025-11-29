@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import MagicMock, patch, ANY
 from datetime import datetime, timezone, timedelta
-from services.email_ingestion_service import EmailIngestionService
-from models.models_per_tenant import Settings, Expense
-from constants.expense_status import ExpenseStatus
+from commercial.integrations.email.service import EmailIngestionService
+from core.models.models_per_tenant import Settings, Expense
+from core.constants.expense_status import ExpenseStatus
 
 @pytest.fixture
 def mock_db():

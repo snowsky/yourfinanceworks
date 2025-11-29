@@ -1,5 +1,5 @@
-from models.database import SessionLocal
-from models.models import Payment, Invoice, Client
+from core.models.database import SessionLocal
+from core.models.models import Payment, Invoice, Client
 
 def test_payments_query():
     db = SessionLocal()

@@ -8,9 +8,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine, text
-from services.tenant_database_manager import tenant_db_manager
-from models.database import get_master_db
-from models.models import Tenant
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
+from core.models.models import Tenant
 
 def migrate_tenant_database(tenant_id: int, tenant_name: str):
     """Migrate a single tenant database"""

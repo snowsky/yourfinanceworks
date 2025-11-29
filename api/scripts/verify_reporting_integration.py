@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.file_validation import validate_file_path
+from core.utils.file_validation import validate_file_path
 
 def check_file_exists(file_path, description):
     """Check if a file exists and report the result"""
@@ -51,7 +51,7 @@ def verify_rbac_integration():
     try:
         # Import RBAC functions
         sys.path.append('.')
-        from utils.rbac import (
+        from core.utils.rbac import (
             can_generate_reports, can_manage_report_templates, 
             can_schedule_reports, require_report_access
         )

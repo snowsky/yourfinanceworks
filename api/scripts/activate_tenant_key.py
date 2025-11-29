@@ -9,8 +9,8 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import TenantKey
+from core.models.database import get_master_db
+from core.models.models import TenantKey
 import argparse
 
 

@@ -7,9 +7,9 @@ Tests cover the approval-specific permission functions added to the RBAC utility
 import pytest
 from fastapi import HTTPException
 
-from models.models_per_tenant import User
-from models.models import MasterUser
-from utils.rbac import (
+from core.models.models_per_tenant import User
+from core.models.models import MasterUser
+from core.utils.rbac import (
     can_submit_for_approval,
     can_approve_expenses,
     can_approve_amount,

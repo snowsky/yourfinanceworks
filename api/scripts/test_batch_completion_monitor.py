@@ -16,9 +16,9 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 
 from config import get_settings
-from models.models_per_tenant import BatchProcessingJob, BatchFileProcessing
-from services.batch_completion_monitor import BatchCompletionMonitor
-from services.webhook_notification_service import WebhookNotificationService
+from core.models.models_per_tenant import BatchProcessingJob, BatchFileProcessing
+from core.services.batch_completion_monitor import BatchCompletionMonitor
+from core.services.webhook_notification_service import WebhookNotificationService
 
 
 async def test_webhook_service():

@@ -15,10 +15,10 @@ from datetime import datetime, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import sessionmaker
-from models.database import get_database_url, create_engine
-from services.notification_service import NotificationService
-from services.email_service import EmailService, EmailProviderConfig, EmailProvider
-from services.approval_notification_scheduler import ApprovalNotificationScheduler
+from core.models.database import get_database_url, create_engine
+from core.services.notification_service import NotificationService
+from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from commercial.workflows.approvals.services.approval_notification_scheduler import ApprovalNotificationScheduler
 
 # Configure logging
 logging.basicConfig(

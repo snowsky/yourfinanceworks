@@ -18,14 +18,14 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
-from models.database import get_db
-from services.cloud_storage.disaster_recovery_service import (
+from core.models.database import get_db
+from commercial.cloud_storage.providers.disaster_recovery_service import (
     DisasterRecoveryService,
     ReplicationConfig
 )
-from services.cloud_storage.disaster_recovery_testing import DisasterRecoveryTestSuite
-from services.cloud_storage.factory import StorageProviderFactory
-from settings.cloud_storage_config import CloudStorageConfig
+from commercial.cloud_storage.providers.disaster_recovery_testing import DisasterRecoveryTestSuite
+from commercial.cloud_storage.providers.factory import StorageProviderFactory
+from commercial.cloud_storage.config import CloudStorageConfig
 
 # Configure logging
 logging.basicConfig(

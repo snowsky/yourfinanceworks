@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.api_models import APIClient
+from core.models.api_models import APIClient
 
 
 def get_db_session():
@@ -94,7 +94,7 @@ def create_api_client(
             tenant_id=tenant_id,
             api_key_hash=api_key_hash,
             api_key_prefix=api_key_prefix,
-            allowed_transaction_types=["income", "expense"],  # Required field
+            allowed_document_types=["invoice", "expense", "statement"],
             rate_limit_per_minute=60,
             rate_limit_per_hour=1000,
             rate_limit_per_day=10000,

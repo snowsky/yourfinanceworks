@@ -60,7 +60,7 @@ grep -A 10 "PUBLIC_KEY" api/services/license_service.py
 
 # Check license server keys
 ls -la license_server/keys/
-ls -la api/keys/
+ls -la api/core/keys/
 ```
 
 ### Step 2: Implement Multi-Key Support (Already Done!)

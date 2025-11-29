@@ -47,7 +47,7 @@ def test_password_reset_simple():
     # Test 2: Test email template creation
     print("\n2. Testing email template creation...")
     try:
-        from services.email_service import EmailService, EmailProviderConfig, EmailProvider
+        from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
         
         # Create test configuration
         config = EmailProviderConfig(

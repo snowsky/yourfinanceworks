@@ -57,7 +57,7 @@ class Config:
     @property
     def tax_service_config(self):
         """Get tax service configuration as dict"""
-        from services.tax_integration_service import TaxServiceConfig
+        from commercial.integrations.tax.service import TaxServiceConfig
         return TaxServiceConfig(
             base_url=self.TAX_SERVICE_BASE_URL,
             api_key=self.TAX_SERVICE_API_KEY,

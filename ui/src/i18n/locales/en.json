@@ -1497,6 +1497,7 @@
     "select_approver": "Select Approver",
     "choose_an_approver": "Choose an approver",
     "create_and_submit_for_approval": "Create & Submit for Approval",
+    "save_and_submit_for_approval": "Save & Submit for Approval",
     "expense_categories": "Expense Categories",
     "add": "Add",
     "remove": "Remove",
@@ -2667,7 +2668,7 @@
       "trialExpired": "Trial Expired",
       "trialEndingSoon": "Trial Ending Soon",
       "trialActive": "Trial Active",
-      "personalUse": "Personal Use",
+      "personalUse": "Core Edition",
       "noLicense": "No License"
     },
     "warnings": {

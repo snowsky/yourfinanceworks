@@ -2,10 +2,10 @@ import os
 import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.models import MasterUser, Tenant
-from models.models_per_tenant import User as TenantUser
-from services.tenant_database_manager import tenant_db_manager
-from models.database import get_master_db
+from core.models.models import MasterUser, Tenant
+from core.models.models_per_tenant import User as TenantUser
+from core.services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
 
 # Set up master DB session
 def get_master_session():

@@ -1399,6 +1399,7 @@
     "select_approver": "Sélectionner un Approbateur",
     "choose_an_approver": "Choisir un approbateur",
     "create_and_submit_for_approval": "Créer et Soumettre pour Approbation",
+    "save_and_submit_for_approval": "Enregistrer et Soumettre pour Approbation",
     "expense_categories": "Catégories de Dépenses",
     "add": "Ajouter",
     "remove": "Supprimer",
@@ -2567,7 +2568,7 @@
       "trialExpired": "Essai Expiré",
       "trialEndingSoon": "Essai Bientôt Terminé",
       "trialActive": "Essai Actif",
-      "personalUse": "Usage Personnel",
+      "personalUse": "Édition Core",
       "noLicense": "Pas de Licence"
     },
     "warnings": {

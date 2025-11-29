@@ -12,10 +12,10 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from services.encryption_service import EncryptionService, get_encryption_service
-from services.key_management_service import KeyManagementService, get_key_management_service
-from models.database import SessionLocal
-from models.models_per_tenant import Expense, ExpenseAttachment
+from core.services.encryption_service import EncryptionService, get_encryption_service
+from core.services.key_management_service import KeyManagementService, get_key_management_service
+from core.models.database import SessionLocal
+from core.models.models_per_tenant import Expense, ExpenseAttachment
 from encryption_config import EncryptionConfig
 
 

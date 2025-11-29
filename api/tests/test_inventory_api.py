@@ -6,8 +6,8 @@ from unittest.mock import Mock, patch, AsyncMock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement, User
-from schemas.inventory import (
+from core.models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement, User
+from core.schemas.inventory import (
     InventoryItemCreate, InventoryCategoryCreate,
     InventorySearchFilters, StockMovementCreate
 )

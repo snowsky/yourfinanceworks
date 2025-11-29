@@ -11,8 +11,8 @@ from pathlib import Path
 import tempfile
 import os
 
-from services.attachment_service import AttachmentService
-from models.models_per_tenant import ItemAttachment
+from core.services.attachment_service import AttachmentService
+from core.models.models_per_tenant import ItemAttachment
 
 
 class TestAttachmentBackwardCompatibility:

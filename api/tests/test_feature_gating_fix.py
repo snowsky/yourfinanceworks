@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
-from services.feature_config_service import FeatureConfigService
-from utils.feature_gate import require_feature
+from core.services.feature_config_service import FeatureConfigService
+from core.utils.feature_gate import require_feature
 
 # Mock LicenseService
 class MockLicenseService:

@@ -23,9 +23,9 @@ def main():
     logger.info("Comparing actual encryption keys...")
     
     try:
-        from models.database import set_tenant_context
-        from services.key_management_service import get_key_management_service
-        from services.encryption_service import get_encryption_service
+        from core.models.database import set_tenant_context
+        from core.services.key_management_service import get_key_management_service
+        from core.services.encryption_service import get_encryption_service
         
         # Set tenant context
         set_tenant_context(1)

@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 import logging
 
-from models.models_per_tenant import ItemAttachment
+from core.models.models_per_tenant import ItemAttachment
 from config import config
 
 # Configure logging
@@ -128,7 +128,7 @@ def test_table_creation():
 def test_relationships():
     """Test model relationships."""
     try:
-        from models.models_per_tenant import InventoryItem, User
+        from core.models.models_per_tenant import InventoryItem, User
 
         # Test that InventoryItem has attachments relationship
         assert hasattr(InventoryItem, 'attachments'), "InventoryItem missing attachments relationship"

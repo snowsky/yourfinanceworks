@@ -303,7 +303,7 @@ class InvoiceAPIClient:
     ) -> Dict[str, Any]:
         """Upload a receipt/attachment file for a given expense"""
         # Validate file path before opening
-        from utils.file_validation import validate_file_path
+        from core.utils.file_validation import validate_file_path
         validated_path = validate_file_path(file_path)
 
         headers = await self.auth_client.get_auth_headers()
@@ -549,7 +549,7 @@ class InvoiceAPIClient:
     async def process_pdf_upload(self, file_path: str, filename: str = None) -> Dict[str, Any]:
         """Upload and process a PDF file"""
         # Validate file path before opening
-        from utils.file_validation import validate_file_path
+        from core.utils.file_validation import validate_file_path
         validated_path = validate_file_path(file_path)
 
         headers = await self.auth_client.get_auth_headers()

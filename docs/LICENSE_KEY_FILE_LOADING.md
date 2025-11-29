@@ -26,7 +26,7 @@ PUBLIC_KEYS = {
 ```python
 # Automatically loaded from files or env vars
 def load_public_keys() -> Dict[str, str]:
-    """Load public keys from api/keys/*.pem or environment variables"""
+    """Load public keys from api/core/keys/*.pem or environment variables"""
     # Priority: env vars > files > embedded fallback
     
 PUBLIC_KEYS = load_public_keys()  # Auto-loaded on startup
@@ -48,11 +48,11 @@ PUBLIC_KEYS = load_public_keys()  # Auto-loaded on startup
    - Good for cloud deployments, secrets management
 
 2. **Versioned Files**
-   - `api/keys/public_key_v2.pem`, `api/keys/public_key_v3.pem`, etc.
+   - `api/core/keys/public_key_v2.pem`, `api/core/keys/public_key_v3.pem`, etc.
    - Good for local development, version control
 
 3. **Default File**
-   - `api/keys/public_key.pem` (maps to DEFAULT_KEY_ID)
+   - `api/core/keys/public_key.pem` (maps to DEFAULT_KEY_ID)
    - Good for simple single-key setups
 
 4. **Embedded Fallback** (lowest priority)
@@ -72,9 +72,9 @@ The version is extracted from the filename:
 ### Example 1: File-based (Recommended)
 
 ```bash
-# Copy public keys to api/keys/
-cp license_server/keys/public_key_v2.pem api/keys/
-cp license_server/keys/public_key_v3.pem api/keys/
+# Copy public keys to api/core/keys/
+cp license_server/keys/public_key_v2.pem api/core/keys/
+cp license_server/keys/public_key_v3.pem api/core/keys/
 
 # Set default key version
 echo "LICENSE_DEFAULT_KEY_ID=v3" >> api/.env
@@ -108,7 +108,7 @@ LICENSE_DEFAULT_KEY_ID=v3
 
 ```bash
 # Use files for stable keys
-cp license_server/keys/public_key_v2.pem api/keys/
+cp license_server/keys/public_key_v2.pem api/core/keys/
 
 # Use env var for latest key (easier to update)
 export LICENSE_PUBLIC_KEY_V3="$(cat license_server/keys/public_key_v3.pem)"
@@ -126,7 +126,7 @@ services:
       - LICENSE_DEFAULT_KEY_ID=v3
       - LICENSE_PUBLIC_KEY_V3=${LICENSE_PUBLIC_KEY_V3}
     volumes:
-      - ./api/keys:/app/keys:ro  # Mount keys directory (read-only)
+      - ./api/core/keys:/app/keys:ro  # Mount keys directory (read-only)
 ```
 
 ### Example 5: Kubernetes ConfigMap
@@ -182,7 +182,7 @@ spec:
 
 ```bash
 # Just copy the new public key file
-cp license_server/keys/public_key_v3.pem api/keys/
+cp license_server/keys/public_key_v3.pem api/core/keys/
 
 # Update default key version
 echo "LICENSE_DEFAULT_KEY_ID=v3" >> api/.env
@@ -224,7 +224,7 @@ docker-compose restart api
 ### Option 1: All Files (Simple)
 
 ```bash
-api/keys/
+api/core/keys/
 ├── public_key_v2.pem
 ├── public_key_v3.pem
 └── README.md
@@ -248,7 +248,7 @@ LICENSE_DEFAULT_KEY_ID=v3
 
 ```bash
 # Stable keys in files
-api/keys/public_key_v2.pem
+api/core/keys/public_key_v2.pem
 
 # Latest key in env var
 LICENSE_PUBLIC_KEY_V3="..."
@@ -267,7 +267,7 @@ If you already have keys hardcoded in `license_service.py`:
 1. **Extract current key to file**:
    ```bash
    # Copy the public key from license_service.py
-   cat > api/keys/public_key_v2.pem << 'EOF'
+   cat > api/core/keys/public_key_v2.pem << 'EOF'
    -----BEGIN PUBLIC KEY-----
    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
    -----END PUBLIC KEY-----
@@ -295,7 +295,7 @@ If you already have keys hardcoded in `license_service.py`:
 
 1. **Copy public keys**:
    ```bash
-   cp license_server/keys/public_key_*.pem api/keys/
+   cp license_server/keys/public_key_*.pem api/core/keys/
    ```
 
 2. **Set default key**:
@@ -314,12 +314,12 @@ If you already have keys hardcoded in `license_service.py`:
 
 **Check files exist**:
 ```bash
-ls -la api/keys/public_key_*.pem
+ls -la api/core/keys/public_key_*.pem
 ```
 
 **Check file permissions**:
 ```bash
-chmod 644 api/keys/public_key_*.pem
+chmod 644 api/core/keys/public_key_*.pem
 ```
 
 **Check logs**:
@@ -393,7 +393,7 @@ python test_license_verification.py
 
 ## Documentation
 
-- **Keys Directory README**: `api/keys/README.md`
+- **Keys Directory README**: `api/core/keys/README.md`
 - **Key Rotation Guide**: `docs/admin-guide/LICENSE_KEY_ROTATION_GUIDE.md`
 - **Implementation Details**: `docs/LICENSE_KEY_ROTATION_IMPLEMENTATION.md`
 - **Quick Reference**: `license_server/KEY_ROTATION_QUICK_REF.md`

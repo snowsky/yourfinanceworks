@@ -22,12 +22,12 @@ def test_ocr_integration():
     # Test 1: Import all OCR-related modules
     print("\n1. Testing imports...")
     try:
-        from services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
-        from services.bank_statement_ocr_processor import BankStatementOCRProcessor
-        from utils.text_sufficiency_validator import TextSufficiencyValidator
-        from exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
-        from utils.ocr_notifications import notify_ocr_processing_started
-        from settings.ocr_config import get_ocr_config
+        from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+        from core.services.bank_statement_ocr_processor import BankStatementOCRProcessor
+        from core.utils.text_sufficiency_validator import TextSufficiencyValidator
+        from core.exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
+        from core.utils.ocr_notifications import notify_ocr_processing_started
+        from core.settings.ocr_config import get_ocr_config
         print("   ✅ All OCR modules imported successfully")
     except Exception as e:
         print(f"   ❌ Import error: {e}")
@@ -75,7 +75,7 @@ def test_ocr_integration():
     print("\n4. Testing notification system...")
     try:
         notify_ocr_processing_started("/test/file.pdf", user_id=123)
-        from utils.ocr_notifications import ocr_notification_manager
+        from core.utils.ocr_notifications import ocr_notification_manager
         notifications = ocr_notification_manager.get_notifications(user_id=123)
         print(f"   ✅ Notification system working: {len(notifications)} notifications")
     except Exception as e:
@@ -104,7 +104,7 @@ def test_ocr_integration():
     # Test 6: Test UniversalBankTransactionExtractor with OCR integration
     print("\n6. Testing UniversalBankTransactionExtractor integration...")
     try:
-        from services.statement_service import UniversalBankTransactionExtractor
+        from core.services.statement_service import UniversalBankTransactionExtractor
         
         ai_config = {
             "provider_name": "test",
@@ -130,7 +130,7 @@ def test_ocr_integration():
     # Test 7: Test error handling
     print("\n7. Testing OCR error handling...")
     try:
-        from exceptions.bank_ocr_exceptions import is_retryable_ocr_error, get_retry_delay
+        from core.exceptions.bank_ocr_exceptions import is_retryable_ocr_error, get_retry_delay
         
         timeout_error = OCRTimeoutError("Test timeout", timeout_seconds=300)
         processing_error = OCRProcessingError("Test processing error", is_transient=True)

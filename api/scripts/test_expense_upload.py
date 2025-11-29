@@ -15,8 +15,8 @@ load_dotenv()
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from settings.cloud_storage_config import get_cloud_storage_config
-from services.cloud_storage_service import CloudStorageService
+from commercial.cloud_storage.config import get_cloud_storage_config
+from commercial.cloud_storage.service import CloudStorageService
 
 async def test_expense_attachment_upload():
     """Test expense attachment upload flow."""

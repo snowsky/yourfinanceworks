@@ -10,10 +10,10 @@ import logging
 # Add the API directory to Python path
 sys.path.insert(0, '/app')
 
-from models.database import set_tenant_context, SessionLocal
-from services.tenant_database_manager import tenant_db_manager
-from services.encryption_service import EncryptionService
-from services.key_management_service import KeyManagementService
+from core.models.database import set_tenant_context, SessionLocal
+from core.services.tenant_database_manager import tenant_db_manager
+from core.services.encryption_service import EncryptionService
+from core.services.key_management_service import KeyManagementService
 from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)

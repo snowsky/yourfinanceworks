@@ -156,7 +156,7 @@ def test_password_reset_email_flow():
     print("\n5. Testing email template rendering...")
     try:
         # Import and test email service directly
-        from services.email_service import EmailService, EmailProviderConfig, EmailProvider
+        from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
         
         # Create a test email service
         config = EmailProviderConfig(

@@ -9,7 +9,7 @@ When to use:
 
 Safe to run multiple times; it will always set the sequence to MAX(id)+1 for each tenant DB.
 """
-from services.tenant_database_manager import TenantDatabaseManager
+from core.services.tenant_database_manager import TenantDatabaseManager
 from sqlalchemy import create_engine, text
 import logging
 

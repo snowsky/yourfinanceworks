@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main import app
-from routers import batch_processing
+from core.routers import batch_processing
 
 
 def test_router_exists():
@@ -158,7 +158,7 @@ def test_service_dependency():
     print("="*80)
     
     try:
-        from services.batch_processing_service import BatchProcessingService
+        from commercial.batch_processing.service import BatchProcessingService
         assert BatchProcessingService is not None
         print("✅ BatchProcessingService is available")
         
@@ -199,7 +199,7 @@ def test_models_exist():
     print("="*80)
     
     try:
-        from models.models_per_tenant import (
+        from core.models.models_per_tenant import (
             BatchProcessingJob,
             BatchFileProcessing,
             ExportDestinationConfig

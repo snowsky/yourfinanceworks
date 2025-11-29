@@ -5,9 +5,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_imports():
     """Test that core modules can be imported"""
-    from models.models import User, Client, Invoice
-    from schemas.user import UserCreate
-    from schemas.client import ClientCreate
+    from core.models.models import User, Client, Invoice
+    from core.schemas.user import UserCreate
+    from core.schemas.client import ClientCreate
     assert User is not None
     assert Client is not None
     assert Invoice is not None
@@ -16,8 +16,8 @@ def test_imports():
 
 def test_schema_validation():
     """Test Pydantic schema validation"""
-    from schemas.user import UserCreate
-    from schemas.client import ClientCreate
+    from core.schemas.user import UserCreate
+    from core.schemas.client import ClientCreate
     
     # Test valid user creation
     user_data = {

@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from models.database import SessionLocal
-from services.license_service import LicenseService
+from core.models.database import SessionLocal
+from core.services.license_service import LicenseService
 
 def test_license_dates():
     """Test license activation and date display"""

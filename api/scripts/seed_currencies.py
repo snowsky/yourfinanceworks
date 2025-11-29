@@ -4,10 +4,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import Tenant
-from models.models_per_tenant import SupportedCurrency
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
+from core.models.models import Tenant
+from core.models.models_per_tenant import SupportedCurrency
+from core.services.tenant_database_manager import tenant_db_manager
 from datetime import datetime, timezone
 
 # Basic currencies to seed

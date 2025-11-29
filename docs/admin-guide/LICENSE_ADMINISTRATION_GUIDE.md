@@ -499,12 +499,12 @@ The current implementation does NOT support online license validation. Revoked l
 
 1. **Check Private Key Exists**
    ```bash
-   ls -la api/keys/private_key.pem
+   ls -la api/core/keys/private_key.pem
    ```
 
 2. **Verify Private Key Permissions**
    ```bash
-   chmod 600 api/keys/private_key.pem
+   chmod 600 api/core/keys/private_key.pem
    ```
 
 3. **Test Key Loading**
@@ -638,14 +638,14 @@ The private key (`private_key.pem`) is used to sign all licenses. If compromised
 
 1. **File Permissions**
    ```bash
-   chmod 600 api/keys/private_key.pem
-   chown root:root api/keys/private_key.pem
+   chmod 600 api/core/keys/private_key.pem
+   chown root:root api/core/keys/private_key.pem
    ```
 
 2. **Never Commit to Git**
    ```bash
    # Ensure in .gitignore
-   echo "api/keys/private_key.pem" >> .gitignore
+   echo "api/core/keys/private_key.pem" >> .gitignore
    ```
 
 3. **Backup Securely**

@@ -35,8 +35,8 @@ async def mock_tenant_context_middleware(request, call_next):
 mock_middleware.tenant_context_middleware = mock_tenant_context_middleware
 
 from main import app
-from models.models import MasterUser
-from routers.auth import get_current_user
+from core.models.models import MasterUser
+from core.routers.auth import get_current_user
 
 def verify_sync():
     client = TestClient(app)
@@ -56,9 +56,9 @@ def verify_sync():
     mock_session.query.return_value.filter.return_value.first.return_value = mock_setting
 
     # Mock authentication
-    from routers.email_integration import get_current_user as router_get_current_user
-    from routers.auth import get_current_user as auth_get_current_user
-    from routers.auth import oauth2_scheme
+    from commercial.integrations.email.router import get_current_user as router_get_current_user
+    from core.routers.auth import get_current_user as auth_get_current_user
+    from core.routers.auth import oauth2_scheme
     
     print(f"Router get_current_user id: {id(router_get_current_user)}")
     print(f"Auth get_current_user id: {id(auth_get_current_user)}")

@@ -13,9 +13,9 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from services.approval_permission_service import ApprovalPermissionService
-from models.models_per_tenant import User, ApprovalRule, ApprovalDelegate, Expense
-from utils.rbac import (
+from commercial.workflows.approvals.services.approval_permission_service import ApprovalPermissionService
+from core.models.models_per_tenant import User, ApprovalRule, ApprovalDelegate, Expense
+from core.utils.rbac import (
     can_approve_expenses,
     can_manage_approval_rules,
     can_delegate_approvals

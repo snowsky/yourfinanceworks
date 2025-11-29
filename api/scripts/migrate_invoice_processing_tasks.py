@@ -12,8 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import text
-from models.database import SessionLocal
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import SessionLocal
+from core.services.tenant_database_manager import tenant_db_manager
 import logging
 
 logging.basicConfig(level=logging.INFO)

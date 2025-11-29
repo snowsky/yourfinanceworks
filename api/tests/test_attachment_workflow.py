@@ -23,7 +23,7 @@ def create_test_database():
     engine = create_engine(f'sqlite:///{test_db_path}')
 
     # Import and create tables
-    from models.models_per_tenant import Base as TenantBase
+    from core.models.models_per_tenant import Base as TenantBase
     TenantBase.metadata.create_all(bind=engine)
 
     # Create session
@@ -36,7 +36,7 @@ def create_test_database():
 
     try:
         # Create test inventory item
-        from models.models_per_tenant import InventoryItem, User
+        from core.models.models_per_tenant import InventoryItem, User
         test_item = InventoryItem(
             name="Test Product",
             description="Test product for attachment testing",
@@ -185,7 +185,7 @@ async def test_complete_attachment_workflow():
 
         # 1. Test File Storage Service
         print("\n1. Testing File Storage Service...")
-        from services.file_storage_service import file_storage_service
+        from core.services.file_storage_service import file_storage_service
 
         # Create test image
         test_image = create_test_image()
@@ -210,7 +210,7 @@ async def test_complete_attachment_workflow():
 
         # 2. Test Security Validation
         print("\n2. Testing Security Validation...")
-        from services.file_security_service import file_security_service
+        from core.services.file_security_service import file_security_service
 
         validation = await file_security_service.validate_file(
             file_content=test_image,
@@ -230,7 +230,7 @@ async def test_complete_attachment_workflow():
 
         # 3. Test Image Processing
         print("\n3. Testing Image Processing...")
-        from services.image_processing_service import image_processing_service
+        from core.services.image_processing_service import image_processing_service
 
         processing = await image_processing_service.process_image(
             file_path=Path(result.stored_path),
@@ -248,7 +248,7 @@ async def test_complete_attachment_workflow():
 
         # 4. Test Attachment Service
         print("\n4. Testing Attachment Service...")
-        from services.attachment_service import AttachmentService
+        from core.services.attachment_service import AttachmentService
 
         attachment_service = AttachmentService(db)
 

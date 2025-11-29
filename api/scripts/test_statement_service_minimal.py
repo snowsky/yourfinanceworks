@@ -21,22 +21,22 @@ def test_statement_service_import():
     try:
         # Test basic imports first
         logger.info("✓ Testing basic imports...")
-        from services.statement_service import LANGCHAIN_AVAILABLE
+        from core.services.statement_service import LANGCHAIN_AVAILABLE
         logger.info(f"✅ LANGCHAIN_AVAILABLE = {LANGCHAIN_AVAILABLE}")
         
         # Test UniversalBankTransactionExtractor
         logger.info("✓ Testing UniversalBankTransactionExtractor...")
-        from services.statement_service import UniversalBankTransactionExtractor
+        from core.services.statement_service import UniversalBankTransactionExtractor
         logger.info("✅ UniversalBankTransactionExtractor imported successfully")
         
         # Test BankTransactionExtractor
         logger.info("✓ Testing BankTransactionExtractor...")
-        from services.statement_service import BankTransactionExtractor
+        from core.services.statement_service import BankTransactionExtractor
         logger.info("✅ BankTransactionExtractor imported successfully")
         
         # Test main processing function
         logger.info("✓ Testing process_bank_pdf_with_llm...")
-        from services.statement_service import process_bank_pdf_with_llm
+        from core.services.statement_service import process_bank_pdf_with_llm
         logger.info("✅ process_bank_pdf_with_llm imported successfully")
         
         return True
@@ -53,7 +53,7 @@ def test_extractor_initialization():
     logger.info("Testing extractor initialization...")
     
     try:
-        from services.statement_service import UniversalBankTransactionExtractor, BankTransactionExtractor
+        from core.services.statement_service import UniversalBankTransactionExtractor, BankTransactionExtractor
         
         # Test UniversalBankTransactionExtractor with dummy config
         logger.info("✓ Testing UniversalBankTransactionExtractor initialization...")

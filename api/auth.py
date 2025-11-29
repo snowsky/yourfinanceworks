@@ -12,8 +12,8 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from httpx_oauth.clients.google import GoogleOAuth2
 from sqlalchemy.orm import Session
 
-from models.database import get_db
-from models.models import User
+from core.models.database import get_db
+from core.models.models import User
 
 # Secret key for JWT - in production, use environment variable
 SECRET = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")

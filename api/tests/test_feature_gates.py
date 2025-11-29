@@ -9,8 +9,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from unittest.mock import Mock, patch
 
-from utils.feature_gate import require_feature, feature_enabled, get_enabled_features
-from services.feature_config_service import FeatureConfigService
+from core.utils.feature_gate import require_feature, feature_enabled, get_enabled_features
+from core.services.feature_config_service import FeatureConfigService
 
 
 class TestFeatureConfigService:

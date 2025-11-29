@@ -12,11 +12,11 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 from unittest.mock import Mock, patch, MagicMock
 
-from services.report_service import ReportService
-from services.report_cache_service import ReportCacheService, CacheConfig, CacheStrategy
-from services.report_query_optimizer import ReportQueryOptimizer, OptimizationConfig
-from services.report_progress_service import ReportProgressService, ProgressStage
-from schemas.report import ReportType, ExportFormat, ClientReportFilters, InvoiceReportFilters
+from core.services.report_service import ReportService
+from core.services.report_cache_service import ReportCacheService, CacheConfig, CacheStrategy
+from core.services.report_query_optimizer import ReportQueryOptimizer, OptimizationConfig
+from core.services.report_progress_service import ReportProgressService, ProgressStage
+from core.schemas.report import ReportType, ExportFormat, ClientReportFilters, InvoiceReportFilters
 
 
 class TestReportCacheService:

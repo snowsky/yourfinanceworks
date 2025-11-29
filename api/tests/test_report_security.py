@@ -17,13 +17,13 @@ from datetime import datetime, timedelta
 import json
 
 from main import app
-from models.database import get_db
-from models.models import MasterUser
-from models.models_per_tenant import User, ReportTemplate, ScheduledReport, AuditLog
-from services.report_security_service import ReportSecurityService, ReportRateLimiter
-from services.report_audit_service import ReportAuditService
-from schemas.report import ReportType, ExportFormat
-from exceptions.report_exceptions import ReportAccessDeniedException, ReportErrorCode
+from core.models.database import get_db
+from core.models.models import MasterUser
+from core.models.models_per_tenant import User, ReportTemplate, ScheduledReport, AuditLog
+from core.services.report_security_service import ReportSecurityService, ReportRateLimiter
+from core.services.report_audit_service import ReportAuditService
+from core.schemas.report import ReportType, ExportFormat
+from core.exceptions.report_exceptions import ReportAccessDeniedException, ReportErrorCode
 
 
 class TestReportSecurityService:

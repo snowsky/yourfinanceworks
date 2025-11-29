@@ -104,7 +104,7 @@ def test_api_integration():
     print("2. Testing PDF processor router...")
     
     try:
-        from routers.pdf_processor import router
+        from core.routers.pdf_processor import router
         print("✅ PDF processor router imported successfully")
         
         # Check if the router has the expected endpoints

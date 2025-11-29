@@ -16,10 +16,10 @@ from typing import Dict, List, Any
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.encryption_service import EncryptionService
-from services.key_management_service import KeyManagementService
-from services.key_rotation_service import KeyRotationService
-from integrations.key_vault_factory import KeyVaultFactory
+from core.services.encryption_service import EncryptionService
+from core.services.key_management_service import KeyManagementService
+from core.services.key_rotation_service import KeyRotationService
+from commercial.integrations.key_vault_factory import KeyVaultFactory
 from encryption_config import EncryptionConfig
 
 logging.basicConfig(level=logging.INFO)

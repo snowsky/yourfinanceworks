@@ -16,9 +16,9 @@ def test_external_api_imports():
     """Test that all imports work correctly."""
     try:
         # Test basic imports
-        from routers.external_api import router
-        from services.external_api_auth_service import ExternalAPIAuthService
-        from services.statement_service import process_bank_pdf_with_llm
+        from core.routers.external_api import router
+        from core.services.external_api_auth_service import ExternalAPIAuthService
+        from core.services.statement_service import process_bank_pdf_with_llm
         
         print("✅ All imports successful")
         return True
@@ -29,7 +29,7 @@ def test_external_api_imports():
 def test_statement_processing():
     """Test statement processing with a simple text file."""
     try:
-        from services.statement_service import process_bank_pdf_with_llm
+        from core.services.statement_service import process_bank_pdf_with_llm
         
         # Create a simple test CSV file
         test_csv_content = """Date,Description,Amount,Type
@@ -58,7 +58,7 @@ def test_statement_processing():
 def test_api_key_generation():
     """Test API key generation functionality."""
     try:
-        from services.external_api_auth_service import ExternalAPIAuthService
+        from core.services.external_api_auth_service import ExternalAPIAuthService
         
         auth_service = ExternalAPIAuthService()
         

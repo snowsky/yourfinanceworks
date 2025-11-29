@@ -6,10 +6,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import MasterUser, Tenant
-from utils.auth import verify_password
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
+from core.models.models import MasterUser, Tenant
+from core.utils.auth import verify_password
+from core.services.tenant_database_manager import tenant_db_manager
 
 def debug_user_login(email: str):
     """Debug user login issues"""
@@ -66,7 +66,7 @@ def debug_user_login(email: str):
         
         # Check if user exists in tenant database
         try:
-            from models.models_per_tenant import User as TenantUser
+            from core.models.models_per_tenant import User as TenantUser
             tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
             tenant_db = tenant_session()
             

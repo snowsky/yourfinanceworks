@@ -14,11 +14,11 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
 # Import the modules under test
-from services.enhanced_pdf_extractor import EnhancedPDFTextExtractor, TextExtractionResult
-from services.bank_statement_ocr_processor import BankStatementOCRProcessor
-from utils.text_sufficiency_validator import TextSufficiencyValidator, TextQualityMetrics
-from settings.ocr_config import OCRConfig, get_ocr_config
-from exceptions.bank_ocr_exceptions import (
+from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor, TextExtractionResult
+from core.services.bank_statement_ocr_processor import BankStatementOCRProcessor
+from core.utils.text_sufficiency_validator import TextSufficiencyValidator, TextQualityMetrics
+from core.settings.ocr_config import OCRConfig, get_ocr_config
+from core.exceptions.bank_ocr_exceptions import (
     OCRUnavailableError,
     OCRTimeoutError,
     OCRProcessingError,

@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config import get_settings
-from services.batch_completion_monitor import get_batch_completion_monitor
+from core.services.batch_completion_monitor import get_batch_completion_monitor
 
 # Configure logging
 logging.basicConfig(

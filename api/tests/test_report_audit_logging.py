@@ -13,11 +13,11 @@ from datetime import datetime, timedelta
 import json
 
 from main import app
-from models.database import get_db
-from models.models import MasterUser
-from models.models_per_tenant import User, AuditLog
-from services.report_audit_service import ReportAuditService, extract_request_info
-from schemas.report import ReportType, ExportFormat
+from core.models.database import get_db
+from core.models.models import MasterUser
+from core.models.models_per_tenant import User, AuditLog
+from core.services.report_audit_service import ReportAuditService, extract_request_info
+from core.schemas.report import ReportType, ExportFormat
 
 
 class TestReportAuditService:

@@ -10,9 +10,9 @@ import logging
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-from models.models_per_tenant import AuditLog
-from models.models import Base, MasterUser, Tenant
-from models.database import get_master_db, DATABASE_URL
+from core.models.models_per_tenant import AuditLog
+from core.models.models import Base, MasterUser, Tenant
+from core.models.database import get_master_db, DATABASE_URL
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

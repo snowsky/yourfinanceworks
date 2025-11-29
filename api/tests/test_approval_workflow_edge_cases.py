@@ -18,13 +18,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     Base, User, Expense, ExpenseApproval, ApprovalRule, ApprovalDelegate
 )
-from services.approval_service import ApprovalService
-from services.approval_rule_engine import ApprovalRuleEngine
-from schemas.approval import ApprovalStatus
-from exceptions.approval_exceptions import (
+from commercial.workflows.approvals.services.approval_service import ApprovalService
+from commercial.workflows.approvals.services.approval_rule_engine import ApprovalRuleEngine
+from core.schemas.approval import ApprovalStatus
+from core.exceptions.approval_exceptions import (
     ApprovalException, InsufficientApprovalPermissions,
     ExpenseAlreadyApproved, NoApprovalRuleFound, ApprovalLevelMismatch
 )

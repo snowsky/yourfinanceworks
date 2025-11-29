@@ -21,11 +21,11 @@ sys.path.insert(0, '/app')
 
 from sqlalchemy import create_engine, text, MetaData, Table, Column, inspect
 from sqlalchemy.orm import sessionmaker
-from services.encryption_service import EncryptionService
-from services.key_management_service import KeyManagementService
-from models.database import DATABASE_URL, set_tenant_context
-from utils.column_encryptor import EncryptedColumn, EncryptedJSON
-from exceptions.encryption_exceptions import DecryptionError
+from core.services.encryption_service import EncryptionService
+from core.services.key_management_service import KeyManagementService
+from core.models.database import DATABASE_URL, set_tenant_context
+from core.utils.column_encryptor import EncryptedColumn, EncryptedJSON
+from core.exceptions.encryption_exceptions import DecryptionError
 
 # Configure logging
 logging.basicConfig(

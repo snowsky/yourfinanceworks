@@ -1,5 +1,5 @@
-from models.database import SessionLocal
-from models.models import Invoice, Item, Client
+from core.models.database import SessionLocal
+from core.models.models import Invoice, Item, Client
 import json
 
 def test_invoice_with_items():

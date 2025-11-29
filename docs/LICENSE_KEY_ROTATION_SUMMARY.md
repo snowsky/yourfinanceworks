@@ -31,7 +31,7 @@ def verify_license(self, license_key: str):
 ```python
 # Load keys from files or environment variables
 def load_public_keys() -> Dict[str, str]:
-    """Load public keys from api/keys/*.pem or env vars"""
+    """Load public keys from api/core/keys/*.pem or env vars"""
     public_keys = {}
     
     # Load from env vars (highest priority)

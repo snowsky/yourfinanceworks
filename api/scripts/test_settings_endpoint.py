@@ -9,8 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.models import User, Tenant
-from routers.auth import create_access_token
+from core.models.models import User, Tenant
+from core.routers.auth import create_access_token
 import requests
 import os
 

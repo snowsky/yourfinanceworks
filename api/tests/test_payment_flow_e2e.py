@@ -20,8 +20,8 @@ from unittest.mock import Mock, patch, MagicMock
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from services.license_service import LicenseService
-from models.models_per_tenant import Base, InstallationInfo
+from core.services.license_service import LicenseService
+from core.models.models_per_tenant import Base, InstallationInfo
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -342,7 +342,7 @@ class TestLicenseActivation:
         
     def test_activation_logged_for_audit(self, license_service, db_session):
         """Test that activation is logged for audit trail"""
-        from models.models_per_tenant import LicenseValidationLog
+        from core.models.models_per_tenant import LicenseValidationLog
         
         # Create installation (triggers trial start log)
         license_service.get_license_status()

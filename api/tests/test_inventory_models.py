@@ -5,11 +5,11 @@ import pytest
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError
 
-from models.models_per_tenant import (
+from core.models.models_per_tenant import (
     InventoryItem, InventoryCategory, StockMovement,
     InvoiceItem, Expense, Invoice, User, Client
 )
-from schemas.inventory import (
+from core.schemas.inventory import (
     InventoryItemCreate, InventoryItemUpdate,
     InventoryCategoryCreate, InventoryCategoryUpdate,
     StockMovementCreate

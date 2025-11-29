@@ -10,13 +10,13 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from services.notification_service import NotificationService
-from services.approval_notification_scheduler import ApprovalNotificationScheduler
-from services.email_service import EmailService, EmailMessage
-from models.models_per_tenant import (
+from core.services.notification_service import NotificationService
+from commercial.workflows.approvals.services.approval_notification_scheduler import ApprovalNotificationScheduler
+from core.services.email_service import EmailService, EmailMessage
+from core.models.models_per_tenant import (
     User, Expense, ExpenseApproval, EmailNotificationSettings
 )
-from schemas.approval import ApprovalStatus
+from core.schemas.approval import ApprovalStatus
 
 
 class TestNotificationServiceApprovalExtensions:

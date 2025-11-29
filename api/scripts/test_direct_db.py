@@ -1,5 +1,5 @@
-from models.database import SessionLocal
-from models.models import User, Payment, Invoice, Client
+from core.models.database import SessionLocal
+from core.models.models import User, Payment, Invoice, Client
 
 def test_direct_db():
     db = SessionLocal()

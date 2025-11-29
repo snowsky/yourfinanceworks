@@ -13,9 +13,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.database import get_master_db_url, get_tenant_db_url, set_tenant_context
-from models.models import Tenant
-from services.search_service import search_service
+from core.models.database import get_master_db_url, get_tenant_db_url, set_tenant_context
+from core.models.models import Tenant
+from core.services.search_service import search_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

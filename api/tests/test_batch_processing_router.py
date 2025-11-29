@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi.testclient import TestClient
 from main import app
-from models.database import get_db, get_master_db
-from models.models import MasterUser
-from models.models_per_tenant import User, ExportDestinationConfig
+from core.models.database import get_db, get_master_db
+from core.models.models import MasterUser
+from core.models.models_per_tenant import User, ExportDestinationConfig
 from sqlalchemy.orm import Session
 import io
 

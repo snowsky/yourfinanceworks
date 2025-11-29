@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import json
 
 from main import app
-from models.models_per_tenant import User, EmailNotificationSettings
+from core.models.models_per_tenant import User, EmailNotificationSettings
 from tests.conftest import TestingSessionLocal, override_get_db, create_test_user
 
 
@@ -232,7 +232,7 @@ class TestNotificationServiceApprovalPreferences:
 
     def test_should_send_notification_immediate_mode(self):
         """Test notification sending in immediate mode"""
-        from services.notification_service import NotificationService
+        from core.services.notification_service import NotificationService
         
         # Create settings with immediate mode
         settings = EmailNotificationSettings(
@@ -258,7 +258,7 @@ class TestNotificationServiceApprovalPreferences:
 
     def test_should_send_notification_digest_mode(self):
         """Test notification sending in digest mode"""
-        from services.notification_service import NotificationService
+        from core.services.notification_service import NotificationService
         
         # Create settings with digest mode
         settings = EmailNotificationSettings(
@@ -284,7 +284,7 @@ class TestNotificationServiceApprovalPreferences:
 
     def test_should_send_notification_channel_filtering(self):
         """Test notification channel filtering"""
-        from services.notification_service import NotificationService
+        from core.services.notification_service import NotificationService
         
         # Create settings with only email channel
         settings = EmailNotificationSettings(
@@ -310,7 +310,7 @@ class TestNotificationServiceApprovalPreferences:
 
     def test_create_in_app_notification(self):
         """Test creating in-app notifications"""
-        from services.notification_service import NotificationService
+        from core.services.notification_service import NotificationService
         
         # Create settings with in-app channel
         settings = EmailNotificationSettings(
@@ -337,7 +337,7 @@ class TestNotificationServiceApprovalPreferences:
     @patch('services.notification_service.logger')
     def test_send_approval_daily_digest(self, mock_logger):
         """Test sending approval daily digest"""
-        from services.notification_service import NotificationService
+        from core.services.notification_service import NotificationService
         
         # Create settings with digest mode
         settings = EmailNotificationSettings(

@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import MasterUser, Tenant
-from utils.auth import get_password_hash
+from core.models.database import get_master_db
+from core.models.models import MasterUser, Tenant
+from core.utils.auth import get_password_hash
 
 def create_super_user():
     """Create a super user"""

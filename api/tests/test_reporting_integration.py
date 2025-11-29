@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
 from main import app
-from models.models_per_tenant import User, Invoice, Client, Payment
-from schemas.report import ReportTemplateCreate, ReportType, ExportFormat
-from utils.rbac import (
+from core.models.models_per_tenant import User, Invoice, Client, Payment
+from core.schemas.report import ReportTemplateCreate, ReportType, ExportFormat
+from core.utils.rbac import (
     can_generate_reports, can_manage_report_templates, 
     can_schedule_reports, require_report_access
 )
@@ -177,7 +177,7 @@ class TestReportingDatabaseIntegration:
     
     def test_report_data_aggregator_with_invoice_model(self, mock_db_session, sample_invoice_data):
         """Test that report data aggregator works with Invoice model"""
-        from services.report_data_aggregator import ReportDataAggregator
+        from core.services.report_data_aggregator import ReportDataAggregator
         
         aggregator = ReportDataAggregator(mock_db_session)
         
@@ -192,7 +192,7 @@ class TestReportingDatabaseIntegration:
     
     def test_report_template_service_with_user_model(self, mock_db_session, sample_user):
         """Test that report template service works with User model"""
-        from services.report_template_service import ReportTemplateService
+        from core.services.report_template_service import ReportTemplateService
         
         service = ReportTemplateService(mock_db_session)
         

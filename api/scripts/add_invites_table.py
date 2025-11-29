@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import os
 
 # Import existing models to ensure foreign key relationships work
-from models.models import Base, MasterUser, Tenant
+from core.models.models import Base, MasterUser, Tenant
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./master.db")

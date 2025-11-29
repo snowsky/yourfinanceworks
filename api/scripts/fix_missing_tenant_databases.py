@@ -13,9 +13,9 @@ from datetime import datetime, timezone
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import Tenant
-from services.tenant_database_manager import tenant_db_manager
+from core.models.database import get_master_db
+from core.models.models import Tenant
+from core.services.tenant_database_manager import tenant_db_manager
 from sqlalchemy import text
 
 # Configure logging

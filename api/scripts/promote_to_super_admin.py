@@ -8,8 +8,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import SessionLocal
-from models.models import MasterUser
+from core.models.database import SessionLocal
+from core.models.models import MasterUser
 
 def promote_to_super_admin(email: str):
     db = SessionLocal()

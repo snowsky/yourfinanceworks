@@ -19,8 +19,8 @@ import os
 # Add the parent directory to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.database import get_master_db
-from models.models import Tenant, MasterUser
+from core.models.database import get_master_db
+from core.models.models import Tenant, MasterUser
 
 def update_tenant_currency():
     """Update tenant default currency interactively"""

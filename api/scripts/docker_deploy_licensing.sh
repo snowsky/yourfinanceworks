@@ -26,7 +26,7 @@ log_info "Building Docker containers..."
 cd "$PROJECT_ROOT"
 
 # Ensure public key is included in Docker build
-if [ ! -f "api/keys/public_key.pem" ]; then
+if [ ! -f "api/core/keys/public_key.pem" ]; then
     log_error "Public key not found. Generate with: docker-compose exec api python scripts/generate_license_keys.py"
     exit 1
 fi

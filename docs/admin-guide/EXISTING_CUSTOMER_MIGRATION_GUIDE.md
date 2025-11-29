@@ -479,7 +479,7 @@ cd license_server
 pip install -r requirements.txt
 
 # Verify private key exists
-ls -la api/keys/private_key.pem
+ls -la api/core/keys/private_key.pem
 
 # Test license generation
 cd license_server
