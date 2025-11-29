@@ -51,7 +51,8 @@
     "create": "Erstellen",
     "update": "Aktualisieren",
     "hide": "Verbergen",
-    "show": "Anzeigen"
+    "show": "Anzeigen",
+    "view": "Ansehen"
   },
   "taxIntegration": {
     "title": "Steuerservice-Integration",

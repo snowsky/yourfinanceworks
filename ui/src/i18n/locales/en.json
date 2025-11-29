@@ -59,7 +59,8 @@
     "create": "Create",
     "update": "Update",
     "hide": "Hide",
-    "show": "Show"
+    "show": "Show",
+    "view": "View"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",

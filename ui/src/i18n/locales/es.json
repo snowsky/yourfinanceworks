@@ -59,7 +59,8 @@
     "create": "Crear",
     "update": "Actualizar",
     "hide": "Ocultar",
-    "show": "Mostrar"
+    "show": "Mostrar",
+    "view": "Ver"
   },
   "taxIntegration": {
     "title": "Integración del Servicio Fiscal",

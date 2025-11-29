@@ -46,6 +46,43 @@ class ExpenseBase(BaseModel):
         """Allow None amount when attachments are present (will be extracted via OCR)"""
         return v
 
+    @field_validator('currency')
+    @classmethod
+    def validate_currency(cls, v):
+        if v is not None:
+            # Map common currency symbols to ISO codes
+            currency_symbol_map = {
+                '$': 'USD',
+                '€': 'EUR',
+                '£': 'GBP',
+                '¥': 'JPY',
+                '₹': 'INR',
+                'C$': 'CAD',
+                'A$': 'AUD',
+                'NZ$': 'NZD',
+                'HK$': 'HKD',
+                'S$': 'SGD',
+                'R$': 'BRL',
+                'R': 'ZAR',
+                '₽': 'RUB',
+                '₩': 'KRW',
+                '₺': 'TRY',
+                'kr': 'SEK',
+            }
+
+            # If it's a symbol, convert it
+            if v in currency_symbol_map:
+                return currency_symbol_map[v]
+
+            # Validate it's a 3-letter code
+            v_upper = v.upper().strip()
+            if len(v_upper) == 3 and v_upper.isalpha():
+                return v_upper
+
+            # Invalid format
+            raise ValueError(f'Invalid currency code: "{v}". Must be a 3-letter ISO code (e.g., USD, EUR, GBP) or a recognized currency symbol.')
+        return v
+
     @field_validator('status')
     @classmethod
     def validate_status(cls, v):
@@ -98,6 +135,43 @@ class ExpenseUpdate(BaseModel):
     disable_ai_recognition: Optional[bool] = None
     receipt_timestamp: Optional[datetime] = None
     receipt_time_extracted: Optional[bool] = None
+
+    @field_validator('currency')
+    @classmethod
+    def validate_currency(cls, v):
+        if v is not None:
+            # Map common currency symbols to ISO codes
+            currency_symbol_map = {
+                '$': 'USD',
+                '€': 'EUR',
+                '£': 'GBP',
+                '¥': 'JPY',
+                '₹': 'INR',
+                'C$': 'CAD',
+                'A$': 'AUD',
+                'NZ$': 'NZD',
+                'HK$': 'HKD',
+                'S$': 'SGD',
+                'R$': 'BRL',
+                'R': 'ZAR',
+                '₽': 'RUB',
+                '₩': 'KRW',
+                '₺': 'TRY',
+                'kr': 'SEK',
+            }
+
+            # If it's a symbol, convert it
+            if v in currency_symbol_map:
+                return currency_symbol_map[v]
+
+            # Validate it's a 3-letter code
+            v_upper = v.upper().strip()
+            if len(v_upper) == 3 and v_upper.isalpha():
+                return v_upper
+
+            # Invalid format
+            raise ValueError(f'Invalid currency code: "{v}". Must be a 3-letter ISO code (e.g., USD, EUR, GBP) or a recognized currency symbol.')
+        return v
 
     @field_validator('status')
     @classmethod

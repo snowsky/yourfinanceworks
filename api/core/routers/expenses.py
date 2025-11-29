@@ -555,6 +555,9 @@ async def update_expense(
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
     
+    # Log the incoming update data for debugging
+    uvicorn_logger.info(f"Updating expense {expense_id} with data: {expense.model_dump(exclude_unset=True)}")
+    
     try:
         db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not db_expense:
@@ -782,11 +785,12 @@ async def update_expense(
         )
 
         return db_expense
-    except HTTPException:
+    except HTTPException as he:
+        uvicorn_logger.error(f"HTTP error updating expense {expense_id}: {he.status_code} - {he.detail}")
         raise
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to update expense: {e}")
+        uvicorn_logger.error(f"Failed to update expense {expense_id}: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update expense")
 
 

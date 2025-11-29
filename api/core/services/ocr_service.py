@@ -353,7 +353,26 @@ def _parse_csv_like_response(text: str) -> Optional[Dict[str, Any]]:
                 # Extract currency from symbol if not already set
                 if 'currency' not in data:
                     symbol = amount_match.group(1)
-                    currency_map = {'$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₹': 'INR'}
+                    currency_map = {
+                        '$': 'USD',
+                        '€': 'EUR',
+                        '£': 'GBP',
+                        '¥': 'JPY',
+                        '₹': 'INR',
+                        'C$': 'CAD',
+                        'A$': 'AUD',
+                        'NZ$': 'NZD',
+                        'HK$': 'HKD',
+                        'S$': 'SGD',
+                        'R$': 'BRL',
+                        'R': 'ZAR',
+                        '₽': 'RUB',
+                        '₩': 'KRW',
+                        '₺': 'TRY',
+                        'kr': 'SEK',
+                        'CHF': 'CHF',
+                        '¥': 'CNY',
+                    }
                     data['currency'] = currency_map.get(symbol, 'USD')
                 continue
             except:
@@ -1600,10 +1619,39 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                 "total_amount", "total", "amount", "grand_total", "subtotal"
             ]))
 
-            # Currency
+            # Currency - convert symbols to ISO codes
             cur = first_key(extracted, ["currency", "currency_code", "iso_currency", "total_currency"]) or None
             if isinstance(cur, str) and len(cur) <= 5:
-                expense.currency = cur.upper()
+                # Map common currency symbols to ISO codes
+                currency_symbol_map = {
+                    '$': 'USD',
+                    '€': 'EUR',
+                    '£': 'GBP',
+                    '¥': 'JPY',
+                    '₹': 'INR',
+                    'C$': 'CAD',
+                    'A$': 'AUD',
+                    'NZ$': 'NZD',
+                    'HK$': 'HKD',
+                    'S$': 'SGD',
+                    'R$': 'BRL',
+                    'R': 'ZAR',
+                    '₽': 'RUB',
+                    '₩': 'KRW',
+                    '₺': 'TRY',
+                    'kr': 'SEK',
+                    'CHF': 'CHF',
+                }
+                # If it's a symbol, convert it; otherwise use as-is (assuming it's already an ISO code)
+                cur_upper = cur.upper().strip()
+                if cur in currency_symbol_map:
+                    expense.currency = currency_symbol_map[cur]
+                elif len(cur_upper) == 3 and cur_upper.isalpha():
+                    # Looks like a valid ISO code
+                    expense.currency = cur_upper
+                else:
+                    # Unknown format, default to USD
+                    expense.currency = 'USD'
 
             # Date
             date_str = first_key(extracted, ["expense_date", "date", "transaction_date", "purchase_date"]) or None

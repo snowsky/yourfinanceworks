@@ -212,6 +212,20 @@ app = FastAPI(
     redirect_slashes=False  # Disable automatic trailing slash redirects
 )
 
+# Add exception handler for Pydantic validation errors
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error on {request.method} {request.url.path}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    logger.error(f"Request body: {await request.body()}")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": exc.errors(), "body": str(exc.body)}
+    )
+
 # Serve static files (e.g., for company logos)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
