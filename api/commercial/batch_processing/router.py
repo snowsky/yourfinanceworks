@@ -402,7 +402,8 @@ async def upload_batch(
                 document_types=doc_types_list,
                 client_id=client_id,
                 custom_fields=custom_fields_list,
-                webhook_url=webhook_url
+                webhook_url=webhook_url,
+                api_client=api_client
             )
 
             logger.info(
@@ -442,10 +443,13 @@ async def upload_batch(
             )
 
         # Log audit event
+        # For API key auth, include both the API key prefix and the associated user's email
+        user_email_display = f"{api_client.api_key_prefix}*** ({api_client.user.email})" if api_client.user else f"{api_client.api_key_prefix}*** (user_{user_id})"
+
         log_audit_event(
             db=service.db,
             user_id=user_id,
-            user_email=f"user_{user_id}@tenant_{tenant_id}",
+            user_email=user_email_display,
             action="CREATE",
             resource_type="batch_processing_job",
             resource_id=batch_job.job_id,
@@ -456,7 +460,8 @@ async def upload_batch(
                 "export_destination_id": export_destination_id,
                 "export_destination_type": batch_job.export_destination_type,
                 "enqueued_files": enqueue_result['enqueued'],
-                "failed_files": enqueue_result['failed']
+                "failed_files": enqueue_result['failed'],
+                "api_client_id": api_client.client_id
             },
             status="success"
         )

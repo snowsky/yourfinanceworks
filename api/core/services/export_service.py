@@ -97,7 +97,7 @@ class ExportService:
         Initialize the export service.
         
         Args:
-            db: Database session
+            db: Tenant database session
         """
         self.db = db
         logger.info("ExportService initialized")
@@ -1072,6 +1072,9 @@ class ExportService:
             csv_path = os.path.join(job_dir, csv_filename)
             
             try:
+                # Create job directory if it doesn't exist
+                os.makedirs(job_dir, exist_ok=True)
+                
                 with open(csv_path, 'wb') as f:
                     f.write(csv_content)
                 logger.info(f"Saved CSV to job folder: {csv_path}")
@@ -1118,10 +1121,32 @@ class ExportService:
             
             # AUDIT: Log successful export operation
             try:
+                # Try to get API client info for better audit logging
+                user_email_display = f"user_{batch_job.user_id}@tenant_{tenant_id}"
+                try:
+                    from core.models.api_models import APIClient
+                    from core.models.database import SessionLocal
+                    # Query APIClient using a fresh session (master and tenant DB are the same)
+                    query_db = SessionLocal()
+                    try:
+                        logger.debug(f"Querying APIClient with client_id={batch_job.api_client_id}")
+                        api_client = query_db.query(APIClient).filter(
+                            APIClient.client_id == batch_job.api_client_id
+                        ).first()
+                        if api_client and api_client.user:
+                            user_email_display = f"{api_client.api_key_prefix}*** ({api_client.user.email})"
+                            logger.debug(f"Found API client: {user_email_display}")
+                        else:
+                            logger.debug(f"API client not found or no user: api_client={api_client}")
+                    finally:
+                        query_db.close()
+                except Exception as e:
+                    logger.debug(f"Could not fetch API client info for audit log: {e}", exc_info=True)
+                
                 log_audit_event(
                     db=self.db,
                     user_id=batch_job.user_id,
-                    user_email=f"user_{batch_job.user_id}@tenant_{tenant_id}",  # Placeholder
+                    user_email=user_email_display,
                     action="EXPORT",
                     resource_type="batch_processing_job",
                     resource_id=job_id,
@@ -1133,7 +1158,8 @@ class ExportService:
                         "successful_files": batch_job.successful_files,
                         "failed_files": batch_job.failed_files,
                         "export_filename": cloud_filename,
-                        "final_status": batch_job.status
+                        "final_status": batch_job.status,
+                        "api_client_id": batch_job.api_client_id
                     },
                     status="success"
                 )
@@ -1168,10 +1194,28 @@ class ExportService:
             
             # AUDIT: Log failed export operation
             try:
+                # Try to get API client info for better audit logging
+                user_email_display = f"user_{batch_job.user_id}@tenant_{batch_job.tenant_id}"
+                try:
+                    from core.models.api_models import APIClient
+                    from core.models.database import SessionLocal
+                    # Query APIClient using a fresh session (master and tenant DB are the same)
+                    query_db = SessionLocal()
+                    try:
+                        api_client = query_db.query(APIClient).filter(
+                            APIClient.client_id == batch_job.api_client_id
+                        ).first()
+                        if api_client and api_client.user:
+                            user_email_display = f"{api_client.api_key_prefix}*** ({api_client.user.email})"
+                    finally:
+                        query_db.close()
+                except Exception as query_error:
+                    logger.debug(f"Could not fetch API client info for audit log: {query_error}")
+                
                 log_audit_event(
                     db=self.db,
                     user_id=batch_job.user_id,
-                    user_email=f"user_{batch_job.user_id}@tenant_{batch_job.tenant_id}",  # Placeholder
+                    user_email=user_email_display,
                     action="EXPORT",
                     resource_type="batch_processing_job",
                     resource_id=batch_job.job_id,
@@ -1181,7 +1225,8 @@ class ExportService:
                         "total_files": batch_job.total_files,
                         "successful_files": batch_job.successful_files,
                         "failed_files": batch_job.failed_files,
-                        "error": str(e)
+                        "error": str(e),
+                        "api_client_id": batch_job.api_client_id
                     },
                     status="failure",
                     error_message=str(e)

@@ -382,7 +382,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
         document_types: Optional[List[str]] = None,
         client_id: Optional[int] = None,
         custom_fields: Optional[List[str]] = None,
-        webhook_url: Optional[str] = None
+        webhook_url: Optional[str] = None,
+        api_client: Optional[Any] = None
     ) -> BatchProcessingJob:
         """
         Create a new batch processing job and prepare files for processing.
@@ -396,6 +397,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             document_types: Optional list of document types (auto-detect if not provided)
             custom_fields: Optional list of fields to include in export
             webhook_url: Optional webhook URL for completion notification
+            api_client: Optional APIClient object for audit logging
             
         Returns:
             Created BatchProcessingJob instance
@@ -627,11 +629,18 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                 # Ensure tenant context is set for encryption
                 from core.models.database import set_tenant_context
                 set_tenant_context(tenant_id)
-                
+
+                # Build user email display for audit log
+                # For API key auth, include both the API key prefix and the associated user's email
+                if api_client and hasattr(api_client, 'api_key_prefix') and hasattr(api_client, 'user'):
+                    user_email_display = f"{api_client.api_key_prefix}*** ({api_client.user.email})" if api_client.user else f"{api_client.api_key_prefix}*** (user_{user_id})"
+                else:
+                    user_email_display = f"user_{user_id}@tenant_{tenant_id}"
+
                 log_audit_event(
                     db=self.db,
                     user_id=user_id,
-                    user_email=f"user_{user_id}@tenant_{tenant_id}",  # Placeholder, should be actual email
+                    user_email=user_email_display,
                     action="CREATE",
                     resource_type="batch_processing_job",
                     resource_id=job_id,
@@ -650,9 +659,9 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                 logger.warning(f"Failed to log audit event for batch job creation: {e}")
                 # Don't let audit logging failure affect the batch job creation
                 pass
-            
+
             return batch_job
-            
+
         except Exception as e:
             logger.error(f"Failed to create batch job: {e}")
             self.db.rollback()
@@ -666,25 +675,25 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
     ) -> str:
         """
         Generate a unique stored filename for a batch file.
-        
+
         Args:
             job_id: Batch job ID
             file_index: Index of file in batch
             original_filename: Original filename
-            
+
         Returns:
             Stored filename string
         """
         import os
         from datetime import datetime
-        
+
         # Get file extension
         _, ext = os.path.splitext(original_filename)
-        
+
         # Generate filename: job_id_index_timestamp.ext
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         stored_filename = f"{job_id}_{file_index:03d}_{timestamp}{ext}"
-        
+
         return stored_filename
 
     def _store_file_to_disk(
@@ -696,39 +705,39 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
     ) -> str:
         """
         Store file to tenant-specific directory on disk.
-        
+
         Args:
             file_content: File content as bytes
             tenant_id: Tenant identifier
             job_id: Batch job ID
             stored_filename: Filename to store as
-            
+
         Returns:
             Full file path where file was stored
-            
+
         Raises:
             IOError: If file storage fails
         """
         import os
-        
+
         # Create tenant-specific batch directory
         base_dir = os.getenv("BATCH_FILES_DIR", "api/batch_files")
         tenant_dir = os.path.join(base_dir, f"tenant_{tenant_id}", job_id)
-        
+
         # Create directory if it doesn't exist
         os.makedirs(tenant_dir, exist_ok=True)
-        
+
         # Full file path
         file_path = os.path.join(tenant_dir, stored_filename)
-        
+
         # Write file to disk
         try:
             with open(file_path, 'wb') as f:
                 f.write(file_content)
-            
+
             logger.debug(f"Stored file to: {file_path}")
             return file_path
-            
+
         except Exception as e:
             logger.error(f"Failed to write file to {file_path}: {e}")
             raise IOError(f"Failed to store file: {str(e)}")
@@ -743,14 +752,14 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
     ) -> Optional[str]:
         """
         Upload a file to cloud storage destination.
-        
+
         Args:
             file_path: Local file path
             original_filename: Original filename
             destination_config: Export destination configuration
             tenant_id: Tenant identifier
             job_id: Batch job ID
-            
+
         Returns:
             Cloud file URL if successful, None otherwise
         """
@@ -758,16 +767,16 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             # Read file content
             with open(file_path, 'rb') as f:
                 file_content = f.read()
-            
+
             # Generate cloud filename with job_id prefix
             cloud_filename = f"{job_id}/{original_filename}"
-            
+
             # Import export service for cloud upload
             from core.services.export_service import ExportService
             export_service = ExportService(self.db)
-            
+
             destination_type = destination_config.destination_type
-            
+
             # Upload to appropriate cloud storage
             if destination_type == 's3':
                 url = await export_service.upload_to_s3(
@@ -788,10 +797,10 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             else:
                 logger.warning(f"Unknown destination type: {destination_type}")
                 return None
-            
+
             logger.info(f"Uploaded file to cloud: {original_filename} -> {url}")
             return url
-            
+
         except Exception as e:
             logger.error(f"Failed to upload file to cloud: {e}")
             return None
@@ -799,12 +808,12 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
     def _cleanup_stored_files(self, batch_files: List[BatchFileProcessing]) -> None:
         """
         Clean up stored files on disk after a failed batch job creation.
-        
+
         Args:
             batch_files: List of BatchFileProcessing records with file paths
         """
         import os
-        
+
         for batch_file in batch_files:
             if batch_file.file_path and os.path.exists(batch_file.file_path):
                 try:
@@ -816,13 +825,13 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
     async def enqueue_files_to_kafka(self, job_id: str) -> Dict[str, Any]:
         """
         Enqueue all files in a batch job to appropriate Kafka topics.
-        
+
         Args:
             job_id: Batch job ID
-            
+
         Returns:
             Dictionary with enqueueing results
-            
+
         Raises:
             ValueError: If job not found
         """
@@ -831,10 +840,10 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             batch_job = self.db.query(BatchProcessingJob).filter(
                 BatchProcessingJob.job_id == job_id
             ).first()
-            
+
             if not batch_job:
                 raise ValueError(f"Batch job {job_id} not found")
-            
+
             # Get all pending files for this job
             batch_files = self.db.query(BatchFileProcessing).filter(
                 and_(
@@ -842,7 +851,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                     BatchFileProcessing.status == "pending"
                 )
             ).all()
-            
+
             if not batch_files:
                 logger.warning(f"No pending files found for job {job_id}")
                 return {
@@ -851,23 +860,23 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                     "failed": 0,
                     "files": []
                 }
-            
+
             # Update job status to processing
             batch_job.status = "processing"
             self.db.commit()
-            
+
             # Enqueue each file
             enqueued_count = 0
             failed_count = 0
             results = []
-            
+
             for batch_file in batch_files:
                 try:
                     # Determine Kafka topic based on document type
                     topic = self._get_kafka_topic_for_document_type(
                         batch_file.document_type
                     )
-                    
+
                     # Publish message to Kafka
                     message_id = await self._publish_to_kafka(
                         topic=topic,

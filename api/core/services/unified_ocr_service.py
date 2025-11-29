@@ -123,8 +123,8 @@ class TextExtractionEngine:
         start_time = time.time()
         
         try:
-            # Validate file path
-            safe_path = validate_file_path(file_path)
+            # Validate file path (don't require file to exist yet for batch files)
+            safe_path = validate_file_path(file_path, must_exist=False)
             
             # Choose extraction method based on document type and available components
             if document_type == DocumentType.BANK_STATEMENT and self.pdf_extractor:
@@ -212,8 +212,8 @@ class StructuredDataEngine:
         start_time = time.time()
         
         try:
-            # Validate file path
-            safe_path = validate_file_path(file_path)
+            # Validate file path (don't require file to exist yet for batch files)
+            safe_path = validate_file_path(file_path, must_exist=False)
             
             if not self.ai_ocr_function:
                 return ExtractionResult(
