@@ -60,7 +60,7 @@ const formatDateToISO = (date: Date): string => {
 // Helper function to safely parse date strings without timezone issues
 const safeParseDateString = (dateString?: string): Date => {
   if (!dateString) return new Date();
-  
+
   try {
     const parsedDate = parseISO(dateString);
     return isValid(parsedDate) ? parsedDate : new Date();
@@ -144,9 +144,9 @@ const Expenses = () => {
   // Fetch invoice options for linking
   useEffect(() => {
     (async () => {
-      try { 
-        const invs = await linkApi.getInvoicesBasic(); 
-        setInvoiceOptions(invs); 
+      try {
+        const invs = await linkApi.getInvoicesBasic();
+        setInvoiceOptions(invs);
       } catch (error) {
         console.error('Failed to fetch invoices:', error);
       }
@@ -187,7 +187,7 @@ const Expenses = () => {
           const user = JSON.parse(userStr);
           return user?.tenant_id?.toString();
         }
-      } catch {}
+      } catch { }
       return null;
     };
     const updateTenantId = () => {
@@ -216,11 +216,11 @@ const Expenses = () => {
     setLoading(true);
     try {
       const skip = (page - 1) * pageSize;
-      const data = await expenseApi.getExpensesFiltered({ 
-        category: categoryFilter, 
-        label: labelFilter || undefined, 
-        unlinkedOnly, 
-        skip, 
+      const data = await expenseApi.getExpensesFiltered({
+        category: categoryFilter,
+        label: labelFilter || undefined,
+        unlinkedOnly,
+        skip,
         limit: pageSize,
         excludeStatus: 'pending_approval' // Exclude pending approval expenses from the API
       });
@@ -238,11 +238,11 @@ const Expenses = () => {
       if (data.length === pageSize) {
         // Probe next page existence precisely
         try {
-          const probe = await expenseApi.getExpensesFiltered({ 
-            category: categoryFilter, 
-            label: labelFilter || undefined, 
-            unlinkedOnly, 
-            skip: skip + pageSize, 
+          const probe = await expenseApi.getExpensesFiltered({
+            category: categoryFilter,
+            label: labelFilter || undefined,
+            unlinkedOnly,
+            skip: skip + pageSize,
             limit: 1,
             excludeStatus: 'pending_approval'
           });
@@ -288,7 +288,7 @@ const Expenses = () => {
       // Limit page to reasonable bounds - will be validated again after API call
       if (pg && !Number.isNaN(Number(pg))) setPage(Math.max(1, Math.min(1000, Number(pg))));
       if (ps && !Number.isNaN(Number(ps))) setPageSize(Math.min(200, Math.max(5, Number(ps))));
-    } catch {}
+    } catch { }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -329,7 +329,7 @@ const Expenses = () => {
   const handleCreate = async () => {
     // Prevent multiple submissions
     if (creating) return;
-    
+
     setCreating(true);
     try {
       if ((!newExpense.amount || Number(newExpense.amount) === 0) && !newReceiptFile) {
@@ -370,12 +370,12 @@ const Expenses = () => {
       if (newReceiptFile) {
         const addNotification = (window as any).addAINotification;
         addNotification?.('processing', 'Processing Expense Receipt', `Analyzing receipt file with AI...`);
-        
+
         try {
           setUploadingId(created.id);
           const uploadResp = await expenseApi.uploadReceipt(created.id, newReceiptFile);
           createdWithReceipt = { ...created, receipt_filename: uploadResp?.receipt_filename || created.receipt_filename } as Expense;
-          
+
           addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
           (window as any).startExpensePolling?.(created.id);
         } catch (e) {
@@ -425,14 +425,14 @@ const Expenses = () => {
   const handleUpload = async (id: number, file: File) => {
     const addNotification = (window as any).addAINotification;
     addNotification?.('processing', 'Processing Expense Receipt', `Analyzing receipt file with AI...`);
-    
+
     try {
       setUploadingId(id);
       await expenseApi.uploadReceipt(id, file);
       // Refresh list
       const data = await expenseApi.getExpenses(categoryFilter);
       setExpenses(data);
-      
+
       addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
       (window as any).startExpensePolling?.(id);
       toast.success('Receipt uploaded');
@@ -453,7 +453,7 @@ const Expenses = () => {
 
     const addNotification = (window as any).addAINotification;
     addNotification?.('processing', 'Reprocessing Expense', `Re-analyzing expense receipts with AI...`);
-    
+
     try {
       // Add to processing locks to prevent multiple clicks
       setProcessingLocks(prev => new Set([...prev, expenseId]));
@@ -512,13 +512,13 @@ const Expenses = () => {
       status: e.status,
       notes: e.notes,
     });
-    
+
     // Initialize consumption state from existing expense data
     const isConsumption = !!(e as any).is_inventory_consumption;
     const consumptionItems = (e as any).consumption_items || [];
     setIsEditInventoryConsumption(isConsumption);
     setEditConsumptionItems(consumptionItems);
-    
+
     setIsEditOpen(true);
   };
 
@@ -554,12 +554,12 @@ const Expenses = () => {
       if (editReceiptFile) {
         const addNotification = (window as any).addAINotification;
         addNotification?.('processing', 'Processing Expense Receipt', `Analyzing receipt file with AI...`);
-        
+
         try {
           setUploadingId(updated.id);
           const uploadResp = await expenseApi.uploadReceipt(updated.id, editReceiptFile);
           finalUpdated = { ...updated, receipt_filename: uploadResp?.receipt_filename || updated.receipt_filename } as Expense;
-          
+
           addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
           (window as any).startExpensePolling?.(updated.id);
         } catch (e) {
@@ -639,7 +639,7 @@ const Expenses = () => {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                     placeholder={t('expenses.search_placeholder')}
+                    placeholder={t('expenses.search_placeholder')}
                     className="pl-8 w-full sm:w-[260px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -647,7 +647,7 @@ const Expenses = () => {
                 </div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full sm:w-[180px]">
-                     <SelectValue placeholder={t('expenses.filter_by_category')} />
+                    <SelectValue placeholder={t('expenses.filter_by_category')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
@@ -684,7 +684,7 @@ const Expenses = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[10,20,50,100].map(n => (
+                      {[10, 20, 50, 100].map(n => (
                         <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
@@ -867,11 +867,11 @@ const Expenses = () => {
                           {typeof e.invoice_id === 'number' ? (
                             <Link to={`/invoices/edit/${e.invoice_id}`} className="text-blue-600 hover:underline">#{e.invoice_id}</Link>
                           ) : (
-                             <span className="text-muted-foreground">{t('expenses.none')}</span>
+                            <span className="text-muted-foreground">{t('expenses.none')}</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <ExpenseApprovalStatus 
+                          <ExpenseApprovalStatus
                             expense={{
                               id: e.id,
                               status: e.status,
@@ -883,15 +883,15 @@ const Expenses = () => {
                         </TableCell>
                         <TableCell>
                           {e.analysis_status === 'done' ? (
-                             <Badge variant="success">{t('expenses.status_done')}</Badge>
+                            <Badge variant="success">{t('expenses.status_done')}</Badge>
                           ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                             <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
+                            <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
                           ) : e.analysis_status === 'failed' ? (
-                             <Badge variant="destructive">Failed</Badge>
+                            <Badge variant="destructive">Failed</Badge>
                           ) : e.analysis_status === 'cancelled' ? (
-                             <Badge variant="secondary">Cancelled</Badge>
+                            <Badge variant="secondary">Cancelled</Badge>
                           ) : e.imported_from_attachment ? (
-                             <Badge variant="info">Not Started</Badge>
+                            <Badge variant="info">Not Started</Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
@@ -937,7 +937,7 @@ const Expenses = () => {
                                 setAttachmentPreviewOpen({ expenseId: e.id });
                               }}
                             />
-                             {uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}
+                            {uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}
                           </label>
                           <Button variant="ghost" size="sm" onClick={async () => {
                             const list = await expenseApi.listAttachments(e.id);
@@ -963,6 +963,12 @@ const Expenses = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/expenses/view/${e.id}`} className="flex items-center w-full">
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    {t('common.view', { defaultValue: 'View' })}
+                                  </Link>
+                                </DropdownMenuItem>
                                 {canEditExpense(e) && (
                                   <DropdownMenuItem asChild>
                                     <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
@@ -971,9 +977,6 @@ const Expenses = () => {
                                     </Link>
                                   </DropdownMenuItem>
                                 )}
-
-
-
                                 {canDeleteExpense(e) && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -1043,10 +1046,10 @@ const Expenses = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
               <div>
                 <label className="text-sm">{t('expenses.labels.amount')}</label>
-                <Input 
-                  type="number" 
-                  value={Number(newExpense.amount || 0)} 
-                  onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} 
+                <Input
+                  type="number"
+                  value={Number(newExpense.amount || 0)}
+                  onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
                   disabled={isNewInventoryConsumption}
                   placeholder={isNewInventoryConsumption ? t('expenses.calculated_from_items') : ""}
                 />
@@ -1065,7 +1068,7 @@ const Expenses = () => {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {newExpense.expense_date ? format(safeParseDateString(newExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                      {newExpense.expense_date ? format(safeParseDateString(newExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1092,14 +1095,14 @@ const Expenses = () => {
                     if (e.target.value && newExpense.expense_date) {
                       // Combine date with time
                       const timestamp = `${newExpense.expense_date}T${e.target.value}:00Z`;
-                      setNewExpense({ 
-                        ...newExpense, 
+                      setNewExpense({
+                        ...newExpense,
                         receipt_timestamp: timestamp,
                         receipt_time_extracted: true
                       });
                     } else {
-                      setNewExpense({ 
-                        ...newExpense, 
+                      setNewExpense({
+                        ...newExpense,
                         receipt_timestamp: null,
                         receipt_time_extracted: false
                       });
@@ -1129,7 +1132,7 @@ const Expenses = () => {
                   onValueChange={(v) => setNewExpense({ ...newExpense, category: v })}
                 >
                   <SelectTrigger className="w-full">
-                     <SelectValue placeholder={t('expenses.select_category') as string} />
+                    <SelectValue placeholder={t('expenses.select_category') as string} />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
@@ -1150,7 +1153,7 @@ const Expenses = () => {
                 <label className="text-sm">{t('expenses.labels.reference_number')}</label>
                 <Input value={newExpense.reference_number || ''} onChange={e => setNewExpense({ ...newExpense, reference_number: e.target.value })} />
               </div>
-              
+
               {/* Inventory Consumption Section */}
               <div className="sm:col-span-2">
                 <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
@@ -1158,7 +1161,7 @@ const Expenses = () => {
                     <Package className="h-4 w-4" />
                     <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="is-new-inventory-consumption"
@@ -1215,7 +1218,7 @@ const Expenses = () => {
                   <Alert className="mb-3 border-amber-200 bg-amber-50">
                     <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 text-sm">
-                      <strong>Note:</strong> AI-powered receipt analysis is not available. 
+                      <strong>Note:</strong> AI-powered receipt analysis is not available.
                       Files will be uploaded as attachments only, without automatic data extraction.
                     </AlertDescription>
                   </Alert>
@@ -1299,10 +1302,10 @@ const Expenses = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
               <div>
                 <label className="text-sm">{t('expenses.labels.amount')}</label>
-                <Input 
-                  type="number" 
-                  value={Number(editExpense.amount || 0)} 
-                  onChange={e => setEditExpense({ ...editExpense, amount: Number(e.target.value) })} 
+                <Input
+                  type="number"
+                  value={Number(editExpense.amount || 0)}
+                  onChange={e => setEditExpense({ ...editExpense, amount: Number(e.target.value) })}
                   disabled={isEditInventoryConsumption}
                   placeholder={isEditInventoryConsumption ? t('expenses.calculated_from_items') : ""}
                 />
@@ -1321,7 +1324,7 @@ const Expenses = () => {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {editExpense.expense_date ? format(new Date(editExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                      {editExpense.expense_date ? format(new Date(editExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1341,21 +1344,21 @@ const Expenses = () => {
               </div>
               <div>
                 <label className="text-sm">Receipt Time (HH:MM)</label>
-                <Input 
+                <Input
                   type="time"
                   value={editExpense.receipt_timestamp ? new Date(editExpense.receipt_timestamp as string).toISOString().substring(11, 16) : ''}
                   onChange={(e) => {
                     if (e.target.value && editExpense.expense_date) {
                       // Combine date with time
                       const timestamp = `${editExpense.expense_date}T${e.target.value}:00Z`;
-                      setEditExpense({ 
-                        ...editExpense, 
+                      setEditExpense({
+                        ...editExpense,
                         receipt_timestamp: timestamp,
                         receipt_time_extracted: true
                       });
                     } else {
-                      setEditExpense({ 
-                        ...editExpense, 
+                      setEditExpense({
+                        ...editExpense,
                         receipt_timestamp: null,
                         receipt_time_extracted: false
                       });
@@ -1376,7 +1379,7 @@ const Expenses = () => {
                   onValueChange={(v) => setEditExpense({ ...editExpense, category: v })}
                 >
                   <SelectTrigger className="w-full">
-                     <SelectValue placeholder={t('expenses.select_category') as string} />
+                    <SelectValue placeholder={t('expenses.select_category') as string} />
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
@@ -1397,7 +1400,7 @@ const Expenses = () => {
                 <label className="text-sm">{t('expenses.labels.reference_number')}</label>
                 <Input value={editExpense.reference_number || ''} onChange={e => setEditExpense({ ...editExpense, reference_number: e.target.value })} />
               </div>
-              
+
               {/* Inventory Consumption Section */}
               <div className="sm:col-span-2">
                 <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
@@ -1405,7 +1408,7 @@ const Expenses = () => {
                     <Package className="h-4 w-4" />
                     <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="is-edit-inventory-consumption"
@@ -1462,7 +1465,7 @@ const Expenses = () => {
                   <Alert className="mb-3 border-amber-200 bg-amber-50">
                     <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 text-sm">
-                      <strong>Note:</strong> AI-powered receipt analysis is not available. 
+                      <strong>Note:</strong> AI-powered receipt analysis is not available.
                       Files will be uploaded as attachments only, without automatic data extraction.
                     </AlertDescription>
                   </Alert>
@@ -1498,7 +1501,7 @@ const Expenses = () => {
                     <li key={att.id} className="flex items-center justify-between gap-3 border rounded p-2">
                       <div className="truncate text-sm">
                         {att.filename}
-                        {att.size_bytes ? <span className="ml-2 text-xs text-muted-foreground">({Math.round(att.size_bytes/1024)} KB)</span> : null}
+                        {att.size_bytes ? <span className="ml-2 text-xs text-muted-foreground">({Math.round(att.size_bytes / 1024)} KB)</span> : null}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button

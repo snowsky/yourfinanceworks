@@ -23,7 +23,7 @@ export const getCurrentUser = (): User | null => {
   try {
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
-    
+
     const user = JSON.parse(userStr);
     return user;
   } catch (error) {
@@ -40,13 +40,13 @@ export const getCurrentUserRole = (): UserRole => {
   try {
     const user = getCurrentUser();
     const role = user?.role || 'user';
-    
-    console.log('getCurrentUserRole:', { 
-      user, 
+
+    console.log('getCurrentUserRole:', {
+      user,
       role,
-      userRole: user?.role 
+      userRole: user?.role
     });
-    
+
     return role;
   } catch (error) {
     console.error('Error getting user role:', error);
@@ -62,13 +62,13 @@ export const isAuthenticated = (): boolean => {
   const token = localStorage.getItem('token');
   const user = localStorage.getItem('user');
   const authenticated = !!(token && user);
-  
-  console.log('isAuthenticated check:', { 
-    hasToken: !!token, 
-    hasUser: !!user, 
-    authenticated 
+
+  console.log('isAuthenticated check:', {
+    hasToken: !!token,
+    hasUser: !!user,
+    authenticated
   });
-  
+
   return authenticated;
 };
 
@@ -113,13 +113,13 @@ export const canPerformActions = (): boolean => {
 export const hasRole = (allowedRoles: UserRole[]): boolean => {
   const currentRole = getCurrentUserRole();
   const hasAccess = allowedRoles.includes(currentRole);
-  
-  console.log('hasRole check:', { 
-    currentRole, 
-    allowedRoles, 
-    hasAccess 
+
+  console.log('hasRole check:', {
+    currentRole,
+    allowedRoles,
+    hasAccess
   });
-  
+
   return hasAccess;
 };
 
@@ -166,6 +166,11 @@ export const canDeleteExpense = (expense: { status: string }): boolean => {
   // First check if user has general action permissions
   if (!canPerformActions()) {
     return false;
+  }
+
+  // Allow admins to delete expenses regardless of status
+  if (isAdmin()) {
+    return true;
   }
 
   // Prevent deleting expenses that are in approval workflow

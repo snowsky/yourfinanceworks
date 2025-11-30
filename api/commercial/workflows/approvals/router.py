@@ -404,7 +404,12 @@ async def approve_expense(
             details={
                 "expense_id": approval.expense_id,
                 "approval_level": approval.approval_level,
-                "notes": decision_data.notes
+                "notes": decision_data.notes,
+                "amount": expense.amount if expense else None,
+                "currency": expense.currency if expense else None,
+                "vendor": expense.vendor if expense else None,
+                "category": expense.category if expense else None,
+                "date": expense.expense_date.isoformat() if expense and expense.expense_date else None
             }
         )
         

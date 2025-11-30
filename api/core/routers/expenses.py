@@ -812,7 +812,8 @@ async def delete_expense(
             raise HTTPException(status_code=404, detail="Expense not found")
         
         # Check if expense can be deleted based on current status
-        if db_expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
+        # Allow admins to bypass this check
+        if current_user.role != 'admin' and db_expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
             raise HTTPException(
                 status_code=400, 
                 detail=f"Cannot delete expense with status '{db_expense.status}'. Expense is in approval workflow."
@@ -861,6 +862,18 @@ async def delete_expense(
         except Exception as e:
             logger.warning(f"Failed to unlink raw emails from expense {expense_id}: {e}")
 
+        # Capture expense details for audit log before deletion
+        expense_details = {
+            "id": db_expense.id,
+            "amount": db_expense.amount,
+            "currency": db_expense.currency,
+            "date": db_expense.expense_date.isoformat() if db_expense.expense_date else None,
+            "category": db_expense.category,
+            "vendor": db_expense.vendor,
+            "status": db_expense.status,
+            "notes": db_expense.notes
+        }
+
         # Delete the expense (unlinking should prevent FK constraint errors)
         db.delete(db_expense)
         db.commit()
@@ -873,7 +886,7 @@ async def delete_expense(
             resource_type="expense",
             resource_id=str(expense_id),
             resource_name=f"Expense {expense_id}",
-            details={"message": "Expense deleted"},
+            details=expense_details,
             status="success",
         )
         return None
