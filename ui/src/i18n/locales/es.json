@@ -419,6 +419,7 @@
     "draft_discarded": "Borrador descartado",
     "inventory_invoice_description": "Crear una nueva factura con integración de inventario - seleccione artículos de su catálogo de inventario",
     "edit_invoice": "Editar Factura",
+    "view_invoice": "Ver factura",
     "clone_invoice": "Clonar",
     "created_label": "Creado",
     "due_label": "Vencimiento",

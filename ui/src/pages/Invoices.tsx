@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Send } from "lucide-react";
+import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Send, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -526,8 +526,13 @@ const Invoices = () => {
                           <TableCell>
                             {canPerformAction && (
                               <div className="flex gap-1">
+                                <Link to={`/invoices/view/${invoice.id}`}>
+                                  <Button variant="ghost" size="icon" title={t('invoices.view_invoice')}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
                                 <Link to={`/invoices/edit/${invoice.id}`}>
-                                  <Button variant="ghost" size="icon">
+                                  <Button variant="ghost" size="icon" title={t('invoices.edit_invoice')}>
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                 </Link>

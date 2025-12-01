@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from "@/lib/utils";
 import { Invoice, api } from "@/lib/api";
-import { Calendar, Clock, FileText, MoreVertical, Pencil, Copy, Trash2, User, DollarSign, Send } from "lucide-react";
+import { Calendar, Clock, FileText, MoreVertical, Pencil, Copy, Trash2, User, DollarSign, Send, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -94,6 +94,12 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to={`/invoices/view/${invoice.id}`} className="flex items-center w-full">
+                      <Eye className="mr-2 h-4 w-4" />
+                      {t('invoices.view_invoice')}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to={`/invoices/edit/${invoice.id}`} className="flex items-center w-full">
                       <Pencil className="mr-2 h-4 w-4" />
@@ -194,9 +200,9 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
 
           {canPerformActions && (
             <Button asChild variant="outline" size="sm">
-              <Link to={`/invoices/edit/${invoice.id}`}>
+              <Link to={invoice.status === 'pending_approval' ? `/invoices/view/${invoice.id}` : `/invoices/edit/${invoice.id}`}>
                 <Pencil className="mr-2 h-4 w-4" />
-                {t('invoices.edit_invoice')}
+                {invoice.status === 'pending_approval' ? t('invoices.view_invoice') : t('invoices.edit_invoice')}
               </Link>
             </Button>
           )}

@@ -42,7 +42,7 @@ export default function ViewInvoice() {
             const pendingApproval = historyResponse.approval_history
               .filter((a: any) => a.status === 'pending')
               .sort((a: any, b: any) => new Date(b.submitted_at || b.timestamp).getTime() - new Date(a.submitted_at || a.timestamp).getTime())[0];
-            
+
             if (pendingApproval) {
               setApproval(pendingApproval);
             }
@@ -97,7 +97,7 @@ export default function ViewInvoice() {
   }
 
   const subtotal = invoice.items?.reduce((sum, item) => sum + (item.quantity * item.price), 0) || 0;
-  const discount = invoice.discount_type === 'percentage' 
+  const discount = invoice.discount_type === 'percentage'
     ? (subtotal * (invoice.discount_value || 0)) / 100
     : (invoice.discount_value || 0);
   const total = Math.max(0, subtotal - discount);

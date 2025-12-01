@@ -958,6 +958,9 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         : Math.min(discountValue, subtotal);
       const totalAmount = Math.max(0, subtotal - discount);
 
+      // Find the client to populate email (API doesn't return client_email with invoice)
+      const invoiceClient = clients.find(c => c.id === invoice.client_id);
+
       setPreviewInvoice({
         ...invoice,
         items: itemsWithAmount,
@@ -965,10 +968,13 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
         discount_type: discountType,
         discount_value: discountValue,
         amount: totalAmount,
-        paid_amount: invoice.paid_amount || 0
+        paid_amount: invoice.paid_amount || 0,
+        client_email: invoiceClient?.email || invoice.client_email || '',
+        client_name: invoiceClient?.name || invoice.client_name || '',
+        client_company: invoiceClient?.company || invoice.client_company || '',
       });
     }
-  }, [invoice]);
+  }, [invoice, clients]);
 
   // Real-time validation with debouncing
   useEffect(() => {
@@ -1063,7 +1069,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
       return () => clearTimeout(timeoutId);
     });
     return () => subscription.unsubscribe();
-  }, [form, clients]);
+  }, [form]);
 
   // Auto-apply discount rules when subtotal changes
   useEffect(() => {
@@ -1146,6 +1152,32 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
 
   const currentStatus = form.watch("status");
 
+  // Watch form values at component level to avoid calling form.watch() in render
+  // This prevents continuous re-renders caused by creating new subscriptions on every render
+  const watchedClient = form.watch("client");
+  const watchedShowDiscountInPdf = form.watch("showDiscountInPdf");
+
+  // Memoize the PDF document to prevent PDFDownloadLink from regenerating on every render
+  // This is critical - PDFDownloadLink regenerates the PDF whenever the document prop changes
+  const selectedClient = useMemo(() =>
+    clients.find(c => c.id.toString() === watchedClient),
+    [clients, watchedClient]
+  );
+
+  const pdfDocument = useMemo(() => {
+    if (!previewInvoice || !settings) return null;
+
+    return (
+      <InvoicePDF
+        invoice={previewInvoice}
+        companyName={settings.company_info?.name || "Your Company"}
+        clientCompany={previewInvoice.client_company || selectedClient?.company}
+        showDiscount={watchedShowDiscountInPdf}
+        template={selectedTemplate}
+      />
+    );
+  }, [previewInvoice, settings, selectedClient, watchedShowDiscountInPdf, selectedTemplate]);
+
   // For new invoices, isInvoicePaid should always be false
   const isInvoicePaid = isEdit && currentStatus === "paid";
 
@@ -1157,6 +1189,7 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     submitting,
     buttonDisabled: submitting || isInvoicePaid
   });
+
 
 
   // Calculation functions - moved here to avoid lexical declaration errors
@@ -4779,63 +4812,41 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
                 <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
                   <div className="h-[500px] overflow-auto">
                     <React.Suspense fallback={<div className="p-4">{t('invoices.loading_preview')}</div>}>
-                      {previewInvoice && settings && (() => {
-                        const selectedClient = clients.find(c => c.id.toString() === form.watch("client"));
-                        return (
-                          <PDFDownloadLink
-                            document={
-                              <InvoicePDF
-                                invoice={previewInvoice}
-                                companyName={settings.company_info?.name || "Your Company"}
-                                clientCompany={previewInvoice.client_company || selectedClient?.company}
-                                showDiscount={form.watch("showDiscountInPdf")}
-                                template={selectedTemplate}
+                      {pdfDocument && (
+                        <PDFDownloadLink
+                          document={pdfDocument}
+                          fileName={`invoice-${previewInvoice?.number}.pdf`}
+                          key={`${previewKey}-${selectedTemplate}`}
+                        >
+                          {({ url, loading }) =>
+                            loading ? (
+                              <div className="p-4">{t('invoices.loading_preview')}</div>
+                            ) : (
+                              <iframe
+                                src={url || ''}
+                                title="Invoice PDF Preview"
+                                className="w-full h-[480px] border-none"
                               />
-                            }
-                            fileName={`invoice-${previewInvoice.number}.pdf`}
-                            key={`${previewKey}-${selectedTemplate}`}
-                          >
-                            {({ url, loading }) =>
-                              loading ? (
-                                <div className="p-4">{t('invoices.loading_preview')}</div>
-                              ) : (
-                                <iframe
-                                  src={url || ''}
-                                  title="Invoice PDF Preview"
-                                  className="w-full h-[480px] border-none"
-                                />
-                              )
-                            }
-                          </PDFDownloadLink>
-                        );
-                      })()}
+                            )
+                          }
+                        </PDFDownloadLink>
+                      )}
                     </React.Suspense>
                   </div>
                   <div className="p-2 border-t flex justify-between items-center">
-                    {previewInvoice && settings ? (() => {
-                      const selectedClient = clients.find(c => c.id.toString() === form.watch("client"));
-                      return (
-                        <div className="flex items-center gap-2">
-                          <PDFDownloadLink
-                            document={
-                              <InvoicePDF
-                                invoice={previewInvoice}
-                                companyName={settings.company_info?.name || "Your Company"}
-                                clientCompany={previewInvoice.client_company || selectedClient?.company}
-                                showDiscount={form.watch("showDiscountInPdf")}
-                                template={selectedTemplate}
-                              />
-                            }
-                            fileName={`invoice-${previewInvoice.number}.pdf`}
-                          >
-                            {({ loading }) =>
-                              loading ? t('invoices.preparing_pdf') : <span className="text-blue-600 hover:underline cursor-pointer">{t('invoices.download_pdf')}</span>
-                            }
-                          </PDFDownloadLink>
-                          <span className="text-xs text-gray-500">({selectedTemplate})</span>
-                        </div>
-                      );
-                    })() : (
+                    {pdfDocument ? (
+                      <div className="flex items-center gap-2">
+                        <PDFDownloadLink
+                          document={pdfDocument}
+                          fileName={`invoice-${previewInvoice?.number}.pdf`}
+                        >
+                          {({ loading }) =>
+                            loading ? t('invoices.preparing_pdf') : <span className="text-blue-600 hover:underline cursor-pointer">{t('invoices.download_pdf')}</span>
+                          }
+                        </PDFDownloadLink>
+                        <span className="text-xs text-gray-500">({selectedTemplate})</span>
+                      </div>
+                    ) : (
                       <span className="text-gray-500 text-sm">{t('invoices.save_invoice_first')}</span>
                     )}
 
