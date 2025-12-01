@@ -141,6 +141,8 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [showExcessAmountDialog, setShowExcessAmountDialog] = useState(false);
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [draftData, setDraftData] = useState<any>(null);
 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
@@ -602,46 +604,83 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
     mode: "onSubmit"
   });
 
-  // Load draft on component mount for new invoices
+  // Check for draft on component mount for new invoices
+  const draftCheckedRef = React.useRef(false);
   useEffect(() => {
-    if (!isEdit) {
+    // Only check for draft if:
+    // 1. Not editing an existing invoice
+    // 2. Haven't checked yet
+    // 3. No initialData is provided (e.g., from PDF import or other sources)
+    // Check if initialData is truly empty (null, undefined, or empty object with no meaningful data)
+    const hasInitialData = initialData && (
+      initialData.client ||
+      (initialData.items && initialData.items.length > 0) ||
+      initialData.notes ||
+      initialData.date ||
+      initialData.dueDate
+    );
+
+    if (!isEdit && !draftCheckedRef.current && !hasInitialData) {
       const draft = localStorage.getItem('invoice_draft');
       if (draft) {
         try {
           const parsedDraft = JSON.parse(draft);
-          // Only load draft if it's recent (within 24 hours)
+          // Only show dialog if draft is recent (within 24 hours)
           const draftAge = new Date().getTime() - new Date(parsedDraft.timestamp).getTime();
           if (draftAge < 24 * 60 * 60 * 1000) {
-            Object.keys(parsedDraft).forEach(key => {
-              if (key !== 'timestamp' && parsedDraft[key] !== undefined) {
-                let value = parsedDraft[key];
-
-                // Parse date strings back to Date objects
-                if ((key === 'date' || key === 'dueDate') && typeof value === 'string') {
-                  try {
-                    value = new Date(value);
-                    // Validate the date
-                    if (isNaN(value.getTime())) {
-                      console.warn(`Invalid date in draft for ${key}:`, parsedDraft[key]);
-                      return; // Skip invalid dates
-                    }
-                  } catch (error) {
-                    console.warn(`Failed to parse date in draft for ${key}:`, parsedDraft[key]);
-                    return; // Skip unparseable dates
-                  }
-                }
-
-                form.setValue(key as any, value);
-              }
-            });
-            addValidation({ type: "info", message: t('invoices.draft_loaded_from_previous_session') });
+            setDraftData(parsedDraft);
+            setShowDraftDialog(true);
           }
         } catch (error) {
           console.error('Failed to load draft:', error);
         }
       }
+      draftCheckedRef.current = true;
     }
-  }, [isEdit, form, addValidation]);
+
+    // Reset the ref when component unmounts so draft can be checked again on next mount
+    return () => {
+      draftCheckedRef.current = false;
+    };
+  }, [isEdit, initialData]);
+
+  // Handle loading draft data
+  const handleLoadDraft = useCallback(() => {
+    if (draftData) {
+      Object.keys(draftData).forEach(key => {
+        if (key !== 'timestamp' && draftData[key] !== undefined) {
+          let value = draftData[key];
+
+          // Parse date strings back to Date objects
+          if ((key === 'date' || key === 'dueDate') && typeof value === 'string') {
+            try {
+              value = new Date(value);
+              // Validate the date
+              if (isNaN(value.getTime())) {
+                console.warn(`Invalid date in draft for ${key}:`, draftData[key]);
+                return; // Skip invalid dates
+              }
+            } catch (error) {
+              console.warn(`Failed to parse date in draft for ${key}:`, draftData[key]);
+              return; // Skip unparseable dates
+            }
+          }
+          form.setValue(key as any, value);
+        }
+      });
+      toast.success(t('invoices.draft_loaded_from_previous_session'));
+    }
+    setShowDraftDialog(false);
+  }, [draftData, form, t]);
+
+  // Handle discarding draft
+  const handleDiscardDraft = useCallback(() => {
+    // Don't remove from localStorage - just close the dialog
+    // This allows the user to load it later if they navigate back
+    setDraftData(null);
+    setShowDraftDialog(false);
+    // Don't show toast for "Start Fresh" - it's the default action
+  }, []);
 
 
   // Auto-save setup after form is initialized
@@ -4953,6 +4992,33 @@ export function InvoiceForm({ invoice, isEdit = false, onInvoiceUpdate, initialD
               {t('invoices.cancel')}
             </Button>
             <Button onClick={handleCreateClient}>{t('invoices.add_client')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft Confirmation Dialog */}
+      <Dialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('invoices.draft_found_title')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('invoices.draft_found_description')}
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDiscardDraft}
+            >
+              {t('invoices.start_fresh')}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleLoadDraft}
+            >
+              {t('invoices.load_draft')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
