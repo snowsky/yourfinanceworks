@@ -1,8 +1,8 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Users, CreditCard, Receipt, Building, Package } from 'lucide-react';
 import { ReportType } from '@/lib/api';
+import { useNavigate } from 'react-router-dom';
 
 interface ReportTypeSelectorProps {
   reportTypes: ReportType[];
@@ -36,6 +36,8 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
   onTypeSelect,
   loading = false,
 }) => {
+  const navigate = useNavigate();
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -68,7 +70,7 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
               : 'border-border/50 hover:border-primary/30 hover:shadow-md'
             }
           `}
-          onClick={() => onTypeSelect(reportType.type)}
+          onClick={() => navigate(`/reports/${reportType.type}`)}
         >
           <div className={`
             p-3 rounded-xl transition-colors duration-200

@@ -115,9 +115,45 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
     // Handle objects - convert to string representation
     if (typeof value === 'object' && value !== null) {
       if (Array.isArray(value)) {
+        if (value.length === 0) {
+          return <span className="text-muted-foreground">-</span>;
+        }
         return value.join(', ');
       }
-      // For other objects, try to extract meaningful data or stringify
+      // For other objects, check if empty first
+      const keys = Object.keys(value);
+      if (keys.length === 0) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+      // Try to extract meaningful data or stringify
+      // If it has a 'value' property, use that
+      if ('value' in value) {
+        return formatValue(value.value, key);
+      }
+      // For dictionary-style objects (like breakdowns), format as key-value pairs
+      // Check if all values are numbers or simple types
+      const isSimpleDict = keys.every(k => {
+        const v = value[k];
+        return typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean';
+      });
+
+      if (isSimpleDict && keys.length <= 5) {
+        // Display as readable list for small dictionaries
+        return (
+          <div className="space-y-1">
+            {keys.map(k => (
+              <div key={k} className="text-sm">
+                <span className="font-medium">{k}:</span> {value[k]}
+              </div>
+            ))}
+          </div>
+        );
+      } else if (isSimpleDict) {
+        // For larger dictionaries, show count
+        return `${keys.length} items`;
+      }
+
+      // Otherwise, create a readable string representation
       return JSON.stringify(value);
     }
 
@@ -154,9 +190,9 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
       return (
         <Badge variant={
           value === 'paid' || value === 'completed' ? 'default' :
-          value === 'pending' || value === 'draft' ? 'secondary' :
-          value === 'overdue' || value === 'failed' ? 'destructive' :
-          'outline'
+            value === 'pending' || value === 'draft' ? 'secondary' :
+              value === 'overdue' || value === 'failed' ? 'destructive' :
+                'outline'
         }>
           {value.replace('_', ' ').toUpperCase()}
         </Badge>
@@ -169,9 +205,9 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
 
   const getColumnHeaders = () => {
     if (reportData.data.length === 0) return [];
-    
+
     const firstRow = reportData.data[0];
-    return Object.keys(firstRow).filter(key => 
+    return Object.keys(firstRow).filter(key =>
       !key.startsWith('_') && // Filter out internal fields
       key !== 'id' // Hide ID column for cleaner preview
     );
@@ -229,11 +265,11 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
           {reportData.summary.date_range && (
             <div className="bg-muted/50 p-4 rounded-lg">
               <div className="text-sm font-medium">
-                {reportData.summary.date_range.date_from && 
+                {reportData.summary.date_range.date_from &&
                   format(new Date(reportData.summary.date_range.date_from), 'MMM dd, yyyy')
                 }
                 {reportData.summary.date_range.date_from && reportData.summary.date_range.date_to && ' - '}
-                {reportData.summary.date_range.date_to && 
+                {reportData.summary.date_range.date_to &&
                   format(new Date(reportData.summary.date_range.date_to), 'MMM dd, yyyy')
                 }
               </div>

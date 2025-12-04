@@ -36,6 +36,7 @@ import AuditLog from "./pages/AuditLog";
 import RecycleBin from "./pages/RecycleBin";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
+import ReportDetail from "./pages/ReportDetail";
 import AttachmentSearch from "./pages/AttachmentSearch";
 import { ActivityPage } from "./pages/ActivityPage";
 import { NotificationBell } from "./components/notifications/NotificationBell";
@@ -146,6 +147,7 @@ const AppContent = () => {
                 <Route path="/recycle-bin" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute></ProtectedRoute>} />
                 <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
                 <Route path="/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute></ProtectedRoute>} />
+                <Route path="/reports/:reportType" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute></ProtectedRoute>} />
                 <Route path="/attachments" element={<ProtectedRoute><AttachmentSearch /></ProtectedRoute>} />
                 <Route path="/activity" element={<ProtectedRoute><AppLayout><ActivityPage /></AppLayout></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Inventory /></RoleProtectedRoute></ProtectedRoute>} />
