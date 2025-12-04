@@ -126,13 +126,15 @@ export default function ViewInvoice() {
                 onAction={handleApprovalAction}
               />
             )}
-            <Button
-              onClick={() => navigate(`/invoices/edit/${invoice.id}`)}
-              variant="outline"
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              {t('common.edit')}
-            </Button>
+            {invoice.status !== 'pending_approval' && (
+              <Button
+                onClick={() => navigate(`/invoices/edit/${invoice.id}`)}
+                variant="outline"
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                {t('common.edit')}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -152,7 +154,7 @@ export default function ViewInvoice() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{t('invoices.details')}</CardTitle>
-              <Badge>{invoice.status}</Badge>
+              <Badge>{t(`invoices.status.${invoice.status}`)}</Badge>
             </div>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">

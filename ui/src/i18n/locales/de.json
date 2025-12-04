@@ -610,6 +610,7 @@
     "amount": "Betrag",
     "view_details": "Details anzeigen",
     "no_update_history_available": "Keine Aktualisierungshistorie verfügbar",
+    "details": "Rechnungsdetails",
     "invoice_details": "Rechnungsdetails",
     "creating": "Erstellen...",
     "updating": "Aktualisieren...",

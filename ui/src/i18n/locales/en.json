@@ -609,6 +609,7 @@
     "amount": "Amount",
     "view_details": "View Details",
     "no_update_history_available": "No update history available",
+    "details": "Invoice Details",
     "invoice_details": "Invoice Details",
     "creating": "Creating...",
     "updating": "Updating...",

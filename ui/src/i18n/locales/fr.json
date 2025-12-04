@@ -596,6 +596,7 @@
     "amount": "Montant",
     "view_details": "Voir les détails",
     "no_update_history_available": "Aucun historique de mise à jour disponible",
+    "details": "Détails de la Facture",
     "invoice_details": "Détails de la Facture",
     "creating": "Création...",
     "updating": "Mise à jour...",
