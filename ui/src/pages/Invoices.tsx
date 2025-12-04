@@ -20,6 +20,9 @@ import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { FeatureGate } from "@/components/FeatureGate";
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
+import { ProfessionalCard } from "@/components/ui/professional-card";
+import { ProfessionalButton } from "@/components/ui/professional-button";
 
 interface DeletedInvoice {
   id: number;
@@ -252,14 +255,12 @@ const Invoices = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{t('invoices.title')}</h1>
-            <p className="text-muted-foreground">{t('invoices.description')}</p>
-          </div>
-          {canPerformAction && (
+        <PageHeader
+          title={t('invoices.title')}
+          description={t('invoices.description')}
+          actions={canPerformAction && (
             <div className="flex gap-2">
-              <Button
+              <ProfessionalButton
                 variant="outline"
                 onClick={handleToggleRecycleBin}
                 className="whitespace-nowrap"
@@ -267,16 +268,16 @@ const Invoices = () => {
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('recycleBin.title')}
                 {showRecycleBin ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-              </Button>
+              </ProfessionalButton>
               <div className="flex">
-                <Button asChild className="rounded-r-none border-r-0">
+                <Button asChild className="rounded-r-none border-r-0 h-9" variant="default">
                   <Link to="/invoices/new">
                     <Plus className="mr-2 h-4 w-4" /> {t('invoices.new_invoice')}
                   </Link>
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button className="rounded-l-none px-2">
+                    <Button className="rounded-l-none px-2 h-9" variant="default">
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -300,277 +301,266 @@ const Invoices = () => {
               </div>
             </div>
           )}
-        </div>
-
-
+        />
 
         <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
           <CollapsibleContent>
-            <Card className="slide-in mb-6">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Trash2 className="h-5 w-5" />
-                    {t('recycleBin.title')}
-                  </CardTitle>
-                  {deletedInvoices.length > 0 && canPerformAction && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleEmptyRecycleBin}
-                      className="gap-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t('recycleBin.empty_recycle_bin')}
-                    </Button>
-                  )}
+            <ProfessionalCard className="slide-in mb-6" variant="elevated">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 font-semibold text-lg">
+                  <Trash2 className="h-5 w-5" />
+                  {t('recycleBin.title')}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
+                {deletedInvoices.length > 0 && canPerformAction && (
+                  <ProfessionalButton
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleEmptyRecycleBin}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('recycleBin.empty_recycle_bin')}
+                  </ProfessionalButton>
+                )}
+              </div>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('recycleBin.invoice')}</TableHead>
+                      <TableHead>{t('recycleBin.amount')}</TableHead>
+                      <TableHead>{t('recycleBin.status')}</TableHead>
+                      <TableHead>{t('recycleBin.deleted_at')}</TableHead>
+                      <TableHead>{t('recycleBin.deleted_by')}</TableHead>
+                      <TableHead className="w-[100px]">{t('recycleBin.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recycleBinLoading ? (
                       <TableRow>
-                        <TableHead>{t('recycleBin.invoice')}</TableHead>
-                        <TableHead>{t('recycleBin.amount')}</TableHead>
-                        <TableHead>{t('recycleBin.status')}</TableHead>
-                        <TableHead>{t('recycleBin.deleted_at')}</TableHead>
-                        <TableHead>{t('recycleBin.deleted_by')}</TableHead>
-                        <TableHead className="w-[100px]">{t('recycleBin.actions')}</TableHead>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          <div className="flex justify-center items-center">
+                            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                            {t('recycleBin.loading_deleted_invoices')}
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recycleBinLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            <div className="flex justify-center items-center">
-                              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                              {t('recycleBin.loading_deleted_invoices')}
+                    ) : deletedInvoices.length > 0 ? (
+                      deletedInvoices.map((invoice) => (
+                        <TableRow key={invoice.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">
+                            {invoice.number}
+                          </TableCell>
+                          <TableCell>
+                            <CurrencyDisplay amount={invoice.amount} currency={invoice.currency} />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {invoice.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatDate(invoice.deleted_at)}</TableCell>
+                          <TableCell>{invoice.deleted_by_username || t('recycleBin.unknown')}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRestoreInvoice(invoice.id)}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                title="Restore invoice"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handlePermanentDelete(invoice.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Permanently delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
-                      ) : deletedInvoices.length > 0 ? (
-                        deletedInvoices.map((invoice) => (
-                          <TableRow key={invoice.id} className="hover:bg-muted/50">
-                            <TableCell className="font-medium">
-                              {invoice.number}
-                            </TableCell>
-                            <TableCell>
-                              <CurrencyDisplay amount={invoice.amount} currency={invoice.currency} />
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {invoice.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{formatDate(invoice.deleted_at)}</TableCell>
-                            <TableCell>{invoice.deleted_by_username || t('recycleBin.unknown')}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRestoreInvoice(invoice.id)}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  title="Restore invoice"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handlePermanentDelete(invoice.id)}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  title="Permanently delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            <div className="flex flex-col items-center gap-2">
-                              <Trash2 className="h-8 w-8 text-muted-foreground" />
-                              <p>{t('recycleBin.recycle_bin_empty')}</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            <Trash2 className="h-8 w-8 text-muted-foreground" />
+                            <p>{t('recycleBin.recycle_bin_empty')}</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </ProfessionalCard>
           </CollapsibleContent>
         </Collapsible>
 
-        <Card className="slide-in">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>{t('invoices.invoice_list')}</CardTitle>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('invoices.search_placeholder')}
-                    className="pl-8 w-full sm:w-[200px]"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-[150px]">
-                      <SelectValue placeholder={t('invoices.filter_by_status')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('invoices.all_statuses')}</SelectItem>
-                      {INVOICE_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {t(`invoices.status.${status}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex border rounded-md">
-                    <Button
-                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('cards')}
-                      className="rounded-r-none border-r-0"
-                    >
-                      <Grid3X3 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === 'table' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('table')}
-                      className="rounded-l-none"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                  </div>
+        <ProfessionalCard className="slide-in" variant="default">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+            <h2 className="text-xl font-semibold tracking-tight">{t('invoices.invoice_list')}</h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('invoices.search_placeholder')}
+                  className="pl-8 w-full sm:w-[200px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder={t('invoices.filter_by_status')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('invoices.all_statuses')}</SelectItem>
+                    {INVOICE_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {t(`invoices.status.${status}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                    className="rounded-r-none border-r-0"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="rounded-l-none"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center h-24">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                {t('invoices.loading')}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              {t('invoices.loading')}
+            </div>
+          ) : filteredInvoices.length > 0 ? (
+            viewMode === 'cards' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredInvoices.map((invoice) => (
+                  <InvoiceCard
+                    key={invoice.id}
+                    invoice={invoice}
+                    onClone={handleCloneInvoice}
+                    onDelete={handleDeleteInvoice}
+                    canPerformActions={canPerformAction}
+                  />
+                ))}
               </div>
-            ) : filteredInvoices.length > 0 ? (
-              viewMode === 'cards' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filteredInvoices.map((invoice) => (
-                    <InvoiceCard
-                      key={invoice.id}
-                      invoice={invoice}
-                      onClone={handleCloneInvoice}
-                      onDelete={handleDeleteInvoice}
-                      canPerformActions={canPerformAction}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('invoices.table.invoice')}</TableHead>
-                        <TableHead>{t('invoices.table.client')}</TableHead>
-                        <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
-                        <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
-                        <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
-                        <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
-                        <TableHead>{t('invoices.table.status')}</TableHead>
-                        <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredInvoices.map((invoice) => (
-                        <TableRow key={invoice.id} className="hover:bg-muted/50">
-                          <TableCell className="font-medium">
-                            <span className="inline-flex items-center">
-                              <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                              {invoice.number}
-                            </span>
-                          </TableCell>
-                          <TableCell>{invoice.client_name}</TableCell>
-                          <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
-                          <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
-                          <TableCell className="text-right font-medium">
-                            <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-medium' : 'text-success font-medium'}>
-                              <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={
-                              invoice.status === 'paid' ? 'status-paid' :
-                                invoice.status === 'pending' ? 'status-pending' :
-                                  invoice.status === 'overdue' ? 'status-overdue' :
-                                    invoice.status === 'partially_paid' ? 'status-partially-paid' :
-                                      'bg-muted/50 text-muted-foreground'
-                            }>
-                              {formatStatus(invoice.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {canPerformAction && (
-                              <div className="flex gap-1">
-                                <Link to={`/invoices/view/${invoice.id}`}>
-                                  <Button variant="ghost" size="icon" title={t('invoices.view_invoice')}>
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Link to={`/invoices/edit/${invoice.id}`}>
-                                  <Button variant="ghost" size="icon" title={t('invoices.edit_invoice')}>
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleCloneInvoice(invoice.id)}
-                                  title="Clone invoice"
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteInvoice(invoice.id)}
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )
             ) : (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">{t('invoices.no_invoices')}</p>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('invoices.table.invoice')}</TableHead>
+                      <TableHead>{t('invoices.table.client')}</TableHead>
+                      <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
+                      <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
+                      <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
+                      <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
+                      <TableHead>{t('invoices.table.status')}</TableHead>
+                      <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInvoices.map((invoice) => (
+                      <TableRow key={invoice.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">
+                          <span className="inline-flex items-center">
+                            <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {invoice.number}
+                          </span>
+                        </TableCell>
+                        <TableCell>{invoice.client_name}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
+                        <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-medium' : 'text-success font-medium'}>
+                            <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={
+                            invoice.status === 'paid' ? 'status-paid' :
+                              invoice.status === 'pending' ? 'status-pending' :
+                                invoice.status === 'overdue' ? 'status-overdue' :
+                                  invoice.status === 'partially_paid' ? 'status-partially-paid' :
+                                    'bg-muted/50 text-muted-foreground'
+                          }>
+                            {formatStatus(invoice.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {canPerformAction && (
+                            <div className="flex gap-1">
+                              <Link to={`/invoices/view/${invoice.id}`}>
+                                <Button variant="ghost" size="icon" title={t('invoices.view_invoice')}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Link to={`/invoices/edit/${invoice.id}`}>
+                                <Button variant="ghost" size="icon" title={t('invoices.edit_invoice')}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCloneInvoice(invoice.id)}
+                                title="Clone invoice"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteInvoice(invoice.id)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-
+            )
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium text-muted-foreground">{t('invoices.no_invoices')}</p>
+            </div>
+          )}
+        </ProfessionalCard>
       </div>
 
       {/* Permanent Delete Modal */}

@@ -2,25 +2,18 @@ import React from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ReportGenerator } from '@/components/reports/ReportGenerator';
 import { FeatureGate } from '@/components/FeatureGate';
-import { BarChart3 } from 'lucide-react';
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 
 const Reports: React.FC = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-primary" />
-              Reports & Analytics
-            </h1>
-            <p className="text-muted-foreground">
-              Generate comprehensive reports and analyze your business data
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title="Reports & Analytics"
+          description="Generate comprehensive reports and analyze your business data"
+        />
 
-        <div className="slide-in">
+        <ContentSection className="slide-in">
           <FeatureGate
             feature="reporting"
             showUpgradePrompt={true}
@@ -28,7 +21,7 @@ const Reports: React.FC = () => {
           >
             <ReportGenerator />
           </FeatureGate>
-        </div>
+        </ContentSection>
       </div>
     </AppLayout>
   );

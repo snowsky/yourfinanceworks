@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDateTime } from "@/lib/utils";
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
+import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 
 const Inventory = () => {
   const { t } = useTranslation();
@@ -144,8 +146,8 @@ const Inventory = () => {
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      item.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory = selectedCategory === "all" || item.category_id === selectedCategory;
 
@@ -184,35 +186,33 @@ const Inventory = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
-            <p className="text-muted-foreground">
-              {businessType === 'service'
-                ? t('inventory.service_description', 'Create a service catalog for your consulting and freelance work')
-                : t('inventory.product_description', 'Manage your products and stock levels')
-              }
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {canPerformAction && (
-              <>
-                <Link to="/inventory/new">
-                  <Button className="sm:self-end whitespace-nowrap">
-                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
-                  </Button>
-                </Link>
-                <BarcodeScanner
-                  onItemFound={(item) => {
-                    toast.success(`Found item: ${item.name}`);
-                    // Could navigate to item details or add to cart
-                  }}
-                  autoClose={false}
-                />
-              </>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          title={t('inventory.title', 'Inventory')}
+          description={businessType === 'service'
+            ? t('inventory.service_description', 'Create a service catalog for your consulting and freelance work')
+            : t('inventory.product_description', 'Manage your products and stock levels')
+          }
+          actions={
+            <div className="flex gap-2">
+              {canPerformAction && (
+                <>
+                  <Link to="/inventory/new">
+                    <Button className="sm:self-end whitespace-nowrap">
+                      <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
+                    </Button>
+                  </Link>
+                  <BarcodeScanner
+                    onItemFound={(item) => {
+                      toast.success(`Found item: ${item.name}`);
+                      // Could navigate to item details or add to cart
+                    }}
+                    autoClose={false}
+                  />
+                </>
+              )}
+            </div>
+          }
+        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -238,61 +238,38 @@ const Inventory = () => {
             {/* Analytics Cards */}
             {analytics && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('inventory.analytics.total_items', 'Total Items')}</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{analytics.total_items}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {analytics.active_items} {t('inventory.analytics.active', 'active')}
-                    </p>
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title={t('inventory.analytics.total_items', 'Total Items')}
+                  value={analytics.total_items}
+                  icon={Package}
+                  description={`${analytics.active_items} ${t('inventory.analytics.active', 'active')}`}
+                />
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('inventory.analytics.low_stock_items', 'Low Stock Items')}</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-orange-600">{analytics.low_stock_items}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('inventory.analytics.need_attention', 'Need attention')}
-                    </p>
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title={t('inventory.analytics.low_stock_items', 'Low Stock Items')}
+                  value={analytics.low_stock_items}
+                  icon={AlertTriangle}
+                  description={t('inventory.analytics.need_attention', 'Need attention')}
+                  variant="warning"
+                />
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('inventory.analytics.inventory_value', 'Inventory Value')}</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold"><CurrencyDisplay amount={analytics.total_value} currency={analytics.currency} /></div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('inventory.total', 'Total')}
-                    </p>
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title={t('inventory.analytics.inventory_value', 'Inventory Value')}
+                  value={<CurrencyDisplay amount={analytics.total_value} currency={analytics.currency} /> as any}
+                  icon={DollarSign}
+                  description={t('inventory.total', 'Total')}
+                />
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('inventory.analytics.categories', 'Categories')}</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{categories.length}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {t('inventory.analytics.product_categories', 'Product categories')}
-                    </p>
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title={t('inventory.analytics.categories', 'Categories')}
+                  value={categories.length}
+                  icon={TrendingUp}
+                  description={t('inventory.analytics.product_categories', 'Product categories')}
+                />
               </div>
             )}
 
-            <Card className="slide-in">
+            <ProfessionalCard className="slide-in">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <CardTitle>{t('inventory.items_list', 'Inventory Items')}</CardTitle>
@@ -452,7 +429,7 @@ const Inventory = () => {
                   </Table>
                 </div>
               </CardContent>
-            </Card>
+            </ProfessionalCard>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
@@ -475,62 +452,38 @@ const Inventory = () => {
               <>
                 {/* Key Metrics Cards */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Revenue Growth</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {advancedAnalytics.key_metrics.revenue_growth_percent >= 0 ? '+' : ''}
-                        {advancedAnalytics.key_metrics.revenue_growth_percent.toFixed(1)}%
-                      </div>
-                      <p className="text-xs text-muted-foreground">vs last period</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Revenue Growth"
+                    value={`${advancedAnalytics.key_metrics.revenue_growth_percent >= 0 ? '+' : ''}${advancedAnalytics.key_metrics.revenue_growth_percent.toFixed(1)}%`}
+                    icon={TrendingUp}
+                    description="vs last period"
+                    variant={advancedAnalytics.key_metrics.revenue_growth_percent >= 0 ? 'success' : 'danger'}
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Avg Daily Revenue</CardTitle>
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        <CurrencyDisplay amount={advancedAnalytics.key_metrics.avg_daily_revenue} currency={analytics.currency} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">per day average</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Avg Daily Revenue"
+                    value={<CurrencyDisplay amount={advancedAnalytics.key_metrics.avg_daily_revenue} currency={analytics.currency} /> as any}
+                    icon={DollarSign}
+                    description="per day average"
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Best Category</CardTitle>
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {advancedAnalytics.key_metrics.best_performing_category || 'N/A'}
-                      </div>
-                      <p className="text-xs text-muted-foreground">top performer</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Best Category"
+                    value={advancedAnalytics.key_metrics.best_performing_category || 'N/A'}
+                    icon={BarChart3}
+                    description="top performer"
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Items Sold</CardTitle>
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {advancedAnalytics.key_metrics.total_items_sold}
-                      </div>
-                      <p className="text-xs text-muted-foreground">unique items</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Total Items Sold"
+                    value={advancedAnalytics.key_metrics.total_items_sold}
+                    icon={Package}
+                    description="unique items"
+                  />
                 </div>
 
                 {/* Top Performing Items */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle>Top Performing Items</CardTitle>
                     <p className="text-sm text-muted-foreground">Items with highest revenue in the selected period</p>
@@ -560,10 +513,10 @@ const Inventory = () => {
                       ))}
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
 
                 {/* Category Performance */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle>Category Performance</CardTitle>
                     <p className="text-sm text-muted-foreground">Revenue breakdown by category</p>
@@ -588,7 +541,7 @@ const Inventory = () => {
                       ))}
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
               </>
             )}
           </TabsContent>
@@ -613,53 +566,38 @@ const Inventory = () => {
               <>
                 {/* Forecast Summary Cards */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Items Forecasted</CardTitle>
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{forecasting.summary.total_items_forecasted}</div>
-                      <p className="text-xs text-muted-foreground">with sufficient data</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Items Forecasted"
+                    value={forecasting.summary.total_items_forecasted}
+                    icon={BarChart3}
+                    description="with sufficient data"
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">High Confidence</CardTitle>
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{forecasting.summary.high_confidence_forecasts}</div>
-                      <p className="text-xs text-muted-foreground">&gt;80% accuracy</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="High Confidence"
+                    value={forecasting.summary.high_confidence_forecasts}
+                    icon={Target}
+                    description=">80% accuracy"
+                    variant="success"
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Demand</CardTitle>
-                      <Zap className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{forecasting.summary.total_forecasted_demand.toFixed(0)}</div>
-                      <p className="text-xs text-muted-foreground">next 90 days</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Total Demand"
+                    value={forecasting.summary.total_forecasted_demand.toFixed(0)}
+                    icon={Zap}
+                    description="next 90 days"
+                  />
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Seasonal Items</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{forecasting.summary.seasonal_items}</div>
-                      <p className="text-xs text-muted-foreground">detected patterns</p>
-                    </CardContent>
-                  </Card>
+                  <MetricCard
+                    title="Seasonal Items"
+                    value={forecasting.summary.seasonal_items}
+                    icon={TrendingUp}
+                    description="detected patterns"
+                  />
                 </div>
 
                 {/* Forecast Items */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle>Demand Forecasts</CardTitle>
                     <p className="text-sm text-muted-foreground">AI-powered predictions for the next 90 days</p>
@@ -669,10 +607,9 @@ const Inventory = () => {
                       {forecasting.forecasts.slice(0, 10).map((item: any) => (
                         <div key={item.item_id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div className="flex items-center gap-4">
-                            <div className={`w-3 h-3 rounded-full ${
-                              item.forecast_confidence_percent > 80 ? 'bg-green-500' :
+                            <div className={`w-3 h-3 rounded-full ${item.forecast_confidence_percent > 80 ? 'bg-green-500' :
                               item.forecast_confidence_percent > 60 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
+                              }`} />
                             <div>
                               <div className="font-medium">{item.item_name}</div>
                               <div className="text-sm text-muted-foreground">
@@ -690,7 +627,7 @@ const Inventory = () => {
                       ))}
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
               </>
             )}
           </TabsContent>
@@ -714,21 +651,19 @@ const Inventory = () => {
             {advancedAnalytics && advancedAnalytics.insights && (
               <div className="grid gap-4">
                 {advancedAnalytics.insights.map((insight: any, index: number) => (
-                  <Card key={index} className={`border-l-4 ${
-                    insight.type === 'positive' ? 'border-l-green-500' :
+                  <ProfessionalCard key={index} className={`border-l-4 ${insight.type === 'positive' ? 'border-l-green-500' :
                     insight.type === 'warning' ? 'border-l-yellow-500' :
-                    insight.type === 'info' ? 'border-l-blue-500' : 'border-l-gray-500'
-                  }`}>
+                      insight.type === 'info' ? 'border-l-blue-500' : 'border-l-gray-500'
+                    }`}>
                     <CardContent className="pt-6">
                       <div className="flex items-start gap-4">
-                        <div className={`p-2 rounded-full ${
-                          insight.type === 'positive' ? 'bg-green-100 text-green-600' :
+                        <div className={`p-2 rounded-full ${insight.type === 'positive' ? 'bg-green-100 text-green-600' :
                           insight.type === 'warning' ? 'bg-yellow-100 text-yellow-600' :
-                          insight.type === 'info' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                        }`}>
+                            insight.type === 'info' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                          }`}>
                           {insight.type === 'positive' ? '📈' :
-                           insight.type === 'warning' ? '⚠️' :
-                           insight.type === 'info' ? 'ℹ️' : '💡'}
+                            insight.type === 'warning' ? '⚠️' :
+                              insight.type === 'info' ? 'ℹ️' : '💡'}
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold mb-2">{insight.title}</h3>
@@ -736,7 +671,7 @@ const Inventory = () => {
                         </div>
                       </div>
                     </CardContent>
-                  </Card>
+                  </ProfessionalCard>
                 ))}
               </div>
             )}
@@ -744,7 +679,7 @@ const Inventory = () => {
             {salesVelocity && (
               <>
                 {/* Sales Velocity Summary */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle>Sales Velocity Overview</CardTitle>
                     <p className="text-sm text-muted-foreground">Stock movement analysis and recommendations</p>
@@ -777,10 +712,10 @@ const Inventory = () => {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
 
                 {/* Stock Status Recommendations */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle>Stock Optimization Recommendations</CardTitle>
                     <p className="text-sm text-muted-foreground">Items requiring attention based on sales velocity</p>
@@ -800,7 +735,7 @@ const Inventory = () => {
                           <div className="text-right">
                             <Badge variant={
                               item.stock_status === 'critical' ? 'destructive' :
-                              item.stock_status === 'overstocked' ? 'secondary' : 'default'
+                                item.stock_status === 'overstocked' ? 'secondary' : 'default'
                             }>
                               {item.stock_status}
                             </Badge>
@@ -809,7 +744,7 @@ const Inventory = () => {
                       ))}
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
               </>
             )}
           </TabsContent>

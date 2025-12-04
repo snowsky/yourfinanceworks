@@ -12,7 +12,6 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import {
-  Card,
   CardContent,
   CardHeader,
   CardTitle
@@ -47,6 +46,8 @@ import { Loader2, Plus } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@/lib/api';
 import { JoinRequestsTable } from '@/components/JoinRequestsTable';
+import { PageHeader } from '@/components/ui/professional-layout';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -157,9 +158,9 @@ export default function UsersPage() {
         fetchInvites();
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
@@ -368,71 +369,71 @@ export default function UsersPage() {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{t('users.organization_users')}</h1>
-            <p className="text-muted-foreground">{t('users.manageorganization_users')}</p>
-          </div>
-          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="sm:self-end whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" /> {t('users.invite_user')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t('users.invite_user')}</DialogTitle>
-              </DialogHeader>
-              <form className="space-y-4" onSubmit={handleInvite}>
-                <Input
-                  name="email"
-                  type="email"
-                  placeholder={t('users.email_placeholder')}
-                  value={inviteForm.email}
-                  onChange={handleInviteChange}
-                  required
-                />
-                <div className="flex gap-2">
+        <PageHeader
+          title={t('users.organization_users')}
+          description={t('users.manageorganization_users')}
+          actions={
+            <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="sm:self-end whitespace-nowrap">
+                  <Plus className="mr-2 h-4 w-4" /> {t('users.invite_user')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('users.invite_user')}</DialogTitle>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={handleInvite}>
                   <Input
-                    name="first_name"
-                    placeholder={t('users.first_name_placeholder')}
-                    value={inviteForm.first_name}
+                    name="email"
+                    type="email"
+                    placeholder={t('users.email_placeholder')}
+                    value={inviteForm.email}
                     onChange={handleInviteChange}
+                    required
                   />
-                  <Input
-                    name="last_name"
-                    placeholder={t('users.last_name_placeholder')}
-                    value={inviteForm.last_name}
-                    onChange={handleInviteChange}
-                  />
-                </div>
-                <Select
-                  value={inviteForm.role}
-                  onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('users.role_placeholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <DialogFooter>
-                  <Button type="submit" disabled={inviting}>
-                    {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {t('users.invite')}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                  <div className="flex gap-2">
+                    <Input
+                      name="first_name"
+                      placeholder={t('users.first_name_placeholder')}
+                      value={inviteForm.first_name}
+                      onChange={handleInviteChange}
+                    />
+                    <Input
+                      name="last_name"
+                      placeholder={t('users.last_name_placeholder')}
+                      value={inviteForm.last_name}
+                      onChange={handleInviteChange}
+                    />
+                  </div>
+                  <Select
+                    value={inviteForm.role}
+                    onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('users.role_placeholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <DialogFooter>
+                    <Button type="submit" disabled={inviting}>
+                      {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {t('users.invite')}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          }
+        />
 
-        <Card className="slide-in">
+        <ProfessionalCard className="slide-in">
           <CardHeader className="pb-3">
             <CardTitle>{t('users.all_invites')}</CardTitle>
           </CardHeader>
@@ -506,14 +507,14 @@ export default function UsersPage() {
               </Table>
             </div>
           </CardContent>
-        </Card>
+        </ProfessionalCard>
 
         {/* Join Requests Section */}
         <div className="slide-in">
           <JoinRequestsTable showAsCard={true} onRequestProcessed={fetchUsers} />
         </div>
 
-        <Card className="slide-in">
+        <ProfessionalCard className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <CardTitle>{t('users.no_invites_found')}</CardTitle>
@@ -624,7 +625,7 @@ export default function UsersPage() {
               </Table>
             </div>
           </CardContent>
-        </Card>
+        </ProfessionalCard>
 
         <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
           <DialogContent className="max-w-md">

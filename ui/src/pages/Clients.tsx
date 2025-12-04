@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -11,6 +11,8 @@ import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from "@/components/ui/professional-layout";
+import { ProfessionalCard } from "@/components/ui/professional-card";
 
 const Clients = () => {
   const { t } = useTranslation();
@@ -23,7 +25,7 @@ const Clients = () => {
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
-  
+
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
     try {
@@ -41,7 +43,7 @@ const Clients = () => {
     }
     return null;
   };
-  
+
   // Update tenant ID when it changes
   useEffect(() => {
     const updateTenantId = () => {
@@ -51,18 +53,18 @@ const Clients = () => {
         setCurrentTenantId(tenantId);
       }
     };
-    
+
     updateTenantId();
-    
+
     // Listen for storage changes
     const handleStorageChange = () => {
       updateTenantId();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentTenantId]);
-  
+
   useEffect(() => {
     const fetchClients = async () => {
       setLoading(true);
@@ -80,18 +82,18 @@ const Clients = () => {
         setLoading(false);
       }
     };
-    
+
     fetchClients();
   }, [currentTenantId]); // Use state variable as dependency
-  
-  const filteredClients = (clients || []).filter(client => 
+
+  const filteredClients = (clients || []).filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDelete = async () => {
     if (!clientToDelete) return;
-    
+
     setDeleting(true);
     try {
       await clientApi.deleteClient(clientToDelete.id);
@@ -109,21 +111,19 @@ const Clients = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">{t('clients.title')}</h1>
-            <p className="text-muted-foreground">{t('clients.description')}</p>
-          </div>
-          {canPerformAction && (
+        <PageHeader
+          title={t('clients.title')}
+          description={t('clients.description')}
+          actions={canPerformAction && (
             <Link to="/clients/new">
-              <Button className="sm:self-end whitespace-nowrap">
+              <Button className="sm:self-end whitespace-nowrap h-9">
                 <Plus className="mr-2 h-4 w-4" /> {t('clients.add_client')}
               </Button>
             </Link>
           )}
-        </div>
-        
-        <Card className="slide-in">
+        />
+
+        <ProfessionalCard className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <CardTitle>{t('clients.client_list')}</CardTitle>
@@ -190,8 +190,8 @@ const Clients = () => {
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                 </Link>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   onClick={() => setClientToDelete(client)}
                                 >
@@ -214,7 +214,7 @@ const Clients = () => {
               </Table>
             </div>
           </CardContent>
-        </Card>
+        </ProfessionalCard>
       </div>
 
       <Dialog open={!!clientToDelete} onOpenChange={() => setClientToDelete(null)}>
@@ -229,8 +229,8 @@ const Clients = () => {
             <Button variant="outline" onClick={() => setClientToDelete(null)}>
               {t('common.cancel')}
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
             >

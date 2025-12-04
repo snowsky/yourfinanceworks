@@ -46,7 +46,9 @@ import { Label } from '@/components/ui/label';
 import { Users } from 'lucide-react';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canPerformActions, canEditExpense, canDeleteExpense, getCurrentUser } from '@/utils/auth';
-
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
+import { ProfessionalCard } from "@/components/ui/professional-card";
+import { ProfessionalButton } from "@/components/ui/professional-button";
 
 
 // Helper function to format date without timezone issues
@@ -586,14 +588,12 @@ const Expenses = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">{t('expenses.title')}</h1>
-            <p className="text-muted-foreground">{t('expenses.description')}</p>
-          </div>
-          {canPerformActions() && (
+        <PageHeader
+          title={t('expenses.title')}
+          description={t('expenses.description')}
+          actions={canPerformActions() && (
             <div className="flex gap-2">
-              <Button
+              <ProfessionalButton
                 variant="outline"
                 onClick={() => {
                   const expenseList = document.getElementById('expense-list');
@@ -602,14 +602,14 @@ const Expenses = () => {
               >
                 <ArrowDown className="w-4 h-4 mr-2" />
                 {t('expenses.view_expense_list')}
-              </Button>
+              </ProfessionalButton>
               <div className="flex">
-                <Button onClick={openCreate} className="rounded-r-none border-r-0">
+                <ProfessionalButton onClick={openCreate} className="rounded-r-none border-r-0" variant="default">
                   <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
-                </Button>
+                </ProfessionalButton>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button className="rounded-l-none px-2">
+                    <Button className="rounded-l-none px-2 h-9">
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -629,74 +629,73 @@ const Expenses = () => {
               </div>
             </div>
           )}
-        </div>
+        />
 
         {/* Expense Summary and Analytics */}
         <ExpenseSummary />
         <ExpenseCharts />
 
-        <Card id="expense-list" className="slide-in">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>{t('expenses.list_title')}</CardTitle>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('expenses.search_placeholder')}
-                    className="pl-8 w-full sm:w-[260px]"
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                  />
-                </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder={t('expenses.filter_by_category')} />
+        <ProfessionalCard id="expense-list" className="slide-in" variant="default">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+            <h2 className="text-xl font-semibold tracking-tight">{t('expenses.list_title')}</h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('expenses.search_placeholder')}
+                  className="pl-8 w-full sm:w-[260px]"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder={t('expenses.filter_by_category')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
+                  {categoryOptions.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <Input
+                  placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
+                  className="pl-8 w-full sm:w-[180px] pr-8"
+                  value={labelFilter}
+                  onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
+                />
+                {labelFilter && (
+                  <button
+                    aria-label="Clear label filter"
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setLabelFilter(''); setPage(1); }}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
+                {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
-                    {categoryOptions.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {[10, 20, 50, 100].map(n => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="relative">
-                  <Input
-                    placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
-                    className="pl-8 w-full sm:w-[180px] pr-8"
-                    value={labelFilter}
-                    onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
-                  />
-                  {labelFilter && (
-                    <button
-                      aria-label="Clear label filter"
-                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-                      onClick={() => { setLabelFilter(''); setPage(1); }}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                  <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
-                  {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[10, 20, 50, 100].map(n => (
-                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             </div>
-          </CardHeader>
+          </div>
+
           <CardContent>
             <div className="flex flex-col md:flex-row md:items-center gap-2 mb-3 md:justify-between">
               <div className="text-sm text-muted-foreground">
@@ -1040,7 +1039,7 @@ const Expenses = () => {
               </Pagination>
             </div>
           </CardContent>
-        </Card>
+        </ProfessionalCard>
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogContent>
@@ -1256,8 +1255,8 @@ const Expenses = () => {
                       <Alert className="border-amber-200 bg-amber-50">
                         <AlertCircle className="h-4 w-4 text-amber-600" />
                         <AlertDescription className="text-amber-800">
-                          {t('common.feature_not_licensed', { 
-                            defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.' 
+                          {t('common.feature_not_licensed', {
+                            defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                           })}
                         </AlertDescription>
                       </Alert>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +29,8 @@ import { useTaxIntegration } from "@/hooks/useTaxIntegration";
 import LicenseManagement from "@/pages/LicenseManagement";
 import { FeatureGate } from "@/components/FeatureGate";
 import { useFeatures } from "@/contexts/FeatureContext";
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
+import { ProfessionalCard } from "@/components/ui/professional-card";
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -1268,537 +1270,417 @@ const Settings = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {isAdmin ? t('settings.title') : t('settings.preferences_title', 'Preferences')}
-          </h1>
-          <p className="text-muted-foreground">
-            {isAdmin ? t('settings.description') : t('settings.preferences_description', 'Manage your personal preferences and privacy settings.')}
-          </p>
-        </div>
+        <PageHeader
+          title={isAdmin ? t('settings.title') : t('settings.preferences_title', 'Preferences')}
+          description={isAdmin ? t('settings.description') : t('settings.preferences_description', 'Manage your personal preferences and privacy settings.')}
+        />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
-          <TabsList className="flex w-full flex-wrap gap-2 h-auto justify-start max-w-full overflow-x-auto">
-            {isAdmin && (
-              <>
-                <TabsTrigger value="company" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.company')}</TabsTrigger>
-                <TabsTrigger value="invoices" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.invoices')}</TabsTrigger>
-                <TabsTrigger value="currencies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.currencies')}</TabsTrigger>
-                <TabsTrigger value="discount-rules" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.discount_rules')}</TabsTrigger>
-                <TabsTrigger value="ai-config" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.ai_config')}</TabsTrigger>
-                <TabsTrigger value="api-keys" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.api_keys')}</TabsTrigger>
-                <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>
-                <TabsTrigger value="email-notifications" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.email_notifications')}</TabsTrigger>
-                <TabsTrigger value="email-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('emailIntegration.title')}</TabsTrigger>
-                {isFeatureEnabled('tax_integration') && (
-                  <TabsTrigger value="tax-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.tax_integration')}</TabsTrigger>
-                )}
-                {isFeatureEnabled('cloud_storage') && (
-                  <TabsTrigger value="export-destinations" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export_destinations')}</TabsTrigger>
-                )}
-                <TabsTrigger value="license" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('license.tabTitle')}</TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="cookies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.cookies')}</TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="export" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export')}</TabsTrigger>
-            )}
-          </TabsList>
-
-          {isAdmin && (
-            <TabsContent value="company" className="mt-6">
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>{t('settings.user_profile')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="first_name">{t('settings.first_name')}</Label>
-                      <Input
-                        id="first_name"
-                        name="first_name"
-                        value={userProfile.first_name || ''}
-                        onChange={handleProfileChange}
-                        autoComplete="given-name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="last_name">{t('settings.last_name')}</Label>
-                      <Input
-                        id="last_name"
-                        name="last_name"
-                        value={userProfile.last_name || ''}
-                        onChange={handleProfileChange}
-                        autoComplete="family-name"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="show_analytics">Show Analytics Menu</Label>
-                      <p className="text-sm text-muted-foreground">Show or hide the analytics menu in the sidebar</p>
-                    </div>
-                    <Switch
-                      id="show_analytics"
-                      checked={userProfile.show_analytics ?? true}
-                      onCheckedChange={(checked) => setUserProfile((prev: any) => ({ ...prev, show_analytics: checked }))}
-                    />
-                  </div>
-                  <div className="flex justify-end mt-4">
-                    <Button onClick={handleProfileSave} disabled={profileSaving}>
-                      {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {t('settings.save_profile')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('settings.company_info')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">{t('settings.company_name')}</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        value={companyInfo.name}
-                        onChange={handleCompanyChange}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="tax_id">{t('settings.tax_id')}</Label>
-                      <Input
-                        id="tax_id"
-                        name="tax_id"
-                        value={companyInfo.tax_id}
-                        onChange={handleCompanyChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">{t('settings.company_email')}</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={companyInfo.email}
-                        onChange={handleCompanyChange}
-                        disabled
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">{t('settings.company_phone')}</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        value={companyInfo.phone}
-                        onChange={handleCompanyChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="address">{t('settings.company_address')}</Label>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      rows={3}
-                      value={companyInfo.address}
-                      onChange={handleCompanyChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select value={timezone} onValueChange={setTimezone}>
-                      <SelectTrigger id="timezone">
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
-                        <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
-                        <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
-                        <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
-                        <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
-                        <SelectItem value="America/Phoenix">Arizona</SelectItem>
-                        <SelectItem value="America/Anchorage">Alaska</SelectItem>
-                        <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
-                        <SelectItem value="Europe/London">London</SelectItem>
-                        <SelectItem value="Europe/Paris">Paris</SelectItem>
-                        <SelectItem value="Europe/Berlin">Berlin</SelectItem>
-                        <SelectItem value="Europe/Rome">Rome</SelectItem>
-                        <SelectItem value="Europe/Madrid">Madrid</SelectItem>
-                        <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
-                        <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
-                        <SelectItem value="Europe/Zurich">Zurich</SelectItem>
-                        <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                        <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
-                        <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
-                        <SelectItem value="Asia/Singapore">Singapore</SelectItem>
-                        <SelectItem value="Asia/Dubai">Dubai</SelectItem>
-                        <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
-                        <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
-                        <SelectItem value="Australia/Sydney">Sydney</SelectItem>
-                        <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
-                        <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
-                        <SelectItem value="Australia/Perth">Perth</SelectItem>
-                        <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
-                        <SelectItem value="America/Toronto">Toronto</SelectItem>
-                        <SelectItem value="America/Vancouver">Vancouver</SelectItem>
-                        <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
-                        <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
-                        <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
-                        <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
-                        <SelectItem value="Africa/Cairo">Cairo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-sm text-muted-foreground">Select your organization's timezone for date and time display</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="logo">{t('settings.company_logo')}</Label>
-                    <div className="space-y-4">
-                      {/* Custom File Picker */}
-                      <div className="flex items-center space-x-4">
-                        <input
-                          id="logo-upload"
-                          name="logo"
-                          type="file"
-                          accept="image/*"
-                          style={{ display: 'none' }}
-                          onChange={handleLogoFileChange}
-                          disabled={uploadingLogo}
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => document.getElementById('logo-upload')?.click()}
-                          disabled={uploadingLogo}
-                          size="sm"
-                        >
-                          {t('settings.choose_file')}
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {logoFile ? logoFile.name : t('settings.no_file_selected')}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{t('settings.recommended_size')}</p>
-
-                      {/* Logo Preview */}
-                      {(logoPreview || companyInfo.logo) && (
-                        <div className="space-y-2">
-                          <Label>{t('settings.logo_preview')}</Label>
-                          <div className="flex items-center space-x-4">
-                            <img
-                              src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
-                              alt="Company Logo"
-                              className="w-16 h-16 object-contain border rounded"
-                              onError={(e) => {
-                                console.error('Failed to load logo image:', e);
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={handleSave} disabled={saving}>
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {saving ? t('settings.saving') : t('settings.save_changes')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="invoices" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('settings.invoice_settings')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="prefix">{t('settings.invoice_prefix')}</Label>
-                      <Input
-                        id="prefix"
-                        name="prefix"
-                        value={invoiceSettings.prefix}
-                        onChange={handleInvoiceChange}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="next_number">{t('settings.next_invoice_number')}</Label>
-                      <Input
-                        id="next_number"
-                        name="next_number"
-                        value={invoiceSettings.next_number}
-                        onChange={handleInvoiceChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="terms">{t('settings.default_terms')}</Label>
-                    <Textarea
-                      id="terms"
-                      name="terms"
-                      rows={4}
-                      value={invoiceSettings.terms}
-                      onChange={handleInvoiceChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">{t('settings.default_notes')}</Label>
-                    <Textarea
-                      id="notes"
-                      name="notes"
-                      rows={2}
-                      value={invoiceSettings.notes}
-                      onChange={handleInvoiceChange}
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="send_copy">{t('settings.send_copy')}</Label>
-                        <p className="text-sm text-muted-foreground">{t('settings.send_copy_description')}</p>
-                      </div>
-                      <Switch
-                        id="send_copy"
-                        checked={invoiceSettings.send_copy}
-                        onCheckedChange={(checked) => handleToggleChange('send_copy', checked)}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="auto_reminders">{t('settings.auto_reminders')}</Label>
-                        <p className="text-sm text-muted-foreground">{t('settings.auto_reminders_description')}</p>
-                      </div>
-                      <Switch
-                        id="auto_reminders"
-                        checked={invoiceSettings.auto_reminders}
-                        onCheckedChange={(checked) => handleToggleChange('auto_reminders', checked)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={handleSave} disabled={saving}>
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {saving ? t('settings.saving') : t('settings.save_changes')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="currencies" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('settings.currency_management')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CurrencyManager />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="discount-rules" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>{t('settings.discount_rules')}</CardTitle>
-                    <Button onClick={openCreateDialog} size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      {t('settings.tabs.add_rule')}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {loadingDiscountRules ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      <span className="text-sm text-muted-foreground">{t('settings.loading_discount_rules')}</span>
-                    </div>
-                  ) : discountRules.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">{t('settings.no_discount_rules_configured')}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {t('settings.create_discount_rules_to_apply_discounts')}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {discountRules.map((rule) => (
-                        <div key={rule.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-medium">{rule.name}</h4>
-                              <Badge variant={rule.is_active ? "default" : "secondary"}>
-                                {rule.is_active ? t('settings.rule_active') : t('settings.rule_inactive')}
-                              </Badge>
-                              <Badge variant="outline" className="font-semibold">
-                                {t('settings.priority')}: {rule.priority}
-                              </Badge>
-                              {/* Show currency badge */}
-                              <Badge variant="secondary">{rule.currency || "USD"}</Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {rule.discount_type === "percentage"
-                                ? `${rule.discount_value}% ${t('settings.discount')}`
-                                : `$${rule.discount_value} ${t('settings.discount')}`
-                              } {t('settings.when_total')} ≥ ${rule.min_amount}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEditDialog(rule)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteDiscountRule(rule.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+        <ContentSection className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
+            <TabsList className="flex w-full flex-wrap gap-2 h-auto justify-start max-w-full overflow-x-auto">
+              {isAdmin && (
+                <>
+                  <TabsTrigger value="company" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.company')}</TabsTrigger>
+                  <TabsTrigger value="invoices" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.invoices')}</TabsTrigger>
+                  <TabsTrigger value="currencies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.currencies')}</TabsTrigger>
+                  <TabsTrigger value="discount-rules" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.discount_rules')}</TabsTrigger>
+                  <TabsTrigger value="ai-config" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.ai_config')}</TabsTrigger>
+                  <TabsTrigger value="api-keys" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.api_keys')}</TabsTrigger>
+                  <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>
+                  <TabsTrigger value="email-notifications" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.email_notifications')}</TabsTrigger>
+                  <TabsTrigger value="email-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('emailIntegration.title')}</TabsTrigger>
+                  {isFeatureEnabled('tax_integration') && (
+                    <TabsTrigger value="tax-integration" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.tax_integration')}</TabsTrigger>
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
+                  {isFeatureEnabled('cloud_storage') && (
+                    <TabsTrigger value="export-destinations" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export_destinations')}</TabsTrigger>
+                  )}
+                  <TabsTrigger value="license" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('license.tabTitle')}</TabsTrigger>
+                </>
+              )}
+              <TabsTrigger value="cookies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.cookies')}</TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger value="export" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.export')}</TabsTrigger>
+              )}
+            </TabsList>
 
-          {isAdmin && (
-            <TabsContent value="ai-config" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('settings.ai_configuration')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* AI Assistant Toggle */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+            {isAdmin && (
+              <TabsContent value="company" className="mt-6">
+                <ProfessionalCard className="mb-6">
+                  <CardHeader>
+                    <CardTitle>{t('settings.user_profile')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="first_name">{t('settings.first_name')}</Label>
+                        <Input
+                          id="first_name"
+                          name="first_name"
+                          value={userProfile.first_name || ''}
+                          onChange={handleProfileChange}
+                          autoComplete="given-name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="last_name">{t('settings.last_name')}</Label>
+                        <Input
+                          id="last_name"
+                          name="last_name"
+                          value={userProfile.last_name || ''}
+                          onChange={handleProfileChange}
+                          autoComplete="family-name"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
                       <div className="space-y-0.5">
-                        <Label htmlFor="ai_assistant">{t('settings.ai_assistant')}</Label>
-                        <p className="text-sm text-muted-foreground">{t('settings.ai_assistant_description')}</p>
-                        {!isFeatureEnabled('ai_chat') && (
-                          <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
-                            {t('settings.ai_assistant_license_required', 'AI Assistant requires a valid license. Please upgrade your plan.')}
-                          </p>
-                        )}
+                        <Label htmlFor="show_analytics">Show Analytics Menu</Label>
+                        <p className="text-sm text-muted-foreground">Show or hide the analytics menu in the sidebar</p>
                       </div>
                       <Switch
-                        id="ai_assistant"
-                        checked={aiAssistantEnabled}
-                        onCheckedChange={handleAIAssistantToggle}
-                        disabled={!isFeatureEnabled('ai_chat') && !aiAssistantEnabled}
+                        id="show_analytics"
+                        checked={userProfile.show_analytics ?? true}
+                        onCheckedChange={(checked) => setUserProfile((prev: any) => ({ ...prev, show_analytics: checked }))}
                       />
                     </div>
-                  </div>
-
-                  {/* AI Provider Configurations */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-semibold">{t('settings.ai_provider_configurations')}</h3>
-                        <p className="text-sm text-muted-foreground">{t('settings.ai_provider_configurations_description')}</p>
-                      </div>
-                      <Button onClick={openCreateAIConfigDialog}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('settings.add_provider')}
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={handleProfileSave} disabled={profileSaving}>
+                        {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {t('settings.save_profile')}
                       </Button>
                     </div>
-
-                    {loadingAiConfigs ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin" />
+                  </CardContent>
+                </ProfessionalCard>
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle>{t('settings.company_info')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">{t('settings.company_name')}</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          value={companyInfo.name}
+                          onChange={handleCompanyChange}
+                        />
                       </div>
-                    ) : aiConfigs.length === 0 ? (
+
+                      <div className="space-y-2">
+                        <Label htmlFor="tax_id">{t('settings.tax_id')}</Label>
+                        <Input
+                          id="tax_id"
+                          name="tax_id"
+                          value={companyInfo.tax_id}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">{t('settings.company_email')}</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={companyInfo.email}
+                          onChange={handleCompanyChange}
+                          disabled
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">{t('settings.company_phone')}</Label>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          value={companyInfo.phone}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">{t('settings.company_address')}</Label>
+                      <Textarea
+                        id="address"
+                        name="address"
+                        rows={3}
+                        value={companyInfo.address}
+                        onChange={handleCompanyChange}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">Timezone</Label>
+                      <Select value={timezone} onValueChange={setTimezone}>
+                        <SelectTrigger id="timezone">
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
+                          <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
+                          <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
+                          <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
+                          <SelectItem value="America/Phoenix">Arizona</SelectItem>
+                          <SelectItem value="America/Anchorage">Alaska</SelectItem>
+                          <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
+                          <SelectItem value="Europe/London">London</SelectItem>
+                          <SelectItem value="Europe/Paris">Paris</SelectItem>
+                          <SelectItem value="Europe/Berlin">Berlin</SelectItem>
+                          <SelectItem value="Europe/Rome">Rome</SelectItem>
+                          <SelectItem value="Europe/Madrid">Madrid</SelectItem>
+                          <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
+                          <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
+                          <SelectItem value="Europe/Zurich">Zurich</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                          <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
+                          <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
+                          <SelectItem value="Asia/Singapore">Singapore</SelectItem>
+                          <SelectItem value="Asia/Dubai">Dubai</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
+                          <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
+                          <SelectItem value="Australia/Sydney">Sydney</SelectItem>
+                          <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
+                          <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
+                          <SelectItem value="Australia/Perth">Perth</SelectItem>
+                          <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
+                          <SelectItem value="America/Toronto">Toronto</SelectItem>
+                          <SelectItem value="America/Vancouver">Vancouver</SelectItem>
+                          <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
+                          <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
+                          <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
+                          <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
+                          <SelectItem value="Africa/Cairo">Cairo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-sm text-muted-foreground">Select your organization's timezone for date and time display</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="logo">{t('settings.company_logo')}</Label>
+                      <div className="space-y-4">
+                        {/* Custom File Picker */}
+                        <div className="flex items-center space-x-4">
+                          <input
+                            id="logo-upload"
+                            name="logo"
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={handleLogoFileChange}
+                            disabled={uploadingLogo}
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => document.getElementById('logo-upload')?.click()}
+                            disabled={uploadingLogo}
+                            size="sm"
+                          >
+                            {t('settings.choose_file')}
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            {logoFile ? logoFile.name : t('settings.no_file_selected')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{t('settings.recommended_size')}</p>
+
+                        {/* Logo Preview */}
+                        {(logoPreview || companyInfo.logo) && (
+                          <div className="space-y-2">
+                            <Label>{t('settings.logo_preview')}</Label>
+                            <div className="flex items-center space-x-4">
+                              <img
+                                src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
+                                alt="Company Logo"
+                                className="w-16 h-16 object-contain border rounded"
+                                onError={(e) => {
+                                  console.error('Failed to load logo image:', e);
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSave} disabled={saving}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {saving ? t('settings.saving') : t('settings.save_changes')}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="invoices" className="mt-6">
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle>{t('settings.invoice_settings')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="prefix">{t('settings.invoice_prefix')}</Label>
+                        <Input
+                          id="prefix"
+                          name="prefix"
+                          value={invoiceSettings.prefix}
+                          onChange={handleInvoiceChange}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="next_number">{t('settings.next_invoice_number')}</Label>
+                        <Input
+                          id="next_number"
+                          name="next_number"
+                          value={invoiceSettings.next_number}
+                          onChange={handleInvoiceChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="terms">{t('settings.default_terms')}</Label>
+                      <Textarea
+                        id="terms"
+                        name="terms"
+                        rows={4}
+                        value={invoiceSettings.terms}
+                        onChange={handleInvoiceChange}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">{t('settings.default_notes')}</Label>
+                      <Textarea
+                        id="notes"
+                        name="notes"
+                        rows={2}
+                        value={invoiceSettings.notes}
+                        onChange={handleInvoiceChange}
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="send_copy">{t('settings.send_copy')}</Label>
+                          <p className="text-sm text-muted-foreground">{t('settings.send_copy_description')}</p>
+                        </div>
+                        <Switch
+                          id="send_copy"
+                          checked={invoiceSettings.send_copy}
+                          onCheckedChange={(checked) => handleToggleChange('send_copy', checked)}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="auto_reminders">{t('settings.auto_reminders')}</Label>
+                          <p className="text-sm text-muted-foreground">{t('settings.auto_reminders_description')}</p>
+                        </div>
+                        <Switch
+                          id="auto_reminders"
+                          checked={invoiceSettings.auto_reminders}
+                          onCheckedChange={(checked) => handleToggleChange('auto_reminders', checked)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSave} disabled={saving}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {saving ? t('settings.saving') : t('settings.save_changes')}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="currencies" className="mt-6">
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle>{t('settings.currency_management')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CurrencyManager />
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="discount-rules" className="mt-6">
+                <ProfessionalCard>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>{t('settings.discount_rules')}</CardTitle>
+                      <Button onClick={openCreateDialog} size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('settings.tabs.add_rule')}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {loadingDiscountRules ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">{t('settings.loading_discount_rules')}</span>
+                      </div>
+                    ) : discountRules.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-muted-foreground">{t('settings.no_ai_configurations')}</p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {t('settings.add_ai_providers_hint')}
+                        <p className="text-muted-foreground mb-4">{t('settings.no_discount_rules_configured')}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t('settings.create_discount_rules_to_apply_discounts')}
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {aiConfigs.map((config) => (
-                          <div key={config.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-4">
+                        {discountRules.map((rule) => (
+                          <div key={rule.id} className="flex items-center justify-between p-4 border rounded-lg">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-medium">{config.provider_name}</h4>
-                                <Badge variant={config.is_active ? "default" : "secondary"}>
-                                  {config.is_active ? t('settings.active') : t('settings.inactive')}
+                                <h4 className="font-medium">{rule.name}</h4>
+                                <Badge variant={rule.is_active ? "default" : "secondary"}>
+                                  {rule.is_active ? t('settings.rule_active') : t('settings.rule_inactive')}
                                 </Badge>
-                                {config.is_default && (
-                                  <Badge variant="outline">{t('settings.default')}</Badge>
-                                )}
-                                {config.tested && (
-                                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                    {t('settings.tested')}
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className="font-semibold">
+                                  {t('settings.priority')}: {rule.priority}
+                                </Badge>
+                                {/* Show currency badge */}
+                                <Badge variant="secondary">{rule.currency || "USD"}</Badge>
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                {t('settings.model')}: {config.model_name}
-                                {config.provider_url && ` | ${t('settings.url')}: ${config.provider_url}`}
+                                {rule.discount_type === "percentage"
+                                  ? `${rule.discount_value}% ${t('settings.discount')}`
+                                  : `$${rule.discount_value} ${t('settings.discount')}`
+                                } {t('settings.when_total')} ≥ ${rule.min_amount}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleTestAIConfig(config.id)}
-                              >
-                                {t('settings.test')}
-                              </Button>
-                              {!config.tested && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleMarkAsTested(config.id)}
-                                >
-                                  {t('settings.mark_tested')}
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openEditAIConfigDialog(config)}
+                                onClick={() => openEditDialog(rule)}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDeleteAIConfig(config.id)}
+                                onClick={() => handleDeleteDiscountRule(rule.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1807,1160 +1689,1278 @@ const Settings = () => {
                         ))}
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
 
-          {isAdmin && (
-            <TabsContent value="search" className="mt-6">
-              <SearchStatus />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="email-notifications" className="mt-6">
-              <div className="space-y-6">
-                {/* Email Configuration Section */}
-                <Card>
+            {isAdmin && (
+              <TabsContent value="ai-config" className="mt-6">
+                <ProfessionalCard>
                   <CardHeader>
-                    <CardTitle>{t('settings.email_configuration')}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Configure your email service provider and settings
-                    </p>
+                    <CardTitle>{t('settings.ai_configuration')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="email_enabled">{t('settings.enable_email_service')}</Label>
-                        <p className="text-sm text-muted-foreground">{t('settings.enable_email_service_description')}</p>
+                    {/* AI Assistant Toggle */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="ai_assistant">{t('settings.ai_assistant')}</Label>
+                          <p className="text-sm text-muted-foreground">{t('settings.ai_assistant_description')}</p>
+                          {!isFeatureEnabled('ai_chat') && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                              {t('settings.ai_assistant_license_required', 'AI Assistant requires a valid license. Please upgrade your plan.')}
+                            </p>
+                          )}
+                        </div>
+                        <Switch
+                          id="ai_assistant"
+                          checked={aiAssistantEnabled}
+                          onCheckedChange={handleAIAssistantToggle}
+                          disabled={!isFeatureEnabled('ai_chat') && !aiAssistantEnabled}
+                        />
                       </div>
-                      <Switch
-                        id="email_enabled"
-                        checked={emailSettings.enabled}
-                        onCheckedChange={(checked) => handleEmailToggleChange('enabled', checked)}
-                      />
                     </div>
 
-                    {emailSettings.enabled && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="provider">{t('settings.email_provider')}</Label>
-                          <Select value={emailSettings.provider} onValueChange={handleEmailProviderChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t('settings.select_email_provider')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="aws_ses">{t('settings.aws_ses')}</SelectItem>
-                              <SelectItem value="azure_email">{t('settings.azure_email_services')}</SelectItem>
-                              <SelectItem value="mailgun">{t('settings.mailgun')}</SelectItem>
-                            </SelectContent>
-                          </Select>
+                    {/* AI Provider Configurations */}
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-semibold">{t('settings.ai_provider_configurations')}</h3>
+                          <p className="text-sm text-muted-foreground">{t('settings.ai_provider_configurations_description')}</p>
                         </div>
+                        <Button onClick={openCreateAIConfigDialog}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          {t('settings.add_provider')}
+                        </Button>
+                      </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="from_name">{t('settings.from_name')}</Label>
-                            <Input
-                              id="from_name"
-                              name="from_name"
-                              value={emailSettings.from_name}
-                              onChange={handleEmailChange}
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="from_email">{t('settings.from_email')}</Label>
-                            <Input
-                              id="from_email"
-                              name="from_email"
-                              type="email"
-                              value={emailSettings.from_email}
-                              onChange={handleEmailChange}
-                            />
-                          </div>
+                      {loadingAiConfigs ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
-
-                        {emailSettings.provider === "aws_ses" && (
-                          <div className="space-y-4 p-4 border rounded-lg">
-                            <h4 className="font-medium">{t('settings.aws_ses_configuration')}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="aws_access_key_id">{t('settings.aws_access_key_id')}</Label>
-                                <Input
-                                  id="aws_access_key_id"
-                                  name="aws_access_key_id"
-                                  type="password"
-                                  value={emailSettings.aws_access_key_id}
-                                  onChange={handleEmailChange}
-                                />
+                      ) : aiConfigs.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground">{t('settings.no_ai_configurations')}</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {t('settings.add_ai_providers_hint')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {aiConfigs.map((config) => (
+                            <div key={config.id} className="flex items-center justify-between p-4 border rounded-lg">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-medium">{config.provider_name}</h4>
+                                  <Badge variant={config.is_active ? "default" : "secondary"}>
+                                    {config.is_active ? t('settings.active') : t('settings.inactive')}
+                                  </Badge>
+                                  {config.is_default && (
+                                    <Badge variant="outline">{t('settings.default')}</Badge>
+                                  )}
+                                  {config.tested && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                      {t('settings.tested')}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {t('settings.model')}: {config.model_name}
+                                  {config.provider_url && ` | ${t('settings.url')}: ${config.provider_url}`}
+                                </p>
                               </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="aws_secret_access_key">{t('settings.aws_secret_access_key')}</Label>
-                                <Input
-                                  id="aws_secret_access_key"
-                                  name="aws_secret_access_key"
-                                  type="password"
-                                  value={emailSettings.aws_secret_access_key}
-                                  onChange={handleEmailChange}
-                                />
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleTestAIConfig(config.id)}
+                                >
+                                  {t('settings.test')}
+                                </Button>
+                                {!config.tested && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleMarkAsTested(config.id)}
+                                  >
+                                    {t('settings.mark_tested')}
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEditAIConfigDialog(config)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteAIConfig(config.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="aws_region">{t('settings.aws_region')}</Label>
-                              <Select value={emailSettings.aws_region} onValueChange={(value) => setEmailSettings(prev => ({ ...prev, aws_region: value }))}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="us-east-1">{t('settings.us_east_virginia')}</SelectItem>
-                                  <SelectItem value="us-west-2">{t('settings.us_west_oregon')}</SelectItem>
-                                  <SelectItem value="eu-west-1">{t('settings.eu_ireland')}</SelectItem>
-                                  <SelectItem value="ap-southeast-1">{t('settings.asia_pacific_singapore')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
 
-                        {emailSettings.provider === "azure_email" && (
-                          <div className="space-y-4 p-4 border rounded-lg">
-                            <h4 className="font-medium">{t('settings.azure_email_services_configuration')}</h4>
+            {isAdmin && (
+              <TabsContent value="search" className="mt-6">
+                <SearchStatus />
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="email-notifications" className="mt-6">
+                <div className="space-y-6">
+                  {/* Email Configuration Section */}
+                  <ProfessionalCard>
+                    <CardHeader>
+                      <CardTitle>{t('settings.email_configuration')}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Configure your email service provider and settings
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="email_enabled">{t('settings.enable_email_service')}</Label>
+                          <p className="text-sm text-muted-foreground">{t('settings.enable_email_service_description')}</p>
+                        </div>
+                        <Switch
+                          id="email_enabled"
+                          checked={emailSettings.enabled}
+                          onCheckedChange={(checked) => handleEmailToggleChange('enabled', checked)}
+                        />
+                      </div>
+
+                      {emailSettings.enabled && (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="provider">{t('settings.email_provider')}</Label>
+                            <Select value={emailSettings.provider} onValueChange={handleEmailProviderChange}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('settings.select_email_provider')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="aws_ses">{t('settings.aws_ses')}</SelectItem>
+                                <SelectItem value="azure_email">{t('settings.azure_email_services')}</SelectItem>
+                                <SelectItem value="mailgun">{t('settings.mailgun')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                              <Label htmlFor="azure_connection_string">{t('settings.azure_connection_string')}</Label>
+                              <Label htmlFor="from_name">{t('settings.from_name')}</Label>
                               <Input
-                                id="azure_connection_string"
-                                name="azure_connection_string"
-                                type="password"
-                                value={emailSettings.azure_connection_string}
+                                id="from_name"
+                                name="from_name"
+                                value={emailSettings.from_name}
+                                onChange={handleEmailChange}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="from_email">{t('settings.from_email')}</Label>
+                              <Input
+                                id="from_email"
+                                name="from_email"
+                                type="email"
+                                value={emailSettings.from_email}
                                 onChange={handleEmailChange}
                               />
                             </div>
                           </div>
-                        )}
 
-                        {emailSettings.provider === "mailgun" && (
-                          <div className="space-y-4 p-4 border rounded-lg">
-                            <h4 className="font-medium">{t('settings.mailgun_configuration')}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="mailgun_api_key">{t('settings.mailgun_api_key')}</Label>
-                                <Input
-                                  id="mailgun_api_key"
-                                  name="mailgun_api_key"
-                                  type="password"
-                                  value={emailSettings.mailgun_api_key}
-                                  onChange={handleEmailChange}
-                                />
+                          {emailSettings.provider === "aws_ses" && (
+                            <div className="space-y-4 p-4 border rounded-lg">
+                              <h4 className="font-medium">{t('settings.aws_ses_configuration')}</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="aws_access_key_id">{t('settings.aws_access_key_id')}</Label>
+                                  <Input
+                                    id="aws_access_key_id"
+                                    name="aws_access_key_id"
+                                    type="password"
+                                    value={emailSettings.aws_access_key_id}
+                                    onChange={handleEmailChange}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="aws_secret_access_key">{t('settings.aws_secret_access_key')}</Label>
+                                  <Input
+                                    id="aws_secret_access_key"
+                                    name="aws_secret_access_key"
+                                    type="password"
+                                    value={emailSettings.aws_secret_access_key}
+                                    onChange={handleEmailChange}
+                                  />
+                                </div>
                               </div>
                               <div className="space-y-2">
-                                <Label htmlFor="mailgun_domain">{t('settings.mailgun_domain')}</Label>
+                                <Label htmlFor="aws_region">{t('settings.aws_region')}</Label>
+                                <Select value={emailSettings.aws_region} onValueChange={(value) => setEmailSettings(prev => ({ ...prev, aws_region: value }))}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="us-east-1">{t('settings.us_east_virginia')}</SelectItem>
+                                    <SelectItem value="us-west-2">{t('settings.us_west_oregon')}</SelectItem>
+                                    <SelectItem value="eu-west-1">{t('settings.eu_ireland')}</SelectItem>
+                                    <SelectItem value="ap-southeast-1">{t('settings.asia_pacific_singapore')}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          )}
+
+                          {emailSettings.provider === "azure_email" && (
+                            <div className="space-y-4 p-4 border rounded-lg">
+                              <h4 className="font-medium">{t('settings.azure_email_services_configuration')}</h4>
+                              <div className="space-y-2">
+                                <Label htmlFor="azure_connection_string">{t('settings.azure_connection_string')}</Label>
                                 <Input
-                                  id="mailgun_domain"
-                                  name="mailgun_domain"
-                                  value={emailSettings.mailgun_domain}
+                                  id="azure_connection_string"
+                                  name="azure_connection_string"
+                                  type="password"
+                                  value={emailSettings.azure_connection_string}
                                   onChange={handleEmailChange}
                                 />
                               </div>
                             </div>
+                          )}
+
+                          {emailSettings.provider === "mailgun" && (
+                            <div className="space-y-4 p-4 border rounded-lg">
+                              <h4 className="font-medium">{t('settings.mailgun_configuration')}</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="mailgun_api_key">{t('settings.mailgun_api_key')}</Label>
+                                  <Input
+                                    id="mailgun_api_key"
+                                    name="mailgun_api_key"
+                                    type="password"
+                                    value={emailSettings.mailgun_api_key}
+                                    onChange={handleEmailChange}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="mailgun_domain">{t('settings.mailgun_domain')}</Label>
+                                  <Input
+                                    id="mailgun_domain"
+                                    name="mailgun_domain"
+                                    value={emailSettings.mailgun_domain}
+                                    onChange={handleEmailChange}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between pt-4 border-t">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={testEmailConfiguration}
+                            >
+                              {t('settings.test_configuration')}
+                            </Button>
+                            <Button onClick={handleSave} disabled={saving}>
+                              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {t('settings.save_email_settings')}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </ProfessionalCard>
+
+                  {/* Notification Settings Section */}
+                  <ProfessionalCard>
+                    <CardHeader>
+                      <CardTitle>{t('settings.notification_settings_title')}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {t('settings.notification_settings_description')}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {loadingNotifications ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          <span className="text-sm text-muted-foreground">{t('settings.loading_notification_settings')}</span>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Custom notification email */}
+                          <div className="space-y-2">
+                            <Label htmlFor="notification_email">Notification Email (Optional)</Label>
+                            <Input
+                              id="notification_email"
+                              type="email"
+                              value={notificationSettings.notification_email}
+                              onChange={handleNotificationEmailChange}
+                              placeholder="Leave empty to use your account email"
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              If specified, notifications will be sent to this email instead of your account email
+                            </p>
+                          </div>
+
+                          {/* User Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">User Operations</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>User Created</Label>
+                                  <p className="text-sm text-muted-foreground">When a new user is added</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.user_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('user_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>User Updated</Label>
+                                  <p className="text-sm text-muted-foreground">When user info is modified</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.user_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('user_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>User Deleted</Label>
+                                  <p className="text-sm text-muted-foreground">When a user is removed</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.user_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('user_deleted', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>User Login</Label>
+                                  <p className="text-sm text-muted-foreground">When a user logs in</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.user_login}
+                                  onCheckedChange={(checked) => handleNotificationToggle('user_login', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Client Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Client Operations</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Client Created</Label>
+                                  <p className="text-sm text-muted-foreground">When a new client is added</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.client_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('client_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Client Updated</Label>
+                                  <p className="text-sm text-muted-foreground">When client info is modified</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.client_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('client_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Client Deleted</Label>
+                                  <p className="text-sm text-muted-foreground">When a client is removed</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.client_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('client_deleted', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Invoice Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Invoice Operations</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Created</Label>
+                                  <p className="text-sm text-muted-foreground">When a new invoice is created</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Updated</Label>
+                                  <p className="text-sm text-muted-foreground">When invoice is modified</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Deleted</Label>
+                                  <p className="text-sm text-muted-foreground">When an invoice is deleted</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_deleted', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Sent</Label>
+                                  <p className="text-sm text-muted-foreground">When invoice is sent to client</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_sent}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_sent', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Paid</Label>
+                                  <p className="text-sm text-muted-foreground">When invoice is marked as paid</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_paid}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_paid', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Invoice Overdue</Label>
+                                  <p className="text-sm text-muted-foreground">When invoice becomes overdue</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.invoice_overdue}
+                                  onCheckedChange={(checked) => handleNotificationToggle('invoice_overdue', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Payment Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Payment Operations</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Payment Created</Label>
+                                  <p className="text-sm text-muted-foreground">When a payment is recorded</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.payment_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('payment_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Payment Updated</Label>
+                                  <p className="text-sm text-muted-foreground">When payment is modified</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.payment_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('payment_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>Payment Deleted</Label>
+                                  <p className="text-sm text-muted-foreground">When a payment is removed</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.payment_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('payment_deleted', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expense Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">{t('settings.expense_operations')}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_created')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_created_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_updated')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_updated_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_deleted')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_deleted_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_deleted', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_approved')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_approved_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_approved}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_approved', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_rejected')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_rejected_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_rejected}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_rejected', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.expense_submitted')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.expense_submitted_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.expense_submitted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('expense_submitted', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Inventory Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">{t('settings.inventory_operations')}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.inventory_created')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.inventory_created_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.inventory_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('inventory_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.inventory_updated')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.inventory_updated_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.inventory_updated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('inventory_updated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.inventory_deleted')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.inventory_deleted_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.inventory_deleted}
+                                  onCheckedChange={(checked) => handleNotificationToggle('inventory_deleted', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.inventory_low_stock')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.inventory_low_stock_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.inventory_low_stock}
+                                  onCheckedChange={(checked) => handleNotificationToggle('inventory_low_stock', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.inventory_out_of_stock')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.inventory_out_of_stock_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.inventory_out_of_stock}
+                                  onCheckedChange={(checked) => handleNotificationToggle('inventory_out_of_stock', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Statement Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">{t('settings.statement_operations')}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.statement_generated')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.statement_generated_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.statement_generated}
+                                  onCheckedChange={(checked) => handleNotificationToggle('statement_generated', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.statement_sent')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.statement_sent_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.statement_sent}
+                                  onCheckedChange={(checked) => handleNotificationToggle('statement_sent', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.statement_overdue')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.statement_overdue_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.statement_overdue}
+                                  onCheckedChange={(checked) => handleNotificationToggle('statement_overdue', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Reminder Operations */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">{t('settings.reminder_operations')}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.reminder_created')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.reminder_created_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.reminder_created}
+                                  onCheckedChange={(checked) => handleNotificationToggle('reminder_created', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.reminder_sent')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.reminder_sent_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.reminder_sent}
+                                  onCheckedChange={(checked) => handleNotificationToggle('reminder_sent', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.reminder_overdue')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.reminder_overdue_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.reminder_overdue}
+                                  onCheckedChange={(checked) => handleNotificationToggle('reminder_overdue', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Summary Notifications */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Summary Notifications</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.daily_summary')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.daily_summary_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.daily_summary}
+                                  onCheckedChange={(checked) => handleNotificationToggle('daily_summary', checked)}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                  <Label>{t('settings.weekly_summary')}</Label>
+                                  <p className="text-sm text-muted-foreground">{t('settings.weekly_summary_description')}</p>
+                                </div>
+                                <Switch
+                                  checked={notificationSettings.weekly_summary}
+                                  onCheckedChange={(checked) => handleNotificationToggle('weekly_summary', checked)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex justify-between pt-4 border-t">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleTestNotification}
+                            >
+                              {t('settings.send_test_notification')}
+                            </Button>
+                            <Button
+                              onClick={handleSaveNotifications}
+                              disabled={savingNotifications}
+                            >
+                              {savingNotifications && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {t('settings.save_notification_settings')}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </ProfessionalCard>
+                </div>
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="email-integration" className="mt-6">
+                <EmailIntegrationSettings />
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="tax-integration" className="mt-6">
+                <div className="space-y-6">
+                  {/* Tax Service Configuration Section */}
+                  <ProfessionalCard>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calculator className="h-5 w-5" />
+                        {t('taxIntegration.configuration.title')}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {t('taxIntegration.configuration.description')}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Always show configuration fields so users can test before enabling */}
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="tax_base_url">{t('taxIntegration.configuration.baseUrl')}</Label>
+                            <Input
+                              id="tax_base_url"
+                              type="url"
+                              value={taxSettings.base_url}
+                              onChange={(e) => setTaxSettings(prev => ({ ...prev, base_url: e.target.value }))}
+                              placeholder="https://api.tax-service.com"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="tax_api_key">{t('taxIntegration.configuration.apiKey')}</Label>
+                            <Input
+                              id="tax_api_key"
+                              type="password"
+                              value={taxSettings.api_key}
+                              onChange={(e) => setTaxSettings(prev => ({ ...prev, api_key: e.target.value }))}
+                              placeholder={t('taxIntegration.configuration.apiKeyPlaceholder')}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="tax_timeout">{t('taxIntegration.configuration.timeout')}</Label>
+                            <Input
+                              id="tax_timeout"
+                              type="number"
+                              min="1"
+                              max="300"
+                              value={taxSettings.timeout}
+                              onChange={(e) => setTaxSettings(prev => ({ ...prev, timeout: parseInt(e.target.value) || 30 }))}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="tax_retry_attempts">{t('taxIntegration.configuration.retryAttempts')}</Label>
+                            <Input
+                              id="tax_retry_attempts"
+                              type="number"
+                              min="0"
+                              max="10"
+                              value={taxSettings.retry_attempts}
+                              onChange={(e) => setTaxSettings(prev => ({ ...prev, retry_attempts: parseInt(e.target.value) || 3 }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Test Results */}
+                        {taxTestResult && (
+                          <div className={`p-3 rounded-md text-sm ${taxTestResult.success
+                            ? 'bg-green-50 text-green-800 border border-green-200'
+                            : 'bg-red-50 text-red-800 border border-red-200'
+                            }`}>
+                            <div className="flex items-center gap-2">
+                              {taxTestResult.success ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                <XCircle className="h-4 w-4" />
+                              )}
+                              <span>{taxTestResult.message}</span>
+                            </div>
                           </div>
                         )}
 
-                        <div className="flex justify-between pt-4 border-t">
+                        {taxConnectionTested && (
+                          <div className="p-3 rounded-md text-sm bg-green-50 text-green-800 border border-green-200">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>{t('taxIntegration.configuration.connectionTestedSuccess')}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end gap-3 pt-4">
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={testEmailConfiguration}
+                            onClick={() => handleTestTaxConnection()}
+                            disabled={testingTaxConnection || !taxSettings.base_url}
                           >
-                            {t('settings.test_configuration')}
+                            {testingTaxConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {t('taxIntegration.configuration.testConnection')}
                           </Button>
-                          <Button onClick={handleSave} disabled={saving}>
-                            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {t('settings.save_email_settings')}
+                          <Button
+                            onClick={handleSaveTaxSettings}
+                            disabled={saving}
+                          >
+                            {saving ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {t('taxIntegration.configuration.saving')}
+                              </>
+                            ) : (
+                              t('taxIntegration.configuration.saveTaxSettings')
+                            )}
                           </Button>
                         </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
 
-                {/* Notification Settings Section */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('settings.notification_settings_title')}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {t('settings.notification_settings_description')}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {loadingNotifications ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                        <span className="text-sm text-muted-foreground">{t('settings.loading_notification_settings')}</span>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Custom notification email */}
-                        <div className="space-y-2">
-                          <Label htmlFor="notification_email">Notification Email (Optional)</Label>
-                          <Input
-                            id="notification_email"
-                            type="email"
-                            value={notificationSettings.notification_email}
-                            onChange={handleNotificationEmailChange}
-                            placeholder="Leave empty to use your account email"
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            If specified, notifications will be sent to this email instead of your account email
+                      </>
+                    </CardContent>
+                  </ProfessionalCard>
+
+                  {/* Tax Integration Status Section */}
+                  <ProfessionalCard>
+                    <CardHeader>
+                      <CardTitle>{t('taxIntegration.configuration.integrationStatus')}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {t('taxIntegration.configuration.integrationStatusDescription')}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {taxSettings.enabled ? '✅' : '❌'}
+                          </div>
+                          <h3 className="font-medium text-blue-900 mt-2">{t('taxIntegration.configuration.serviceStatus')}</h3>
+                          <p className="text-sm text-blue-700 mt-1">
+                            {taxSettings.enabled ? t('taxIntegration.configuration.enabled') : t('taxIntegration.configuration.disabled')}
                           </p>
                         </div>
-
-                        {/* User Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">User Operations</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>User Created</Label>
-                                <p className="text-sm text-muted-foreground">When a new user is added</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.user_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('user_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>User Updated</Label>
-                                <p className="text-sm text-muted-foreground">When user info is modified</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.user_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('user_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>User Deleted</Label>
-                                <p className="text-sm text-muted-foreground">When a user is removed</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.user_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('user_deleted', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>User Login</Label>
-                                <p className="text-sm text-muted-foreground">When a user logs in</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.user_login}
-                                onCheckedChange={(checked) => handleNotificationToggle('user_login', checked)}
-                              />
-                            </div>
-                          </div>
+                        <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-2xl font-bold text-green-600">🔗</div>
+                          <h3 className="font-medium text-green-900 mt-2">{t('taxIntegration.configuration.apiConnection')}</h3>
+                          <p className="text-sm text-green-700 mt-1">
+                            {taxTestResult?.success ? t('taxIntegration.configuration.connected') : t('taxIntegration.configuration.notTested')}
+                          </p>
                         </div>
-
-                        {/* Client Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">Client Operations</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Client Created</Label>
-                                <p className="text-sm text-muted-foreground">When a new client is added</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.client_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('client_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Client Updated</Label>
-                                <p className="text-sm text-muted-foreground">When client info is modified</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.client_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('client_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Client Deleted</Label>
-                                <p className="text-sm text-muted-foreground">When a client is removed</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.client_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('client_deleted', checked)}
-                              />
-                            </div>
-                          </div>
+                        <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="text-2xl font-bold text-purple-600">⚙️</div>
+                          <h3 className="font-medium text-purple-900 mt-2">{t('taxIntegration.configuration.configuration')}</h3>
+                          <p className="text-sm text-purple-700 mt-1">
+                            {taxSettings.base_url ? t('taxIntegration.configuration.configured') : t('taxIntegration.configuration.notConfigured')}
+                          </p>
                         </div>
+                      </div>
+                    </CardContent>
+                  </ProfessionalCard>
+                </div>
+              </TabsContent>
+            )}
 
-                        {/* Invoice Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">Invoice Operations</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Created</Label>
-                                <p className="text-sm text-muted-foreground">When a new invoice is created</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Updated</Label>
-                                <p className="text-sm text-muted-foreground">When invoice is modified</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Deleted</Label>
-                                <p className="text-sm text-muted-foreground">When an invoice is deleted</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_deleted', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Sent</Label>
-                                <p className="text-sm text-muted-foreground">When invoice is sent to client</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_sent}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_sent', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Paid</Label>
-                                <p className="text-sm text-muted-foreground">When invoice is marked as paid</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_paid}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_paid', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Invoice Overdue</Label>
-                                <p className="text-sm text-muted-foreground">When invoice becomes overdue</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.invoice_overdue}
-                                onCheckedChange={(checked) => handleNotificationToggle('invoice_overdue', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
+            {isAdmin && (
+              <TabsContent value="export-destinations" className="mt-6">
+                <ExportDestinationsTab isAdmin={isAdmin} />
+              </TabsContent>
+            )}
 
-                        {/* Payment Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">Payment Operations</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Payment Created</Label>
-                                <p className="text-sm text-muted-foreground">When a payment is recorded</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.payment_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('payment_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Payment Updated</Label>
-                                <p className="text-sm text-muted-foreground">When payment is modified</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.payment_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('payment_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>Payment Deleted</Label>
-                                <p className="text-sm text-muted-foreground">When a payment is removed</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.payment_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('payment_deleted', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
+            {isAdmin && (
+              <TabsContent value="license" className="mt-6">
+                <LicenseManagement />
+              </TabsContent>
+            )}
 
-                        {/* Expense Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">{t('settings.expense_operations')}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_created')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_created_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_updated')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_updated_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_deleted')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_deleted_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_deleted', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_approved')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_approved_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_approved}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_approved', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_rejected')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_rejected_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_rejected}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_rejected', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.expense_submitted')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.expense_submitted_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.expense_submitted}
-                                onCheckedChange={(checked) => handleNotificationToggle('expense_submitted', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Inventory Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">{t('settings.inventory_operations')}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.inventory_created')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.inventory_created_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.inventory_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('inventory_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.inventory_updated')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.inventory_updated_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.inventory_updated}
-                                onCheckedChange={(checked) => handleNotificationToggle('inventory_updated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.inventory_deleted')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.inventory_deleted_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.inventory_deleted}
-                                onCheckedChange={(checked) => handleNotificationToggle('inventory_deleted', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.inventory_low_stock')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.inventory_low_stock_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.inventory_low_stock}
-                                onCheckedChange={(checked) => handleNotificationToggle('inventory_low_stock', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.inventory_out_of_stock')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.inventory_out_of_stock_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.inventory_out_of_stock}
-                                onCheckedChange={(checked) => handleNotificationToggle('inventory_out_of_stock', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Statement Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">{t('settings.statement_operations')}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.statement_generated')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.statement_generated_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.statement_generated}
-                                onCheckedChange={(checked) => handleNotificationToggle('statement_generated', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.statement_sent')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.statement_sent_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.statement_sent}
-                                onCheckedChange={(checked) => handleNotificationToggle('statement_sent', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.statement_overdue')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.statement_overdue_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.statement_overdue}
-                                onCheckedChange={(checked) => handleNotificationToggle('statement_overdue', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Reminder Operations */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">{t('settings.reminder_operations')}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.reminder_created')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.reminder_created_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.reminder_created}
-                                onCheckedChange={(checked) => handleNotificationToggle('reminder_created', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.reminder_sent')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.reminder_sent_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.reminder_sent}
-                                onCheckedChange={(checked) => handleNotificationToggle('reminder_sent', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.reminder_overdue')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.reminder_overdue_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.reminder_overdue}
-                                onCheckedChange={(checked) => handleNotificationToggle('reminder_overdue', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Summary Notifications */}
-                        <div className="space-y-4">
-                          <h3 className="text-lg font-semibold">Summary Notifications</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.daily_summary')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.daily_summary_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.daily_summary}
-                                onCheckedChange={(checked) => handleNotificationToggle('daily_summary', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-0.5">
-                                <Label>{t('settings.weekly_summary')}</Label>
-                                <p className="text-sm text-muted-foreground">{t('settings.weekly_summary_description')}</p>
-                              </div>
-                              <Switch
-                                checked={notificationSettings.weekly_summary}
-                                onCheckedChange={(checked) => handleNotificationToggle('weekly_summary', checked)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex justify-between pt-4 border-t">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleTestNotification}
-                          >
-                            {t('settings.send_test_notification')}
-                          </Button>
-                          <Button
-                            onClick={handleSaveNotifications}
-                            disabled={savingNotifications}
-                          >
-                            {savingNotifications && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {t('settings.save_notification_settings')}
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="cookies" className="space-y-6">
+              <CookieSettings />
             </TabsContent>
-          )}
 
-          {isAdmin && (
-            <TabsContent value="email-integration" className="mt-6">
-              <EmailIntegrationSettings />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="tax-integration" className="mt-6">
-              <div className="space-y-6">
-                {/* Tax Service Configuration Section */}
-                <Card>
+            {isAdmin && (
+              <TabsContent value="export" className="space-y-6">
+                {/* Data Overview Section */}
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Calculator className="h-5 w-5" />
-                      {t('taxIntegration.configuration.title')}
+                      <Database className="h-5 w-5" />
+                      {t('settings.data_management')}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      {t('taxIntegration.configuration.description')}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Always show configuration fields so users can test before enabling */}
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="tax_base_url">{t('taxIntegration.configuration.baseUrl')}</Label>
-                          <Input
-                            id="tax_base_url"
-                            type="url"
-                            value={taxSettings.base_url}
-                            onChange={(e) => setTaxSettings(prev => ({ ...prev, base_url: e.target.value }))}
-                            placeholder="https://api.tax-service.com"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="tax_api_key">{t('taxIntegration.configuration.apiKey')}</Label>
-                          <Input
-                            id="tax_api_key"
-                            type="password"
-                            value={taxSettings.api_key}
-                            onChange={(e) => setTaxSettings(prev => ({ ...prev, api_key: e.target.value }))}
-                            placeholder={t('taxIntegration.configuration.apiKeyPlaceholder')}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="tax_timeout">{t('taxIntegration.configuration.timeout')}</Label>
-                          <Input
-                            id="tax_timeout"
-                            type="number"
-                            min="1"
-                            max="300"
-                            value={taxSettings.timeout}
-                            onChange={(e) => setTaxSettings(prev => ({ ...prev, timeout: parseInt(e.target.value) || 30 }))}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="tax_retry_attempts">{t('taxIntegration.configuration.retryAttempts')}</Label>
-                          <Input
-                            id="tax_retry_attempts"
-                            type="number"
-                            min="0"
-                            max="10"
-                            value={taxSettings.retry_attempts}
-                            onChange={(e) => setTaxSettings(prev => ({ ...prev, retry_attempts: parseInt(e.target.value) || 3 }))}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Test Results */}
-                      {taxTestResult && (
-                        <div className={`p-3 rounded-md text-sm ${taxTestResult.success
-                          ? 'bg-green-50 text-green-800 border border-green-200'
-                          : 'bg-red-50 text-red-800 border border-red-200'
-                          }`}>
-                          <div className="flex items-center gap-2">
-                            {taxTestResult.success ? (
-                              <CheckCircle className="h-4 w-4" />
-                            ) : (
-                              <XCircle className="h-4 w-4" />
-                            )}
-                            <span>{taxTestResult.message}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {taxConnectionTested && (
-                        <div className="p-3 rounded-md text-sm bg-green-50 text-green-800 border border-green-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>{t('taxIntegration.configuration.connectionTestedSuccess')}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-end gap-3 pt-4">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleTestTaxConnection()}
-                          disabled={testingTaxConnection || !taxSettings.base_url}
-                        >
-                          {testingTaxConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {t('taxIntegration.configuration.testConnection')}
-                        </Button>
-                        <Button
-                          onClick={handleSaveTaxSettings}
-                          disabled={saving}
-                        >
-                          {saving ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              {t('taxIntegration.configuration.saving')}
-                            </>
-                          ) : (
-                            t('taxIntegration.configuration.saveTaxSettings')
-                          )}
-                        </Button>
-                      </div>
-
-                    </>
-                  </CardContent>
-                </Card>
-
-                {/* Tax Integration Status Section */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('taxIntegration.configuration.integrationStatus')}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {t('taxIntegration.configuration.integrationStatusDescription')}
+                      {t('settings.data_management_description')}
                     </p>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {taxSettings.enabled ? '✅' : '❌'}
-                        </div>
-                        <h3 className="font-medium text-blue-900 mt-2">{t('taxIntegration.configuration.serviceStatus')}</h3>
-                        <p className="text-sm text-blue-700 mt-1">
-                          {taxSettings.enabled ? t('taxIntegration.configuration.enabled') : t('taxIntegration.configuration.disabled')}
-                        </p>
+                        <div className="text-2xl font-bold text-blue-600">📊</div>
+                        <h3 className="font-medium text-blue-900 mt-2">{t('settings.complete_backup')}</h3>
+                        <p className="text-sm text-blue-700 mt-1">{t('settings.complete_backup_description')}</p>
                       </div>
                       <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="text-2xl font-bold text-green-600">🔗</div>
-                        <h3 className="font-medium text-green-900 mt-2">{t('taxIntegration.configuration.apiConnection')}</h3>
-                        <p className="text-sm text-green-700 mt-1">
-                          {taxTestResult?.success ? t('taxIntegration.configuration.connected') : t('taxIntegration.configuration.notTested')}
-                        </p>
+                        <div className="text-2xl font-bold text-green-600">🔄</div>
+                        <h3 className="font-medium text-green-900 mt-2">{t('settings.easy_restore')}</h3>
+                        <p className="text-sm text-green-700 mt-1">{t('settings.easy_restore_description')}</p>
                       </div>
                       <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-                        <div className="text-2xl font-bold text-purple-600">⚙️</div>
-                        <h3 className="font-medium text-purple-900 mt-2">{t('taxIntegration.configuration.configuration')}</h3>
-                        <p className="text-sm text-purple-700 mt-1">
-                          {taxSettings.base_url ? t('taxIntegration.configuration.configured') : t('taxIntegration.configuration.notConfigured')}
-                        </p>
+                        <div className="text-2xl font-bold text-purple-600">🔒</div>
+                        <h3 className="font-medium text-purple-900 mt-2">{t('settings.data_control')}</h3>
+                        <p className="text-sm text-purple-700 mt-1">{t('settings.data_control_description')}</p>
                       </div>
                     </div>
                   </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          )}
+                </ProfessionalCard>
 
-          {isAdmin && (
-            <TabsContent value="export-destinations" className="mt-6">
-              <ExportDestinationsTab isAdmin={isAdmin} />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="license" className="mt-6">
-              <LicenseManagement />
-            </TabsContent>
-          )}
-
-          <TabsContent value="cookies" className="space-y-6">
-            <CookieSettings />
-          </TabsContent>
-
-          {isAdmin && (
-            <TabsContent value="export" className="space-y-6">
-              {/* Data Overview Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    {t('settings.data_management')}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.data_management_description')}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="text-2xl font-bold text-blue-600">📊</div>
-                      <h3 className="font-medium text-blue-900 mt-2">{t('settings.complete_backup')}</h3>
-                      <p className="text-sm text-blue-700 mt-1">{t('settings.complete_backup_description')}</p>
-                    </div>
-                    <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                      <div className="text-2xl font-bold text-green-600">🔄</div>
-                      <h3 className="font-medium text-green-900 mt-2">{t('settings.easy_restore')}</h3>
-                      <p className="text-sm text-green-700 mt-1">{t('settings.easy_restore_description')}</p>
-                    </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-                      <div className="text-2xl font-bold text-purple-600">🔒</div>
-                      <h3 className="font-medium text-purple-900 mt-2">{t('settings.data_control')}</h3>
-                      <p className="text-sm text-purple-700 mt-1">{t('settings.data_control_description')}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Export Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Download className="h-5 w-5" />
-                    {t('settings.export_data')}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.export_data_description')}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium mb-3">{t('settings.what_will_be_exported')}</h4>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span>{t('settings.client_information')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span>{t('settings.complete_invoice_history')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                            <span>{t('settings.payment_records')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                            <span>{t('settings.client_notes')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                            <span>{t('settings.company_settings')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            <span>Expenses & Receipts</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                            <span>Statements & Transactions</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                            <span>Audit Logs & Activity History</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                            <span>AI Chat History</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium mb-3">{t('settings.export_details')}</h4>
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                          <p><strong>{t('settings.format')}:</strong> {t('settings.sqlite_database')}</p>
-                          <p><strong>{t('settings.compatibility')}:</strong> {t('settings.works_with_database_tools')}</p>
-                          <p><strong>{t('settings.security')}:</strong> {t('settings.no_sensitive_authentication_data')}</p>
-                          <p><strong>{t('settings.size')}:</strong> {t('settings.size_description')}</p>
-                          <p><strong>Note:</strong> Attachment files (receipts, bank statements, invoice attachments) are not included in the export. Only database records are exported.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <Button
-                      onClick={handleExportData}
-                      disabled={exporting}
-                      size="lg"
-                      className="w-full sm:w-auto"
-                    >
-                      {exporting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {t('settings.creating_export')}
-                        </>
-                      ) : (
-                        <>
-                          <Download className="mr-2 h-4 w-4" />
-                          {t('settings.download_complete_backup')}
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {t('settings.export_includes_all_data')}
+                {/* Export Section */}
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Download className="h-5 w-5" />
+                      {t('settings.export_data')}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.export_data_description')}
                     </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Import Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="h-5 w-5" />
-                    {t('settings.import_data')}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.import_data_description')}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="text-amber-600 text-lg">⚠️</div>
-                      <div>
-                        <h4 className="font-medium text-amber-900 mb-1">{t('settings.important_warning')}</h4>
-                        <p className="text-sm text-amber-800">
-                          {t('settings.importing_data_warning_strong')}
-                          {t('settings.importing_data_warning_cannot_be_undone')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="import-file" className="text-base font-medium">{t('settings.select_backup_file')}</Label>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {t('settings.choose_sqlite_file')}
-                        </p>
-                        <Input
-                          id="import-file"
-                          type="file"
-                          accept=".sqlite"
-                          onChange={handleFileSelect}
-                          disabled={importing}
-                          className="cursor-pointer"
-                        />
-                        {selectedFile && (
-                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-3">{t('settings.what_will_be_exported')}</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span>{t('settings.client_information')}</span>
+                            </div>
                             <div className="flex items-center gap-2 text-sm">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="font-medium">{t('settings.file_selected')}:</span>
+                              <span>{t('settings.complete_invoice_history')}</span>
                             </div>
-                            <p className="text-sm text-green-700 mt-1">
-                              {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} {t('settings.mb')})
-                            </p>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span>{t('settings.payment_records')}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <span>{t('settings.client_notes')}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                              <span>{t('settings.company_settings')}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <span>Expenses & Receipts</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                              <span>Statements & Transactions</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                              <span>Audit Logs & Activity History</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                              <span>AI Chat History</span>
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium mb-3">{t('settings.import_process')}</h4>
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span>{t('settings.file_validation_and_structure_check')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span>{t('settings.current_data_backup_and_removal')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span>{t('settings.import_new_data_with_id_mapping')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span>{t('settings.data_integrity_verification')}</span>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-3">{t('settings.export_details')}</h4>
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            <p><strong>{t('settings.format')}:</strong> {t('settings.sqlite_database')}</p>
+                            <p><strong>{t('settings.compatibility')}:</strong> {t('settings.works_with_database_tools')}</p>
+                            <p><strong>{t('settings.security')}:</strong> {t('settings.no_sensitive_authentication_data')}</p>
+                            <p><strong>{t('settings.size')}:</strong> {t('settings.size_description')}</p>
+                            <p><strong>Note:</strong> Attachment files (receipts, bank statements, invoice attachments) are not included in the export. Only database records are exported.</p>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="border-t pt-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="border-t pt-4">
                       <Button
                         onClick={handleExportData}
-                        disabled={exporting || importing}
-                        variant="outline"
+                        disabled={exporting}
                         size="lg"
+                        className="w-full sm:w-auto"
                       >
                         {exporting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('settings.creating_backup')}
+                            {t('settings.creating_export')}
                           </>
                         ) : (
                           <>
                             <Download className="mr-2 h-4 w-4" />
-                            {t('settings.backup_current_data_first')}
+                            {t('settings.download_complete_backup')}
                           </>
                         )}
                       </Button>
-
-                      <Button
-                        onClick={handleImportData}
-                        disabled={importing || !selectedFile}
-                        variant="destructive"
-                        size="lg"
-                      >
-                        {importing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('settings.importing_data')}
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            {t('settings.import_and_replace_data')}
-                          </>
-                        )}
-                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t('settings.export_includes_all_data')}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {t('settings.recommended_backup_hint')}
+                  </CardContent>
+                </ProfessionalCard>
+
+                {/* Import Section */}
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      {t('settings.import_data')}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.import_data_description')}
                     </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Best Practices Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <span className="text-lg">💡</span>
-                    {t('settings.best_practices_and_tips')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium mb-3 text-green-700">{t('settings.recommended_practices')}</h4>
-                      <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-500 mt-0.5">•</span>
-                          <span>{t('settings.create_regular_backups')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-500 mt-0.5">•</span>
-                          <span>{t('settings.always_backup_before_importing')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-500 mt-0.5">•</span>
-                          <span>{t('settings.store_backup_files_in_multiple_safe_locations')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-green-500 mt-0.5">•</span>
-                          <span>{t('settings.test_imports_in_a_separate_environment_first')}</span>
-                        </li>
-                      </ul>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="text-amber-600 text-lg">⚠️</div>
+                        <div>
+                          <h4 className="font-medium text-amber-900 mb-1">{t('settings.important_warning')}</h4>
+                          <p className="text-sm text-amber-800">
+                            {t('settings.importing_data_warning_strong')}
+                            {t('settings.importing_data_warning_cannot_be_undone')}
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <h4 className="font-medium mb-3 text-blue-700">{t('settings.technical_information')}</h4>
-                      <ul className="space-y-2 text-sm text-muted-foreground">
-                        <li className="flex items-start gap-2">
-                          <span className="text-blue-500 mt-0.5">•</span>
-                          <span>{t('settings.sqlite_files_can_be_opened_with_db_browser')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-blue-500 mt-0.5">•</span>
-                          <span>{t('settings.data_can_be_used_programmatically_in_custom_applications')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-blue-500 mt-0.5">•</span>
-                          <span>{t('settings.import_validates_file_structure_before_processing')}</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-blue-500 mt-0.5">•</span>
-                          <span>{t('settings.new_invoice_numbers_are_generated_to_avoid_conflicts')}</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="import-file" className="text-base font-medium">{t('settings.select_backup_file')}</Label>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {t('settings.choose_sqlite_file')}
+                          </p>
+                          <Input
+                            id="import-file"
+                            type="file"
+                            accept=".sqlite"
+                            onChange={handleFileSelect}
+                            disabled={importing}
+                            className="cursor-pointer"
+                          />
+                          {selectedFile && (
+                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center gap-2 text-sm">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="font-medium">{t('settings.file_selected')}:</span>
+                              </div>
+                              <p className="text-sm text-green-700 mt-1">
+                                {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} {t('settings.mb')})
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-          {isAdmin && (
-            <TabsContent value="api-keys" className="mt-6">
-              <APIClientManagement />
-            </TabsContent>
-          )}
-        </Tabs>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-3">{t('settings.import_process')}</h4>
+                          <div className="space-y-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              <span>{t('settings.file_validation_and_structure_check')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              <span>{t('settings.current_data_backup_and_removal')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              <span>{t('settings.import_new_data_with_id_mapping')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              <span>{t('settings.data_integrity_verification')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                          onClick={handleExportData}
+                          disabled={exporting || importing}
+                          variant="outline"
+                          size="lg"
+                        >
+                          {exporting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {t('settings.creating_backup')}
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-4 w-4" />
+                              {t('settings.backup_current_data_first')}
+                            </>
+                          )}
+                        </Button>
+
+                        <Button
+                          onClick={handleImportData}
+                          disabled={importing || !selectedFile}
+                          variant="destructive"
+                          size="lg"
+                        >
+                          {importing ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {t('settings.importing_data')}
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              {t('settings.import_and_replace_data')}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t('settings.recommended_backup_hint')}
+                      </p>
+                    </div>
+                  </CardContent>
+                </ProfessionalCard>
+
+                {/* Best Practices Section */}
+                <ProfessionalCard>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="text-lg">💡</span>
+                      {t('settings.best_practices_and_tips')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-medium mb-3 text-green-700">{t('settings.recommended_practices')}</h4>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <span className="text-green-500 mt-0.5">•</span>
+                            <span>{t('settings.create_regular_backups')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-green-500 mt-0.5">•</span>
+                            <span>{t('settings.always_backup_before_importing')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-green-500 mt-0.5">•</span>
+                            <span>{t('settings.store_backup_files_in_multiple_safe_locations')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-green-500 mt-0.5">•</span>
+                            <span>{t('settings.test_imports_in_a_separate_environment_first')}</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-medium mb-3 text-blue-700">{t('settings.technical_information')}</h4>
+                        <ul className="space-y-2 text-sm text-muted-foreground">
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-500 mt-0.5">•</span>
+                            <span>{t('settings.sqlite_files_can_be_opened_with_db_browser')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-500 mt-0.5">•</span>
+                            <span>{t('settings.data_can_be_used_programmatically_in_custom_applications')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-500 mt-0.5">•</span>
+                            <span>{t('settings.import_validates_file_structure_before_processing')}</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-blue-500 mt-0.5">•</span>
+                            <span>{t('settings.new_invoice_numbers_are_generated_to_avoid_conflicts')}</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </ProfessionalCard>
+              </TabsContent>
+            )}
+
+            {isAdmin && (
+              <TabsContent value="api-keys" className="mt-6">
+                <APIClientManagement />
+              </TabsContent>
+            )}
+          </Tabs>
+        </ContentSection>
 
         {/* AI Configuration Dialog */}
         <Dialog open={showAIConfigDialog} onOpenChange={setShowAIConfigDialog}>

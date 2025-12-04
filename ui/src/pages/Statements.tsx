@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { PageHeader } from '@/components/ui/professional-layout';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -471,16 +473,15 @@ export default function Statements() {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">{t('statements.title')}</h1>
-            <p className="text-muted-foreground">{t('statements.description')}</p>
-          </div>
-          {!selected && <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />}
-        </div>
+
+        <PageHeader
+          title={t('statements.title')}
+          description={t('statements.description')}
+          actions={!selected && <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />}
+        />
 
         {!selected && (
-          <Card className="slide-in">
+          <ProfessionalCard className="slide-in">
             <CardHeader>
               <CardTitle>{t('statements.list_title')}</CardTitle>
             </CardHeader>
@@ -553,7 +554,7 @@ export default function Statements() {
                 </Table>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
 
         <Dialog open={previewOpen} onOpenChange={(open) => {
@@ -592,7 +593,7 @@ export default function Statements() {
         </Dialog>
 
         {selected && !showInvoiceForm && (
-          <Card className="slide-in">
+          <ProfessionalCard className="slide-in">
             <CardHeader className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1113,11 +1114,11 @@ export default function Statements() {
                 </Table>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
 
         {showInvoiceForm && (
-          <Card className="slide-in">
+          <ProfessionalCard className="slide-in">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-3">
@@ -1143,7 +1144,7 @@ export default function Statements() {
                 }}
               />
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
 
         {/* Upload Modal */}

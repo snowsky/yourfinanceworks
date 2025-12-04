@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/professional-layout";
+import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -62,7 +64,7 @@ const Analytics = () => {
   const fetchAIAnalytics = async () => {
     try {
       setAILoading(true);
-      const response = await api.get('/ai-config/');
+      const response = await api.get<any[]>('/ai-config/');
       const configs = response;
       const totalUsage = configs.reduce((sum: number, config: any) => sum + (config.usage_count || 0), 0);
       const activeProviders = configs.filter((config: any) => config.is_active).length;
@@ -101,85 +103,63 @@ const Analytics = () => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <BarChart3 className="h-8 w-8" />
-              Analytics
-            </h1>
-            <p className="text-muted-foreground">Usage analytics and insights</p>
-          </div>
-          <div className="flex gap-2">
-            <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="14">Last 14 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={fetchAnalytics} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Analytics"
+          description="Usage analytics and insights"
+          actions={
+            <div className="flex gap-2">
+              <Select value={days} onValueChange={setDays}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="14">Last 14 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={fetchAnalytics} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          }
+        />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{data?.total_views || 0}</div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Total Views"
+            value={data?.total_views || 0}
+            icon={BarChart3}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{data?.user_stats.length || 0}</div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Active Users"
+            value={data?.user_stats.length || 0}
+            icon={Users}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">AI Usage</CardTitle>
-              <Bot className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{aiData?.total_usage || 0}</div>
-              <div className="text-xs text-muted-foreground">
-                {aiData?.active_providers || 0} active providers
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="AI Usage"
+            value={aiData?.total_usage || 0}
+            icon={Bot}
+            description={`${aiData?.active_providers || 0} active providers`}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Math.round(data?.path_stats.reduce((acc, stat) => acc + stat.avg_response_time, 0) / (data?.path_stats.length || 1) || 0)}ms
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Avg Response"
+            value={`${Math.round(data?.path_stats.reduce((acc, stat) => acc + stat.avg_response_time, 0) / (data?.path_stats.length || 1) || 0)}ms`}
+            icon={Clock}
+          />
         </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Daily Views Chart */}
-          <Card>
+          {/* Daily Views Chart */}
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>Daily Page Views</CardTitle>
             </CardHeader>
@@ -187,22 +167,23 @@ const Analytics = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={data?.daily_stats || []}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     tickFormatter={(value) => new Date(value).toLocaleDateString()}
                   />
                   <YAxis />
-                  <Tooltip 
+                  <Tooltip
                     labelFormatter={(value) => new Date(value).toLocaleDateString()}
                   />
                   <Line type="monotone" dataKey="views" stroke="#8884d8" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
 
           {/* Top Pages Chart */}
-          <Card>
+          {/* Top Pages Chart */}
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>Most Popular Pages</CardTitle>
             </CardHeader>
@@ -210,8 +191,8 @@ const Analytics = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={data?.path_stats.slice(0, 8) || []}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="path" 
+                  <XAxis
+                    dataKey="path"
                     tickFormatter={(value) => value.split('/').pop() || value}
                     angle={-45}
                     textAnchor="end"
@@ -223,12 +204,12 @@ const Analytics = () => {
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         </div>
 
         {/* AI Provider Usage Chart */}
         {!aiLoading && aiData && aiData.ai_configs.length > 0 && (
-          <Card>
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5" />
@@ -251,13 +232,14 @@ const Analytics = () => {
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
 
         {/* Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top Users */}
-          <Card>
+          {/* Top Users */}
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>Most Active Users</CardTitle>
             </CardHeader>
@@ -274,10 +256,11 @@ const Analytics = () => {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
 
           {/* Performance */}
-          <Card>
+          {/* Performance */}
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>Page Performance</CardTitle>
             </CardHeader>
@@ -299,7 +282,7 @@ const Analytics = () => {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         </div>
       </div>
     </AppLayout>

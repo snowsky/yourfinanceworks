@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/professional-layout';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
@@ -105,52 +107,47 @@ export default function ViewInvoice() {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/invoices')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">{t('invoices.view_title', { defaultValue: 'View Invoice' })}</h1>
-              <p className="text-muted-foreground">{t('invoices.view_description', { defaultValue: 'Review invoice details.' })}</p>
+        <PageHeader
+          title={t('invoices.view_title', { defaultValue: 'View Invoice' })}
+          description={t('invoices.view_description', { defaultValue: 'Review invoice details.' })}
+          breadcrumbs={[
+            { label: t('invoices.title', 'Invoices'), href: '/invoices' },
+            { label: invoice.number || 'Invoice', href: '#' }
+          ]}
+          actions={
+            <div className="flex gap-2">
+              {approval && (
+                <ApprovalActionButtons
+                  approval={approval as any}
+                  onAction={handleApprovalAction}
+                />
+              )}
+              {invoice.status !== 'pending_approval' && (
+                <Button
+                  onClick={() => navigate(`/invoices/edit/${invoice.id}`)}
+                  variant="outline"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  {t('common.edit')}
+                </Button>
+              )}
             </div>
-          </div>
-          <div className="flex gap-2">
-            {approval && (
-              <ApprovalActionButtons
-                approval={approval as any}
-                onAction={handleApprovalAction}
-              />
-            )}
-            {invoice.status !== 'pending_approval' && (
-              <Button
-                onClick={() => navigate(`/invoices/edit/${invoice.id}`)}
-                variant="outline"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                {t('common.edit')}
-              </Button>
-            )}
-          </div>
-        </div>
+          }
+        />
 
         {/* Show approval request message if exists */}
         {approval && approval.notes && (
-          <Card className="slide-in border-blue-200 bg-blue-50">
+          <ProfessionalCard className="slide-in border-blue-200 bg-blue-50">
             <CardHeader>
               <CardTitle className="text-blue-900">{t('invoices.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-blue-800">{approval.notes}</p>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
 
-        <Card className="slide-in">
+        <ProfessionalCard className="slide-in">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{t('invoices.details')}</CardTitle>
@@ -244,11 +241,11 @@ export default function ViewInvoice() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </ProfessionalCard>
 
         {/* Invoice Items */}
         {invoice.items && invoice.items.length > 0 && (
-          <Card className="slide-in">
+          <ProfessionalCard className="slide-in">
             <CardHeader>
               <CardTitle>{t('invoices.items')}</CardTitle>
             </CardHeader>
@@ -298,7 +295,7 @@ export default function ViewInvoice() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
         )}
       </div>
     </AppLayout>

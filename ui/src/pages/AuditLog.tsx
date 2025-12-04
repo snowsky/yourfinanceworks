@@ -12,6 +12,8 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { AuditLogDetailsModal } from '@/components/audit/AuditLogDetailsModal';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { apiRequest } from '@/lib/api';
+import { PageHeader } from '@/components/ui/professional-layout';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 
 interface AuditLog {
   id: number;
@@ -111,8 +113,11 @@ export default function AuditLogPage() {
 
   return (
     <AppLayout>
-      <div>
-        <h1 className="text-2xl font-bold mb-4">{t('navigation.audit_log')}</h1>
+      <div className="h-full space-y-6 fade-in">
+        <PageHeader
+          title={t('navigation.audit_log')}
+          description="View and filter system audit logs"
+        />
         <div className="mb-4 flex flex-wrap gap-2 items-center">
           <Input
             placeholder={t('common.search') || 'Search...'}
@@ -205,32 +210,34 @@ export default function AuditLogPage() {
           </Button>
         </div>
         {error && <div className="text-red-500 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>{t('auditLog.filters.user') || 'User'}</TableHead>
-                <TableHead>{t('auditLog.filters.action') || 'Action'}</TableHead>
-                <TableHead>{t('auditLog.filters.resource_type') || 'Resource Type'}</TableHead>
-                <TableHead>{t('auditLog.filters.status') || 'Status'}</TableHead>
-                <TableHead>{t('auditLog.filters.date') || 'Date'}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.map(log => (
-                <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
-                  <TableCell>{log.id}</TableCell>
-                  <TableCell>{log.user_email}</TableCell>
-                  <TableCell>{toCamelCase(log.action)}</TableCell>
-                  <TableCell>{toCamelCase(log.resource_type)}</TableCell>
-                  <TableCell>{toCamelCase(log.status)}</TableCell>
-                  <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
+        <ProfessionalCard className="slide-in">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>{t('auditLog.filters.user') || 'User'}</TableHead>
+                  <TableHead>{t('auditLog.filters.action') || 'Action'}</TableHead>
+                  <TableHead>{t('auditLog.filters.resource_type') || 'Resource Type'}</TableHead>
+                  <TableHead>{t('auditLog.filters.status') || 'Status'}</TableHead>
+                  <TableHead>{t('auditLog.filters.date') || 'Date'}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filteredLogs.map(log => (
+                  <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
+                    <TableCell>{log.id}</TableCell>
+                    <TableCell>{log.user_email}</TableCell>
+                    <TableCell>{toCamelCase(log.action)}</TableCell>
+                    <TableCell>{toCamelCase(log.resource_type)}</TableCell>
+                    <TableCell>{toCamelCase(log.status)}</TableCell>
+                    <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ProfessionalCard>
         <AuditLogDetailsModal
           isOpen={!!selectedLog}
           onClose={() => setSelectedLog(null)}

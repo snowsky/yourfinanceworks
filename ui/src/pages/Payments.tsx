@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,8 @@ import { paymentApi, Payment } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from "@/components/ui/professional-layout";
+import { ProfessionalCard } from "@/components/ui/professional-card";
 
 const Payments = () => {
   const { t } = useTranslation();
@@ -19,7 +21,7 @@ const Payments = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
-  
+
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
     try {
@@ -37,7 +39,7 @@ const Payments = () => {
     }
     return null;
   };
-  
+
   // Update tenant ID when it changes
   useEffect(() => {
     const updateTenantId = () => {
@@ -47,18 +49,18 @@ const Payments = () => {
         setCurrentTenantId(tenantId);
       }
     };
-    
+
     updateTenantId();
-    
+
     // Listen for storage changes
     const handleStorageChange = () => {
       updateTenantId();
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentTenantId]);
-  
+
   useEffect(() => {
     const fetchPayments = async () => {
       setLoading(true);
@@ -72,29 +74,29 @@ const Payments = () => {
         setLoading(false);
       }
     };
-    
+
     fetchPayments();
   }, [currentTenantId]); // Use state variable as dependency
-  
+
   const filteredPayments = (payments || []).filter(payment => {
-    const matchesSearch = 
+    const matchesSearch =
       (payment.invoice_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (payment.client_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesMethod = methodFilter === "all" || payment.payment_method === methodFilter;
-    
+
     return matchesSearch && matchesMethod;
   });
 
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t('payments.title')}</h1>
-          <p className="text-muted-foreground">{t('payments.description')}</p>
-        </div>
-        
-        <Card className="slide-in">
+        <PageHeader
+          title={t('payments.title')}
+          description={t('payments.description')}
+        />
+
+        <ProfessionalCard className="slide-in">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <CardTitle>{t('payments.payment_list')}</CardTitle>
@@ -181,7 +183,7 @@ const Payments = () => {
               </Table>
             </div>
           </CardContent>
-        </Card>
+        </ProfessionalCard>
       </div>
     </AppLayout>
   );
