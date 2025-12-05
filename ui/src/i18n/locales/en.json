@@ -1537,6 +1537,7 @@
     "volatility": "Volatility",
     "period_amount_transactions_average": "Period\tAmount\tTransactions\tAverage",
     "view_expense_list": "View Expense List",
+    "analytics": "Analytics",
     "inventory_purchase_details": "Inventory Purchase Details",
     "select_the_inventory_items_you_purchased_with_this_expense": "Select the inventory items you purchased with this expense",
     "amount_calculated_from_selected_inventory_items": "Amount calculated from selected inventory items",

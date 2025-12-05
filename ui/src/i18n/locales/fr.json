@@ -1440,6 +1440,7 @@
     "volatility": "Volatilité",
     "period_amount_transactions_average": "Période\tMontant\tTransactions\tMoyenne",
     "view_expense_list": "Voir la Liste des Dépenses",
+    "analytics": "Analytique",
     "inventory_purchase_details": "Détails d'Achat d'Inventaire",
     "select_the_inventory_items_you_purchased_with_this_expense": "Sélectionnez les articles d'inventaire que vous avez achetés avec cette dépense",
     "amount_calculated_from_selected_inventory_items": "Montant calculé à partir des articles d'inventaire sélectionnés",

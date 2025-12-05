@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ProfessionalButton } from "@/components/ui/professional-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,14 +186,14 @@ export const BarcodeScanner = ({
 
   return (
     <>
-      <Button
+      <ProfessionalButton
         variant="outline"
         onClick={() => setIsOpen(true)}
         className="flex items-center gap-2"
       >
         <Scan className="h-4 w-4" />
         Scan Barcode
-      </Button>
+      </ProfessionalButton>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-md">

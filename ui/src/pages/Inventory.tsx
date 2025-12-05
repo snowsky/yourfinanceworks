@@ -19,6 +19,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
+import { ProfessionalButton } from "@/components/ui/professional-button";
 
 const Inventory = () => {
   const { t } = useTranslation();
@@ -197,9 +198,9 @@ const Inventory = () => {
               {canPerformAction && (
                 <>
                   <Link to="/inventory/new">
-                    <Button className="sm:self-end whitespace-nowrap">
+                    <ProfessionalButton className="sm:self-end whitespace-nowrap">
                       <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
-                    </Button>
+                    </ProfessionalButton>
                   </Link>
                   <BarcodeScanner
                     onItemFound={(item) => {

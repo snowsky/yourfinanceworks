@@ -1435,6 +1435,7 @@
     "volatility": "Volatilität",
     "period_amount_transactions_average": "Zeitraum\tBetrag\tTransaktionen\tDurchschnitt",
     "view_expense_list": "Ausgabenliste Anzeigen",
+    "analytics": "Analysen",
     "inventory_purchase_details": "Inventar-Einkaufsdetails",
     "select_the_inventory_items_you_purchased_with_this_expense": "Wählen Sie die Inventarartikel aus, die Sie mit dieser Ausgabe gekauft haben",
     "amount_calculated_from_selected_inventory_items": "Betrag berechnet aus ausgewählten Inventarartikeln",

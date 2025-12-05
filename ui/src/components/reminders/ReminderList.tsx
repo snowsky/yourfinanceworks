@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -386,10 +387,10 @@ export function ReminderList({ className }: ReminderListProps) {
             <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
             {t('reminders.refresh')}
           </Button>
-          <Button onClick={() => setShowForm(true)}>
+          <ProfessionalButton onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
             {t('reminders.create_reminder')}
-          </Button>
+          </ProfessionalButton>
         </div>
       </div>
 

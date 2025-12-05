@@ -34,7 +34,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, MoreHorizontal, Edit, Package, ArrowDown, BarChart3 } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, ArrowDown, BarChart3 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -92,6 +92,7 @@ const Expenses = () => {
   const [searchQuery, setSearchQuery] = useState('');
   // Bulk label removed
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -595,13 +596,12 @@ const Expenses = () => {
             <div className="flex gap-2">
               <ProfessionalButton
                 variant="outline"
-                onClick={() => {
-                  const expenseList = document.getElementById('expense-list');
-                  expenseList?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className="whitespace-nowrap"
               >
-                <ArrowDown className="w-4 h-4 mr-2" />
-                {t('expenses.view_expense_list')}
+                <BarChart3 className="mr-2 h-4 w-4" />
+                {t('expenses.analytics')}
+                {showAnalytics ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
               </ProfessionalButton>
               <div className="flex">
                 <ProfessionalButton onClick={openCreate} className="rounded-r-none border-r-0" variant="default">
@@ -632,8 +632,12 @@ const Expenses = () => {
         />
 
         {/* Expense Summary and Analytics */}
-        <ExpenseSummary />
-        <ExpenseCharts />
+        {showAnalytics && (
+          <>
+            <ExpenseSummary />
+            <ExpenseCharts />
+          </>
+        )}
 
         <ProfessionalCard id="expense-list" className="slide-in" variant="default">
           <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">

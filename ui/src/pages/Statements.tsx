@@ -23,6 +23,7 @@ import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -51,10 +52,10 @@ function StatementUploadButton({ onUpload }: { onUpload: () => void }) {
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
-              <Button disabled className="opacity-50 cursor-not-allowed">
+              <ProfessionalButton disabled className="opacity-50 cursor-not-allowed">
                 <Plus className="w-4 h-4 mr-2" />
                 {t('statements.new_statement', { defaultValue: 'New Statement' })}
-              </Button>
+              </ProfessionalButton>
             </span>
           </TooltipTrigger>
           <TooltipContent>
@@ -66,10 +67,10 @@ function StatementUploadButton({ onUpload }: { onUpload: () => void }) {
   }
 
   return (
-    <Button onClick={onUpload}>
+    <ProfessionalButton onClick={onUpload}>
       <Plus className="w-4 h-4 mr-2" />
       {t('statements.new_statement', { defaultValue: 'New Statement' })}
-    </Button>
+    </ProfessionalButton>
   );
 }
 
