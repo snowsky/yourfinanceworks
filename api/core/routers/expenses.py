@@ -74,8 +74,9 @@ async def list_expenses(
     
     try:
         # Build the base query with all filters
-        logger.info(f"list_expenses: current_user.id={current_user.id}, search={search}")
-        query = db.query(Expense).filter(Expense.user_id == current_user.id)
+        # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
+        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}")
+        query = db.query(Expense)
         base_count = query.count()
         logger.info(f"list_expenses: base_count (before filters)={base_count}")
         if category and category != "all":
@@ -1558,9 +1559,9 @@ async def get_expense_summary(
     set_tenant_context(current_user.tenant_id)
     
     try:
-        # Base query for expenses owned by current user and not pending approval
+        # Base query for all expenses in tenant (not pending approval)
+        # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
         base_query = db.query(Expense).filter(
-            Expense.user_id == current_user.id,
             Expense.status != 'pending_approval'
         )
 
@@ -1687,9 +1688,9 @@ async def get_expense_trends(
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
 
-        # Base query for expenses owned by current user and not pending approval
+        # Base query for all expenses in tenant (not pending approval)
+        # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
         expenses = db.query(Expense).filter(
-            Expense.user_id == current_user.id,
             Expense.status != 'pending_approval',
             Expense.expense_date >= start_date,
             Expense.expense_date <= end_date
@@ -1790,9 +1791,9 @@ async def get_expense_categories_analytics(
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
     try:
-        # Base query for expenses owned by current user and not pending approval
+        # Base query for all expenses in tenant (not pending approval)
+        # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
         base_query = db.query(Expense).filter(
-            Expense.user_id == current_user.id,
             Expense.status != 'pending_approval'
         )
 
