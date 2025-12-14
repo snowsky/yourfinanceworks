@@ -1141,6 +1141,7 @@
     "reminder_sent_description": "When a reminder is sent to a client",
     "reminder_overdue": "Reminder Overdue",
     "reminder_overdue_description": "When a reminder becomes overdue",
+    "ai_assistant_license_required": "AI Assistant requires a valid license. Please upgrade your plan.",
     "update": "Update",
     "discount": "Discount"
   },

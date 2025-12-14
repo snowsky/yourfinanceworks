@@ -1023,6 +1023,7 @@
     "loading_settings": "Chargement des paramètres...",
     "profile_updated_successfully": "Profil mis à jour avec succès",
     "failed_to_load_settings": "Échec du chargement des paramètres",
+    "ai_assistant_license_required": "L'Assistant IA nécessite une licence valide. Veuillez mettre à niveau votre plan.",
     "update": "Mettre à jour",
     "discount": "Remise",
     "min_amount": "Montant Minimum",

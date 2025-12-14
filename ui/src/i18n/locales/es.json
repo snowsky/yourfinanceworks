@@ -1080,6 +1080,7 @@
     "reminder_sent_description": "Cuando se envía un recordatorio a un cliente",
     "reminder_overdue": "Recordatorio Vencido",
     "reminder_overdue_description": "Cuando un recordatorio se vence",
+    "ai_assistant_license_required": "El Asistente de IA requiere una licencia válida. Por favor actualice su plan.",
     "update": "Actualizar",
     "discount": "Descuento",
     "min_amount": "Monto Mínimo",

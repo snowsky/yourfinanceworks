@@ -1060,6 +1060,7 @@
     "reminder_sent_description": "Wenn eine Erinnerung an einen Kunden gesendet wird",
     "reminder_overdue": "Erinnerung Überfällig",
     "reminder_overdue_description": "Wenn eine Erinnerung überfällig wird",
+    "ai_assistant_license_required": "KI-Assistent erfordert eine gültige Lizenz. Bitte aktualisieren Sie Ihren Plan.",
     "update": "Aktualisieren",
     "discount": "Rabatt"
   },

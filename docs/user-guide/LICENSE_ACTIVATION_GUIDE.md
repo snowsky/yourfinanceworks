@@ -209,9 +209,10 @@ A: Common causes:
 - License key is incomplete (copy the entire key)
 - Extra spaces before/after the key
 - License has expired
-- License is for a different installation
+- License is for a different installation (Installation ID mismatch)
+- License was generated for a different organization
 
-**Solution:** Copy the license key again carefully, or contact support with your order details.
+**Solution:** Copy the license key again carefully, verify you're using the correct installation, or contact support with your order details.
 
 **Q: My license key won't paste into the activation field.**
 
@@ -243,7 +244,19 @@ A: Ensure:
 
 **Q: Can I share my license with multiple organizations?**
 
-A: No. Each license is tied to a specific installation and tenant. You need separate licenses for each organization.
+A: No. Each license is tied to a specific installation using a unique Installation ID. This prevents license sharing and ensures each organization has their own valid license. You need separate licenses for each organization.
+
+**Q: What is an Installation ID and how does it work?**
+
+A: An Installation ID is a unique UUID automatically generated when your system is first installed. It serves as a digital fingerprint for your specific installation. When you purchase a license, it's cryptographically bound to this Installation ID, preventing unauthorized use on other installations.
+
+**Q: Can I transfer my license to a different server?**
+
+A: Yes. Licenses are tied to installations (via the database), not specific servers. If you migrate to a new server but keep the same database, your Installation ID remains the same and licenses continue to work. Contact support if you have issues after migration.
+
+**Q: I'm getting an "Installation ID mismatch" error. What does this mean?**
+
+A: This error occurs when trying to activate a license that was generated for a different installation. Each license is specifically bound to the Installation ID where it was purchased. This security feature prevents license sharing between organizations.
 
 **Q: What happens when my license expires?**
 
