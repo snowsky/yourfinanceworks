@@ -1519,6 +1519,10 @@ export const invoiceApi = {
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
         payer: apiInvoice.payer || 'Client',
+        // User attribution fields
+        created_by_user_id: apiInvoice.created_by_user_id,
+        created_by_username: apiInvoice.created_by_username,
+        created_by_email: apiInvoice.created_by_email,
       }));
 
       return mappedInvoices;
@@ -3065,14 +3069,14 @@ export const activityApi = {
         const approvalsResponse = await approvalApi.getPendingApprovals();
         const approvals = Array.isArray(approvalsResponse) ? approvalsResponse : approvalsResponse.approvals || [];
         const recentApprovals = approvals
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
           .slice(0, 2)
           .map(approval => ({
             id: `approval-${approval.id}`,
             type: 'approval' as const,
             title: `${approval.expense_type || 'Expense'} approval ${approval.status}`,
             description: approval.description || 'Expense approval',
-            timestamp: approval.created_at,
+            timestamp: approval.submitted_at,
             status: approval.status,
             amount: approval.amount,
             currency: approval.currency,

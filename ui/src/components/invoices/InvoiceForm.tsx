@@ -21,6 +21,9 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 import { invoiceApi, paymentApi, Invoice } from "@/lib/api";
 import { InvoicePDF } from "./InvoicePDF";
 import { TemplateSelector } from "./TemplateSelector";
@@ -266,15 +269,86 @@ export function InvoiceForm({
 
   if (!invoiceForm.clients.length) {
     return (
-      <div className="w-full px-6 py-6">
-        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-          <p className="text-lg">{t('invoices.no_clients_found')}</p>
-          <Button onClick={() => clientManagement.setShowNewClientDialog(true)}>
-            <FileText className="h-4 w-4 mr-2" />
-            {t('invoices.add_new_client')}
-          </Button>
+      <>
+        <div className="w-full px-6 py-6">
+          <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+            <p className="text-lg">{t('invoices.no_clients_found')}</p>
+            <Button onClick={() => clientManagement.setShowNewClientDialog(true)}>
+              <FileText className="h-4 w-4 mr-2" />
+              {t('invoices.add_new_client')}
+            </Button>
+          </div>
         </div>
-      </div>
+
+        {/* Client Creation Dialog - rendered even when no clients exist */}
+        <Dialog
+          open={clientManagement.showNewClientDialog}
+          onOpenChange={(open) => {
+            clientManagement.setShowNewClientDialog(open);
+            if (!open) {
+              clientManagement.resetNewClientForm();
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('invoices.add_new_client')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">{t('invoices.name')}</Label>
+                <Input
+                  id="name"
+                  value={clientManagement.newClientForm.name}
+                  onChange={(e) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">{t('invoices.email')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={clientManagement.newClientForm.email}
+                  onChange={(e) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">{t('invoices.phone')}</Label>
+                <Input
+                  id="phone"
+                  value={clientManagement.newClientForm.phone || ''}
+                  onChange={(e) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="address">{t('invoices.address')}</Label>
+                <Input
+                  id="address"
+                  value={clientManagement.newClientForm.address || ''}
+                  onChange={(e) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, address: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="preferred_currency">{t('invoices.preferred_currency')}</Label>
+                <CurrencySelector
+                  value={clientManagement.newClientForm.preferred_currency || invoiceForm.tenantInfo?.default_currency || 'USD'}
+                  onValueChange={(val) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, preferred_currency: val })}
+                  placeholder={t('invoices.select_preferred_currency')}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                clientManagement.setShowNewClientDialog(false);
+                clientManagement.resetNewClientForm();
+              }}>
+                {t('invoices.cancel')}
+              </Button>
+              <Button onClick={clientManagement.handleCreateClient}>{t('invoices.add_client')}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -328,7 +402,7 @@ export function InvoiceForm({
                 isInvoicePaid={false}
                 submitting={invoiceForm.submitting}
                 itemKeyCounter={0}
-                setItemKeyCounter={() => {}}
+                setItemKeyCounter={() => { }}
               />
 
               {/* Discount Section */}
@@ -454,21 +528,21 @@ export function InvoiceForm({
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto">
             {attachmentManagement.attachmentPreview.url &&
-             (attachmentManagement.attachmentPreview.contentType || '').startsWith('image/') && (
-              <img
-                src={attachmentManagement.attachmentPreview.url}
-                alt={attachmentManagement.attachmentPreview.filename || 'attachment'}
-                className="max-w-full h-auto"
-              />
-            )}
+              (attachmentManagement.attachmentPreview.contentType || '').startsWith('image/') && (
+                <img
+                  src={attachmentManagement.attachmentPreview.url}
+                  alt={attachmentManagement.attachmentPreview.filename || 'attachment'}
+                  className="max-w-full h-auto"
+                />
+              )}
             {attachmentManagement.attachmentPreview.url &&
-             attachmentManagement.attachmentPreview.contentType === 'application/pdf' && (
-              <iframe
-                src={attachmentManagement.attachmentPreview.url}
-                className="w-full h-[70vh]"
-                title="PDF Preview"
-              />
-            )}
+              attachmentManagement.attachmentPreview.contentType === 'application/pdf' && (
+                <iframe
+                  src={attachmentManagement.attachmentPreview.url}
+                  className="w-full h-[70vh]"
+                  title="PDF Preview"
+                />
+              )}
           </div>
         </DialogContent>
       </Dialog>
