@@ -1826,6 +1826,11 @@ export const expenseApi = {
       method: 'POST',
       body: JSON.stringify({ expense_ids: expenseIds, operation, label }),
     }),
+  bulkDelete: (expenseIds: number[]) =>
+    apiRequest(`/expenses/bulk-delete`, {
+      method: 'DELETE',
+      body: JSON.stringify({ expense_ids: expenseIds }),
+    }),
   deleteExpense: (id: number) => apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
   uploadReceipt: async (expenseId: number, file: File) => {
     const token = localStorage.getItem('token');

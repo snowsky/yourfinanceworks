@@ -48,21 +48,17 @@ function StatementUploadButton({ onUpload }: { onUpload: () => void }) {
 
   if (!hasFeature) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <ProfessionalButton disabled className="opacity-50 cursor-not-allowed">
-                <Plus className="w-4 h-4 mr-2" />
-                {t('statements.new_statement', { defaultValue: 'New Statement' })}
-              </ProfessionalButton>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Bank statement processing requires the ai_bank_statement feature. Please upgrade your plan.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="space-y-2">
+        <ProfessionalButton disabled className="opacity-50 cursor-not-allowed">
+          <Plus className="w-4 h-4 mr-2" />
+          {t('statements.new_statement', { defaultValue: 'New Statement' })}
+        </ProfessionalButton>
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 max-w-md">
+          <p className="text-sm text-amber-800">
+            <strong>License Required:</strong> Bank statement processing requires the AI Bank Statement feature. Please upgrade your license to enable this functionality.
+          </p>
+        </div>
+      </div>
     );
   }
 

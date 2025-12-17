@@ -449,6 +449,10 @@ class BulkExpenseCreateRequest(BaseModel):
     expenses: TypingList[ExpenseCreate]
 
 
+class BulkDeleteRequest(BaseModel):
+    expense_ids: TypingList[int]
+
+
 @router.post("/bulk-labels")
 async def bulk_labels_expenses(
     payload: BulkLabelsRequest,
@@ -599,6 +603,135 @@ async def bulk_create_expenses(
         db.rollback()
         logger.error(f"Failed to bulk create expenses: {e}")
         raise HTTPException(status_code=500, detail="Failed to bulk create expenses")
+
+
+@router.delete("/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_expenses(
+    payload: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "bulk delete expenses")
+    
+    # Set tenant context for encryption operations
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+    
+    try:
+        if not payload.expense_ids:
+            raise HTTPException(status_code=400, detail="No expense IDs provided")
+        
+        # Limit bulk delete to prevent performance issues
+        if len(payload.expense_ids) > 100:
+            raise HTTPException(status_code=400, detail="Cannot delete more than 100 expenses at once")
+        
+        # Get all expenses to delete
+        expenses_to_delete = db.query(Expense).filter(Expense.id.in_(payload.expense_ids)).all()
+        
+        if not expenses_to_delete:
+            raise HTTPException(status_code=404, detail="No expenses found")
+        
+        # Check if any expenses cannot be deleted
+        non_admin = current_user.role != 'admin'
+        for expense in expenses_to_delete:
+            # Check if expense can be deleted based on current status
+            if non_admin and expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot delete expense #{expense.id} with status '{expense.status}'. Expense is in approval workflow."
+                )
+            
+            # Prevent deleting an expense that is linked to an invoice
+            if getattr(expense, "invoice_id", None) is not None:
+                raise HTTPException(status_code=400, detail=f"Expense #{expense.id} is linked to an invoice and cannot be deleted")
+        
+        # Process each expense for deletion
+        deleted_count = 0
+        for expense in expenses_to_delete:
+            try:
+                # Remove any legacy single receipt file if present
+                if expense.receipt_path:
+                    await delete_file_from_storage(expense.receipt_path, current_user.tenant_id, current_user.id, db)
+
+                # Remove all attachment files associated with this expense
+                try:
+                    attachments = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense.id).all()
+                    for att in attachments:
+                        if getattr(att, "file_path", None):
+                            await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
+                except Exception as e:
+                    logger.warning(f"Failed to enumerate attachments for deletion: {e}")
+
+                # Unlink any bank statement transactions that reference this expense BEFORE deletion
+                try:
+                    from core.models.models_per_tenant import BankStatementTransaction
+                    linked_transactions = db.query(BankStatementTransaction).filter(
+                        BankStatementTransaction.expense_id == expense.id
+                    ).all()
+                    for txn in linked_transactions:
+                        txn.expense_id = None
+                    if linked_transactions:
+                        logger.info(f"Unlinked {len(linked_transactions)} bank transactions from deleted expense {expense.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to unlink bank transactions from expense {expense.id}: {e}")
+
+                # Unlink any raw emails that reference this expense BEFORE deletion
+                try:
+                    from core.models.models_per_tenant import RawEmail
+                    linked_emails = db.query(RawEmail).filter(
+                        RawEmail.expense_id == expense.id
+                    ).all()
+                    for email in linked_emails:
+                        email.expense_id = None
+                    if linked_emails:
+                        logger.info(f"Unlinked {len(linked_emails)} raw emails from deleted expense {expense.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to unlink raw emails from expense {expense.id}: {e}")
+
+                # Remove from search index
+                try:
+                    search_service.delete_document('expenses', str(expense.id))
+                except Exception as e:
+                    logger.warning(f"Failed to remove expense {expense.id} from search index: {e}")
+
+                # Log audit event for each deleted expense
+                log_audit_event(
+                    db=db,
+                    user_id=current_user.id,
+                    user_email=current_user.email,
+                    action="BULK_DELETE",
+                    resource_type="expense",
+                    resource_id=str(expense.id),
+                    resource_name=f"Expense {expense.id}",
+                    details={
+                        "amount": float(expense.amount),
+                        "currency": expense.currency,
+                        "date": expense.expense_date.isoformat() if expense.expense_date else None,
+                        "category": expense.category,
+                        "vendor": expense.vendor,
+                        "status": expense.status,
+                        "notes": expense.notes
+                    }
+                )
+
+                # Delete the expense
+                db.delete(expense)
+                deleted_count += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to delete expense {expense.id}: {e}")
+                # Continue with other expenses but log the failure
+                continue
+        
+        db.commit()
+        logger.info(f"Successfully bulk deleted {deleted_count} expenses for user {current_user.id}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to bulk delete expenses: {e}")
+        raise HTTPException(status_code=500, detail="Failed to bulk delete expenses")
 
 
 @router.put("/{expense_id}", response_model=ExpenseSchema)
