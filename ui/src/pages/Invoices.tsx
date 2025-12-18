@@ -3,12 +3,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Send, Eye } from "lucide-react";
+import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Send, Eye, CheckSquare } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "react-router-dom";
 import { invoiceApi, Invoice, api, INVOICE_STATUSES, formatStatus } from "@/lib/api";
@@ -52,6 +53,8 @@ const Invoices = () => {
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
   const [invoiceToPermanentlyDelete, setInvoiceToPermanentlyDelete] = useState<number | null>(null);
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
@@ -164,6 +167,38 @@ const Invoices = () => {
     } finally {
       setDeleteModalOpen(false);
       setInvoiceToDelete(null);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    setBulkDeleteModalOpen(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    try {
+      await invoiceApi.bulkDelete(selectedIds);
+      toast.success(`Successfully deleted ${selectedIds.length} invoice${selectedIds.length > 1 ? 's' : ''}`);
+      setSelectedIds([]);
+      // Refresh the invoices list
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const data = await invoiceApi.getInvoices(status);
+      setInvoices(data);
+      // Refresh recycle bin if open
+      if (showRecycleBin) {
+        fetchDeletedInvoices();
+      }
+    } catch (error) {
+      console.error('Failed to bulk delete invoices:', error);
+      let errorMessage = error instanceof Error ? error.message : 'Failed to delete invoices';
+      
+      // Check if it's the linked expenses error and use translated version
+      if (errorMessage.includes('linked expenses')) {
+        errorMessage = t('invoices.delete_error_linked_expenses');
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setBulkDeleteModalOpen(false);
     }
   };
 
@@ -452,6 +487,33 @@ const Invoices = () => {
             </div>
           </div>
 
+          {/* Bulk actions bar */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md mb-4">
+              <div className="text-sm text-muted-foreground">
+                {selectedIds.length} selected
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedIds([])}
+                >
+                  Clear Selection
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={!canPerformAction}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
@@ -467,6 +529,14 @@ const Invoices = () => {
                     onClone={handleCloneInvoice}
                     onDelete={handleDeleteInvoice}
                     canPerformActions={canPerformAction}
+                    selected={selectedIds.includes(invoice.id)}
+                    onSelectionChange={(selected) => {
+                      if (selected) {
+                        setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
+                      } else {
+                        setSelectedIds(prev => prev.filter(x => x !== invoice.id));
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -475,6 +545,16 @@ const Invoices = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={selectedIds.length > 0 && selectedIds.length === filteredInvoices.length}
+                          onCheckedChange={(v) => {
+                            if (v) setSelectedIds(filteredInvoices.map(x => x.id));
+                            else setSelectedIds([]);
+                          }}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <TableHead>{t('invoices.table.invoice')}</TableHead>
                       <TableHead>{t('invoices.table.client')}</TableHead>
                       <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
@@ -489,6 +569,16 @@ const Invoices = () => {
                   <TableBody>
                     {filteredInvoices.map((invoice) => (
                       <TableRow key={invoice.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(invoice.id)}
+                            onCheckedChange={(v) => {
+                              if (v) setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
+                              else setSelectedIds(prev => prev.filter(x => x !== invoice.id));
+                            }}
+                            aria-label={`Select invoice ${invoice.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           <span className="inline-flex items-center">
                             <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -599,6 +689,39 @@ const Invoices = () => {
             <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {t('invoices.delete', 'Delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Modal */}
+      <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedIds.length === 1 
+                ? t('invoices.delete_single_title', 'Move 1 Invoice to Recycle Bin')
+                : t('invoices.delete_multiple_title', `Move ${selectedIds.length} Invoices to Recycle Bin`)
+              }
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedIds.length === 1 
+                ? t('invoices.delete_single_description', 'Are you sure you want to move this invoice to the recycle bin? You can restore it later if needed.')
+                : t('invoices.delete_multiple_description', `Are you sure you want to move ${selectedIds.length} invoices to the recycle bin? You can restore them later if needed.`)
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmBulkDelete} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {selectedIds.length === 1 
+                ? t('invoices.move_to_recycle_bin', 'Move to Recycle Bin')
+                : t('invoices.move_multiple_to_recycle_bin', 'Move All to Recycle Bin')
+              }
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

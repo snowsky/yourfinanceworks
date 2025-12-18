@@ -1645,6 +1645,11 @@ export const invoiceApi = {
     apiRequest<Invoice>(`/invoices/${id}/clone`, { method: 'POST' }),
   deleteInvoice: (id: number) =>
     apiRequest(`/invoices/${id}`, { method: 'DELETE' }),
+  bulkDelete: (invoiceIds: number[]) =>
+    apiRequest(`/invoices/bulk-delete`, {
+      method: 'DELETE',
+      body: JSON.stringify({ invoice_ids: invoiceIds }),
+    }),
 
   // Recycle bin methods
   getDeletedInvoices: () =>

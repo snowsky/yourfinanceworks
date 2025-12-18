@@ -11,6 +11,8 @@ from core.utils.pdf_generator import generate_invoice_pdf
 import os
 from pathlib import Path
 import re
+from pydantic import BaseModel
+from typing import List as TypingList
 
 from core.models.database import get_db
 from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings
@@ -41,6 +43,9 @@ def get_attachment_info(invoice, new_attachments):
         attachment_filename = invoice.attachment_filename
     
     return has_attachment, attachment_filename
+
+class BulkDeleteRequest(BaseModel):
+    invoice_ids: TypingList[int]
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -1859,6 +1864,114 @@ async def update_invoice(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update invoice: {str(e)}"
+        )
+
+@router.delete("/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_invoices(
+    payload: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Bulk delete invoices (move to recycle bin)"""
+    require_non_viewer(current_user, "bulk delete invoices")
+    
+    # Set tenant context for encryption operations
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+    
+    try:
+        if not payload.invoice_ids:
+            raise HTTPException(status_code=400, detail="No invoice IDs provided")
+        
+        # Limit bulk delete to prevent performance issues
+        if len(payload.invoice_ids) > 100:
+            raise HTTPException(status_code=400, detail="Cannot delete more than 100 invoices at once")
+        
+        # Get all invoices to delete
+        invoices_to_delete = db.query(Invoice).filter(
+            Invoice.id.in_(payload.invoice_ids),
+            Invoice.is_deleted == False
+        ).all()
+        
+        if not invoices_to_delete:
+            raise HTTPException(status_code=404, detail="No invoices found")
+        
+        # Check if any invoices cannot be deleted
+        for invoice in invoices_to_delete:
+            # Prevent deleting an invoice that has linked expenses
+            if invoice.expenses and len(invoice.expenses) > 0:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot delete invoice #{invoice.id} that has linked expenses. Please unlink or delete expenses first."
+                )
+        
+        # Process each invoice for deletion
+        deleted_count = 0
+        for invoice in invoices_to_delete:
+            try:
+                # Unlink any bank statement transactions that reference this invoice
+                try:
+                    from core.models.models_per_tenant import BankStatementTransaction
+                    linked_transactions = db.query(BankStatementTransaction).filter(
+                        BankStatementTransaction.invoice_id == invoice.id
+                    ).all()
+                    for txn in linked_transactions:
+                        txn.invoice_id = None
+                    if linked_transactions:
+                        logger.info(f"Unlinked {len(linked_transactions)} bank transactions from deleted invoice {invoice.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to unlink bank transactions from invoice {invoice.id}: {e}")
+
+                # Soft delete invoice
+                invoice.is_deleted = True
+                invoice.deleted_at = datetime.now(timezone.utc)
+                invoice.deleted_by = current_user.id
+
+                # Log deletion in invoice history
+                from core.models.models_per_tenant import InvoiceHistory
+                history_entry = InvoiceHistory(
+                    invoice_id=invoice.id,
+                    user_id=current_user.id,
+                    action="moved_to_recycle",
+                    details=f"Invoice moved to recycle bin via bulk delete"
+                )
+                db.add(history_entry)
+
+                # Log audit event
+                log_audit_event(
+                    db=db,
+                    user_id=current_user.id,
+                    user_email=current_user.email,
+                    action="Bulk Delete",
+                    resource_type="invoice",
+                    resource_id=str(invoice.id),
+                    resource_name=f"Invoice {invoice.number}",
+                    details={"message": "Invoice moved to recycle bin via bulk delete"},
+                    status="success"
+                )
+                
+                deleted_count += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to delete invoice {invoice.id}: {e}")
+                db.rollback()
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to delete invoice #{invoice.id}: {str(e)}"
+                )
+
+        db.commit()
+        logger.info(f"Successfully moved {deleted_count} invoices to recycle bin")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in bulk delete invoices: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to bulk delete invoices"
         )
 
 @router.delete("/{invoice_id}", response_model=RecycleBinResponse)

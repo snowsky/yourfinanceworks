@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from "@/lib/utils";
@@ -16,6 +17,8 @@ interface InvoiceCardProps {
   onClone?: (id: number) => void;
   onDelete?: (id: number) => void;
   canPerformActions?: boolean;
+  selected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
 }
 
 const getStatusConfig = (status: string) => {
@@ -54,7 +57,7 @@ const getStatusConfig = (status: string) => {
 };
 
 
-export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = true }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = true, selected = false, onSelectionChange }: InvoiceCardProps) {
   const { t } = useTranslation();
   const statusConfig = getStatusConfig(invoice.status);
   const outstandingBalance = invoice.amount - (invoice.paid_amount || 0);
@@ -64,10 +67,16 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
   const { isEnabled: taxIntegrationEnabled } = useTaxIntegration();
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
+    <Card className={`group hover:shadow-md transition-all duration-200 border-l-4 ${selected ? 'border-l-primary border-l-4' : 'border-l-primary/20'} hover:border-l-primary`}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={onSelectionChange}
+              aria-label={`Select invoice ${invoice.id}`}
+              className="mt-1"
+            />
             <div className="p-2 rounded-lg bg-primary/10">
               <FileText className="h-5 w-5 text-primary" />
             </div>
