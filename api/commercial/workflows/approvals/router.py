@@ -1112,6 +1112,96 @@ async def get_processed_expenses(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/invoices/processed")
+async def get_processed_invoices(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100)
+):
+    """
+    Get invoices that have been approved or rejected by the current user.
+
+    This endpoint returns invoices that the current user has processed (approved or rejected),
+    allowing approvers to view and track their decision history.
+
+    Args:
+        current_user: Currently authenticated user
+        db: Database session
+        skip: Number of records to skip (pagination)
+        limit: Maximum number of records to return
+
+    Returns:
+        List of processed (approved/rejected) invoices with approval details
+    """
+    try:
+        require_non_viewer(current_user)
+
+        # Import here to avoid circular imports
+        from core.models.models_per_tenant import InvoiceApproval, Invoice, Client
+        from sqlalchemy import and_, or_
+
+        # Query for invoices where current user is the approver and status is approved OR rejected
+        processed_invoices_query = db.query(
+            InvoiceApproval.id.label('approval_id'),
+            Invoice.id,
+            Invoice.number,
+            Client.name.label('client_name'),
+            Invoice.amount,
+            Invoice.currency,
+            InvoiceApproval.status,
+            InvoiceApproval.decided_at,
+            InvoiceApproval.submitted_at
+        ).join(
+            Invoice, InvoiceApproval.invoice_id == Invoice.id
+        ).join(
+            Client, Invoice.client_id == Client.id
+        ).filter(
+            and_(
+                InvoiceApproval.approver_id == current_user.id,
+                or_(
+                    InvoiceApproval.status == "approved",
+                    InvoiceApproval.status == "rejected"
+                )
+            )
+        ).order_by(
+            InvoiceApproval.decided_at.desc()
+        )
+
+        # Get total count for pagination
+        total_count = processed_invoices_query.count()
+
+        # Apply pagination
+        results = processed_invoices_query.offset(skip).limit(limit).all()
+
+        # Convert to dict format
+        result_list = []
+        for row in results:
+            invoice_dict = {
+                "id": row.id,
+                "approval_id": row.approval_id,
+                "number": row.number,
+                "client_name": row.client_name,
+                "amount": row.amount,
+                "currency": row.currency or 'USD',
+                "status": row.status,
+                "decided_at": row.decided_at.isoformat() if row.decided_at else None,
+                "submitted_at": row.submitted_at.isoformat() if row.submitted_at else None
+            }
+            result_list.append(invoice_dict)
+
+        logger.info(f"Retrieved {len(result_list)} processed invoices for user {current_user.id}")
+
+        return {
+            "invoices": result_list,
+            "total": total_count
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving processed invoices for user {current_user.id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 # Approval Delegation Endpoints
 
 @router.post("/delegate", response_model=ApprovalDelegate)

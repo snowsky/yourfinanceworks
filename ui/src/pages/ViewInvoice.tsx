@@ -40,7 +40,7 @@ export default function ViewInvoice() {
         // Try to fetch approval data for this invoice
         try {
           const historyResponse = await approvalApi.getInvoiceApprovalHistory(Number(id));
-          
+
           if (inv.status === 'pending_approval') {
             // Get pending approval
             const pendingApproval = historyResponse.approval_history
@@ -55,7 +55,7 @@ export default function ViewInvoice() {
             const completedApproval = historyResponse.approval_history
               ?.filter((a: any) => a.status === 'approved' || a.status === 'rejected')
               .sort((a: any, b: any) => new Date(b.decided_at || b.timestamp).getTime() - new Date(a.decided_at || a.timestamp).getTime())[0];
-            
+
             if (completedApproval) {
               setApproval(completedApproval);
             }
@@ -127,13 +127,13 @@ export default function ViewInvoice() {
           ]}
           actions={
             <div className="flex gap-2">
-              {approval && (
+              {invoice.status === 'pending_approval' && approval && (
                 <ApprovalActionButtons
                   approval={approval as any}
                   onAction={handleApprovalAction}
                 />
               )}
-              {invoice.status !== 'pending_approval' && (
+              {invoice.status !== 'pending_approval' && invoice.status !== 'approved' && (
                 <Button
                   onClick={() => navigate(`/invoices/edit/${invoice.id}`)}
                   variant="outline"

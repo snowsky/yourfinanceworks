@@ -1247,6 +1247,19 @@ export const approvalApi = {
     return apiRequest<{ expenses: Expense[]; total: number; }>(`/approvals/processed-expenses${queryString ? `?${queryString}` : ''}`);
   },
 
+  // Get invoices processed (approved/rejected) by current user
+  getProcessedInvoices: (filters?: {
+    skip?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.skip !== undefined) params.append('skip', filters.skip.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    return apiRequest<{ invoices: any[]; total: number; }>(`/approvals/invoices/processed${queryString ? `?${queryString}` : ''}`);
+  },
+
   // Approve an expense
   approveExpense: (approvalId: number, notes?: string) =>
     apiRequest<{ success: boolean; message: string; }>(`/approvals/${approvalId}/approve`, {

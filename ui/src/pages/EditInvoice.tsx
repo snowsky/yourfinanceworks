@@ -100,29 +100,33 @@ const EditInvoice = () => {
             setStockMovements([]);
           }
 
-          // Fetch pending approvals to check if this invoice is under approval
-          if (data.status === 'pending_approval') {
-            console.log("🔍 EDIT INVOICE - Invoice is pending approval, fetching approval details...");
+          // Fetch previous approvals to check if this invoice is under approval or was rejected
+          if (data.status === 'pending_approval' || data.status === 'rejected') {
+            console.log(`🔍 EDIT INVOICE - Invoice is ${data.status}, fetching approval details...`);
             try {
               const historyResponse = await approvalApi.getInvoiceApprovalHistory(data.id);
               console.log("🔍 EDIT INVOICE - Approval history response:", historyResponse);
 
-              // Find the latest pending approval
-              const pendingApproval = historyResponse.approval_history
-                .filter((a: any) => a.status === 'pending')
-                .sort((a: any, b: any) => new Date(b.submitted_at || b.timestamp).getTime() - new Date(a.submitted_at || a.timestamp).getTime())[0];
+              // Find the latest pending or completed approval
+              const latestApproval = historyResponse.approval_history
+                .filter((a: any) => data.status === 'pending_approval' ? a.status === 'pending' : (a.status === 'approved' || a.status === 'rejected'))
+                .sort((a: any, b: any) => {
+                  const dateA = new Date(a.decided_at || a.submitted_at || a.timestamp).getTime();
+                  const dateB = new Date(b.decided_at || b.submitted_at || b.timestamp).getTime();
+                  return dateB - dateA;
+                })[0];
 
-              if (pendingApproval) {
-                console.log("🔍 EDIT INVOICE - Found pending approval:", pendingApproval);
-                setExistingApproval({ approver_id: pendingApproval.approver_id });
+              if (latestApproval) {
+                console.log("🔍 EDIT INVOICE - Found relevant approval:", latestApproval);
+                setExistingApproval({ approver_id: latestApproval.approver_id });
               } else {
-                console.warn("🔍 EDIT INVOICE - Status is pending_approval but no pending approval found in history");
+                console.warn(`🔍 EDIT INVOICE - Status is ${data.status} but no relevant approval found in history`);
               }
             } catch (approvalError) {
               console.warn("🔍 EDIT INVOICE - Failed to fetch approval history:", approvalError);
             }
           } else {
-            console.log("🔍 EDIT INVOICE - Invoice status is not pending_approval:", data.status);
+            console.log("🔍 EDIT INVOICE - Invoice status does not require approval history fetch:", data.status);
           }
         } catch { }
       } catch (error) {
@@ -231,7 +235,7 @@ const EditInvoice = () => {
   // Handle history entry click
   const handleHistoryEntryClick = async (entry: InvoiceHistory) => {
     // Fetch client data for resolving client_id in history
-    let clients: Array<{id: number; name: string; email?: string}> = [];
+    let clients: Array<{ id: number; name: string; email?: string }> = [];
     try {
       clients = await clientApi.getClients();
     } catch (error) {
@@ -390,30 +394,30 @@ const EditInvoice = () => {
 
         <div className="mt-8">
           <InvoiceFormWithApproval
-          invoice={invoice}
-          isEdit={true}
-          existingApproval={existingApproval}
-          key={`${invoice.id}-${invoice.has_attachment}-${invoice.attachment_filename}`}
-          onInvoiceUpdate={async (updatedInvoice) => {
-            console.log("🔍 EDIT INVOICE - Invoice updated via callback:", updatedInvoice);
-            console.log("🔍 EDIT INVOICE - Updated attachment info:", {
-              has_attachment: updatedInvoice.has_attachment,
-              attachment_filename: updatedInvoice.attachment_filename
-            });
-            setInvoice(updatedInvoice);
+            invoice={invoice}
+            isEdit={true}
+            existingApproval={existingApproval}
+            key={`${invoice.id}-${invoice.has_attachment}-${invoice.attachment_filename}`}
+            onInvoiceUpdate={async (updatedInvoice) => {
+              console.log("🔍 EDIT INVOICE - Invoice updated via callback:", updatedInvoice);
+              console.log("🔍 EDIT INVOICE - Updated attachment info:", {
+                has_attachment: updatedInvoice.has_attachment,
+                attachment_filename: updatedInvoice.attachment_filename
+              });
+              setInvoice(updatedInvoice);
 
-            // Refetch stock movements if invoice status changed to payable status
-            if (updatedInvoice.status === 'paid') {
-              try {
-                const movements = await inventoryApi.getStockMovementsByReference('invoice', updatedInvoice.id);
-                setStockMovements(movements);
-                console.log("🔍 EDIT INVOICE - Refetched stock movements after status change:", movements);
-              } catch (stockError) {
-                console.warn("Failed to refetch stock movements:", stockError);
-                setStockMovements([]);
+              // Refetch stock movements if invoice status changed to payable status
+              if (updatedInvoice.status === 'paid') {
+                try {
+                  const movements = await inventoryApi.getStockMovementsByReference('invoice', updatedInvoice.id);
+                  setStockMovements(movements);
+                  console.log("🔍 EDIT INVOICE - Refetched stock movements after status change:", movements);
+                } catch (stockError) {
+                  console.warn("Failed to refetch stock movements:", stockError);
+                  setStockMovements([]);
+                }
               }
-            }
-          }}
+            }}
           />
         </div>
 

@@ -55,9 +55,9 @@ function StatementUploadButton({ onUpload }: { onUpload: () => void }) {
           {t('statements.new_statement', { defaultValue: 'New Statement' })}
         </ProfessionalButton>
         <div className="bg-amber-50 border border-amber-200 rounded-md p-3 max-w-md">
-          <p className="text-sm text-amber-800" dangerouslySetInnerHTML={{ 
+          <p className="text-sm text-amber-800" dangerouslySetInnerHTML={{
             __html: t('settings.bank_statement_license_required', { defaultValue: 'License Required: Bank statement processing requires the AI Bank Statement feature. Please upgrade your license to enable this functionality.' })
-              .replace('License Required:', '<strong>License Required:</strong>') 
+              .replace('License Required:', '<strong>License Required:</strong>')
           }} />
         </div>
       </div>
@@ -635,7 +635,17 @@ export default function Statements() {
                     ))}
                     {statements.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">{t('statements.no_statements')}</TableCell>
+                        <TableCell colSpan={7} className="h-auto p-0 border-none">
+                          <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <FileText className="h-8 w-8 text-primary" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2">{t('statements.no_statements', 'No statements yet')}</h3>
+                            <p className="text-muted-foreground max-w-sm mx-auto">
+                              {t('statements.no_statements_description', 'Upload your bank statements to automatically extract transactions and link them to invoices or expenses.')}
+                            </p>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>

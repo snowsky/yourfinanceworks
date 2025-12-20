@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { PendingApprovalsList } from './PendingApprovalsList';
 import { ProcessedExpensesList } from './ProcessedExpensesList';
+import { ProcessedInvoicesList } from './ProcessedInvoicesList';
 import { approvalApi } from '@/lib/api';
 import { ApprovalDashboardStats } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +17,8 @@ import {
   Timer,
   History,
   FileText,
-  Lock
+  Lock,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ApprovalHelpTooltips, { HelpTooltip, QuickHelp } from '@/components/help/ApprovalHelpTooltips';
@@ -49,6 +52,7 @@ export function ApprovalDashboard() {
   const [approving, setApproving] = useState<number | null>(null);
   const [rejecting, setRejecting] = useState<number | null>(null);
   const [licenseError, setLicenseError] = useState(false);
+  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -248,107 +252,155 @@ export function ApprovalDashboard() {
                 </HelpTooltip>
               </TabsContent>
 
-              <TabsContent value="invoices" className="mt-4">
+              <TabsContent value="invoices" className="mt-4 space-y-4">
                 {invoiceApprovalsLoading ? (
                   <div className="flex justify-center items-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
-                ) : invoiceApprovals.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No pending invoice approvals</p>
-                  </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Invoice Number</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Submitted</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {invoiceApprovals.map((approval) => (
-                          <TableRow key={approval.id}>
-                            <TableCell>
-                              <Link
-                                to={`/invoices/${approval.invoice_id}`}
-                                className="text-blue-600 hover:underline font-medium"
-                              >
-                                {approval.invoice_number}
-                              </Link>
-                            </TableCell>
-                            <TableCell>{approval.client_name}</TableCell>
-                            <TableCell>
-                              <CurrencyDisplay
-                                amount={approval.amount}
-                                currency={approval.currency || 'USD'}
-                              />
-                            </TableCell>
-                            <TableCell>{formatDate(approval.submitted_at)}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleApproveInvoice(approval.id)}
-                                  disabled={approving === approval.id || rejecting === approval.id}
-                                  className="text-green-600 hover:text-green-700"
-                                >
-                                  {approving === approval.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="h-4 w-4" />
-                                  )}
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRejectInvoice(approval.id)}
-                                  disabled={approving === approval.id || rejecting === approval.id}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  {rejecting === approval.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4" />
-                                  )}
-                                  Reject
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <>
+                    {invoiceApprovals.length > 0 && (
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input
+                          placeholder={t('approvalDashboard.search_invoices_placeholder', { defaultValue: 'Search by invoice number or client...' })}
+                          value={invoiceSearchQuery}
+                          onChange={(e) => setInvoiceSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    )}
+
+                    {invoiceApprovals.filter(approval =>
+                      approval.invoice_number.toLowerCase().includes(invoiceSearchQuery.toLowerCase()) ||
+                      approval.client_name.toLowerCase().includes(invoiceSearchQuery.toLowerCase())
+                    ).length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center animate-in fade-in zoom-in duration-300">
+                        <div className="bg-primary/5 p-6 rounded-full mb-6 ring-8 ring-primary/2">
+                          <FileText className="h-12 w-12 text-primary/40" />
+                        </div>
+                        <h3 className="text-xl font-semibold mb-2">
+                          {invoiceSearchQuery
+                            ? t('approvalDashboard.no_approvals_match_your_search_criteria', 'No approvals match your search criteria')
+                            : t('approvalDashboard.no_pending_invoice_approvals_title', 'No pending invoice approvals')}
+                        </h3>
+                        <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                          {invoiceSearchQuery
+                            ? t('approvalDashboard.try_adjusting_filters', 'Try adjusting your search or filters to find what you are looking for.')
+                            : t('approvalDashboard.no_pending_invoice_approvals_description', 'All invoice approvals are up to date.')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Invoice Number</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Submitted</TableHead>
+                              <TableHead>Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {invoiceApprovals
+                              .filter(approval =>
+                                approval.invoice_number.toLowerCase().includes(invoiceSearchQuery.toLowerCase()) ||
+                                approval.client_name.toLowerCase().includes(invoiceSearchQuery.toLowerCase())
+                              )
+                              .map((approval) => (
+                                <TableRow key={approval.id}>
+                                  <TableCell>
+                                    <Link
+                                      to={`/invoices/view/${approval.invoice_id}`}
+                                      className="text-blue-600 hover:underline font-medium"
+                                    >
+                                      {approval.invoice_number}
+                                    </Link>
+                                  </TableCell>
+                                  <TableCell>{approval.client_name}</TableCell>
+                                  <TableCell>
+                                    <CurrencyDisplay
+                                      amount={approval.amount}
+                                      currency={approval.currency || 'USD'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{formatDate(approval.submitted_at)}</TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleApproveInvoice(approval.id)}
+                                        disabled={approving === approval.id || rejecting === approval.id}
+                                        className="text-green-600 hover:text-green-700"
+                                      >
+                                        {approving === approval.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <CheckCircle className="h-4 w-4" />
+                                        )}
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleRejectInvoice(approval.id)}
+                                        disabled={approving === approval.id || rejecting === approval.id}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        {rejecting === approval.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <XCircle className="h-4 w-4" />
+                                        )}
+                                        Reject
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
 
-        {/* Processed Expenses List */}
+        {/* Processed Items List */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5" />
-                {t('approvalDashboard.processed_expenses')}
+                {t('approvalDashboard.processed_items', 'Processed Items')}
               </div>
-              <HelpTooltip id="processed-expenses" context="dashboard">
+              <HelpTooltip id="processed-items" context="dashboard">
                 <div className="text-sm text-gray-500 cursor-help">
-                  {t('approvalDashboard.expenses_approved_rejected')}
+                  {t('approvalDashboard.items_approved_rejected', 'Expenses and invoices already approved or rejected')}
                 </div>
               </HelpTooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ProcessedExpensesList />
+            <Tabs defaultValue="expenses" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                <TabsTrigger value="invoices">Invoices</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="expenses" className="mt-4">
+                <ProcessedExpensesList />
+              </TabsContent>
+
+              <TabsContent value="invoices" className="mt-4">
+                <ProcessedInvoicesList />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

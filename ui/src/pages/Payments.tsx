@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Loader2 } from "lucide-react";
+import { Search, Filter, Loader2, CreditCard } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -174,8 +174,16 @@ const Payments = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        {t('payments.no_payments')}
+                      <TableCell colSpan={6} className="h-auto p-0 border-none">
+                        <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                          <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CreditCard className="h-8 w-8 text-primary" />
+                          </div>
+                          <h3 className="text-xl font-bold mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
+                          <p className="text-muted-foreground max-w-sm mx-auto">
+                            {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
+                          </p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

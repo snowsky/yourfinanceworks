@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, ArrowDown, BarChart3 } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, ArrowDown, BarChart3, Receipt } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -1242,8 +1242,16 @@ const Expenses = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
-                        {t('expenses.no_expenses_yet')}
+                      <TableCell colSpan={14} className="h-auto p-0 border-none">
+                        <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                          <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Receipt className="h-8 w-8 text-primary" />
+                          </div>
+                          <h3 className="text-xl font-bold mb-2">{t('expenses.no_expenses_yet', 'No expenses yet')}</h3>
+                          <p className="text-muted-foreground max-w-sm mx-auto">
+                            {t('expenses.no_expenses_description', 'Start tracking your business outgoings. You can create expenses manually or upload receipts for AI-powered data extraction.')}
+                          </p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

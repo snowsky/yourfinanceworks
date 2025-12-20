@@ -242,13 +242,17 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
             </Card>
           ))
         ) : expenses.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <div className="text-gray-500">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium mb-2">{t('approvalDashboard.no_processed_expenses')}</h3>
-                <p>{t('approvalDashboard.not_approved_rejected')}</p>
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="bg-primary/5 p-6 rounded-full mb-6 ring-8 ring-primary/2">
+                <CheckCircle className="h-12 w-12 text-primary/40" />
               </div>
+              <h3 className="text-xl font-semibold mb-2">
+                {t('approvalDashboard.no_processed_expenses_title', 'No processed expenses')}
+              </h3>
+              <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                {t('approvalDashboard.no_processed_expenses_description', "You haven't approved or rejected any expenses yet. Your approval history will appear here.")}
+              </p>
             </CardContent>
           </Card>
         ) : (

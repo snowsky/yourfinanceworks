@@ -553,21 +553,19 @@ export function ReminderList({ className }: ReminderListProps) {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : reminders.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('reminders.no_reminders_found')}</h3>
-                {/* <p className="text-muted-foreground text-center mb-4">
-                  {activeTab === 'all' 
-                    ? t('reminders.form.create_your_first_reminder_to_get_started')
+            <Card className="border-none shadow-none bg-transparent">
+              <CardContent className="flex flex-col items-center justify-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                  <Timer className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto text-center">
+                  {activeTab === 'all'
+                    ? t('reminders.no_reminders_description', 'You don\'t have any reminders yet. Create one to stay on top of your tasks and deadlines.')
                     : activeTab === 'snoozed'
-                    ? t('reminders.no_snoozed_reminders_all_your_reminders_are_active')
-                    : t('reminders.no_reminders', { tab: activeTab.replace('_', ' ') })}
-                </p> */}
-                <Button onClick={() => setShowForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('reminders.form.create_reminder')}
-                </Button>
+                      ? t('reminders.no_snoozed_reminders', 'All your reminders are currently active.')
+                      : t('reminders.no_reminders_tab', { tab: activeTab.replace('_', ' '), defaultValue: `No ${activeTab.replace('_', ' ')} reminders found.` })}
+                </p>
               </CardContent>
             </Card>
           ) : (

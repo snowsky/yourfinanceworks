@@ -16,7 +16,8 @@ import {
   Building,
   SortAsc,
   SortDesc,
-  Eye
+  Eye,
+  Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -82,7 +83,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
         await approvalApi.rejectExpense(approvalId, data?.reason, data?.notes);
         toast.success('Expense rejected successfully');
       }
-      
+
       // Refresh the list
       await fetchApprovals();
       onApprovalAction?.();
@@ -147,7 +148,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
             className="pl-10"
           />
         </div>
-        
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -158,7 +159,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
             <Filter className="h-4 w-4" />
             Filters
           </Button>
-          
+
           <Select value={filters.sort_by} onValueChange={handleSortChange}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -170,7 +171,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
               <SelectItem value="vendor">Vendor</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -220,13 +221,21 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
 
       {/* Approvals List */}
       {filteredApprovals.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <div className="text-muted-foreground">
-              {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc') 
-                ? t('approvalDashboard.no_approvals_match_your_search_criteria')
-                : t('approvalDashboard.no_pending_approvals')}
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="bg-primary/5 p-6 rounded-full mb-6 ring-8 ring-primary/2">
+              <Receipt className="h-12 w-12 text-primary/40" />
             </div>
+            <h3 className="text-xl font-semibold mb-2">
+              {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc')
+                ? t('approvalDashboard.no_approvals_match_your_search_criteria', 'No approvals match your search criteria')
+                : t('approvalDashboard.no_pending_approvals_title', 'No pending approvals')}
+            </h3>
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc')
+                ? t('approvalDashboard.try_adjusting_filters', 'Try adjusting your search or filters to find what you are looking for.')
+                : t('approvalDashboard.no_pending_approvals_description', "You're all caught up! There are no items waiting for your review at the moment.")}
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -241,30 +250,30 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
                         <DollarSign className="h-3 w-3" />
                         {approval.expense?.currency || 'USD'} {approval.expense?.amount?.toFixed(2)}
                       </Badge>
-                      
+
                       <Badge variant="secondary">
                         {approval.expense?.category}
                       </Badge>
-                      
+
                       {approval.expense?.vendor && (
                         <Badge variant="outline" className="flex items-center gap-1">
                           <Building className="h-3 w-3" />
                           {approval.expense?.vendor}
                         </Badge>
                       )}
-                      
+
                       <Badge variant="outline" className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(approval.expense?.expense_date || '').toLocaleDateString()}
                       </Badge>
                     </div>
-                    
+
                     {approval.expense?.notes && (
                       <p className="text-sm text-muted-foreground">
                         {approval.expense.notes}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>
                         Submitted {approval.submitted_at && !isNaN(new Date(approval.submitted_at).getTime()) ? formatDistanceToNow(new Date(approval.submitted_at)) : 'recently'} ago
@@ -274,7 +283,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex-shrink-0 flex flex-col gap-2">
                     <Button
                       variant="outline"
@@ -299,7 +308,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
           <div className="text-sm text-muted-foreground">
             Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, total)} of {total} approvals
           </div>
-          
+
           <div className="flex gap-2">
             <Button
               variant="outline"

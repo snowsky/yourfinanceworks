@@ -403,25 +403,23 @@ const Inventory = () => {
                         })
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="h-24 text-center">
-                            <div className="space-y-2">
-                              <p className="text-muted-foreground">
+                          <TableCell colSpan={9} className="h-auto p-0 border-none">
+                            <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Package className="h-8 w-8 text-primary" />
+                              </div>
+                              <h3 className="text-xl font-bold mb-2">
                                 {businessType === 'service'
-                                  ? t('inventory.no_service_items', 'No service items yet. Create your service catalog to get started.')
-                                  : t('inventory.no_product_items', 'No inventory items found. Add your first product to get started.')
+                                  ? t('inventory.no_service_items', 'No service items yet')
+                                  : t('inventory.no_product_items', 'No inventory items yet')
+                                }
+                              </h3>
+                              <p className="text-muted-foreground max-w-sm mx-auto">
+                                {businessType === 'service'
+                                  ? t('inventory.service_description_empty', 'Create your service catalog to get started. Services can be added to invoices easily.')
+                                  : t('inventory.product_description_empty', 'Add your products to track stock levels and add them to invoices.')
                                 }
                               </p>
-                              {canPerformAction && (
-                                <Link to="/inventory/new">
-                                  <Button variant="outline" size="sm">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    {businessType === 'service'
-                                      ? t('inventory.add_first_service', 'Add Your First Service')
-                                      : t('inventory.add_first_product', 'Add Your First Product')
-                                    }
-                                  </Button>
-                                </Link>
-                              )}
                             </div>
                           </TableCell>
                         </TableRow>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard } from "@/components/ui/professional-card";
+import { ProfessionalButton } from "@/components/ui/professional-button";
 
 const Clients = () => {
   const { t } = useTranslation();
@@ -205,8 +206,23 @@ const Clients = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center">
-                        {t('clients.no_clients')}
+                      <TableCell colSpan={9} className="h-auto p-0 border-none">
+                        <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                          <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Users className="h-8 w-8 text-primary" />
+                          </div>
+                          <h3 className="text-xl font-bold mb-2">{t('clients.no_clients', 'No clients yet')}</h3>
+                          <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                            {t('clients.no_clients_description', 'Start building your customer base. Add your first client to begin managing invoices and payments.')}
+                          </p>
+                          {canPerformAction && (
+                            <ProfessionalButton asChild variant="gradient" className="h-10 px-8">
+                              <Link to="/clients/new">
+                                <Plus className="mr-2 h-4 w-4" /> {t('clients.add_client')}
+                              </Link>
+                            </ProfessionalButton>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

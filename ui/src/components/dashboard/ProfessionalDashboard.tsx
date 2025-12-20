@@ -10,7 +10,8 @@ import {
   AlertCircle,
   ArrowRight,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 
 import { ContentSection, GridLayout } from '@/components/ui/professional-layout';
@@ -179,7 +180,7 @@ export function ProfessionalDashboard() {
       },
       icon: TrendingUp,
       description: t('dashboard.stats.expenses_description'),
-      variant: 'info' as const
+      variant: 'default' as const
     },
     {
       title: t('dashboard.stats.pending_amount'),
@@ -255,16 +256,37 @@ export function ProfessionalDashboard() {
       <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')}>
         <GridLayout cols={5} gap="lg" responsive>
           {metrics.map((metric, index) => (
-            <MetricCard
-              key={index}
-              title={metric.title}
-              value={metric.value}
-              change={metric.change}
-              icon={metric.icon}
-              description={metric.description}
-              variant={metric.variant}
-              loading={loading}
-            />
+            <div key={index} className="space-y-2">
+              <MetricCard
+                title={metric.title}
+                value={metric.value}
+                change={metric.change}
+                icon={metric.icon}
+                description={metric.description}
+                variant={metric.variant}
+                loading={loading}
+              />
+              {!loading && (metric.value === '0' || metric.value === '$0.00') && (
+                <div className="px-1 mt-[-8px]">
+                  <ProfessionalButton
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs h-7 text-primary hover:bg-primary/5 border border-primary/10"
+                    onClick={() => {
+                      if (metric.title.toLowerCase().includes('client')) navigate('/clients/new');
+                      else if (metric.title.toLowerCase().includes('income')) navigate('/invoices/new');
+                      else if (metric.title.toLowerCase().includes('expense')) navigate('/expenses/new');
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {metric.title.toLowerCase().includes('client') ? t('clients.add_client') :
+                      metric.title.toLowerCase().includes('income') ? t('invoices.new_invoice') :
+                        metric.title.toLowerCase().includes('expense') ? t('expenses.new_expense', 'New Expense') :
+                          t('common.add_data', 'Add Data')}
+                  </ProfessionalButton>
+                </div>
+              )}
+            </div>
           ))}
         </GridLayout>
       </ContentSection>

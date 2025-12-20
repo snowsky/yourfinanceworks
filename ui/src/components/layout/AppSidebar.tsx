@@ -726,11 +726,11 @@ export function AppSidebar() {
               </Button>
             </div>
 
-            {/* Logout Button */}
+            {/* Softened Logout Button */}
             <Button
-              variant="destructive"
+              variant="outline"
               size="sm"
-              className="w-full bg-gradient-to-r from-red-600/90 to-red-700/90 hover:from-red-700 hover:to-red-800 text-white font-medium py-2.5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 border border-red-500/20"
+              className="w-full border-slate-700/50 bg-slate-800/20 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 font-medium py-2.5 rounded-xl transition-all duration-200"
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4 mr-2" />

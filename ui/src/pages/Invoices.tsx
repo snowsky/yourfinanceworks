@@ -190,12 +190,12 @@ const Invoices = () => {
     } catch (error) {
       console.error('Failed to bulk delete invoices:', error);
       let errorMessage = error instanceof Error ? error.message : 'Failed to delete invoices';
-      
+
       // Check if it's the linked expenses error and use translated version
       if (errorMessage.includes('linked expenses')) {
         errorMessage = t('invoices.delete_error_linked_expenses');
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setBulkDeleteModalOpen(false);
@@ -649,9 +649,14 @@ const Invoices = () => {
               </div>
             )
           ) : (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg font-medium text-muted-foreground">{t('invoices.no_invoices')}</p>
+            <div className="text-center py-20 bg-muted/10 rounded-xl border-2 border-dashed border-muted-foreground/20">
+              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">{t('invoices.no_invoices', 'No invoices yet')}</h3>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                {t('invoices.no_invoices_description', 'Get started by creating your first professional invoice. You can also import one from a PDF.')}
+              </p>
             </div>
           )}
         </ProfessionalCard>
@@ -699,13 +704,13 @@ const Invoices = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {selectedIds.length === 1 
+              {selectedIds.length === 1
                 ? t('invoices.delete_single_title', 'Move 1 Invoice to Recycle Bin')
                 : t('invoices.delete_multiple_title', `Move ${selectedIds.length} Invoices to Recycle Bin`)
               }
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedIds.length === 1 
+              {selectedIds.length === 1
                 ? t('invoices.delete_single_description', 'Are you sure you want to move this invoice to the recycle bin? You can restore it later if needed.')
                 : t('invoices.delete_multiple_description', `Are you sure you want to move ${selectedIds.length} invoices to the recycle bin? You can restore them later if needed.`)
               }
@@ -713,12 +718,12 @@ const Invoices = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmBulkDelete} 
+            <AlertDialogAction
+              onClick={confirmBulkDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              {selectedIds.length === 1 
+              {selectedIds.length === 1
                 ? t('invoices.move_to_recycle_bin', 'Move to Recycle Bin')
                 : t('invoices.move_multiple_to_recycle_bin', 'Move All to Recycle Bin')
               }
