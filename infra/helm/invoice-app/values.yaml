@@ -79,6 +79,15 @@ postgresql:
           CREATE INDEX IF NOT EXISTS idx_master_users_email ON master_users(email);
           CREATE INDEX IF NOT EXISTS idx_master_users_tenant_id ON master_users(tenant_id);
 
+# External PostgreSQL configuration (used when postgresql.enabled is false)
+externalPostgresql:
+  host: ""
+  port: 5432
+  username: "postgres"
+  password: "password"
+  database: "invoice_master"
+  sslmode: "require"
+
 # API service configuration
 api:
   enabled: true
@@ -94,10 +103,13 @@ api:
     UI_BASE_URL: "http://localhost:8080"
     MULTITENANT_MODE: "database_per_tenant"
     TENANT_DATABASE_PREFIX: "tenant_"
-    MASTER_DATABASE_HOST: "postgres-master"
-    MASTER_DATABASE_PORT: "5432"
-    MASTER_DATABASE_USER: "postgres"
-    MASTER_DATABASE_PASSWORD: "password"
+    # Database configuration - will be set dynamically based on postgresql.enabled
+    MASTER_DATABASE_HOST: "{{- if .Values.postgresql.enabled }}postgres-master{{- else }}{{ .Values.externalPostgresql.host }}{{- end }}"
+    MASTER_DATABASE_PORT: "{{- if .Values.postgresql.enabled }}5432{{- else }}{{ .Values.externalPostgresql.port }}{{- end }}"
+    MASTER_DATABASE_USER: "{{- if .Values.postgresql.enabled }}postgres{{- else }}{{ .Values.externalPostgresql.username }}{{- end }}"
+    MASTER_DATABASE_PASSWORD: "{{- if .Values.postgresql.enabled }}password{{- else }}{{ .Values.externalPostgresql.password }}{{- end }}"
+    # Kafka configuration - will be set dynamically based on kafka.enabled
+    KAFKA_BOOTSTRAP_SERVERS: "{{- if .Values.kafka.enabled }}kafka:9092{{- else }}{{ .Values.externalKafka.bootstrapServers }}{{- end }}"
     SLACK_VERIFICATION_TOKEN: ""
     SLACK_BOT_TOKEN: ""
     SLACK_CLIENT_ID: ""
@@ -105,7 +117,6 @@ api:
     SLACK_SIGNING_SECRET: ""
     DEBUG: "False"
     LOG_LEVEL: "INFO"
-    KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
     KAFKA_OCR_TOPIC: "expenses_ocr"
     KAFKA_OCR_GROUP: "invoice-app-ocr"
   secrets:
@@ -149,14 +160,41 @@ ingress:
             name: ui
             port: 8080
 
-# Kafka configuration (optional - can be disabled if not needed)
+# Kafka dependency settings
 kafka:
   enabled: false
-  image:
+  # Use custom Confluent Platform Kafka image (optional)
+  useConfluentImage: false
+  confluentImage:
     repository: confluentinc/cp-kafka
     tag: "7.6.1"
-  replicas: 1
+  replicaCount: 1
   storage: 5Gi
+  # Bitnami dependency configuration (default)
+  listeners:
+    client:
+      containerPort: 9092
+    controller:
+      containerPort: 9093
+    interbroker:
+      containerPort: 9094
+  persistence:
+    enabled: true
+    size: 5Gi
+  zookeeper:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 5Gi
+
+# External Kafka configuration (used when kafka.enabled is false)
+externalKafka:
+  bootstrapServers: ""
+  securityProtocol: "PLAINTEXT"
+  saslMechanism: ""
+  saslUsername: ""
+  saslPassword: ""
+  sslCaLocation: ""
 
 # OCR Worker configuration (optional)
 ocrWorker:

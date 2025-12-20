@@ -1,4 +1,4 @@
-{{- if .Values.kafka.enabled }}
+{{- if and .Values.kafka.enabled .Values.kafka.useConfluentImage }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -31,7 +31,7 @@ spec:
     matchLabels:
       app: kafka
   serviceName: kafka
-  replicas: {{ .Values.kafka.replicas }}
+  replicas: {{ .Values.kafka.replicaCount }}
   template:
     metadata:
       labels:
@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: {{ include "invoice-app.image" (dict "repository" .Values.kafka.image.repository "tag" .Values.kafka.image.tag) }}
+          image: {{ include "invoice-app.image" (dict "repository" .Values.kafka.confluentImage.repository "tag" .Values.kafka.confluentImage.tag) }}
           ports:
             - containerPort: 9092
               name: broker
