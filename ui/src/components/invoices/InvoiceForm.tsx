@@ -31,6 +31,7 @@ import { TemplateSelector } from "./TemplateSelector";
 import { apiRequest } from "@/lib/api";
 import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
 import { getErrorMessage } from '@/lib/api';
+import { canEditInvoice } from "@/utils/auth";
 
 interface InvoiceFormProps {
   invoice?: Invoice;
@@ -127,17 +128,52 @@ export function InvoiceForm({
     invoiceForm.setSubmitting(true);
     onSubmitStateChange?.(true);
 
-    // Validate after setting submitting state
-    const isValid = await invoiceForm.form.trigger();
-    if (!isValid) {
-      toast.error("Please fix validation errors before submitting");
-      invoiceForm.setSubmitting(false);
-      onSubmitStateChange?.(false);
-      return;
+    // Check if this is a payment-only update (approved invoice with payment editing allowed)
+    const isPaymentOnlyUpdate = isEdit && invoice && canEditPayment && !canEditInvoice(invoice);
+
+    // For payment-only updates, skip full form validation and only validate paid amount
+    if (isPaymentOnlyUpdate) {
+      const paidAmount = invoiceForm.form.getValues("paidAmount") || 0;
+      if (paidAmount < 0) {
+        toast.error("Paid amount cannot be negative");
+        invoiceForm.setSubmitting(false);
+        onSubmitStateChange?.(false);
+        return;
+      }
+    } else {
+      // Validate after setting submitting state (full validation for normal updates)
+      const isValid = await invoiceForm.form.trigger();
+      if (!isValid) {
+        toast.error("Please fix validation errors before submitting");
+        invoiceForm.setSubmitting(false);
+        onSubmitStateChange?.(false);
+        return;
+      }
     }
     try {
       if (isEdit && invoice) {
-        // Update existing invoice
+        // Check if this is a payment-only update (approved invoice with payment editing allowed)
+        const isPaymentOnlyUpdate = canEditPayment && !canEditInvoice(invoice);
+
+        if (isPaymentOnlyUpdate) {
+          // For payment-only updates, only send the paid_amount field
+          const paymentUpdateData = {
+            paid_amount: data.paidAmount || 0
+          };
+
+          await invoiceApi.updateInvoice(invoice.id, paymentUpdateData);
+          toast.success("Payment updated successfully!");
+
+          if (onInvoiceUpdate) {
+            const updatedInvoice = await invoiceApi.getInvoice(invoice.id);
+            onInvoiceUpdate(updatedInvoice);
+          }
+
+          navigate("/invoices");
+          return;
+        }
+
+        // Update existing invoice (full update)
         const updateData = {
           amount: invoiceForm.calculateTotal(),
           subtotal: invoiceForm.calculateSubtotal(),
@@ -468,7 +504,6 @@ export function InvoiceForm({
               {isEdit && (invoice?.status === 'approved' || canEditPayment) && (
                 <InvoicePaymentSection
                   form={invoiceForm.form}
-                  invoice={invoice}
                   canEditPayment={canEditPayment}
                 />
               )}

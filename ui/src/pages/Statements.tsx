@@ -859,8 +859,8 @@ export default function Statements() {
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <p className="text-sm text-blue-800">
+              <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-md p-3">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
                 </p>
               </div>

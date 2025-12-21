@@ -1519,8 +1519,8 @@ const Expenses = () => {
                       </Alert>
                     ) : (
                       <>
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-700">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
+                          <p className="text-sm text-blue-700 dark:text-blue-200">
                             {t('expenses.this_expense_will_be_submitted_for_approval')}
                           </p>
                         </div>

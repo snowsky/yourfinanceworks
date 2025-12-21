@@ -18,11 +18,32 @@ export function InvoicePaymentSection({
 }: InvoicePaymentSectionProps) {
   const { t } = useTranslation();
 
-  const totalAmount = form.watch("items")?.reduce(
-    (sum: number, item: any) => sum + (item.quantity * item.price), 
-    0
-  ) || 0;
+  // Calculate total amount after discount (same logic as in useInvoiceForm)
+  const calculateTotalAmount = () => {
+    const items = form.watch("items") || [];
+    const discountType = form.watch("discountType");
+    const discountValue = form.watch("discountValue") || 0;
 
+    // Calculate subtotal
+    const subtotal = items.reduce((sum: number, item: any) => {
+      const quantity = Number(item.quantity) || 0;
+      const price = Number(item.price) || 0;
+      return sum + quantity * price;
+    }, 0);
+
+    // Calculate discount
+    let discount = 0;
+    if (discountType === "percentage") {
+      discount = (subtotal * discountValue) / 100;
+    } else if (discountType === "fixed") {
+      discount = Math.min(discountValue, subtotal);
+    }
+
+    // Return total after discount
+    return Math.max(0, subtotal - discount);
+  };
+
+  const totalAmount = calculateTotalAmount();
   const paidAmount = form.watch("paidAmount") || 0;
   const outstandingAmount = totalAmount - paidAmount;
 

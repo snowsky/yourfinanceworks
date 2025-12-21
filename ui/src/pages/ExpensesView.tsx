@@ -155,12 +155,12 @@ export default function ExpensesView() {
 
         {/* Show approval request message if exists */}
         {approval && approval.notes && (
-          <Card className="slide-in border-blue-200 bg-blue-50">
+          <Card className="slide-in border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
             <CardHeader>
-              <CardTitle className="text-blue-900">{t('expenses.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
+              <CardTitle className="text-blue-900 dark:text-blue-100">{t('expenses.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-blue-800">{approval.notes}</p>
+              <p className="text-sm text-blue-800 dark:text-blue-200">{approval.notes}</p>
             </CardContent>
           </Card>
         )}

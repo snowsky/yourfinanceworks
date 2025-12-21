@@ -51,13 +51,13 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
   const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-600" />;
+        return <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
       case 'processing':
-        return <Clock className="w-4 h-4 text-blue-600" />;
+        return <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
       case 'join_request':
-        return <UserPlus className="w-4 h-4 text-purple-600" />;
+        return <UserPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
     }
   };
 
@@ -82,10 +82,6 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
           size="lg"
           className={`rounded-full shadow-lg transition-all duration-300 ${
             hasNewNotifications ? 'animate-bounce' : ''
-          } ${
-            unreadCount > 0 
-              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-              : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
           }`}
         >
           <Bell className={`w-5 h-5 ${hasNewNotifications ? 'animate-pulse' : ''}`} />
@@ -102,9 +98,9 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
 
       {/* Notification Panel */}
       {isOpen && (
-        <Card className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-80 max-h-96 overflow-hidden shadow-xl animate-in slide-in-from-bottom-2">
+        <Card className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-80 max-h-96 overflow-hidden shadow-xl animate-in slide-in-from-bottom-2 bg-card border-border">
           <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="font-semibold text-sm">AI Processing Updates</h3>
+            <h3 className="font-semibold text-sm text-foreground">AI Processing Updates</h3>
             <div className="flex items-center gap-2">
               {displayNotifications.length > 0 && (
                 <>
@@ -138,7 +134,7 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
           
           <CardContent className="p-0 max-h-80 overflow-y-auto">
             {displayNotifications.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
+                  <div className="p-4 text-center text-sm text-muted-foreground">
                 No recent notifications
               </div>
             ) : (
@@ -155,7 +151,7 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
                       {getIcon(notification.type)}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {notification.title}
                           </p>
                           <span className="text-xs text-muted-foreground">
@@ -166,7 +162,7 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
                           {notification.message}
                         </p>
                         {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
+                          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mt-2"></div>
                         )}
                       </div>
                     </div>

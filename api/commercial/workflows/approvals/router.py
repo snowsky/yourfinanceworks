@@ -1213,20 +1213,20 @@ async def create_approval_delegation(
 ):
     """
     Create an approval delegation.
-    
+
     This endpoint allows users to delegate their approval authority to another user
     for a specified time period. During the delegation period, the delegate will
     receive approval requests instead of the original approver.
-    
+
     Args:
         delegation_data: Delegation configuration including delegate and time period
         current_user: Currently authenticated user (the approver)
         approval_service: Approval service instance
         db: Database session
-        
+
     Returns:
         Created ApprovalDelegate record
-        
+
     Raises:
         HTTPException: 400 if delegation data is invalid or overlaps with existing delegation
         HTTPException: 403 if user lacks permission to create delegations
@@ -1234,20 +1234,20 @@ async def create_approval_delegation(
     """
     try:
         require_non_viewer(current_user)
-        
+
         # Validate that the approver_id in the data matches the current user
         if delegation_data.approver_id != current_user.id:
             raise HTTPException(
                 status_code=403,
                 detail="You can only create delegations for yourself"
             )
-        
+
         # Create the delegation
         delegation = approval_service.create_delegation(
             approver_id=current_user.id,
             delegate_data=delegation_data
         )
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -1263,11 +1263,11 @@ async def create_approval_delegation(
                 "is_active": delegation.is_active
             }
         )
-        
+
         logger.info(f"User {current_user.id} created approval delegation {delegation.id} to user {delegation.delegate_id}")
-        
+
         return delegation
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error creating delegation: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1287,21 +1287,21 @@ async def get_approval_delegations(
 ):
     """
     Get approval delegations for the current user.
-    
+
     This endpoint returns all delegations created by the current user,
     optionally including inactive/expired delegations.
-    
+
     Args:
         include_inactive: Whether to include inactive or expired delegations
         current_user: Currently authenticated user
         approval_service: Approval service instance
-        
+
     Returns:
         List of ApprovalDelegate records for the current user
     """
     try:
         require_non_viewer(current_user)
-        
+
         if include_inactive:
             # Get all delegations for the user
             from core.models.models_per_tenant import ApprovalDelegate as ApprovalDelegateModel
@@ -1311,11 +1311,11 @@ async def get_approval_delegations(
         else:
             # Get only active delegations
             delegations = approval_service.get_active_delegations(current_user.id)
-        
+
         logger.info(f"Retrieved {len(delegations)} delegations for user {current_user.id}")
-        
+
         return delegations
-        
+
     except Exception as e:
         logger.error(f"Error retrieving delegations for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -1330,19 +1330,19 @@ async def update_approval_delegation(
 ):
     """
     Update an approval delegation.
-    
+
     This endpoint allows users to update their existing delegations,
     such as extending the end date or deactivating the delegation.
-    
+
     Args:
         delegation_id: ID of the delegation to update
         delegation_data: Updated delegation data
         current_user: Currently authenticated user (must be the approver)
         db: Database session
-        
+
     Returns:
         Updated ApprovalDelegate record
-        
+
     Raises:
         HTTPException: 403 if user doesn't own the delegation
         HTTPException: 404 if delegation not found
@@ -1350,10 +1350,10 @@ async def update_approval_delegation(
     """
     try:
         require_non_viewer(current_user)
-        
+
         # Import here to avoid circular imports
         from core.models.models_per_tenant import ApprovalDelegate as ApprovalDelegateModel
-        
+
         # Get the delegation
         delegation = db.query(ApprovalDelegateModel).filter(
             and_(
@@ -1361,34 +1361,34 @@ async def update_approval_delegation(
                 ApprovalDelegateModel.approver_id == current_user.id
             )
         ).first()
-        
+
         if not delegation:
             raise HTTPException(
                 status_code=404,
                 detail=f"Delegation {delegation_id} not found or access denied"
             )
-        
+
         # Store original values for audit log
         original_values = {
             "start_date": delegation.start_date.isoformat(),
             "end_date": delegation.end_date.isoformat(),
             "is_active": delegation.is_active
         }
-        
+
         # Update fields that are provided
         update_data = delegation_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(delegation, field, value)
-        
+
         delegation.updated_at = datetime.now(timezone.utc)
-        
+
         # Validate the updated delegation
         if delegation.end_date <= delegation.start_date:
             raise HTTPException(
                 status_code=400,
                 detail="End date must be after start date"
             )
-        
+
         db.commit()
         db.refresh(delegation)
 
@@ -1410,11 +1410,11 @@ async def update_approval_delegation(
                 }
             }
         )
-        
+
         logger.info(f"User {current_user.id} updated delegation {delegation_id}")
-        
+
         return delegation
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error updating delegation {delegation_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1432,32 +1432,32 @@ async def deactivate_approval_delegation(
 ):
     """
     Deactivate an approval delegation.
-    
+
     This endpoint allows users to deactivate their existing delegations,
     effectively ending the delegation immediately.
-    
+
     Args:
         delegation_id: ID of the delegation to deactivate
         current_user: Currently authenticated user (must be the approver)
         approval_service: Approval service instance
         db: Database session
-        
+
     Returns:
         Success message
-        
+
     Raises:
         HTTPException: 403 if user doesn't own the delegation
         HTTPException: 404 if delegation not found
     """
     try:
         require_non_viewer(current_user)
-        
+
         # Deactivate the delegation
         delegation = approval_service.deactivate_delegation(
             delegation_id=delegation_id,
             approver_id=current_user.id
         )
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -1471,11 +1471,11 @@ async def deactivate_approval_delegation(
                 "original_end_date": delegation.end_date.isoformat()
             }
         )
-        
+
         logger.info(f"User {current_user.id} deactivated delegation {delegation_id}")
-        
+
         return {"message": f"Delegation {delegation_id} deactivated successfully"}
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error deactivating delegation {delegation_id}: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
@@ -1496,20 +1496,20 @@ async def submit_invoice_for_approval(
 ):
     """
     Submit an invoice for approval.
-    
+
     This endpoint allows users to submit invoices for approval according to
     configured approval rules.
-    
+
     Args:
         invoice_id: ID of the invoice to submit for approval
         submission_data: Submission details including approver_id and optional notes
         current_user: Currently authenticated user
         approval_service: Approval service instance
         db: Database session
-        
+
     Returns:
         List of created InvoiceApproval records
-        
+
     Raises:
         HTTPException: 400 if invoice is invalid or already in approval workflow
         HTTPException: 403 if user lacks permission to submit this invoice
@@ -1517,17 +1517,17 @@ async def submit_invoice_for_approval(
     """
     try:
         require_non_viewer(current_user)
-        
+
         # Extract approver_id and notes from submission_data
         approver_id = submission_data.get("approver_id")
         notes = submission_data.get("notes")
-        
+
         if not approver_id:
             raise HTTPException(
                 status_code=400,
                 detail="approver_id is required"
             )
-        
+
         # Submit invoice for approval
         approvals = approval_service.submit_invoice_for_approval(
             invoice_id=invoice_id,
@@ -1535,13 +1535,13 @@ async def submit_invoice_for_approval(
             approver_id=approver_id,
             notes=notes
         )
-        
+
         # Create notification and reminder for approvers
         from core.models.models_per_tenant import ReminderNotification, Invoice, Reminder, ReminderStatus, ReminderPriority, RecurrencePattern
         from datetime import timedelta as td
         now = datetime.now(timezone.utc)
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
-        
+
         for approval in approvals:
             if approval.approver_id:
                 # Create in-app notification with invoice_id in subject for navigation
@@ -1592,7 +1592,7 @@ async def submit_invoice_for_approval(
 
         # Commit the notifications and reminders
         db.commit()
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -1607,11 +1607,11 @@ async def submit_invoice_for_approval(
                 "notes": notes
             }
         )
-        
+
         logger.info(f"User {current_user.id} submitted invoice {invoice_id} for approval")
-        
+
         return [{"id": a.id, "status": a.status, "approval_level": a.approval_level, "approver_id": a.approver_id} for a in approvals]
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error submitting invoice {invoice_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1728,19 +1728,19 @@ async def approve_invoice(
 ):
     """
     Approve an invoice.
-    
+
     This endpoint allows authorized approvers to approve invoices assigned to them.
-    
+
     Args:
         approval_id: ID of the approval record to approve
         decision_data: Approval decision details including optional notes
         current_user: Currently authenticated user
         approval_service: Approval service instance
         db: Database session
-        
+
     Returns:
         Updated InvoiceApproval record
-        
+
     Raises:
         HTTPException: 400 if approval is not in pending state
         HTTPException: 403 if user lacks permission to approve this invoice
@@ -1748,31 +1748,31 @@ async def approve_invoice(
     """
     try:
         require_non_viewer(current_user)
-        
+
         notes = decision_data.get("notes")
-        
+
         # Approve the invoice
         approval = approval_service.approve_invoice(
             approval_id=approval_id,
             approver_id=current_user.id,
             notes=notes
         )
-        
+
         # Create notification for invoice submitter and complete the reminder
         from core.models.models_per_tenant import ReminderNotification, Invoice, Reminder, ReminderStatus
         now = datetime.now(timezone.utc)
         invoice = db.query(Invoice).filter(Invoice.id == approval.invoice_id).first()
-        
+
         # Get the submitter from the reminder metadata
         reminder_for_approval = db.query(Reminder).filter(
             Reminder.status == ReminderStatus.PENDING,
             text("extra_metadata::jsonb @> :metadata")
         ).params(metadata=f'{{"approval_id": {approval.id}}}').first()
-        
+
         submitter_id = None
         if reminder_for_approval and reminder_for_approval.extra_metadata:
             submitter_id = reminder_for_approval.extra_metadata.get("submitter_id")
-        
+
         if submitter_id and invoice:
             notification = ReminderNotification(
                 reminder_id=None,
@@ -1801,7 +1801,7 @@ async def approve_invoice(
             db.add(reminder)
 
         db.commit()
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -1816,11 +1816,11 @@ async def approve_invoice(
                 "notes": notes
             }
         )
-        
+
         logger.info(f"User {current_user.id} approved invoice approval {approval_id}")
-        
+
         return {"id": approval.id, "status": approval.status, "invoice_id": approval.invoice_id}
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error approving invoice {approval_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -1845,20 +1845,20 @@ async def reject_invoice(
 ):
     """
     Reject an invoice.
-    
+
     This endpoint allows authorized approvers to reject invoices assigned to them.
     A rejection reason is required and will be communicated to the invoice submitter.
-    
+
     Args:
         approval_id: ID of the approval record to reject
         decision_data: Rejection decision details including required rejection reason
         current_user: Currently authenticated user
         approval_service: Approval service instance
         db: Database session
-        
+
     Returns:
         Updated InvoiceApproval record
-        
+
     Raises:
         HTTPException: 400 if approval is not in pending state or rejection reason missing
         HTTPException: 403 if user lacks permission to approve this invoice
@@ -1866,17 +1866,17 @@ async def reject_invoice(
     """
     try:
         require_non_viewer(current_user)
-        
+
         rejection_reason = decision_data.get("rejection_reason")
         notes = decision_data.get("notes")
-        
+
         # Validate rejection reason is provided
         if not rejection_reason or not rejection_reason.strip():
             raise HTTPException(
                 status_code=400,
                 detail="Rejection reason is required when rejecting an invoice"
             )
-        
+
         # Reject the invoice
         approval = approval_service.reject_invoice(
             approval_id=approval_id,
@@ -1884,22 +1884,22 @@ async def reject_invoice(
             rejection_reason=rejection_reason,
             notes=notes
         )
-        
+
         # Create notification for invoice submitter and cancel the reminder
         from core.models.models_per_tenant import ReminderNotification, Invoice, Reminder, ReminderStatus
         now = datetime.now(timezone.utc)
         invoice = db.query(Invoice).filter(Invoice.id == approval.invoice_id).first()
-        
+
         # Get the submitter from the reminder metadata
         reminder_for_approval = db.query(Reminder).filter(
             Reminder.status == ReminderStatus.PENDING,
             text("extra_metadata::jsonb @> :metadata")
         ).params(metadata=f'{{"approval_id": {approval.id}}}').first()
-        
+
         submitter_id = None
         if reminder_for_approval and reminder_for_approval.extra_metadata:
             submitter_id = reminder_for_approval.extra_metadata.get("submitter_id")
-        
+
         if submitter_id and invoice:
             notification = ReminderNotification(
                 reminder_id=None,
@@ -1965,7 +1965,8 @@ async def reject_invoice(
 async def get_invoice_approval_history(
     invoice_id: int,
     current_user: MasterUser = Depends(get_current_user),
-    approval_service: ApprovalService = Depends(get_approval_service)
+    approval_service: ApprovalService = Depends(get_approval_service),
+    db: Session = Depends(get_db)
 ):
     """
     Get complete approval history for an invoice.
@@ -1977,6 +1978,7 @@ async def get_invoice_approval_history(
         invoice_id: ID of the invoice to get approval history for
         current_user: Currently authenticated user
         approval_service: Approval service instance
+        db: Database session
 
     Returns:
         InvoiceApprovalHistory with complete approval audit trail
@@ -1989,9 +1991,53 @@ async def get_invoice_approval_history(
 
         history = approval_service.get_invoice_approval_history(invoice_id)
 
+        # Enrich the approval history items with username information
+        from core.models.models_per_tenant import InvoiceApproval
+        from core.services.attribution_service import AttributionService
+        from sqlalchemy.orm import joinedload
+
+        # Get the approvals with user relationships loaded
+        approvals = db.query(InvoiceApproval).options(
+            joinedload(InvoiceApproval.approved_by),
+            joinedload(InvoiceApproval.rejected_by)
+        ).filter(
+            InvoiceApproval.invoice_id == invoice_id
+        ).order_by(
+            InvoiceApproval.approval_level.asc(),
+            InvoiceApproval.submitted_at.asc()
+        ).all()
+
+        # Create a mapping of approval_id to approval for quick lookup
+        approval_map = {approval.id: approval for approval in approvals}
+
+        # Enrich the history items with username information
+        enriched_history_items = []
+        for item in history.approval_history:
+            approval = approval_map.get(item.id)
+            item_dict = item.dict()
+
+            # Add username fields
+            item_dict["approved_by_username"] = None
+            item_dict["rejected_by_username"] = None
+
+            if approval:
+                if approval.status == "approved" and approval.approved_by:
+                    item_dict["approved_by_username"] = AttributionService.get_display_name(approval.approved_by)
+                elif approval.status == "rejected" and approval.rejected_by:
+                    item_dict["rejected_by_username"] = AttributionService.get_display_name(approval.rejected_by)
+
+            enriched_history_items.append(item_dict)
+
+        # Return enriched response
+        response = {
+            "invoice_id": history.invoice_id,
+            "current_status": history.current_status,
+            "approval_history": enriched_history_items
+        }
+
         logger.info(f"Retrieved approval history for invoice {invoice_id} by user {current_user.id}")
 
-        return history
+        return response
 
     except ValidationError as e:
         logger.warning(f"Validation error getting history for invoice {invoice_id}: {str(e)}")

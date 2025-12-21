@@ -174,11 +174,11 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 border-red-200';
-      case 'high': return 'bg-orange-100 border-orange-200';
-      case 'medium': return 'bg-yellow-100 border-yellow-200';
-      case 'low': return 'bg-green-100 border-green-200';
-      default: return 'bg-gray-100 border-gray-200';
+      case 'urgent': return 'bg-red-100 dark:bg-red-950/50 border-red-200 dark:border-red-800/50';
+      case 'high': return 'bg-orange-100 dark:bg-orange-950/50 border-orange-200 dark:border-orange-800/50';
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-950/50 border-yellow-200 dark:border-yellow-800/50';
+      case 'low': return 'bg-green-100 dark:bg-green-950/50 border-green-200 dark:border-green-800/50';
+      default: return 'bg-gray-100 dark:bg-gray-950/50 border-gray-200 dark:border-gray-800/50';
     }
   };
 
@@ -279,7 +279,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
                       <div 
                         className={cn(
                           "flex items-start gap-3 p-3 rounded-lg transition-colors hover:bg-muted/50",
-                          !notification.is_read && "bg-blue-50 border border-blue-200",
+                          !notification.is_read && "bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50",
                           notification.reminder && getPriorityColor(notification.reminder.priority),
                           (notification.notification_type === 'join_request' || 
                            notification.notification_type === 'expense_approval' || 

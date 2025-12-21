@@ -256,11 +256,18 @@ export function useInvoiceForm({
             discount_value: matchingRule.discount_value
           });
         } else {
+          // Use the actual discount type from the invoice
           discountType = (invoice.discount_type === "percentage" || invoice.discount_type === "fixed")
             ? (invoice.discount_type as "percentage" | "fixed")
             : "percentage";
           setAppliedDiscountRule(null);
         }
+      } else if (invoice.discount_type) {
+        // Handle case where there's a discount type but no discount value or rules
+        discountType = (invoice.discount_type === "percentage" || invoice.discount_type === "fixed")
+          ? (invoice.discount_type as "percentage" | "fixed")
+          : "percentage";
+        setAppliedDiscountRule(null);
       }
 
       const formData = {

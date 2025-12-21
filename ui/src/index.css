@@ -157,8 +157,8 @@
     --muted: 220 13% 15%;
     --muted-foreground: 215 20% 65%;
 
-    /* Gold Accent */
-    --accent: 43 96% 56%;
+    /* Darker Accent for Dark Mode */
+    --accent: 217 71% 53%;
     --accent-foreground: 220 13% 9%;
 
     /* Darker Rose for Dark Mode */

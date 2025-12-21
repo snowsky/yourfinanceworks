@@ -2691,7 +2691,11 @@
       "snooze_failed": "Failed to snooze reminder",
       "unsnooze_failed": "Failed to unsnooze reminder",
       "delete_failed": "Failed to delete reminder",
-      "load_failed": "Failed to load reminders"
+      "load_failed": "Failed to load reminders",
+      "all_notifications_marked_as_read": "All notifications marked as read",
+      "failed_to_load_notifications": "Failed to load notifications",
+      "failed_to_mark_all_as_read": "Failed to mark all notifications as read",
+      "failed_to_dismiss_notification": "Failed to dismiss notification"
     }
   },
   "organizationJoinRequests": {

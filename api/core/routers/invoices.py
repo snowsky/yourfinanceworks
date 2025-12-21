@@ -1466,6 +1466,50 @@ async def update_invoice(
 
                         except Exception:
                             logger.warning("Failed to create payment from paid_amount update", exc_info=True)
+                    elif incremental_amount < 0:
+                        # Handle payment decrease - remove payments from most recent to oldest
+                        try:
+                            amount_to_remove = abs(incremental_amount)
+                            payments_to_adjust = db.query(PaymentModel).filter(
+                                PaymentModel.invoice_id == db_invoice.id
+                            ).order_by(PaymentModel.payment_date.desc()).all()
+
+                            removed_payments = []
+                            remaining_to_remove = amount_to_remove
+
+                            for payment in payments_to_adjust:
+                                if remaining_to_remove <= 0:
+                                    break
+                                    
+                                if payment.amount <= remaining_to_remove:
+                                    # Remove entire payment
+                                    removed_payments.append(f"${payment.amount:.2f} ({payment.reference_number})")
+                                    remaining_to_remove -= payment.amount
+                                    db.delete(payment)
+                                else:
+                                    # Partially reduce this payment
+                                    old_amount = payment.amount
+                                    payment.amount = payment.amount - remaining_to_remove
+                                    removed_payments.append(f"${remaining_to_remove:.2f} from ${old_amount:.2f} ({payment.reference_number})")
+                                    remaining_to_remove = 0
+
+                            # Create history entry for payment decrease
+                            from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
+                            history_entry = InvoiceHistoryModel(
+                                invoice_id=db_invoice.id,
+                                user_id=current_user.id,
+                                action='payment_decreased',
+                                details=f'Payment decreased: ${current_paid:.2f} → ${new_paid_amount:.2f} (removed: ${amount_to_remove:.2f}). Adjusted: {", ".join(removed_payments)}',
+                                previous_values={'paid_amount': current_paid},
+                                current_values={'paid_amount': new_paid_amount, 'amount_removed': amount_to_remove}
+                            )
+                            db.add(history_entry)
+
+                            logger.info(f"Decreased payment for invoice {db_invoice.id}: removed ${amount_to_remove:.2f}")
+
+                        except Exception as e:
+                            logger.warning(f"Failed to decrease payment from paid_amount update: {e}", exc_info=True)
+                    # If incremental_amount == 0, no change needed
                     continue
                 setattr(db_invoice, key, value)
 
