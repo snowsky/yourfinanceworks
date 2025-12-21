@@ -13,17 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
-import apiService from '../services/api';
+import apiService, { BankStatement } from '../services/api';
 import StatusIndicator from '../components/StatusIndicator';
-
-interface BankStatement {
-  id: number;
-  original_filename: string;
-  status: string;
-  extracted_count: number;
-  created_at: string;
-  labels?: string[];
-}
 
 interface BankStatementsScreenProps {
   onNavigateBack: () => void;
@@ -96,21 +87,21 @@ const BankStatementsScreen: React.FC<BankStatementsScreenProps> = ({
 
   const handleDeleteStatement = async (id: number) => {
     Alert.alert(
-      'Delete Statement',
-      'Are you sure you want to delete this bank statement?',
+      t('statements.delete_statement'),
+      t('statements.delete_confirm_description'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await apiService.deleteBankStatement(id);
               setStatements(prev => prev.filter(s => s.id !== id));
-              Alert.alert('Success', 'Bank statement deleted successfully');
+              Alert.alert(t('common.success'), t('statements.statement_deleted'));
             } catch (error) {
               console.error('Failed to delete bank statement:', error);
-              Alert.alert('Error', 'Failed to delete bank statement');
+              Alert.alert(t('common.error'), t('statements.failed_to_delete'));
             }
           },
         },
@@ -188,7 +179,7 @@ const BankStatementsScreen: React.FC<BankStatementsScreenProps> = ({
         ) : (
           <View style={styles.statementsList}>
             {statements.map((statement) => {
-              const creatorName = statement.created_by_username || statement.created_by_email || 'Unknown';
+              const creatorName = statement.created_by_username || statement.created_by_email || t('common.unknown');
               
               return (
                 <View key={statement.id} style={styles.statementCard}>
@@ -243,14 +234,14 @@ const BankStatementsScreen: React.FC<BankStatementsScreenProps> = ({
                       onPress={() => onNavigateToStatement(statement)}
                     >
                       <Ionicons name="eye-outline" size={16} color="#3B82F6" />
-                      <Text style={styles.actionButtonText}>View</Text>
+                      <Text style={styles.actionButtonText}>{t('common.view')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.deleteButton]}
                       onPress={() => handleDeleteStatement(statement.id)}
                     >
                       <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                      <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+                      <Text style={[styles.actionButtonText, styles.deleteButtonText]}>{t('common.delete')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

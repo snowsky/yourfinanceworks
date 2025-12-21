@@ -128,14 +128,16 @@ const Clients = () => {
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <CardTitle>{t('clients.client_list')}</CardTitle>
-              <div className="relative max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('clients.search_placeholder')}
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('clients.search_placeholder')}
+                    className="pl-8 w-full sm:w-[250px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>

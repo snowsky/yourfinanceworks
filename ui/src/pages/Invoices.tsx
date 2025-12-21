@@ -47,7 +47,7 @@ const Invoices = () => {
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [deletedInvoices, setDeletedInvoices] = useState<DeletedInvoice[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
@@ -437,228 +437,232 @@ const Invoices = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        <ProfessionalCard className="slide-in" variant="default">
-          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-            <h2 className="text-xl font-semibold tracking-tight">{t('invoices.invoice_list')}</h2>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('invoices.search_placeholder')}
-                  className="pl-8 w-full sm:w-[200px]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-2 items-center">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[150px]">
-                    <SelectValue placeholder={t('invoices.filter_by_status')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('invoices.all_statuses')}</SelectItem>
-                    {INVOICE_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {t(`invoices.status.${status}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex border rounded-md">
-                  <Button
-                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('cards')}
-                    className="rounded-r-none border-r-0"
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className="rounded-l-none"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
+        <ProfessionalCard className="slide-in">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
+              <CardTitle>{t('invoices.invoice_list')}</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('invoices.search_placeholder')}
+                    className="pl-8 w-full sm:w-[200px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder={t('invoices.filter_by_status')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('invoices.all_statuses')}</SelectItem>
+                      {INVOICE_STATUSES.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {t(`invoices.status.${status}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex border rounded-md">
+                    <Button
+                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('cards')}
+                      className="rounded-r-none border-r-0"
+                    >
+                      <Grid3X3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'table' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('table')}
+                      className="rounded-l-none"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </CardHeader>
 
-          {/* Bulk actions bar */}
-          {selectedIds.length > 0 && (
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md mb-4">
-              <div className="text-sm text-muted-foreground">
-                {selectedIds.length} selected
+          <CardContent>
+            {/* Bulk actions bar */}
+            {selectedIds.length > 0 && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md mb-4">
+                <div className="text-sm text-muted-foreground">
+                  {selectedIds.length} selected
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedIds([])}
+                  >
+                    Clear Selection
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    disabled={!canPerformAction}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Selected
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedIds([])}
-                >
-                  Clear Selection
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  disabled={!canPerformAction}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Selected
-                </Button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {loading ? (
-            <div className="flex justify-center items-center h-24">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              {t('invoices.loading')}
-            </div>
-          ) : filteredInvoices.length > 0 ? (
-            viewMode === 'cards' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredInvoices.map((invoice) => (
-                  <InvoiceCard
-                    key={invoice.id}
-                    invoice={invoice}
-                    onClone={handleCloneInvoice}
-                    onDelete={handleDeleteInvoice}
-                    canPerformActions={canPerformAction}
-                    selected={selectedIds.includes(invoice.id)}
-                    onSelectionChange={(selected) => {
-                      if (selected) {
-                        setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
-                      } else {
-                        setSelectedIds(prev => prev.filter(x => x !== invoice.id));
-                      }
-                    }}
-                  />
-                ))}
+            {loading ? (
+              <div className="flex justify-center items-center h-24">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                {t('invoices.loading')}
               </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40px]">
-                        <Checkbox
-                          checked={selectedIds.length > 0 && selectedIds.length === filteredInvoices.length}
-                          onCheckedChange={(v) => {
-                            if (v) setSelectedIds(filteredInvoices.map(x => x.id));
-                            else setSelectedIds([]);
-                          }}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      <TableHead>{t('invoices.table.invoice')}</TableHead>
-                      <TableHead>{t('invoices.table.client')}</TableHead>
-                      <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
-                      <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
-                      <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
-                      <TableHead>{t('invoices.table.status')}</TableHead>
-                      <TableHead className="hidden lg:table-cell">{t('common.created_by')}</TableHead>
-                      <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id} className="hover:bg-muted/50">
-                        <TableCell>
+            ) : filteredInvoices.length > 0 ? (
+              viewMode === 'cards' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {filteredInvoices.map((invoice) => (
+                    <InvoiceCard
+                      key={invoice.id}
+                      invoice={invoice}
+                      onClone={handleCloneInvoice}
+                      onDelete={handleDeleteInvoice}
+                      canPerformActions={canPerformAction}
+                      selected={selectedIds.includes(invoice.id)}
+                      onSelectionChange={(selected) => {
+                        if (selected) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(x => x !== invoice.id));
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]">
                           <Checkbox
-                            checked={selectedIds.includes(invoice.id)}
+                            checked={selectedIds.length > 0 && selectedIds.length === filteredInvoices.length}
                             onCheckedChange={(v) => {
-                              if (v) setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
-                              else setSelectedIds(prev => prev.filter(x => x !== invoice.id));
+                              if (v) setSelectedIds(filteredInvoices.map(x => x.id));
+                              else setSelectedIds([]);
                             }}
-                            aria-label={`Select invoice ${invoice.id}`}
+                            aria-label="Select all"
                           />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <span className="inline-flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                            {invoice.number}
-                          </span>
-                        </TableCell>
-                        <TableCell>{invoice.client_name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
-                        <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-medium' : 'text-success font-medium'}>
-                            <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={
-                            invoice.status === 'paid' ? 'status-paid' :
-                              invoice.status === 'pending' ? 'status-pending' :
-                                invoice.status === 'overdue' ? 'status-overdue' :
-                                  invoice.status === 'partially_paid' ? 'status-partially-paid' :
-                                    'bg-muted/50 text-muted-foreground'
-                          }>
-                            {formatStatus(invoice.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                          {invoice.created_by_username || invoice.created_by_email || t('common.unknown')}
-                        </TableCell>
-                        <TableCell>
-                          {canPerformAction && (
-                            <div className="flex gap-1">
-                              <Link to={`/invoices/view/${invoice.id}`}>
-                                <Button variant="ghost" size="icon" title={t('invoices.view_invoice')}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </Link>
-                              <Link to={`/invoices/edit/${invoice.id}`}>
-                                <Button variant="ghost" size="icon" title={t('invoices.edit_invoice')}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </Link>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleCloneInvoice(invoice.id)}
-                                title="Clone invoice"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteInvoice(invoice.id)}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                        </TableHead>
+                        <TableHead>{t('invoices.table.invoice')}</TableHead>
+                        <TableHead>{t('invoices.table.client')}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t('invoices.table.date')}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t('invoices.table.due_date')}</TableHead>
+                        <TableHead className="text-right">{t('invoices.table.total_paid')}</TableHead>
+                        <TableHead className="text-right">{t('invoices.table.outstanding_balance')}</TableHead>
+                        <TableHead>{t('invoices.table.status')}</TableHead>
+                        <TableHead className="hidden lg:table-cell">{t('common.created_by')}</TableHead>
+                        <TableHead className="w-[100px]">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredInvoices.map((invoice) => (
+                        <TableRow key={invoice.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.includes(invoice.id)}
+                              onCheckedChange={(v) => {
+                                if (v) setSelectedIds(prev => Array.from(new Set([...prev, invoice.id])));
+                                else setSelectedIds(prev => prev.filter(x => x !== invoice.id));
+                              }}
+                              aria-label={`Select invoice ${invoice.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <span className="inline-flex items-center">
+                              <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                              {invoice.number}
+                            </span>
+                          </TableCell>
+                          <TableCell>{invoice.client_name}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{formatDate(invoice.created_at)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{formatDate(invoice.due_date)}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-medium' : 'text-success font-medium'}>
+                              <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={
+                              invoice.status === 'paid' ? 'status-paid' :
+                                invoice.status === 'pending' ? 'status-pending' :
+                                  invoice.status === 'overdue' ? 'status-overdue' :
+                                    invoice.status === 'partially_paid' ? 'status-partially-paid' :
+                                      'bg-muted/50 text-muted-foreground'
+                            }>
+                              {formatStatus(invoice.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                            {invoice.created_by_username || invoice.created_by_email || t('common.unknown')}
+                          </TableCell>
+                          <TableCell>
+                            {canPerformAction && (
+                              <div className="flex gap-1">
+                                <Link to={`/invoices/view/${invoice.id}`}>
+                                  <Button variant="ghost" size="icon" title={t('invoices.view_invoice')}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <Link to={`/invoices/edit/${invoice.id}`}>
+                                  <Button variant="ghost" size="icon" title={t('invoices.edit_invoice')}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleCloneInvoice(invoice.id)}
+                                  title="Clone invoice"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteInvoice(invoice.id)}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20">
+                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">{t('invoices.no_invoices', 'No invoices yet')}</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto">
+                  {t('invoices.no_invoices_description', 'Get started by creating your first professional invoice. You can also import one from a PDF.')}
+                </p>
               </div>
-            )
-          ) : (
-            <div className="text-center py-20 bg-muted/10 rounded-xl border-2 border-dashed border-muted-foreground/20">
-              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">{t('invoices.no_invoices', 'No invoices yet')}</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                {t('invoices.no_invoices_description', 'Get started by creating your first professional invoice. You can also import one from a PDF.')}
-              </p>
-            </div>
-          )}
+            )}
+          </CardContent>
         </ProfessionalCard>
       </div>
 
@@ -687,7 +691,7 @@ const Invoices = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('invoices.delete_confirm_title', 'Delete Invoice')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('invoices.delete_confirm_description', 'Are you sure you want to delete this invoice? This action cannot be undone.')}
+              {t('invoices.delete_confirm_description', 'This will move the invoice to the recycle bin where it can be restored or permanently deleted later.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

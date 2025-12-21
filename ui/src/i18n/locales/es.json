@@ -2077,6 +2077,8 @@
     "no_statements": "No hay estados de cuenta por el momento",
     "no_statements_description": "Suba sus estados de cuenta bancarios para extraer automáticamente las transacciones y vincularlas a facturas o gastos.",
     "delete_confirm": "¿Eliminar este estado de cuenta y sus transacciones?",
+    "delete_confirm_description": "Esto moverá el estado de cuenta a la papelera de reciclaje donde puede ser restaurado o eliminado permanentemente más tarde.",
+    "delete_confirm_title": "Eliminar Estado de Cuenta",
     "statement_deleted": "Estado de cuenta eliminado",
     "failed_to_delete": "Error al eliminar el estado de cuenta",
     "preview_title": "Vista previa del estado de cuenta",

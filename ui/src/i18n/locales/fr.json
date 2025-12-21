@@ -2028,6 +2028,8 @@
     "no_statements": "Aucun relevé pour le moment",
     "no_statements_description": "Téléchargez vos relevés bancaires pour extraire automatiquement les transactions et les lier aux factures ou aux dépenses.",
     "delete_confirm": "Supprimer ce relevé et ses transactions ?",
+    "delete_confirm_description": "Ceci déplacera le relevé vers la corbeille où il pourra être restauré ou supprimé définitivement plus tard.",
+    "delete_confirm_title": "Supprimer le relevé",
     "statement_deleted": "Relevé supprimé",
     "failed_to_delete": "Échec de la suppression du relevé",
     "preview_title": "Aperçu du relevé",

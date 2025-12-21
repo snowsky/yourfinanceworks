@@ -38,7 +38,7 @@ class PromptTemplate(Base):
     
     # Versioning
     version = Column(Integer, default=1)
-    is_active = Column(Boolean, default=True, is_default=True)
+    is_active = Column(Boolean, default=True)
     
     # Provider-specific overrides (optional)
     provider_overrides = Column(JSON, nullable=True)  # {"openai": "...", "ollama": "..."}

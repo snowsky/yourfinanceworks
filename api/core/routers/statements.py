@@ -200,7 +200,7 @@ async def list_statements(
     query = (
         db.query(BankStatement)
         .options(joinedload(BankStatement.created_by))
-        .filter(BankStatement.tenant_id == tenant_id)
+        .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
     )
 
     # Apply creator filter if provided
@@ -230,7 +230,169 @@ async def list_statements(
     }
 
 
-@router.get("/{statement_id:\\d+}", response_model=Dict[str, Any])
+
+# Recycle Bin Endpoints (must come before /{statement_id} route)
+
+@router.get("/recycle-bin", response_model=List[DeletedBankStatement])
+async def get_deleted_statements(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Get all deleted statements in the recycle bin"""
+    try:
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    try:
+        deleted_statements = db.query(BankStatement).filter(
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == True
+        ).offset(skip).limit(limit).all()
+
+        result = []
+        for statement in deleted_statements:
+            # Get deleted by user information
+            deleted_by_username = None
+            if statement.deleted_by_user:
+                if statement.deleted_by_user.first_name and statement.deleted_by_user.last_name:
+                    deleted_by_username = f"{statement.deleted_by_user.first_name} {statement.deleted_by_user.last_name}"
+                elif statement.deleted_by_user.first_name:
+                    deleted_by_username = statement.deleted_by_user.first_name
+                else:
+                    deleted_by_username = statement.deleted_by_user.email
+
+            # Get created by user information
+            created_by_username = None
+            created_by_email = None
+            if statement.created_by:
+                if statement.created_by.first_name and statement.created_by.last_name:
+                    created_by_username = f"{statement.created_by.first_name} {statement.created_by.last_name}"
+                elif statement.created_by.first_name:
+                    created_by_username = statement.created_by.first_name
+                else:
+                    created_by_username = statement.created_by.email
+                created_by_email = statement.created_by.email
+
+            statement_dict = {
+                "id": statement.id,
+                "original_filename": statement.original_filename,
+                "stored_filename": statement.stored_filename,
+                "file_path": statement.file_path,
+                "status": statement.status,
+                "extracted_count": statement.extracted_count,
+                "notes": statement.notes,
+                "labels": statement.labels,
+                "created_at": statement.created_at,
+                "updated_at": statement.updated_at,
+                "is_deleted": statement.is_deleted,
+                "deleted_at": statement.deleted_at,
+                "deleted_by": statement.deleted_by,
+                "deleted_by_username": deleted_by_username,
+                "created_by_user_id": statement.created_by_user_id,
+                "created_by_username": created_by_username,
+                "created_by_email": created_by_email
+            }
+            result.append(statement_dict)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error getting deleted statements: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get deleted statements: {str(e)}"
+        )
+
+@router.post("/recycle-bin/empty", response_model=dict)
+async def empty_statement_recycle_bin(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Empty the entire statement recycle bin (admin only)"""
+    try:
+        # Only admins can empty the recycle bin
+        if current_user.role != 'admin':
+            raise HTTPException(
+                status_code=403,
+                detail="Only admins can empty the recycle bin"
+            )
+
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    # Get all deleted statements
+    deleted_statements = db.query(BankStatement).filter(
+        BankStatement.tenant_id == tenant_id,
+        BankStatement.is_deleted == True
+    ).all()
+    count = len(deleted_statements)
+
+    if count == 0:
+        return {"message": "Recycle bin is already empty", "deleted_count": 0}
+
+    # Delete all attachment files from storage before deleting statements
+    try:
+        from core.models.models_per_tenant import BankStatementAttachment
+        for statement in deleted_statements:
+            # Delete main statement file if exists
+            if statement.file_path:
+                try:
+                    await delete_file_from_storage(statement.file_path, tenant_id, current_user.id, db)
+                except Exception as e:
+                    logger.warning(f"Failed to delete statement file {statement.file_path}: {e}")
+
+            # Delete attachments
+            attachments = db.query(BankStatementAttachment).filter(
+                BankStatementAttachment.statement_id == statement.id
+            ).all()
+            for att in attachments:
+                if att.file_path:
+                    try:
+                        await delete_file_from_storage(att.file_path, tenant_id, current_user.id, db)
+                    except Exception as e:
+                        logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
+
+        if deleted_statements:
+            logger.info(f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty")
+    except Exception as e:
+        logger.warning(f"Failed to delete attachment files during statement recycle bin empty: {e}")
+
+    # Delete all statements in recycle bin
+    for statement in deleted_statements:
+        db.delete(statement)
+
+    db.commit()
+
+    # Audit log for empty recycle bin
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="Empty Statement Recycle Bin",
+        resource_type="statement",
+        resource_id=None,
+        resource_name=None,
+        details={"message": f"Statement recycle bin emptied, {count} statements permanently deleted."},
+        status="success"
+    )
+
+    return {
+        "message": f"Statement recycle bin emptied successfully. {count} statements permanently deleted.",
+        "deleted_count": count
+    }
+
+
+@router.get("/{statement_id}", response_model=Dict[str, Any])
 async def get_statement(
     statement_id: int,
     db: Session = Depends(get_db),
@@ -248,7 +410,7 @@ async def get_statement(
     s = (
         db.query(BankStatement)
         .options(joinedload(BankStatement.created_by))
-        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id)
+        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
         .first()
     )
     if not s:
@@ -629,166 +791,6 @@ async def download_statement_file(
     return FileResponse(path=safe_path, media_type=media_type, filename=_name)
 
 
-# Recycle Bin Endpoints (must come before /{statement_id} route)
-
-@router.get("/recycle-bin", response_model=List[DeletedBankStatement])
-async def get_deleted_statements(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
-):
-    """Get all deleted statements in the recycle bin"""
-    try:
-        from core.models.database import get_tenant_context
-        tenant_id = get_tenant_context()
-    except Exception:
-        tenant_id = None
-    if tenant_id is None:
-        raise HTTPException(status_code=401, detail="Tenant context required")
-
-    try:
-        deleted_statements = db.query(BankStatement).filter(
-            BankStatement.tenant_id == tenant_id,
-            BankStatement.is_deleted == True
-        ).offset(skip).limit(limit).all()
-
-        result = []
-        for statement in deleted_statements:
-            # Get deleted by user information
-            deleted_by_username = None
-            if statement.deleted_by_user:
-                if statement.deleted_by_user.first_name and statement.deleted_by_user.last_name:
-                    deleted_by_username = f"{statement.deleted_by_user.first_name} {statement.deleted_by_user.last_name}"
-                elif statement.deleted_by_user.first_name:
-                    deleted_by_username = statement.deleted_by_user.first_name
-                else:
-                    deleted_by_username = statement.deleted_by_user.email
-
-            # Get created by user information
-            created_by_username = None
-            created_by_email = None
-            if statement.created_by:
-                if statement.created_by.first_name and statement.created_by.last_name:
-                    created_by_username = f"{statement.created_by.first_name} {statement.created_by.last_name}"
-                elif statement.created_by.first_name:
-                    created_by_username = statement.created_by.first_name
-                else:
-                    created_by_username = statement.created_by.email
-                created_by_email = statement.created_by.email
-
-            statement_dict = {
-                "id": statement.id,
-                "original_filename": statement.original_filename,
-                "stored_filename": statement.stored_filename,
-                "file_path": statement.file_path,
-                "status": statement.status,
-                "extracted_count": statement.extracted_count,
-                "notes": statement.notes,
-                "labels": statement.labels,
-                "created_at": statement.created_at,
-                "updated_at": statement.updated_at,
-                "is_deleted": statement.is_deleted,
-                "deleted_at": statement.deleted_at,
-                "deleted_by": statement.deleted_by,
-                "deleted_by_username": deleted_by_username,
-                "created_by_user_id": statement.created_by_user_id,
-                "created_by_username": created_by_username,
-                "created_by_email": created_by_email
-            }
-            result.append(statement_dict)
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Error getting deleted statements: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get deleted statements: {str(e)}"
-        )
-
-@router.post("/recycle-bin/empty", response_model=dict)
-async def empty_statement_recycle_bin(
-    db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
-):
-    """Empty the entire statement recycle bin (admin only)"""
-    try:
-        # Only admins can empty the recycle bin
-        if current_user.role != 'admin':
-            raise HTTPException(
-                status_code=403,
-                detail="Only admins can empty the recycle bin"
-            )
-
-        from core.models.database import get_tenant_context
-        tenant_id = get_tenant_context()
-    except Exception:
-        tenant_id = None
-    if tenant_id is None:
-        raise HTTPException(status_code=401, detail="Tenant context required")
-
-    # Get all deleted statements
-    deleted_statements = db.query(BankStatement).filter(
-        BankStatement.tenant_id == tenant_id,
-        BankStatement.is_deleted == True
-    ).all()
-    count = len(deleted_statements)
-
-    if count == 0:
-        return {"message": "Recycle bin is already empty", "deleted_count": 0}
-
-    # Delete all attachment files from storage before deleting statements
-    try:
-        from core.models.models_per_tenant import BankStatementAttachment
-        for statement in deleted_statements:
-            # Delete main statement file if exists
-            if statement.file_path:
-                try:
-                    await delete_file_from_storage(statement.file_path, tenant_id, current_user.id, db)
-                except Exception as e:
-                    logger.warning(f"Failed to delete statement file {statement.file_path}: {e}")
-
-            # Delete attachments
-            attachments = db.query(BankStatementAttachment).filter(
-                BankStatementAttachment.statement_id == statement.id
-            ).all()
-            for att in attachments:
-                if att.file_path:
-                    try:
-                        await delete_file_from_storage(att.file_path, tenant_id, current_user.id, db)
-                    except Exception as e:
-                        logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
-
-        if deleted_statements:
-            logger.info(f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty")
-    except Exception as e:
-        logger.warning(f"Failed to delete attachment files during statement recycle bin empty: {e}")
-
-    # Delete all statements in recycle bin
-    for statement in deleted_statements:
-        db.delete(statement)
-
-    db.commit()
-
-    # Audit log for empty recycle bin
-    log_audit_event(
-        db=db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="Empty Statement Recycle Bin",
-        resource_type="statement",
-        resource_id=None,
-        resource_name=None,
-        details={"message": f"Statement recycle bin emptied, {count} statements permanently deleted."},
-        status="success"
-    )
-
-    return {
-        "message": f"Statement recycle bin emptied successfully. {count} statements permanently deleted.",
-        "deleted_count": count
-    }
-
 @router.post("/{statement_id}/restore", response_model=RecycleBinStatementResponse)
 async def restore_statement(
     statement_id: int,
@@ -940,14 +942,23 @@ async def delete_statement(
     if tenant_id is None:
         raise HTTPException(status_code=401, detail="Tenant context required")
 
+    # First check if statement exists (regardless of deletion status)
     s = (
         db.query(BankStatement)
         .options(joinedload(BankStatement.created_by))
-        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
+        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id)
         .first()
     )
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
+    
+    # If statement is already deleted, return success
+    if s.is_deleted:
+        return RecycleBinStatementResponse(
+            message="Statement is already in recycle bin",
+            statement_id=statement_id,
+            action="already_in_recycle_bin"
+        )
 
     # Check if this statement was created from batch processing
     from core.models.models_per_tenant import BatchFileProcessing

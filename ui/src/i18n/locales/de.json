@@ -1896,6 +1896,8 @@
     "no_statements": "Noch keine Kontoauszüge vorhanden",
     "no_statements_description": "Laden Sie Ihre Bankauszüge hoch, um Transaktionen automatisch zu extrahieren und mit Rechnungen oder Ausgaben zu verknüpfen.",
     "delete_confirm": "Diesen Auszug und seine Transaktionen löschen?",
+    "delete_confirm_description": "Dies verschiebt den Auszug in den Papierkorb, wo er später wiederhergestellt oder endgültig gelöscht werden kann.",
+    "delete_confirm_title": "Kontoauszug löschen",
     "statement_deleted": "Auszug gelöscht",
     "failed_to_delete": "Auszug konnte nicht gelöscht werden",
     "preview_title": "Auszugsvorschau",

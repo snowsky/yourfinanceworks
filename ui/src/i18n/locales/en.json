@@ -2139,6 +2139,8 @@
     "no_statements": "No statements yet",
     "no_statements_description": "Upload your bank statements to automatically extract transactions and link them to invoices or expenses.",
     "delete_confirm": "Delete this statement and its transactions?",
+    "delete_confirm_description": "This will move the statement to the recycle bin where it can be restored or permanently deleted later.",
+    "delete_confirm_title": "Delete Statement",
     "statement_deleted": "Statement deleted",
     "failed_to_delete": "Failed to delete statement",
     "preview_title": "Statement Preview",

@@ -564,6 +564,116 @@ export default function Statements() {
           )}
         />
 
+        {/* Recycle Bin Section */}
+        <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
+          <CollapsibleContent>
+            <ProfessionalCard className="slide-in">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trash2 className="w-5 h-5" />
+                      {t('recycleBin.title', { defaultValue: 'Recycle Bin' })}
+                    </CardTitle>
+                    <p className="text-muted-foreground text-sm">{t('recycleBin.description', { defaultValue: 'Deleted statements that can be restored or permanently deleted' })}</p>
+                  </div>
+                  <ProfessionalButton
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleEmptyRecycleBin}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t('recycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                  </ProfessionalButton>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {recycleBinLoading ? (
+                  <div className="flex justify-center items-center h-24">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    {t('recycleBin.loading', { defaultValue: 'Loading...' })}
+                  </div>
+                ) : deletedStatements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-24 text-center">
+                    <Trash2 className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">{t('recycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('statements.filename')}</TableHead>
+                          <TableHead>{t('statements.status')}</TableHead>
+                          <TableHead>{t('statements.transactions')}</TableHead>
+                          <TableHead>{t('recycleBin.deleted_at')}</TableHead>
+                          <TableHead>{t('recycleBin.deleted_by')}</TableHead>
+                          <TableHead>{t('recycleBin.actions')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {deletedStatements.map((statement) => (
+                          <TableRow key={statement.id}>
+                            <TableCell className="font-medium">{statement.original_filename}</TableCell>
+                            <TableCell>{formatStatus(statement.status)}</TableCell>
+                            <TableCell>{statement.extracted_count}</TableCell>
+                            <TableCell>{statement.deleted_at ? format(new Date(statement.deleted_at), 'PP p') : 'N/A'}</TableCell>
+                            <TableCell>{statement.deleted_by_username || t('common.unknown')}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRestoreStatement(statement.id)}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  <ArrowDown className="w-4 h-4 mr-1" />
+                                  {t('recycleBin.restore', { defaultValue: 'Restore' })}
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-1" />
+                                      {t('recycleBin.permanently_delete', { defaultValue: 'Delete' })}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('recycleBin.permanent_delete_confirm_title', { defaultValue: 'Permanently Delete Statement' })}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('recycleBin.permanent_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this statement? This action cannot be undone.' })}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handlePermanentlyDeleteStatement(statement.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        {t('recycleBin.permanently_delete', { defaultValue: 'Delete Permanently' })}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </ProfessionalCard>
+          </CollapsibleContent>
+        </Collapsible>
+
         {!selected && (
           <ProfessionalCard className="slide-in">
             <CardHeader>
@@ -1357,116 +1467,6 @@ export default function Statements() {
           </DialogContent>
         </Dialog>
 
-        {/* Recycle Bin Section */}
-        <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
-          <CollapsibleContent>
-            <ProfessionalCard className="slide-in">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Trash2 className="w-5 h-5" />
-                      {t('recycleBin.title', { defaultValue: 'Recycle Bin' })}
-                    </CardTitle>
-                    <p className="text-muted-foreground text-sm">{t('recycleBin.description', { defaultValue: 'Deleted statements that can be restored or permanently deleted' })}</p>
-                  </div>
-                  <ProfessionalButton
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleEmptyRecycleBin}
-                    className="gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {t('recycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
-                  </ProfessionalButton>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {recycleBinLoading ? (
-                  <div className="flex justify-center items-center h-24">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    {t('recycleBin.loading', { defaultValue: 'Loading...' })}
-                  </div>
-                ) : deletedStatements.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-24 text-center">
-                    <Trash2 className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">{t('recycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t('statements.filename')}</TableHead>
-                          <TableHead>{t('statements.status')}</TableHead>
-                          <TableHead>{t('statements.transactions')}</TableHead>
-                          <TableHead>{t('recycleBin.deleted_at')}</TableHead>
-                          <TableHead>{t('recycleBin.deleted_by')}</TableHead>
-                          <TableHead>{t('recycleBin.actions')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {deletedStatements.map((statement) => (
-                          <TableRow key={statement.id}>
-                            <TableCell className="font-medium">{statement.original_filename}</TableCell>
-                            <TableCell>{formatStatus(statement.status)}</TableCell>
-                            <TableCell>{statement.extracted_count}</TableCell>
-                            <TableCell>{statement.deleted_at ? format(new Date(statement.deleted_at), 'PP p') : 'N/A'}</TableCell>
-                            <TableCell>{statement.deleted_by_username || t('common.unknown')}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRestoreStatement(statement.id)}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                >
-                                  <ArrowDown className="w-4 h-4 mr-1" />
-                                  {t('recycleBin.restore', { defaultValue: 'Restore' })}
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                      <Trash2 className="w-4 h-4 mr-1" />
-                                      {t('recycleBin.permanently_delete', { defaultValue: 'Delete' })}
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('recycleBin.permanent_delete_confirm_title', { defaultValue: 'Permanently Delete Statement' })}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('recycleBin.permanent_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this statement? This action cannot be undone.' })}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handlePermanentlyDeleteStatement(statement.id)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        {t('recycleBin.permanently_delete', { defaultValue: 'Delete Permanently' })}
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </ProfessionalCard>
-          </CollapsibleContent>
-        </Collapsible>
-
         {/* Empty Recycle Bin Modal */}
         <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
           <AlertDialogContent>
@@ -1492,7 +1492,7 @@ export default function Statements() {
             <AlertDialogHeader>
               <AlertDialogTitle>{t('statements.delete_confirm_title', 'Delete Statement')}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t('statements.delete_confirm_description', 'Are you sure you want to delete this bank statement? This action cannot be undone.')}
+                {t('statements.delete_confirm_description')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

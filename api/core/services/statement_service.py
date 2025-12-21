@@ -2067,6 +2067,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
             try:
                 extractor = UniversalBankTransactionExtractor(
                     ai_config=ai_config,
+                    db_session=db,
                     temperature=0.1,
                     chunk_size=3000,
                     chunk_overlap=150,
@@ -2121,6 +2122,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
             try:
                 extractor = UniversalBankTransactionExtractor(
                     ai_config=ai_config,
+                    db_session=db,
                     temperature=0.1,
                     chunk_size=3000,
                     chunk_overlap=150,
@@ -2467,14 +2469,21 @@ def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
             # For other providers, use LiteLLM to test connection
             try:
                 from litellm import completion
+                from core.models.database import get_db
                 
                 # Create a temporary extractor to test connection
-                temp_extractor = UniversalBankTransactionExtractor(
-                    ai_config=ai_config,
-                    temperature=0.1
-                )
-                # If initialization succeeds, the connection test passed
-                return True
+                # Use a temporary database session for the connection test
+                temp_db = next(get_db())
+                try:
+                    temp_extractor = UniversalBankTransactionExtractor(
+                        ai_config=ai_config,
+                        db_session=temp_db,
+                        temperature=0.1
+                    )
+                    # If initialization succeeds, the connection test passed
+                    return True
+                finally:
+                    temp_db.close()
                 
             except Exception as e:
                 logger.warning(f"LiteLLM connection test failed for {provider_name}: {e}")
