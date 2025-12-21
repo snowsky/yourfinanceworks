@@ -77,7 +77,7 @@ const EditInvoice = () => {
         // Check if user can edit this invoice
         const canEdit = canEditInvoice(data);
         const canEditPayment = canEditInvoicePayment(data);
-        
+
         if (!canEdit && !canEditPayment) {
           if (data.status === 'approved') {
             toast.error('This invoice can only be edited for payment updates');

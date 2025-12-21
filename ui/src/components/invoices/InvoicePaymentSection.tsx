@@ -9,22 +9,20 @@ import { FormValues } from "@/hooks/useInvoiceForm";
 
 interface InvoicePaymentSectionProps {
   form: UseFormReturn<FormValues>;
-  invoice?: any;
   canEditPayment: boolean;
 }
 
-export function InvoicePaymentSection({ 
-  form, 
-  invoice, 
-  canEditPayment 
+export function InvoicePaymentSection({
+  form,
+  canEditPayment
 }: InvoicePaymentSectionProps) {
   const { t } = useTranslation();
-  
+
   const totalAmount = form.watch("items")?.reduce(
     (sum: number, item: any) => sum + (item.quantity * item.price), 
     0
   ) || 0;
-  
+
   const paidAmount = form.watch("paidAmount") || 0;
   const outstandingAmount = totalAmount - paidAmount;
 
@@ -50,7 +48,7 @@ export function InvoicePaymentSection({
               <CurrencyDisplay amount={totalAmount} currency={form.watch("currency")} />
             </div>
           </div>
-          
+
           <div>
             <FormField
               control={form.control}
@@ -78,7 +76,7 @@ export function InvoicePaymentSection({
               )}
             />
           </div>
-          
+
           <div>
             <label className="text-sm font-medium text-muted-foreground">
               {t('invoices.outstanding_amount', 'Outstanding Amount')}
@@ -88,7 +86,7 @@ export function InvoicePaymentSection({
             </div>
           </div>
         </div>
-        
+
         {canEditPayment && (
           <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
             {t('invoices.payment_update_note', 'You can update the paid amount for this approved invoice to record partial payments.')}

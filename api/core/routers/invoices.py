@@ -1426,17 +1426,18 @@ async def update_invoice(
                     # Only block payment updates for invoices that are already fully paid
                     if db_invoice.status == "paid" and float(value) >= db_invoice.amount:
                         # Already fully paid invoices cannot increase payment amount; skip
+                        logger.info(f"Skipping payment amount update for invoice {db_invoice.id}: invoice is already fully paid and payment amount would not increase")
                         continue
-                    
+
                     # Calculate current total paid from existing payments
                     from core.models.models_per_tenant import Payment as PaymentModel
                     existing_payments = db.query(PaymentModel).filter(PaymentModel.invoice_id == db_invoice.id).all()
                     current_paid = sum(p.amount for p in existing_payments) if existing_payments else 0
-                    
+
                     # Calculate incremental payment amount
                     new_paid_amount = float(value)
                     incremental_amount = new_paid_amount - current_paid
-                    
+
                     # Only create payment if there's an actual increase
                     if incremental_amount > 0:
                         try:
@@ -1450,7 +1451,7 @@ async def update_invoice(
                                 notes=f"Manual paid amount update via invoice API. New total: ${new_paid_amount:.2f}"
                             )
                             db.add(pay)
-                            
+
                             # Create history entry for payment update
                             from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
                             history_entry = InvoiceHistoryModel(
@@ -1462,7 +1463,7 @@ async def update_invoice(
                                 current_values={'paid_amount': new_paid_amount, 'incremental_amount': incremental_amount}
                             )
                             db.add(history_entry)
-                            
+
                         except Exception:
                             logger.warning("Failed to create payment from paid_amount update", exc_info=True)
                     continue
