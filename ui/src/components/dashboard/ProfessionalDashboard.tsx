@@ -221,34 +221,36 @@ export function ProfessionalDashboard() {
 
   return (
     <div className="h-full space-y-6 fade-in">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
-          <p className="text-muted-foreground">{t('dashboard.overview')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <HelpCenter />
-          <ProfessionalButton
-            variant="gradient"
-            className="group h-9"
-            onClick={() => {
-              // Scroll to Quick Actions section
-              const quickActionsElement = document.querySelector('[data-section="quick-actions"]');
-              if (quickActionsElement) {
-                quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Add a subtle highlight effect
-                quickActionsElement.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2');
-                setTimeout(() => {
-                  quickActionsElement.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2');
-                }, 2000);
-              }
-            }}
-          >
-            <Zap className="h-4 w-4" />
-            {t('dashboard.actions.quick_actions_button')}
-            <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-          </ProfessionalButton>
+      {/* Dashboard Header with Professional Styling */}
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-4xl font-bold tracking-tight">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
+            <p className="text-muted-foreground text-base">{t('dashboard.overview')}</p>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <HelpCenter />
+            <ProfessionalButton
+              variant="gradient"
+              className="group h-9"
+              onClick={() => {
+                // Scroll to Quick Actions section
+                const quickActionsElement = document.querySelector('[data-section="quick-actions"]');
+                if (quickActionsElement) {
+                  quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  // Add a subtle highlight effect
+                  quickActionsElement.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                  setTimeout(() => {
+                    quickActionsElement.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                  }, 2000);
+                }
+              }}
+            >
+              <Zap className="h-4 w-4" />
+              {t('dashboard.actions.quick_actions_button')}
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+            </ProfessionalButton>
+          </div>
         </div>
       </div>
 
