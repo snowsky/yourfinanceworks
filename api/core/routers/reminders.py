@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+import logging
+
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, desc, asc, func
 from typing import List, Optional
@@ -15,6 +17,9 @@ from core.schemas.reminders import (
 )
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 
@@ -73,7 +78,7 @@ def get_reminders(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get paginated list of reminders with filtering and sorting"""
-    
+
     # Base query with joins for user information
     query = db.query(Reminder).options(
         joinedload(Reminder.created_by),
@@ -97,29 +102,29 @@ def get_reminders(
     # Apply filters
     if status:
         query = query.filter(Reminder.status.in_(status))
-    
+
     if priority:
         query = query.filter(Reminder.priority.in_(priority))
-    
+
     if assigned_to_id:
         query = query.filter(Reminder.assigned_to_id == assigned_to_id)
-    
+
     if created_by_id:
         query = query.filter(Reminder.created_by_id == created_by_id)
-    
+
     if due_date_from:
         query = query.filter(Reminder.due_date >= due_date_from)
-    
+
     if due_date_to:
         query = query.filter(Reminder.due_date <= due_date_to)
-    
+
     if search:
         search_filter = or_(
             Reminder.title.ilike(f"%{search}%"),
             Reminder.description.ilike(f"%{search}%")
         )
         query = query.filter(search_filter)
-    
+
     # Apply sorting
     if sort_order == "desc":
         if sort_by == "due_date":
@@ -150,14 +155,14 @@ def get_reminders(
                 else_=5
             )
             query = query.order_by(asc(priority_order))
-    
+
     # Get total count
     total = query.count()
-    
+
     # Apply pagination
     offset = (page - 1) * per_page
     items = query.offset(offset).limit(per_page).all()
-    
+
     return ReminderList(
         items=[ReminderWithUsers.model_validate(item) for item in items],
         total=total,
@@ -201,10 +206,10 @@ def create_reminder(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Create a new reminder"""
-    
+
     # Verify assigned user exists and create in tenant DB if needed
     assigned_user = db.query(User).filter(User.id == reminder_data.assigned_to_id).first()
-    
+
     # If not in tenant database, check master database and create tenant user
     if not assigned_user:
         from core.models.database import get_master_db
@@ -230,7 +235,7 @@ def create_reminder(
             db.flush()  # Flush to make user available for foreign key
         finally:
             master_db.close()
-    
+
     # Calculate next due date for recurring reminders
     next_due_date = None
     if reminder_data.recurrence_pattern != RecurrencePattern.NONE:
@@ -239,7 +244,7 @@ def create_reminder(
             reminder_data.recurrence_pattern,
             reminder_data.recurrence_interval
         )
-    
+
     # Create reminder
     reminder = Reminder(
         title=reminder_data.title,
@@ -255,11 +260,10 @@ def create_reminder(
         tags=reminder_data.tags,
         extra_metadata=reminder_data.extra_metadata
     )
-    
     db.add(reminder)
     db.commit()
     db.refresh(reminder)
-    
+
     # Create immediate notification if reminder is due soon (within 1 hour)
     now = datetime.now(timezone.utc)
     time_until_due = (reminder.due_date - now).total_seconds()
@@ -277,14 +281,14 @@ def create_reminder(
         )
         db.add(notification)
         db.commit()
-    
+
     # Load relationships for response
     reminder = db.query(Reminder).options(
         joinedload(Reminder.created_by),
         joinedload(Reminder.assigned_to),
         joinedload(Reminder.completed_by)
     ).filter(Reminder.id == reminder.id).first()
-    
+
     return ReminderWithUsers.model_validate(reminder)
 
 @router.put("/{reminder_id}", response_model=ReminderWithUsers)
@@ -295,7 +299,7 @@ def update_reminder(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update an existing reminder"""
-
+    # Fetch reminder with relationships
     reminder = db.query(Reminder).filter(
         Reminder.id == reminder_id,
         Reminder.is_deleted == False
@@ -316,10 +320,10 @@ def update_reminder(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only the creator can edit this reminder"
             )
-    
+
     # Update fields
     update_data = reminder_data.model_dump(exclude_unset=True)
-    
+
     for field, value in update_data.items():
         if field == "assigned_to_id" and value:
             # Verify assigned user exists and create in tenant DB if needed
@@ -348,9 +352,9 @@ def update_reminder(
                     db.flush()
                 finally:
                     master_db.close()
-        
+
         setattr(reminder, field, value)
-    
+
     # Recalculate next due date if recurrence changed
     if "recurrence_pattern" in update_data or "recurrence_interval" in update_data or "due_date" in update_data:
         if reminder.recurrence_pattern != RecurrencePattern.NONE:
@@ -361,17 +365,16 @@ def update_reminder(
             )
         else:
             reminder.next_due_date = None
-    
     db.commit()
     db.refresh(reminder)
-    
+
     # Load relationships for response
     reminder = db.query(Reminder).options(
         joinedload(Reminder.created_by),
         joinedload(Reminder.assigned_to),
         joinedload(Reminder.completed_by)
     ).filter(Reminder.id == reminder.id).first()
-    
+
     return ReminderWithUsers.model_validate(reminder)
 
 @router.patch("/{reminder_id}/status", response_model=ReminderWithUsers)
@@ -382,18 +385,18 @@ def update_reminder_status(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update reminder status (complete, snooze, etc.)"""
-    
+    logger.info(f"Updating status for reminder {reminder_id} by user {current_user.id}")
     reminder = db.query(Reminder).filter(
         Reminder.id == reminder_id,
         Reminder.is_deleted == False
     ).first()
-    
+
     if not reminder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reminder not found"
         )
-    
+
     # Check permissions (assigned user or creator can update status)
     if (reminder.assigned_to_id != current_user.id and
         reminder.created_by_id != current_user.id):
@@ -404,16 +407,16 @@ def update_reminder_status(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to update this reminder status"
             )
-    
+
     # Update status
     reminder.status = status_data.status
-    
+
     if status_data.status == ReminderStatus.COMPLETED:
         reminder.completed_at = datetime.now(timezone.utc)
         reminder.completed_by_id = current_user.id
         reminder.completion_notes = status_data.completion_notes
         reminder.snoozed_until = None
-        
+
         # Create next recurring instance if applicable
         if (reminder.recurrence_pattern != RecurrencePattern.NONE and 
             reminder.next_due_date and
@@ -438,7 +441,7 @@ def update_reminder_status(
                 extra_metadata=reminder.extra_metadata
             )
             db.add(next_reminder)
-    
+
     elif status_data.status == ReminderStatus.SNOOZED:
         if not status_data.snoozed_until:
             raise HTTPException(
@@ -449,24 +452,23 @@ def update_reminder_status(
         reminder.snooze_count += 1
         reminder.completed_at = None
         reminder.completed_by_id = None
-    
+
     else:
         # Reset completion fields for other statuses
         reminder.completed_at = None
         reminder.completed_by_id = None
         reminder.completion_notes = None
         reminder.snoozed_until = None
-    
     db.commit()
     db.refresh(reminder)
-    
+
     # Load relationships for response
     reminder = db.query(Reminder).options(
         joinedload(Reminder.created_by),
         joinedload(Reminder.assigned_to),
         joinedload(Reminder.completed_by)
     ).filter(Reminder.id == reminder.id).first()
-    
+
     return ReminderWithUsers.model_validate(reminder)
 
 @router.post("/{reminder_id}/unsnooze", response_model=ReminderWithUsers)
@@ -476,18 +478,18 @@ def unsnooze_reminder(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Unsnooze a reminder (set status back to pending)"""
-    
+
     reminder = db.query(Reminder).filter(
         Reminder.id == reminder_id,
         Reminder.is_deleted == False
     ).first()
-    
+
     if not reminder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reminder not found"
         )
-    
+
     # Check permissions (assigned user or creator can unsnooze)
     if (reminder.assigned_to_id != current_user.id and
         reminder.created_by_id != current_user.id):
@@ -498,28 +500,28 @@ def unsnooze_reminder(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to unsnooze this reminder"
             )
-    
+
     # Only allow unsnoozing if currently snoozed
     if reminder.status != ReminderStatus.SNOOZED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reminder is not currently snoozed"
         )
-    
+
     # Unsnooze the reminder
     reminder.status = ReminderStatus.PENDING
     reminder.snoozed_until = None
-    
+
     db.commit()
     db.refresh(reminder)
-    
+
     # Load relationships for response
     reminder = db.query(Reminder).options(
         joinedload(Reminder.created_by),
         joinedload(Reminder.assigned_to),
         joinedload(Reminder.completed_by)
     ).filter(Reminder.id == reminder.id).first()
-    
+
     return ReminderWithUsers.model_validate(reminder)
 
 @router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -543,12 +545,12 @@ def delete_reminder(
 
     # Check permissions
     check_reminder_permissions(reminder, current_user, "delete")
-    
+
     # Soft delete
     reminder.is_deleted = True
     reminder.deleted_at = datetime.now(timezone.utc)
     reminder.deleted_by_id = current_user.id
-    
+
     db.commit()
 
 @router.post("/bulk-update", response_model=BulkReminderResponse)
@@ -558,22 +560,23 @@ def bulk_update_reminders(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Bulk update multiple reminders"""
-    
+    logger.info(f"bulk_update_reminders: received request for {len(bulk_data.reminder_ids)} reminders")
+
     reminders = db.query(Reminder).filter(
         Reminder.id.in_(bulk_data.reminder_ids),
         Reminder.is_deleted == False
     ).all()
-    
+
     if not reminders:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No reminders found"
         )
-    
+
     updated_count = 0
     failed_count = 0
     errors = []
-    
+
     for reminder in reminders:
         try:
             # Check permissions
@@ -611,15 +614,15 @@ def bulk_update_reminders(
                             master_db.close()
 
                 setattr(reminder, field, value)
-            
+
             updated_count += 1
-            
+
         except Exception as e:
             failed_count += 1
             errors.append(f"Error updating reminder {reminder.id}: {str(e)}")
-    
+
     db.commit()
-    
+
     return BulkReminderResponse(
         updated_count=updated_count,
         failed_count=failed_count,
@@ -633,22 +636,22 @@ def get_reminder_notifications(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get notifications for a specific reminder"""
-    
+
     reminder = db.query(Reminder).filter(
         Reminder.id == reminder_id,
         Reminder.is_deleted == False
     ).first()
-    
+
     if not reminder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reminder not found"
         )
-    
+
     notifications = db.query(ReminderNotification).filter(
         ReminderNotification.reminder_id == reminder_id
     ).order_by(desc(ReminderNotification.scheduled_for)).all()
-    
+
     return [ReminderNotificationResponse.model_validate(notif) for notif in notifications]
 
 @router.get("/due/today", response_model=List[ReminderWithUsers])
@@ -657,10 +660,10 @@ def get_due_today(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get reminders due today for the current user"""
-    
+
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
-    
+
     reminders = db.query(Reminder).options(
         joinedload(Reminder.created_by),
         joinedload(Reminder.assigned_to),
@@ -672,7 +675,7 @@ def get_due_today(
         Reminder.due_date < today_end,
         Reminder.is_deleted == False
     ).order_by(asc(Reminder.due_date)).all()
-    
+
     return [ReminderWithUsers.model_validate(reminder) for reminder in reminders]
 
 @router.get("/overdue/", response_model=List[ReminderWithUsers])
@@ -784,7 +787,7 @@ def get_recent_notifications(
             "created_at": notif.created_at.isoformat(),
             "updated_at": notif.updated_at.isoformat()
         }
-        
+
         # Add reminder data if it exists
         if notif.reminder_id:
             reminder = db.query(Reminder).filter(Reminder.id == notif.reminder_id).first()
@@ -797,7 +800,7 @@ def get_recent_notifications(
                     "priority": reminder.priority.value,
                     "status": reminder.status.value
                 }
-        
+
         items.append(item)
 
     return {"items": items}

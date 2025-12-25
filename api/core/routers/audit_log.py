@@ -28,19 +28,35 @@ def get_audit_logs(
     status: str = None,
     start_date: datetime = None,
     end_date: datetime = None,
+    search: str = None,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     require_admin(current_user, "view audit logs")
-    
+
     # Set tenant context for proper decryption
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
 
     try:
         query = db.query(AuditLogModel)
+
+        if search:
+            from sqlalchemy import or_, String, cast
+            search_param = f"%{search}%"
+            query = query.filter(
+                or_(
+                    AuditLogModel.user_email.ilike(search_param),
+                    AuditLogModel.action.ilike(search_param),
+                    AuditLogModel.resource_type.ilike(search_param),
+                    AuditLogModel.resource_name.ilike(search_param),
+                    AuditLogModel.error_message.ilike(search_param),
+                    cast(AuditLogModel.details, String).ilike(search_param)
+                )
+            )
+
         if user_id:
             query = query.filter(AuditLogModel.user_id == user_id)
         if user_email:
@@ -78,7 +94,7 @@ def get_audit_log(
     current_user: MasterUser = Depends(get_current_user)
 ):
     require_admin(current_user, "view audit logs")
-    
+
     # Set tenant context for proper decryption
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)

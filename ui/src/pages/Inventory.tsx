@@ -1,4 +1,3 @@
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,7 +184,7 @@ const Inventory = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={t('inventory.title', 'Inventory')}
@@ -783,7 +782,7 @@ const Inventory = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 };
 

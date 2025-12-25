@@ -56,7 +56,9 @@
     "show": "Anzeigen",
     "view": "Ansicht",
     "back_to_invoices": "Zurück zu Rechnungen",
-    "add_data": "Daten hinzufügen"
+    "add_data": "Daten hinzufügen",
+    "showing_of": "Zeige {{count}} von {{total}}",
+    "page_of": "Seite {{current}} von {{total}}"
   },
   "taxIntegration": {
     "title": "Steuerservice-Integration",
@@ -1726,8 +1728,8 @@
     "promote_user_placeholder": "Benutzer-E-Mail eingeben",
     "promoting_button": "Wird befördert...",
     "promote_button": "Befördern",
-    "total_tenants_label": "Gesamt Mandanten",
-    "active_tenants": "aktiv",
+    "total_organizations_label": "Gesamtorganisationen",
+    "active_label": "Aktiv",
     "total_users_label": "Gesamt Benutzer",
     "super_users": "Super-Benutzer",
     "databases_label": "Datenbanken",
@@ -1924,7 +1926,8 @@
   },
   "auditLog": {
     "title": "Audit-Log",
-    "description": "Audit-Logs anzeigen und verwalten",
+    "description": "System-Audit-Protokolle anzeigen und filtern",
+    "total_logs": "Gesamt {{count}} Protokolle",
     "new_log": "Neuer Log",
     "edit_log": "Log bearbeiten",
     "log_date": "Log-Datum",

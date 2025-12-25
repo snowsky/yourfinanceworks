@@ -12,8 +12,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Trash2, Edit, UserPlus, Building, Database, Users, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { AppSidebar } from '@/components/layout/AppSidebar';
-import { SidebarProvider } from '@/components/ui/sidebar';
 import { useTranslation } from "react-i18next";
 import { superAdminApi, apiRequest } from '../lib/api';
 import { CurrencySelector } from '@/components/ui/currency-selector';
@@ -464,12 +462,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Organizations</p>
+                  <p className="text-sm text-muted-foreground">{t('superAdmin.total_organizations_label')}</p>
                   <p className="text-2xl font-bold mt-1">{tenants.length}</p>
                 </div>
                 <Building className="h-8 w-8 text-primary/60" />
               </div>
-              <p className="text-sm text-muted-foreground mt-3">{activeTenants} Active</p>
+              <p className="text-sm text-muted-foreground mt-3">{activeTenants} {t('superAdmin.active_label')}</p>
             </CardContent>
           </Card>
 
@@ -1119,15 +1117,6 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
 export default function SuperAdminDashboardPage() {
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen">
-        <div className="w-64 flex-shrink-0">
-          <AppSidebar />
-        </div>
-        <div className="flex-1">
-          <SuperAdminDashboard />
-        </div>
-      </div>
-    </SidebarProvider>
+    <SuperAdminDashboard />
   );
 } 

@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -42,9 +41,11 @@ import {
 import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
 import { createSettingsQueryOptions } from "@/utils/query";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Building } from 'lucide-react';
 import { toast } from 'sonner';
+import { OrganizationSwitcher } from "./OrganizationSwitcher";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useMe } from "@/hooks/useMe";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -77,14 +78,15 @@ export function AppSidebar() {
   // Get current user data from localStorage
   const user = getCurrentUser();
   const userRole = user?.role || 'user';
-  const [effectiveRole, setEffectiveRole] = useState<string>(userRole);
-  const [roleLoading, setRoleLoading] = useState(true);
-  const isAdminEffective = effectiveRole === 'admin';
   const showAnalytics = (user as any)?.show_analytics !== false;
   const [isSuperUser, setIsSuperUser] = useState(false);
 
-  // Organization switching state
-  const [userOrganizations, setUserOrganizations] = useState([]);
+  const { data: me, isLoading: roleLoading } = useMe();
+  const effectiveRole = me?.role || userRole;
+  const isAdminEffective = effectiveRole === 'admin';
+
+  // Organization switching state - REMOVED, now handled by OrganizationSwitcher component
+  const { data: userOrganizations = [] } = useOrganizations();
   const initialOrgId = (() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('selected_tenant_id');
@@ -103,12 +105,14 @@ export function AppSidebar() {
         return;
       }
 
-      const isInPrimaryTenant = currentOrgId === user?.tenant_id?.toString();
+      const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+      const currentOrgIdStr = localStorage.getItem('selected_tenant_id') || userTenantIdStr;
+      const isInPrimaryTenant = currentOrgIdStr === userTenantIdStr;
       setIsSuperUser(user.is_superuser && isInPrimaryTenant);
     };
 
     checkSuperAdminStatus();
-  }, [currentOrgId, user?.is_superuser, user?.tenant_id]);
+  }, [user?.is_superuser, user?.tenant_id]);
 
   console.log('Sidebar: User check:', {
     user,
@@ -129,12 +133,13 @@ export function AppSidebar() {
       console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
       return settingsApi.getSettings();
     },
-    refetchInterval: 120000, // 2 minutes (reduced from 30 seconds)
+    refetchInterval: false, // Disable automatic refetching
     refetchOnWindowFocus: false, // Disable window focus refetching
-    refetchOnMount: true,
+    refetchOnMount: false, // Don't refetch on mount
     refetchOnReconnect: false, // Disable reconnect refetching
     refetchIntervalInBackground: false,
-    staleTime: 300000, // 5 minutes stale time
+    staleTime: Infinity, // Never consider data stale
+    gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
     enabled: (!roleLoading && isAdminEffective), // Only fetch settings after role is known and admin in current org
     retry: (failureCount, error: any) => {
       // Don't retry on authentication/authorization errors
@@ -145,44 +150,21 @@ export function AppSidebar() {
     },
   });
 
-  // Fetch effective role for current organization (uses X-Tenant-ID header automatically)
+  // Sync me data to localStorage role
   useEffect(() => {
-    const fetchEffectiveRole = async () => {
-      setRoleLoading(true);
-      try {
-        // Ensure X-Tenant-ID header reflects currentOrgId by stashing it before the call
-        if (typeof window !== 'undefined' && currentOrgId) {
-          localStorage.setItem('selected_tenant_id', currentOrgId);
-        }
-        const me: any = await apiRequest('/auth/me');
-        if (me && me.role) {
-          setEffectiveRole(me.role);
-
-          // Update localStorage with the effective role for this organization
-          // so that auth utility functions use the correct role
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-          if (currentUser && currentUser.role !== me.role) {
-            console.log(`🔄 Role updated: ${currentUser.role} → ${me.role} for org ${currentOrgId}`);
-            const updatedUser = { ...currentUser, role: me.role };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-
-            // Trigger auth refresh for other components
-            window.dispatchEvent(new CustomEvent('auth-updated'));
-          }
-        } else {
-          setEffectiveRole(userRole);
-        }
-      } catch {
-        setEffectiveRole(userRole);
-      } finally {
-        setRoleLoading(false);
+    if (me?.role) {
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (currentUser && currentUser.role !== me.role) {
+        console.log(`🔄 Role updated: ${currentUser.role} → ${me.role}`);
+        const updatedUser = { ...currentUser, role: me.role };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.dispatchEvent(new CustomEvent('auth-updated'));
       }
-    };
-    fetchEffectiveRole();
-  }, [currentOrgId, userRole]);
+    }
+  }, [me]);
 
-  // Get company name from current organization or settings
-  const companyName = (() => {
+  // Memoize company name to prevent unnecessary recalculations
+  const companyName = useMemo(() => {
     if (userOrganizations.length > 0) {
       const currentOrg = userOrganizations.find(org => org.id.toString() === currentOrgId);
       if (currentOrg) {
@@ -190,159 +172,13 @@ export function AppSidebar() {
       }
     }
     return settings?.company_info?.name || 'InvoiceApp';
-  })();
-  const companyLogoUrl = settings?.company_info?.logo;
+  }, [userOrganizations, currentOrgId, settings?.company_info?.name]);
   // Normalize tenant id types for safe comparisons
+  const companyLogoUrl = settings?.company_info?.logo;
   const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
   const isPrimaryTenant = currentOrgId === userTenantIdStr;
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Sidebar: Settings data changed:', {
-      companyName,
-      settings: settings?.company_info,
-      settingsFull: settings,
-      forceUpdate,
-      userOrganizations: userOrganizations.length,
-      currentOrgId,
-      selectedTenantId: localStorage.getItem('selected_tenant_id'),
-      timestamp: new Date().toISOString()
-    });
-  }, [settings, companyName, forceUpdate, userOrganizations, currentOrgId]);
 
-  // Fetch user's organizations (only once on mount, not on every settings change)
-  useEffect(() => {
-    const fetchUserOrganizations = async () => {
-      if (!user?.id) {
-        console.log('No user ID available, skipping organization fetch');
-        return;
-      }
-
-      console.log('🏢 Fetching organizations for user:', user.email);
-
-      try {
-        type Org = { id: number; name: string };
-        type MeResponse = { organizations?: Org[] };
-        const response = await apiRequest('/auth/me', {}, { skipTenant: true });
-        const me = response as MeResponse;
-        const orgs = me.organizations ?? [];
-        console.log('📋 User organizations response:', me);
-
-        if (orgs.length > 0) {
-          console.log(`✅ User has access to ${orgs.length} organizations:`, orgs);
-          setUserOrganizations(orgs);
-
-          // Use selected tenant from localStorage or default to user's primary tenant
-          let selectedTenantId = localStorage.getItem('selected_tenant_id');
-          console.log('🔍 Selected tenant from localStorage:', selectedTenantId);
-
-          // If no selected tenant, default to user's primary tenant
-          if (!selectedTenantId) {
-            selectedTenantId = user.tenant_id?.toString();
-            console.log('🏠 Using user primary tenant:', selectedTenantId);
-          } else {
-            // Verify user has access to the selected tenant
-            const hasAccess = orgs.some(org => org.id.toString() === selectedTenantId);
-            if (!hasAccess) {
-              console.warn(`⚠️ User doesn't have access to tenant ${selectedTenantId}, resetting to primary tenant`);
-              localStorage.removeItem('selected_tenant_id');
-              selectedTenantId = user.tenant_id?.toString();
-            } else {
-              console.log('✅ User has access to selected tenant:', selectedTenantId);
-            }
-          }
-
-          console.log(`🎯 Setting current org ID to: ${selectedTenantId}`);
-          setCurrentOrgId(selectedTenantId || user.tenant_id?.toString() || '');
-
-          // Store the selected tenant if not already stored
-          if (selectedTenantId && !localStorage.getItem('selected_tenant_id')) {
-            localStorage.setItem('selected_tenant_id', selectedTenantId);
-            console.log('💾 Stored selected tenant ID:', selectedTenantId);
-          }
-        } else {
-          console.log('⚠️ No organizations found in response, using fallback');
-          // Fallback to single organization and clear invalid tenant ID
-          localStorage.removeItem('selected_tenant_id');
-          const currentOrg = {
-            id: user.tenant_id,
-            name: settings?.company_info?.name || 'Current Organization'
-          };
-          setUserOrganizations([currentOrg]);
-          setCurrentOrgId(user.tenant_id?.toString() || '');
-          console.log('🔄 Set fallback organization:', currentOrg);
-        }
-      } catch (err) {
-        console.error('❌ Failed to fetch user organizations:', err);
-        // Fallback to single organization and clear invalid tenant ID
-        localStorage.removeItem('selected_tenant_id');
-        const currentOrg = {
-          id: user.tenant_id,
-          name: settings?.company_info?.name || 'Current Organization'
-        };
-        setUserOrganizations([currentOrg]);
-        setCurrentOrgId(user.tenant_id?.toString() || '');
-        console.log('🔄 Set error fallback organization:', currentOrg);
-      }
-    };
-
-    fetchUserOrganizations();
-  }, [user?.id, user?.tenant_id]); // Removed settings?.company_info?.name dependency
-
-  const handleOrganizationSwitch = async (orgId: string) => {
-    if (orgId === currentOrgId) return;
-
-    const selectedOrg = userOrganizations.find(org => org.id.toString() === orgId);
-    const orgName = selectedOrg?.name || `Organization ${orgId}`;
-    const userHomeTenantId = user?.tenant_id?.toString();
-    const isSwitchingAwayFromHome = currentOrgId === userHomeTenantId && orgId !== userHomeTenantId;
-
-    console.log(`🔄 Switching organization from ${currentOrgId} to ${orgId} (${orgName})`);
-    setIsSwitchingOrg(true);
-
-    try {
-      // Show loading toast
-      toast.loading(`Switching to ${orgName}...`, { id: 'org-switch' });
-
-      // Store the selected organization
-      localStorage.setItem('selected_tenant_id', orgId);
-      console.log(`✅ Stored selected_tenant_id: ${orgId}`);
-
-      // Clear offline cache
-      localStorage.removeItem('react-query-offline-cache');
-
-      // Clear all cached data and force reload
-      queryClient.clear();
-      queryClient.invalidateQueries();
-      sessionStorage.clear();
-      console.log('🗑️ Cleared all caches');
-
-      // Show success toast
-      toast.success(`Switched to ${orgName}`, { id: 'org-switch' });
-
-      // If switching away from home org and on a restricted route, navigate to dashboard first
-      // This prevents the "Access restricted to home organization" error from showing
-      const restrictedRoutes = ['/super-admin'];
-      const currentPath = location.pathname;
-      if (isSwitchingAwayFromHome && restrictedRoutes.some(route => currentPath.startsWith(route))) {
-        console.log('🚦 Redirecting from restricted route before org switch');
-        // Navigate to dashboard without reload, then reload
-        navigate('/', { replace: true });
-        setTimeout(() => {
-          window.location.reload();
-        }, 50);
-      } else {
-        // Reload page immediately
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
-      }
-    } catch (error) {
-      console.error('❌ Error during organization switch:', error);
-      toast.error('Failed to switch organization', { id: 'org-switch' });
-      setIsSwitchingOrg(false);
-    }
-  };
 
 
   // Listen for localStorage changes with reduced frequency
@@ -368,9 +204,8 @@ export function AppSidebar() {
   useEffect(() => {
     const handleSettingsUpdate = () => {
       console.log('Sidebar: Settings update event received');
-      // Force refetch settings when they're updated
+      // Only invalidate settings, don't refetch immediately to avoid page refresh
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      queryClient.refetchQueries({ queryKey: ['settings'] });
       // Force component re-render
       setForceUpdate(prev => prev + 1);
     };
@@ -499,7 +334,7 @@ export function AppSidebar() {
       icon: <BarChart className="w-5 h-5" />
     }] : []),
     // Only show Super Admin for super users in their primary tenant
-    ...((user?.is_superuser && isPrimaryTenant) ? [{
+    ...((!roleLoading && user?.is_superuser && isPrimaryTenant) ? [{
       path: '/super-admin',
       label: t('navigation.super_admin'),
       icon: <ShieldCheck className="w-5 h-5" />
@@ -537,7 +372,7 @@ export function AppSidebar() {
                   {companyName}
                 </span>
                 <span className="text-xs text-slate-300 font-medium">
-                  Financial Management
+                  YourFinanceWORKS
                 </span>
               </div>
             </div>
@@ -586,47 +421,8 @@ export function AppSidebar() {
           </div>
         </SidebarHeader>
         <SidebarContent className="pt-4 px-3 space-y-6">
-          {/* Organization Selector */}
-          {userOrganizations.length > 0 && (
-            <div className="space-y-3">
-              <div className="px-3">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Organization {userOrganizations.length > 1 ? `(${userOrganizations.length} available)` : ''}
-                </h3>
-              </div>
-              <div className="px-3">
-                <Select value={currentOrgId} onValueChange={handleOrganizationSwitch} disabled={isSwitchingOrg}>
-                  <SelectTrigger className="w-full bg-slate-800/30 border-slate-700/30 text-white hover:bg-slate-700/30 rounded-lg backdrop-blur-sm">
-                    <div className="flex items-center gap-2">
-                      <Building className="w-4 h-4 text-slate-300" />
-                      {isSwitchingOrg ? (
-                        <span className="text-sm">Switching...</span>
-                      ) : (
-                        <SelectValue placeholder="Select organization" />
-                      )}
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700/30 backdrop-blur-sm">
-                    {userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
-                      <SelectItem key={org.id} value={org.id.toString()} className="text-white hover:bg-slate-700/30">
-                        <div className="flex items-center justify-between w-full">
-                          <span>
-                            {org.name}
-                            {org.id === user?.tenant_id && (
-                              <span className="text-xs text-blue-500 ml-1">(Home)</span>
-                            )}
-                          </span>
-                          {org.id.toString() === currentOrgId && (
-                            <span className="text-xs text-green-500 ml-2">✓</span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
+          {/* Organization Switcher - rendered in portal to avoid unmounting */}
+          <OrganizationSwitcher />
 
           <SidebarMenu className="space-y-6">
             {/* Core Navigation Section */}

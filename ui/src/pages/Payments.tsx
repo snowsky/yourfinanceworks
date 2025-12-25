@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Loader2, CreditCard } from "lucide-react";
+import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +10,6 @@ import { paymentApi, Payment } from "@/lib/api";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useTranslation } from 'react-i18next';
-import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 
 const Payments = () => {
@@ -21,6 +19,11 @@ const Payments = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 10;
 
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
@@ -47,6 +50,7 @@ const Payments = () => {
       if (tenantId !== currentTenantId) {
         console.log(`🔄 Payments: Tenant ID changed from ${currentTenantId} to ${tenantId}`);
         setCurrentTenantId(tenantId);
+        setCurrentPage(1); // Reset to first page on tenant change
       }
     };
 
@@ -65,8 +69,12 @@ const Payments = () => {
     const fetchPayments = async () => {
       setLoading(true);
       try {
-        const data = await paymentApi.getPayments();
-        setPayments(data);
+        const response = await paymentApi.getPayments({
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize
+        });
+        setPayments(response.data || []);
+        setTotalCount(response.count || 0);
       } catch (error) {
         console.error("Failed to fetch payments:", error);
         toast.error(t('payments.errors.load_failed'));
@@ -76,7 +84,7 @@ const Payments = () => {
     };
 
     fetchPayments();
-  }, [currentTenantId]); // Use state variable as dependency
+  }, [currentTenantId, currentPage]); // Re-fetch on tenant or page change
 
   const filteredPayments = (payments || []).filter(payment => {
     const matchesSearch =
@@ -88,67 +96,69 @@ const Payments = () => {
     return matchesSearch && matchesMethod;
   });
 
-  return (
-    <AppLayout>
-      <div className="h-full space-y-8 fade-in">
-        {/* Hero Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('payments.title')}</h1>
-            <p className="text-lg text-muted-foreground">{t('payments.description')}</p>
-          </div>
-        </div>
+  const totalPages = Math.ceil(totalCount / pageSize);
 
-        <ProfessionalCard className="slide-in" variant="elevated">
-          <div className="space-y-6">
-            {/* Header with filters */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('payments.payment_list')}</h2>
-                <p className="text-muted-foreground mt-1">Track and manage all your payments in one place</p>
+  return (
+    <div className="h-full space-y-8 fade-in">
+      {/* Hero Header */}
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('payments.title')}</h1>
+          <p className="text-lg text-muted-foreground">{t('payments.description')}</p>
+        </div>
+      </div>
+
+      <ProfessionalCard className="slide-in" variant="elevated">
+        <div className="space-y-6">
+          {/* Header with filters */}
+          <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">{t('payments.payment_list')}</h2>
+              <p className="text-muted-foreground mt-1">Track and manage all your payments in one place</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              {/* Search */}
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('payments.search_placeholder')}
+                  className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                {/* Search */}
-                <div className="relative w-full sm:w-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('payments.search_placeholder')}
-                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                
-                {/* Method Filter */}
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Select value={methodFilter} onValueChange={setMethodFilter}>
-                    <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
-                      <SelectValue placeholder={t('payments.filter_by_method')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('payments.all_methods')}</SelectItem>
-                      <SelectItem value="credit_card">{t('payments.payment_methods.credit_card')}</SelectItem>
-                      <SelectItem value="bank_transfer">{t('payments.payment_methods.bank_transfer')}</SelectItem>
-                      <SelectItem value="cash">{t('payments.payment_methods.cash')}</SelectItem>
-                      <SelectItem value="system">{t('payments.payment_methods.system')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+              {/* Method Filter */}
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={methodFilter} onValueChange={setMethodFilter}>
+                  <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                    <SelectValue placeholder={t('payments.filter_by_method')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('payments.all_methods')}</SelectItem>
+                    <SelectItem value="credit_card">{t('payments.payment_methods.credit_card')}</SelectItem>
+                    <SelectItem value="bank_transfer">{t('payments.payment_methods.bank_transfer')}</SelectItem>
+                    <SelectItem value="cash">{t('payments.payment_methods.cash')}</SelectItem>
+                    <SelectItem value="system">{t('payments.payment_methods.system')}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+          </div>
 
-            {/* Content */}
-            {loading ? (
-              <div className="flex justify-center items-center h-40">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative w-12 h-12">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
-                  </div>
-                  <p className="text-muted-foreground font-medium">{t('payments.loading')}</p>
+          {/* Content */}
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative w-12 h-12">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
                 </div>
+                <p className="text-muted-foreground font-medium">{t('payments.loading')}</p>
               </div>
-            ) : (filteredPayments || []).length > 0 ? (
+            </div>
+          ) : (
+            <div className="space-y-4">
               <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader>
@@ -162,46 +172,97 @@ const Payments = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(filteredPayments || []).map((payment) => (
-                      <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
-                        <TableCell className="font-semibold text-foreground">{payment.invoice_number || 'N/A'}</TableCell>
-                        <TableCell className="text-foreground">{payment.client_name || 'N/A'}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
-                        <TableCell className="font-semibold text-foreground">
-                          <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize font-medium">
-                            {payment.payment_method || 'N/A'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize font-medium">
-                            {payment.status || 'N/A'}
-                          </Badge>
+                    {filteredPayments.length > 0 ? (
+                      filteredPayments.map((payment) => (
+                        <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
+                          <TableCell className="font-semibold text-foreground">
+                            <Link
+                              to={`/invoices/view/${payment.invoice_id}`}
+                              className="text-primary hover:underline transition-all"
+                            >
+                              {payment.invoice_number || 'N/A'}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-foreground">{payment.client_name || 'N/A'}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
+                          <TableCell className="font-semibold text-foreground">
+                            <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize font-medium">
+                              {payment.payment_method || 'N/A'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize font-medium">
+                              {payment.status || 'N/A'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-auto p-0 border-none">
+                          <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <CreditCard className="h-8 w-8 text-primary" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
+                            <p className="text-muted-foreground max-w-sm mx-auto">
+                              {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <div className="p-4 rounded-full bg-muted/50">
-                  <CreditCard className="h-10 w-10 text-muted-foreground/50" />
+
+              {/* Pagination Controls */}
+              {totalCount > pageSize && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-2">
+                  <div className="text-sm text-muted-foreground order-2 sm:order-1">
+                    {t('common.showing_of', {
+                      count: filteredPayments.length,
+                      total: totalCount,
+                      defaultValue: `Showing ${filteredPayments.length} of ${totalCount} payments`
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2 order-1 sm:order-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1 || loading}
+                      className="h-9 w-9 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center px-4 text-sm font-medium bg-muted/30 h-9 rounded-lg border border-border/50">
+                      {t('common.page_of', {
+                        current: currentPage,
+                        total: totalPages,
+                        defaultValue: `Page ${currentPage} of ${totalPages}`
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages || loading}
+                      className="h-9 w-9 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold text-foreground mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </ProfessionalCard>
-      </div>
-    </AppLayout>
+              )}
+            </div>
+          )}
+        </div>
+      </ProfessionalCard>
+    </div>
   );
 };
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -92,7 +91,7 @@ const InvoicesWithTaxIntegration: React.FC = () => {
   );
 
   return (
-    <AppLayout>
+    <>
       <div className="flex-1 space-y-4 p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">{t('navigation.invoices')}</h2>
@@ -230,8 +229,8 @@ const InvoicesWithTaxIntegration: React.FC = () => {
                       <Badge
                         variant={
                           invoice.status === 'paid' ? 'default' :
-                          invoice.status === 'overdue' ? 'destructive' :
-                          invoice.status === 'pending' ? 'secondary' : 'outline'
+                            invoice.status === 'overdue' ? 'destructive' :
+                              invoice.status === 'pending' ? 'secondary' : 'outline'
                         }
                       >
                         {invoice.status}
@@ -303,7 +302,7 @@ const InvoicesWithTaxIntegration: React.FC = () => {
           onSuccess={handleTaxServiceSuccess}
         />
       </div>
-    </AppLayout>
+    </>
   );
 };
 

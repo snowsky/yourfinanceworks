@@ -64,7 +64,9 @@
     "show": "Mostrar",
     "view": "Ver",
     "back_to_invoices": "Volver a facturas",
-    "add_data": "Agregar datos"
+    "add_data": "Agregar datos",
+    "showing_of": "Mostrando {{count}} de {{total}}",
+    "page_of": "Página {{current}} de {{total}}"
   },
   "taxIntegration": {
     "title": "Integración del Servicio Fiscal",
@@ -1858,8 +1860,8 @@
     "promote_user_placeholder": "Ingresa el correo del usuario",
     "promoting_button": "Promoviendo...",
     "promote_button": "Promover",
-    "total_tenants_label": "Total de Inquilinos",
-    "active_tenants": "activos",
+    "total_organizations_label": "Total de organizaciones",
+    "active_label": "Activas",
     "total_users_label": "Total de Usuarios",
     "super_users": "superusuarios",
     "databases_label": "Bases de Datos",
@@ -1986,7 +1988,8 @@
   },
   "auditLog": {
     "title": "Registro de Auditoría",
-    "description": "Ver y gestionar los registros de auditoría",
+    "description": "Ver y filtrar los registros de auditoría del sistema",
+    "total_logs": "Total {{count}} registros",
     "new_log": "Nuevo Registro",
     "edit_log": "Editar Registro",
     "log_date": "Fecha del Registro",

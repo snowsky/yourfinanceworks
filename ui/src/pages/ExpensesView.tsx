@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,7 +66,7 @@ export default function ExpensesView() {
           // First try to get pending approvals
           const pendingApprovals = await approvalApi.getPendingApprovals();
           const expenseApproval = pendingApprovals.approvals?.find((a: ExpenseApproval) => a.expense_id === Number(id));
-          
+
           if (expenseApproval) {
             setApproval(expenseApproval);
           } else {
@@ -78,7 +77,7 @@ export default function ExpensesView() {
               const completedApproval = historyResponse.approval_history
                 ?.filter((a: any) => a.status === 'approved' || a.status === 'rejected')
                 .sort((a: any, b: any) => new Date(b.decided_at || b.timestamp).getTime() - new Date(a.decided_at || a.timestamp).getTime())[0];
-              
+
               if (completedApproval) {
                 setApproval(completedApproval as any);
               }
@@ -129,14 +128,14 @@ export default function ExpensesView() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="p-6">{t('common.loading')}</div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <div className="flex items-start justify-between">
           <div>
@@ -478,7 +477,7 @@ export default function ExpensesView() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </>
   );
 }
 

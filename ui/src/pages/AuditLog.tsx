@@ -10,10 +10,17 @@ import { format } from 'date-fns';
 import { API_BASE_URL } from '@/lib/api';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { AuditLogDetailsModal } from '@/components/audit/AuditLogDetailsModal';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { apiRequest } from '@/lib/api';
 import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface AuditLog {
   id: number;
@@ -38,6 +45,14 @@ export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Filter state
   const [search, setSearch] = useState('');
   const [action, setAction] = useState('');
   const [status, setStatus] = useState('');
@@ -49,16 +64,37 @@ export default function AuditLogPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    fetchLogs(page);
+  }, [page, perPage, action, status, userEmail, resourceType, startDate, endDate]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (currentPage: number = 1) => {
     setLoading(true);
     setError(null);
     try {
-      // Use apiRequest to ensure headers are set
-      const data = await apiRequest<{ audit_logs: AuditLog[] }>('/audit-logs?limit=1000');
+      const offset = (currentPage - 1) * perPage;
+      const params = new URLSearchParams();
+      params.append('limit', perPage.toString());
+      params.append('offset', offset.toString());
+
+      if (search) params.append('search', search);
+      if (action) params.append('action', action);
+      if (status) params.append('status', status);
+      if (userEmail) params.append('user_email', userEmail);
+      if (resourceType) params.append('resource_type', resourceType);
+      if (startDate) params.append('start_date', startDate.toISOString());
+      if (endDate) params.append('end_date', endDate.toISOString());
+
+      const data = await apiRequest<{
+        audit_logs: AuditLog[],
+        total: number,
+        page: number,
+        per_page: number,
+        total_pages: number
+      }>(`/audit-logs?${params.toString()}`);
+
       setLogs(data.audit_logs || []);
+      setTotalCount(data.total || 0);
+      setTotalPages(data.total_pages || 0);
     } catch (err: any) {
       setError(err.message || 'Error');
     } finally {
@@ -66,29 +102,18 @@ export default function AuditLogPage() {
     }
   };
 
-  // Extract unique values for dropdowns
-  const actions = useMemo(() => Array.from(new Set(logs.map(l => toCamelCase(l.action)).filter(Boolean))), [logs]);
-  const statuses = useMemo(() => Array.from(new Set(logs.map(l => toCamelCase(l.status)).filter(Boolean))), [logs]);
-  const users = useMemo(() => Array.from(new Set(logs.map(l => l.user_email).filter(Boolean))), [logs]);
-  const resourceTypes = useMemo(() => Array.from(new Set(logs.map(l => toCamelCase(l.resource_type)).filter(Boolean))), [logs]);
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    fetchLogs(1);
+  };
 
-  // Filtering logic
-  const filteredLogs = logs.filter(log => {
-    if (search && !(
-      log.user_email.toLowerCase().includes(search.toLowerCase()) ||
-      log.action.toLowerCase().includes(search.toLowerCase()) ||
-      log.resource_type.toLowerCase().includes(search.toLowerCase()) ||
-      (log.resource_name && log.resource_name.toLowerCase().includes(search.toLowerCase())) ||
-      (log.details && JSON.stringify(log.details).toLowerCase().includes(search.toLowerCase()))
-    )) return false;
-    if (action && toCamelCase(log.action) !== action) return false;
-    if (status && toCamelCase(log.status) !== status) return false;
-    if (userEmail && log.user_email !== userEmail) return false;
-    if (resourceType && toCamelCase(log.resource_type) !== resourceType) return false;
-    if (startDate && new Date(log.created_at) < startDate) return false;
-    if (endDate && new Date(log.created_at) > endDate) return false;
-    return true;
-  });
+  // Extract unique values for dropdowns (these will now be based on the current page's results)
+  // In a more robust implementation, these would come from separate metadata endpoints
+  const actions = useMemo(() => Array.from(new Set(logs.map(l => l.action).filter(Boolean))), [logs]);
+  const statuses = useMemo(() => Array.from(new Set(logs.map(l => l.status).filter(Boolean))), [logs]);
+  const users = useMemo(() => Array.from(new Set(logs.map(l => l.user_email).filter(Boolean))), [logs]);
+  const resourceTypes = useMemo(() => Array.from(new Set(logs.map(l => l.resource_type).filter(Boolean))), [logs]);
 
   const clearFilters = () => {
     setSearch('');
@@ -98,6 +123,9 @@ export default function AuditLogPage() {
     setResourceType('');
     setStartDate(null);
     setEndDate(null);
+    setPage(1);
+    // Directly fetch with cleared search too
+    fetchLogs(1);
   };
 
   // Helper to convert resource_type to camelCase
@@ -112,20 +140,44 @@ export default function AuditLogPage() {
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={t('navigation.audit_log')}
-          description="View and filter system audit logs"
+          description={t('auditLog.description')}
         />
         <div className="mb-4 flex flex-wrap gap-2 items-center">
-          <Input
-            placeholder={t('common.search') || 'Search...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="max-w-xs"
-          />
-          <Select value={action || 'all'} onValueChange={v => setAction(v === 'all' ? '' : v)}>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <Input
+              placeholder={t('common.search') || 'Search...'}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button type="submit" variant="secondary" size="sm">
+              <Filter className="h-4 w-4 mr-2" />
+              {t('common.filter') || 'Filter'}
+            </Button>
+          </form>
+          <Select value={perPage.toString()} onValueChange={v => {
+            setPerPage(parseInt(v));
+            setPage(1);
+          }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Per page" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25 per page</SelectItem>
+              <SelectItem value="50">50 per page</SelectItem>
+              <SelectItem value="100">100 per page</SelectItem>
+              <SelectItem value="500">500 per page</SelectItem>
+              <SelectItem value="10000">Load All</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={action || 'all'} onValueChange={v => {
+            setAction(v === 'all' ? '' : v);
+            setPage(1);
+          }}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder={t('auditLog.filters.action') || 'Action'} />
             </SelectTrigger>
@@ -136,7 +188,10 @@ export default function AuditLogPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={status || 'all'} onValueChange={v => setStatus(v === 'all' ? '' : v)}>
+          <Select value={status || 'all'} onValueChange={v => {
+            setStatus(v === 'all' ? '' : v);
+            setPage(1);
+          }}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder={t('auditLog.filters.status') || 'Status'} />
             </SelectTrigger>
@@ -147,7 +202,10 @@ export default function AuditLogPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={userEmail || 'all'} onValueChange={v => setUserEmail(v === 'all' ? '' : v)}>
+          <Select value={userEmail || 'all'} onValueChange={v => {
+            setUserEmail(v === 'all' ? '' : v);
+            setPage(1);
+          }}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder={t('auditLog.filters.user') || 'User'} />
             </SelectTrigger>
@@ -158,7 +216,10 @@ export default function AuditLogPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={resourceType || 'all'} onValueChange={v => setResourceType(v === 'all' ? '' : v)}>
+          <Select value={resourceType || 'all'} onValueChange={v => {
+            setResourceType(v === 'all' ? '' : v);
+            setPage(1);
+          }}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder={t('auditLog.filters.resource_type') || 'Resource Type'} />
             </SelectTrigger>
@@ -180,7 +241,10 @@ export default function AuditLogPage() {
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={setStartDate}
+                onSelect={(date) => {
+                  setStartDate(date);
+                  setPage(1);
+                }}
                 initialFocus
               />
             </PopoverContent>
@@ -196,7 +260,10 @@ export default function AuditLogPage() {
               <Calendar
                 mode="single"
                 selected={endDate}
-                onSelect={setEndDate}
+                onSelect={(date) => {
+                  setEndDate(date);
+                  setPage(1);
+                }}
                 initialFocus
               />
             </PopoverContent>
@@ -205,7 +272,7 @@ export default function AuditLogPage() {
             <X className="h-4 w-4" />
             {t('common.clear') || 'Clear'}
           </Button>
-          <Button onClick={fetchLogs} disabled={loading}>
+          <Button onClick={() => fetchLogs(page)} disabled={loading}>
             {t('auditLog.reload') || 'Reload'}
           </Button>
         </div>
@@ -224,7 +291,7 @@ export default function AuditLogPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map(log => (
+                {logs.map(log => (
                   <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                     <TableCell>{log.id}</TableCell>
                     <TableCell>{log.user_email}</TableCell>
@@ -237,6 +304,46 @@ export default function AuditLogPage() {
               </TableBody>
             </Table>
           </div>
+          <div className="py-4 border-t px-6 flex items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {t('auditLog.total_logs', { count: totalCount })}
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum = page;
+                  if (totalPages <= 5) pageNum = i + 1;
+                  else if (page <= 3) pageNum = i + 1;
+                  else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                  else pageNum = page - 2 + i;
+
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        onClick={() => setPage(pageNum)}
+                        isActive={page === pageNum}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    className={page === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </ProfessionalCard>
         <AuditLogDetailsModal
           isOpen={!!selectedLog}
@@ -244,6 +351,6 @@ export default function AuditLogPage() {
           auditLog={selectedLog}
         />
       </div>
-    </AppLayout>
+    </>
   );
 } 

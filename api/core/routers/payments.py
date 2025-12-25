@@ -105,6 +105,9 @@ async def read_payments(
 ):
     # Manually set tenant context and get tenant database
     try:
+        # Get total count for pagination
+        total_count = db.query(Payment).count()
+
         # Get payments with invoice and client information using ORM
         payments = db.query(
             Payment,
@@ -146,7 +149,7 @@ async def read_payments(
         return {
             "success": True,
             "data": result,
-            "count": len(result),
+            "count": total_count,
             "chart_data": chart_data
         }
     except Exception as e:

@@ -268,7 +268,7 @@ export function ProfessionalDashboard() {
                 variant={metric.variant}
                 loading={loading}
               />
-              {!loading && (metric.value === '0' || metric.value === '$0.00') && (
+              {!loading && (metric.value === '0' || metric.value === '$0.00') && metric.title !== t('dashboard.stats.overdue_invoices') && (
                 <div className="px-1 mt-[-8px]">
                   <ProfessionalButton
                     variant="ghost"

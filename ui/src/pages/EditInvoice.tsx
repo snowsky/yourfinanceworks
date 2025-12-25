@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceStockImpact } from "@/components/invoices/InvoiceStockImpact";
 import { InvoiceHistoryDetailsModal } from "@/components/invoices/InvoiceHistoryDetailsModal";
@@ -153,25 +152,25 @@ const EditInvoice = () => {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="h-full flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
           <p>{t('editInvoice.loadingInvoiceData')}</p>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   if (error || !invoice) {
     return (
-      <AppLayout>
+      <>
         <div className="h-full space-y-6 fade-in">
           <div>
             <h1 className="text-3xl font-bold">{t('editInvoice.invoiceNotFound')}</h1>
             <p className="text-muted-foreground">{t('editInvoice.invoiceNotFoundDescription')}</p>
           </div>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -287,7 +286,7 @@ const EditInvoice = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-8 fade-in">
         {/* Enhanced Header with Status Overview */}
         <div className="space-y-4 px-6">
@@ -813,7 +812,7 @@ const EditInvoice = () => {
         </Dialog>
 
       </div>
-    </AppLayout>
+    </>
   );
 };
 

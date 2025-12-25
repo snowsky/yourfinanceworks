@@ -16,7 +16,6 @@ import {
 } from '@/lib/api';
 import { Eye, FileDown, RefreshCw, ArrowLeft } from 'lucide-react';
 import { ensureAuthenticated } from '@/utils/auth';
-import { AppLayout } from '@/components/layout/AppLayout';
 
 const ReportDetail: React.FC = () => {
     const { reportType } = useParams<{ reportType: string }>();
@@ -176,16 +175,16 @@ const ReportDetail: React.FC = () => {
 
     if (!selectedTypeConfig) {
         return (
-            <AppLayout>
+            <>
                 <div className="flex items-center justify-center h-full">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout>
+        <>
             <div className="h-full space-y-6 fade-in">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/reports')}>
@@ -346,7 +345,7 @@ const ReportDetail: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
-        </AppLayout>
+        </>
     );
 };
 

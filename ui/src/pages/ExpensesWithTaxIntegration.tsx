@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -127,26 +126,26 @@ const ExpensesWithTaxIntegration = () => {
     setLoading(true);
     try {
       const skip = (page - 1) * pageSize;
-      const data = await expenseApi.getExpensesFiltered({ 
-        category: categoryFilter, 
-        label: labelFilter || undefined, 
-        unlinkedOnly, 
-        skip, 
+      const data = await expenseApi.getExpensesFiltered({
+        category: categoryFilter,
+        label: labelFilter || undefined,
+        unlinkedOnly,
+        skip,
         limit: pageSize,
         excludeStatus: 'pending_approval' // Exclude pending approval expenses from the API
       });
       setExpenses(data);
-      
+
       // Determine if there's a next page based on the current page and total results
       // If we got exactly pageSize results, there might be more, so probe the next page
       if (data.length === pageSize) {
         // Probe next page existence precisely
         try {
-          const probe = await expenseApi.getExpensesFiltered({ 
-            category: categoryFilter, 
-            label: labelFilter || undefined, 
-            unlinkedOnly, 
-            skip: skip + pageSize, 
+          const probe = await expenseApi.getExpensesFiltered({
+            category: categoryFilter,
+            label: labelFilter || undefined,
+            unlinkedOnly,
+            skip: skip + pageSize,
             limit: 1,
             excludeStatus: 'pending_approval'
           });
@@ -174,7 +173,7 @@ const ExpensesWithTaxIntegration = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="flex-1 space-y-4 p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">{t('navigation.expenses')}</h2>
@@ -355,7 +354,7 @@ const ExpensesWithTaxIntegration = () => {
         {/* Existing dialogs and forms */}
         {/* ... (keep all existing dialog components) */}
       </div>
-    </AppLayout>
+    </>
   );
 };
 

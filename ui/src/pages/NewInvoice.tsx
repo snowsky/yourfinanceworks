@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceCreationChoice } from "@/components/invoices/InvoiceCreationChoice";
 import { InventoryInvoiceForm } from "@/components/inventory/InventoryInvoiceForm";
@@ -125,7 +124,7 @@ const NewInvoice = () => {
   if (showForm) {
     const fromBankStatement = searchParams.get('from_bank_statement') === 'true';
     return (
-      <AppLayout>
+      <>
         <div className="h-full space-y-6 fade-in">
           <div>
             <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
@@ -143,12 +142,12 @@ const NewInvoice = () => {
             />
           </div>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <div>
           <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
@@ -163,7 +162,7 @@ const NewInvoice = () => {
           />
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

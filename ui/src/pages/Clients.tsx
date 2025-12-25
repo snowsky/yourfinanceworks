@@ -1,4 +1,3 @@
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,7 +109,7 @@ const Clients = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-8 fade-in">
         {/* Hero Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
@@ -267,7 +266,7 @@ const Clients = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 };
 

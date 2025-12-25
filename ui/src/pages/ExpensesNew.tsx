@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -297,7 +296,7 @@ export default function ExpensesNew() {
   }, []);
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <div>
           <h1 className="text-3xl font-bold">{t('expenses.new_title')}</h1>
@@ -519,8 +518,8 @@ export default function ExpensesNew() {
               <Alert className="mb-4 border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
-                  <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan. 
-                  Files will be uploaded as attachments only, without automatic data extraction. 
+                  <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan.
+                  Files will be uploaded as attachments only, without automatic data extraction.
                   Please enter expense details manually.
                 </AlertDescription>
               </Alert>
@@ -569,8 +568,8 @@ export default function ExpensesNew() {
                   <Alert className="border-amber-200 bg-amber-50">
                     <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800">
-                      {t('common.feature_not_licensed', { 
-                        defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.' 
+                      {t('common.feature_not_licensed', {
+                        defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                       })}
                     </AlertDescription>
                   </Alert>
@@ -608,8 +607,8 @@ export default function ExpensesNew() {
         </Card>
 
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => window.history.back()}
             disabled={saving || isSubmitting}
           >
@@ -637,7 +636,7 @@ export default function ExpensesNew() {
           loading={saving}
         />
       </div>
-    </AppLayout>
+    </>
   );
 }
 

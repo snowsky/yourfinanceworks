@@ -64,7 +64,9 @@
     "show": "Show",
     "view": "View",
     "back_to_invoices": "Back to Invoices",
-    "add_data": "Add Data"
+    "add_data": "Add Data",
+    "showing_of": "Showing {{count}} of {{total}}",
+    "page_of": "Page {{current}} of {{total}}"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -1974,8 +1976,8 @@
     "promote_user_placeholder": "Enter user email",
     "promoting_button": "Promoting...",
     "promote_button": "Promote",
-    "total_tenants_label": "Total Tenants",
-    "active_tenants": "active",
+    "total_organizations_label": "Total Organizations",
+    "active_label": "Active",
     "total_users_label": "Total Users",
     "super_users": "super users",
     "databases_label": "Databases",
@@ -2174,7 +2176,8 @@
   },
   "auditLog": {
     "title": "Audit Log",
-    "description": "View and manage audit logs",
+    "description": "View and filter system audit logs",
+    "total_logs": "Total {{count}} logs",
     "new_log": "New Log",
     "edit_log": "Edit Log",
     "log_date": "Log Date",
