@@ -1,6 +1,6 @@
-# Invoice Management Application
+# YourFinanceWORKS
 
-A modern, multi-tenant invoice management system built with FastAPI and React, with full mobile app support for iOS and Android. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
+A modern, multi-tenant financial management system built with FastAPI and React, with ugly mobile app support for iOS and Android. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
 
 ## 🚀 Features
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Invoice App",
-    "slug": "invoice-app-mobile",
+    "name": "YourFinanceWORKS",
+    "slug": "yourfinanceworks-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -10,7 +10,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.haoinvoiceapp.mobile",
+      "bundleIdentifier": "com.yourfinanceworks.mobile",
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to capture receipts and documents.",
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.haoinvoiceapp.mobile",
+      "package": "com.yourfinanceworks.mobile",
       "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",

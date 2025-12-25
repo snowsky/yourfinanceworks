@@ -1,6 +1,6 @@
-# Invoice App API
+# YourFinanceWORKS API
 
-This is the REST API backend for the Invoice Management System built with FastAPI, SQLAlchemy, and Pydantic.
+This is the REST API backend for YourFinanceWORKS built with FastAPI, SQLAlchemy, and Pydantic.
 
 ## Features
 
