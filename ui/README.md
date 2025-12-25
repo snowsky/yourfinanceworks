@@ -14,8 +14,8 @@ This project is a modern invoice application built with React, TypeScript, and T
 
 1. Clone the repository:
    ```sh
-   git clone <YOUR_GIT_URL>
-   cd invoice-app
+   git clone <GIT_URL_FOR_THIS_PROJECT>
+   cd finance-works
    ```
 
 2. Install dependencies:

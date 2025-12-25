@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Label } from './label';
-import { currencyApi } from '@/lib/api';
+import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
 
 interface Currency {
   id: number;
@@ -48,7 +48,7 @@ export function CurrencySelector({
     const fetchCurrencies = async () => {
       setLoading(true);
       try {
-        const data = await currencyApi.getSupportedCurrencies();
+        const data = await fetchCurrenciesWithCache();
         if (data && data.length > 0) {
           setCurrencies(data);
           console.log("Currencies loaded:", data.length, "currencies");
@@ -67,7 +67,7 @@ export function CurrencySelector({
     };
 
     fetchCurrencies();
-  }, []);
+  }, [onCurrenciesLoaded]);
 
   const activeCurrencies = currencies.filter(c => c.is_active);
 

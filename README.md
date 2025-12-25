@@ -476,8 +476,8 @@ POST /api/v1/email/send-invoice
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd hao_invoice_app
+   git clone <GIT_URL_FOR_THIS_PROJECT>
+   cd finance-works
    ```
 
 2. **Start the backend**:

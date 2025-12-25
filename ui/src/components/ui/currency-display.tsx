@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { currencyApi } from '@/lib/api';
+import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
 import { AlertTriangle } from 'lucide-react';
 
 interface CurrencyDisplayProps {
@@ -43,7 +43,7 @@ export function CurrencyDisplay({
   useEffect(() => {
     const fetchCurrencyInfo = async () => {
       try {
-        const response = await currencyApi.getSupportedCurrencies();
+        const response = await fetchCurrenciesWithCache();
         const currencies = response.currencies || [];
         const foundCurrency = currencies.find(c => c.code === safeCurrency.toUpperCase());
 

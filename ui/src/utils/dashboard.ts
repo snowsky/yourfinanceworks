@@ -2,6 +2,9 @@
  * Dashboard utility functions
  */
 
+// Import the shared currency cache
+import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
+
 // Cache for currency symbol mappings
 let currencySymbolCache: { [key: string]: string } | null = null;
 let cacheTimestamp: number = 0;
@@ -21,8 +24,7 @@ async function getCurrencySymbolMappings(): Promise<{ [key: string]: string }> {
 
   try {
     // Import the API function dynamically to avoid circular dependencies
-    const { currencyApi } = await import('@/lib/api');
-    const currencies = await currencyApi.getSupportedCurrencies();
+    const currencies = await fetchCurrenciesWithCache();
 
     // Build symbol to code mapping from API response
     const symbolMap: { [key: string]: string } = {};
