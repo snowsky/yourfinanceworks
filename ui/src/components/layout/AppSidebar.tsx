@@ -57,22 +57,18 @@ export function AppSidebar() {
   const [forceUpdate, setForceUpdate] = useState(0);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'system';
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || stored === 'light') return stored;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'system';
+    return 'light';
   });
 
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
-    } else if (theme === 'light') {
-      document.documentElement.classList.remove('dark');
     } else {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.classList.remove('dark');
     }
     localStorage.setItem('theme', theme);
     // Optionally: update user profile theme in backend here

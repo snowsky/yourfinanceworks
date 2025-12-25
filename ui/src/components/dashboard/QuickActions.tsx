@@ -198,7 +198,7 @@ export function QuickActions() {
             case 'warning':
                 return 'bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 border-0';
             default:
-                return 'bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900';
+                return 'bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:text-white';
         }
     };
 
@@ -220,7 +220,7 @@ export function QuickActions() {
     return (
         <div className="space-y-6">
             {/* Primary Actions */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900">
                 <CardHeader className="pb-4">
                     <div className="flex items-center gap-2">
                         <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
@@ -257,11 +257,11 @@ export function QuickActions() {
                                     <div className="flex items-center gap-3 w-full">
                                         <div className={cn(
                                             "p-2 rounded-lg",
-                                            action.variant === 'primary' ? 'bg-white/20' : 'bg-gray-100'
+                                            action.variant === 'primary' ? 'bg-white/20' : 'bg-gray-100 dark:bg-slate-700'
                                         )}>
                                             <Icon className={cn(
                                                 "h-5 w-5",
-                                                action.variant === 'primary' ? 'text-white' : 'text-gray-600'
+                                                action.variant === 'primary' ? 'text-white' : 'text-gray-600 dark:text-slate-300'
                                             )} />
                                         </div>
                                         <div className="flex-1">
@@ -296,7 +296,7 @@ export function QuickActions() {
                                     key={action.id}
                                     variant="ghost"
                                     onClick={() => handleActionClick(action)}
-                                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-gray-50 transition-all duration-200 hover:scale-105 relative"
+                                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all duration-200 hover:scale-105 relative"
                                 >
                                     {action.badge && (
                                         <Badge className={cn(
@@ -308,14 +308,14 @@ export function QuickActions() {
                                     )}
                                     <div className={cn(
                                         "p-2 rounded-lg",
-                                        action.variant === 'warning' ? 'bg-orange-100' : 'bg-gray-100'
+                                        action.variant === 'warning' ? 'bg-orange-100' : 'bg-gray-100 dark:bg-slate-700'
                                     )}>
                                         <Icon className={cn(
                                             "h-4 w-4",
-                                            action.variant === 'warning' ? 'text-orange-600' : 'text-gray-600'
+                                            action.variant === 'warning' ? 'text-orange-600' : 'text-gray-600 dark:text-slate-300'
                                         )} />
                                     </div>
-                                    <span className="text-xs font-medium text-center leading-tight">
+                                    <span className="text-xs font-medium text-center leading-tight dark:text-slate-200">
                                         {action.title}
                                     </span>
                                 </Button>
@@ -327,18 +327,18 @@ export function QuickActions() {
 
             {/* Pending Items */}
             {pendingItems.length > 0 && (
-                <Card className="border-l-4 border-l-orange-500 bg-orange-50/50">
+                <Card className="border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/50">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-orange-600" />
-                                <CardTitle className="text-lg font-semibold text-orange-900">
+                                <CardTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">
                                     {t('dashboard.pending_items.title', 'Needs Attention')}
                                 </CardTitle>
                             </div>
                             <Link
                                 to="/approvals"
-                                className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                                className="text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1"
                             >
                                 {t('dashboard.pending_items.view_all', 'View All')}
                                 <ArrowRight className="h-3 w-3" />
@@ -348,7 +348,7 @@ export function QuickActions() {
                     <CardContent>
                         <div className="space-y-3">
                             {pendingItems.map((item) => (
-                                <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
+                                <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-orange-200 dark:border-orange-800">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-orange-100 rounded-lg">
                                             {item.type === 'approval' && <ListChecks className="h-4 w-4 text-orange-600" />}
@@ -356,7 +356,7 @@ export function QuickActions() {
                                             {item.type === 'invoice' && <FileText className="h-4 w-4 text-orange-600" />}
                                         </div>
                                         <div>
-                                            <div className="font-medium text-sm text-gray-900">{item.title}</div>
+                                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.title}</div>
                                             {item.amount && (
                                                 <div className="text-xs text-muted-foreground">{item.amount}</div>
                                             )}

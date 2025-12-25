@@ -15,6 +15,6 @@ export default defineConfig({
   server: {
     port: 8080,
     host: '0.0.0.0',
-    allowedHosts: ['ui', 'localhost', '127.0.0.1', '0.0.0.0'],
+    allowedHosts: ['ui', 'localhost', '127.0.0.1', '0.0.0.0', 'demo.yourfinanceworks.com'],
   },
 })

@@ -70,9 +70,11 @@ export function ProfessionalSidebar() {
   const [forceUpdate, setForceUpdate] = useState(0);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'system';
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark' || stored === 'light') return stored;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'system';
+    return 'light';
   });
 
   // User and organization state
