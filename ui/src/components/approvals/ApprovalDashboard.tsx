@@ -169,10 +169,17 @@ export function ApprovalDashboard() {
   return (
     <ApprovalHelpTooltips context="dashboard">
       <div className="space-y-6">
-        {/* Dashboard Header with Help */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">{t('approvalDashboard.title')}</h1>
-          <QuickHelp context="dashboard" />
+        {/* Dashboard Header with Professional Styling */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-4xl font-bold tracking-tight">{t('approvalDashboard.title')}</h1>
+              <p className="text-muted-foreground text-base">{t('approvalDashboard.description')}</p>
+            </div>
+            <div className="flex-shrink-0">
+              <QuickHelp context="dashboard" />
+            </div>
+          </div>
         </div>
 
         {/* Dashboard Stats */}
@@ -240,10 +247,10 @@ export function ApprovalDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="expenses" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <Tabs defaultValue="expenses" className="w-full tabs-professional">
+              <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
+                <TabsTrigger value="expenses" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Expenses</TabsTrigger>
+                <TabsTrigger value="invoices" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Invoices</TabsTrigger>
               </TabsList>
 
               <TabsContent value="expenses" className="mt-4">
@@ -387,10 +394,10 @@ export function ApprovalDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="expenses" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <Tabs defaultValue="expenses" className="w-full tabs-professional">
+              <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
+                <TabsTrigger value="expenses" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Expenses</TabsTrigger>
+                <TabsTrigger value="invoices" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Invoices</TabsTrigger>
               </TabsList>
 
               <TabsContent value="expenses" className="mt-4">

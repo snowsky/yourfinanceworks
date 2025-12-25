@@ -368,29 +368,30 @@ export function ReminderList({ className }: ReminderListProps) {
   }
 
   return (
-    <div className={cn("p-6 space-y-6", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t('reminders.title', { count: totalCount })}</h1>
-          <p className="text-muted-foreground">
-            {t('reminders.description')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadReminders}
-            disabled={loading}
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-            {t('reminders.refresh')}
-          </Button>
-          <ProfessionalButton onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('reminders.create_reminder')}
-          </ProfessionalButton>
+    <div className={cn("space-y-8 fade-in", className)}>
+      {/* Hero Header */}
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('reminders.title', { count: totalCount })}</h1>
+            <p className="text-lg text-muted-foreground">{t('reminders.description')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ProfessionalButton
+              variant="outline"
+              size="default"
+              onClick={loadReminders}
+              disabled={loading}
+              className="whitespace-nowrap"
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              {t('reminders.refresh')}
+            </ProfessionalButton>
+            <ProfessionalButton onClick={() => setShowForm(true)} variant="default" size="default" className="shadow-lg whitespace-nowrap">
+              <Plus className="h-4 w-4" />
+              {t('reminders.create_reminder')}
+            </ProfessionalButton>
+          </div>
         </div>
       </div>
 
@@ -408,43 +409,43 @@ export function ReminderList({ className }: ReminderListProps) {
           setPage(1);
         }}
       >
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-6 bg-muted/30 border border-border/50 rounded-lg p-1">
+          <TabsTrigger value="all" className="flex items-center gap-2 rounded-md">
             <List className="h-4 w-4" />
             {t('reminders.all')} ({counts.all})
           </TabsTrigger>
-          <TabsTrigger value="my" className="flex items-center gap-2">
+          <TabsTrigger value="my" className="flex items-center gap-2 rounded-md">
             <Clock className="h-4 w-4" />
             {t('reminders.my_tasks')} ({counts.my})
           </TabsTrigger>
-          <TabsTrigger value="due_today" className="flex items-center gap-2">
+          <TabsTrigger value="due_today" className="flex items-center gap-2 rounded-md">
             <Calendar className="h-4 w-4" />
             {t('reminders.due_today')} ({counts.due_today})
           </TabsTrigger>
-          <TabsTrigger value="overdue" className="flex items-center gap-2">
+          <TabsTrigger value="overdue" className="flex items-center gap-2 rounded-md">
             <AlertCircle className="h-4 w-4" />
             {t('reminders.overdue')} ({counts.overdue})
           </TabsTrigger>
-          <TabsTrigger value="snoozed" className="flex items-center gap-2">
+          <TabsTrigger value="snoozed" className="flex items-center gap-2 rounded-md">
             <Timer className="h-4 w-4" />
             {t('reminders.snoozed')} ({counts.snoozed})
           </TabsTrigger>
-          <TabsTrigger value="completed" className="flex items-center gap-2">
+          <TabsTrigger value="completed" className="flex items-center gap-2 rounded-md">
             <CheckCircle className="h-4 w-4" />
             {t('reminders.completed')} ({counts.completed})
           </TabsTrigger>
         </TabsList>
 
         {/* Filters */}
-        <div className="flex items-center gap-4 py-4">
-          <div className="flex-1">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 py-6 border-b border-border/50">
+          <div className="flex-1 w-full lg:w-auto">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={t('reminders.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
               />
             </div>
           </div>
@@ -452,7 +453,7 @@ export function ReminderList({ className }: ReminderListProps) {
           {activeTab === 'all' && (
             <>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full lg:w-40 h-10 rounded-lg border-border/50 bg-muted/30">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -465,7 +466,7 @@ export function ReminderList({ className }: ReminderListProps) {
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full lg:w-40 h-10 rounded-lg border-border/50 bg-muted/30">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -478,7 +479,7 @@ export function ReminderList({ className }: ReminderListProps) {
               </Select>
 
               <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full lg:w-48 h-10 rounded-lg border-border/50 bg-muted/30">
                   <SelectValue placeholder="Assigned To" />
                 </SelectTrigger>
                 <SelectContent>
@@ -497,7 +498,7 @@ export function ReminderList({ className }: ReminderListProps) {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <ProfessionalButton variant="outline" size="default" className="flex items-center gap-2 whitespace-nowrap">
                 <Filter className="h-4 w-4" />
                 {t('reminders.date_range')}
                 {(dueDateFrom || dueDateTo) && (
@@ -509,7 +510,7 @@ export function ReminderList({ className }: ReminderListProps) {
                         : `Until ${format(dueDateTo!, 'MMM d')}`}
                   </Badge>
                 )}
-              </Button>
+              </ProfessionalButton>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
               <div className="p-4 space-y-4">
@@ -530,7 +531,7 @@ export function ReminderList({ className }: ReminderListProps) {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button
+                  <ProfessionalButton
                     size="sm"
                     variant="outline"
                     onClick={() => {
@@ -539,7 +540,7 @@ export function ReminderList({ className }: ReminderListProps) {
                     }}
                   >
                     {t('reminders.clear')}
-                  </Button>
+                  </ProfessionalButton>
                 </div>
               </div>
             </PopoverContent>
@@ -549,25 +550,30 @@ export function ReminderList({ className }: ReminderListProps) {
         {/* Content */}
         <TabsContent value={activeTab} className="space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin" />
+            <div className="flex justify-center items-center py-20">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative w-12 h-12">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
+                </div>
+                <p className="text-muted-foreground font-medium">Loading reminders...</p>
+              </div>
             </div>
           ) : reminders.length === 0 ? (
-            <Card className="border-none shadow-none bg-transparent">
-              <CardContent className="flex flex-col items-center justify-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                  <Timer className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-xl font-bold mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto text-center">
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
+              <div className="p-4 rounded-full bg-muted/50">
+                <Timer className="h-10 w-10 text-muted-foreground/50" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-foreground mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto">
                   {activeTab === 'all'
                     ? t('reminders.no_reminders_description', 'You don\'t have any reminders yet. Create one to stay on top of your tasks and deadlines.')
                     : activeTab === 'snoozed'
                       ? t('reminders.no_snoozed_reminders', 'All your reminders are currently active.')
                       : t('reminders.no_reminders_tab', { tab: activeTab.replace('_', ' '), defaultValue: `No ${activeTab.replace('_', ' ')} reminders found.` })}
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             <div className="grid gap-4">
               {reminders.map((reminder) => (
@@ -588,25 +594,25 @@ export function ReminderList({ className }: ReminderListProps) {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">
-              <Button
+              <ProfessionalButton
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
               >
                 {t('reminders.previous')}
-              </Button>
+              </ProfessionalButton>
               <span className="text-sm text-muted-foreground">
                 {t('reminders.page')} {page} {t('reminders.of')} {totalPages}
               </span>
-              <Button
+              <ProfessionalButton
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
               >
                 {t('reminders.next')}
-              </Button>
+              </ProfessionalButton>
             </div>
           )}
         </TabsContent>

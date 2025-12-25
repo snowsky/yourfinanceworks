@@ -12,50 +12,61 @@ interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
     label: string;
     href?: string;
   }>;
+  alert?: React.ReactNode;
 }
 
 const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
-  ({ className, title, description, actions, breadcrumbs, ...props }, ref) => {
+  ({ className, title, description, actions, breadcrumbs, alert, ...props }, ref) => {
     return (
       <div
         ref={ref}
-        className={cn("space-y-4 pb-6 border-b border-border/50", className)}
+        className={cn("space-y-4", className)}
         {...props}
       >
-        {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center space-x-1 text-sm text-muted-foreground">
-            <Home className="h-4 w-4" />
-            {breadcrumbs.map((crumb, index) => (
-              <React.Fragment key={index}>
-                <ChevronRight className="h-4 w-4" />
-                {crumb.href ? (
-                  <Link
-                    to={crumb.href}
-                    className="hover:text-foreground transition-colors"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="text-foreground font-medium">{crumb.label}</span>
-                )}
-              </React.Fragment>
-            ))}
-          </nav>
+        {alert && (
+          <div className="w-full">
+            {alert}
+          </div>
         )}
         
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            {description && (
-              <p className="text-muted-foreground text-lg">{description}</p>
+        <div
+          className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm space-y-4"
+        >
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <nav className="flex items-center space-x-1 text-sm text-muted-foreground">
+              <Home className="h-4 w-4" />
+              {breadcrumbs.map((crumb, index) => (
+                <React.Fragment key={index}>
+                  <ChevronRight className="h-4 w-4" />
+                  {crumb.href ? (
+                    <Link
+                      to={crumb.href}
+                      className="hover:text-foreground transition-colors"
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className="text-foreground font-medium">{crumb.label}</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
+          )}
+          
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+              {description && (
+                <p className="text-muted-foreground text-base">{description}</p>
+              )}
+            </div>
+            
+            {actions && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {actions}
+              </div>
             )}
           </div>
-          
-          {actions && (
-            <div className="flex items-center gap-2">
-              {actions}
-            </div>
-          )}
         </div>
       </div>
     );

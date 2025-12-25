@@ -90,30 +90,40 @@ const Payments = () => {
 
   return (
     <AppLayout>
-      <div className="h-full space-y-6 fade-in">
-        <PageHeader
-          title={t('payments.title')}
-          description={t('payments.description')}
-        />
+      <div className="h-full space-y-8 fade-in">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('payments.title')}</h1>
+            <p className="text-lg text-muted-foreground">{t('payments.description')}</p>
+          </div>
+        </div>
 
-        <ProfessionalCard className="slide-in">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>{t('payments.payment_list')}</CardTitle>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            {/* Header with filters */}
+            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('payments.payment_list')}</h2>
+                <p className="text-muted-foreground mt-1">Track and manage all your payments in one place</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {/* Search */}
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder={t('payments.search_placeholder')}
-                    className="pl-8 w-full sm:w-[200px]"
+                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-2 items-center">
+                
+                {/* Method Filter */}
+                <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <Select value={methodFilter} onValueChange={setMethodFilter}>
-                    <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
                       <SelectValue placeholder={t('payments.filter_by_method')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -127,70 +137,68 @@ const Payments = () => {
                 </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('payments.table.invoice')}</TableHead>
-                    <TableHead>{t('payments.table.client')}</TableHead>
-                    <TableHead>{t('payments.table.date')}</TableHead>
-                    <TableHead>{t('payments.table.amount')}</TableHead>
-                    <TableHead>{t('payments.table.method')}</TableHead>
-                    <TableHead>{t('payments.table.status')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        <div className="flex justify-center items-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          {t('payments.loading')}
-                        </div>
-                      </TableCell>
+
+            {/* Content */}
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative w-12 h-12">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">{t('payments.loading')}</p>
+                </div>
+              </div>
+            ) : (filteredPayments || []).length > 0 ? (
+              <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
+                      <TableHead className="font-bold text-foreground">{t('payments.table.invoice')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
                     </TableRow>
-                  ) : (filteredPayments || []).length > 0 ? (
-                    (filteredPayments || []).map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>{payment.invoice_number || 'N/A'}</TableCell>
-                        <TableCell>{payment.client_name || 'N/A'}</TableCell>
-                        <TableCell>{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
-                        <TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {(filteredPayments || []).map((payment) => (
+                      <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
+                        <TableCell className="font-semibold text-foreground">{payment.invoice_number || 'N/A'}</TableCell>
+                        <TableCell className="text-foreground">{payment.client_name || 'N/A'}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
+                        <TableCell className="font-semibold text-foreground">
                           <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">
+                          <Badge variant="outline" className="capitalize font-medium">
                             {payment.payment_method || 'N/A'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">
+                          <Badge variant="outline" className="capitalize font-medium">
                             {payment.status || 'N/A'}
                           </Badge>
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-auto p-0 border-none">
-                        <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                          <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CreditCard className="h-8 w-8 text-primary" />
-                          </div>
-                          <h3 className="text-xl font-bold mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
-                          <p className="text-muted-foreground max-w-sm mx-auto">
-                            {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <div className="p-4 rounded-full bg-muted/50">
+                  <CreditCard className="h-10 w-10 text-muted-foreground/50" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-foreground mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto">
+                    {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </ProfessionalCard>
       </div>
     </AppLayout>

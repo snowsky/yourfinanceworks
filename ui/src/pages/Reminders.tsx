@@ -5,7 +5,9 @@ import { AppLayout } from '@/components/layout/AppLayout';
 export default function RemindersPage() {
   return (
     <AppLayout>
-      <ReminderList />
+      <div className="h-full p-8">
+        <ReminderList />
+      </div>
     </AppLayout>
   );
 }

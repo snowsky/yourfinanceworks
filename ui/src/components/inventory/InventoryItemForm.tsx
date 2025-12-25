@@ -16,6 +16,8 @@ import { CurrencySelector } from "@/components/ui/currency-selector";
 import { AttachmentUpload } from "./AttachmentUpload";
 import { AttachmentGallery, Attachment } from "./AttachmentGallery";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { ProfessionalCard } from "@/components/ui/professional-card";
 
 interface InventoryItemFormProps {
   isEdit?: boolean;
@@ -261,13 +263,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   return (
     <AppLayout>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/inventory')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('common.back', 'Back')}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/inventory')} className="flex-shrink-0">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">
+          <div className="flex-1">
+            <h1 className="text-4xl font-bold mb-2">
               {isEdit ? t('inventory.edit_item', 'Edit Item') : t('inventory.new_item', 'New Item')}
             </h1>
             <p className="text-muted-foreground">
@@ -279,10 +280,10 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
           </div>
         </div>
 
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">{t('inventory.item_details', 'Item Details')}</TabsTrigger>
-            <TabsTrigger value="attachments">
+        <Tabs defaultValue="details" className="w-full tabs-professional">
+          <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
+            <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('inventory.item_details', 'Item Details')}</TabsTrigger>
+            <TabsTrigger value="attachments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
               {t('inventory.attachments', 'Attachments')}
               {attachments.length > 0 && (
                 <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
@@ -291,7 +292,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
               )}
             </TabsTrigger>
             {isEdit && id && (
-              <TabsTrigger value="activity">
+              <TabsTrigger value="activity" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
                 {t('inventory.activity', 'Activity')}
               </TabsTrigger>
             )}
@@ -299,7 +300,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
           <TabsContent value="details" className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              <Card>
+              <ProfessionalCard>
                 <CardHeader>
                   <CardTitle>{t('inventory.basic_info', 'Basic Information')}</CardTitle>
                 </CardHeader>
@@ -387,9 +388,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
 
-          <Card>
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>{t('inventory.pricing', 'Pricing')}</CardTitle>
             </CardHeader>
@@ -430,9 +431,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
 
-          <Card>
+          <ProfessionalCard>
             <CardHeader>
               <CardTitle>{t('inventory.stock_management', 'Stock Management')}</CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -557,9 +558,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 <Label htmlFor="is_active">{t('inventory.is_active', 'Item is active')}</Label>
               </div>
             </CardContent>
-          </Card>
+          </ProfessionalCard>
 
-              <div className="flex justify-end gap-4">
+              <div className="flex justify-end gap-4 items-center">
                 <Button
                   type="button"
                   variant="outline"
@@ -568,14 +569,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 >
                   {t('common.cancel', 'Cancel')}
                 </Button>
-                <Button type="submit" disabled={saving}>
+                <ProfessionalButton type="submit" disabled={saving}>
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Save className="mr-2 h-4 w-4" />
                   {saving
                     ? t('common.saving', 'Saving...')
                     : t('common.save', 'Save')
                   }
-                </Button>
+                </ProfessionalButton>
               </div>
             </form>
           </TabsContent>
@@ -600,14 +601,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 />
               </div>
             ) : (
-              <Card>
+              <ProfessionalCard>
                 <CardContent className="p-8 text-center">
                   <div className="text-muted-foreground">
                     <p className="text-lg font-medium mb-2">Save the item first</p>
                     <p>You can add attachments after creating the inventory item.</p>
                   </div>
                 </CardContent>
-              </Card>
+              </ProfessionalCard>
             )}
           </TabsContent>
 
@@ -615,7 +616,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
             <TabsContent value="activity" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Stock Movement Summary */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
@@ -630,10 +631,10 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                       </p>
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
 
                 {/* Linked Invoices */}
-                <Card>
+                <ProfessionalCard>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <FileText className="h-5 w-5" />
@@ -648,7 +649,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                       </p>
                     </div>
                   </CardContent>
-                </Card>
+                </ProfessionalCard>
               </div>
             </TabsContent>
           )}

@@ -48,6 +48,7 @@ import { Label } from '@/components/ui/label';
 import { Users } from 'lucide-react';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canPerformActions, canEditExpense, canDeleteExpense, getCurrentUser } from '@/utils/auth';
+import { formatDate } from '@/lib/utils';
 import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
@@ -662,186 +663,175 @@ const Expenses = () => {
 
   return (
     <AppLayout>
-      <div className="h-full space-y-6 fade-in">
-        <PageHeader
-          title={t('expenses.title')}
-          description={t('expenses.description')}
-          actions={canPerformActions() && (
-            <div className="flex gap-2">
-              <ProfessionalButton
-                variant="outline"
-                onClick={handleToggleRecycleBin}
-                className="whitespace-nowrap"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}
-                {showRecycleBin ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-              </ProfessionalButton>
-              <ProfessionalButton
-                variant="outline"
-                onClick={() => setShowAnalytics(!showAnalytics)}
-                className="whitespace-nowrap"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                {t('expenses.analytics')}
-                {showAnalytics ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-              </ProfessionalButton>
-              <div className="flex">
-                <ProfessionalButton onClick={openCreate} className="rounded-r-none border-r-0" variant="default">
-                  <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
-                </ProfessionalButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button className="rounded-l-none px-2 h-9">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsBulkCreateOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Multiple Expenses
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/expenses/import" className="flex items-center w-full">
-                        <Upload className="mr-2 h-4 w-4" />
-                        {t('expenses.import_from_pdf_images')}
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+      <div className="h-full space-y-8 fade-in">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('expenses.title')}</h1>
+              <p className="text-lg text-muted-foreground">{t('expenses.description')}</p>
             </div>
-          )}
-        />
+            {canPerformActions() && (
+              <div className="flex gap-2 items-center flex-wrap justify-end">
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
+                  onClick={handleToggleRecycleBin}
+                  className="whitespace-nowrap"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}
+                  {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </ProfessionalButton>
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  className="whitespace-nowrap"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  {t('expenses.analytics')}
+                  {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </ProfessionalButton>
+                <div className="flex gap-1">
+                  <ProfessionalButton onClick={openCreate} variant="default" size="default" className="shadow-lg">
+                    <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
+                  </ProfessionalButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ProfessionalButton variant="default" size="icon" className="shadow-lg">
+                        <ChevronDown className="h-4 w-4" />
+                      </ProfessionalButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => setIsBulkCreateOpen(true)} className="flex items-center cursor-pointer">
+                        <Plus className="mr-2 h-4 w-4" />
+                        <div className="flex flex-col">
+                          <span>{t('expenses.create_multiple', 'Create Multiple Expenses')}</span>
+                          <span className="text-xs text-muted-foreground">Batch create expenses</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/expenses/import" className="flex items-center w-full cursor-pointer">
+                          <Upload className="mr-2 h-4 w-4" />
+                          <div className="flex flex-col">
+                            <span>{t('expenses.import_from_pdf_images')}</span>
+                            <span className="text-xs text-muted-foreground">Upload and extract</span>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Recycle Bin Section */}
         <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
           <CollapsibleContent>
-            <ProfessionalCard className="slide-in">
-              <CardHeader>
+            <ProfessionalCard className="slide-in mb-8 border-l-4 border-l-destructive overflow-hidden" variant="elevated">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-destructive/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+              <div className="relative space-y-6">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Trash2 className="w-5 h-5" />
-                      {t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}
-                    </CardTitle>
-                    <p className="text-muted-foreground text-sm">{t('expenseRecycleBin.description', { defaultValue: 'Deleted expenses that can be restored or permanently deleted' })}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                      <Trash2 className="h-6 w-6 text-destructive" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xl text-foreground">{t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
+                      <p className="text-sm text-muted-foreground">Recover or permanently delete expenses</p>
+                    </div>
                   </div>
-                  <ProfessionalButton
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleEmptyRecycleBin}
-                    className="gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {t('expenseRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
-                  </ProfessionalButton>
+                  {deletedExpenses.length > 0 && (
+                    <ProfessionalButton
+                      variant="destructive"
+                      size="default"
+                      onClick={handleEmptyRecycleBin}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t('expenseRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                    </ProfessionalButton>
+                  )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {recycleBinLoading ? (
-                  <div className="flex justify-center items-center h-24">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    {t('expenseRecycleBin.loading', { defaultValue: 'Loading...' })}
-                  </div>
-                ) : deletedExpenses.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-24 text-center">
-                    <Trash2 className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">{t('expenseRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30">
+                        <TableHead className="font-bold text-foreground">{t('expenseRecycleBin.expense')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('expenseRecycleBin.amount')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('expenseRecycleBin.category')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('expenseRecycleBin.deleted_at')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('expenseRecycleBin.deleted_by')}</TableHead>
+                        <TableHead className="w-[100px] font-bold text-foreground text-right">{t('expenseRecycleBin.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recycleBinLoading ? (
                         <TableRow>
-                          <TableHead>{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
-                          <TableHead>{t('expenses.table.date')}</TableHead>
-                          <TableHead>{t('expenses.table.category')}</TableHead>
-                          <TableHead>{t('expenses.table.vendor')}</TableHead>
-                          <TableHead>{t('expenses.table.amount')}</TableHead>
-                          <TableHead>{t('expenseRecycleBin.deleted_at')}</TableHead>
-                          <TableHead>{t('expenseRecycleBin.deleted_by')}</TableHead>
-                          <TableHead>{t('expenseRecycleBin.actions')}</TableHead>
+                          <TableCell colSpan={6} className="h-24 text-center">
+                            <div className="flex justify-center items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                              <span className="text-muted-foreground">{t('expenseRecycleBin.loading', { defaultValue: 'Loading...' })}</span>
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {deletedExpenses.map((expense) => (
-                          <TableRow key={expense.id}>
-                            <TableCell className="text-muted-foreground whitespace-nowrap">#{expense.id}</TableCell>
-                            <TableCell>
-                              {expense.expense_date ? new Date(expense.expense_date).toLocaleDateString('en-US', { timeZone: timezone }) : 'N/A'}
+                      ) : deletedExpenses.length > 0 ? (
+                        deletedExpenses.map((expense) => (
+                          <TableRow key={expense.id} className="hover:bg-muted/60 transition-all duration-200 border-b border-border/30">
+                            <TableCell className="font-semibold text-foreground">
+                              <span className="inline-flex items-center gap-2">
+                                <Receipt className="h-4 w-4 text-primary/60" />
+                                #{expense.id}
+                              </span>
                             </TableCell>
-                            <TableCell>{expense.category}</TableCell>
-                            <TableCell>{expense.vendor || '—'}</TableCell>
-                            <TableCell><CurrencyDisplay amount={expense.amount || 0} currency={expense.currency || 'USD'} /></TableCell>
-                            <TableCell>{expense.deleted_at ? format(new Date(expense.deleted_at), 'PP p') : 'N/A'}</TableCell>
-                            <TableCell>{expense.deleted_by_username || t('common.unknown')}</TableCell>
+                            <TableCell className="font-semibold text-foreground">
+                              <CurrencyDisplay amount={expense.amount} currency={expense.currency} />
+                            </TableCell>
+                            <TableCell className="text-foreground">{expense.category}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{formatDate(expense.deleted_at)}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{expense.deleted_by_username || t('expenseRecycleBin.unknown')}</TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleRestoreExpense(expense.id)}
-                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                      >
-                                        <RotateCcw className="w-4 h-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      {t('expenseRecycleBin.restore', { defaultValue: 'Restore' })}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>{t('expenseRecycleBin.permanent_delete_confirm_title', { defaultValue: 'Permanently Delete Expense' })}</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            {t('expenseRecycleBin.permanent_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this expense? This action cannot be undone.' })}
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => handlePermanentlyDeleteExpense(expense.id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            {t('expenseRecycleBin.permanently_delete', { defaultValue: 'Delete Permanently' })}
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                    <TooltipContent>
-                                      {t('expenseRecycleBin.permanently_delete', { defaultValue: 'Delete Permanently' })}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                              <div className="flex gap-2 justify-end">
+                                <ProfessionalButton
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => handleRestoreExpense(expense.id)}
+                                  title="Restore expense"
+                                  className="hover:bg-success/10 hover:text-success"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </ProfessionalButton>
+                                <ProfessionalButton
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => setExpenseToPermanentlyDelete(expense.id)}
+                                  title="Permanently delete"
+                                  className="hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </ProfessionalButton>
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-32 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="p-4 rounded-full bg-muted/50">
+                                <Trash2 className="h-8 w-8 text-muted-foreground/50" />
+                              </div>
+                              <p className="text-muted-foreground font-medium">{t('expenseRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             </ProfessionalCard>
           </CollapsibleContent>
         </Collapsible>

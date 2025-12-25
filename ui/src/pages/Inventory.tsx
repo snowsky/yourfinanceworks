@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDateTime } from "@/lib/utils";
-import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
+import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 
@@ -215,21 +215,21 @@ const Inventory = () => {
           }
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
+          <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
+            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
               <Package className="h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
               <BarChart3 className="h-4 w-4" />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="forecasting" className="flex items-center gap-2">
+            <TabsTrigger value="forecasting" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
               <Target className="h-4 w-4" />
               Forecasting
             </TabsTrigger>
-            <TabsTrigger value="insights" className="flex items-center gap-2">
+            <TabsTrigger value="insights" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
               <Lightbulb className="h-4 w-4" />
               Insights
             </TabsTrigger>
@@ -303,7 +303,7 @@ const Inventory = () => {
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                         <TableHead>{t('inventory.table.name', 'Name')}</TableHead>
                         <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>
                         <TableHead>{t('inventory.table.category', 'Category')}</TableHead>
@@ -320,8 +320,8 @@ const Inventory = () => {
                         <TableRow>
                           <TableCell colSpan={9} className="h-24 text-center">
                             <div className="flex justify-center items-center">
-                              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                              {t('inventory.loading', 'Loading inventory...')}
+                              <Loader2 className="h-12 w-12 animate-spin text-primary/60 mr-3" />
+                              <span className="text-muted-foreground">{t('inventory.loading', 'Loading inventory...')}</span>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -329,7 +329,7 @@ const Inventory = () => {
                         filteredItems.map((item) => {
                           const stockStatus = getStockStatus(item);
                           return (
-                            <TableRow key={item.id} className="hover:bg-muted/50">
+                            <TableRow key={item.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
                               <TableCell className="font-medium">
                                 <div className="flex items-start gap-2">
                                   <div className="flex-1">
@@ -404,22 +404,29 @@ const Inventory = () => {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={9} className="h-auto p-0 border-none">
-                            <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="text-center py-20 bg-gradient-to-br from-muted/5 via-muted/2 to-transparent rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                              <div className="bg-gradient-to-br from-primary/15 to-primary/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                                 <Package className="h-8 w-8 text-primary" />
                               </div>
-                              <h3 className="text-xl font-bold mb-2">
+                              <h3 className="text-2xl font-bold mb-2">
                                 {businessType === 'service'
                                   ? t('inventory.no_service_items', 'No service items yet')
                                   : t('inventory.no_product_items', 'No inventory items yet')
                                 }
                               </h3>
-                              <p className="text-muted-foreground max-w-sm mx-auto">
+                              <p className="text-muted-foreground max-w-sm mx-auto mb-6">
                                 {businessType === 'service'
                                   ? t('inventory.service_description_empty', 'Create your service catalog to get started. Services can be added to invoices easily.')
                                   : t('inventory.product_description_empty', 'Add your products to track stock levels and add them to invoices.')
                                 }
                               </p>
+                              {canPerformAction && (
+                                <Link to="/inventory/new">
+                                  <ProfessionalButton>
+                                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
+                                  </ProfessionalButton>
+                                </Link>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -432,19 +439,19 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
               <div>
-                <h2 className="text-2xl font-bold">Advanced Analytics</h2>
+                <h2 className="text-4xl font-bold mb-2">Advanced Analytics</h2>
                 <p className="text-muted-foreground">Detailed insights into your inventory performance</p>
               </div>
-              <Button onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
+              <ProfessionalButton onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
                 {analyticsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <BarChart3 className="h-4 w-4 mr-2" />
                 )}
                 Refresh Analytics
-              </Button>
+              </ProfessionalButton>
             </div>
 
             {advancedAnalytics && (
@@ -546,19 +553,19 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="forecasting" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
               <div>
-                <h2 className="text-2xl font-bold">Inventory Forecasting</h2>
+                <h2 className="text-4xl font-bold mb-2">Inventory Forecasting</h2>
                 <p className="text-muted-foreground">AI-powered demand forecasting and stock optimization</p>
               </div>
-              <Button onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
+              <ProfessionalButton onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
                 {analyticsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Target className="h-4 w-4 mr-2" />
                 )}
                 Refresh Forecast
-              </Button>
+              </ProfessionalButton>
             </div>
 
             {forecasting && (
@@ -632,19 +639,19 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
               <div>
-                <h2 className="text-2xl font-bold">AI Insights</h2>
+                <h2 className="text-4xl font-bold mb-2">AI Insights</h2>
                 <p className="text-muted-foreground">Automated analysis and recommendations</p>
               </div>
-              <Button onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
+              <ProfessionalButton onClick={fetchAdvancedAnalytics} disabled={analyticsLoading}>
                 {analyticsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Lightbulb className="h-4 w-4 mr-2" />
                 )}
                 Generate Insights
-              </Button>
+              </ProfessionalButton>
             </div>
 
             {advancedAnalytics && advancedAnalytics.insights && (

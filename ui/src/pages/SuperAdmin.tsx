@@ -415,9 +415,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
             </AlertDescription>
           </Alert>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-foreground mb-2">{t('superAdmin.dashboard_title')}</h1>
-          <p className="text-gray-600 dark:text-muted-foreground">{t('superAdmin.dashboard_description')}</p>
+        {/* Dashboard Header with Professional Styling */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm mb-8">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight">{t('superAdmin.dashboard_title')}</h1>
+            <p className="text-muted-foreground text-base">{t('superAdmin.dashboard_description')}</p>
+          </div>
         </div>
 
         {error && (
@@ -457,58 +460,58 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="border border-border/50 hover:border-border/80 transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Organizations</p>
-                  <p className="text-2xl font-bold">{tenants.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Organizations</p>
+                  <p className="text-2xl font-bold mt-1">{tenants.length}</p>
                 </div>
-                <Building className="h-8 w-8 text-blue-500" />
+                <Building className="h-8 w-8 text-primary/60" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{activeTenants} Active</p>
+              <p className="text-sm text-muted-foreground mt-3">{activeTenants} Active</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-border/50 hover:border-border/80 transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">{t('superAdmin.total_users_label')}</p>
-                  <p className="text-2xl font-bold">{totalUsers}</p>
+                  <p className="text-sm text-muted-foreground">{t('superAdmin.total_users_label')}</p>
+                  <p className="text-2xl font-bold mt-1">{totalUsers}</p>
                 </div>
-                <Users className="h-8 w-8 text-green-500" />
+                <Users className="h-8 w-8 text-primary/60" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{superUsers} {t('superAdmin.super_users')}</p>
+              <p className="text-sm text-muted-foreground mt-3">{superUsers} {t('superAdmin.super_users')}</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-border/50 hover:border-border/80 transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">{t('superAdmin.databases_label')}</p>
-                  <p className="text-2xl font-bold">{databases.length}</p>
+                  <p className="text-sm text-muted-foreground">{t('superAdmin.databases_label')}</p>
+                  <p className="text-2xl font-bold mt-1">{databases.length}</p>
                 </div>
-                <Database className="h-8 w-8 text-purple-500" />
+                <Database className="h-8 w-8 text-primary/60" />
               </div>
-              <p className="text-sm text-gray-500 mt-2">{healthyDatabases} {t('superAdmin.healthy_databases')}</p>
+              <p className="text-sm text-muted-foreground mt-3">{healthyDatabases} {t('superAdmin.healthy_databases')}</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-border/50 hover:border-border/80 transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">{t('superAdmin.system_status_label')}</p>
-                  <p className={`text-2xl font-bold ${systemHealthy ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className="text-sm text-muted-foreground">{t('superAdmin.system_status_label')}</p>
+                  <p className={`text-2xl font-bold mt-1 ${systemHealthy ? 'text-green-600' : 'text-red-600'}`}>
                     {systemHealthy ? t('superAdmin.all_systems_operational') : `${unhealthyDatabases.length} ${t('superAdmin.issues_detected')}`}
                   </p>
                 </div>
                 {systemHealthy ? (
-                  <ShieldCheck className="h-8 w-8 text-green-500" />
+                  <ShieldCheck className="h-8 w-8 text-green-600/60" />
                 ) : (
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
+                  <AlertTriangle className="h-8 w-8 text-red-600/60" />
                 )}
               </div>
             </CardContent>
@@ -517,10 +520,10 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tenants">Organizations</TabsTrigger>
-            <TabsTrigger value="users">{t('superAdmin.users_tab')}</TabsTrigger>
-            <TabsTrigger value="databases">{t('superAdmin.databases_tab')}</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
+            <TabsTrigger value="tenants" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Organizations</TabsTrigger>
+            <TabsTrigger value="users" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('superAdmin.users_tab')}</TabsTrigger>
+            <TabsTrigger value="databases" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('superAdmin.databases_tab')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tenants" className="space-y-4">
