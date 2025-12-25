@@ -1,8 +1,8 @@
-# Invoice App
+# YourFinanceWORKS
 
 ## Project info
 
-This project is a modern invoice application built with React, TypeScript, and Tailwind CSS.
+This project is a modern financial management application built with React, TypeScript, and Tailwind CSS.
 
 ## Getting Started
 
