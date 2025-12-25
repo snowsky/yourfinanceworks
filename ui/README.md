@@ -15,7 +15,7 @@ This project is a modern financial management application built with React, Type
 1. Clone the repository:
    ```sh
    git clone <GIT_URL_FOR_THIS_PROJECT>
-   cd YourFinanceWORKS
+   cd finance-works
    ```
 
 2. Install dependencies:

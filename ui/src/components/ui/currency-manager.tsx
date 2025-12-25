@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { currencyApi } from '@/lib/api';
 import { apiRequest, getErrorMessage } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
+import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
 
 interface Currency {
   id: number;
@@ -59,7 +60,7 @@ export function CurrencyManager() {
   const fetchCurrencies = async () => {
     try {
       setLoading(true);
-      const response = await currencyApi.getSupportedCurrencies();
+      const response = await fetchCurrenciesWithCache();
       setCurrencies(response || []);
     } catch (error) {
       console.error('Failed to fetch currencies:', error);
