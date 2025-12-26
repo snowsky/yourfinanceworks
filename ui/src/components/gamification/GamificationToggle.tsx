@@ -67,11 +67,15 @@ export function GamificationToggle() {
           }
         });
         toast.success('Gamification enabled! Start earning points for your financial activities.');
+        // Refresh page to reload gamification state
+        window.location.reload();
       } else {
         await disable({
           data_retention_policy: dataRetentionPolicy
         });
         toast.success('Gamification disabled. Your financial app will work normally.');
+        // Refresh page to reload gamification state
+        window.location.reload();
       }
       setShowDialog(false);
     } catch (error) {

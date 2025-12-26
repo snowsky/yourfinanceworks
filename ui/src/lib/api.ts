@@ -3387,6 +3387,15 @@ export const gamificationApi = {
   getMilestoneAchievements: (category: string) =>
     apiRequest<import('@/types/gamification').Achievement[]>(`/gamification/achievements/milestones/${category}`),
 
+  // Achievement Rules
+  getAchievementRules: () =>
+    apiRequest<{ rules: any[], total_count: number }>('/gamification/admin/achievements/rules'),
+
+  toggleAchievementRule: (achievementId: string) =>
+    apiRequest<{ achievement_id: string, is_active: boolean, message: string }>(`/gamification/admin/achievements/rules/${achievementId}/toggle`, {
+      method: 'PUT',
+    }),
+
   // Streaks
   getStreaks: () =>
     apiRequest<import('@/types/gamification').UserStreak[]>('/gamification/streaks'),

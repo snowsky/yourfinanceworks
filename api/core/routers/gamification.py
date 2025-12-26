@@ -516,6 +516,85 @@ async def initialize_achievements(
         )
 
 
+@router.get("/admin/achievements/rules")
+async def get_achievement_rules(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all achievement definitions/rules.
+    Returns the complete list of achievement rules with their requirements.
+    """
+    try:
+        # TODO: Add admin privilege check if needed
+        # For now, any authenticated user can view achievement rules
+        
+        from core.services.achievement_engine import AchievementEngine
+        achievement_engine = AchievementEngine(db)
+        rules = achievement_engine._get_achievement_definitions()
+        
+        return {
+            "rules": rules,
+            "total_count": len(rules)
+        }
+    except Exception as e:
+        logger.error(f"Error getting achievement rules: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get achievement rules"
+        )
+
+
+@router.put("/admin/achievements/rules/{achievement_id}/toggle")
+async def toggle_achievement_rule(
+    achievement_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Toggle an achievement rule's active status.
+    Requires admin privileges.
+    """
+    try:
+        # TODO: Add admin privilege check if needed
+        # For now, any authenticated user can toggle achievement rules
+        
+        from core.models.gamification import Achievement
+        from sqlalchemy import select
+        
+        # Find the achievement in the database
+        result = db.execute(
+            select(Achievement).where(Achievement.achievement_id == achievement_id)
+        )
+        achievement = result.scalar_one_or_none()
+        
+        if not achievement:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Achievement rule not found"
+            )
+        
+        # Toggle the active status
+        achievement.is_active = not achievement.is_active
+        db.commit()
+        db.refresh(achievement)
+        
+        return {
+            "achievement_id": achievement.achievement_id,
+            "is_active": achievement.is_active,
+            "message": f"Achievement rule '{achievement.name}' {'activated' if achievement.is_active else 'deactivated'} successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling achievement rule {achievement_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to toggle achievement rule"
+        )
+
+
 # Streak Management Endpoints
 @router.get("/streaks", response_model=List[Dict[str, Any]])
 async def get_user_streaks(

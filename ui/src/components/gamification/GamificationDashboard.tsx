@@ -12,6 +12,7 @@ import { ChallengeCards } from './ChallengeCards';
 import { FinancialHealthScore } from './FinancialHealthScore';
 import { RecentPointsHistory } from './RecentPointsHistory';
 import { GamificationToggle } from './GamificationToggle';
+import { AchievementRules } from './AchievementRules';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export function GamificationDashboard() {
@@ -156,9 +157,10 @@ export function GamificationDashboard() {
 
       {/* Main Dashboard Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
+          <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="streaks">Streaks</TabsTrigger>
           <TabsTrigger value="challenges">Challenges</TabsTrigger>
           <TabsTrigger value="health">Health Score</TabsTrigger>
@@ -248,6 +250,10 @@ export function GamificationDashboard() {
           <AchievementGrid />
         </TabsContent>
 
+        <TabsContent value="rules">
+          <AchievementRules />
+        </TabsContent>
+
         <TabsContent value="streaks">
           <div className="space-y-6">
             {dashboard.active_streaks.map((streak) => (
@@ -268,7 +274,7 @@ export function GamificationDashboard() {
         </TabsContent>
 
         <TabsContent value="challenges">
-          <ChallengeCards challenges={dashboard.active_challenges} />
+          <ChallengeCards />
         </TabsContent>
 
         <TabsContent value="health">
