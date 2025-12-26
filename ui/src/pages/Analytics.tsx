@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
@@ -89,19 +88,19 @@ const Analytics = () => {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="h-full flex items-center justify-center">
           <div className="flex items-center gap-2">
             <RefreshCw className="h-6 w-6 animate-spin" />
             Loading analytics...
           </div>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title="Analytics"
@@ -285,7 +284,7 @@ const Analytics = () => {
           </ProfessionalCard>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

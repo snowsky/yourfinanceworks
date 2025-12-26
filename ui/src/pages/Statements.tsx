@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -527,7 +526,7 @@ export default function Statements() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-8 fade-in">
         {/* License Alert */}
         {!isFeatureEnabled('ai_bank_statement') && (
@@ -1529,6 +1528,6 @@ export default function Statements() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </AppLayout>
+    </>
   );
 }

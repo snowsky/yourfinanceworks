@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -30,14 +29,14 @@ export default function ExpensesImport() {
   const startImport = async () => {
     if (items.length === 0) return;
     setProcessing(true);
-    
+
     const addNotification = (window as any).addAINotification;
     addNotification?.('processing', 'Processing Expense Files', `Analyzing ${items.length} expense files with AI...`);
-    
+
     const next: ImportItem[] = [...items];
     let successCount = 0;
     let errorCount = 0;
-    
+
     for (let i = 0; i < next.length; i++) {
       try {
         next[i].status = 'creating';
@@ -70,7 +69,7 @@ export default function ExpensesImport() {
         errorCount++;
       }
     }
-    
+
     setProcessing(false);
 
     // Add completion notification based on upload success only
@@ -87,7 +86,7 @@ export default function ExpensesImport() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <div className="flex items-center justify-between">
           <div>
@@ -141,6 +140,6 @@ export default function ExpensesImport() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }

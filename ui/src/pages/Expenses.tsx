@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -679,7 +678,7 @@ const Expenses = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-8 fade-in">
         {/* Hero Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
@@ -1891,7 +1890,7 @@ const Expenses = () => {
         />
 
       </div>
-    </AppLayout>
+    </>
   );
 };
 

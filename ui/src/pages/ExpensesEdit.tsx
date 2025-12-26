@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,11 +41,11 @@ export default function ExpensesEdit() {
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
   const [newLabel, setNewLabel] = useState<string>('');
-  
+
   // Inventory consumption state
   const [isInventoryConsumption, setIsInventoryConsumption] = useState(false);
   const [consumptionItems, setConsumptionItems] = useState<any[]>([]);
-  
+
   // Approval submission state
   const [submitForApproval, setSubmitForApproval] = useState(false);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
@@ -82,7 +81,7 @@ export default function ExpensesEdit() {
         setConsumptionItems(consumptionItemsData);
         const list = await expenseApi.listAttachments(Number(id));
         setAttachments(list);
-        try { const invs = await linkApi.getInvoicesBasic(); setInvoiceOptions(invs); } catch {}
+        try { const invs = await linkApi.getInvoicesBasic(); setInvoiceOptions(invs); } catch { }
       } catch (e: any) {
         toast.error(e?.message || t('expenses.failed_to_load', { defaultValue: 'Failed to load expense' }));
       } finally {
@@ -184,7 +183,7 @@ export default function ExpensesEdit() {
       receipt_timestamp: (form as any).receipt_timestamp || null,
       receipt_time_extracted: (form as any).receipt_time_extracted || false,
     } as any;
-    
+
     await expenseApi.updateExpense(Number(id), payload);
 
     // First apply pending deletions (to satisfy max 5 rule before uploads)
@@ -201,24 +200,24 @@ export default function ExpensesEdit() {
 
     // Refresh attachments and compute how many new files can be uploaded (cap 10)
     let currentList: ExpenseAttachmentMeta[] = [];
-    try { currentList = await expenseApi.listAttachments(Number(id)); } catch {}
+    try { currentList = await expenseApi.listAttachments(Number(id)); } catch { }
     const remainingSlots = Math.max(0, 10 - (currentList?.length || 0));
 
     const addNotification = (window as any).addAINotification;
     if (newFiles.length > 0) {
       addNotification?.('processing', 'Processing Expense Receipts', `Analyzing ${Math.min(newFiles.length, remainingSlots)} receipt files with AI...`);
     }
-    
+
     let uploadedCount = 0;
     for (let i = 0; i < Math.min(newFiles.length, remainingSlots); i++) {
-      try { 
-        await expenseApi.uploadReceipt(Number(id), newFiles[i]); 
+      try {
+        await expenseApi.uploadReceipt(Number(id), newFiles[i]);
         uploadedCount++;
-      } catch (e) { 
-        console.error(e); 
+      } catch (e) {
+        console.error(e);
       }
     }
-    
+
     if (newFiles.length > 0) {
       if (uploadedCount === Math.min(newFiles.length, remainingSlots)) {
         addNotification?.('success', 'Expense Receipts Processed', `Successfully uploaded ${uploadedCount} receipt files. AI analysis in progress.`);
@@ -248,13 +247,13 @@ export default function ExpensesEdit() {
     try {
       if (!id) return;
       setSaving(true);
-      
+
       if (!validateExpenseForm()) {
         return;
       }
 
       await updateExpense();
-      
+
       if (submitForApproval) {
         // Show approval dialog
         setShowApprovalDialog(true);
@@ -272,14 +271,14 @@ export default function ExpensesEdit() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="p-6">{t('common.loading')}</div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <div>
           <h1 className="text-3xl font-bold">{t('expenses.edit_title')}</h1>
@@ -298,9 +297,9 @@ export default function ExpensesEdit() {
                     try {
                       const addNotification = (window as any).addAINotification;
                       addNotification?.('processing', 'Reprocessing Expense', `Re-analyzing expense receipts with AI...`);
-                      
+
                       await expenseApi.reprocessExpense(Number(id));
-                      
+
                       addNotification?.('success', 'Expense Reprocessed', `Successfully reprocessed expense receipts.`);
                       toast.success(t('expenses.reprocessing_started'));
                       // Refresh the expense data
@@ -353,9 +352,9 @@ export default function ExpensesEdit() {
             </div>
             <div>
               <label className="text-sm">{t('expenses.labels.currency')}</label>
-              <CurrencySelector 
-                value={form.currency || 'USD'} 
-                onValueChange={v => setForm({ ...form, currency: v })} 
+              <CurrencySelector
+                value={form.currency || 'USD'}
+                onValueChange={v => setForm({ ...form, currency: v })}
               />
             </div>
             <div>
@@ -387,7 +386,7 @@ export default function ExpensesEdit() {
             </div>
             <div>
               <label className="text-sm">Receipt Time (HH:MM)</label>
-              <Input 
+              <Input
                 type="time"
                 value={(form as any).receipt_timestamp ? new Date((form as any).receipt_timestamp as string).toISOString().substring(11, 16) : ''}
                 onChange={(e) => {
@@ -451,7 +450,7 @@ export default function ExpensesEdit() {
                         try {
                           const next = ((form as any).labels || []).filter((l: string) => l !== lab);
                           setForm({ ...form, labels: next } as any);
-                        } catch {}
+                        } catch { }
                       }}
                     >
                       <X className="w-3 h-3" />
@@ -477,7 +476,7 @@ export default function ExpensesEdit() {
                 />
               </div>
             </div>
-            
+
             {/* Inventory Consumption Section */}
             <div className="sm:col-span-2">
               <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
@@ -485,7 +484,7 @@ export default function ExpensesEdit() {
                   <Package className="h-4 w-4" />
                   <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="is-inventory-consumption"
@@ -546,7 +545,7 @@ export default function ExpensesEdit() {
                 <Alert className="my-3 border-amber-200 bg-amber-50">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-800">
-                    <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan. 
+                    <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan.
                     Files will be uploaded as attachments only, without automatic data extraction.
                   </AlertDescription>
                 </Alert>
@@ -578,9 +577,9 @@ export default function ExpensesEdit() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={async () => {
                               setPreviewLoading(att.id);
                               try {
@@ -660,8 +659,8 @@ export default function ExpensesEdit() {
                     <Alert className="border-amber-200 bg-amber-50">
                       <AlertCircle className="h-4 w-4 text-amber-600" />
                       <AlertDescription className="text-amber-800">
-                        {t('common.feature_not_licensed', { 
-                          defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.' 
+                        {t('common.feature_not_licensed', {
+                          defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                         })}
                       </AlertDescription>
                     </Alert>
@@ -703,7 +702,7 @@ export default function ExpensesEdit() {
           <Button variant="outline" onClick={() => navigate('/expenses')}>{t('common.cancel')}</Button>
           <Button onClick={onSave} disabled={saving || (submitForApproval && !selectedApproverId)}>
             {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
-             (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
+              (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
           </Button>
         </div>
 
@@ -754,7 +753,7 @@ export default function ExpensesEdit() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </>
   );
 }
 

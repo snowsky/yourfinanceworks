@@ -17,7 +17,6 @@ import {
   StarOff,
   Loader2
 } from 'lucide-react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -134,17 +133,17 @@ const InventoryItemDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   if (error || !item) {
     return (
-      <AppLayout>
+      <>
         <div className="h-full space-y-6 fade-in">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/inventory')}>
@@ -159,7 +158,7 @@ const InventoryItemDetail: React.FC = () => {
             </AlertDescription>
           </Alert>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -168,7 +167,7 @@ const InventoryItemDetail: React.FC = () => {
   const primaryImage = attachments.find(att => att.is_primary && att.attachment_type === 'image');
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -535,7 +534,7 @@ const InventoryItemDetail: React.FC = () => {
                         {t('inventory.last_updated', 'Last Updated')}
                       </span>
                       <span className="text-sm font-medium">
-                        {formatDateTime(Math.max(...attachments.map(a => new Date(a.updated_at).getTime())))}
+                        {formatDateTime(new Date(Math.max(...attachments.map(a => new Date(a.updated_at).getTime()))))}
                       </span>
                     </div>
                   </>
@@ -545,7 +544,7 @@ const InventoryItemDetail: React.FC = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

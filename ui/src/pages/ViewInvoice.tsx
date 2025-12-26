@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/professional-layout';
@@ -95,22 +94,22 @@ export default function ViewInvoice() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="p-6">{t('common.loading')}</div>
-      </AppLayout>
+      </>
     );
   }
 
   if (!invoice) {
     return (
-      <AppLayout>
+      <>
         <div className="p-6 text-center">
           <p className="text-muted-foreground">{t('invoices.errors.not_found')}</p>
           <Button onClick={() => navigate('/invoices')} className="mt-4">
             {t('common.back_to_invoices')}
           </Button>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -121,7 +120,7 @@ export default function ViewInvoice() {
   const total = Math.max(0, subtotal - discount);
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={t('invoices.view_title', { defaultValue: 'View Invoice' })}
@@ -382,6 +381,6 @@ export default function ViewInvoice() {
           </ProfessionalCard>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1266,17 +1265,17 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <AppLayout>
+      <>
         <div className="h-full flex justify-center items-center">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
           <p>{t('settings.loading_settings')}</p>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={isAdmin ? t('settings.title') : t('settings.preferences_title', 'Preferences')}
@@ -3382,7 +3381,7 @@ const Settings = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

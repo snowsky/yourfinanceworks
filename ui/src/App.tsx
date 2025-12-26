@@ -65,6 +65,7 @@ import { ApprovalDashboard } from "./components/approvals/ApprovalDashboard";
 import ApprovalReportsPage from "./pages/ApprovalReportsPage";
 import Reminders from "./pages/Reminders";
 import { AppLayout } from "./components/layout/AppLayout";
+import { AuthenticatedLayout } from "./components/layout/AuthenticatedLayout";
 import OrganizationJoinRequests from "./pages/OrganizationJoinRequests";
 import PromptManagement from "./pages/PromptManagement";
 import Gamification from "./pages/Gamification";

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { api, superAdminApi, userApi } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -367,7 +366,7 @@ export default function UsersPage() {
   );
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={t('users.organization_users')}
@@ -766,6 +765,6 @@ export default function UsersPage() {
         </AlertDialog>
 
       </div>
-    </AppLayout>
+    </>
   );
 }

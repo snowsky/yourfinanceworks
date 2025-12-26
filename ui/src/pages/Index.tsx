@@ -6,7 +6,6 @@ import { RecentInvoices } from "@/components/dashboard/RecentInvoices";
 import { InvoiceChart } from "@/components/dashboard/InvoiceChart";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ProfessionalDashboard } from "@/components/dashboard/ProfessionalDashboard";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { dashboardApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
@@ -70,7 +69,7 @@ const Dashboard = () => {
         setCurrentTenantId(tenantId);
       }
     };
-    
+
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentTenantId]);
@@ -80,7 +79,7 @@ const Dashboard = () => {
     if (Object.keys(currencyAmounts).length === 0) {
       return "$0.00";
     }
-    
+
     return Object.entries(currencyAmounts)
       .map(([currency, amount]) => {
         // Use fallback symbols for common currencies
@@ -100,9 +99,9 @@ const Dashboard = () => {
           'XRP': 'XRP',
           'SOL': '◎'
         };
-        
+
         const symbol = symbols[currency.toUpperCase()] || currency;
-        return `${symbol}${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       })
       .join(' / ');
   };
@@ -124,21 +123,21 @@ const Dashboard = () => {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const fetchData = async () => {
       console.log('🔄 Dashboard fetching data, currentTenantId:', currentTenantId);
-      
+
       if (!isMounted) return;
-      
+
       setLoading(true);
-      
+
       try {
         // Fetch dashboard stats
         const stats = await dashboardApi.getStats();
         if (isMounted) {
           setDashboardStats(stats);
         }
-        
+
         // Load user info
         const userData = localStorage.getItem('user');
         if (userData && isMounted) {
@@ -182,9 +181,9 @@ const Dashboard = () => {
         }
       }
     };
-    
+
     fetchData();
-    
+
     return () => {
       isMounted = false;
     };
@@ -195,13 +194,13 @@ const Dashboard = () => {
 
   if (useProfessionalMode) {
     return (
-      <AppLayout>
-        <OnboardingWelcome 
-          open={showWelcome} 
-          onClose={() => setShowWelcome(false)} 
+      <>
+        <OnboardingWelcome
+          open={showWelcome}
+          onClose={() => setShowWelcome(false)}
         />
         <ProfessionalDashboard />
-        <CookieConsentBanner 
+        <CookieConsentBanner
           analyticsConfig={{
             googleAnalytics: {
               trackingId: 'GA_DEMO_ID',
@@ -212,7 +211,7 @@ const Dashboard = () => {
             console.log('Cookie consent changed:', status);
           }}
         />
-      </AppLayout>
+      </>
     );
   }
 
@@ -235,10 +234,10 @@ const Dashboard = () => {
   };
 
   return (
-    <AppLayout>
-      <OnboardingWelcome 
-        open={showWelcome} 
-        onClose={() => setShowWelcome(false)} 
+    <>
+      <OnboardingWelcome
+        open={showWelcome}
+        onClose={() => setShowWelcome(false)}
       />
       <div className="h-full space-y-6 fade-in" style={professionalContainerStyle}>
         <div data-tour="dashboard-welcome" className="-mt-4">
@@ -252,9 +251,9 @@ const Dashboard = () => {
             />
           </div>
         </div>
-        
-        <div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 slide-in" 
+
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 slide-in"
           data-tour="dashboard-stats"
           style={professionalContainerStyle}
         >
@@ -275,7 +274,7 @@ const Dashboard = () => {
             description={t('dashboard.stats.expenses_description')}
             trend={{ value: 0, isPositive: false }}
             loading={loading}
-            variant="info"
+            variant="default"
             onClick={() => console.log('Navigate to expenses')}
           />
           <StatCard
@@ -309,24 +308,24 @@ const Dashboard = () => {
             onClick={() => console.log('Navigate to overdue invoices')}
           />
         </div>
-        
-        <div 
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-in" 
-          style={{ 
+
+        <div
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 slide-in"
+          style={{
             animationDelay: '100ms',
             ...professionalContainerStyle
           }}
         >
           <div className="lg:col-span-2 space-y-6">
-            <div 
-              data-tour="dashboard-chart" 
+            <div
+              data-tour="dashboard-chart"
               style={professionalCardStyle}
               className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
               <InvoiceChart />
             </div>
-            <div 
-              data-tour="dashboard-quick-actions" 
+            <div
+              data-tour="dashboard-quick-actions"
               style={professionalCardStyle}
               className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
@@ -334,7 +333,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="lg:col-span-1" data-tour="dashboard-recent">
-            <div 
+            <div
               style={professionalCardStyle}
               className="hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
@@ -342,7 +341,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <ProgressiveDisclosure
           features={[
             {
@@ -384,8 +383,8 @@ const Dashboard = () => {
           ]}
           className="mt-6"
         />
-        
-        <CookieConsentBanner 
+
+        <CookieConsentBanner
           analyticsConfig={{
             googleAnalytics: {
               trackingId: 'GA_DEMO_ID',
@@ -397,7 +396,7 @@ const Dashboard = () => {
           }}
         />
       </div>
-    </AppLayout>
+    </>
   );
 };
 

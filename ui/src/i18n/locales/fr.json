@@ -64,7 +64,9 @@
     "show": "Afficher",
     "view": "Voir",
     "back_to_invoices": "Retour aux factures",
-    "add_data": "Ajouter des données"
+    "add_data": "Ajouter des données",
+    "showing_of": "Affichage de {{count}} sur {{total}}",
+    "page_of": "Page {{current}} sur {{total}}"
   },
   "taxIntegration": {
     "title": "Intégration du Service Fiscal",
@@ -1814,8 +1816,8 @@
     "promote_user_placeholder": "Entrez l'e-mail de l'utilisateur",
     "promoting_button": "Promotion...",
     "promote_button": "Promouvoir",
-    "total_tenants_label": "Nombre total de locataires",
-    "active_tenants": "actifs",
+    "total_organizations_label": "Total des organisations",
+    "active_label": "Actives",
     "total_users_label": "Nombre total d'utilisateurs",
     "super_users": "super utilisateurs",
     "databases_label": "Bases de données",
@@ -1943,7 +1945,8 @@
   },
   "auditLog": {
     "title": "Journal d'audit",
-    "description": "Voir et gérer les journaux d'audit",
+    "description": "Consulter et filtrer les journaux d'audit du système",
+    "total_logs": "Total {{count}} journaux",
     "new_log": "Nouveau journal",
     "edit_log": "Modifier le journal",
     "log_date": "Date du journal",

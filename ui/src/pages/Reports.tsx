@@ -1,5 +1,4 @@
 import React from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { ReportGenerator } from '@/components/reports/ReportGenerator';
 import { FeatureGate } from '@/components/FeatureGate';
 import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
@@ -9,7 +8,7 @@ const Reports: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <AppLayout>
+    <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
           title={t('navigation.reports') + ' & ' + t('navigation.analytics')}
@@ -26,7 +25,7 @@ const Reports: React.FC = () => {
           </FeatureGate>
         </ContentSection>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

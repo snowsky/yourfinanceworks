@@ -49,6 +49,7 @@ class AuditLogFilter(BaseModel):
     status: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    search: Optional[str] = None
     limit: Optional[int] = 100
     offset: Optional[int] = 0
 

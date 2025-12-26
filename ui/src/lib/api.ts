@@ -1792,9 +1792,10 @@ export const invoiceApi = {
 
 // Payment API methods
 export const paymentApi = {
-  getPayments: async () => {
-    const response = await apiRequest<{ success: boolean; data: Payment[]; count: number; chart_data: any }>("/payments/");
-    return response.data || [];
+  getPayments: async (params: { limit?: number; offset?: number } = {}) => {
+    const { limit = 10, offset = 0 } = params;
+    const response = await apiRequest<{ success: boolean; data: Payment[]; count: number; chart_data: any }>(`/payments/?limit=${limit}&offset=${offset}`);
+    return response;
   },
   getPayment: (id: number) => apiRequest<Payment>(`/payments/${id}`),
   createPayment: (payment: {
