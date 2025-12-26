@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from core.models.models import OrganizationJoinRequest, Tenant, MasterUser
+from core.models.models_per_tenant import Settings
+from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider, EmailMessage
 from core.schemas.organization_join import (
     OrganizationJoinRequestCreate, 
     OrganizationJoinRequestRead,
@@ -513,12 +515,139 @@ class OrganizationJoinService:
         except Exception as e:
             logger.warning(f"Failed to cleanup notifications for join request {request_id}: {e}")
 
-    def _notify_requester_of_decision(self, join_request: OrganizationJoinRequest, decision: str, admin_name: str):
-        """Send notification to the requester about the decision on their join request."""
+    def _get_email_service(self, tenant_id: int) -> Optional[EmailService]:
+        """Get configured email service for a tenant."""
         try:
-            # Note: Since the requester is not yet a user in the system, 
-            # we would typically send an email directly rather than through the notification system.
-            # For now, we'll log this - in a full implementation, you'd send an email.
-            logger.info(f"Would notify {join_request.email} that their join request was {decision} by {admin_name}")
+            from core.services.tenant_database_manager import tenant_db_manager
+            
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+            tenant_db = SessionLocal_tenant()
+            
+            try:
+                email_settings = tenant_db.query(Settings).filter(
+                    Settings.key == "email_config"
+                ).first()
+                
+                if not email_settings or not email_settings.value:
+                    logger.warning(f"No email configuration found for tenant {tenant_id}")
+                    return None
+                
+                email_config_data = email_settings.value
+                
+                # Create email provider config
+                config = EmailProviderConfig(
+                    provider=EmailProvider(email_config_data['provider']),
+                    from_email=email_config_data.get('from_email'),
+                    from_name=email_config_data.get('from_name'),
+                    aws_access_key_id=email_config_data.get('aws_access_key_id'),
+                    aws_secret_access_key=email_config_data.get('aws_secret_access_key'),
+                    aws_region=email_config_data.get('aws_region'),
+                    azure_connection_string=email_config_data.get('azure_connection_string'),
+                    mailgun_api_key=email_config_data.get('mailgun_api_key'),
+                    mailgun_domain=email_config_data.get('mailgun_domain')
+                )
+                
+                return EmailService(config)
+            finally:
+                tenant_db.close()
+                
         except Exception as e:
-            logger.error(f"Error notifying requester about join request decision: {str(e)}")
+            logger.error(f"Failed to initialize email service for tenant {tenant_id}: {str(e)}")
+            return None
+
+    def _notify_requester_of_decision(self, join_request: OrganizationJoinRequest, decision: str, admin_name: str):
+        """Send email notification to the requester about the decision on their join request."""
+        try:
+            email_service = self._get_email_service(join_request.tenant_id)
+            
+            if not email_service:
+                logger.warning(f"Email service not configured for tenant {join_request.tenant_id}, skipping email notification")
+                return
+            
+            # Get tenant info for email
+            tenant = self.db.query(Tenant).filter(Tenant.id == join_request.tenant_id).first()
+            tenant_name = tenant.name if tenant else "the organization"
+            
+            # Prepare email content based on decision
+            requester_name = f"{join_request.first_name} {join_request.last_name}".strip() if join_request.first_name else join_request.email
+            
+            if decision == "approved":
+                subject = f"Your request to join {tenant_name} has been approved"
+                html_body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #16a34a;">Request Approved!</h2>
+                        <p>Hello {requester_name},</p>
+                        <p>Great news! Your request to join <strong>{tenant_name}</strong> has been approved by {admin_name}.</p>
+                        <p>You can now log in to your account and start using the system.</p>
+                        <p>If you have any questions, please contact your organization administrator.</p>
+                        <p>Best regards,<br>{tenant_name}</p>
+                    </div>
+                </body>
+                </html>
+                """
+                text_body = f"""Hello {requester_name},
+
+Great news! Your request to join {tenant_name} has been approved by {admin_name}.
+
+You can now log in to your account and start using the system.
+
+If you have any questions, please contact your organization administrator.
+
+Best regards,
+{tenant_name}
+"""
+            else:  # rejected
+                subject = f"Your request to join {tenant_name}"
+                rejection_reason = join_request.rejection_reason or "No specific reason provided."
+                html_body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #dc2626;">Request Update</h2>
+                        <p>Hello {requester_name},</p>
+                        <p>We regret to inform you that your request to join <strong>{tenant_name}</strong> has been declined by {admin_name}.</p>
+                        <p><strong>Reason:</strong> {rejection_reason}</p>
+                        <p>If you have any questions or would like to discuss this decision, please contact the organization administrator.</p>
+                        <p>Best regards,<br>{tenant_name}</p>
+                    </div>
+                </body>
+                </html>
+                """
+                text_body = f"""Hello {requester_name},
+
+We regret to inform you that your request to join {tenant_name} has been declined by {admin_name}.
+
+Reason: {rejection_reason}
+
+If you have any questions or would like to discuss this decision, please contact the organization administrator.
+
+Best regards,
+{tenant_name}
+"""
+            
+            # Get email config for from address
+            from_email = email_service.config.from_email or "noreply@invoiceapp.com"
+            from_name = email_service.config.from_name or tenant_name
+            
+            # Create and send email message
+            message = EmailMessage(
+                to_email=join_request.email,
+                to_name=requester_name,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+                from_email=from_email,
+                from_name=from_name
+            )
+            
+            success = email_service.send_email(message)
+            
+            if success:
+                logger.info(f"Email notification sent to {join_request.email} about {decision} decision")
+            else:
+                logger.warning(f"Failed to send email notification to {join_request.email}")
+                
+        except Exception as e:
+            logger.error(f"Error sending email notification to requester: {str(e)}")
