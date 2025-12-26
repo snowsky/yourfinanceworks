@@ -2898,6 +2898,8 @@
       "edit": "Editar",
       "delete": "Eliminar"
     },
+    "delete_reminder_title": "Eliminar Recordatorio",
+    "delete_reminder_description": "¿Estás seguro de que quieres eliminar este recordatorio? Esta acción no se puede deshacer.",
     "messages": {
       "created_success": "Recordatorio creado exitosamente",
       "updated_success": "Recordatorio actualizado exitosamente",

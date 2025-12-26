@@ -446,9 +446,27 @@ async def approve_expense(
 
         # Create notification for expense submitter and complete the reminder
         from core.models.models_per_tenant import ReminderNotification, Expense, Reminder, ReminderStatus
+
+        # Mark the original approval notification as read
+        try:
+            # Find the notification for this user about this expense
+            # Since reminder_id is None, we match by type and subject content
+            approval_notification = db.query(ReminderNotification).filter(
+                ReminderNotification.user_id == current_user.id,
+                ReminderNotification.notification_type == "expense_approval",
+                ReminderNotification.is_read == False,
+                ReminderNotification.subject.contains(f"#{approval.expense_id}")
+            ).first()
+
+            if approval_notification:
+                approval_notification.is_read = True
+                db.add(approval_notification)
+        except Exception as e:
+            logger.warning(f"Failed to key notification as read for expense {approval.expense_id}: {e}")
+
         now = datetime.now(timezone.utc)
         expense = db.query(Expense).filter(Expense.id == approval.expense_id).first()
-        
+
         if expense and expense.user_id:
             notification = ReminderNotification(
                 reminder_id=None,
@@ -606,6 +624,23 @@ async def reject_expense(
 
         # Create notification for expense submitter and cancel the reminder
         from core.models.models_per_tenant import ReminderNotification, Expense, Reminder, ReminderStatus
+
+        # Mark the original approval notification as read
+        try:
+            # Find the notification for this user about this expense
+            approval_notification = db.query(ReminderNotification).filter(
+                ReminderNotification.user_id == current_user.id,
+                ReminderNotification.notification_type == "expense_approval",
+                ReminderNotification.is_read == False,
+                ReminderNotification.subject.contains(f"#{approval.expense_id}")
+            ).first()
+
+            if approval_notification:
+                approval_notification.is_read = True
+                db.add(approval_notification)
+        except Exception as e:
+            logger.warning(f"Failed to mark notification as read for expense {approval.expense_id}: {e}")
+
         now = datetime.now(timezone.utc)
         expense = db.query(Expense).filter(Expense.id == approval.expense_id).first()
 
@@ -1760,6 +1795,23 @@ async def approve_invoice(
 
         # Create notification for invoice submitter and complete the reminder
         from core.models.models_per_tenant import ReminderNotification, Invoice, Reminder, ReminderStatus
+        from sqlalchemy import text
+        # Mark the original approval notification as read
+        try:
+            # Find the notification for this user about this invoice
+            approval_notification = db.query(ReminderNotification).filter(
+                ReminderNotification.user_id == current_user.id,
+                ReminderNotification.notification_type == "invoice_approval",
+                ReminderNotification.is_read == False,
+                ReminderNotification.subject.contains(f"#{approval.invoice_id}")
+            ).first()
+
+            if approval_notification:
+                approval_notification.is_read = True
+                db.add(approval_notification)
+        except Exception as e:
+            logger.warning(f"Failed to mark notification as read for invoice {approval.invoice_id}: {e}")
+
         now = datetime.now(timezone.utc)
         invoice = db.query(Invoice).filter(Invoice.id == approval.invoice_id).first()
 
@@ -1887,6 +1939,23 @@ async def reject_invoice(
 
         # Create notification for invoice submitter and cancel the reminder
         from core.models.models_per_tenant import ReminderNotification, Invoice, Reminder, ReminderStatus
+
+        # Mark the original approval notification as read
+        try:
+            # Find the notification for this user about this invoice
+            approval_notification = db.query(ReminderNotification).filter(
+                ReminderNotification.user_id == current_user.id,
+                ReminderNotification.notification_type == "invoice_approval",
+                ReminderNotification.is_read == False,
+                ReminderNotification.subject.contains(f"#{approval.invoice_id}")
+            ).first()
+
+            if approval_notification:
+                approval_notification.is_read = True
+                db.add(approval_notification)
+        except Exception as e:
+            logger.warning(f"Failed to mark notification as read for invoice {approval.invoice_id}: {e}")
+
         now = datetime.now(timezone.utc)
         invoice = db.query(Invoice).filter(Invoice.id == approval.invoice_id).first()
 
@@ -1926,7 +1995,7 @@ async def reject_invoice(
             db.add(reminder)
 
         db.commit()
-        
+
         # Log audit event
         log_audit_event(
             db=db,
@@ -1942,11 +2011,11 @@ async def reject_invoice(
                 "notes": notes
             }
         )
-        
+
         logger.info(f"User {current_user.id} rejected invoice approval {approval_id}")
-        
+
         return {"id": approval.id, "status": approval.status, "invoice_id": approval.invoice_id}
-        
+
     except ValidationError as e:
         logger.warning(f"Validation error rejecting invoice {approval_id}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))

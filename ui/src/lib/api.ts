@@ -1486,7 +1486,7 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(activationData),
     }),
-  getCurrentUser: () => apiRequest<any>('/auth/me'),
+  getCurrentUser: () => apiRequest<any>('/auth/me', {}, { skipTenant: true }),
   getSSOStatus: () => apiRequest<{ google: boolean; microsoft: boolean; has_sso: boolean }>('/auth/sso-status', {}, { skipTenant: true }),
 };
 
@@ -3001,6 +3001,13 @@ export const reminderApi = {
     return apiRequest<any>('/reminders/bulk-update', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  bulkDeleteReminders: async (reminderIds: number[]) => {
+    return apiRequest<any>('/reminders/bulk-delete', {
+      method: 'DELETE',
+      body: JSON.stringify(reminderIds),
     });
   },
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
-import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle, Play } from 'lucide-react';
+import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle, Play, CheckSquare, Square } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,9 @@ interface ReminderCardProps {
   onUnsnooze?: (id: number) => void;
   onDelete?: (id: number) => void;
   className?: string;
+  isSelected?: boolean;
+  onSelect?: (id: number) => void;
+  showSelection?: boolean;
 }
 
 export function ReminderCard({
@@ -50,7 +53,10 @@ export function ReminderCard({
   onSnooze,
   onUnsnooze,
   onDelete,
-  className
+  className,
+  isSelected = false,
+  onSelect,
+  showSelection = false
 }: ReminderCardProps) {
   const { t } = useTranslation();
   const dueDate = new Date(reminder.due_date);
@@ -60,6 +66,10 @@ export function ReminderCard({
   const isAssignedToCurrentUser = reminder.assigned_to?.id === currentUserId;
   const isCreatedByCurrentUser = reminder.created_by?.id === currentUserId;
   const canEdit = isCreatedByCurrentUser;
+  
+  // Special case: Any admin can act on join request reminders
+  const isAdminReminder = reminder.tags?.includes('admin') && reminder.tags?.includes('join_request');
+  const canActOnAdminReminder = isAdminReminder;
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -116,28 +126,44 @@ export function ReminderCard({
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg truncate mb-1">
-              {reminder.title}
-            </h3>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Calendar className="h-4 w-4" />
-              <span className={cn(
-                isOverdue && "text-red-600 font-medium",
-                isDueToday && "text-orange-600 font-medium"
-              )}>
-                {formatDueDate(dueDate)}
-              </span>
-              {isOverdue && <AlertCircle className="h-4 w-4 text-red-500" />}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {showSelection && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelect?.(reminder.id)}
+                className="h-8 w-8 p-0 flex-shrink-0"
+              >
+                {isSelected ? (
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-lg truncate mb-1">
+                {reminder.title}
+              </h3>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <Calendar className="h-4 w-4" />
+                <span className={cn(
+                  isOverdue && "text-red-600 font-medium",
+                  isDueToday && "text-orange-600 font-medium"
+                )}>
+                  {formatDueDate(dueDate)}
+                </span>
+                {isOverdue && <AlertCircle className="h-4 w-4 text-red-500" />}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 ml-2">
             <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
               <Flag className="h-3 w-3 mr-1" />
-              {t(reminder.priority)}
+              {t(`reminders.priority.${reminder.priority}`)}
             </Badge>
             <Badge variant="outline" className={getStatusColor(reminder.status)}>
-              {t(reminder.status)}
+              {t(`reminders.status.${reminder.status}`)}
             </Badge>
           </div>
         </div>
@@ -209,7 +235,7 @@ export function ReminderCard({
 
       <CardFooter className="pt-0">
         <div className="flex items-center gap-2 w-full">
-          {reminder.status === 'pending' && isAssignedToCurrentUser && (
+          {reminder.status === 'pending' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
             <>
               <Button
                 size="sm"
@@ -231,7 +257,7 @@ export function ReminderCard({
             </>
           )}
 
-          {reminder.status === 'snoozed' && isAssignedToCurrentUser && (
+          {reminder.status === 'snoozed' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
             <>
               <Button
                 size="sm"

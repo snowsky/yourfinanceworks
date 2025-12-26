@@ -82,9 +82,10 @@ def get_db():
         import re
         from sqlalchemy.exc import StatementError, DataError, IntegrityError, OperationalError
         
-        # Close any existing session before handling the error
+        # Rollback any failed transaction before closing
         if db is not None:
             try:
+                db.rollback()
                 db.close()
             except Exception:
                 pass
@@ -161,6 +162,7 @@ def get_db():
         # Ensure database session is always closed
         if db is not None:
             try:
+                db.rollback()
                 db.close()
             except Exception:
                 pass

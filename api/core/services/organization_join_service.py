@@ -22,11 +22,11 @@ class OrganizationJoinService:
     Service for managing organization join requests.
     Handles submission, approval, rejection, and cleanup of join requests.
     """
-    
+
     def __init__(self, db: Session):
         self.db = db
         self.default_expiry_days = 30  # Requests expire after 30 days
-    
+
     def lookup_organization(self, organization_name: str) -> OrganizationLookupResult:
         """
         Look up an organization by name to see if it exists.
@@ -37,7 +37,7 @@ class OrganizationJoinService:
                 Tenant.name.ilike(f"%{organization_name.strip()}%"),
                 Tenant.is_active == True
             ).first()
-            
+
             if tenant:
                 return OrganizationLookupResult(
                     exists=True,
@@ -67,24 +67,24 @@ class OrganizationJoinService:
                 Tenant.name.ilike(f"%{request_data.organization_name.strip()}%"),
                 Tenant.is_active == True
             ).first()
-            
+
             if not tenant:
                 return OrganizationJoinResponse(
                     success=False,
                     message="Organization not found. Please check the organization name."
                 )
-            
+
             # Check if user already exists in the system
             existing_user = self.db.query(MasterUser).filter(
                 MasterUser.email == request_data.email
             ).first()
-            
+
             if existing_user:
                 return OrganizationJoinResponse(
                     success=False,
                     message="An account with this email already exists. Please login instead."
                 )
-            
+
             # Check if there's already a pending request for this email/tenant
             existing_request = self.db.query(OrganizationJoinRequest).filter(
                 and_(
@@ -93,17 +93,17 @@ class OrganizationJoinService:
                     OrganizationJoinRequest.status == "pending"
                 )
             ).first()
-            
+
             if existing_request:
                 return OrganizationJoinResponse(
                     success=False,
                     message="You already have a pending request to join this organization."
                 )
-            
+
             # Create the join request
             hashed_password = get_password_hash(request_data.password)
             expires_at = datetime.now(timezone.utc) + timedelta(days=self.default_expiry_days)
-            
+
             join_request = OrganizationJoinRequest(
                 email=request_data.email,
                 first_name=request_data.first_name,
@@ -114,25 +114,25 @@ class OrganizationJoinService:
                 message=request_data.message,
                 expires_at=expires_at
             )
-            
+
             self.db.add(join_request)
             self.db.commit()
             self.db.refresh(join_request)
-            
+
             logger.info(f"Created join request {join_request.id} for {request_data.email} to join {tenant.name}")
-            
+
             # Send notification to all admins of the organization
             try:
                 self._notify_admins_of_new_request(tenant.id, join_request)
             except Exception as e:
                 logger.warning(f"Failed to send notification to admins for join request {join_request.id}: {str(e)}")
-            
+
             return OrganizationJoinResponse(
                 success=True,
                 message=f"Request to join '{tenant.name}' submitted successfully. An admin will review your request.",
                 request_id=join_request.id
             )
-            
+
         except Exception as e:
             logger.error(f"Error creating join request: {str(e)}")
             self.db.rollback()
@@ -149,12 +149,12 @@ class OrganizationJoinService:
             query = self.db.query(OrganizationJoinRequest).filter(
                 OrganizationJoinRequest.status == "pending"
             )
-            
+
             if tenant_id:
                 query = query.filter(OrganizationJoinRequest.tenant_id == tenant_id)
-            
+
             requests = query.order_by(OrganizationJoinRequest.created_at.desc()).all()
-            
+
             result = []
             for request in requests:
                 # Populate additional data
@@ -172,13 +172,13 @@ class OrganizationJoinService:
                     expires_at=request.expires_at
                 )
                 result.append(request_data)
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Error getting pending requests: {str(e)}")
             return []
-    
+
     def approve_join_request(
         self, 
         request_id: int, 
@@ -194,13 +194,13 @@ class OrganizationJoinService:
                 OrganizationJoinRequest.id == request_id,
                 OrganizationJoinRequest.status == "pending"
             ).first()
-            
+
             if not join_request:
                 return OrganizationJoinResponse(
                     success=False,
                     message="Join request not found or already processed."
                 )
-            
+
             # Check if request has expired
             if join_request.expires_at and join_request.expires_at < datetime.now(timezone.utc):
                 join_request.status = "expired"
@@ -209,11 +209,11 @@ class OrganizationJoinService:
                     success=False,
                     message="Join request has expired."
                 )
-            
+
             if approval_data.status == "approved":
                 # Create the user account
                 approved_role = approval_data.approved_role or join_request.requested_role
-                
+
                 # Create master user
                 new_user = MasterUser(
                     email=join_request.email,
@@ -225,10 +225,19 @@ class OrganizationJoinService:
                     is_active=True,
                     is_verified=True
                 )
-                
+
                 self.db.add(new_user)
                 self.db.flush()  # Get the user ID
-                
+
+                # Add user to the user_tenant_association table so they can access this organization
+                from core.models.models import user_tenant_association
+                self.db.execute(
+                    user_tenant_association.insert().values(
+                        user_id=new_user.id,
+                        tenant_id=join_request.tenant_id,
+                    )
+                )
+
                 # Update join request status
                 join_request.status = "approved"
                 join_request.reviewed_by_id = admin_user_id
@@ -268,12 +277,10 @@ class OrganizationJoinService:
                 logger.info(f"Approved join request {request_id}, created user {new_user.id}")
                 
                 # Send notification about approval
-                try:
-                    admin_user = self.db.query(MasterUser).filter(MasterUser.id == admin_user_id).first()
-                    admin_name = f"{admin_user.first_name} {admin_user.last_name}".strip() if admin_user and admin_user.first_name else "Admin"
-                    self._notify_requester_of_decision(join_request, "approved", admin_name)
-                except Exception as e:
-                    logger.warning(f"Failed to send approval notification: {str(e)}")
+                self._send_decision_notification(join_request, "approved", admin_user_id)
+                
+                # Clean up notifications and reminders
+                self._cleanup_notifications_and_reminders(join_request, admin_user_id, request_id, "approved")
                 
                 return OrganizationJoinResponse(
                     success=True,
@@ -293,18 +300,16 @@ class OrganizationJoinService:
                 logger.info(f"Rejected join request {request_id}")
                 
                 # Send notification about rejection
-                try:
-                    admin_user = self.db.query(MasterUser).filter(MasterUser.id == admin_user_id).first()
-                    admin_name = f"{admin_user.first_name} {admin_user.last_name}".strip() if admin_user and admin_user.first_name else "Admin"
-                    self._notify_requester_of_decision(join_request, "rejected", admin_name)
-                except Exception as e:
-                    logger.warning(f"Failed to send rejection notification: {str(e)}")
+                self._send_decision_notification(join_request, "rejected", admin_user_id)
                 
+                # Clean up notifications and reminders
+                self._cleanup_notifications_and_reminders(join_request, admin_user_id, request_id, "rejected")
+
                 return OrganizationJoinResponse(
                     success=True,
                     message="Join request rejected successfully."
                 )
-            
+
         except Exception as e:
             logger.error(f"Error processing join request {request_id}: {str(e)}")
             self.db.rollback()
@@ -312,7 +317,7 @@ class OrganizationJoinService:
                 success=False,
                 message="Error processing join request. Please try again."
             )
-    
+
     def cleanup_expired_requests(self) -> int:
         """
         Clean up expired join requests.
@@ -320,7 +325,7 @@ class OrganizationJoinService:
         """
         try:
             current_time = datetime.now(timezone.utc)
-            
+
             # Find expired pending requests
             expired_requests = self.db.query(OrganizationJoinRequest).filter(
                 and_(
@@ -328,24 +333,24 @@ class OrganizationJoinService:
                     OrganizationJoinRequest.expires_at < current_time
                 )
             ).all()
-            
+
             count = len(expired_requests)
-            
+
             if count > 0:
                 # Mark as expired
                 for request in expired_requests:
                     request.status = "expired"
-                
+
                 self.db.commit()
                 logger.info(f"Marked {count} join requests as expired")
-            
+
             return count
-            
+
         except Exception as e:
             logger.error(f"Error cleaning up expired requests: {str(e)}")
             self.db.rollback()
             return 0
-    
+
     def get_request_by_id(self, request_id: int) -> Optional[OrganizationJoinRequestRead]:
         """
         Get a specific join request by ID.
@@ -354,10 +359,10 @@ class OrganizationJoinService:
             request = self.db.query(OrganizationJoinRequest).filter(
                 OrganizationJoinRequest.id == request_id
             ).first()
-            
+
             if not request:
                 return None
-            
+
             return OrganizationJoinRequestRead(
                 id=request.id,
                 email=request.email,
@@ -376,11 +381,11 @@ class OrganizationJoinService:
                 reviewed_at=request.reviewed_at,
                 expires_at=request.expires_at
             )
-            
+
         except Exception as e:
             logger.error(f"Error getting request {request_id}: {str(e)}")
             return None
-    
+
     def _notify_admins_of_new_request(self, tenant_id: int, join_request: OrganizationJoinRequest):
         """Send notification to all admins of the organization about a new join request."""
         try:
@@ -392,22 +397,39 @@ class OrganizationJoinService:
                     MasterUser.is_active == True
                 )
             ).all()
-            
+
             # Create reminder notifications for each admin in their tenant database
             from core.services.tenant_database_manager import tenant_db_manager
-            from core.models.models_per_tenant import ReminderNotification
-            
+            from core.models.models_per_tenant import ReminderNotification, Reminder, ReminderStatus, ReminderPriority, RecurrencePattern
+            from core.constants.reminders import JOIN_REQUEST_REMINDER_TITLE_PREFIX
+
             requester_name = f"{join_request.first_name} {join_request.last_name}".strip() if join_request.first_name else join_request.email
-            
+
             # Get tenant database session
             SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
             tenant_db = SessionLocal_tenant()
-            
+
             try:
                 for admin_user in admin_users:
+                    # Create a reminder task for the admin
+                    reminder = Reminder(
+                        title=f"{JOIN_REQUEST_REMINDER_TITLE_PREFIX}: {requester_name}",
+                        description=f"User {requester_name} ({join_request.email}) has requested to join as {join_request.requested_role}.\n\nMessage: {join_request.message or 'No message provided'}",
+                        due_date=datetime.now(timezone.utc) + timedelta(days=3),
+                        priority=ReminderPriority.HIGH,
+                        status=ReminderStatus.PENDING,
+                        recurrence_pattern=RecurrencePattern.NONE,
+                        assigned_to_id=admin_user.id,
+                        created_by_id=admin_user.id,  # System created, attribute to admin to satisfy non-null constraint
+                        tags=["admin", "join_request"],
+                        extra_metadata={"join_request_id": join_request.id}
+                    )
+                    tenant_db.add(reminder)
+                    tenant_db.flush()  # Get ID
+
                     # Create in-app notification for the admin
                     notification = ReminderNotification(
-                        reminder_id=None,  # Not linked to a specific reminder
+                        reminder_id=reminder.id,
                         user_id=admin_user.id,
                         notification_type="join_request",
                         channel="in_app",
@@ -419,16 +441,78 @@ class OrganizationJoinService:
                         is_read=False
                     )
                     tenant_db.add(notification)
-                
+
                 tenant_db.commit()
                 logger.info(f"Created reminder notifications for {len(admin_users)} admin(s) about new join request {join_request.id}")
             finally:
                 tenant_db.close()
-            
+
         except Exception as e:
             logger.error(f"Error notifying admins of new join request {join_request.id}: {str(e)}")
             raise e
-    
+
+    def _get_admin_name(self, admin_user_id: int) -> str:
+        """Get admin user's full name or fallback to 'Admin'."""
+        try:
+            admin_user = self.db.query(MasterUser).filter(MasterUser.id == admin_user_id).first()
+            return f"{admin_user.first_name} {admin_user.last_name}".strip() if admin_user and admin_user.first_name else "Admin"
+        except Exception as e:
+            logger.warning(f"Failed to get admin name for user {admin_user_id}: {str(e)}")
+            return "Admin"
+
+    def _send_decision_notification(self, join_request: OrganizationJoinRequest, decision: str, admin_user_id: int):
+        """Send notification to requester about join request decision."""
+        try:
+            admin_name = self._get_admin_name(admin_user_id)
+            self._notify_requester_of_decision(join_request, decision, admin_name)
+        except Exception as e:
+            logger.warning(f"Failed to send {decision} notification: {str(e)}")
+
+    def _cleanup_notifications_and_reminders(self, join_request: OrganizationJoinRequest, admin_user_id: int, request_id: int, decision: str):
+        """Clean up notifications and reminders for a processed join request."""
+        try:
+            from core.services.tenant_database_manager import tenant_db_manager
+            from core.models.models_per_tenant import ReminderNotification, Reminder, ReminderStatus
+            from sqlalchemy import text
+
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(join_request.tenant_id)
+            tenant_db_notif = SessionLocal_tenant()
+            try:
+                requester_name = f"{join_request.first_name} {join_request.last_name}".strip() if join_request.first_name else join_request.email
+
+                # Find unread notifications about this request
+                notifications = tenant_db_notif.query(ReminderNotification).filter(
+                    ReminderNotification.notification_type == "join_request",
+                    ReminderNotification.is_read == False,
+                    ReminderNotification.message.contains(requester_name)
+                ).all()
+
+                for n in notifications:
+                    n.is_read = True
+
+                # Find and update reminders about this request
+                reminders = tenant_db_notif.query(Reminder).filter(
+                    Reminder.status == ReminderStatus.PENDING,
+                    text("extra_metadata::jsonb @> :metadata")
+                ).params(metadata=f'{{"join_request_id": {request_id}}}').all()
+
+                for r in reminders:
+                    if decision == "approved":
+                        r.status = ReminderStatus.COMPLETED
+                        r.completed_at = datetime.now(timezone.utc)
+                        r.completed_by_id = admin_user_id
+                    else:  # rejected
+                        r.status = ReminderStatus.CANCELLED
+
+                if notifications or reminders:
+                    tenant_db_notif.commit()
+                    action = "completed" if decision == "approved" else "cancelled"
+                    logger.info(f"Marked {len(notifications)} notifications read and {len(reminders)} reminders {action} for join request {request_id}")
+            finally:
+                tenant_db_notif.close()
+        except Exception as e:
+            logger.warning(f"Failed to cleanup notifications for join request {request_id}: {e}")
+
     def _notify_requester_of_decision(self, join_request: OrganizationJoinRequest, decision: str, admin_name: str):
         """Send notification to the requester about the decision on their join request."""
         try:
@@ -436,6 +520,5 @@ class OrganizationJoinService:
             # we would typically send an email directly rather than through the notification system.
             # For now, we'll log this - in a full implementation, you'd send an email.
             logger.info(f"Would notify {join_request.email} that their join request was {decision} by {admin_name}")
-            
         except Exception as e:
             logger.error(f"Error notifying requester about join request decision: {str(e)}")

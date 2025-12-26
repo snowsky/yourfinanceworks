@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -19,10 +19,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { HelpCenter } from "@/components/onboarding/HelpCenter";
 import {
   BarChart,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   DollarSign,
   FileText,
   LogOut,
@@ -33,16 +34,12 @@ import {
   ListChecks,
   Moon,
   Sun,
-  Trash2,
-  Bot,
   Package,
   Clock,
 } from "lucide-react";
-import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
+import { API_BASE_URL, settingsApi } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
-import { createSettingsQueryOptions } from "@/utils/query";
 import { Building } from 'lucide-react';
-import { toast } from 'sonner';
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useMe } from "@/hooks/useMe";
@@ -54,8 +51,8 @@ export function AppSidebar() {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('theme');
@@ -114,23 +111,63 @@ export function AppSidebar() {
     checkSuperAdminStatus();
   }, [user?.is_superuser, user?.tenant_id]);
 
-  console.log('Sidebar: User check:', {
-    user,
-    userRole,
-    effectiveRole,
-    isAdminEffective,
-    isSuperUser,
-    currentOrgId,
-    primaryTenant: user?.tenant_id?.toString(),
-    shouldFetchSettings: isAdminEffective
-  });
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  // Optimized scroll handler using requestAnimationFrame
+  const handleScroll = useCallback(() => {
+    if (!contentRef.current) return;
+
+    // Use requestAnimationFrame to throttle updates and prevent flashing
+    requestAnimationFrame(() => {
+      if (!contentRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+
+      // Add a small buffer (e.g., 2px) to prevent flickering at boundaries
+      const hasScrollUp = scrollTop > 2;
+      const hasScrollDown = scrollTop + clientHeight < scrollHeight - 2;
+
+      setCanScrollUp(hasScrollUp);
+      setCanScrollDown(hasScrollDown);
+    });
+  }, []);
+
+  const scrollToDirection = useCallback((direction: 'up' | 'down') => {
+    if (!contentRef.current) return;
+    const scrollAmount = 200;
+    contentRef.current.scrollBy({
+      top: direction === 'down' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element) return;
+
+    // Initial check
+    handleScroll();
+
+    element.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+
+    // Also check when content size might change (e.g. expansion panels)
+    const observer = new ResizeObserver(handleScroll);
+    observer.observe(element);
+
+    return () => {
+      element.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      observer.disconnect();
+    };
+  }, [handleScroll]);
+
 
   // Get company name from settings with reduced refetching frequency (only for admin users)
   // Note: We conditionally define the query to prevent API calls for non-admin users
-  const { data: settings, isLoading: settingsLoading, refetch } = useQuery({
-    queryKey: ['settings', forceUpdate], // Include forceUpdate in query key to force refetch
+  const { data: settings } = useQuery({
+    queryKey: ['settings'], // Removed forceUpdate to prevent unnecessary refetches
     queryFn: () => {
-      console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
       return settingsApi.getSettings();
     },
     refetchInterval: false, // Disable automatic refetching
@@ -181,38 +218,15 @@ export function AppSidebar() {
 
 
 
-  // Listen for localStorage changes with reduced frequency
-  useEffect(() => {
-    const checkForUpdates = () => {
-      const lastUpdate = localStorage.getItem('settings_updated');
-      if (lastUpdate) {
-        console.log('Sidebar: Detected settings update via localStorage');
-        setForceUpdate(prev => prev + 1);
-      }
-    };
-
-    // Check immediately
-    checkForUpdates();
-
-    // Set up interval to check for updates (reduced from 5 seconds to 30 seconds)
-    const interval = setInterval(checkForUpdates, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Listen for settings updates and force refetch
   useEffect(() => {
     const handleSettingsUpdate = () => {
-      console.log('Sidebar: Settings update event received');
-      // Only invalidate settings, don't refetch immediately to avoid page refresh
+      // Invalidate settings cache when updated
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      // Force component re-render
-      setForceUpdate(prev => prev + 1);
     };
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'settings_updated') {
-        console.log('Sidebar: Storage event received for settings update');
         handleSettingsUpdate();
       }
     };
@@ -419,85 +433,125 @@ export function AppSidebar() {
             </div>
           </div>
         </SidebarHeader>
-        <SidebarContent className="pt-4 px-3 space-y-6">
-          {/* Organization Switcher - rendered in portal to avoid unmounting */}
+        {/* Organization Switcher - Fixed, doesn't scroll */}
+        <div className="px-3 py-3 border-b border-slate-700/30">
           <OrganizationSwitcher />
+        </div>
 
-          <SidebarMenu className="space-y-6">
-            {/* Core Navigation Section */}
-            <div className="space-y-1">
-              <div className="px-3 mb-3">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Core
-                </h3>
-              </div>
-              {mainMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                      : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
-                      }`}
-                    isActive={isActive(item.path)}
-                  >
-                    <Link
-                      to={item.path}
-                      className="flex items-center gap-3 w-full h-full py-3 px-4"
-                      data-tour={item.tourId}
+
+
+        {/* Wrapper for flexible content with relative positioning for scroll indicators */}
+        <div className="flex-1 min-h-0 relative flex flex-col">
+          {/* Scroll Up Indicator */}
+          <div
+            className={`absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent z-10 flex items-start justify-center pt-1 transition-opacity duration-300 pointer-events-none ${canScrollUp ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <button
+              onClick={() => scrollToDirection('up')}
+              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              tabIndex={canScrollUp ? 0 : -1}
+              aria-label="Scroll up"
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <SidebarContent className="px-3 pt-4 pb-20 space-y-6 scrollbar-hide overflow-y-auto" ref={contentRef}>
+            {/* Menu items only - org picker moved above */}
+
+            <SidebarMenu className="space-y-6">
+              {/* Core Navigation Section */}
+              <div className="space-y-1">
+                <div className="px-3 mb-3">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Core
+                  </h3>
+                </div>
+                {mainMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        }`}
+                      isActive={isActive(item.path)}
                     >
-                      <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                        ? "bg-white/20 shadow-sm"
-                        : "bg-slate-700/30 group-hover:bg-slate-600/30"
-                        }`}>
-                        {item.icon}
-                      </div>
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </div>
-
-            {/* Separator */}
-            <div className="px-3">
-              <div className="border-t border-slate-700/30"></div>
-            </div>
-
-            {/* Administration Section */}
-            <div className="space-y-1">
-              <div className="px-3 mb-3">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Administration
-                </h3>
+                      <Link
+                        to={item.path}
+                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        data-tour={item.tourId}
+                      >
+                        <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          }`}>
+                          {item.icon}
+                        </div>
+                        <span className="font-medium text-sm">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </div>
-              {settingsMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                      : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
-                      }`}
-                    isActive={isActive(item.path)}
-                  >
-                    <Link
-                      to={item.path}
-                      className="flex items-center gap-3 w-full h-full py-3 px-4"
-                      data-tour={item.tourId}
+
+              {/* Separator */}
+              <div className="px-3">
+                <div className="border-t border-slate-700/30"></div>
+              </div>
+
+              {/* Administration Section */}
+              <div className="space-y-1">
+                <div className="px-3 mb-3">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Administration
+                  </h3>
+                </div>
+                {settingsMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        }`}
+                      isActive={isActive(item.path)}
                     >
-                      <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                        ? "bg-white/20 shadow-sm"
-                        : "bg-slate-700/30 group-hover:bg-slate-600/30"
-                        }`}>
-                        {item.icon}
-                      </div>
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </div>
-          </SidebarMenu>
-        </SidebarContent>
+                      <Link
+                        to={item.path}
+                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        data-tour={item.tourId}
+                      >
+                        <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          }`}>
+                          {item.icon}
+                        </div>
+                        <span className="font-medium text-sm">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </div>
+            </SidebarMenu>
+          </SidebarContent>
+
+          {/* Scroll Down Indicator */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent z-10 flex items-end justify-center pb-1 transition-opacity duration-300 pointer-events-none ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <button
+              onClick={() => scrollToDirection('down')}
+              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              tabIndex={canScrollDown ? 0 : -1}
+              aria-label="Scroll down"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+
         <SidebarFooter className="py-4 px-4 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
           <div className="space-y-4">
             {/* Controls */}

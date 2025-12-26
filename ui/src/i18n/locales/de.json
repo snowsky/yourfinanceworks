@@ -2794,6 +2794,8 @@
       "edit": "Bearbeiten",
       "delete": "Löschen"
     },
+    "delete_reminder_title": "Erinnerung Löschen",
+    "delete_reminder_description": "Sind Sie sicher, dass Sie diese Erinnerung löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
     "messages": {
       "created_success": "Erinnerung erfolgreich erstellt",
       "updated_success": "Erinnerung erfolgreich aktualisiert",

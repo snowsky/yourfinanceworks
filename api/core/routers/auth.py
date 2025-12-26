@@ -893,6 +893,8 @@ async def read_users_me(current_user: MasterUser = Depends(get_current_user), db
     organizations = []
     if tenant_ids:
         tenants = db.query(Tenant).filter(Tenant.id.in_(tenant_ids)).all()
+        # Sort by ID to ensure consistent ordering
+        tenants = sorted(tenants, key=lambda t: t.id)
         organizations = [{'id': t.id, 'name': t.name} for t in tenants]
     
     # Create response with organizations

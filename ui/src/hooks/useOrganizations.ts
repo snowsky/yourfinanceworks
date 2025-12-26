@@ -13,10 +13,16 @@ export function useOrganizations() {
     return useQuery({
         queryKey: ["user-organizations", user?.id],
         queryFn: async () => {
-            if (!user?.id) return [];
-            console.log('🏢 Fetching organizations for user:', user.email);
-            const response: any = await apiRequest("/auth/me", {}, { skipTenant: true });
-            return (response?.organizations ?? []) as Organization[];
+            if (!user?.id) {
+                return [];
+            }
+            try {
+                const response: any = await apiRequest("/auth/me", {}, { skipTenant: true });
+                return (response?.organizations ?? []) as Organization[];
+            } catch (error) {
+                console.error('Failed to fetch organizations:', error);
+                throw error;
+            }
         },
         enabled: !!user?.id,
         staleTime: 1000 * 60 * 15, // 15 minutes cache

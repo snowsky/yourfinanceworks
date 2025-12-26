@@ -224,10 +224,26 @@ from pydantic import ValidationError
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"Validation error on {request.method} {request.url.path}")
     logger.error(f"Validation errors: {exc.errors()}")
-    logger.error(f"Request body: {await request.body()}")
+    try:
+        body = await request.body()
+        logger.error(f"Request body: {body}")
+    except Exception:
+        body = b"Unable to read request body"
+        logger.error("Could not read request body")
+    
     return JSONResponse(
         status_code=400,
-        content={"detail": exc.errors(), "body": str(exc.body)}
+        content={"detail": exc.errors(), "body": body.decode('utf-8', errors='replace') if body else ""}
+    )
+
+@app.exception_handler(ValidationError)
+async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
+    logger.error(f"Pydantic validation error on {request.method} {request.url.path}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    
+    return JSONResponse(
+        status_code=400,
+        content={"detail": exc.errors()}
     )
 
 # Serve static files (e.g., for company logos)
@@ -292,7 +308,7 @@ async def catch_exceptions_middleware(request: Request, call_next):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
-            content={"detail": f"Internal server error: {str(e)}"}
+            content={"detail": f"Internal server error: {str(e)}" if isinstance(str(e), str) else "Internal server error"}
         )
 
 # Add tenant context middleware (function-based)

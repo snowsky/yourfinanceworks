@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Building, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiRequest } from "@/lib/api";
 import { getCurrentUser } from "@/utils/auth";
-import { Button } from "@/components/ui/button";
 import { useOrganizations } from "@/hooks/useOrganizations";
 
 export function OrganizationSwitcher() {
-  const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const user = getCurrentUser();
@@ -28,10 +25,18 @@ export function OrganizationSwitcher() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [buttonRect, setButtonRect] = useState<DOMRect | null>(null);
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+      // Check if click is outside both button AND dropdown content
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
@@ -62,20 +67,34 @@ export function OrganizationSwitcher() {
       localStorage.setItem('selected_tenant_id', orgId);
       setCurrentOrgId(orgId);
 
-      localStorage.removeItem('react-query-offline-cache');
-      queryClient.clear();
-      queryClient.invalidateQueries();
-      sessionStorage.clear();
+      // Clear caches
+      try {
+        localStorage.removeItem('react-query-offline-cache');
+      } catch (e) {
+        console.error('Error clearing cache:', e);
+      }
+
+      try {
+        queryClient.clear();
+        queryClient.invalidateQueries();
+      } catch (e) {
+        console.error('Error invalidating queries:', e);
+      }
+
+      try {
+        sessionStorage.clear();
+      } catch (e) {
+        console.error('Error clearing session storage:', e);
+      }
 
       toast.success(`Switched to ${orgName}`, { id: 'org-switch' });
 
+      // Redirect to home if switching away from restricted route
       const restrictedRoutes = ['/super-admin'];
       const currentPath = location.pathname;
+
       if (isSwitchingAwayFromHome && restrictedRoutes.some(route => currentPath.startsWith(route))) {
-        navigate('/', { replace: true });
-        setTimeout(() => {
-          window.location.reload();
-        }, 50);
+        window.location.href = '/';
       } else {
         setTimeout(() => {
           window.location.reload();
@@ -85,10 +104,19 @@ export function OrganizationSwitcher() {
       console.error('Error during organization switch:', error);
       toast.error('Failed to switch organization', { id: 'org-switch' });
       setIsSwitchingOrg(false);
+      setShowDropdown(true);
     }
-  }, [currentOrgId, userOrganizations, user?.tenant_id, queryClient, location.pathname, navigate]);
+  }, [currentOrgId, userOrganizations, user?.tenant_id, queryClient, location.pathname]);
 
-  if (userOrganizations.length === 0 && orgsLoading) return null;
+  // Only hide if we're still loading and have no data
+  if (userOrganizations.length === 0 && orgsLoading) {
+    return null;
+  }
+
+  // If there's an error or no organizations at all, still show the component
+  if (userOrganizations.length === 0) {
+    return null;
+  }
 
   const currentOrg = userOrganizations.find(org => org.id.toString() === currentOrgId);
 
@@ -122,6 +150,7 @@ export function OrganizationSwitcher() {
 
         {showDropdown && buttonRect && createPortal(
           <div
+            ref={dropdownRef}
             className="fixed bg-slate-800 border border-slate-700/30 rounded-lg shadow-lg z-50 backdrop-blur-sm"
             style={{
               top: `${buttonRect.bottom + 8}px`,
@@ -129,23 +158,34 @@ export function OrganizationSwitcher() {
               width: `${buttonRect.width}px`,
             }}
           >
-            {userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
-              <button
-                key={org.id}
-                onClick={() => handleOrganizationSwitch(org.id.toString())}
-                className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors first:rounded-t-lg last:rounded-b-lg flex items-center justify-between"
-              >
-                <span>
-                  {org.name}
-                  {org.id === user?.tenant_id && (
-                    <span className="text-xs text-blue-500 ml-2">(Home)</span>
+            {userOrganizations.length === 0 ? (
+              <div className="px-4 py-2.5 text-sm text-slate-400">
+                No organizations available
+              </div>
+            ) : (
+              userOrganizations.sort((a, b) => a.name.localeCompare(b.name)).map((org) => (
+                <button
+                  key={org.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleOrganizationSwitch(org.id.toString());
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors first:rounded-t-lg last:rounded-b-lg flex items-center justify-between cursor-pointer"
+                >
+                  <span>
+                    {org.name}
+                    {org.id === user?.tenant_id && (
+                      <span className="text-xs text-blue-500 ml-2">(Home)</span>
+                    )}
+                  </span>
+                  {org.id.toString() === currentOrgId && (
+                    <span className="text-xs text-green-500">✓</span>
                   )}
-                </span>
-                {org.id.toString() === currentOrgId && (
-                  <span className="text-xs text-green-500">✓</span>
-                )}
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>,
           document.body
         )}

@@ -2852,6 +2852,8 @@
       "edit": "Modifier",
       "delete": "Supprimer"
     },
+    "delete_reminder_title": "Supprimer le Rappel",
+    "delete_reminder_description": "Êtes-vous sûr de vouloir supprimer ce rappel ? Cette action ne peut pas être annulée.",
     "messages": {
       "created_success": "Rappel créé avec succès",
       "updated_success": "Rappel mis à jour avec succès",
