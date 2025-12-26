@@ -7,7 +7,7 @@ REST API for managing AI prompt templates with admin interface support.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from core.models.database import get_db, get_tenant_context
 from core.models.prompt_templates import PromptTemplate
@@ -70,6 +70,17 @@ class PromptTemplateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_validator('template_variables', 'default_values', 'provider_overrides', mode='before')
+    @classmethod
+    def parse_json_fields(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return v
+        return v
 
 
 class PromptTestRequest(BaseModel):

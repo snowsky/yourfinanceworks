@@ -4,7 +4,7 @@ import { ReminderList } from '@/components/reminders';
 export default function RemindersPage() {
   return (
     <>
-      <div className="h-full p-8">
+      <div className="h-full space-y-8 fade-in">
         <ReminderList />
       </div>
     </>

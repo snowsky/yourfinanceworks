@@ -1292,7 +1292,7 @@ const Settings = () => {
                   <TabsTrigger value="currencies" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.currencies')}</TabsTrigger>
                   <TabsTrigger value="discount-rules" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.discount_rules')}</TabsTrigger>
                   <TabsTrigger value="ai-config" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.ai_config')}</TabsTrigger>
-                  <TabsTrigger value="prompts" className="text-xs md:text-sm min-w-0 flex-shrink-0">Prompts</TabsTrigger>
+                  <TabsTrigger value="prompts" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.prompts')}</TabsTrigger>
                   <TabsTrigger value="api-keys" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.api_keys')}</TabsTrigger>
                   <TabsTrigger value="gamification" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.gamification')}</TabsTrigger>
                   <TabsTrigger value="search" className="text-xs md:text-sm min-w-0 flex-shrink-0">{t('settings.tabs.search')}</TabsTrigger>

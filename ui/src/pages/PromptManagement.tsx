@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
@@ -35,6 +36,7 @@ interface PromptUsageStats {
 }
 
 const PromptManagement = () => {
+  const { t } = useTranslation();
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [defaultPrompts, setDefaultPrompts] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +53,7 @@ const PromptManagement = () => {
 
   // Helper function to format category names
   const formatCategoryName = (category: string) => {
-    const categoryMap: { [key: string]: string } = {
-      'invoice_processing': 'Invoice Processing',
-      'statement_processing': 'Statement Processing',
-      'email_classification': 'Email Classification',
-      'ocr_conversion': 'OCR Conversion',
-      'expense_processing': 'Expense Processing',
-      'general': 'General'
-    };
-    return categoryMap[category] || category;
+    return t(`settings.promptManagement.categories.${category}`);
   };
 
   useEffect(() => {
@@ -74,7 +68,7 @@ const PromptManagement = () => {
       const response = await api.get<PromptTemplate[]>('/prompts/');
       setPrompts(response);
     } catch (error) {
-      toast.error('Failed to load prompts');
+      toast.error(t('settings.promptManagement.messages.failedToLoadPrompts'));
       console.error('Error loading prompts:', error);
     } finally {
       setLoading(false);
@@ -105,17 +99,17 @@ const PromptManagement = () => {
   };
 
   const handleResetPrompt = async (promptName: string) => {
-    if (!window.confirm('Are you sure you want to reset this prompt to its default version? This will create a new version with the default content.')) {
+    if (!window.confirm(t('settings.promptManagement.messages.confirmResetPrompt'))) {
       return;
     }
     
     try {
       setLoading(true);
       await api.post(`/prompts/${promptName}/reset`);
-      toast.success('Prompt reset to default successfully');
+      toast.success(t('settings.promptManagement.messages.promptResetSuccessfully'));
       await loadPrompts();
     } catch (error) {
-      toast.error('Failed to reset prompt');
+      toast.error(t('settings.promptManagement.messages.failedToResetPrompt'));
       console.error('Error resetting prompt:', error);
     } finally {
       setLoading(false);
@@ -123,18 +117,18 @@ const PromptManagement = () => {
   };
 
   const handleRestoreVersion = async (promptName: string, version: number) => {
-    if (!window.confirm(`Are you sure you want to restore version ${version}? This will create a new version with the restored content.`)) {
+    if (!window.confirm(t('settings.promptManagement.messages.confirmRestoreVersion', { version }))) {
       return;
     }
     
     try {
       setLoading(true);
       await api.post(`/prompts/${promptName}/versions/${version}/restore`);
-      toast.success(`Prompt version ${version} restored successfully`);
+      toast.success(t('settings.promptManagement.messages.versionRestoredSuccessfully', { version }));
       await loadPrompts();
       await loadPromptVersions(promptName);
     } catch (error) {
-      toast.error('Failed to restore version');
+      toast.error(t('settings.promptManagement.messages.failedToRestoreVersion'));
       console.error('Error restoring version:', error);
     } finally {
       setLoading(false);
@@ -155,16 +149,16 @@ const PromptManagement = () => {
       setLoading(true);
       if (prompt.id) {
         await api.put(`/prompts/${prompt.name}`, prompt);
-        toast.success('Prompt updated successfully');
+        toast.success(t('settings.promptManagement.messages.promptUpdatedSuccessfully'));
       } else {
         await api.post('/prompts/', prompt);
-        toast.success('Prompt created successfully');
+        toast.success(t('settings.promptManagement.messages.promptCreatedSuccessfully'));
       }
       await loadPrompts();
       setIsEditing(false);
       setSelectedPrompt(null);
     } catch (error) {
-      toast.error('Failed to save prompt');
+      toast.error(t('settings.promptManagement.messages.failedToSavePrompt'));
       console.error('Error saving prompt:', error);
     } finally {
       setLoading(false);
@@ -172,16 +166,16 @@ const PromptManagement = () => {
   };
 
   const handleDeletePrompt = async (promptName: string) => {
-    if (!window.confirm('Are you sure you want to delete this prompt?')) {
+    if (!window.confirm(t('settings.promptManagement.messages.confirmDeletePrompt'))) {
       return;
     }
     
     try {
       await api.delete(`/prompts/${promptName}`);
-      toast.success('Prompt deleted successfully');
+      toast.success(t('settings.promptManagement.messages.promptDeletedSuccessfully'));
       await loadPrompts();
     } catch (error) {
-      toast.error('Failed to delete prompt');
+      toast.error(t('settings.promptManagement.messages.failedToDeletePrompt'));
       console.error('Error deleting prompt:', error);
     }
   };
@@ -193,9 +187,9 @@ const PromptManagement = () => {
         variables: testVariables
       });
       setTestResult(response.result);
-      toast.success('Prompt tested successfully');
+      toast.success(t('settings.promptManagement.messages.promptTestedSuccessfully'));
     } catch (error) {
-      toast.error('Failed to test prompt');
+      toast.error(t('settings.promptManagement.messages.failedToTestPrompt'));
       console.error('Error testing prompt:', error);
     } finally {
       setIsTesting(false);
@@ -208,13 +202,13 @@ const PromptManagement = () => {
     return (
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">
-          {isEditing ? 'Edit Prompt' : 'Create New Prompt'}
+          {isEditing ? t('settings.promptManagement.editPrompt') : t('settings.promptManagement.createNewPrompt')}
         </h3>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Prompt Name
+              {t('settings.promptManagement.promptName')}
             </label>
             <input
               type="text"
@@ -227,7 +221,7 @@ const PromptManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
+              {t('settings.promptManagement.promptDescription')}
             </label>
             <textarea
               value={selectedPrompt.description}
@@ -240,25 +234,25 @@ const PromptManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
+              {t('settings.promptManagement.category')}
             </label>
             <select
               value={selectedPrompt.category}
               onChange={(e) => setSelectedPrompt({...selectedPrompt, category: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="invoice_processing">Invoice Processing</option>
-              <option value="statement_processing">Statement Processing</option>
-              <option value="email_classification">Email Classification</option>
-              <option value="ocr_conversion">OCR Conversion</option>
-              <option value="expense_processing">Expense Processing</option>
-              <option value="general">General</option>
+              <option value="invoice_processing">{t('settings.promptManagement.categories.invoice_processing')}</option>
+              <option value="statement_processing">{t('settings.promptManagement.categories.statement_processing')}</option>
+              <option value="email_classification">{t('settings.promptManagement.categories.email_classification')}</option>
+              <option value="ocr_conversion">{t('settings.promptManagement.categories.ocr_conversion')}</option>
+              <option value="expense_processing">{t('settings.promptManagement.categories.expense_processing')}</option>
+              <option value="general">{t('settings.promptManagement.categories.general')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Template Content
+              {t('settings.promptManagement.templateContent')}
             </label>
             <textarea
               value={selectedPrompt.template_content}
@@ -271,7 +265,7 @@ const PromptManagement = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Template Variables (comma-separated)
+              {t('settings.promptManagement.templateVariables')}
             </label>
             <input
               type="text"
@@ -291,7 +285,7 @@ const PromptManagement = () => {
               disabled={loading}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Save Prompt'}
+              {loading ? t('settings.promptManagement.saving') : t('settings.promptManagement.savePrompt')}
             </button>
             <button
               onClick={() => {
@@ -300,7 +294,7 @@ const PromptManagement = () => {
               }}
               className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
             >
-              Cancel
+              {t('settings.promptManagement.cancel')}
             </button>
           </div>
         </div>
@@ -311,7 +305,7 @@ const PromptManagement = () => {
   const renderPromptList = () => (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Prompt Templates</h2>
+        <h2 className="text-xl font-bold">{t('settings.promptManagement.promptTemplates')}</h2>
         <div className="flex space-x-4">
           <button
             onClick={() => {
@@ -335,7 +329,7 @@ const PromptManagement = () => {
             }}
             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
           >
-            Create New Prompt
+            {t('settings.promptManagement.createNewPrompt')}
           </button>
         </div>
       </div>
@@ -343,22 +337,22 @@ const PromptManagement = () => {
       {/* Default Prompts Section */}
       {defaultPrompts.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Default Prompts</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('settings.promptManagement.defaultPrompts')}</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
+                    {t('settings.promptManagement.tableHeaders.name')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    {t('settings.promptManagement.tableHeaders.category')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
+                    {t('settings.promptManagement.tableHeaders.description')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('settings.promptManagement.tableHeaders.actions')}
                   </th>
                 </tr>
               </thead>
@@ -369,7 +363,7 @@ const PromptManagement = () => {
                     <tr key={prompt.id} className="bg-blue-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {prompt.name}
-                        {isCustomized && <span className="ml-2 text-xs text-gray-500">(customized)</span>}
+                        {isCustomized && <span className="ml-2 text-xs text-gray-500">({t('settings.promptManagement.customized')})</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatCategoryName(prompt.category)}
@@ -385,14 +379,14 @@ const PromptManagement = () => {
                           }}
                           className="text-indigo-600 hover:text-indigo-900 mr-4"
                         >
-                          View
+                        {t('settings.promptManagement.view')}
                         </button>
                         {isCustomized && (
                           <button
                             onClick={() => handleResetPrompt(prompt.name)}
                             className="text-orange-600 hover:text-orange-900 mr-4"
                           >
-                            Reset
+                            {t('settings.promptManagement.reset')}
                           </button>
                         )}
                       </td>
@@ -407,28 +401,28 @@ const PromptManagement = () => {
 
       {/* Custom Prompts Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-4 text-gray-700">Custom Prompts</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-700">{t('settings.promptManagement.customPrompts')}</h3>
         {loading ? (
-          <div className="text-center py-8">Loading prompts...</div>
+          <div className="text-center py-8">{t('settings.promptManagement.loadingPrompts')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
+                    {t('settings.promptManagement.tableHeaders.name')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    {t('settings.promptManagement.tableHeaders.category')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Version
+                    {t('settings.promptManagement.tableHeaders.version')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Active
+                    {t('settings.promptManagement.tableHeaders.active')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('settings.promptManagement.tableHeaders.actions')}
                   </th>
                 </tr>
               </thead>
@@ -448,7 +442,7 @@ const PromptManagement = () => {
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         prompt.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
-                        {prompt.is_active ? 'Active' : 'Inactive'}
+                        {prompt.is_active ? t('settings.promptManagement.active') : t('settings.promptManagement.inactive')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -459,7 +453,7 @@ const PromptManagement = () => {
                         }}
                         className="text-indigo-600 hover:text-indigo-900 mr-4"
                       >
-                        Edit
+                        {t('settings.promptManagement.editAction')}
                       </button>
                       <button
                         onClick={() => {
@@ -468,19 +462,19 @@ const PromptManagement = () => {
                         }}
                         className="text-purple-600 hover:text-purple-900 mr-4"
                       >
-                        Versions
+                        {t('settings.promptManagement.versions')}
                       </button>
                       <button
                         onClick={() => handleTestPrompt(prompt)}
                         className="text-green-600 hover:text-green-900 mr-4"
                       >
-                        Test
+                        {t('settings.promptManagement.testPrompt')}
                       </button>
                       <button
                         onClick={() => handleDeletePrompt(prompt.name)}
                         className="text-red-600 hover:text-red-900"
                       >
-                        Delete
+                        {t('settings.promptManagement.delete')}
                       </button>
                     </td>
                   </tr>
@@ -498,12 +492,12 @@ const PromptManagement = () => {
 
     return (
       <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-        <h3 className="text-lg font-semibold mb-4">Test Prompt</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('settings.promptManagement.testPrompt')}</h3>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Test Variables (JSON)
+              {t('settings.promptManagement.testVariables')}
             </label>
             <textarea
               value={JSON.stringify(testVariables, null, 2)}
@@ -526,13 +520,13 @@ const PromptManagement = () => {
               disabled={isTesting}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
             >
-              {isTesting ? 'Testing...' : 'Test Prompt'}
+              {isTesting ? t('settings.promptManagement.testing') : t('settings.promptManagement.testPrompt')}
             </button>
           </div>
 
           {testResult && (
             <div className="mt-4">
-              <h4 className="font-semibold mb-2">Test Result:</h4>
+              <h4 className="font-semibold mb-2">{t('settings.promptManagement.testResult')}</h4>
               <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                 {testResult}
               </pre>
@@ -545,38 +539,38 @@ const PromptManagement = () => {
 
   const renderUsageStats = () => (
     <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-      <h3 className="text-lg font-semibold mb-4">Usage Statistics (Last 30 Days)</h3>
+      <h3 className="text-lg font-semibold mb-4">{t('settings.promptManagement.usageStatistics')}</h3>
       
       {usageStats ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-blue-600">{usageStats.total_usage}</div>
-            <div className="text-sm text-gray-600">Total Usage</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.totalUsage')}</div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-green-600">{usageStats.successful_usage}</div>
-            <div className="text-sm text-gray-600">Successful Usage</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.successfulUsage')}</div>
           </div>
           <div className="bg-yellow-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-yellow-600">{(usageStats.success_rate * 100).toFixed(1)}%</div>
-            <div className="text-sm text-gray-600">Success Rate</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.successRate')}</div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-purple-600">{usageStats.avg_processing_time_ms.toFixed(1)}ms</div>
-            <div className="text-sm text-gray-600">Avg Processing Time</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.avgProcessingTime')}</div>
           </div>
           <div className="bg-indigo-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-indigo-600">{usageStats.total_tokens}</div>
-            <div className="text-sm text-gray-600">Total Tokens</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.totalTokens')}</div>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <div className="text-2xl font-bold text-gray-600">{usageStats.days_analyzed}</div>
-            <div className="text-sm text-gray-600">Days Analyzed</div>
+            <div className="text-sm text-gray-600">{t('settings.promptManagement.daysAnalyzed')}</div>
           </div>
         </div>
       ) : (
         <div className="text-center py-4 text-gray-500">
-          No usage statistics available
+          {t('settings.promptManagement.noUsageStatistics')}
         </div>
       )}
     </div>
@@ -589,7 +583,7 @@ const PromptManagement = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold">Version History</h3>
+            <h3 className="text-xl font-bold">{t('settings.promptManagement.versionHistory')}</h3>
             <button
               onClick={() => setShowVersions(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -608,7 +602,7 @@ const PromptManagement = () => {
                     <div>
                       <h4 className="font-semibold text-lg">
                         Version {version.version}
-                        {version.is_current && <span className="ml-2 text-sm text-blue-600 font-normal">(Current)</span>}
+                        {version.is_current && <span className="ml-2 text-sm text-blue-600 font-normal">({t('settings.promptManagement.current')})</span>}
                       </h4>
                       <p className="text-sm text-gray-600">
                         Created: {new Date(version.created_at).toLocaleString()}
@@ -625,7 +619,7 @@ const PromptManagement = () => {
                           onClick={() => handleRestoreVersion(version.name, version.version)}
                           className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
                         >
-                          Restore
+                          {t('settings.promptManagement.restore')}
                         </button>
                       )}
                       <button
@@ -636,22 +630,22 @@ const PromptManagement = () => {
                         }}
                         className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
                       >
-                        View
+                        {t('settings.promptManagement.view')}
                       </button>
                     </div>
                   </div>
                   
                   <div className="mb-3">
                     <p className="text-sm text-gray-700 mb-2">
-                      <strong>Description:</strong> {version.description || 'No description'}
+                      <strong>{t('settings.promptManagement.promptDescription')}:</strong> {version.description || t('settings.promptManagement.noDescription')}
                     </p>
                     <p className="text-sm text-gray-700">
-                      <strong>Category:</strong> {version.category}
+                      <strong>{t('settings.promptManagement.category')}:</strong> {version.category}
                     </p>
                   </div>
 
                   <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Template Content:</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.promptManagement.templateContent')}:</p>
                     <div className="bg-gray-50 p-3 rounded text-sm font-mono max-h-32 overflow-y-auto">
                       {version.template_content.substring(0, 500)}
                       {version.template_content.length > 500 && '...'}
@@ -660,7 +654,7 @@ const PromptManagement = () => {
 
                   {version.template_variables && version.template_variables.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Variables:</p>
+                      <p className="text-sm font-medium text-gray-700 mb-1">{t('settings.promptManagement.templateVariables')}:</p>
                       <div className="flex flex-wrap gap-1">
                         {version.template_variables.map((variable, index) => (
                           <span key={index} className="px-2 py-1 bg-gray-200 text-xs rounded">
@@ -675,7 +669,7 @@ const PromptManagement = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              No versions available
+              {t('settings.promptManagement.noVersionsAvailable')}
             </div>
           )}
         </div>
@@ -687,10 +681,9 @@ const PromptManagement = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Prompt Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('settings.promptManagement.title')}</h1>
           <p className="mt-2 text-gray-600">
-            Manage and customize AI prompt templates for different processing tasks. 
-            Update prompts to improve AI performance and accuracy.
+            {t('settings.promptManagement.pageDescription')}
           </p>
         </div>
 

@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Loader2,
   RefreshCw,
-  Timer
+  Timer,
+  Trash2
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProfessionalCard } from '@/components/ui/professional-card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { toast } from 'sonner';
@@ -79,6 +82,8 @@ export function ReminderList({ className }: ReminderListProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [reminderToDelete, setReminderToDelete] = useState<number | null>(null);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -335,15 +340,24 @@ export function ReminderList({ className }: ReminderListProps) {
     }
   };
 
-  const handleDeleteReminder = async (id: number) => {
-    try {
-      await reminderApi.deleteReminder(id);
+  const handleDeleteReminder = (id: number) => {
+    setReminderToDelete(id);
+    setDeleteModalOpen(true);
+  };
 
+  const confirmDeleteReminder = async () => {
+    if (!reminderToDelete) return;
+
+    try {
+      await reminderApi.deleteReminder(reminderToDelete);
       toast.success('Reminder deleted');
       loadReminders();
       fetchTabCounts();
     } catch (error) {
       toast.error('Failed to delete reminder');
+    } finally {
+      setDeleteModalOpen(false);
+      setReminderToDelete(null);
     }
   };
 
@@ -548,74 +562,97 @@ export function ReminderList({ className }: ReminderListProps) {
         </div>
 
         {/* Content */}
-        <TabsContent value={activeTab} className="space-y-4">
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative w-12 h-12">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
-                </div>
-                <p className="text-muted-foreground font-medium">Loading reminders...</p>
-              </div>
-            </div>
-          ) : reminders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="p-4 rounded-full bg-muted/50">
-                <Timer className="h-10 w-10 text-muted-foreground/50" />
-              </div>
-              <div className="text-center">
-                <h3 className="text-2xl font-bold text-foreground mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto">
-                  {activeTab === 'all'
-                    ? t('reminders.no_reminders_description', 'You don\'t have any reminders yet. Create one to stay on top of your tasks and deadlines.')
-                    : activeTab === 'snoozed'
-                      ? t('reminders.no_snoozed_reminders', 'All your reminders are currently active.')
-                      : t('reminders.no_reminders_tab', { tab: activeTab.replace('_', ' '), defaultValue: `No ${activeTab.replace('_', ' ')} reminders found.` })}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {reminders.map((reminder) => (
-                <ReminderCard
-                  key={reminder.id}
-                  reminder={reminder}
-                  currentUserId={currentUser?.id || 0}
-                  onEdit={setEditingReminder}
-                  onComplete={handleCompleteReminder}
-                  onSnooze={handleSnoozeReminder}
-                  onUnsnooze={handleUnsnoozeReminder}
-                  onDelete={handleDeleteReminder}
-                />
-              ))}
-            </div>
-          )}
+        <ProfessionalCard className="slide-in">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+          <div className="relative">
+            <CardContent>
+              <TabsContent value={activeTab} className="space-y-4 mt-0">
+                {loading ? (
+                  <div className="flex justify-center items-center py-20">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative w-12 h-12">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
+                      </div>
+                      <p className="text-muted-foreground font-medium">Loading reminders...</p>
+                    </div>
+                  </div>
+                ) : reminders.length === 0 ? (
+                  <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20">
+                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Timer className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto">
+                      {activeTab === 'all'
+                        ? t('reminders.no_reminders_description', 'You don\'t have any reminders yet. Create one to stay on top of your tasks and deadlines.')
+                        : activeTab === 'snoozed'
+                          ? t('reminders.no_snoozed_reminders', 'All your reminders are currently active.')
+                          : t('reminders.no_reminders_tab', { tab: activeTab.replace('_', ' '), defaultValue: `No ${activeTab.replace('_', ' ')} reminders found.` })}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {reminders.map((reminder) => (
+                      <ReminderCard
+                        key={reminder.id}
+                        reminder={reminder}
+                        currentUserId={currentUser?.id || 0}
+                        onEdit={setEditingReminder}
+                        onComplete={handleCompleteReminder}
+                        onSnooze={handleSnoozeReminder}
+                        onUnsnooze={handleUnsnoozeReminder}
+                        onDelete={handleDeleteReminder}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </CardContent>
+          </div>
+        </ProfessionalCard>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-4">
-              <ProfessionalButton
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-              >
-                {t('reminders.previous')}
-              </ProfessionalButton>
-              <span className="text-sm text-muted-foreground">
-                {t('reminders.page')} {page} {t('reminders.of')} {totalPages}
-              </span>
-              <ProfessionalButton
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-              >
-                {t('reminders.next')}
-              </ProfessionalButton>
-            </div>
-          )}
-        </TabsContent>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+            >
+              {t('reminders.previous')}
+            </ProfessionalButton>
+            <span className="text-sm text-muted-foreground">
+              {t('reminders.page')} {page} {t('reminders.of')} {totalPages}
+            </span>
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+            >
+              {t('reminders.next')}
+            </ProfessionalButton>
+          </div>
+        )}
+        {/* Delete Reminder Modal */}
+        <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('reminders.delete_reminder_title', 'Delete Reminder')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('reminders.delete_reminder_description', 'Are you sure you want to delete this reminder? This action cannot be undone.')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteReminder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('reminders.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </Tabs>
     </div>
   );
