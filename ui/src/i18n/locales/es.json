@@ -230,11 +230,16 @@
       "validation": {
         "passwords_not_match": "Las contraseñas no coinciden",
         "password_min_length": "La contraseña debe tener al menos 6 caracteres",
-        "email_not_available": "El correo no está disponible. Por favor usa un correo diferente.",
+        "password_too_short": "La contraseña debe tener al menos 6 caracteres",
+        "email_not_available": "El correo electrónico no está disponible. Por favor usa un correo diferente.",
+        "email_already_registered": "El correo electrónico ya está registrado. Por favor usa uno diferente o intenta iniciar sesión.",
+        "valid_email_required": "Por favor ingresa un correo electrónico válido",
+        "organization_exists": "El nombre de la organización ya existe. Por favor elige un nombre diferente.",
+        "invalid_input": "Por favor revisa tu información e intenta de nuevo",
         "waiting_email_check": "Por favor espera mientras verificamos la disponibilidad del correo.",
         "org_not_available": "El nombre de la organización no está disponible. Por favor elige un nombre diferente.",
         "waiting_org_check": "Por favor espera mientras verificamos la disponibilidad del nombre de la organización.",
-        "registration_failed": "Error en el registro"
+        "registration_failed": "Registro fallido"
       },
       "availability": {
         "checking": "Verificando disponibilidad...",
@@ -1790,6 +1795,7 @@
     "title": "Gastos",
     "description": "Controla y gestiona los gastos de tu negocio",
     "new": "Nuevo Gasto",
+    "new_expense": "Nuevo Gasto",
     "import_from_pdf_images": "Importar desde PDF o Imágenes",
     "list_title": "Lista de Gastos",
     "search_placeholder": "Buscar por proveedor, categoría o notas",
@@ -1878,7 +1884,8 @@
       "reference_number": "Referencia #",
       "notes": "Notas",
       "receipt": "Recibo (PDF, JPG, PNG)",
-      "pick_date": "Selecciona una fecha"
+      "pick_date": "Selecciona una fecha",
+      "label_placeholder": "Añadir etiqueta"
     },
     "receipt_attachments": "Adjuntos de Recibo",
     "receipt_attachments_max_10": "Adjuntos de Recibo (máx 10)",
@@ -1911,6 +1918,15 @@
     "calculated_from_items": "Calculado desde artículos",
     "this_expense_is_for_consuming_inventory_items": "Este gasto es para consumir artículos de inventario",
     "this_expense_is_for_purchasing_inventory_items": "Este gasto es para comprar artículos de inventario",
+    "approval_information": "Información de Aprobación",
+    "approved_by": "Aprobado por",
+    "approved_at": "Aprobado el",
+    "approval_notes": "Notas",
+    "rejection_information": "Información de Rechazo",
+    "rejected_by": "Rechazado por",
+    "rejected_at": "Rechazado el",
+    "rejection_reason": "Motivo",
+    "rejection_notes": "Notas",
     "inventory_consumption_details": "Detalles de Consumo de Inventario",
     "select_the_inventory_items_you_consumed": "Selecciona los artículos de inventario que consumiste",
     "ready_to_process": "Listo para procesar {{count}} artículo(s)",
@@ -1967,7 +1983,15 @@
     "consumed_items_count": "{{count}} artículo(s) consumido(s)",
     "label_placeholder": "Añadir etiqueta",
     "bulk_label_placeholder": "Etiqueta",
-    "attachments_count": "archivo(s)"
+    "attachments_count": "archivo(s)",
+    "categories": {
+      "General": "General",
+      "Travel": "Viaje",
+      "Meals": "Comidas",
+      "Transportation": "Transporte",
+      "Software": "Software",
+      "Supplies": "Suministros"
+    }
   },
   "email": {
     "subject": "Asunto",
@@ -2218,7 +2242,8 @@
     "organization_name_placeholder": "Ingresa el nombre de la organización",
     "email_label": "Correo electrónico",
     "email_placeholder": "Ingresa el correo electrónico",
-    "default_currency_label": "Moneda Predeterminada",
+    "default_currency_label": "Moneda por defecto",
+    "select_currency": "Seleccionar moneda",
     "currency_usd": "USD",
     "currency_eur": "EUR",
     "currency_gbp": "GBP",
