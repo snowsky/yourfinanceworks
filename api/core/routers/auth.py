@@ -983,32 +983,42 @@ async def read_users_me(current_user: MasterUser = Depends(get_current_user), db
     # Get user's organizations
     from sqlalchemy.orm import joinedload
     from core.models.models import user_tenant_association
-    
+
     # Get tenant memberships from association table
     tenant_memberships = db.execute(
         user_tenant_association.select().where(
             user_tenant_association.c.user_id == current_user.id
         )
     ).fetchall()
-    
+
+    # Create a mapping of tenant_id to role from association table
+    tenant_role_map = {membership.tenant_id: membership.role for membership in tenant_memberships}
+
     # Get all tenant IDs user has access to (including primary tenant)
     tenant_ids = [membership.tenant_id for membership in tenant_memberships]
     if current_user.tenant_id and current_user.tenant_id not in tenant_ids:
         tenant_ids.append(current_user.tenant_id)
-    
+
     # Get tenant details
     organizations = []
     if tenant_ids:
         tenants = db.query(Tenant).filter(Tenant.id.in_(tenant_ids)).all()
         # Sort by ID to ensure consistent ordering
         tenants = sorted(tenants, key=lambda t: t.id)
-        organizations = [{'id': t.id, 'name': t.name} for t in tenants]
+        for tenant in tenants:
+            org_data = {'id': tenant.id, 'name': tenant.name}
+            # Add role if available from association table, otherwise use master role for primary tenant
+            if tenant.id in tenant_role_map:
+                org_data['role'] = tenant_role_map[tenant.id]
+            elif tenant.id == current_user.tenant_id:
+                org_data['role'] = current_user.role
+            organizations.append(org_data)
     
     # Create response with organizations
     user_data = UserRead.model_validate(current_user)
     user_dict = user_data.model_dump()
     user_dict['organizations'] = organizations
-    
+
     return user_dict
 
 @router.put("/me", response_model=UserRead)
