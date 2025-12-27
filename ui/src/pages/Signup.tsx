@@ -324,11 +324,11 @@ const Signup: React.FC = () => {
                 <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
                   {t('auth.signup.how_to_get_started')}
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <ProfessionalButton
                     type="button"
                     variant={signupMode === 'create' ? 'gradient' : 'outline'}
-                    className={`w-full ${signupMode === 'create' ? '' : 'bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                    className={`w-full py-3 min-h-[56px] items-center justify-center text-center whitespace-normal leading-tight ${signupMode === 'create' ? '' : 'bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                     onClick={() => {
                       setSignupMode('create');
                       // Reset organization status when switching modes
@@ -344,7 +344,7 @@ const Signup: React.FC = () => {
                   <ProfessionalButton
                     type="button"
                     variant={signupMode === 'join' ? 'gradient' : 'outline'}
-                    className={`w-full ${signupMode === 'join' ? '' : 'bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                    className={`w-full py-3 min-h-[56px] items-center justify-center text-center whitespace-normal leading-tight ${signupMode === 'join' ? '' : 'bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                     onClick={() => {
                       setSignupMode('join');
                       // Reset organization status when switching modes
