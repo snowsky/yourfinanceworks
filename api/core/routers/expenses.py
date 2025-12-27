@@ -777,7 +777,7 @@ async def bulk_delete_expenses(
         raise HTTPException(status_code=500, detail="Failed to bulk soft delete expenses")
 
 
-@router.put("/{expense_id}", response_model=ExpenseSchema)
+@router.put("/{expense_id:\\d+}", response_model=ExpenseSchema)
 async def update_expense(
     expense_id: int,
     expense: ExpenseUpdate,
@@ -1304,7 +1304,7 @@ async def permanently_delete_expense(
         )
 
 
-@router.delete("/{expense_id}", response_model=RecycleBinExpenseResponse)
+@router.delete("/{expense_id:\\d+}", response_model=RecycleBinExpenseResponse)
 async def delete_expense(
     expense_id: int,
     db: Session = Depends(get_db),
@@ -1641,7 +1641,7 @@ async def reprocess_expense(
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
 
-        if expense.analysis_status not in ["not_started", "pending", "queued", "failed", "cancelled"]:
+        if expense.analysis_status not in ["not_started", "pending", "queued", "failed", "cancelled", "done"]:
             raise HTTPException(status_code=400, detail=f"Cannot reprocess expense with status: {expense.analysis_status}")
         
         # Find the most recent attachment

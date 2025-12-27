@@ -710,9 +710,11 @@ const Expenses = () => {
                   {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
                 <div className="flex gap-1">
-                  <ProfessionalButton onClick={openCreate} variant="default" size="default" className="shadow-lg">
-                    <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
-                  </ProfessionalButton>
+                  <Link to="/expenses/new">
+                    <ProfessionalButton variant="default" size="default" className="shadow-lg">
+                      <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
+                    </ProfessionalButton>
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <ProfessionalButton variant="default" size="icon" className="shadow-lg">
@@ -1164,7 +1166,7 @@ const Expenses = () => {
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
-                          {e.analysis_status && e.analysis_status !== 'done' && canPerformActions() && (
+                          {e.analysis_status && canPerformActions() && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1176,16 +1178,17 @@ const Expenses = () => {
                                 processingLocks.has(e.id) ||
                                 uploadingId === e.id
                               }
+                              title="Process Again"
                             >
                               {processingLocks.has(e.id) ? (
                                 <div className="flex items-center gap-1">
                                   <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                  Processing...
+                                  <span className="animate-pulse">...</span>
                                 </div>
                               ) : uploadingId === e.id ? (
                                 'Uploading...'
                               ) : (
-                                t('expenses.process_again', { defaultValue: 'Process Again' })
+                                <RotateCcw className="w-4 h-4" />
                               )}
                             </Button>
                           )}
