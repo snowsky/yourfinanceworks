@@ -25,7 +25,7 @@
     "expo": "~54.0.25",
     "expo-camera": "~17.0.9",
     "expo-constants": "~18.0.10",
-    "expo-document-picker": "~14.0.7",
+    "expo-document-picker": "~14.0.8",
     "expo-image-manipulator": "~14.0.7",
     "expo-image-picker": "~17.0.8",
     "expo-localization": "~17.0.7",
