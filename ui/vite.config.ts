@@ -12,6 +12,26 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          radix: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox'],
+          router: ['react-router-dom'],
+          query: ['@tanstack/react-query'],
+          forms: ['react-hook-form', '@hookform/resolvers'],
+          charts: ['recharts'],
+          pdf: ['@react-pdf/renderer'],
+          scanner: ['@ericblade/quagga2'],
+          utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge'],
+          icons: ['lucide-react'],
+          ui: ['@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  },
   server: {
     port: 8080,
     host: '0.0.0.0',
