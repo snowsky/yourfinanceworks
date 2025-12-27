@@ -49,6 +49,8 @@
     "navigation": "Navigation",
     "current_language": "Aktuelle Sprache",
     "available_languages": "Verfügbare Sprachen",
+    "organization": "Organisation",
+    "available": "verfügbar",
     "saving": "Wird gespeichert...",
     "create": "Erstellen",
     "update": "Aktualisieren",
@@ -425,6 +427,7 @@
   "invoices": {
     "title": "Rechnungen",
     "description": "Rechnungen erstellen und verwalten",
+    "manage_invoices_description": "Verfolgen und verwalten Sie alle Ihre Rechnungen an einem Ort",
     "new_invoice": "Neue Rechnung",
     "create_invoice_quick_mode": "Rechnung erstellen - Schnellmodus",
     "draft_loaded_from_previous_session": "Entwurf aus vorheriger Sitzung geladen",
@@ -691,6 +694,7 @@
   "clients": {
     "title": "Kunden",
     "description": "Kundeninformationen und Salden verwalten",
+    "manage_clients_description": "Verwalten und verfolgen Sie alle Ihre Kunden an einem Ort",
     "new_client": "Neuer Kunde",
     "edit_client": "Kunden bearbeiten",
     "client_name": "Kundenname",
@@ -738,6 +742,7 @@
   "payments": {
     "title": "Zahlungen",
     "description": "Zahlungsaufzeichnungen anzeigen und verwalten",
+    "manage_payments_description": "Verfolgen und verwalten Sie alle Ihre Zahlungen an einem Ort",
     "new_payment": "Neue Zahlung",
     "edit_payment": "Zahlung bearbeiten",
     "payment_date": "Zahlungsdatum",
@@ -1635,6 +1640,8 @@
   },
   "reports": {
     "title": "Berichte",
+    "report_type_selection": "Berichtstyp-Auswahl",
+    "choose_report_type": "Wählen Sie die Art des Berichts aus, den Sie generieren möchten",
     "generate_report": "Bericht generieren",
     "export_report": "Bericht exportieren",
     "print_report": "Bericht drucken",

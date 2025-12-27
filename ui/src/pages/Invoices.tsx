@@ -475,7 +475,7 @@ const Invoices = () => {
             <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{t('invoices.invoice_list')}</h2>
-                <p className="text-muted-foreground mt-1">Track and manage all your invoices in one place</p>
+                <p className="text-muted-foreground mt-1">{t('invoices.manage_invoices_description')}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 {/* Search */}

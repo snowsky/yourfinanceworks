@@ -49,6 +49,8 @@
     "navigation": "Navegación",
     "current_language": "Idioma Actual",
     "available_languages": "Idiomas Disponibles",
+    "organization": "Organización",
+    "available": "disponibles",
     "expense": "Gasto",
     "expenses": "Gastos",
     "invoice": "Factura",
@@ -491,6 +493,7 @@
   "invoices": {
     "title": "Facturas",
     "description": "Crear y gestionar tus facturas",
+    "manage_invoices_description": "Rastrea y gestiona todas tus facturas en un solo lugar",
     "new_invoice": "Nueva Factura",
     "create_invoice_quick_mode": "Crear Factura - Modo Rápido",
     "draft_loaded_from_previous_session": "Borrador cargado de la sesión anterior",
@@ -771,6 +774,7 @@
   "clients": {
     "title": "Clientes",
     "description": "Gestiona la información y saldos de tus clientes",
+    "manage_clients_description": "Gestiona y rastrea todos tus clientes en un solo lugar",
     "new_client": "Nuevo Cliente",
     "edit_client": "Editar Cliente",
     "client_name": "Nombre del Cliente",
@@ -819,6 +823,7 @@
   "payments": {
     "title": "Pagos",
     "description": "Ver y gestionar registros de pagos",
+    "manage_payments_description": "Rastrea y gestiona todos tus pagos en un solo lugar",
     "new_payment": "Nuevo Pago",
     "edit_payment": "Editar Pago",
     "payment_date": "Fecha de Pago",
@@ -1737,6 +1742,8 @@
   },
   "reports": {
     "title": "Reportes",
+    "report_type_selection": "Selección de Tipo de Informe",
+    "choose_report_type": "Elige el tipo de informe que quieres generar",
     "generate_report": "Generar Reporte",
     "export_report": "Exportar Reporte",
     "print_report": "Imprimir Reporte",

@@ -49,6 +49,8 @@
     "navigation": "Navigation",
     "current_language": "Langue Actuelle",
     "available_languages": "Langues Disponibles",
+    "organization": "Organisation",
+    "available": "disponibles",
     "expense": "Dépense",
     "expenses": "Dépenses",
     "invoice": "Facture",
@@ -490,6 +492,7 @@
   },
   "invoices": {
     "title": "Factures",
+    "manage_invoices_description": "Suivez et gérez toutes vos factures en un seul endroit",
     "new_invoice": "Nouvelle Facture",
     "create_invoice_quick_mode": "Créer une Facture - Mode Rapide",
     "draft_loaded_from_previous_session": "Brouillon chargé de la session précédente",
@@ -771,6 +774,7 @@
   "clients": {
     "title": "Clients",
     "description": "Gérez les informations et soldes de vos clients",
+    "manage_clients_description": "Gérez et suivez tous vos clients en un seul endroit",
     "new_client": "Nouveau Client",
     "edit_client": "Modifier le Client",
     "client_name": "Nom du Client",
@@ -818,7 +822,7 @@
   },
   "payments": {
     "title": "Paiements",
-    "description": "Afficher et gérer les enregistrements de paiement",
+    "description": "Suivez et gérez tous vos paiements en un seul endroit",
     "new_payment": "Nouveau Paiement",
     "edit_payment": "Modifier le Paiement",
     "payment_date": "Date de Paiement",
@@ -1666,6 +1670,8 @@
   },
   "reports": {
     "title": "Rapports",
+    "report_type_selection": "Sélection du Type de Rapport",
+    "choose_report_type": "Choisissez le type de rapport que vous souhaitez générer",
     "generate_report": "Générer un Rapport",
     "export_report": "Exporter le Rapport",
     "print_report": "Imprimer le Rapport",

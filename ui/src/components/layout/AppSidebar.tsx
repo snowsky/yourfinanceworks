@@ -456,7 +456,7 @@ export function AppSidebar() {
                   })()}
                 </span>
                 <span className="text-xs text-slate-300 truncate">
-                  {effectiveRole === 'admin' ? 'Administrator' : 'User'}
+                  {currentOrgRole === 'admin' ? 'Administrator' : 'User'}
                 </span>
               </div>
             </div>

@@ -159,6 +159,15 @@ const Settings = () => {
   });
   const [profileSaving, setProfileSaving] = useState(false);
 
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [passwordChanging, setPasswordChanging] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+
   // Notification settings state
   const [notificationSettings, setNotificationSettings] = useState({
     user_created: false,
@@ -1225,6 +1234,47 @@ const Settings = () => {
     }
   };
 
+  // Password change handlers
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleChangePassword = async () => {
+    // Validate passwords
+    if (!passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password) {
+      toast.error(t('auth.password_required'));
+      return;
+    }
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast.error(t('auth.passwords_not_match'));
+      return;
+    }
+
+    if (passwordData.new_password.length < 6) {
+      toast.error(t('auth.password_min_length'));
+      return;
+    }
+
+    setPasswordChanging(true);
+    try {
+      await api.post('/auth/change-password', passwordData);
+      toast.success(t('settings.password_changed_successfully'));
+      // Reset form
+      setPasswordData({
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      });
+      setShowPasswordChange(false);
+    } catch (error: any) {
+      toast.error(getErrorMessage(error, t));
+    } finally {
+      setPasswordChanging(false);
+    }
+  };
+
   // Notification settings handlers
   const handleNotificationToggle = (setting: string, checked: boolean) => {
     setNotificationSettings(prev => ({ ...prev, [setting]: checked }));
@@ -1353,12 +1403,85 @@ const Settings = () => {
                         onCheckedChange={(checked) => setUserProfile((prev: any) => ({ ...prev, show_analytics: checked }))}
                       />
                     </div>
-                    <div className="flex justify-end mt-4">
+                    <div className="flex justify-end mt-4 space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowPasswordChange(!showPasswordChange)}
+                        type="button"
+                      >
+                        {showPasswordChange ? t('settings.cancel') : t('settings.change_password')}
+                      </Button>
                       <Button onClick={handleProfileSave} disabled={profileSaving}>
                         {profileSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {t('settings.save_profile')}
                       </Button>
                     </div>
+
+                    {/* Password Change Section */}
+                    {showPasswordChange && (
+                      <div className="mt-6 pt-6 border-t border-border">
+                        <h3 className="text-lg font-semibold mb-4">{t('settings.change_password')}</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="current_password">{t('settings.current_password')}</Label>
+                            <Input
+                              id="current_password"
+                              name="current_password"
+                              type="password"
+                              value={passwordData.current_password}
+                              onChange={handlePasswordChange}
+                              placeholder={t('settings.current_password')}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="new_password">{t('settings.new_password')}</Label>
+                            <Input
+                              id="new_password"
+                              name="new_password"
+                              type="password"
+                              value={passwordData.new_password}
+                              onChange={handlePasswordChange}
+                              placeholder={t('auth.password_min_length')}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="confirm_password">{t('settings.confirm_password')}</Label>
+                            <Input
+                              id="confirm_password"
+                              name="confirm_password"
+                              type="password"
+                              value={passwordData.confirm_password}
+                              onChange={handlePasswordChange}
+                              placeholder={t('settings.confirm_password')}
+                            />
+                          </div>
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowPasswordChange(false);
+                                setPasswordData({
+                                  current_password: '',
+                                  new_password: '',
+                                  confirm_password: ''
+                                });
+                              }}
+                              type="button"
+                            >
+                              {t('settings.cancel')}
+                            </Button>
+                            <Button
+                              onClick={handleChangePassword}
+                              disabled={passwordChanging}
+                              type="button"
+                            >
+                              {passwordChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              {passwordChanging ? t('settings.saving') : t('settings.change_password')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </ProfessionalCard>
                 <ProfessionalCard>

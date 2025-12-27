@@ -6,8 +6,10 @@ import { Building, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentUser } from "@/utils/auth";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { useTranslation } from 'react-i18next';
 
 export function OrganizationSwitcher() {
+  const { t } = useTranslation();
   const location = useLocation();
   const queryClient = useQueryClient();
   const user = getCurrentUser();
@@ -124,7 +126,7 @@ export function OrganizationSwitcher() {
     <div className="space-y-3">
       <div className="px-3">
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Organization {userOrganizations.length > 1 ? `(${userOrganizations.length} available)` : ''}
+          {t('common.organization')} {userOrganizations.length > 1 ? `(${userOrganizations.length} ${t('common.available')})` : ''}
         </h3>
       </div>
       <div className="px-3 relative">

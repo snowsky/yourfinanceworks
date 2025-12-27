@@ -66,7 +66,9 @@
     "back_to_invoices": "Back to Invoices",
     "add_data": "Add Data",
     "showing_of": "Showing {{count}} of {{total}}",
-    "page_of": "Page {{current}} of {{total}}"
+    "page_of": "Page {{current}} of {{total}}",
+    "organization": "Organization",
+    "available": "available"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -492,6 +494,7 @@
   "invoices": {
     "title": "Invoices",
     "description": "Create and manage your invoices",
+    "manage_invoices_description": "Track and manage all your invoices in one place",
     "new_invoice": "New Invoice",
     "create_invoice_quick_mode": "Create Invoice - Quick Mode",
     "draft_loaded_from_previous_session": "Draft loaded from previous session",
@@ -785,6 +788,7 @@
   "clients": {
     "title": "Clients",
     "description": "Manage your client information and balances",
+    "manage_clients_description": "Manage and track all your clients in one place",
     "new_client": "New Client",
     "edit_client": "Edit Client",
     "client_name": "Client Name",
@@ -832,6 +836,7 @@
   "payments": {
     "title": "Payments",
     "description": "View and manage payment records",
+    "manage_payments_description": "Track and manage all your payments in one place",
     "new_payment": "New Payment",
     "edit_payment": "Edit Payment",
     "payment_date": "Payment Date",
@@ -891,6 +896,12 @@
     "first_name": "First Name",
     "last_name": "Last Name",
     "save_profile": "Save Profile",
+    "change_password": "Change Password",
+    "current_password": "Current Password",
+    "new_password": "New Password",
+    "confirm_password": "Confirm New Password",
+    "password_changed_successfully": "Password changed successfully",
+    "password_change_failed": "Failed to change password",
     "invoice_settings": "Invoice Settings",
     "invoice_prefix": "Invoice Number Prefix",
     "next_invoice_number": "Next Invoice Number",
@@ -1782,6 +1793,8 @@
   },
   "reports": {
     "title": "Reports",
+    "report_type_selection": "Report Type Selection",
+    "choose_report_type": "Choose the type of report you want to generate",
     "generate_report": "Generate Report",
     "export_report": "Export Report",
     "print_report": "Print Report",

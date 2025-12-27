@@ -135,7 +135,7 @@ const Clients = () => {
             <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{t('clients.client_list')}</h2>
-                <p className="text-muted-foreground mt-1">Manage and track all your clients in one place</p>
+                <p className="text-muted-foreground mt-1">{t('clients.manage_clients_description')}</p>
               </div>
               <div className="flex items-center">
                 <div className="relative w-full lg:w-auto">
