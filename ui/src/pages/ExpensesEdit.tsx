@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Package, Eye, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
@@ -23,6 +23,7 @@ import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsum
 import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissionDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 
 export default function ExpensesEdit() {
   const { t } = useTranslation();
@@ -279,10 +280,38 @@ export default function ExpensesEdit() {
 
   return (
     <>
-      <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t('expenses.edit_title')}</h1>
-          <p className="text-muted-foreground">{t('expenses.edit_description')}</p>
+      <div className="h-full space-y-8 fade-in">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <ProfessionalButton
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => navigate('/expenses')}
+                  className="rounded-full"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </ProfessionalButton>
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('expenses.edit_title')}</h1>
+              <p className="text-lg text-muted-foreground">{t('expenses.edit_description')}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <ProfessionalButton
+                variant="default"
+                size="lg"
+                onClick={onSave}
+                disabled={saving || (submitForApproval && !selectedApproverId)}
+                className="shadow-lg"
+                leftIcon={<CheckCircle className="h-4 w-4" />}
+              >
+                {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
+                  (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
+              </ProfessionalButton>
+            </div>
+          </div>
         </div>
 
         <Card className="slide-in">

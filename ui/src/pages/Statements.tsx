@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -26,6 +26,8 @@ import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
+import { CurrencyDisplay } from '@/components/ui/currency-display';
+
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -578,27 +580,32 @@ export default function Statements() {
         )}
 
         {/* Hero Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('statements.title')}</h1>
-              <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <ProfessionalButton
-                variant="outline"
-                size="default"
-                onClick={handleToggleRecycleBin}
-                className="whitespace-nowrap"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}
-                {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </ProfessionalButton>
-              <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />
+        {/* Hero Header - Only show when no statement selected */}
+        {!selected && (
+          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-6">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('statements.title')}</h1>
+                <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
+              </div>
+              <div className="flex gap-3 items-center flex-wrap justify-end">
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
+                  onClick={handleToggleRecycleBin}
+                  className="whitespace-nowrap"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}
+                  {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </ProfessionalButton>
+                <div className="flex gap-1">
+                  <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {!selected && showRecycleBin && (
           <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin} className="space-y-4">
@@ -926,9 +933,9 @@ export default function Statements() {
                                 if (ev.key === 'Enter' && newLabelValueById[s.id]?.trim()) {
                                   const raw = newLabelValueById[s.id].trim();
                                   const existing = (s as any).labels || [];
-                                  if (existing.includes(raw)) { 
-                                    setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' })); 
-                                    return; 
+                                  if (existing.includes(raw)) {
+                                    setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' }));
+                                    return;
                                   }
                                   const next = [...existing, raw].slice(0, 10);
                                   bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
@@ -1086,174 +1093,237 @@ export default function Statements() {
         </Dialog>
 
         {selected && !showInvoiceForm && (
-          <ProfessionalCard className="slide-in">
-            <CardHeader className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="icon" onClick={() => { setSelected(null); setDetail(null); setRows([]); }}>
-                    <ArrowLeft className="w-5 h-5" />
-                  </Button>
-                  <div>
-                    <CardTitle>{t('statements.transactions_title', { filename: detail?.original_filename || '' })}</CardTitle>
-                    <div className="flex flex-col gap-1 mt-1">
-                      <p className="text-muted-foreground text-sm">{t('statements.transactions_description')}</p>
-                      {((detail as any)?.created_by_username || (detail as any)?.created_by_email) && (
-                        <p className="text-muted-foreground text-sm">
-                          {t('common.created_by')}: {(detail as any).created_by_username || (detail as any).created_by_email}
-                        </p>
-                      )}
+          <div className="space-y-6 fade-in">
+            {/* Hero Header */}
+            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <ProfessionalButton
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => { setSelected(null); setDetail(null); setRows([]); }}
+                      className="rounded-full"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </ProfessionalButton>
+
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="px-3 py-1 font-medium bg-green-100 text-green-800 hover:bg-green-100/90 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800">
+                        {detail?.status ? t(`statements.status.${detail.status}`, formatStatus(detail.status)) : 'Unknown'}
+                      </Badge>
+                      <Badge variant="secondary" className="px-3 py-1 font-mono font-medium">
+                        #{selected}
+                      </Badge>
                     </div>
                   </div>
+                  <h1 className="text-4xl font-bold tracking-tight text-foreground">
+                    {detail?.original_filename || t('statements.statement_detail', { defaultValue: 'Statement Detail' })}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-sm">
+                    {((detail as any)?.created_by_username || (detail as any)?.created_by_email) && (
+                      <span className="flex items-center gap-2">
+                        <span className="p-1"><FileText className="h-3 w-3" /></span>
+                        {t('common.created_by')}: <span className="text-foreground">{(detail as any).created_by_username || (detail as any).created_by_email}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <ProfessionalButton
                     variant="outline"
                     onClick={() => selected && handlePreview(selected)}
                     disabled={previewLoading === selected}
+                    leftIcon={previewLoading === selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                   >
-                    {previewLoading === selected ? (
-                      <>
-                        <div className="w-4 h-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="outline" onClick={() => selected && handleDownload(selected, detail?.original_filename)}>
-                    <Download className="w-4 h-4 mr-1" /> {t('statements.download')}
-                  </Button>
-                </div>
-              </div>
+                    {t('statements.preview')}
+                  </ProfessionalButton>
 
-              <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-md p-3">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
-                </p>
-              </div>
+                  <ProfessionalButton
+                    variant="outline"
+                    onClick={() => selected && handleDownload(selected, detail?.original_filename)}
+                    leftIcon={<Download className="h-4 w-4" />}
+                  >
+                    {t('statements.download')}
+                  </ProfessionalButton>
 
-              {readOnly && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                  <p className="text-sm text-amber-800">
-                    <strong>Processing…</strong> Editing is disabled until extraction completes.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Edit transactions and save
-                </div>
-                <div className="flex items-center gap-2">
                   {(detail?.status === 'failed' || detail?.status === 'processed') && (
-                    <Button
-                      variant="destructive"
+                    <ProfessionalButton
+                      variant="outline"
                       onClick={async () => {
                         if (!selected) return;
-
-                        // Check if already processing
                         if (reprocessingLocks.has(selected)) {
-                          toast.warning('This statement is already being processed. Please wait for the current processing to complete.');
+                          toast.warning('Already processing...');
                           return;
                         }
-
                         const addNotification = (window as any).addAINotification;
                         try {
-                          // Add to processing locks to prevent multiple clicks
                           setReprocessingLocks(prev => new Set([...prev, selected]));
-
-                          addNotification?.('processing', 'Reprocessing Statement', `Re-analyzing ${detail?.original_filename} with AI...`);
-
+                          addNotification?.('processing', 'Reprocessing', `Re-analyzing ${detail?.original_filename}...`);
                           await bankStatementApi.reprocess(selected);
-
-                          addNotification?.('success', 'Statement Reprocessing Started', `Successfully started reprocessing ${detail?.original_filename}`);
+                          addNotification?.('success', 'Started', `Reprocessing ${detail?.original_filename}`);
                           toast.success('Reprocessing started');
                           await openStatement(selected);
-
-                          // Remove from processing locks after a delay
                           setTimeout(() => {
                             setReprocessingLocks(prev => {
-                              const newLocks = new Set(prev);
-                              newLocks.delete(selected);
-                              return newLocks;
+                              const next = new Set(prev);
+                              next.delete(selected);
+                              return next;
                             });
-                          }, 30000); // Remove lock after 30 seconds
-
+                          }, 30000);
                         } catch (e: any) {
-                          // Remove from processing locks on error
                           setReprocessingLocks(prev => {
-                            const newLocks = new Set(prev);
-                            newLocks.delete(selected);
-                            return newLocks;
+                            const next = new Set(prev);
+                            next.delete(selected);
+                            return next;
                           });
-
-                          // Handle specific lock error messages
-                          const errorMessage = e?.message || 'Failed to start reprocessing';
-                          if (errorMessage.includes('already being processed') || errorMessage.includes('processing lock')) {
-                            toast.error('This statement is currently being processed by another operation. Please try again in a few minutes.');
-                            addNotification?.('warning', 'Processing Lock Active', 'This statement is already being processed. Please wait and try again.');
-                          } else {
-                            addNotification?.('error', 'Reprocessing Failed', `Failed to reprocess ${detail?.original_filename}: ${errorMessage}`);
-                            toast.error(errorMessage);
-                          }
+                          toast.error(e?.message || 'Failed to reprocess');
                         }
                       }}
                       disabled={reprocessingLocks.has(selected) || loading}
+                      leftIcon={reprocessingLocks.has(selected) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                     >
-                      {reprocessingLocks.has(selected) ? (
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          Processing...
-                        </div>
-                      ) : (
-                        'Process again'
-                      )}
-                    </Button>
+                      {reprocessingLocks.has(selected) ? 'Processing...' : 'Reprocess'}
+                    </ProfessionalButton>
                   )}
-                  <Button variant="outline" onClick={exportToCSV} disabled={rows.length === 0}>
-                    <FileText className="w-4 h-4 mr-1" /> Export CSV
-                  </Button>
-                  <Button variant="outline" onClick={addEmptyRow} disabled={readOnly}>Add Row</Button>
-                  <Button onClick={saveRows} disabled={readOnly || detailLoading}>{detailLoading ? 'Saving...' : 'Save'}</Button>
+
+                  <ProfessionalButton
+                    variant="default"
+                    onClick={saveRows}
+                    disabled={readOnly || detailLoading}
+                    className="shadow-lg"
+                    leftIcon={detailLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  >
+                    {t('common.save', 'Save')}
+                  </ProfessionalButton>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm text-muted-foreground">Labels (up to 10)</label>
-                  <div className="flex flex-wrap gap-1 items-center">
-                    {statementLabels.slice(0, 10).map((lab, idx) => (
-                      <div key={`stmt-lab-${idx}`} className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded flex items-center gap-1">
-                        {lab}
-                        {!readOnly && (
-                          <button
-                            className="ml-1 text-muted-foreground hover:text-foreground"
-                            aria-label="Remove"
-                            onClick={async () => {
-                              try {
-                                const next = statementLabels.filter((l) => l !== lab);
-                                if (!selected) return;
-                                const resp = await bankStatementApi.updateMeta(selected, { labels: next });
-                                setStatementLabels((resp.statement as any).labels || []);
-                                setDetail(prev => prev ? { ...prev, labels: (resp.statement as any).labels || [] } : prev);
-                              } catch (err: any) {
-                                toast.error(err?.message || 'Failed to remove label');
-                              }
-                            }}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {!readOnly && (
+            </div>
+
+
+            {/* Status & Alerts Section */}
+            {(readOnly || (detail as any)?.error_message) && (
+              <div className="space-y-4">
+                {readOnly && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3 text-amber-700 dark:text-amber-400 slide-in">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <div className="text-sm">
+                      <span className="font-bold">{t('common.processing', 'Processing')}:</span> {t('statements.processing_message', { defaultValue: 'Statement is being analyzed by AI. Editing is disabled until completion.' })}
+                    </div>
+                  </div>
+                )}
+
+                {(detail as any)?.error_message && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive slide-in">
+                    <Trash2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <span className="font-bold">{t('common.analysis_error', 'Analysis Error')}:</span> {(detail as any).error_message}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3 text-blue-700 dark:text-blue-400 slide-in">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <div className="text-sm">
+                    <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+
+            {/* Summary Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
+                <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-primary/20">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.transactions', { defaultValue: 'Transactions' })}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-foreground">{rows.length}</span>
+                    <FileText className="h-4 w-4 text-primary opacity-50" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
+                <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-success/20">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_income', { defaultValue: 'Total Income' })}</span>
+                  <div className="text-2xl font-black text-success">
+                    <CurrencyDisplay amount={totalIncome} currency="USD" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
+                <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-destructive/20">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_expenses', { defaultValue: 'Total Expenses' })}</span>
+                  <div className="text-2xl font-black text-destructive">
+                    <CurrencyDisplay amount={totalExpense} currency="USD" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
+                <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-blue-500/20">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.net_amount', { defaultValue: 'Net Amount' })}</span>
+                  <div className={`text-2xl font-black ${netAmount >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    <CurrencyDisplay amount={netAmount} currency="USD" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Labels Card */}
+              <ProfessionalCard className="lg:col-span-1">
+                <CardHeader className="pb-3 border-b border-border/50 mb-4 px-0">
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-bold uppercase tracking-tight">{t('statements.labels')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 min-h-[40px]">
+                    {statementLabels.length > 0 ? (
+                      statementLabels.slice(0, 10).map((lab, idx) => (
+                        <div key={`stmt-lab-${idx}`}>
+                          <Badge className="pl-2 pr-1.5 py-1 gap-1 border border-border/50 bg-muted/50 hover:bg-muted font-medium transition-all text-foreground">
+                            {lab}
+                            {!readOnly && (
+                              <button
+                                className="ml-1 rounded-full p-0.5 hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+                                onClick={async () => {
+                                  try {
+                                    const next = statementLabels.filter((l) => l !== lab);
+                                    if (!selected) return;
+                                    const resp = await bankStatementApi.updateMeta(selected, { labels: next });
+                                    setStatementLabels((resp.statement as any).labels || []);
+                                    setDetail(prev => prev ? { ...prev, labels: (resp.statement as any).labels || [] } : prev);
+                                  } catch (err: any) {
+                                    toast.error(err?.message || 'Failed to remove label');
+                                  }
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic px-1">{t('statements.no_labels', { defaultValue: 'No labels' })}</span>
+                    )}
+                  </div>
+
+                  {!readOnly && (
+                    <div className="relative group">
+                      <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input
-                        placeholder="Add label"
+                        placeholder={t('statements.add_label_placeholder', { defaultValue: 'Add label (Enter)' })}
                         value={newStatementLabel}
-                        className="w-[160px] h-8"
+                        className="pl-9 h-10 border-border/50 bg-muted/20 focus:bg-background rounded-lg transition-all"
                         onChange={(ev) => setNewStatementLabel(ev.target.value)}
                         onKeyDown={async (ev) => {
                           if (ev.key === 'Enter') {
@@ -1269,74 +1339,104 @@ export default function Statements() {
                               setStatementLabels((resp.statement as any).labels || []);
                               setDetail(prev => prev ? { ...prev, labels: (resp.statement as any).labels || [] } : prev);
                               setNewStatementLabel('');
+                              toast.success('Label added');
                             } catch (err: any) {
                               toast.error(err?.message || 'Failed to add label');
                             }
                           }
                         }}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label className="text-sm text-muted-foreground">Notes</label>
+              </ProfessionalCard>
+
+              {/* Notes Card */}
+              <ProfessionalCard className="lg:col-span-2 flex flex-col">
+                <CardHeader className="pb-3 border-b border-border/50 mb-4 px-0 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm font-bold uppercase tracking-tight">{t('statements.notes')}</CardTitle>
+                  </div>
+                  <ProfessionalButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={saveMeta}
+                    disabled={readOnly || detailLoading}
+                    className="h-8 text-xs font-bold text-primary hover:text-primary hover:bg-primary/5"
+                  >
+                    {detailLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                    {t('common.save_notes', { defaultValue: 'Save Notes' })}
+                  </ProfessionalButton>
+                </CardHeader>
+                <div className="flex-1">
                   <Textarea
                     value={statementNotes}
                     onChange={(e) => setStatementNotes(e.target.value)}
-                    placeholder="Add any notes about this statement"
-                    rows={3}
+                    placeholder={t('statements.notes_placeholder', { defaultValue: 'Add any notes about this statement...' })}
+                    className="min-h-[100px] border-border/50 bg-muted/20 focus:bg-background rounded-lg transition-all resize-none p-4"
                     disabled={readOnly}
                   />
                 </div>
-                <div className="flex items-end">
-                  <Button onClick={saveMeta} disabled={readOnly || detailLoading} className="w-full md:w-auto">{detailLoading ? 'Saving…' : 'Save Details'}</Button>
+              </ProfessionalCard>
+            </div>
+
+            {/* Transactions Table */}
+            <ProfessionalCard variant="elevated" className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50 mb-6 px-0">
+                <div>
+                  <CardTitle className="text-xl font-bold">{t('statements.transactions_list', { defaultValue: 'Transactions List' })}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">{t('statements.edit_transactions_instruction', { defaultValue: 'Review and edit transaction details if needed' })}</p>
                 </div>
-              </div>
-              {rows.length > 0 && (
-                <div className="grid grid-cols-4 gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{rows.length}</div>
-                    <div className="text-sm text-muted-foreground">Transactions</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">${totalIncome.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Total Income</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600">${totalExpense.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Total Expenses</div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>${netAmount.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Net Amount</div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={exportToCSV}
+                    disabled={rows.length === 0}
+                    className="h-9 px-3 border-border/50"
+                  >
+                    <FileText className="w-4 h-4 mr-2 text-primary" />
+                    {t('statements.export_csv', { defaultValue: 'Export CSV' })}
+                  </ProfessionalButton>
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={addEmptyRow}
+                    disabled={readOnly}
+                    className="h-9 px-3 border-border/50"
+                  >
+                    <Plus className="w-4 h-4 mr-2 text-primary" />
+                    {t('statements.add_row', { defaultValue: 'Add Row' })}
+                  </ProfessionalButton>
                 </div>
-              )}
-              <div className="rounded-md border overflow-x-auto">
+              </CardHeader>
+
+              <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm bg-background">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Balance</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Expense</TableHead>
-                      <TableHead>Actions</TableHead>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/50">
+                      <TableHead className="w-[60px] font-bold text-foreground text-center">ID</TableHead>
+                      <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_date', { defaultValue: 'Date' })}</TableHead>
+                      <TableHead className="min-w-[250px] font-bold text-foreground">{t('statements.table_description', { defaultValue: 'Description' })}</TableHead>
+                      <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_amount', { defaultValue: 'Amount' })}</TableHead>
+                      <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance', { defaultValue: 'Balance' })}</TableHead>
+                      <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type', { defaultValue: 'Type' })}</TableHead>
+                      <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
+                      <TableHead className="w-[120px] font-bold text-foreground text-center">Reference</TableHead>
+                      <TableHead className="w-[80px] text-right font-bold text-foreground">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map((r, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{(r as any).id ?? ''}</TableCell>
+                      <TableRow key={idx} className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                        <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
                         <TableCell>
                           {editingRow === idx ? (
                             <Popover>
                               <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-[200px] justify-start text-left font-normal" disabled={readOnly}>
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                <Button variant="outline" className="w-full justify-start text-left font-normal h-9 border-border/50 bg-muted/20" disabled={readOnly}>
+                                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                                   {r.date ? format(safeParseDateString(r.date), 'PPP') : 'Pick a date'}
                                 </Button>
                               </PopoverTrigger>
@@ -1348,7 +1448,6 @@ export default function Statements() {
                                     defaultMonth={r.date ? safeParseDateString(r.date) : undefined}
                                     onSelect={(d) => {
                                       if (!d) return;
-                                      // Format date without timezone conversion to preserve user's selected date
                                       const iso = formatDateToISO(d);
                                       setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
                                     }}
@@ -1358,7 +1457,7 @@ export default function Statements() {
                               )}
                             </Popover>
                           ) : (
-                            <span className="text-sm">{r.date ? format(safeParseDateString(r.date), 'PPP') : 'No date'}</span>
+                            <span className="text-sm font-medium">{r.date ? format(safeParseDateString(r.date), 'PP') : '-'}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -1367,86 +1466,112 @@ export default function Statements() {
                               <Textarea
                                 value={r.description}
                                 onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
-                                rows={3}
+                                rows={2}
                                 maxLength={500}
-                                className="min-w-[200px]"
+                                className="w-full border-border/50 bg-muted/20 focus:bg-background text-sm min-h-[60px]"
                               />
-                              <div className="text-xs text-muted-foreground">{r.description.length}/500 characters</div>
                             </div>
                           ) : (
-                            <span className="text-sm">{r.description}</span>
+                            <span className="text-sm break-words line-clamp-2" title={r.description}>{r.description}</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           {editingRow === idx ? (
-                            <Input type="number" value={Number(r.amount)} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))} />
+                            <Input
+                              type="number"
+                              value={r.amount}
+                              onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))}
+                              className="h-9 border-border/50 bg-muted/20 text-right font-bold w-full"
+                            />
                           ) : (
-                            <span className="text-sm">${r.amount}</span>
+                            <span className={`text-sm font-bold ${r.transaction_type === 'credit' ? 'text-success' : 'text-destructive'}`}>
+                              <CurrencyDisplay amount={r.amount} currency="USD" />
+                            </span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           {editingRow === idx ? (
-                            <Input type="number" value={r.balance ?? ''} onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))} />
+                            <Input
+                              type="number"
+                              value={r.balance ?? ''}
+                              onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))}
+                              className="h-9 border-border/50 bg-muted/20 text-right w-full"
+                            />
                           ) : (
-                            <span className="text-sm">{r.balance ?? 'N/A'}</span>
+                            <span className="text-sm font-mono opacity-80">{r.balance !== null ? <CurrencyDisplay amount={r.balance} currency="USD" /> : '-'}</span>
                           )}
                         </TableCell>
                         <TableCell>
                           {editingRow === idx ? (
                             <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
-                              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="debit">Debit (expense)</SelectItem>
-                                <SelectItem value="credit">Credit (income)</SelectItem>
+                                <SelectItem value="debit">{t('statements.type_debit', { defaultValue: 'Debit' })}</SelectItem>
+                                <SelectItem value="credit">{t('statements.type_credit', { defaultValue: 'Credit' })}</SelectItem>
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="text-sm">{r.transaction_type === 'debit' ? 'Debit (expense)' : 'Credit (income)'}</span>
+                            <Badge className={`capitalize font-medium text-[10px] bg-transparent border border-current ${r.transaction_type === 'credit' ? 'border-success/30 text-success bg-success/5' : 'border-destructive/30 text-destructive bg-destructive/5'}`}>
+                              {r.transaction_type}
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>
                           {editingRow === idx ? (
                             <Select value={r.category || 'Other'} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, category: v } : x))}>
-                              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 {CATEGORY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="text-sm">{r.category || 'Other'}</span>
+                            <Badge className="font-normal text-muted-foreground border-border/50 bg-transparent border">
+                              {r.category || '-'}
+                            </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {Boolean((r as any).expense_id) ? `#${(r as any).expense_id}` : '-'}
+                        <TableCell className="text-center">
+                          <div className="flex flex-col gap-1">
+                            {Boolean((r as any).expense_id) && (
+                              <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center">
+                                EXP #{(r as any).expense_id}
+                              </Badge>
+                            )}
+                            {Boolean((r as any).invoice_id) && (
+                              <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center">
+                                INV #{(r as any).invoice_id}
+                              </Badge>
+                            )}
+                            {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && (
+                              <span className="text-xs text-muted-foreground opacity-50">-</span>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
                             {editingRow === idx ? (
-                              <Button
+                              <ProfessionalButton
                                 size="sm"
                                 onClick={async () => {
                                   setEditingRow(null);
                                   await saveRows();
                                 }}
                                 disabled={readOnly}
+                                className="h-8 px-3"
                               >
-                                Done
-                              </Button>
+                                {t('common.done', { defaultValue: 'Done' })}
+                              </ProfessionalButton>
                             ) : (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0" disabled={readOnly}>
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
+                                  <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/50 transition-colors" disabled={readOnly}>
+                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => setEditingRow(idx)}
-                                    disabled={readOnly}
-                                  >
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Edit
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
+                                    <Edit className="w-4 h-4 mr-2 text-primary" />
+                                    {t('common.edit', { defaultValue: 'Edit' })}
                                   </DropdownMenuItem>
 
                                   <DropdownMenuSeparator />
@@ -1457,8 +1582,8 @@ export default function Statements() {
                                         onClick={() => createExpenseFromTransaction(idx)}
                                         disabled={readOnly || Boolean((r as any).expense_id)}
                                       >
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        {Boolean((r as any).expense_id) ? `Expense #${(r as any).expense_id}` : 'Add to Expense'}
+                                        <Plus className="w-4 h-4 mr-2 text-success" />
+                                        {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
                                       </DropdownMenuItem>
                                       {Boolean((r as any).expense_id) && (
                                         <>
@@ -1468,53 +1593,41 @@ export default function Statements() {
                                                 await navigator.clipboard.writeText(String((r as any).expense_id));
                                                 toast.success(`Copied Expense ID ${(r as any).expense_id}`);
                                               } catch (e) {
-                                                toast.error('Failed to copy Expense ID');
+                                                toast.error('Failed to copy');
                                               }
                                             }}
                                           >
                                             <Copy className="w-4 h-4 mr-2" />
-                                            Copy Expense ID
+                                            {t('common.copy_id', { defaultValue: 'Copy ID' })}
                                           </DropdownMenuItem>
                                           <DropdownMenuItem
                                             onClick={async () => {
-                                              if (!confirm('Are you sure you want to delete this expense? This action cannot be undone.')) return;
+                                              if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
                                               try {
-                                                const expenseId = (r as any).expense_id;
-                                                // Delete the expense
-                                                await expenseApi.deleteExpense(expenseId);
-                                                toast.success(`Expense #${expenseId} deleted successfully`);
-
-                                                // Unlink the expense from the transaction
-                                                const updatedRows: BankRow[] = rows.map((row, i) =>
-                                                  i === idx ? { ...row, expense_id: null } : row
-                                                );
-                                                setRows(updatedRows);
-
-                                                // Persist the unlink to backend
+                                                const expId = (r as any).expense_id;
+                                                await expenseApi.deleteExpense(expId);
+                                                toast.success('Expense deleted');
+                                                const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
+                                                setRows(updated);
                                                 if (selected) {
-                                                  try {
-                                                    const cleaned = updatedRows.map(row => ({
-                                                      ...row,
-                                                      balance: row.balance === undefined ? null : row.balance,
-                                                      category: row.category || null,
-                                                      invoice_id: row.invoice_id ?? null,
-                                                      expense_id: row.expense_id ?? null,
-                                                    }));
-                                                    await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                    // Reload to confirm changes
-                                                    await openStatement(selected);
-                                                  } catch (linkErr: any) {
-                                                    console.error('Failed to persist expense unlink:', linkErr);
-                                                  }
+                                                  const cleaned = updated.map(row => ({
+                                                    ...row,
+                                                    balance: row.balance === undefined ? null : row.balance,
+                                                    category: row.category || null,
+                                                    invoice_id: row.invoice_id ?? null,
+                                                    expense_id: row.expense_id ?? null,
+                                                  }));
+                                                  await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                  await openStatement(selected);
                                                 }
                                               } catch (e: any) {
-                                                toast.error(e?.message || 'Failed to delete expense');
+                                                toast.error(e?.message || 'Failed to delete');
                                               }
                                             }}
-                                            className="text-red-600 focus:text-red-600"
+                                            className="text-destructive focus:text-destructive"
                                           >
                                             <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete Expense
+                                            {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
                                           </DropdownMenuItem>
                                         </>
                                       )}
@@ -1527,8 +1640,8 @@ export default function Statements() {
                                         onClick={() => createInvoiceFromTransaction(idx)}
                                         disabled={readOnly || Boolean((r as any).invoice_id)}
                                       >
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        {Boolean((r as any).invoice_id) ? 'Invoice linked' : 'Add to Invoice'}
+                                        <Plus className="w-4 h-4 mr-2 text-success" />
+                                        {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
                                       </DropdownMenuItem>
                                       {Boolean((r as any).invoice_id) && (
                                         <>
@@ -1541,47 +1654,34 @@ export default function Statements() {
                                                 await navigator.clipboard.writeText(toCopy);
                                                 toast.success(`Copied Invoice No ${toCopy}`);
                                               } catch (e) {
-                                                toast.error('Failed to copy Invoice ID');
+                                                toast.error('Failed to copy');
                                               }
                                             }}
                                           >
                                             <Copy className="w-4 h-4 mr-2" />
-                                            Copy Invoice ID
+                                            {t('common.copy_id', { defaultValue: 'Copy ID' })}
                                           </DropdownMenuItem>
                                           <DropdownMenuItem
                                             onClick={async () => {
-                                              if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) return;
+                                              if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
                                               try {
-                                                const invoiceId = Number((r as any).invoice_id);
-                                                // Delete the invoice
-                                                await invoiceApi.deleteInvoice(invoiceId);
-                                                toast.success(`Invoice #${invoiceId} deleted successfully`);
-
-                                                // Unlink the invoice from the transaction
-                                                const updatedRows: BankRow[] = rows.map((row, i) =>
-                                                  i === idx ? { ...row, invoice_id: null } : row
-                                                );
-                                                setRows(updatedRows);
-
-                                                // Persist the unlink to backend
+                                                const invId = Number((r as any).invoice_id);
+                                                await invoiceApi.deleteInvoice(invId);
+                                                toast.success('Invoice deleted');
+                                                const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
+                                                setRows(updated);
                                                 if (selected) {
-                                                  try {
-                                                    const cleaned = updatedRows.map(row => ({
-                                                      ...row,
-                                                      balance: row.balance === undefined ? null : row.balance,
-                                                      category: row.category || null,
-                                                      invoice_id: row.invoice_id ?? null,
-                                                      expense_id: row.expense_id ?? null,
-                                                    }));
-                                                    await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                    // Reload to confirm changes
-                                                    await openStatement(selected);
-                                                  } catch (linkErr: any) {
-                                                    console.error('Failed to persist invoice unlink:', linkErr);
-                                                  }
+                                                  const cleaned = updated.map(row => ({
+                                                    ...row,
+                                                    balance: row.balance === undefined ? null : row.balance,
+                                                    category: row.category || null,
+                                                    invoice_id: row.invoice_id ?? null,
+                                                    expense_id: row.expense_id ?? null,
+                                                  }));
+                                                  await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                  await openStatement(selected);
                                                 }
                                               } catch (e: any) {
-                                                // Check if it's the linked expenses error and use translated version
                                                 let errorMessage = e?.message || 'Failed to delete invoice';
                                                 if (errorMessage.includes('linked expenses')) {
                                                   errorMessage = t('invoices.delete_error_linked_expenses');
@@ -1589,10 +1689,10 @@ export default function Statements() {
                                                 toast.error(errorMessage);
                                               }
                                             }}
-                                            className="text-red-600 focus:text-red-600"
+                                            className="text-destructive focus:text-destructive"
                                           >
                                             <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete Invoice
+                                            {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
                                           </DropdownMenuItem>
                                         </>
                                       )}
@@ -1607,58 +1707,21 @@ export default function Statements() {
                     ))}
                     {rows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">No transactions</TableCell>
+                        <TableCell colSpan={9} className="h-32 text-center text-muted-foreground italic">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <FileText className="h-8 w-8 opacity-20" />
+                            {t('statements.no_transactions', { defaultValue: 'No transactions found' })}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
               </div>
-              {/* Pagination */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
-                <div className="text-sm text-muted-foreground">
-                  Showing <span className="font-medium text-foreground">{statements.length}</span> of <span className="font-medium text-foreground">{totalStatements}</span> statements
-                </div>
-                <div className="flex items-center gap-2">
-                  <ProfessionalButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                    disabled={page === 1}
-                    className="h-9 px-4"
-                  >
-                    Previous
-                  </ProfessionalButton>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.ceil(totalStatements / pageSize) }, (_, i) => i + 1)
-                      .filter(p => p === 1 || p === Math.ceil(totalStatements / pageSize) || Math.abs(p - page) <= 1)
-                      .map((p, i, arr) => (
-                        <div key={p} className="flex items-center">
-                          {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
-                          <ProfessionalButton
-                            variant={page === p ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setPage(p)}
-                            className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
-                          >
-                            {p}
-                          </ProfessionalButton>
-                        </div>
-                      ))}
-                  </div>
-                  <ProfessionalButton
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(prev => Math.min(Math.ceil(totalStatements / pageSize), prev + 1))}
-                    disabled={page >= Math.ceil(totalStatements / pageSize)}
-                    className="h-9 px-4"
-                  >
-                    Next
-                  </ProfessionalButton>
-                </div>
-              </div>
-            </CardContent>
-          </ProfessionalCard>
+            </ProfessionalCard>
+          </div>
         )}
+
 
         {showInvoiceForm && (
           <ProfessionalCard className="slide-in">
