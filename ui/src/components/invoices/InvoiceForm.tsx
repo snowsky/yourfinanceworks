@@ -14,6 +14,7 @@ import { useAttachmentManagement } from "@/hooks/useAttachmentManagement";
 import { InvoiceClientSection } from "./InvoiceClientSection";
 import { InvoiceItemsSection } from "./InvoiceItemsSection";
 import { InvoiceDiscountSection } from "./InvoiceDiscountSection";
+import { InvoiceLabelsSection } from "./InvoiceLabelsSection";
 import { InvoiceAttachmentSection } from "./InvoiceAttachmentSection";
 import { InvoicePaymentSection } from "./InvoicePaymentSection";
 
@@ -204,6 +205,7 @@ export function InvoiceForm({
           }, {}),
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
+          labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
         };
 
         await invoiceApi.updateInvoice(invoice.id, updateData);
@@ -272,6 +274,7 @@ export function InvoiceForm({
           }, {}),
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
+          labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
         };
 
         const newInvoice = await invoiceApi.createInvoice(invoiceData);
@@ -498,6 +501,11 @@ export function InvoiceForm({
                 calculateDiscount={invoiceForm.calculateDiscount}
                 calculateTotal={invoiceForm.calculateTotal}
                 applyDiscountRule={invoiceForm.applyDiscountRule}
+              />
+
+              {/* Labels Section */}
+              <InvoiceLabelsSection
+                form={invoiceForm.form}
               />
 
               {/* Payment Section - Only show for approved invoices or when payment editing is allowed */}

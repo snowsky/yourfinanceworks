@@ -54,6 +54,7 @@ const formSchema = z.object({
   customFields: z.array(customFieldSchema).default([]),
   showDiscountInPdf: z.boolean().optional().default(false),
   payer: z.enum(["You", "Client"] as const).default("Client"),
+  labels: z.array(z.string()).default([]),
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -145,6 +146,7 @@ export function useInvoiceForm({
     customFields: initialData?.customFields || [],
     showDiscountInPdf: initialData?.showDiscountInPdf ?? (invoice?.show_discount_in_pdf || false),
     payer: initialData?.payer || (invoice as any)?.payer || "Client",
+    labels: initialData?.labels || invoice?.labels || [],
   };
 
   const form = useForm<FormValues>({
@@ -173,6 +175,7 @@ export function useInvoiceForm({
         customFields: initialData.customFields || [],
         showDiscountInPdf: initialData.showDiscountInPdf ?? false,
         payer: initialData.payer || "Client",
+        labels: initialData.labels || [],
       };
       form.reset(mergedValues);
     }
@@ -191,9 +194,12 @@ export function useInvoiceForm({
           tenantApi.getTenantInfo()
         ]);
 
-        setClients(clientsData);
+        setClients(clientsData.items || []);
         setAvailableDiscountRules(discountRulesData);
         setTenantInfo(tenantData);
+        
+        console.log("InvoiceForm - Clients loaded:", clientsData.items);
+        console.log("InvoiceForm - Clients length:", clientsData.items?.length);
 
         if (isAdminUser) {
           try {
