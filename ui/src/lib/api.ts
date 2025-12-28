@@ -33,6 +33,7 @@ export interface Client {
   paid_amount: number;
   outstanding_balance?: number;
   preferred_currency?: string;
+  labels?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +116,7 @@ export interface Invoice {
   has_attachment?: boolean;
   attachment_filename?: string;
   payer?: string;
+  labels?: string[];
   // User attribution fields
   created_by_user_id?: number;
   created_by_username?: string;
@@ -506,12 +508,16 @@ export const bankStatementApi = {
     return JSON.parse(text);
   },
 
-  list: async (): Promise<BankStatementSummary[]> => {
-    const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[] }>(
-      '/statements',
+  list: async (skip: number = 0, limit: number = 100, label?: string): Promise<{ statements: BankStatementSummary[], total: number }> => {
+    const params = new URLSearchParams();
+    params.set('skip', skip.toString());
+    params.set('limit', limit.toString());
+    if (label) params.set('label', label);
+    const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[]; total: number }>(
+      `/statements?${params.toString()}`,
       { method: 'GET' }
     );
-    return data.statements;
+    return { statements: data.statements, total: data.total };
   },
 
   get: async (statementId: number): Promise<BankStatementDetail> => {
@@ -606,6 +612,11 @@ export const bankStatementApi = {
     apiRequest(`/statements/${id}/permanent`, { method: 'DELETE' }),
   emptyRecycleBin: () =>
     apiRequest('/statements/recycle-bin/empty', { method: 'POST' }),
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/statements/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
 };
 
 // Add settings types
@@ -1369,7 +1380,16 @@ export const approvalApi = {
 
 // Client API methods
 export const clientApi = {
-  getClients: () => apiRequest<Client[]>("/clients/"),
+  getClients: async (skip: number = 0, limit: number = 100, label?: string): Promise<{ items: Client[], total: number }> => {
+    let url = `/clients/?skip=${skip}&limit=${limit}`;
+    if (label) url += `&label_filter=${encodeURIComponent(label)}`;
+    return apiRequest<{ items: Client[], total: number }>(url);
+  },
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/clients/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
   getClient: (id: number) => apiRequest<Client>(`/clients/${id}`),
   createClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) =>
     apiRequest<Client>("/clients/", {
@@ -1543,12 +1563,17 @@ export const invoiceApi = {
       throw error;
     }
   },
-  getInvoices: async (status?: string): Promise<Invoice[]> => {
+  getInvoices: async (status?: string, label?: string, skip: number = 0, limit: number = 100): Promise<{ items: Invoice[], total: number }> => {
     try {
-      const response = await apiRequest<any[]>(`/invoices/${status ? `?status_filter=${status}` : ''}`);
+      const params = new URLSearchParams();
+      if (status) params.set('status_filter', status);
+      if (label) params.set('label', label);
+      params.set('skip', skip.toString());
+      params.set('limit', limit.toString());
+      const response = await apiRequest<{ items: any[], total: number }>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
 
       // Map API response to frontend Invoice interface
-      const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
+      const mappedInvoices: Invoice[] = response.items.map(apiInvoice => ({
         id: apiInvoice.id,
         number: apiInvoice.number || '',
         client_id: apiInvoice.client_id,
@@ -1569,18 +1594,24 @@ export const invoiceApi = {
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
         payer: apiInvoice.payer || 'Client',
+        labels: apiInvoice.labels || [],
         // User attribution fields
         created_by_user_id: apiInvoice.created_by_user_id,
         created_by_username: apiInvoice.created_by_username,
         created_by_email: apiInvoice.created_by_email,
       }));
 
-      return mappedInvoices;
+      return { items: mappedInvoices, total: response.total };
     } catch (error) {
       console.error('Failed to fetch invoices:', error);
       throw error;
     }
   },
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/invoices/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
   getInvoice: async (id: number) => {
     try {
       // Get invoice data from API
@@ -2052,13 +2083,16 @@ export const expenseApi = {
 export const dashboardApi = {
   getStats: async () => {
     try {
-      const [clients, invoices, payments] = await Promise.all([
-        clientApi.getClients(),
-        invoiceApi.getInvoices(),
+      const [clientsData, invoicesData, payments] = await Promise.all([
+        clientApi.getClients(0, 1000), // get more for dashboard
+        invoiceApi.getInvoices(undefined, undefined, 0, 1000),
         paymentApi.getPayments(),
       ]);
 
-      const totalClients = clients.length;
+      const clients = clientsData.items;
+      const invoices = invoicesData.items;
+
+      const totalClients = clientsData.total;
       // Group totals by currency
       const totalIncome: Record<string, number> = {};
       const pendingInvoices: Record<string, number> = {};
@@ -3101,7 +3135,8 @@ export const activityApi = {
 
       // Fetch recent invoices
       try {
-        const invoices = await invoiceApi.getInvoices();
+        const data = await invoiceApi.getInvoices();
+        const invoices = data.items;
         const recentInvoices = invoices
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 3)
@@ -3123,9 +3158,14 @@ export const activityApi = {
 
       // Fetch recent clients
       try {
-        const clients = await clientApi.getClients();
+        const data = await clientApi.getClients(0, 10);
+        const clients = data.items;
         const recentClients = clients
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+          })
           .slice(0, 2)
           .map(client => ({
             id: `client-${client.id}`,
