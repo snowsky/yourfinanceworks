@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package } from "lucide-react";
+import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package, X, Tag } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { invoiceApi, Invoice, api, INVOICE_STATUSES, formatStatus } from "@/lib/api";
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
+import { Minus } from "lucide-react";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate } from '@/lib/utils';
 import { canPerformActions } from "@/utils/auth";
@@ -58,6 +59,14 @@ const Invoices = () => {
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [labelFilter, setLabelFilter] = useState("");
+  const [bulkLabel, setBulkLabel] = useState("");
+  const [newLabelValueById, setNewLabelValueById] = useState<Record<number, string>>({});
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalInvoices, setTotalInvoices] = useState(0);
 
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
@@ -110,9 +119,12 @@ const Invoices = () => {
       setLoading(true);
       try {
         const status = statusFilter !== "all" ? statusFilter : undefined;
-        const data = await invoiceApi.getInvoices(status);
-        setInvoices(data);
+        const skip = (page - 1) * pageSize;
+        const data = await invoiceApi.getInvoices(status, labelFilter || undefined, skip, pageSize);
+        setInvoices(data.items);
+        setTotalInvoices(data.total);
       } catch (error) {
+        console.error("Failed to fetch invoices:", error);
         toast.error(t('invoices.errors.load_failed'));
       } finally {
         setLoading(false);
@@ -120,7 +132,7 @@ const Invoices = () => {
     };
 
     fetchInvoices();
-  }, [statusFilter, currentTenantId]); // Use state variable as dependency
+  }, [statusFilter, labelFilter, currentTenantId, page, pageSize]); // Use state variable as dependency
 
   const fetchDeletedInvoices = async () => {
     try {
@@ -147,8 +159,9 @@ const Invoices = () => {
       toast.success(t('invoices.delete_success'));
       // Refresh the invoices list
       const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status);
-      setInvoices(data);
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
       // Refresh recycle bin if open
       if (showRecycleBin) {
         fetchDeletedInvoices();
@@ -180,8 +193,9 @@ const Invoices = () => {
       setSelectedIds([]);
       // Refresh the invoices list
       const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status);
-      setInvoices(data);
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
       // Refresh recycle bin if open
       if (showRecycleBin) {
         fetchDeletedInvoices();
@@ -207,8 +221,9 @@ const Invoices = () => {
       fetchDeletedInvoices();
       // Refresh main invoices list
       const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status);
-      setInvoices(data);
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
     } catch (error) {
       toast.error('Failed to restore invoice');
     }
@@ -257,8 +272,9 @@ const Invoices = () => {
       toast.success(`Cloned as ${newInvoice.number}`);
       // Refresh list
       const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status);
-      setInvoices(data);
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
       // Redirect to edit
       navigate(`/invoices/edit/${newInvoice.id}`);
     } catch (error) {
@@ -471,7 +487,6 @@ const Invoices = () => {
             <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">{t('invoices.invoice_list')}</h2>
-                <p className="text-muted-foreground mt-1">{t('invoices.manage_invoices_description')}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 {/* Search */}
@@ -503,6 +518,26 @@ const Invoices = () => {
                   </Select>
                 </div>
 
+                {/* Label Filter */}
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('invoices.filter_by_label', { defaultValue: 'Filter by label' })}
+                    className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={labelFilter}
+                    onChange={(e) => setLabelFilter(e.target.value)}
+                  />
+                  {labelFilter && (
+                    <button
+                      aria-label="Clear label filter"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setLabelFilter('')}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
                 {/* View Mode Toggle */}
                 <div className="flex border border-border/50 rounded-lg p-1 bg-muted/30 shadow-sm">
                   <ProfessionalButton
@@ -527,28 +562,89 @@ const Invoices = () => {
 
             {/* Bulk actions bar */}
             {selectedIds.length > 0 && (
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm">
+              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
                 <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-primary animate-pulse"></div>
-                  <span className="text-sm font-semibold text-foreground">
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                  <span className="text-sm font-bold text-foreground">
                     {selectedIds.length} invoice{selectedIds.length !== 1 ? 's' : ''} selected
                   </span>
-                </div>
-                <div className="flex items-center gap-2">
                   <ProfessionalButton
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setSelectedIds([])}
+                    className="h-8 text-xs hover:bg-primary/10 transition-colors"
                   >
                     Clear
                   </ProfessionalButton>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                  <div className="relative group flex-1 md:flex-initial min-w-[200px]">
+                    <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder={t('invoices.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                      value={bulkLabel}
+                      onChange={(e) => setBulkLabel(e.target.value)}
+                      className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <ProfessionalButton
+                      variant="outline"
+                      size="sm"
+                      disabled={!canPerformAction || !bulkLabel.trim()}
+                      onClick={async () => {
+                        try {
+                          await invoiceApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
+                          const data = await invoiceApi.getInvoices(statusFilter !== 'all' ? statusFilter : undefined, labelFilter || undefined);
+                          setInvoices(data);
+                          setSelectedIds([]);
+                          setBulkLabel('');
+                          toast.success('Labels added');
+                        } catch (e: any) {
+                          toast.error(e?.message || 'Failed to add label');
+                        }
+                      }}
+                      className="h-9 px-3 gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </ProfessionalButton>
+
+                    <ProfessionalButton
+                      variant="outline"
+                      size="sm"
+                      disabled={!canPerformAction || !bulkLabel.trim()}
+                      onClick={async () => {
+                        try {
+                          await invoiceApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
+                          const data = await invoiceApi.getInvoices(statusFilter !== 'all' ? statusFilter : undefined, labelFilter || undefined);
+                          setInvoices(data);
+                          setSelectedIds([]);
+                          setBulkLabel('');
+                          toast.success('Labels removed');
+                        } catch (e: any) {
+                          toast.error(e?.message || 'Failed to remove label');
+                        }
+                      }}
+                      className="h-9 px-3 gap-1.5"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                      Remove
+                    </ProfessionalButton>
+                  </div>
+
+                  <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
+
                   <ProfessionalButton
                     variant="destructive"
                     size="sm"
                     onClick={handleBulkDelete}
                     disabled={!canPerformAction}
+                    className="h-9 px-3 gap-1.5 shadow-sm"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                     Delete Selected
                   </ProfessionalButton>
                 </div>
@@ -617,8 +713,10 @@ const Invoices = () => {
                             aria-label="Select all"
                           />
                         </TableHead>
+                        <TableHead className="font-bold text-foreground">ID</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.invoice')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.client')}</TableHead>
+                        <TableHead className="font-bold text-foreground">Labels</TableHead>
                         <TableHead className="hidden sm:table-cell font-bold text-foreground">{t('invoices.table.date')}</TableHead>
                         <TableHead className="hidden md:table-cell font-bold text-foreground">{t('invoices.table.due_date')}</TableHead>
                         <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>
@@ -641,6 +739,7 @@ const Invoices = () => {
                               aria-label={`Select invoice ${invoice.id}`}
                             />
                           </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{invoice.id}</TableCell>
                           <TableCell className="font-semibold text-foreground">
                             <span className="inline-flex items-center gap-2">
                               <FileText className="h-4 w-4 text-primary/60" />
@@ -648,6 +747,55 @@ const Invoices = () => {
                             </span>
                           </TableCell>
                           <TableCell className="text-foreground font-medium">{invoice.client_name}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
+                              {invoice.labels && invoice.labels.map((label: string, idx: number) => (
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 flex items-center gap-1 group/badge"
+                                >
+                                  {label}
+                                  <button
+                                    className="hover:text-destructive transition-colors"
+                                    onClick={() => {
+                                      const next = invoice.labels?.filter((_, i) => i !== idx) || [];
+                                      invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
+                                        setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? { ...x, labels: next } : x)));
+                                      }).catch((err: any) => {
+                                        toast.error(err?.message || 'Failed to remove label');
+                                      });
+                                    }}
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </Badge>
+                              ))}
+                              <Input
+                                placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                                className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
+                                value={newLabelValueById[invoice.id] || ''}
+                                onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: ev.target.value }))}
+                                onKeyDown={(ev) => {
+                                  if (ev.key === 'Enter' && newLabelValueById[invoice.id]?.trim()) {
+                                    const raw = newLabelValueById[invoice.id].trim();
+                                    const existing = invoice.labels || [];
+                                    if (existing.includes(raw)) { 
+                                      setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: '' })); 
+                                      return; 
+                                    }
+                                    const next = [...existing, raw].slice(0, 10);
+                                    invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
+                                      setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? { ...x, labels: next } : x)));
+                                      setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: '' }));
+                                    }).catch((err: any) => {
+                                      toast.error(err?.message || 'Failed to add label');
+                                    });
+                                  }
+                                }}
+                              />
+                            </div>
+                          </TableCell>
                           <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">{formatDate(invoice.created_at)}</TableCell>
                           <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{formatDate(invoice.due_date)}</TableCell>
                           <TableCell className="text-right font-semibold text-foreground">
@@ -676,34 +824,23 @@ const Invoices = () => {
                           </TableCell>
                           <TableCell>
                             {canPerformAction && (
-                              <div className="flex gap-1 justify-end">
+                              <div className="text-right flex gap-2 justify-end">
                                 <Link to={`/invoices/view/${invoice.id}`}>
-                                  <ProfessionalButton variant="ghost" size="icon-sm" title={t('invoices.view_invoice')} className="hover:bg-primary/10 hover:text-primary">
+                                  <Button size="sm" variant="outline">
                                     <Eye className="h-4 w-4" />
-                                  </ProfessionalButton>
+                                  </Button>
                                 </Link>
                                 <Link to={`/invoices/edit/${invoice.id}`}>
-                                  <ProfessionalButton variant="ghost" size="icon-sm" title={t('invoices.edit_invoice')} className="hover:bg-primary/10 hover:text-primary">
+                                  <Button size="sm" variant="outline">
                                     <Pencil className="h-4 w-4" />
-                                  </ProfessionalButton>
+                                  </Button>
                                 </Link>
-                                <ProfessionalButton
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  onClick={() => handleCloneInvoice(invoice.id)}
-                                  title="Clone invoice"
-                                  className="hover:bg-primary/10 hover:text-primary"
-                                >
+                                <Button size="sm" variant="outline" onClick={() => handleCloneInvoice(invoice.id)}>
                                   <Copy className="h-4 w-4" />
-                                </ProfessionalButton>
-                                <ProfessionalButton
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  onClick={() => handleDeleteInvoice(invoice.id)}
-                                  className="hover:bg-destructive/10 hover:text-destructive"
-                                >
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleDeleteInvoice(invoice.id)}>
                                   <Trash2 className="h-4 w-4" />
-                                </ProfessionalButton>
+                                </Button>
                               </div>
                             )}
                           </TableCell>
@@ -732,12 +869,55 @@ const Invoices = () => {
                 )}
               </div>
             )}
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
+              <div className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{invoices.length}</span> of <span className="font-medium text-foreground">{totalInvoices}</span> invoices
+              </div>
+              <div className="flex items-center gap-2">
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="h-9 px-4"
+                >
+                  Previous
+                </ProfessionalButton>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(totalInvoices / pageSize) }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === Math.ceil(totalInvoices / pageSize) || Math.abs(p - page) <= 1)
+                    .map((p, i, arr) => (
+                      <div key={p} className="flex items-center">
+                        {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                        <ProfessionalButton
+                          variant={page === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPage(p)}
+                          className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
+                        >
+                          {p}
+                        </ProfessionalButton>
+                      </div>
+                    ))}
+                </div>
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.min(Math.ceil(totalInvoices / pageSize), prev + 1))}
+                  disabled={page >= Math.ceil(totalInvoices / pageSize)}
+                  className="h-9 px-4"
+                >
+                  Next
+                </ProfessionalButton>
+              </div>
+            </div>
           </div>
-        </ProfessionalCard>
-      </div>
+        </ProfessionalCard >
+      </div >
 
       {/* Permanent Delete Modal */}
-      <AlertDialog open={permanentDeleteModalOpen} onOpenChange={setPermanentDeleteModalOpen}>
+      < AlertDialog open={permanentDeleteModalOpen} onOpenChange={setPermanentDeleteModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('invoices.permanent_delete_confirm_title', 'Permanently Delete Invoice')}</AlertDialogTitle>
@@ -753,10 +933,10 @@ const Invoices = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Delete Invoice Modal */}
-      <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+      < AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('invoices.delete_confirm_title', 'Delete Invoice')}</AlertDialogTitle>
@@ -771,10 +951,10 @@ const Invoices = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Bulk Delete Modal */}
-      <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
+      < AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -804,10 +984,10 @@ const Invoices = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
 
       {/* Empty Recycle Bin Modal */}
-      <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
+      < AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('recycleBin.empty_recycle_bin_confirm_title')}</AlertDialogTitle>
@@ -823,7 +1003,7 @@ const Invoices = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog >
     </>
   );
 };

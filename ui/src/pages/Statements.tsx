@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -105,6 +106,18 @@ export default function Statements() {
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
   const readOnly = detail?.status === 'processing';
+
+  // Selection and filtering
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [labelFilter, setLabelFilter] = useState('');
+  const [bulkLabel, setBulkLabel] = useState('');
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalStatements, setTotalStatements] = useState(0);
+  const [newLabelValueById, setNewLabelValueById] = useState<Record<number, string>>({});
 
   // Recycle bin state
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -263,8 +276,10 @@ export default function Statements() {
 
   const loadList = async () => {
     try {
-      const list = await bankStatementApi.list();
-      setStatements(list);
+      const skip = (page - 1) * pageSize;
+      const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined);
+      setStatements(data.statements);
+      setTotalStatements(data.total);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statements');
     }
@@ -272,7 +287,7 @@ export default function Statements() {
 
   useEffect(() => {
     loadList();
-  }, []);
+  }, [labelFilter, page, pageSize]);
 
   useEffect(() => {
     if (!recycleBinLoading && deletedStatements.length === 0 && showRecycleBin && prevDeletedCount.current > 0) {
@@ -429,6 +444,23 @@ export default function Statements() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    setLoading(true);
+    try {
+      for (const id of selectedIds) {
+        await bankStatementApi.delete(id);
+      }
+      toast.success(t('statements.bulk_delete_success', { count: selectedIds.length, defaultValue: 'Statements deleted successfully' }));
+      await loadList();
+      setSelectedIds([]);
+      setBulkDeleteModalOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete statements');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Recycle bin functions
   const fetchDeletedStatements = async () => {
     try {
@@ -547,56 +579,34 @@ export default function Statements() {
 
         {/* Hero Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="space-y-2">
               <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('statements.title')}</h1>
               <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
             </div>
-            {!selected && (
-              <div className="flex gap-3 items-center flex-wrap justify-end">
-                <ProfessionalButton
-                  variant="outline"
-                  size="default"
-                  onClick={handleToggleRecycleBin}
-                  className="whitespace-nowrap"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}
-                  {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </ProfessionalButton>
-                <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <ProfessionalButton
+                variant="outline"
+                size="default"
+                onClick={handleToggleRecycleBin}
+                className="whitespace-nowrap"
+              >
+                <Trash2 className="h-4 w-4" />
+                {t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}
+                {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </ProfessionalButton>
+              <StatementUploadButton onUpload={() => setUploadModalOpen(true)} />
+            </div>
           </div>
         </div>
 
-        {/* Recycle Bin Section */}
-        <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
-          <CollapsibleContent>
-            <ProfessionalCard className="slide-in mb-8 border-l-4 border-l-destructive overflow-hidden" variant="elevated">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-destructive/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-              <div className="relative space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
-                      <Trash2 className="h-6 w-6 text-destructive" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xl text-foreground">{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
-                      <p className="text-sm text-muted-foreground">Recover or permanently delete statements</p>
-                    </div>
-                  </div>
-                  {deletedStatements.length > 0 && (
-                    <ProfessionalButton
-                      variant="destructive"
-                      size="default"
-                      onClick={handleEmptyRecycleBin}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
-                    </ProfessionalButton>
-                  )}
-                </div>
+        {!selected && showRecycleBin && (
+          <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin} className="space-y-4">
+            <ProfessionalCard className="slide-in">
+              <CardHeader>
+                <CardTitle>{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                   <Table>
                     <TableHeader>
@@ -700,36 +710,237 @@ export default function Statements() {
                     </TableBody>
                   </Table>
                 </div>
-              </div>
+                {deletedStatements.length > 0 && (
+                  <div className="flex justify-end mt-4">
+                    <ProfessionalButton
+                      variant="destructive"
+                      onClick={handleEmptyRecycleBin}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                    </ProfessionalButton>
+                  </div>
+                )}
+              </CardContent>
             </ProfessionalCard>
-          </CollapsibleContent>
-        </Collapsible>
+          </Collapsible>
+        )}
 
         {!selected && (
           <ProfessionalCard className="slide-in">
             <CardHeader>
-              <CardTitle>{t('statements.list_title')}</CardTitle>
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <CardTitle>{t('statements.list_title')}</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  {/* Search */}
+                  <div className="relative w-full sm:w-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('statements.search_placeholder')}
+                      className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    // Search query state not implemented yet in this file, but adding placeholder UI
+                    />
+                  </div>
+
+                  {/* Label Filter */}
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
+                      className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                      value={labelFilter}
+                      onChange={(e) => setLabelFilter(e.target.value)}
+                    />
+                    {labelFilter && (
+                      <button
+                        aria-label="Clear label filter"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setLabelFilter('')}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-x-auto">
+              {/* Selection Toolbar */}
+              {selectedIds.length > 0 && (
+                <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                    <span className="text-sm font-bold text-foreground">
+                      {selectedIds.length} statement{selectedIds.length !== 1 ? 's' : ''} selected
+                    </span>
+                    <ProfessionalButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds([])}
+                      className="h-8 text-xs hover:bg-primary/10 transition-colors"
+                    >
+                      Clear
+                    </ProfessionalButton>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                    <div className="relative group flex-1 md:flex-initial min-w-[200px]">
+                      <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder={t('statements.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                        value={bulkLabel}
+                        onChange={(e) => setBulkLabel(e.target.value)}
+                        className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        disabled={!bulkLabel.trim()}
+                        onClick={async () => {
+                          try {
+                            await bankStatementApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
+                            loadList();
+                            setSelectedIds([]);
+                            setBulkLabel('');
+                            toast.success('Labels added');
+                          } catch (e: any) {
+                            toast.error(e?.message || 'Failed to add label');
+                          }
+                        }}
+                        className="h-9 px-3 gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add
+                      </ProfessionalButton>
+
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        disabled={!bulkLabel.trim()}
+                        onClick={async () => {
+                          try {
+                            await bankStatementApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
+                            await loadList();
+                            setSelectedIds([]);
+                            setBulkLabel('');
+                            toast.success('Labels removed');
+                          } catch (e: any) {
+                            toast.error(e?.message || 'Failed to remove label');
+                          }
+                        }}
+                        className="h-9 px-3 gap-1.5"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                        Remove
+                      </ProfessionalButton>
+                    </div>
+
+                    <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
+
+                    <ProfessionalButton
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setBulkDeleteModalOpen(true)}
+                      className="h-9 px-3 gap-1.5 shadow-sm"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Selected
+                    </ProfessionalButton>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('statements.filename')}</TableHead>
-                      <TableHead>{t('statements.labels')}</TableHead>
-                      <TableHead>{t('statements.status')}</TableHead>
-                      <TableHead>{t('statements.transactions')}</TableHead>
-                      <TableHead className="hidden lg:table-cell">{t('common.created_by')}</TableHead>
-                      <TableHead>{t('statements.uploaded')}</TableHead>
-                      <TableHead></TableHead>
+                    <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={statements.length > 0 && selectedIds.length === statements.length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIds(statements.map(s => s.id));
+                            } else {
+                              setSelectedIds([]);
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
+                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('common.created_by')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.uploaded')}</TableHead>
+                      <TableHead className="w-[100px] text-right font-bold text-foreground">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {statements.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell className="font-medium">{s.original_filename}</TableCell>
-                        <TableCell className="max-w-[280px] whitespace-nowrap text-muted-foreground overflow-hidden text-ellipsis">
-                          {Array.isArray((s as any).labels) && (s as any).labels.length > 0 ? (s as any).labels.join(', ') : '-'}
+                      <TableRow key={s.id} className={`hover:bg-muted/50 transition-all duration-200 border-b border-border/30 ${selectedIds.includes(s.id) ? 'bg-primary/5' : ''}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(s.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedIds(prev => [...prev, s.id]);
+                              } else {
+                                setSelectedIds(prev => prev.filter(id => id !== s.id));
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-semibold text-foreground">{s.original_filename}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
+                            {Array.isArray((s as any).labels) && (s as any).labels.map((label: string, idx: number) => (
+                              <div
+                                key={idx}
+                                className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border border-primary/20 rounded flex items-center gap-1 group/badge"
+                              >
+                                {label}
+                                <button
+                                  className="hover:text-destructive transition-colors"
+                                  onClick={() => {
+                                    const next = (s as any).labels?.filter((_: any, i: number) => i !== idx) || [];
+                                    bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
+                                      setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
+                                    }).catch((err: any) => {
+                                      toast.error(err?.message || 'Failed to remove label');
+                                    });
+                                  }}
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                            ))}
+                            <Input
+                              placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                              className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
+                              value={newLabelValueById[s.id] || ''}
+                              onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [s.id]: ev.target.value }))}
+                              onKeyDown={(ev) => {
+                                if (ev.key === 'Enter' && newLabelValueById[s.id]?.trim()) {
+                                  const raw = newLabelValueById[s.id].trim();
+                                  const existing = (s as any).labels || [];
+                                  if (existing.includes(raw)) { 
+                                    setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' })); 
+                                    return; 
+                                  }
+                                  const next = [...existing, raw].slice(0, 10);
+                                  bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
+                                    setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
+                                    setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' }));
+                                  }).catch((err: any) => {
+                                    toast.error(err?.message || 'Failed to add label');
+                                  });
+                                }
+                              }}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>{formatStatus(s.status)}</TableCell>
                         <TableCell>{s.extracted_count}</TableCell>
@@ -739,7 +950,7 @@ export default function Statements() {
                         <TableCell>{s.created_at ? format(new Date(s.created_at), 'PP p') : ''}</TableCell>
                         <TableCell className="text-right flex gap-2 justify-end">
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
-                            <Eye className="w-4 h-4 mr-1" /> {t('statements.open')}
+                            <Eye className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
@@ -754,12 +965,12 @@ export default function Statements() {
                               </>
                             ) : (
                               <>
-                                <ExternalLink className="w-4 h-4 mr-1" /> {t('statements.preview')}
+                                <ExternalLink className="w-4 h-4" />
                               </>
                             )}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)}>
-                            <Download className="w-4 h-4 mr-1" /> {t('statements.download')}
+                            <Download className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
@@ -769,7 +980,7 @@ export default function Statements() {
                               setDeleteModalOpen(true);
                             }}
                           >
-                            <Trash2 className="w-4 h-4 mr-1" /> {t('statements.delete')}
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -791,6 +1002,49 @@ export default function Statements() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+              {/* Pagination */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
+                <div className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{statements.length}</span> of <span className="font-medium text-foreground">{totalStatements}</span> statements
+                </div>
+                <div className="flex items-center gap-2">
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                    disabled={page === 1}
+                    className="h-9 px-4"
+                  >
+                    Previous
+                  </ProfessionalButton>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(totalStatements / pageSize) }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === Math.ceil(totalStatements / pageSize) || Math.abs(p - page) <= 1)
+                      .map((p, i, arr) => (
+                        <div key={p} className="flex items-center">
+                          {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                          <ProfessionalButton
+                            variant={page === p ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPage(p)}
+                            className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
+                          >
+                            {p}
+                          </ProfessionalButton>
+                        </div>
+                      ))}
+                  </div>
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(prev => Math.min(Math.ceil(totalStatements / pageSize), prev + 1))}
+                    disabled={page >= Math.ceil(totalStatements / pageSize)}
+                    className="h-9 px-4"
+                  >
+                    Next
+                  </ProfessionalButton>
+                </div>
               </div>
             </CardContent>
           </ProfessionalCard>
@@ -970,9 +1224,9 @@ export default function Statements() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm text-muted-foreground">Labels (up to 10)</label>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap gap-1 items-center">
                     {statementLabels.slice(0, 10).map((lab, idx) => (
-                      <Badge key={`stmt-lab-${idx}`} variant="secondary" className="text-xs">
+                      <div key={`stmt-lab-${idx}`} className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded flex items-center gap-1">
                         {lab}
                         {!readOnly && (
                           <button
@@ -993,7 +1247,7 @@ export default function Statements() {
                             <X className="w-3 h-3" />
                           </button>
                         )}
-                      </Badge>
+                      </div>
                     ))}
                     {!readOnly && (
                       <Input
@@ -1358,6 +1612,49 @@ export default function Statements() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+              {/* Pagination */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
+                <div className="text-sm text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{statements.length}</span> of <span className="font-medium text-foreground">{totalStatements}</span> statements
+                </div>
+                <div className="flex items-center gap-2">
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                    disabled={page === 1}
+                    className="h-9 px-4"
+                  >
+                    Previous
+                  </ProfessionalButton>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(totalStatements / pageSize) }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === Math.ceil(totalStatements / pageSize) || Math.abs(p - page) <= 1)
+                      .map((p, i, arr) => (
+                        <div key={p} className="flex items-center">
+                          {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                          <ProfessionalButton
+                            variant={page === p ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPage(p)}
+                            className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
+                          >
+                            {p}
+                          </ProfessionalButton>
+                        </div>
+                      ))}
+                  </div>
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(prev => Math.min(Math.ceil(totalStatements / pageSize), prev + 1))}
+                    disabled={page >= Math.ceil(totalStatements / pageSize)}
+                    className="h-9 px-4"
+                  >
+                    Next
+                  </ProfessionalButton>
+                </div>
               </div>
             </CardContent>
           </ProfessionalCard>

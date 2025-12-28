@@ -937,7 +937,7 @@ const Expenses = () => {
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                     <TableHead className="w-[40px]">
                       <Checkbox
                         checked={selectedIds.length > 0 && selectedIds.length === filteredExpenses.length}
@@ -948,19 +948,19 @@ const Expenses = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead>{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
-                    <TableHead>{t('expenses.table.date')}</TableHead>
-                    <TableHead>{t('expenses.table.category')}</TableHead>
-                    <TableHead>{t('expenses.table.vendor')}</TableHead>
-                    <TableHead>{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
-                    <TableHead>{t('expenses.table.amount')}</TableHead>
-                    <TableHead>{t('expenses.table.total')}</TableHead>
-                    <TableHead>{t('expenses.table.invoice')}</TableHead>
-                    <TableHead>{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
-                    <TableHead className="hidden xl:table-cell">{t('common.created_by')}</TableHead>
-                    <TableHead>{t('expenses.table.analyzed')}</TableHead>
-                    <TableHead>{t('expenses.table.receipt')}</TableHead>
-                    <TableHead>{t('expenses.table.actions')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.date')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.category')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.vendor')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.amount')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
+                    <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('common.created_by')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
+                    <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1027,9 +1027,9 @@ const Expenses = () => {
                             ))}
                             {canPerformActions() && (
                               <Input
-                                placeholder={t('expenses.label_placeholder', { defaultValue: 'Add label' })}
+                                placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
                                 value={newLabelValueById[e.id] || ''}
-                                className="w-[140px] h-8"
+                                className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                                 onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [e.id]: ev.target.value }))}
                                 onKeyDown={async (ev) => {
                                   if (ev.key === 'Enter') {
@@ -1157,52 +1157,37 @@ const Expenses = () => {
                         </TableCell>
                         <TableCell>
                           {canPerformActions() && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
+                            <div className="text-right flex gap-2 justify-end">
+                              <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/view/${e.id}`}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {canEditExpense(e) && (
+                                <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
+                                  <Edit className="w-4 h-4" />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/expenses/view/${e.id}`} className="flex items-center w-full">
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    {t('common.view', { defaultValue: 'View' })}
-                                  </Link>
-                                </DropdownMenuItem>
-                                {canEditExpense(e) && (
-                                  <DropdownMenuItem asChild>
-                                    <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
-                                      <Edit className="w-4 h-4 mr-2" />
-                                      {t('expenses.edit')}
-                                    </Link>
-                                  </DropdownMenuItem>
-                                )}
-                                {canDeleteExpense(e) && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                        <Trash2 className="w-4 h-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          {t('expenses.delete_confirm_description')}
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              )}
+                              {canDeleteExpense(e) && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('expenses.delete_confirm_description')}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
