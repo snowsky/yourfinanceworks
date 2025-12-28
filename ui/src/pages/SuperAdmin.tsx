@@ -354,6 +354,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   const handleUpdateUser = async () => {
     if (!editUser) return;
     try {
+      // Store original values to compare for Organizations & Roles changes
+      const originalTenantIds = editUserForm.tenant_ids;
+      const originalPrimaryTenantId = editUserForm.primary_tenant_id;
+      const originalTenantRoles = editUserForm.tenant_roles;
+
       const response = await fetch(`/api/v1/super-admin/users/${editUser.id}`, {
         method: 'PUT',
         headers: {
@@ -363,9 +368,22 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
         body: JSON.stringify(editUserForm)
       });
       if (!response.ok) throw new Error('Failed to update user');
+
+      // Check if Organizations & Roles were changed
+      const updatedData = await response.json();
+      const orgRolesChanged =
+        JSON.stringify(originalTenantIds) !== JSON.stringify(updatedData.tenant_ids || originalTenantIds) ||
+        originalPrimaryTenantId !== updatedData.primary_tenant_id ||
+        JSON.stringify(originalTenantRoles) !== JSON.stringify(updatedData.tenant_roles || originalTenantRoles);
+
       setEditUser(null);
       toast.success('User updated successfully');
       fetchUsers(selectedTenantForUsers?.id);
+
+      // Refresh page if Organizations & Roles were changed
+      if (orgRolesChanged) {
+        window.location.reload();
+      }
     } catch (err) {
       toast.error('Failed to update user');
     }
@@ -679,13 +697,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                   <h2 className="text-xl font-semibold">{t('superAdmin.users_management_title')}</h2>
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-2">
-                      <Label>Filter by Organization:</Label>
+                      <Label>{t('superAdmin.filter_by_organization')}</Label>
                       <Select value={selectedTenantForUsers?.id?.toString() || 'all'} onValueChange={(value) => setSelectedTenantForUsers(value === 'all' ? null : tenants.find(t => t.id.toString() === value) || null)}>
                         <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Organizations</SelectItem>
+                          <SelectItem value="all">{t('superAdmin.all_organizations')}</SelectItem>
                           {tenants.map(tenant => (
                             <SelectItem key={tenant.id} value={tenant.id.toString()}>{tenant.name}</SelectItem>
                           ))}

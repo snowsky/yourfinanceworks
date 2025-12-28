@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt, Clock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -84,10 +84,25 @@ const defaultNewExpense: Partial<Expense> = {
 };
 
 const Expenses = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
   const gamificationContext = useGamificationContextOptional();
   const hasAIExpenseFeature = isFeatureEnabled('ai_expense');
+
+  // Helper function to get locale for date formatting
+  const getLocale = () => {
+    const language = i18n.language;
+    switch (language) {
+      case 'es':
+        return 'es-ES';
+      case 'fr':
+        return 'fr-FR';
+      case 'de':
+        return 'de-DE';
+      default:
+        return 'en-US';
+    }
+  };
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
   const [loading, setLoading] = useState(true);
@@ -395,7 +410,12 @@ const Expenses = () => {
           createdWithReceipt = { ...created, receipt_filename: uploadResp?.receipt_filename || created.receipt_filename } as Expense;
 
           addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-          (window as any).startExpensePolling?.(created.id);
+          const startPolling = (window as any).startExpensePolling;
+          if (typeof startPolling === 'function') {
+            startPolling(created.id);
+          } else {
+            console.warn('startExpensePolling is not available globally');
+          }
         } catch (e) {
           console.error('Receipt upload failed on create:', e);
           addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
@@ -471,7 +491,12 @@ const Expenses = () => {
       setExpenses(data);
 
       addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-      (window as any).startExpensePolling?.(id);
+      const startPolling = (window as any).startExpensePolling;
+      if (typeof startPolling === 'function') {
+        startPolling(id);
+      } else {
+        console.warn('startExpensePolling is not available globally');
+      }
       toast.success('Receipt uploaded');
     } catch (e: any) {
       addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e?.message || 'Unknown error'}`);
@@ -598,7 +623,12 @@ const Expenses = () => {
           finalUpdated = { ...updated, receipt_filename: uploadResp?.receipt_filename || updated.receipt_filename } as Expense;
 
           addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-          (window as any).startExpensePolling?.(updated.id);
+          const startPolling = (window as any).startExpensePolling;
+          if (typeof startPolling === 'function') {
+            startPolling(updated.id);
+          } else {
+            console.warn('startExpensePolling is not available globally');
+          }
         } catch (e) {
           console.error('Receipt upload failed on update:', e);
           addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
@@ -726,7 +756,7 @@ const Expenses = () => {
                         <Plus className="mr-2 h-4 w-4" />
                         <div className="flex flex-col">
                           <span>{t('expenses.create_multiple', 'Create Multiple Expenses')}</span>
-                          <span className="text-xs text-muted-foreground">Batch create expenses</span>
+                          <span className="text-xs text-muted-foreground">{t('expenses.batch_create_description')}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -734,7 +764,7 @@ const Expenses = () => {
                           <Upload className="mr-2 h-4 w-4" />
                           <div className="flex flex-col">
                             <span>{t('expenses.import_from_pdf_images')}</span>
-                            <span className="text-xs text-muted-foreground">Upload and extract</span>
+                            <span className="text-xs text-muted-foreground">{t('expenses.upload_and_extract_description')}</span>
                           </div>
                         </Link>
                       </DropdownMenuItem>
@@ -1068,10 +1098,12 @@ const Expenses = () => {
                         <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { timeZone: timezone }) : 'N/A'}</span>
+                            <div className="font-medium text-sm">
+                              {e.expense_date ? new Date(e.expense_date).toLocaleDateString(getLocale(), { timeZone: timezone }) : 'N/A'}
+                            </div>
                             {e.receipt_timestamp && e.receipt_time_extracted && (
                               <span className="text-xs text-muted-foreground">
-                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}
+                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString(getLocale(), { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                           </div>
@@ -1153,77 +1185,84 @@ const Expenses = () => {
                           {e.created_by_username || e.created_by_email || t('common.unknown')}
                         </TableCell>
                         <TableCell>
-                          {e.analysis_status === 'done' ? (
-                            <Badge variant="success">{t('expenses.status_done')}</Badge>
-                          ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                            <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
-                          ) : e.analysis_status === 'failed' ? (
-                            <Badge variant="destructive">Failed</Badge>
-                          ) : e.analysis_status === 'cancelled' ? (
-                            <Badge variant="secondary">Cancelled</Badge>
-                          ) : e.imported_from_attachment ? (
-                            <Badge variant="info">Not Started</Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                          {e.analysis_status && canPerformActions() && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="ml-2"
-                              onClick={() => handleRequeue(e.id)}
-                              disabled={
-                                !e.imported_from_attachment &&
-                                (!e.attachments_count || e.attachments_count === 0) ||
-                                processingLocks.has(e.id) ||
-                                uploadingId === e.id
-                              }
-                              title="Process Again"
-                            >
-                              {processingLocks.has(e.id) ? (
-                                <div className="flex items-center gap-1">
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                  <span className="animate-pulse">...</span>
-                                </div>
-                              ) : uploadingId === e.id ? (
-                                'Uploading...'
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              {e.analysis_status === 'done' ? (
+                                <Badge variant="success">{t('expenses.status_done')}</Badge>
+                              ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
+                                <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
+                              ) : e.analysis_status === 'failed' ? (
+                                <Badge variant="destructive">Failed</Badge>
+                              ) : e.analysis_status === 'cancelled' ? (
+                                <Badge variant="secondary">Cancelled</Badge>
+                              ) : e.imported_from_attachment ? (
+                                <Badge variant="info">Not Started</Badge>
                               ) : (
-                                <RotateCcw className="w-4 h-4" />
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </div>
+                            {e.analysis_status && canPerformActions() && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-fit"
+                                onClick={() => handleRequeue(e.id)}
+                                disabled={
+                                  !e.imported_from_attachment &&
+                                  (!e.attachments_count || e.attachments_count === 0) ||
+                                  processingLocks.has(e.id) ||
+                                  uploadingId === e.id
+                                }
+                                title="Process Again"
+                              >
+                                {processingLocks.has(e.id) ? (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    <span className="animate-pulse">...</span>
+                                  </div>
+                                ) : uploadingId === e.id ? (
+                                  'Uploading...'
+                                ) : (
+                                  <RotateCcw className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-2">
+                            <label className="inline-flex items-center gap-2 cursor-pointer w-fit">
+                              <Upload className="w-4 h-4" />
+                              <input
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png"
+                                className="hidden"
+                                onChange={async (ev) => {
+                                  const file = ev.target.files?.[0];
+                                  if (file) await handleUpload(e.id, file);
+                                  // refresh attachment list and auto-open preview
+                                  const list = await expenseApi.listAttachments(e.id);
+                                  setAttachments(prev => ({ ...prev, [e.id]: list }));
+                                  setAttachmentPreviewOpen({ expenseId: e.id });
+                                }}
+                              />
+                              <span className="text-sm">{uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}</span>
+                            </label>
+                            <Button variant="ghost" size="sm" className="w-fit justify-start px-0" onClick={async () => {
+                              const list = await expenseApi.listAttachments(e.id);
+                              setAttachments(prev => ({ ...prev, [e.id]: list }));
+                              setAttachmentPreviewOpen({ expenseId: e.id });
+                            }}>
+                              {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
+                                <span className="text-sm">{Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} {t('expenses.file_count', { defaultValue: 'file(s)', count: Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count })}</span>
+                              ) : (
+                                <>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  <span className="text-sm">{t('common.view')}</span>
+                                </>
                               )}
                             </Button>
-                          )}
-                        </TableCell>
-                        <TableCell className="space-x-2">
-                          <label className="inline-flex items-center gap-2 cursor-pointer">
-                            <Upload className="w-4 h-4" />
-                            <input
-                              type="file"
-                              accept="application/pdf,image/jpeg,image/png"
-                              className="hidden"
-                              onChange={async (ev) => {
-                                const file = ev.target.files?.[0];
-                                if (file) await handleUpload(e.id, file);
-                                // refresh attachment list and auto-open preview
-                                const list = await expenseApi.listAttachments(e.id);
-                                setAttachments(prev => ({ ...prev, [e.id]: list }));
-                                setAttachmentPreviewOpen({ expenseId: e.id });
-                              }}
-                            />
-                            {uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}
-                          </label>
-                          <Button variant="ghost" size="sm" onClick={async () => {
-                            const list = await expenseApi.listAttachments(e.id);
-                            setAttachments(prev => ({ ...prev, [e.id]: list }));
-                            setAttachmentPreviewOpen({ expenseId: e.id });
-                          }}>
-                            {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
-                              `${Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} ${t('expenses.attachments_count', { defaultValue: 'attachments' })}`
-                            ) : (
-                              <>
-                                <Eye className="w-4 h-4 mr-2" />
-                              </>
-                            )}
-                          </Button>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {canPerformActions() && (

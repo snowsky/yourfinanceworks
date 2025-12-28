@@ -77,7 +77,7 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
-  const startPolling = useExpenseStatusPolling();
+  const { startPolling } = useExpenseStatusPolling();
   const [bellHidden, setBellHidden] = React.useState(false);
   const isLoggedIn = getCurrentUser() !== null;
   const currentUser = getCurrentUser();

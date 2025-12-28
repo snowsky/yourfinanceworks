@@ -277,10 +277,10 @@ export default function ExpensesNew() {
         // Keep button disabled when showing approval dialog
       } else {
         toast.success(isInventoryConsumption ? t('expenses.consumption_expense_created_successfully') : t('expenses.expense_created'));
-        // Small delay to show success message before navigating
+        // Delay to allow database to propagate and show success message before navigating
         setTimeout(() => {
           window.history.back();
-        }, 1000);
+        }, 5000);
       }
     } catch (e: any) {
       const addNotification = (window as any).addAINotification;

@@ -317,10 +317,37 @@ export default function ExpensesEdit() {
               )}
             </div>
             {(form as any)?.analysis_status && (
-              <div className="text-sm text-muted-foreground">
-                {t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}: <span className="capitalize">{(form as any).analysis_status}</span>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                  <Badge
+                    variant={
+                      (form as any).analysis_status === 'done' ? 'default' :
+                        (form as any).analysis_status === 'failed' ? 'destructive' :
+                          (form as any).analysis_status === 'pending' || (form as any).analysis_status === 'queued' ? 'secondary' :
+                            'outline'
+                    }
+                    className="capitalize"
+                  >
+                    {(form as any).analysis_status === 'done' && '✓ '}
+                    {(form as any).analysis_status === 'failed' && '✗ '}
+                    {(form as any).analysis_status === 'pending' && '⏳ '}
+                    {(form as any).analysis_status === 'queued' && '⏳ '}
+                    {(form as any).analysis_status}
+                  </Badge>
+                </div>
                 {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
-                  <span className="text-red-600 ml-2">({(form as any).analysis_error})</span>
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <details className="cursor-pointer">
+                        <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details')}</summary>
+                        <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                          {(form as any).analysis_error}
+                        </div>
+                      </details>
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             )}

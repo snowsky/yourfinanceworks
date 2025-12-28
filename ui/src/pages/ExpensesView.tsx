@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, Package, Eye } from 'lucide-react';
+import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ExpenseApproval } from '@/types';
 
 export default function ExpensesView() {
@@ -227,33 +228,79 @@ export default function ExpensesView() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{t('expenses.details')}</CardTitle>
-              {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={async () => {
-                    try {
-                      const addNotification = (window as any).addAINotification;
-                      addNotification?.('processing', 'Reprocessing Expense', `Re-analyzing expense receipts with AI...`);
-
-                      await expenseApi.reprocessExpense(Number(id));
-
-                      addNotification?.('success', 'Expense Reprocessed', `Successfully reprocessed expense receipts.`);
-                      toast.success(t('expenses.reprocessing_started'));
-                      // Refresh the expense data
-                      const exp = await expenseApi.getExpense(Number(id));
-                      setForm(exp);
-                    } catch (e: any) {
-                      const addNotification = (window as any).addAINotification;
-                      addNotification?.('error', 'Expense Reprocessing Failed', `Failed to reprocess expense: ${e?.message || 'Unknown error'}`);
-                      toast.error(e?.message || t('expenses.failed_to_reprocess'));
-                    }
-                  }}
+                  onClick={() => navigate(`/expenses/edit/${id}`)}
+                  className="flex items-center gap-2"
                 >
-                  {t('expenses.process_again')}
+                  <Pencil className="w-4 h-4" />
+                  {t('common.edit', { defaultValue: 'Edit' })}
                 </Button>
-              )}
+                {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const addNotification = (window as any).addAINotification;
+                        addNotification?.('processing', 'Reprocessing Expense', `Re-analyzing expense receipts with AI...`);
+
+                        await expenseApi.reprocessExpense(Number(id));
+
+                        addNotification?.('success', 'Expense Reprocessed', `Successfully reprocessed expense receipts.`);
+                        toast.success(t('expenses.reprocessing_started'));
+                        // Refresh the expense data
+                        const exp = await expenseApi.getExpense(Number(id));
+                        setForm(exp);
+                      } catch (e: any) {
+                        const addNotification = (window as any).addAINotification;
+                        addNotification?.('error', 'Expense Reprocessing Failed', `Failed to reprocess expense: ${e?.message || 'Unknown error'}`);
+                        toast.error(e?.message || t('expenses.failed_to_reprocess'));
+                      }
+                    }}
+                  >
+                    {t('expenses.process_again')}
+                  </Button>
+                )}
+              </div>
             </div>
+            {(form as any)?.analysis_status && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                  {form.analysis_status === 'done' ? (
+                    <Badge variant="success" className="h-6">{t('expenses.status_done')}</Badge>
+                  ) : form.analysis_status === 'processing' || form.analysis_status === 'queued' ? (
+                    <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
+                      {form.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}
+                    </Badge>
+                  ) : form.analysis_status === 'failed' ? (
+                    <Badge variant="destructive" className="h-6">Failed</Badge>
+                  ) : form.analysis_status === 'cancelled' ? (
+                    <Badge variant="secondary" className="h-6">Cancelled</Badge>
+                  ) : (form as any)?.imported_from_attachment ? (
+                    <Badge variant="outline" className="h-6 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                      Not Started
+                    </Badge>
+                  ) : null}
+                </div>
+                {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <details className="cursor-pointer">
+                        <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details', { defaultValue: 'Analysis failed (click for details)' })}</summary>
+                        <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                          {(form as any).analysis_error}
+                        </div>
+                      </details>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -439,6 +486,14 @@ export default function ExpensesView() {
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back', { defaultValue: 'Back' })}</Button>
+          <Button
+            variant="default"
+            onClick={() => navigate(`/expenses/edit/${id}`)}
+            className="flex items-center gap-2"
+          >
+            <Pencil className="w-4 h-4" />
+            {t('common.edit', { defaultValue: 'Edit' })}
+          </Button>
         </div>
 
         {/* File inline preview dialog */}
