@@ -1,6 +1,17 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Git
 .git
 .gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
 
 # Node
 node_modules
@@ -14,29 +25,76 @@ __pycache__
 *.pyo
 *.pyd
 .Python
-env/
-venv/
-.env
 .venv
 pip-log.txt
 pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# Build
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
 dist/
 build/
 *.egg-info/
 
-# Data
-data/
-*.db
-*.sqlite3
+# Test files
+tests/
+.pytest_cache/
 
-# Misc
-.DS_Store
-*.log 
+# Alembic (database migrations)
+alembic/versions/*.py
+!alembic/versions/env.py
+!alembic/script.py.mako
+
+# Local development
+.local/
+local/ 

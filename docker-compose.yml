@@ -28,7 +28,7 @@ services:
       dockerfile: Dockerfile
     container_name: invoice_app_api
     env_file:
-      - api/.env
+      - ./api/.env
     environment:
       - ALLOW_EXPIRED_LICENSES=${ALLOW_EXPIRED_LICENSES:-false}
       # Master database for tenant management
