@@ -734,46 +734,63 @@ export default function Statements() {
         )}
 
         {!selected && (
-          <ProfessionalCard className="slide-in">
-            <CardHeader>
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <CardTitle>{t('statements.list_title')}</CardTitle>
-                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  {/* Search */}
-                  <div className="relative w-full sm:w-auto">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder={t('statements.search_placeholder')}
-                      className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+          <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            {/* Header with filters */}
+            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('statements.list_title')}</h2>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {/* Search */}
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('statements.search_placeholder')}
+                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                     // Search query state not implemented yet in this file, but adding placeholder UI
-                    />
-                  </div>
+                  />
+                </div>
 
-                  {/* Label Filter */}
-                  <div className="relative">
-                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
-                      className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
-                      value={labelFilter}
-                      onChange={(e) => setLabelFilter(e.target.value)}
-                    />
-                    {labelFilter && (
-                      <button
-                        aria-label="Clear label filter"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setLabelFilter('')}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                {/* Label Filter */}
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
+                    className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={labelFilter}
+                    onChange={(e) => setLabelFilter(e.target.value)}
+                  />
+                  {labelFilter && (
+                    <button
+                      aria-label="Clear label filter"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setLabelFilter('')}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Page Size */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('statements.page_size', { defaultValue: 'Page Size' })}</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                    <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 20, 50, 100].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {/* Selection Toolbar */}
-              {selectedIds.length > 0 && (
+            </div>
+
+            {/* Selection Toolbar */}
+            {selectedIds.length > 0 && (
                 <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
@@ -887,7 +904,7 @@ export default function Statements() {
                   </TableHeader>
                   <TableBody>
                     {statements.map((s) => (
-                      <TableRow key={s.id} className={`hover:bg-muted/50 transition-all duration-200 border-b border-border/30 ${selectedIds.includes(s.id) ? 'bg-primary/5' : ''}`}>
+                      <TableRow key={s.id} className="hover:bg-muted/60 transition-all duration-200 border-b border-border/30">
                         <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(s.id)}
@@ -904,9 +921,10 @@ export default function Statements() {
                         <TableCell>
                           <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
                             {Array.isArray((s as any).labels) && (s as any).labels.map((label: string, idx: number) => (
-                              <div
+                              <Badge
                                 key={idx}
-                                className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border border-primary/20 rounded flex items-center gap-1 group/badge"
+                                variant="secondary"
+                                className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 flex items-center gap-1 group/badge"
                               >
                                 {label}
                                 <button
@@ -922,7 +940,7 @@ export default function Statements() {
                                 >
                                   <X className="h-2.5 w-2.5" />
                                 </button>
-                              </div>
+                              </Badge>
                             ))}
                             <Input
                               placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
@@ -994,7 +1012,7 @@ export default function Statements() {
                     ))}
                     {statements.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-auto p-0 border-none">
+                        <TableCell colSpan={8} className="h-auto p-0 border-none">
                           <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                               <FileText className="h-8 w-8 text-primary" />
@@ -1053,7 +1071,7 @@ export default function Statements() {
                   </ProfessionalButton>
                 </div>
               </div>
-            </CardContent>
+            </div>
           </ProfessionalCard>
         )}
 
