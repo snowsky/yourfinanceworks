@@ -230,8 +230,6 @@ def get_current_user(
         logger.warning(f"get_current_user: User {email} not found in database")
         raise credentials_exception
 
-    logger.info(f"get_current_user: User {email} authenticated successfully")
-
     # Check if we have a tenant context and if the user's role should be updated from tenant database
     from core.models.database import get_tenant_context
     current_tenant_id = get_tenant_context()

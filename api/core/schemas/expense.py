@@ -345,3 +345,12 @@ class RestoreExpenseRequest(BaseModel):
     new_status: Optional[str] = "recorded"  # Status to set when restoring
 
 
+class ExpenseListResponse(BaseModel):
+    """Response schema for paginated expense list"""
+    success: bool = True
+    expenses: List[Expense]
+    total: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+

@@ -17,7 +17,7 @@ from core.models.database import get_db
 from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
-from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest
+from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest, ExpenseListResponse
 from core.services.currency_service import CurrencyService
 from core.services.search_service import search_service
 from core.utils.rbac import require_non_viewer
@@ -55,10 +55,7 @@ def check_expense_modification_allowed(expense: Expense) -> None:
         )
 
 
-
-
-
-@router.get("/", response_model=List[ExpenseSchema])
+@router.get("/", response_model=ExpenseListResponse)
 async def list_expenses(
     skip: int = 0,
     limit: int = 100,
@@ -69,6 +66,7 @@ async def list_expenses(
     exclude_status: Optional[str] = None,
     search: Optional[str] = None,
     created_by_user_id: Optional[int] = None,
+    include_total: bool = False,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -79,7 +77,7 @@ async def list_expenses(
     try:
         # Build the base query with all filters
         # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
-        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}")
+        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}, include_total={include_total}")
         from sqlalchemy.orm import joinedload
         query = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.is_deleted == False)
         base_count = query.count()
@@ -136,9 +134,9 @@ async def list_expenses(
             # If skip is beyond available data, return empty results
             if skip >= total_count and total_count > 0:
                 logger.info(f"Pagination beyond available data: skip={skip} >= total={total_count}, returning empty results")
-                return []
-
-            expenses = query.order_by(Expense.id.desc()).offset(skip).limit(limit).all()
+                expenses = []
+            else:
+                expenses = query.order_by(Expense.id.desc()).offset(skip).limit(limit).all()
 
         # Log pagination info for debugging
         logger.info(f"Expenses query: total_count={total_count}, skip={skip}, limit={limit}, returned={len(expenses)}, exclude_status={exclude_status}")
@@ -149,7 +147,13 @@ async def list_expenses(
                 ex.attachments_count = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == ex.id).count()
         except Exception as e:
             logger.warning(f"Failed to get attachment count for expenses: {e}")
-        return expenses
+        
+        # Always return the structured response format
+        return {
+            "success": True,
+            "expenses": [ExpenseSchema.from_orm(ex) for ex in expenses],
+            "total": total_count
+        }
     except Exception as e:
         logger.error(f"Failed to list expenses: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch expenses")
