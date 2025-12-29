@@ -1868,7 +1868,14 @@ export const expenseApi = {
     if (category && category !== 'all') params.set('category', category);
     if (label) params.set('label', label);
     const query = params.toString() ? `?${params.toString()}` : '';
-    const list = await apiRequest<Expense[]>(`/expenses/${query}`);
+    const response = await apiRequest<{success: boolean, expenses: Expense[], total: number}>(`/expenses/${query}`);
+    // Extract the expenses array from the response
+    const list = response.expenses;
+    // Ensure list is an array before mapping
+    if (!Array.isArray(list)) {
+      console.warn('Expenses API returned non-array response:', list);
+      return [];
+    }
     // Normalize category to a known option; fallback to 'General'
     const validCategories = EXPENSE_CATEGORY_OPTIONS;
     return list.map(e => ({
@@ -2135,12 +2142,17 @@ export const dashboardApi = {
       // Fetch and calculate total expenses
       try {
         const expenses = await expenseApi.getExpenses();
-        expenses.forEach(expense => {
-          const currency = expense.currency || 'USD';
-          const amount = expense.total_amount || expense.amount || 0;
+        // Ensure expenses is an array before iterating
+        if (Array.isArray(expenses)) {
+          expenses.forEach(expense => {
+            const currency = expense.currency || 'USD';
+            const amount = expense.total_amount || expense.amount || 0;
 
-          totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
-        });
+            totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
+          });
+        } else {
+          console.warn('Expenses API returned non-array response:', expenses);
+        }
       } catch (error) {
         console.error('Failed to fetch expenses for dashboard:', error);
       }
