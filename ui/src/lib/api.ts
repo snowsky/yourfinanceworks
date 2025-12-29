@@ -1535,8 +1535,8 @@ export const invoiceApi = {
       if (opts.status) params.set('status_filter', opts.status);
       if (typeof opts.skip === 'number') params.set('skip', String(opts.skip));
       if (typeof opts.limit === 'number') params.set('limit', String(opts.limit));
-      const response = await apiRequest<any[]>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
-      const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
+      const response = await apiRequest<{ items: any[] }>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
+      const mappedInvoices: Invoice[] = response.items.map(apiInvoice => ({
         id: apiInvoice.id,
         number: apiInvoice.number || '',
         client_id: apiInvoice.client_id,
@@ -1889,6 +1889,24 @@ export const expenseApi = {
     const qs = params.toString();
     const url = `/expenses/${qs ? `?${qs}` : ''}`;
     return apiRequest<Expense[]>(url);
+  },
+  getExpensesPaginated: async (opts: { category?: string; label?: string; invoiceId?: number; unlinkedOnly?: boolean; skip?: number; limit?: number; excludeStatus?: string; search?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+    if (opts.label) params.set('label', opts.label);
+    if (typeof opts.invoiceId === 'number') params.set('invoice_id', String(opts.invoiceId));
+    if (opts.unlinkedOnly) params.set('unlinked_only', 'true');
+    if (typeof opts.skip === 'number') params.set('skip', String(opts.skip));
+    if (typeof opts.limit === 'number') params.set('limit', String(opts.limit));
+    if (opts.excludeStatus) params.set('exclude_status', opts.excludeStatus);
+    if (opts.search) params.set('search', opts.search);
+    params.set('include_total', 'true'); // Add flag to get total count
+    const qs = params.toString();
+    const data = await apiRequest<{ success: boolean; expenses: Expense[]; total: number }>(
+      `/expenses/?${qs}`,
+      { method: 'GET' }
+    );
+    return { expenses: data.expenses, total: data.total };
   },
   getExpense: async (id: number) => {
     const maxRetries = 5;
