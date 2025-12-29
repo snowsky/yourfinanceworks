@@ -16,6 +16,7 @@ import {
 } from '@/lib/api';
 import { Eye, FileDown, RefreshCw, ArrowLeft } from 'lucide-react';
 import { ensureAuthenticated } from '@/utils/auth';
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 
 const ReportDetail: React.FC = () => {
     const { reportType } = useParams<{ reportType: string }>();
@@ -186,27 +187,22 @@ const ReportDetail: React.FC = () => {
     return (
         <>
             <div className="h-full space-y-6 fade-in">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/reports')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            {selectedTypeConfig.name}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {selectedTypeConfig.description}
-                        </p>
-                    </div>
-                </div>
+                <PageHeader
+                    title={selectedTypeConfig.name}
+                    description={selectedTypeConfig.description}
+                    backButton={{
+                        onClick: () => navigate('/reports'),
+                        label: 'Back to Reports'
+                    }}
+                />
 
-                {/* Quick Actions - Moved to top */}
-                <Card className="slide-in">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Quick Actions</CardTitle>
-                        <CardDescription>Common report generation shortcuts</CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <ContentSection className="slide-in">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Quick Actions</CardTitle>
+                            <CardDescription>Common report generation shortcuts</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Button
                                 variant="outline"
@@ -344,6 +340,7 @@ const ReportDetail: React.FC = () => {
                         />
                     </CardContent>
                 </Card>
+                </ContentSection>
             </div>
         </>
     );

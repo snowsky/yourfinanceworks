@@ -99,9 +99,9 @@ const EditInvoice = () => {
         setInvoice(data);
         try {
           const expenses = await expenseApi.getExpensesFiltered({ invoiceId: data.id });
-          setLinkedExpenses(expenses);
+          setLinkedExpenses(Array.isArray(expenses) ? expenses : []);
           const unlinked = await expenseApi.getExpensesFiltered({ unlinkedOnly: true });
-          setAvailableExpenses(unlinked);
+          setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
 
           // Fetch stock movements related to this invoice
           try {
@@ -499,8 +499,8 @@ const EditInvoice = () => {
                             expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
                             expenseApi.getExpensesFiltered({ unlinkedOnly: true })
                           ]);
-                          setLinkedExpenses(linked);
-                          setAvailableExpenses(unlinked);
+                          setLinkedExpenses(Array.isArray(linked) ? linked : []);
+                          setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
                         } catch { }
                         setLinkSelect(undefined);
                         toast.success('Expense linked successfully');
@@ -578,8 +578,8 @@ const EditInvoice = () => {
                                   expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
                                   expenseApi.getExpensesFiltered({ unlinkedOnly: true })
                                 ]);
-                                setLinkedExpenses(linked);
-                                setAvailableExpenses(unlinked);
+                                setLinkedExpenses(Array.isArray(linked) ? linked : []);
+                                setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
                               } catch { }
                               toast.success('Expense unlinked successfully');
                             } catch (err: any) {

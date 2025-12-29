@@ -538,6 +538,21 @@ const Invoices = () => {
                   )}
                 </div>
 
+                {/* Page Size */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('invoices.page_size', { defaultValue: 'Page Size' })}</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                    <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 20, 50, 100].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* View Mode Toggle */}
                 <div className="flex border border-border/50 rounded-lg p-1 bg-muted/30 shadow-sm">
                   <ProfessionalButton
