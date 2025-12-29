@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
-import { Loader2, Plus, Minus, Tag, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt, Clock } from 'lucide-react';
+import { Loader2, Plus, Minus, Tag, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt, Clock, Filter } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -103,7 +103,8 @@ const Expenses = () => {
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkLabel, setBulkLabel] = useState('');
   const [newLabelValueById, setNewLabelValueById] = useState<Record<number, string>>({});
@@ -210,11 +211,11 @@ const Expenses = () => {
   }, [deletedExpenses.length, recycleBinLoading, showRecycleBin]);
 
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     try {
       const skip = (page - 1) * pageSize;
-      const data = await expenseApi.getExpensesFiltered({
+      const result = await expenseApi.getExpensesPaginated({
         category: categoryFilter,
         label: labelFilter || undefined,
         unlinkedOnly,
@@ -225,51 +226,27 @@ const Expenses = () => {
       });
 
       // Reset to page 1 if current page has no results but we're not on page 1
-      if (data.length === 0 && page > 1) {
+      if (result.expenses.length === 0 && page > 1) {
         setPage(1);
         return;
       }
 
-      setExpenses(data);
-
-      // Determine if there's a next page based on the current page and total results
-      // If we got exactly pageSize results, there might be more, so probe the next page
-      if (data.length === pageSize) {
-        // Probe next page existence precisely
-        try {
-          const probe = await expenseApi.getExpensesFiltered({
-            category: categoryFilter,
-            label: labelFilter || undefined,
-            unlinkedOnly,
-            skip: skip + pageSize,
-            limit: 1,
-            search: searchQuery || undefined,
-          });
-          const hasMore = Array.isArray(probe) && probe.length > 0;
-          setHasNextPage(hasMore);
-          console.log(`Pagination check: page=${page}, pageSize=${pageSize}, currentResults=${data.length}, probeResults=${probe.length}, hasMore=${hasMore}`);
-          if (hasMore) {
-            console.log('Probe found additional expenses:', probe);
-          }
-        } catch (error) {
-          console.error('Error probing next page:', error);
-          setHasNextPage(false);
-        }
-      } else {
-        // If we got fewer results than pageSize, there's definitely no next page
-        setHasNextPage(false);
-        console.log(`Pagination: page=${page}, pageSize=${pageSize}, currentResults=${data.length}, hasNextPage=false (fewer than pageSize)`);
-      }
+      setExpenses(result.expenses);
+      setTotalExpenses(result.total);
+      
+      // Determine if there's a next page based on total count
+      const hasMore = skip + pageSize < result.total;
+      setHasNextPage(hasMore);
     } catch (e) {
       toast.error('Failed to load expenses');
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryFilter, labelFilter, unlinkedOnly, page, pageSize, searchQuery]);
 
   useEffect(() => {
     fetchExpenses();
-  }, [categoryFilter, labelFilter, unlinkedOnly, page, pageSize, currentTenantId, searchQuery]);
+  }, [fetchExpenses]);
 
   // Initialize from URL on first render
   useEffect(() => {
@@ -738,75 +715,89 @@ const Expenses = () => {
         )}
 
         <ProfessionalCard id="expense-list" className="slide-in" variant="default">
-          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-            <h2 className="text-xl font-semibold tracking-tight">{t('expenses.list_title')}</h2>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('expenses.search_placeholder')}
-                  className="pl-8 w-full sm:w-[260px]"
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                />
+          <div className="space-y-6">
+            {/* Header with filters */}
+            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('expenses.list_title')}</h2>
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder={t('expenses.filter_by_category')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
-                  {categoryOptions.map((c) => (
-                    <SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <Input
-                  placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
-                  className="pl-8 w-full sm:w-[180px] pr-8"
-                  value={labelFilter}
-                  onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
-                />
-                {labelFilter && (
-                  <button
-                    aria-label="Clear label filter"
-                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => { setLabelFilter(''); setPage(1); }}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
-                {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
-                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[10, 20, 50, 100].map(n => (
-                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {/* Search */}
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('expenses.search_placeholder')}
+                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                  />
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue placeholder={t('expenses.filter_by_category')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
+                      {categoryOptions.map((c) => (
+                        <SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Label Filter */}
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
+                    className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={labelFilter}
+                    onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
+                  />
+                  {labelFilter && (
+                    <button
+                      aria-label="Clear label filter"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setLabelFilter(''); setPage(1); }}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Unlinked Only Checkbox */}
+                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
+                  {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
+                </label>
+
+                {/* Page Size */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                    <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 20, 50, 100].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
+
           </div>
 
-          <CardContent>
+          <CardContent className="px-0">
             {/* Results Count and Selection Toolbar */}
             <div className="space-y-4 mb-6">
-              {!selectedIds.length ? (
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <div className="w-1 h-4 bg-primary/20 rounded-full"></div>
-                  {expenses.length} {t('expenses.results', { defaultValue: 'results' })}
-                </div>
-              ) : (
+              {selectedIds.length > 0 && (
                 <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl shadow-sm gap-4 slide-in">
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
@@ -843,8 +834,9 @@ const Expenses = () => {
                           try {
                             const skip = (page - 1) * pageSize;
                             await expenseApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
-                            const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
-                            setExpenses(data);
+                            const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
+                            setExpenses(result.expenses);
+                            setTotalExpenses(result.total);
                             setSelectedIds([]);
                             setBulkLabel('');
                             toast.success('Labels added');
@@ -866,8 +858,9 @@ const Expenses = () => {
                           try {
                             const skip = (page - 1) * pageSize;
                             await expenseApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
-                            const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
-                            setExpenses(data);
+                            const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
+                            setExpenses(result.expenses);
+                            setTotalExpenses(result.total);
                             setSelectedIds([]);
                             setBulkLabel('');
                             toast.success('Labels removed');
@@ -916,8 +909,9 @@ const Expenses = () => {
                             onClick={async () => {
                               try {
                                 await expenseApi.bulkDelete(selectedIds);
-                                const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: (page - 1) * pageSize, limit: pageSize, excludeStatus: 'pending_approval' });
-                                setExpenses(data);
+                                const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: (page - 1) * pageSize, limit: pageSize, excludeStatus: 'pending_approval' });
+                                setExpenses(result.expenses);
+                                setTotalExpenses(result.total);
                                 setSelectedIds([]);
                                 toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
                               } catch (e: any) {
@@ -934,7 +928,7 @@ const Expenses = () => {
                 </div>
               )}
             </div>
-            <div className="rounded-md border">
+            <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
@@ -1004,11 +998,15 @@ const Expenses = () => {
                         <TableCell>
                           <div className="flex flex-wrap items-center gap-2">
                             {(e.labels || []).slice(0, 10).map((lab, idx) => (
-                              <Badge key={`${e.id}-lab-${idx}`} variant="secondary" className="text-xs">
+                              <Badge
+                                key={`${e.id}-lab-${idx}`}
+                                variant="secondary"
+                                className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 flex items-center gap-1 group/badge"
+                              >
                                 {lab}
                                 {canPerformActions() && (
                                   <button
-                                    className="ml-1 text-muted-foreground hover:text-foreground"
+                                    className="hover:text-destructive transition-colors"
                                     aria-label={t('expenses.remove')}
                                     onClick={async () => {
                                       try {
@@ -1020,7 +1018,7 @@ const Expenses = () => {
                                       }
                                     }}
                                   >
-                                    <X className="w-3 h-3" />
+                                    <X className="h-2.5 w-2.5" />
                                   </button>
                                 )}
                               </Badge>
@@ -1079,15 +1077,15 @@ const Expenses = () => {
                           <div className="flex flex-col gap-2">
                             <div>
                               {e.analysis_status === 'done' ? (
-                                <Badge variant="success">{t('expenses.status_done')}</Badge>
+                                <div className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded">{t('expenses.status_done')}</div>
                               ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                                <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
+                                <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</div>
                               ) : e.analysis_status === 'failed' ? (
-                                <Badge variant="destructive">Failed</Badge>
+                                <div className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">Failed</div>
                               ) : e.analysis_status === 'cancelled' ? (
-                                <Badge variant="secondary">Cancelled</Badge>
+                                <div className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 rounded">Cancelled</div>
                               ) : e.imported_from_attachment ? (
-                                <Badge variant="info">Not Started</Badge>
+                                <div className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Not Started</div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
@@ -1210,25 +1208,48 @@ const Expenses = () => {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-3">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href="#"
-                      className={page <= 1 ? 'opacity-50 pointer-events-none' : ''}
-                      onClick={(e) => { e.preventDefault(); if (page > 1 && !loading) setPage(p => Math.max(1, p - 1)); }}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      href="#"
-                      className={!hasNextPage ? 'opacity-50 pointer-events-none' : ''}
-                      onClick={(e) => { e.preventDefault(); if (hasNextPage && !loading) setPage(p => p + 1); }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
+              <div className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{expenses.length}</span> of <span className="font-medium text-foreground">{totalExpenses}</span> {t('expenses.results', 'results')}
+              </div>
+              <div className="flex items-center gap-2">
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="h-9 px-4"
+                >
+                  {t('common.previous', 'Previous')}
+                </ProfessionalButton>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(totalExpenses / pageSize) }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === Math.ceil(totalExpenses / pageSize) || Math.abs(p - page) <= 1)
+                    .map((p, i, arr) => (
+                      <div key={p} className="flex items-center">
+                        {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                        <ProfessionalButton
+                          variant={page === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPage(p)}
+                          className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
+                        >
+                          {p}
+                        </ProfessionalButton>
+                      </div>
+                    ))}
+                </div>
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.min(Math.ceil(totalExpenses / pageSize), prev + 1))}
+                  disabled={page >= Math.ceil(totalExpenses / pageSize)}
+                  className="h-9 px-4"
+                >
+                  {t('common.next', 'Next')}
+                </ProfessionalButton>
+              </div>
             </div>
           </CardContent>
         </ProfessionalCard>
