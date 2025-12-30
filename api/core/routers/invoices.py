@@ -845,6 +845,7 @@ async def bulk_labels(
         logger.error(f"Error in bulk_labels: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update labels")
 
+@router.get("/recycle-bin")
 async def get_deleted_invoices(
     skip: int = 0,
     limit: int = 100,

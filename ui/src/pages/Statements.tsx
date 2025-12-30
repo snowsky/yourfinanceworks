@@ -608,189 +608,192 @@ export default function Statements() {
         )}
 
         {!selected && showRecycleBin && (
-          <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin} className="space-y-4">
-            <ProfessionalCard className="slide-in">
-              <CardHeader>
-                <CardTitle>{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30">
-                        <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_at')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_by')}</TableHead>
-                        <TableHead className="w-[100px] font-bold text-foreground text-right">{t('statementRecycleBin.actions')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recycleBinLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            <div className="flex justify-center items-center gap-2">
-                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                              <span className="text-muted-foreground">{t('statementRecycleBin.loading', { defaultValue: 'Loading...' })}</span>
-                            </div>
-                          </TableCell>
+          <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
+            <CollapsibleContent>
+              <ProfessionalCard className="slide-in mb-8 border-l-4 border-l-destructive overflow-hidden" variant="elevated">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-destructive/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+                <div className="relative space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                        <Trash2 className="h-6 w-6 text-destructive" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xl text-foreground">{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
+                        <p className="text-sm text-muted-foreground">Recover or permanently delete statements</p>
+                      </div>
+                    </div>
+                    {deletedStatements.length > 0 && (
+                      <ProfessionalButton
+                        variant="destructive"
+                        size="default"
+                        onClick={handleEmptyRecycleBin}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                      </ProfessionalButton>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30">
+                          <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
+                          <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
+                          <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
+                          <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_at')}</TableHead>
+                          <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_by')}</TableHead>
+                          <TableHead className="w-[100px] font-bold text-foreground text-right">{t('statementRecycleBin.actions')}</TableHead>
                         </TableRow>
-                      ) : deletedStatements.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-32 text-center">
-                            <div className="flex flex-col items-center justify-center gap-3">
-                              <div className="p-4 rounded-full bg-muted/50">
-                                <Trash2 className="h-8 w-8 text-muted-foreground/50" />
-                              </div>
-                              <p className="text-muted-foreground font-medium">{t('statementRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        deletedStatements.map((statement) => (
-                          <TableRow key={statement.id} className="hover:bg-muted/60 transition-all duration-200 border-b border-border/30">
-                            <TableCell className="font-semibold text-foreground">{statement.original_filename}</TableCell>
-                            <TableCell className="text-foreground">{formatStatus(statement.status)}</TableCell>
-                            <TableCell className="text-foreground">{statement.extracted_count}</TableCell>
-                            <TableCell className="text-muted-foreground text-sm">{statement.deleted_at ? format(new Date(statement.deleted_at), 'PP p') : 'N/A'}</TableCell>
-                            <TableCell className="text-muted-foreground text-sm">{statement.deleted_by_username || t('common.unknown')}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2 justify-end">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <ProfessionalButton
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        onClick={() => handleRestoreStatement(statement.id)}
-                                        className="hover:bg-success/10 hover:text-success"
-                                      >
-                                        <RotateCcw className="w-4 h-4" />
-                                      </ProfessionalButton>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      {t('statementRecycleBin.restore', { defaultValue: 'Restore' })}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <ProfessionalButton
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            className="hover:bg-destructive/10 hover:text-destructive"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </ProfessionalButton>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          {t('statementRecycleBin.permanently_delete', { defaultValue: 'Permanently Delete' })}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('statementRecycleBin.permanently_delete_confirm_title', { defaultValue: 'Permanently Delete Statement' })}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('statementRecycleBin.permanently_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this statement? This action cannot be undone.' })}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handlePermanentlyDeleteStatement(statement.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        {t('statementRecycleBin.permanently_delete', { defaultValue: 'Permanently Delete' })}
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                      </TableHeader>
+                      <TableBody>
+                        {recycleBinLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                              <div className="flex justify-center items-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                <span className="text-muted-foreground">{t('statementRecycleBin.loading', { defaultValue: 'Loading...' })}</span>
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                {deletedStatements.length > 0 && (
-                  <div className="flex justify-end mt-4">
-                    <ProfessionalButton
-                      variant="destructive"
-                      onClick={handleEmptyRecycleBin}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
-                    </ProfessionalButton>
+                        ) : deletedStatements.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="h-32 text-center">
+                              <div className="flex flex-col items-center justify-center gap-3">
+                                <div className="p-4 rounded-full bg-muted/50">
+                                  <Trash2 className="h-8 w-8 text-muted-foreground/50" />
+                                </div>
+                                <p className="text-muted-foreground font-medium">{t('statementRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          deletedStatements.map((statement) => (
+                            <TableRow key={statement.id} className="hover:bg-muted/60 transition-all duration-200 border-b border-border/30">
+                              <TableCell className="font-semibold text-foreground">
+                                <span className="inline-flex items-center gap-2">
+                                  <FileText className="h-4 w-4 text-primary/60" />
+                                  {statement.original_filename}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-foreground">
+                                <Badge variant="outline" className="capitalize font-medium">
+                                  {formatStatus(statement.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-foreground">{statement.extracted_count}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm">{statement.deleted_at ? format(new Date(statement.deleted_at), 'PP p') : 'N/A'}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm">{statement.deleted_by_username || t('common.unknown')}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2 justify-end">
+                                  <ProfessionalButton
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => handleRestoreStatement(statement.id)}
+                                    title="Restore statement"
+                                    className="hover:bg-success/10 hover:text-success"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </ProfessionalButton>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <ProfessionalButton
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="hover:bg-destructive/10 hover:text-destructive"
+                                        title="Permanently delete"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </ProfessionalButton>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>{t('statementRecycleBin.permanently_delete_confirm_title', { defaultValue: 'Permanently Delete Statement' })}</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          {t('statementRecycleBin.permanently_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this statement? This action cannot be undone.' })}
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handlePermanentlyDeleteStatement(statement.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          {t('statementRecycleBin.permanently_delete', { defaultValue: 'Permanently Delete' })}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
-              </CardContent>
-            </ProfessionalCard>
+                </div>
+              </ProfessionalCard>
+            </CollapsibleContent>
           </Collapsible>
         )}
 
         {!selected && (
           <ProfessionalCard className="slide-in" variant="elevated">
-          <div className="space-y-6">
-            {/* Header with filters */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('statements.list_title')}</h2>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                {/* Search */}
-                <div className="relative w-full sm:w-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('statements.search_placeholder')}
-                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+            <div className="space-y-6">
+              {/* Header with filters */}
+              <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">{t('statements.list_title')}</h2>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  {/* Search */}
+                  <div className="relative w-full sm:w-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('statements.search_placeholder')}
+                      className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                     // Search query state not implemented yet in this file, but adding placeholder UI
-                  />
-                </div>
+                    />
+                  </div>
 
-                {/* Label Filter */}
-                <div className="relative">
-                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
-                    className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
-                    value={labelFilter}
-                    onChange={(e) => setLabelFilter(e.target.value)}
-                  />
-                  {labelFilter && (
-                    <button
-                      aria-label="Clear label filter"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setLabelFilter('')}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+                  {/* Label Filter */}
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
+                      className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                      value={labelFilter}
+                      onChange={(e) => setLabelFilter(e.target.value)}
+                    />
+                    {labelFilter && (
+                      <button
+                        aria-label="Clear label filter"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setLabelFilter('')}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
-                {/* Page Size */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                    <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[10, 20, 50, 100].map(n => (
-                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Page Size */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+                    <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                      <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[10, 20, 50, 100].map(n => (
+                          <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Selection Toolbar */}
-            {selectedIds.length > 0 && (
+              {/* Selection Toolbar */}
+              {selectedIds.length > 0 && (
                 <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
