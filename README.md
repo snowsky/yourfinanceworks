@@ -1,220 +1,61 @@
 # YourFinanceWORKS
 
-A modern, multi-tenant financial management system built with FastAPI and React, with ugly mobile app support for iOS and Android. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
+A modern, multi-tenant financial management system built with FastAPI and React, with mobile app support for iOS and Android. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
 
 ## 🚀 Features
 
-### Core Functionality
-- **Multi-tenant Architecture** - Isolated data per tenant/organization with database-per-tenant design
-- **Super User System** - Complete super user management for cross-tenant operations
-- **Client Management** - Add, edit, and manage customer information with CRM capabilities
-- **Smart Invoice Creation** - Generate professional invoices with automatic numbering and intelligent status management
-- **Advanced Invoice Editing** - Individual item updates with immutable paid invoice protection
-- **Payment Tracking** - Record and track payments against invoices with automatic status updates
-- **Dashboard Analytics** - Overview of financial metrics and statistics
-- **PDF Generation** - Export invoices as professional PDF documents
-- **Email Delivery** - Send invoices directly to clients via email with PDF attachments
-- **Responsive Design** - Modern UI that works on desktop and mobile
+### Core Financial Management
+- **Client Management** - Complete CRM system with client profiles, contact information, and interaction history
+- **Invoice Creation** - Generate professional invoices with automatic numbering, item management, and tax calculations
+- **Payment Tracking** - Monitor payment status, record partial payments, and automated payment reminders
+- **Expense Management** - Track business expenses with categorization, receipt attachments, and approval workflows
+- **Financial Dashboard** - Real-time overview of revenue, expenses, outstanding payments, and cash flow
 
-### 📱 Mobile App Support (Under Development)
-- **iOS & Android Apps** - Native mobile applications with full feature parity
-- **Cross-Platform** - Single codebase for both iOS and Android
-- **Offline Support** - Basic offline functionality with data caching
-- **Touch-Optimized** - Designed specifically for mobile interactions
-- **Push Notifications** - Real-time updates and alerts
-- **Native Performance** - Optimized for mobile devices
+### 📊 Advanced Financial Features
+- **Bank Statement Processing** - Upload and automatically extract transactions from bank statement PDFs
+- **Financial Reporting** - Generate comprehensive reports including profit/loss statements and cash flow analysis
+- **Multi-Currency Support** - Handle international transactions with automatic currency conversion
+- **Tax Management** - Configure tax rates and generate tax-compliant invoices
+- **Budget Tracking** - Set budgets and monitor spending against financial goals
 
-### 🆕 CRM & Client Management
-- **Client Notes System** - Add, edit, update, and delete client notes with timestamps
-- **Note Management** - Inline editing with save/cancel functionality
-- **User Attribution** - Track which user created each note
-- **Complete CRM History** - Comprehensive client interaction tracking
-- **Enhanced Client Profiles** - Rich client information with note history
+### 🤖 AI-Powered Business Intelligence
+- **Smart Invoice Analysis** - AI analyzes invoice patterns and provides business insights
+- **Automated Expense Categorization** - AI automatically categorizes expenses based on descriptions
+- **Business Recommendations** - Get actionable suggestions based on your financial data
+- **Natural Language Queries** - Ask questions about your business finances in plain English
+- **Fraud Detection** - AI identifies unusual transactions and potential issues
 
-### 💰 Currency & International Support
-- **Multi-Currency Support** - Support for multiple currencies with proper formatting
-- **Currency Selection** - Choose preferred currency per client and invoice
-- **Dynamic Currency API** - Real-time currency support with fallback handling
-- **Localized Display** - Proper currency formatting and display
+### 🏢 Enterprise Features
+- **Multi-Tenant Architecture** - Separate, secure databases for each organization
+- **Role-Based Access Control** - Granular permissions for admin, user, and viewer roles
+- **Audit Trail** - Complete tracking of all financial activities and changes
+- **Data Export & Import** - Backup and migrate your financial data with ease
+- **API Access** - Integrate with other business systems via RESTful API
 
-### 📊 Data Management & Backup
-- **Complete Data Export** - Export all business data to SQLite format
-- **Data Import/Restore** - Import data from previous backups with conflict resolution
-- **Smart Import Logic** - Automatic invoice number generation to avoid conflicts
-- **Data Integrity** - Comprehensive validation and error handling during import/export
-- **Backup Recommendations** - Built-in guidance for data safety best practices
+### 📱 Mobile & Accessibility
+- **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
+- **Mobile Apps** - Native iOS and Android applications for on-the-go management
+- **Offline Support** - Access key features even without internet connection
+- **Multi-Language Support** - Available in English, Spanish, French, and German
+- **Email Integration** - Send invoices and statements directly to clients
 
-### 🤖 AI Assistant with MCP Integration
-- **Intelligent Business Queries** - AI assistant automatically detects business-related questions and uses real data
-- **Comprehensive Tool Integration** - 9 different MCP tools for invoice analysis, client management, and business insights
-- **Dynamic Authentication** - Uses current user's session for secure data access
-- **Smart Pattern Detection** - Routes business queries to MCP tools, general questions to LLM
-- **Real-time Data Analysis** - Provides insights based on actual invoice, client, and payment data
-- **Actionable Recommendations** - Suggests business actions based on data analysis
-- **Multi-Provider Support** - Configurable AI providers (OpenAI, Ollama, Anthropic, Google, Custom)
-- **Fallback Intelligence** - Seamlessly switches between MCP tools and LLM based on query type
+### 🔒 Security & Compliance
+- **Bank-Grade Security** - End-to-end encryption and secure data storage
+- **SSO Integration** - Support for Google OAuth and enterprise SSO solutions
+- **Data Privacy** - GDPR-compliant data handling and privacy controls
+- **Regular Backups** - Automated backups with disaster recovery options
+- **Compliance Reporting** - Generate reports for tax and regulatory compliance
 
-### Invoice Management Enhancements ✨
-- **Intelligent Item Management** - Individual invoice item updates without losing data
-- **Immutable Paid Invoices** - Paid invoices are protected from accidental changes (except status)
-- **Smart Status Controls** - Enhanced status filtering and management
-- **Enhanced Data Persistence** - Invoice descriptions and details are properly saved and loaded
-- **Consistent API Responses** - All endpoints return complete invoice data including items
-
-### Authentication & Security
-- **User Authentication** - Secure login/signup with JWT tokens
-- **Role-based Access** - Admin, user, and viewer roles
-- **Google SSO** - Optional Google OAuth integration
-- **Tenant Isolation** - Complete data separation between organizations
-
-### 🏢 Super User System
-- **Cross-Tenant Management** - Super users can manage all tenants from a single interface
-- **Tenant CRUD Operations** - Create, read, update, and delete tenant organizations
-- **User Management Across Tenants** - View and manage users from all tenant databases
-- **Database Operations** - Health checks, backup, restore, and database recreation
-- **Tenant Statistics** - Real-time analytics for each tenant (users, clients, invoices, payments)
-- **Master Database Architecture** - Central database for tenant metadata and super user information
-- **Database Per Tenant Model** - Each tenant gets its own isolated database for maximum security
-- **Super Admin Dashboard** - Comprehensive web interface with tabs for different management functions
-- **Automatic Database Recovery** - Middleware automatically creates missing tenant databases
-- **Database Troubleshooting Tools** - Scripts and tools for diagnosing and fixing database issues
-
-### Technical Features
-- **RESTful API** - Clean, documented API endpoints with consistent data structures
-- **AI Integration (MCP)** - Enhanced Model Context Protocol server with dynamic authentication and comprehensive tool integration
-- **Email Service Integration** - Support for AWS SES, Azure Email Services, and Mailgun with proper API routing
-- **Real-time Updates** - Instant UI updates with optimistic rendering
-- **Search & Filtering** - Advanced filtering and search capabilities
-- **Docker Support** - Containerized deployment ready
-- **Database Migrations** - Automated schema management
-
-## 🏢 Super User System & Multi-Tenant Architecture
-- **✅ Complete Super User Implementation** - Full super user system for managing multiple tenants
-- **✅ Database Per Tenant Architecture** - Each tenant gets its own isolated database (e.g., `tenant_1`, `tenant_2`)
-- **✅ Master Database for Tenant Management** - Central database for tenant metadata and super user information
-- **✅ Super Admin Dashboard** - Comprehensive web interface for super users to manage all tenants
-- **✅ Cross-Tenant User Management** - CRUD operations for users across all tenants
-- **✅ Tenant Statistics & Analytics** - Real-time statistics for each tenant (users, clients, invoices, payments)
-- **✅ Database Operations** - Health checks, backup, restore, and database recreation tools
-- **✅ Enhanced RBAC** - Role-based access control with super user permissions
-- **✅ Super User Authentication** - Authentication that doesn't require tenant context
-- **✅ Tenant CRUD Operations** - Create, read, update, and delete tenant organizations
-
-### 🛠️ Database Management & Troubleshooting
-- **✅ Automatic Database Recovery** - Middleware automatically detects and creates missing tenant databases
-- **✅ Database Fix Scripts** - Comprehensive scripts for checking and fixing database issues
-- **✅ Docker Integration** - Shell scripts for running database fixes in containerized environments
-- **✅ Database Health Monitoring** - Real-time health checks for all tenant databases
-- **✅ Missing Database Detection** - Automatic detection of missing tenant databases with recovery options
-- **✅ Troubleshooting Documentation** - Complete guide for database-related issues
-- **✅ Database Recreation Tools** - Safe recreation of tenant databases with data preservation options
-
-### 🔧 Technical Improvements & Bug Fixes
-- **✅ React Hooks Violations Fixed** - Resolved "hooks order changed" errors in SuperAdmin and AIAssistant components
-- **✅ Proxy Configuration Fix** - Fixed Docker service naming issue between UI and API services
-- **✅ Component Architecture Enhancement** - Improved component structure to prevent conditional hook calls
-- **✅ Enhanced Error Handling** - Better error messages and recovery mechanisms
-- **✅ Service Discovery** - Fixed service communication issues in Docker environment
-- **✅ Authentication Flow Improvements** - Better handling of authentication states and redirects
-
-### 🤖 Enhanced AI Assistant with MCP Integration
-- **✅ Dynamic Authentication** - AI assistant uses current user's JWT token instead of hardcoded credentials
-- **✅ Comprehensive MCP Tools** - 9 different business query patterns with real data access:
-  * Invoice pattern analysis and trend detection
-  * Actionable business recommendations
-  * Client management (list, search, details)
-  * Invoice management (list, search, status)
-  * Payment tracking and history
-  * Overdue invoice detection
-  * Invoice statistics and metrics
-  * Currency management
-  * Outstanding balance tracking
-- **✅ Smart Pattern Detection** - Automatically routes business queries to MCP tools, general questions to LLM
-- **✅ Real Data Integration** - All MCP tools access actual database data through authenticated API calls
-- **✅ Intelligent Fallback** - Seamlessly falls back to LLM for non-business queries
-- **✅ SQLAlchemy Serialization Fix** - Resolved Row object serialization issues in AI endpoints
-- **✅ User Role Management** - Fixed admin role requirements for settings and AI configuration
-- **✅ Test Coverage** - Comprehensive test scripts for MCP integration validation
-- **✅ PDF Upload AI Priority System** - Smart configuration priority: AI Config → Environment Variables → Manual fallback
-
-### 🎯 Help Center & Onboarding System
-- **✅ Interactive Help Center** - Comprehensive help system with guided tours, documentation, and support
-- **✅ Multi-Language Support** - Help Center translated to English, Spanish, and French
-- **✅ Guided Tours System** - Interactive onboarding tours for dashboard and navigation
-- **✅ Enhanced Tour Coverage** - Added tours for Payments, Expenses, and Bank Statements sections
-- **✅ Modal Management** - Fixed tour overlay interactions and modal closing behavior
-- **✅ Responsive Layout** - Improved sidebar layout with proper spacing for help and language controls
-
-### 🎯 CRM System Implementation
-- **✅ Complete Client Notes System** - Full CRUD operations for client notes with user attribution
-- **✅ Inline Note Editing** - Edit notes directly in the interface with save/cancel functionality
-- **✅ Note Deletion with Confirmation** - Safe note deletion with preview confirmation dialogs
-- **✅ Timestamp Tracking** - Automatic creation and update timestamps for all notes
-- **✅ User Attribution** - Track which user created each note for accountability
-- **✅ Enhanced Client Profiles** - Rich client detail pages with integrated note management
-
-### 💾 Data Management & Backup System
-- **✅ Complete Data Export** - Export all tenant data (clients, invoices, payments, notes, settings) to SQLite
-- **✅ Data Import/Restore** - Import data from SQLite backups with intelligent conflict resolution
-- **✅ Smart Invoice Number Generation** - Automatic generation of unique invoice numbers during import
-- **✅ Data Integrity Protection** - Comprehensive validation and rollback on import errors
-- **✅ User-Friendly Interface** - Intuitive data management UI with clear warnings and guidance
-- **✅ Best Practices Integration** - Built-in recommendations for backup and restore procedures
-
-### 💰 Currency System Enhancement
-- **✅ Multi-Currency Support** - Full support for multiple currencies with proper API integration
-- **✅ Client Currency Preferences** - Set and save preferred currency per client
-- **✅ Dynamic Currency Loading** - Real-time currency options with fallback handling
-- **✅ Currency Display Components** - Consistent currency formatting throughout the application
-- **✅ API Integration Fix** - Resolved currency selector API connectivity issues
-
-### 🔧 Bug Fixes & System Improvements
-- **✅ Invoice Status Filtering** - Fixed invoice status dropdown and backend filtering
-- **✅ Client Currency Updates** - Resolved issues with saving client preferred currency
-- **✅ API Response Consistency** - Fixed missing fields in client and invoice API responses
-- **✅ Currency Selector Integration** - Fixed "API not available" errors in currency selection
-- **✅ Import Conflict Resolution** - Resolved unique constraint errors during data import
-- **✅ Error Handling Enhancement** - Improved error messages and user feedback throughout
-
-### 🎨 UI/UX Improvements
-- **✅ Refactored Data Management Tab** - Complete redesign of export/import interface
-- **✅ Visual Status Indicators** - Color-coded status indicators and progress feedback
-- **✅ Enhanced File Selection** - Improved file upload interface with visual feedback
-- **✅ Responsive Design Updates** - Better mobile and tablet experience
-- **✅ Professional Layout** - Clean, modern interface with improved information hierarchy
-- **✅ Interactive Elements** - Better button states, loading indicators, and user feedback
-- **✅ Dashboard Layout Enhancement** - Improved invoice overview chart width for better data visualization
-- **✅ Sidebar Layout Optimization** - Fixed overflow issues with help center and language picker positioning
-
-### 📈 Performance & Reliability
-- **✅ Database Optimization** - Improved query performance and data handling
-- **✅ Error Recovery** - Enhanced error handling with proper rollback mechanisms
-- **✅ API Reliability** - More robust API responses with consistent data structures
-- **✅ Session Management** - Better handling of database sessions and transactions
-- **✅ Memory Management** - Improved cleanup of temporary files and resources
-
-### Invoice Management Enhancements
-- **✅ Fixed Invoice Item Persistence** - Invoice item descriptions now save correctly without reverting to default values
-- **✅ Enhanced Item Update Logic** - Individual items can be updated, added, or removed without affecting other items
-- **✅ Immutable Paid Invoice Protection** - Paid invoices are now read-only except for status changes to prevent accidental modifications
-- **✅ Smart Status Management** - Enhanced status filtering and management capabilities
-
-### API & Data Consistency
-- **✅ Complete API Responses** - All invoice endpoints now return consistent data structures including invoice items
-- **✅ Proper Item ID Handling** - Invoice items include proper IDs for reliable updates and tracking
-- **✅ Enhanced Error Handling** - Eliminated "Invoice items could not be loaded properly" errors
-- **✅ Centralized API Client** - All frontend requests use the centralized API client for better reliability
-
-### User Experience Improvements
-- **✅ Visual Feedback for Paid Invoices** - Clear indication when invoices are locked due to paid status
-- **✅ Improved Form Validation** - Better error messages and validation for invoice creation and editing
-- **✅ Enhanced Data Loading** - More reliable data loading with proper fallback handling
-- **✅ Professional UI Components** - Consistent design language with ShadCN UI components
+### 🛠️ System Administration
+- **Database Management** - Automated health monitoring, backup, and recovery for all tenant databases
+- **System Diagnostics** - Built-in tools for troubleshooting and maintaining system health
+- **Multi-Tenant Administration** - Centralized management of multiple organizations from a single interface
+- **Performance Monitoring** - Real-time monitoring of system performance and resource usage
 
 ## 🏗️ Architecture
 
 ### Backend (FastAPI)
-- **Framework**: FastAPI with Python 3.11
+- **Framework**: FastAPI
 - **Database**: Multi-tenant PostgreSQL with database-per-tenant architecture
 - **Master Database**: Central PostgreSQL database for tenant metadata and super users
 - **Authentication**: JWT with enhanced role-based access control
@@ -223,7 +64,7 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 - **Deployment**: Docker containerized with PostgreSQL, Redis, and API services
 
 ### Frontend (React Web)
-- **Framework**: React 18 with TypeScript
+- **Framework**: React with TypeScript
 - **Build Tool**: Vite
 - **UI Library**: ShadCN UI components with Tailwind CSS
 - **State Management**: TanStack Query for server state
@@ -275,22 +116,6 @@ A modern, multi-tenant financial management system built with FastAPI and React,
    # Android
    npm run android
    ```
-
-### Building for Production
-
-```bash
-# Build for iOS
-eas build --platform ios --profile production
-
-# Build for Android
-eas build --platform android --profile production
-
-# Submit to app stores
-eas submit --platform ios
-eas submit --platform android
-```
-
-For detailed mobile app documentation, see [mobile/README.md](mobile/README.md).
 
 ## 🤖 AI Assistant Usage
 

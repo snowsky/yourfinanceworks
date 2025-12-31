@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
-import { Calendar } from '@/components/ui/calendar';
+import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
@@ -138,20 +140,33 @@ export default function ExpensesView() {
   return (
     <>
       <div className="h-full space-y-6 fade-in">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">{t('expenses.view_title', { defaultValue: 'View Expense' })}</h1>
-            <p className="text-muted-foreground">{t('expenses.view_description', { defaultValue: 'Review expense details and take approval actions.' })}</p>
-          </div>
-          {approval && (
-            <div className="flex-shrink-0">
-              <ApprovalActionButtons
-                approval={approval}
-                onAction={handleApprovalAction}
-              />
+        <PageHeader
+          title={t('expenses.view_title', { defaultValue: 'View Expense' })}
+          description={t('expenses.view_description', { defaultValue: 'Review expense details and take approval actions.' })}
+          breadcrumbs={[
+            { label: t('expenses.title', 'Expenses'), href: '/expenses' },
+            { label: (form as any)?.description || `Expense #${id}`, href: '#' }
+          ]}
+          actions={
+            <div className="flex gap-2">
+              {approval && (
+                <ApprovalActionButtons
+                  approval={approval}
+                  onAction={handleApprovalAction}
+                />
+              )}
+              {(!approval || approval.status !== 'pending') && (
+                <Button
+                  onClick={() => navigate(`/expenses/edit/${id}`)}
+                  variant="outline"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  {t('common.edit')}
+                </Button>
+              )}
             </div>
-          )}
-        </div>
+          }
+        />
 
         {/* Show approval request message if exists */}
         {approval && approval.notes && (
@@ -224,25 +239,34 @@ export default function ExpensesView() {
           </Card>
         )}
 
-        <Card className="slide-in">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{t('expenses.details')}</CardTitle>
-              <div className="flex gap-2">
+        <ContentSection title={t('expenses.details')}>
+          <ProfessionalCard>
+            <CardHeader>
+              {(form as any)?.analysis_status && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                  {form.analysis_status === 'done' ? (
+                    <Badge variant="success" className="h-6">{t('expenses.status_done')}</Badge>
+                  ) : form.analysis_status === 'processing' || form.analysis_status === 'queued' ? (
+                    <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
+                      {form.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}
+                    </Badge>
+                  ) : form.analysis_status === 'failed' ? (
+                    <Badge variant="destructive" className="h-6">Failed</Badge>
+                  ) : form.analysis_status === 'cancelled' ? (
+                    <Badge variant="secondary" className="h-6">Cancelled</Badge>
+                  ) : (form as any)?.imported_from_attachment ? (
+                    <Badge variant="outline" className="h-6 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                      Not Started
+                    </Badge>
+                  ) : null}
+                </div>
+              )}
+              {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/expenses/edit/${id}`)}
-                  className="flex items-center gap-2"
-                >
-                  <Pencil className="w-4 h-4" />
-                  {t('common.edit', { defaultValue: 'Edit' })}
-                </Button>
-                {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
+                  onClick={async () => {
                       try {
                         const addNotification = (window as any).addAINotification;
                         addNotification?.('processing', 'Reprocessing Expense', `Re-analyzing expense receipts with AI...`);
@@ -264,8 +288,8 @@ export default function ExpensesView() {
                     {t('expenses.process_again')}
                   </Button>
                 )}
-              </div>
-            </div>
+            </CardHeader>
+            <CardContent>
             {(form as any)?.analysis_status && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -301,7 +325,7 @@ export default function ExpensesView() {
                 )}
               </div>
             )}
-          </CardHeader>
+          </CardContent>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm">{t('expenses.labels.amount')}</label>
@@ -481,8 +505,8 @@ export default function ExpensesView() {
               </div>
             </div>
           </CardContent>
-        </Card>
-
+        </ProfessionalCard>
+        </ContentSection>
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back', { defaultValue: 'Back' })}</Button>
@@ -509,16 +533,17 @@ export default function ExpensesView() {
               {preview.url && (preview.contentType || '').startsWith('image/') && (
                 <img src={preview.url} alt={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} className="max-w-full h-auto" />
               )}
-              {preview.url && preview.contentType === 'application/pdf' && (
-                <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview', { defaultValue: 'PDF Preview' })} />
+              {preview.url && (preview.contentType || '').startsWith('application/pdf') && (
+                <iframe src={preview.url} className="w-full h-[60vh]" title={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} />
               )}
-              {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || preview.contentType === 'application/pdf') && (
-                <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview', { defaultValue: 'This file type cannot be previewed. Please download instead.' })}</div>
+              {preview.url && !(preview.contentType || '').startsWith('image/') && !(preview.contentType || '').startsWith('application/pdf') && (
+                <div className="text-center p-8">
+                  <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">{t('expenses.preview_not_supported', { defaultValue: 'Preview not supported for this file type' })}</p>
+                </div>
               )}
-            </div>
-            <div className="flex gap-2">
               {preview.url && (
-                <Button variant="outline" onClick={() => {
+                <Button variant="outline" className="mt-4" onClick={() => {
                   if (!preview.url) return;
                   const a = document.createElement('a');
                   a.href = preview.url;
@@ -535,5 +560,3 @@ export default function ExpensesView() {
     </>
   );
 }
-
-

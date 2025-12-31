@@ -2,9 +2,11 @@ import { useSearch } from "@/components/search/SearchProvider";
 import { Button } from "@/components/ui/button";
 import { Search, Command } from "lucide-react";
 import { InAppNotifications } from "@/components/reminders";
+import { useTranslation } from "react-i18next";
 
 export function AppHeader() {
   const { setIsOpen } = useSearch();
+  const { t } = useTranslation();
 
   return (
     <header className="flex items-center justify-between p-4 border-b">
@@ -19,7 +21,7 @@ export function AppHeader() {
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
         >
           <Search className="h-4 w-4" />
-          <span className="hidden sm:inline">Search</span>
+          <span className="hidden sm:inline">{t('common.search')}</span>
           <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
             <span className="text-xs">⌘</span>K
           </kbd>

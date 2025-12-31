@@ -1,7 +1,7 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RoleProtectedRoute } from "./components/auth/RoleProtectedRoute";
@@ -75,6 +75,18 @@ const Gamification = React.lazy(() => import("./pages/Gamification"));
 
 const queryClient = new QueryClient();
 
+// Simple redirect component for expense IDs
+const ExpenseRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/expenses/view/${id}`} replace />;
+};
+
+// Simple redirect component for invoice IDs
+const InvoiceRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/invoices/view/${id}`} replace />;
+};
+
 const AppContent = () => {
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
@@ -136,11 +148,12 @@ const AppContent = () => {
                     <Route path="/invoices/new-manual" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoiceManual /></RoleProtectedRoute>} />
                     <Route path="/invoices/view/:id" element={<ViewInvoice />} />
                     <Route path="/invoices/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInvoice /></RoleProtectedRoute>} />
-                    <Route path="/payments" element={<Payments />} />
+                    <Route path="/invoices/:id" element={<InvoiceRedirect />} />
                     <Route path="/expenses/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesNew /></RoleProtectedRoute>} />
                     <Route path="/expenses/import" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesImport /></RoleProtectedRoute>} />
                     <Route path="/expenses/view/:id" element={<ExpensesView />} />
                     <Route path="/expenses/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute>} />
+                    <Route path="/expenses/:id" element={<ExpenseRedirect />} />
                     <Route path="/expenses" element={<Expenses />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/approvals" element={<ApprovalDashboard />} />
