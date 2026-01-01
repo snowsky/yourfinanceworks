@@ -53,6 +53,8 @@ api/core/keys/*.pem
 # But do not ignore the directory itself
 !api/core/keys/
 !api/core/keys/.gitkeep
+# Exception: keep master_public_key.pem
+!api/core/keys/master_public_key.pem
 
 license_server/
 .env

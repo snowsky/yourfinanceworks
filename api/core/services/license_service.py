@@ -273,6 +273,19 @@ def load_public_keys() -> Dict[str, str]:
             except Exception as e:
                 print(f"Warning: Failed to load {default_key_file}: {e}")
 
+        # Explicitly check for master_public_key.pem (central server key)
+        # This allows verifying licenses signed by the server's master key
+        master_key_file = KEYS_DIR / "master_public_key.pem"
+        if master_key_file.exists():
+            try:
+                with open(master_key_file, "r") as f:
+                    master_key_content = f.read()
+                    # 'server_v1' is the dedicated ID for the master key
+                    public_keys["server_v1"] = master_key_content
+                print(f"Loaded master public key as 'server_v1' from {master_key_file}")
+            except Exception as e:
+                print(f"Warning: Failed to load {master_key_file}: {e}")
+
     # Auto-generate keys if none found
     if not public_keys:
         print("\n" + "="*60)
