@@ -56,7 +56,7 @@ import {
   ProfessionalTableHead,
   StatusBadge,
 } from "@/components/ui/professional-table";
-import { CompanyInfoTab, InvoiceSettingsTab, UserProfileTab, DiscountRulesTab } from "@/components/settings";
+import { CompanyInfoTab, InvoiceSettingsTab, UserProfileTab, DiscountRulesTab, AIConfigTab } from "@/components/settings";
 import type { DiscountRule, DiscountRuleCreate } from "@/components/settings";
 
 const Settings = () => {
@@ -129,12 +129,6 @@ const Settings = () => {
   });
   const [testingNewConfig, setTestingNewConfig] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean, message: string } | null>(null);
-
-  // Helper function to check if a provider requires an API key
-  const providerRequiresApiKey = (providerName: string): boolean => {
-    const provider = supportedProviders[providerName];
-    return provider ? provider.requires_api_key : true; // Default to requiring API key if unknown
-  };
 
   const [invoiceSettings, setInvoiceSettings] = useState({
     prefix: "INV-",
@@ -1560,125 +1554,28 @@ const Settings = () => {
 
             {isAdmin && (
               <TabsContent value="ai-config" className="mt-6">
-                <ProfessionalCard variant="elevated">
-                  <ProfessionalCardHeader>
-                    <ProfessionalCardTitle className="flex items-center gap-2">
-                      <Cpu className="w-5 h-5 text-primary" />
-                      {t('settings.ai_configuration')}
-                    </ProfessionalCardTitle>
-                  </ProfessionalCardHeader>
-                  <ProfessionalCardContent className="space-y-8">
-                    {/* AI Assistant Toggle */}
-                    <div className="p-6 bg-muted/20 rounded-xl border border-border/50">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <Label htmlFor="ai_assistant" className="text-base font-semibold">{t('settings.ai_assistant')}</Label>
-                          <p className="text-sm text-muted-foreground">{t('settings.ai_assistant_description')}</p>
-                          {!isFeatureEnabled('ai_chat') && (
-                            <div className="flex items-center gap-2 mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              {t('settings.ai_assistant_license_required', 'AI Assistant requires a valid license. Please upgrade your plan.')}
-                            </div>
-                          )}
-                        </div>
-                        <Switch
-                          id="ai_assistant"
-                          checked={aiAssistantEnabled}
-                          onCheckedChange={handleAIAssistantToggle}
-                          disabled={!isFeatureEnabled('ai_chat') && !aiAssistantEnabled}
-                        />
-                      </div>
-                    </div>
-
-                    {/* AI Provider Configurations */}
-                    <div className="space-y-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold flex items-center gap-2">
-                            {t('settings.ai_provider_configurations')}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{t('settings.ai_provider_configurations_description')}</p>
-                        </div>
-                        <ProfessionalButton onClick={openCreateAIConfigDialog} leftIcon={<Plus className="h-4 w-4" />}>
-                          {t('settings.add_provider')}
-                        </ProfessionalButton>
-                      </div>
-
-                      {loadingAiConfigs ? (
-                        <div className="flex justify-center py-12">
-                          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        </div>
-                      ) : aiConfigs.length === 0 ? (
-                        <div className="text-center py-12 bg-muted/10 rounded-xl border-2 border-dashed border-border">
-                          <Cpu className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                          <p className="text-muted-foreground font-medium">{t('settings.no_ai_configurations')}</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {t('settings.add_ai_providers_hint')}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-border/50 overflow-hidden">
-                          <ProfessionalTable>
-                            <ProfessionalTableHeader>
-                              <ProfessionalTableRow>
-                                <ProfessionalTableHead>{t('settings.provider')}</ProfessionalTableHead>
-                                <ProfessionalTableHead>{t('settings.model')}</ProfessionalTableHead>
-                                <ProfessionalTableHead>{t('settings.status')}</ProfessionalTableHead>
-                                <ProfessionalTableHead className="text-right">{t('common.actions')}</ProfessionalTableHead>
-                              </ProfessionalTableRow>
-                            </ProfessionalTableHeader>
-                            <ProfessionalTableBody>
-                              {aiConfigs.map((config) => (
-                                <ProfessionalTableRow key={config.id} interactive>
-                                  <ProfessionalTableCell className="font-medium">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                        <Cpu className="w-4 h-4 text-primary" />
-                                      </div>
-                                      <div className="flex flex-col">
-                                        <span>{config.provider_name}</span>
-                                        {config.is_default && (
-                                          <Badge variant="secondary" className="w-fit text-[10px] h-4 px-1.5 mt-1">Default</Badge>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </ProfessionalTableCell>
-                                  <ProfessionalTableCell>
-                                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{config.model_name}</code>
-                                  </ProfessionalTableCell>
-                                  <ProfessionalTableCell>
-                                    <StatusBadge status={config.is_active ? "success" : "neutral"}>
-                                      {config.is_active ? t('common.active') : t('common.inactive')}
-                                    </StatusBadge>
-                                  </ProfessionalTableCell>
-                                  <ProfessionalTableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                      <ProfessionalButton
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        onClick={() => openEditAIConfigDialog(config)}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </ProfessionalButton>
-                                      <ProfessionalButton
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="text-destructive hover:bg-destructive/10"
-                                        onClick={() => handleDeleteAIConfig(config.id)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </ProfessionalButton>
-                                    </div>
-                                  </ProfessionalTableCell>
-                                </ProfessionalTableRow>
-                              ))}
-                            </ProfessionalTableBody>
-                          </ProfessionalTable>
-                        </div>
-                      )}
-                    </div>
-                  </ProfessionalCardContent>
-                </ProfessionalCard>
+                <AIConfigTab
+                  aiAssistantEnabled={aiAssistantEnabled}
+                  aiConfigs={aiConfigs}
+                  loadingAiConfigs={loadingAiConfigs}
+                  showAIConfigDialog={showAIConfigDialog}
+                  editingAIConfig={editingAIConfig}
+                  supportedProviders={supportedProviders}
+                  newAIConfig={newAIConfig}
+                  testingNewConfig={testingNewConfig}
+                  testResult={testResult}
+                  isFeatureEnabled={isFeatureEnabled}
+                  onAIAssistantToggle={handleAIAssistantToggle}
+                  onOpenCreateDialog={openCreateAIConfigDialog}
+                  onOpenEditDialog={openEditAIConfigDialog}
+                  onDeleteAIConfig={handleDeleteAIConfig}
+                  onCloseDialog={() => setShowAIConfigDialog(false)}
+                  onAIConfigChange={handleAIConfigChange}
+                  onAIConfigToggleChange={handleAIConfigToggleChange}
+                  onTestConfig={handleTestNewAIConfig}
+                  onCreateConfig={handleCreateAIConfig}
+                  onUpdateConfig={handleUpdateAIConfig}
+                />
               </TabsContent>
             )}
 
@@ -2986,185 +2883,6 @@ const Settings = () => {
             }
           </Tabs >
         </ContentSection >
-
-        {/* AI Configuration Dialog */}
-        < Dialog open={showAIConfigDialog} onOpenChange={setShowAIConfigDialog} >
-          <DialogContent className="sm:max-w-[650px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingAIConfig ? t('settings.edit_ai_configuration') : t('settings.add_ai_configuration')}
-              </DialogTitle>
-              <DialogDescription>
-                {t('settings.configure_ai_provider_for_enhanced_features')}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="provider_name">{t('settings.provider')}</Label>
-                  <Select
-                    value={newAIConfig.provider_name}
-                    onValueChange={handleProviderChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('settings.select_provider')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openai">{t('settings.openai')}</SelectItem>
-                      <SelectItem value="openrouter">OpenRouter</SelectItem>
-                      <SelectItem value="ollama">{t('settings.ollama')}</SelectItem>
-                      <SelectItem value="anthropic">{t('settings.anthropic')}</SelectItem>
-                      <SelectItem value="google">{t('settings.google')}</SelectItem>
-                      <SelectItem value="custom">{t('settings.custom')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="model_name">{t('settings.model')}</Label>
-                  <Input
-                    id="model_name"
-                    name="model_name"
-                    value={newAIConfig.model_name}
-                    onChange={handleAIConfigChange}
-                    placeholder={
-                      newAIConfig.provider_name === "openai" ? t('settings.openai_model_example') :
-                        newAIConfig.provider_name === "openrouter" ? "openai/gpt-4, anthropic/claude-3-sonnet" :
-                          newAIConfig.provider_name === "ollama" ? t('settings.ollama_model_example') :
-                            newAIConfig.provider_name === "anthropic" ? t('settings.anthropic_model_example') :
-                              newAIConfig.provider_name === "google" ? t('settings.google_model_example') :
-                                t('settings.model_name_example')
-                    }
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {newAIConfig.provider_name === "openai" && t('settings.openai_model_hint')}
-                    {newAIConfig.provider_name === "openrouter" && "Access 100+ models via OpenRouter. Use format: provider/model (e.g., openai/gpt-4, anthropic/claude-3-sonnet)"}
-                    {newAIConfig.provider_name === "ollama" && t('settings.ollama_model_hint')}
-                    {newAIConfig.provider_name === "anthropic" && t('settings.anthropic_model_hint')}
-                    {newAIConfig.provider_name === "google" && t('settings.google_model_hint')}
-                    {newAIConfig.provider_name === "custom" && t('settings.custom_model_hint')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="provider_url">{t('settings.provider_url_optional')}</Label>
-                <Input
-                  id="provider_url"
-                  name="provider_url"
-                  value={newAIConfig.provider_url}
-                  onChange={handleAIConfigChange}
-                  placeholder={t('settings.provider_url_placeholder')}
-                />
-                <p className="text-sm text-muted-foreground">
-                  {t('settings.leave_empty_for_default_endpoints')}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="api_key">
-                  {t('settings.api_key')}
-                  {!providerRequiresApiKey(newAIConfig.provider_name) && (
-                    <span className="text-sm text-muted-foreground ml-1">(Optional)</span>
-                  )}
-                </Label>
-                <Input
-                  id="api_key"
-                  name="api_key"
-                  type="password"
-                  value={newAIConfig.api_key}
-                  onChange={handleAIConfigChange}
-                  placeholder={
-                    providerRequiresApiKey(newAIConfig.provider_name)
-                      ? t('settings.enter_api_key')
-                      : "Optional - leave empty for local providers"
-                  }
-                />
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_active"
-                    checked={newAIConfig.is_active}
-                    onCheckedChange={(checked) => handleAIConfigToggleChange('is_active', checked)}
-                  />
-                  <Label htmlFor="is_active">{t('settings.active')}</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_default"
-                    checked={newAIConfig.is_default}
-                    onCheckedChange={(checked) => handleAIConfigToggleChange('is_default', checked)}
-                  />
-                  <Label htmlFor="is_default">{t('settings.default_provider')}</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="tested"
-                    checked={newAIConfig.tested}
-                    onCheckedChange={(checked) => handleAIConfigToggleChange('tested', checked)}
-                  />
-                  <Label htmlFor="tested">{t('settings.mark_as_tested')}</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="ocr_enabled"
-                    checked={newAIConfig.ocr_enabled || false}
-                    onCheckedChange={(checked) => handleAIConfigToggleChange('ocr_enabled', checked)}
-                  />
-                  <Label htmlFor="ocr_enabled">OCR Enabled</Label>
-                </div>
-              </div>
-
-              {/* Test Result Display */}
-              {testResult && (
-                <div className={`p-3 rounded-lg border ${testResult.success
-                  ? 'bg-green-50 border-green-200 text-green-800'
-                  : 'bg-red-50 border-red-200 text-red-800'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${testResult.success ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                    <span className="font-medium">
-                      {testResult.success ? 'Test Successful' : 'Test Failed'}
-                    </span>
-                  </div>
-                  <p className="text-sm mt-1">{testResult.message}</p>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAIConfigDialog(false)}>
-                {t('settings.cancel')}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleTestNewAIConfig}
-                disabled={testingNewConfig || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key)}
-              >
-                {testingNewConfig ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('common.loading')}
-                  </>
-                ) : (
-                  t('settings.test')
-                )}
-              </Button>
-              <Button
-                onClick={editingAIConfig ? handleUpdateAIConfig : handleCreateAIConfig}
-              >
-                {editingAIConfig ? t('settings.update') : t('settings.create')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog >
 
 
       </div >

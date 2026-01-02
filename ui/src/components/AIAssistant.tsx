@@ -54,7 +54,7 @@ const StyledAIResponse = ({ children }: { children: React.ReactNode }) => (
 const EnhancedAIResponse = ({ text }: { text: string }) => {
   // Check if the response contains specific patterns to apply different styling
   const lowerText = text.toLowerCase();
-  
+
   if (lowerText.includes('error') || lowerText.includes('sorry') || lowerText.includes('failed')) {
     return (
       <div className="bg-gradient-to-br from-red-500/10 to-pink-500/10 p-4 rounded-xl border border-red-500/20 shadow-lg">
@@ -71,7 +71,7 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
       </div>
     );
   }
-  
+
   if (lowerText.includes('success') || lowerText.includes('great') || lowerText.includes('excellent')) {
     return (
       <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 p-4 rounded-xl border border-green-500/20 shadow-lg">
@@ -88,7 +88,7 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
       </div>
     );
   }
-  
+
   if (lowerText.includes('configuration') || lowerText.includes('settings')) {
     return (
       <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-4 rounded-xl border border-blue-500/20 shadow-lg">
@@ -105,7 +105,7 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
       </div>
     );
   }
-  
+
   // Default styled response
   return <StyledAIResponse>{text}</StyledAIResponse>;
 };
@@ -123,10 +123,10 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
       const authStatus = !!(token && userStr);
-      
+
       let currentUser = null;
       let adminStatus = false;
-      
+
       if (authStatus && userStr) {
         try {
           currentUser = JSON.parse(userStr);
@@ -141,28 +141,19 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
           return;
         }
       }
-      
+
       setIsAuthenticated(authStatus);
       setUser(currentUser);
       setIsAdminUser(adminStatus);
       setAuthInitialized(true);
-      
-      // console.log('AI Assistant: Auth status update', { 
-      //   hasToken: !!token, 
-      //   hasUser: !!currentUser, 
-      //   authStatus, 
-      //   adminStatus,
-      //   shouldShow: authStatus && adminStatus 
-      // });
     };
-    
+
     checkAuth();
-    
+
     // Check authentication on localStorage changes
     const handleStorageChange = (e: StorageEvent) => {
       // If token is removed, immediately hide AI assistant
       if (e.key === 'token' && !e.newValue) {
-        // console.log('AI Assistant: Token removed, hiding assistant');
         setIsAuthenticated(false);
         setUser(null);
         setIsAdminUser(false);
@@ -170,7 +161,6 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       }
       // If user data is removed, hide assistant
       if (e.key === 'user' && !e.newValue) {
-        // console.log('AI Assistant: User data removed, hiding assistant');
         setIsAuthenticated(false);
         setUser(null);
         setIsAdminUser(false);
@@ -178,46 +168,42 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
       }
       // If token or user is added (login), immediately check auth
       if ((e.key === 'token' && e.newValue) || (e.key === 'user' && e.newValue)) {
-        // console.log('AI Assistant: Login detected, checking auth');
         setTimeout(checkAuth, 100); // Small delay to ensure both token and user are set
         return;
       }
       checkAuth();
     };
-    
+
     // Listen for storage events (from other tabs)
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Listen for logout events
     const handleLogout = () => {
-      // console.log('AI Assistant: Logout event received, hiding assistant');
       setIsAuthenticated(false);
       setUser(null);
       setIsAdminUser(false);
     };
-    
+
     window.addEventListener('user-logout', handleLogout);
-    
+
     // Check auth every 1 second for immediate logout detection
     const authInterval = setInterval(() => {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
-      
+
       // If either token or user data is missing, hide the assistant
       if (!token || !userStr) {
         if (isAuthenticated) { // Only log if state changes
-          // console.log('AI Assistant: Auth check interval - hiding due to missing credentials');
           setIsAuthenticated(false);
           setUser(null);
           setIsAdminUser(false);
         }
       } else if (!isAuthenticated) {
         // If credentials exist but we think user is not authenticated, recheck
-        // console.log('AI Assistant: Auth check interval - credentials found, rechecking auth');
         checkAuth();
       }
     }, 1000);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('user-logout', handleLogout);
@@ -232,16 +218,10 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 
   // Return the appropriate component based on authentication state
   if (!isAuthenticated || !isAdminUser) {
-    // console.log('AI Assistant: Not rendering - auth check failed', { 
-    //   isAuthenticated, 
-    //   isAdminUser,
-    //   authInitialized,
-    //   reason: !isAuthenticated ? 'not authenticated' : 'not admin user'
-    // });
     return null;
   }
 
-  // console.log('AI Assistant: Rendering for authenticated admin user');
+  // If authenticated and admin, render the AI assistant
   return <AuthenticatedAIAssistant user={user} ref={ref} />;
 });
 
@@ -249,7 +229,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>((props, ref) => {
   const { user } = props;
   const { t } = useTranslation();
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(
@@ -277,10 +257,9 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     queryFn: () => api.get('/settings/'),
     refetchInterval: (query) => {
       // Stop refetching if there's an authentication error
-      if (query.state.error && 
-          (query.state.error.message.includes('403') || 
-           query.state.error.message.includes('Authentication failed'))) {
-        // console.log('AI Assistant: Stopping refetch due to authentication error');
+      if (query.state.error &&
+        (query.state.error.message.includes('403') ||
+          query.state.error.message.includes('Authentication failed'))) {
         return false;
       }
       // Only refetch if AI assistant is not explicitly disabled
@@ -289,7 +268,6 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     },
     retry: (failureCount, error) => {
       if (error.message.includes('403') || error.message.includes('Authentication failed')) {
-        // console.log('AI Assistant: Not retrying due to authentication error');
         return false;
       }
       return failureCount < 3;
@@ -300,16 +278,6 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     refetchOnMount: true, // Always refetch on mount for fresh data
   });
 
-  // Add effect to log settings changes for debugging
-  useEffect(() => {
-    if (settings && DEBUG_AI_ASSISTANT) {
-      console.log('AI Assistant: Settings updated', {
-        enable_ai_assistant: (settings as any)?.enable_ai_assistant,
-        settingsData: settings
-      });
-    }
-  }, [settings]);
-
   // Fetch AI configurations
   const { data: aiConfigs, isLoading: aiConfigsLoading } = useQuery({
     queryKey: ['ai-configs'],
@@ -317,7 +285,6 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     enabled: !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
     retry: (failureCount, error) => {
       if (error.message.includes('403') || error.message.includes('Authentication failed')) {
-        if (DEBUG_AI_ASSISTANT) console.log('AI Configs: Not retrying due to authentication error');
         return false;
       }
       return failureCount < 3;
@@ -349,11 +316,9 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   }, [isOpen, historyLoaded, settingsLoading, settings]);
 
   // Rest of the component hooks...
-  const [recentMessages, setRecentMessages] = useState<Message[]>([]);
   const [isStreamingVisible, setIsStreamingVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const lastSuccessfulSubmissionRef = useRef<string>('');
 
   const [apiCallHistory, setApiCallHistory] = useState<ApiCall[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -402,38 +367,13 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     retry: false,
   });
 
-  // // Conditional rendering checks - moved to the end after all hooks
-  // console.log('AI Assistant Debug:', { 
-  //   settings, 
-  //   settingsLoading, 
-  //   settingsError, 
-  //   isAIAssistantEnabled: !!(settings && (settings as any).enable_ai_assistant),
-  //   aiConfigs,
-  //   aiConfigsLoading,
-  //   defaultAIConfig: aiConfigs && Array.isArray(aiConfigs) ? 
-  //     (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) : 
-  //     undefined,
-  //   shouldRender: !settingsLoading && !!(settings && (settings as any).enable_ai_assistant) 
-  // });
-
-  // // CRITICAL: Add detailed logging for disabled state
-  // console.log('AI Assistant Render Decision:', {
-  //   settingsLoading,
-  //   settingsError: !!settingsError,
-  //   settings: settings,
-  //   isAIAssistantEnabled: !!(settings && (settings as any).enable_ai_assistant),
-  //   rawSettingsValue: settings ? (settings as any).enable_ai_assistant : 'no settings',
-  //   willRender: !settingsLoading && !!(settings && (settings as any).enable_ai_assistant)
-  // });
-
   const isAIAssistantEnabled = !!(settings && (settings as any).enable_ai_assistant);
-  const defaultAIConfig = aiConfigs && Array.isArray(aiConfigs) ? 
-    (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) : 
+  const defaultAIConfig = aiConfigs && Array.isArray(aiConfigs) ?
+    (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) :
     undefined;
 
   // Handle different states more gracefully
   if (settingsLoading) {
-    // console.log('AI Assistant: Settings loading, showing minimal UI');
     // Don't hide completely while loading - show a minimal button that's disabled
     return (
       <div className="fixed bottom-4 right-4 z-50">
@@ -554,8 +494,6 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     try {
       // Check for specific patterns that should use dedicated endpoints
       const lowerText = textToSend.toLowerCase();
-      // console.log('AI Assistant: Processing message:', { textToSend, lowerText });
-      
       // Analyze Patterns: match translated or English keywords
       if (
         lowerText === analyzePatternsText ||
@@ -563,24 +501,19 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         (lowerText.includes('analyze') && lowerText.includes('pattern'))
       ) {
         // Use the analyze-patterns endpoint (MCP-like functionality)
-        // console.log('AI Assistant: Using analyze-patterns endpoint');
         try {
           const response = await aiApiRequest('/ai/analyze-patterns') as any;
-          // console.log('AI Assistant: Analyze patterns response:', response);
-          // console.log('AI Assistant: Response success:', response.success);
-          // console.log('AI Assistant: Response data:', response.data);
-          // console.log('AI Assistant: Response error:', (response as any).error);
-          
+
           if (response.success) {
             const data = response.data;
             // Format revenue by currency
             const formatRevenueByCurrency = (revenueData: any) => {
-                if (!revenueData || Object.keys(revenueData).length === 0) {
-                    return "None";
-                }
-                return Object.entries(revenueData)
-                    .map(([currency, amount]) => `${currency} ${(amount as number).toFixed(2)}`)
-                    .join(', ');
+              if (!revenueData || Object.keys(revenueData).length === 0) {
+                return "None";
+              }
+              return Object.entries(revenueData)
+                .map(([currency, amount]) => `${currency} ${(amount as number).toFixed(2)}`)
+                .join(', ');
             };
 
             const analysisComponent = (
@@ -589,7 +522,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   <h3 className="text-lg font-bold text-blue-900 mb-3 flex items-center">
                     📊 {t('aiAssistant.invoicePatternAnalysis')}
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div className="bg-white p-3 rounded-lg shadow-sm">
                       <h4 className="font-semibold text-gray-800 mb-2">{t('aiAssistant.summary')}</h4>
@@ -616,7 +549,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-white p-3 rounded-lg shadow-sm">
                       <h4 className="font-semibold text-gray-800 mb-2">{t('aiAssistant.revenue')}</h4>
                       <div className="space-y-1 text-sm">
@@ -631,7 +564,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg border border-green-200">
                     <h4 className="font-semibold text-green-800 mb-2 flex items-center">
                       💡 Recommendations
@@ -672,11 +605,9 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         (lowerText.includes('suggest') && lowerText.includes('action'))
       ) {
         // Use the suggest-actions endpoint
-        // console.log('AI Assistant: Using suggest-actions endpoint');
         try {
           const response = await aiApiRequest('/ai/suggest-actions') as any;
-          // console.log('AI Assistant: Suggest actions response:', response);
-          
+
           if (response.success) {
             const data = response.data;
             const actionsComponent = (
@@ -695,11 +626,10 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                             <p className="text-sm text-gray-600">{action.description}</p>
                           </div>
                           <div className="ml-3">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              action.priority === 'high' ? 'bg-red-100 text-red-800' :
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${action.priority === 'high' ? 'bg-red-100 text-red-800' :
                               action.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
+                                'bg-green-100 text-green-800'
+                              }`}>
                               {action.priority} priority
                             </span>
                           </div>
@@ -730,7 +660,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                 </div>
               </div>
             );
-            
+
             // Save AI response to backend
             await saveChatMessage("Suggested actions response", 'ai');
 
@@ -747,25 +677,23 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       } else if (
         lowerText === paymentChartsText ||
         lowerText.includes(paymentChartsText) ||
-        (lowerText.includes('payment') || lowerText.includes('payments')) && 
+        (lowerText.includes('payment') || lowerText.includes('payments')) &&
         !lowerText.includes('expense') && !lowerText.includes('statement')
       ) {
         // Handle payment data display with charts
-        // console.log('AI Assistant: Using payments endpoint with charts');
         try {
           const response = await aiApiRequest('/payments/') as any;
-          // console.log('AI Assistant: Payments response:', response);
-          
+
           if (response.success && response.chart_data && Array.isArray(response.data)) {
             const paymentCharts = (
               <div className="mt-4">
-                <PaymentCharts 
-                  chartData={response.chart_data} 
-                  payments={response.data} 
+                <PaymentCharts
+                  chartData={response.chart_data}
+                  payments={response.data}
                 />
               </div>
             );
-            
+
             // Save AI response to backend
             await saveChatMessage("Payment charts response", 'ai');
 
@@ -793,7 +721,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       ) {
         // Handle expense queries using the AI chat endpoint with MCP tools
         console.log('AI Assistant: Detected expense query, using chat endpoint with MCP');
-        
+
         const response = await api.post('/ai/chat', {
           message: textToSend,
           config_id: defaultAIConfig?.id || 0
@@ -824,7 +752,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       ) {
         // Handle bank statement queries using the AI chat endpoint with MCP tools
         console.log('AI Assistant: Detected bank statement query, using chat endpoint with MCP');
-        
+
         const response = await api.post('/ai/chat', {
           message: textToSend,
           config_id: defaultAIConfig?.id || 0
@@ -906,21 +834,20 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           >
             <Bot className="h-10 w-10 text-white drop-shadow-lg" />
           </Button>
-          
+
           {isOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center">
               {/* Backdrop */}
-              <div 
+              <div
                 className="absolute inset-0 bg-black/20 backdrop-blur-sm"
                 onClick={() => setIsOpen(false)}
               />
-              
+
               {/* Dialog */}
-              <div className={`relative w-full flex flex-col p-0 bg-background shadow-2xl border-0 overflow-hidden animate-fade-in rounded-3xl ${
-                isFullscreen 
-                  ? 'max-w-[95vw] h-[95vh] max-h-[95vh]' 
-                  : 'max-w-[600px] h-[80vh] max-h-[800px]'
-              }`}>
+              <div className={`relative w-full flex flex-col p-0 bg-background shadow-2xl border-0 overflow-hidden animate-fade-in rounded-3xl ${isFullscreen
+                ? 'max-w-[95vw] h-[95vh] max-h-[95vh]'
+                : 'max-w-[600px] h-[80vh] max-h-[800px]'
+                }`}>
                 <div className="relative p-6 flex items-center justify-between shadow-md overflow-hidden rounded-t-3xl z-20 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500">
                   <div className="relative flex items-center gap-4 z-20">
                     <div className="bg-white/20 rounded-full p-2 shadow-lg">
