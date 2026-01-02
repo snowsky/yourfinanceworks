@@ -68,7 +68,8 @@
     "back_to_invoices": "Retour aux factures",
     "add_data": "Ajouter des données",
     "showing_of": "Affichage de {{count}} sur {{total}}",
-    "page_of": "Page {{current}} sur {{total}}"
+    "page_of": "Page {{current}} sur {{total}}",
+    "no_results": "Aucun résultat trouvé"
   },
   "taxIntegration": {
     "title": "Intégration du Service Fiscal",
@@ -203,7 +204,6 @@
     "sign_in_with_google": "Se connecter avec Google",
     "sign_in_with_microsoft": "Se connecter avec Microsoft",
     "no_account": "Vous n'avez pas de compte ?",
-    "google_sso_coming_soon": "Le SSO Google sera bientôt disponible !",
     "signup": {
       "title": "Créez votre compte",
       "homepage": "S'inscrire",
@@ -230,7 +230,6 @@
       "or_continue_with": "Ou continuer avec",
       "sign_up_with_google": "S'inscrire avec Google",
       "sign_up_with_microsoft": "S'inscrire avec Microsoft",
-      "google_sso_coming_soon": "Le SSO Google sera bientôt disponible !",
       "validation": {
         "passwords_not_match": "Les mots de passe ne correspondent pas",
         "password_min_length": "Le mot de passe doit contenir au moins 6 caractères",
@@ -2340,6 +2339,7 @@
     "database_header": "Base de données",
     "message_header": "Message",
     "recreate_database_button": "Recréer",
+    "own_database": "Propre base de données",
     "edit_tenant_title": "Modifier le locataire",
     "update_tenant_button": "Mettre à jour le locataire",
     "edit_user_title": "Modifier l'utilisateur",

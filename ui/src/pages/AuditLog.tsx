@@ -161,14 +161,24 @@ export default function AuditLogPage() {
       if (startDate) params.append('start_date', startDate.toISOString());
       if (endDate) params.append('end_date', endDate.toISOString());
 
-      // Add organization_id for super admin
+      // Add organization_id for super admin (only for tenant endpoints, not master database)
       if (isCurrentUserSuperAdmin && selectedOrganization && selectedOrganization !== 'current') {
-        if (selectedOrganization === 'all') {
-          params.append('all_organizations', 'true');
-        } else {
-          params.append('organization_id', selectedOrganization);
+        // Only pass organization parameters for tenant endpoints, not for master database
+        if (selectedOrganization !== 'master') {
+          if (selectedOrganization === 'all') {
+            params.append('all_organizations', 'true');
+          } else {
+            // Only pass organization_id for specific tenant organizations
+            params.append('organization_id', selectedOrganization);
+          }
         }
       }
+
+      // Use master audit log endpoint for super admins when viewing master database operations
+      // Use regular endpoint with all_organizations=true for viewing all tenant logs
+      const endpoint = isCurrentUserSuperAdmin && selectedOrganization === 'master' 
+        ? '/audit-logs/master-list'
+        : '/audit-logs';
 
       const data = await apiRequest<{
         audit_logs: AuditLog[],
@@ -176,7 +186,7 @@ export default function AuditLogPage() {
         page: number,
         per_page: number,
         total_pages: number
-      }>(`/audit-logs?${params.toString()}`);
+      }>(`${endpoint}?${params.toString()}`);
 
       setLogs(data.audit_logs || []);
       setTotalCount(data.total || 0);
@@ -289,7 +299,7 @@ export default function AuditLogPage() {
             setPerPage(parseInt(v));
             safeSetPage(1);
           }}>
-            <SelectTrigger className="w-[120px] h-8 text-xs bg-background/50 border-border/50">
+            <SelectTrigger className="w-[140px] bg-background/50 border-border/50">
               <SelectValue placeholder="Per page" />
             </SelectTrigger>
             <SelectContent>
@@ -305,7 +315,7 @@ export default function AuditLogPage() {
             setAction(v === 'all' ? '' : v);
             safeSetPage(1);
           }}>
-            <SelectTrigger className="w-[140px] h-8 text-xs bg-background/50 border-border/50">
+            <SelectTrigger className="w-[160px] bg-background/50 border-border/50">
               <SelectValue placeholder={t('auditLog.filters.action') || 'Action'} />
             </SelectTrigger>
             <SelectContent>
@@ -320,7 +330,7 @@ export default function AuditLogPage() {
             setStatus(v === 'all' ? '' : v);
             safeSetPage(1);
           }}>
-            <SelectTrigger className="w-[120px] h-8 text-xs bg-background/50 border-border/50">
+            <SelectTrigger className="w-[140px] bg-background/50 border-border/50">
               <SelectValue placeholder={t('auditLog.filters.status') || 'Status'} />
             </SelectTrigger>
             <SelectContent>
@@ -335,7 +345,7 @@ export default function AuditLogPage() {
             setUserEmail(v === 'all' ? '' : v);
             safeSetPage(1);
           }}>
-            <SelectTrigger className="w-[180px] h-8 text-xs bg-background/50 border-border/50">
+            <SelectTrigger className="w-[200px] bg-background/50 border-border/50">
               <SelectValue placeholder={t('auditLog.filters.user') || 'User'} />
             </SelectTrigger>
             <SelectContent>
@@ -350,7 +360,7 @@ export default function AuditLogPage() {
             setResourceType(v === 'all' ? '' : v);
             safeSetPage(1);
           }}>
-            <SelectTrigger className="w-[160px] h-8 text-xs bg-background/50 border-border/50">
+            <SelectTrigger className="w-[180px] bg-background/50 border-border/50">
               <SelectValue placeholder={t('auditLog.filters.resource_type') || 'Resource Type'} />
             </SelectTrigger>
             <SelectContent>
@@ -366,11 +376,14 @@ export default function AuditLogPage() {
               setSelectedOrganization(v);
               safeSetPage(1);
             }}>
-              <SelectTrigger className="w-[220px] h-8 text-xs bg-background/50 border-border/50">
+              <SelectTrigger className="w-[240px] bg-background/50 border-border/50">
                 <SelectValue placeholder="Select Organization" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="current">Current Organization</SelectItem>
+                <SelectItem value="master" className="text-purple-600">
+                  Master Database (Super Admin Operations)
+                </SelectItem>
                 <SelectItem value="all" className="text-orange-600">
                   All Organizations (Slow)
                 </SelectItem>
@@ -445,7 +458,7 @@ export default function AuditLogPage() {
                   <ProfessionalTableHead>{t('auditLog.filters.action') || 'Action'}</ProfessionalTableHead>
                   <ProfessionalTableHead>{t('auditLog.filters.resource_type') || 'Resource Type'}</ProfessionalTableHead>
                   <ProfessionalTableHead>{t('auditLog.filters.status') || 'Status'}</ProfessionalTableHead>
-                  {isCurrentUserSuperAdmin && selectedOrganization === 'all' && (
+                  {isCurrentUserSuperAdmin && (selectedOrganization === 'all' || selectedOrganization === 'master') && (
                     <ProfessionalTableHead>Organization</ProfessionalTableHead>
                   )}
                   <ProfessionalTableHead>{t('auditLog.filters.date') || 'Date'}</ProfessionalTableHead>
@@ -454,13 +467,13 @@ export default function AuditLogPage() {
               <ProfessionalTableBody>
                 {loading ? (
                   <ProfessionalTableRow>
-                    <ProfessionalTableCell colSpan={isCurrentUserSuperAdmin && selectedOrganization === 'all' ? 7 : 6} className="h-24 text-center text-muted-foreground">
+                    <ProfessionalTableCell colSpan={isCurrentUserSuperAdmin && (selectedOrganization === 'all' || selectedOrganization === 'master') ? 7 : 6} className="h-24 text-center text-muted-foreground">
                       {t('common.loading') || 'Loading...'}
                     </ProfessionalTableCell>
                   </ProfessionalTableRow>
                 ) : logs.length === 0 ? (
                   <ProfessionalTableRow>
-                    <ProfessionalTableCell colSpan={isCurrentUserSuperAdmin && selectedOrganization === 'all' ? 7 : 6} className="h-24 text-center text-muted-foreground">
+                    <ProfessionalTableCell colSpan={isCurrentUserSuperAdmin && (selectedOrganization === 'all' || selectedOrganization === 'master') ? 7 : 6} className="h-24 text-center text-muted-foreground">
                       {t('common.no_results') || 'No audit logs found'}
                     </ProfessionalTableCell>
                   </ProfessionalTableRow>
@@ -471,15 +484,20 @@ export default function AuditLogPage() {
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setSelectedLog(log)}
                     >
-                      <ProfessionalTableCell className="font-mono text-xs">{log.id}</ProfessionalTableCell>
+                      <ProfessionalTableCell className="font-mono">{log.id}</ProfessionalTableCell>
                       <ProfessionalTableCell>{log.user_email}</ProfessionalTableCell>
                       <ProfessionalTableCell>{getActionBadge(log.action)}</ProfessionalTableCell>
                       <ProfessionalTableCell><span className="text-muted-foreground">{toCamelCase(log.resource_type)}</span></ProfessionalTableCell>
                       <ProfessionalTableCell>{getStatusBadge(log.status)}</ProfessionalTableCell>
-                      {isCurrentUserSuperAdmin && selectedOrganization === 'all' && (
-                        <ProfessionalTableCell>{log.tenant_name || 'Unknown'}</ProfessionalTableCell>
+                      {isCurrentUserSuperAdmin && (selectedOrganization === 'all' || selectedOrganization === 'master') && (
+                        <ProfessionalTableCell>
+                          {selectedOrganization === 'master' 
+                            ? (log.tenant_name || 'Master Database') 
+                            : (log.tenant_name || 'Unknown')
+                          }
+                        </ProfessionalTableCell>
                       )}
-                      <ProfessionalTableCell className="text-muted-foreground text-xs">{new Date(log.created_at).toLocaleString()}</ProfessionalTableCell>
+                      <ProfessionalTableCell className="text-muted-foreground">{new Date(log.created_at).toLocaleString()}</ProfessionalTableCell>
                     </ProfessionalTableRow>
                   ))
                 )}
@@ -487,7 +505,7 @@ export default function AuditLogPage() {
             </ProfessionalTable>
 
             <div className="py-4 px-6 flex items-center justify-between gap-4 border-t border-border/50">
-              <div className="text-sm text-muted-foreground whitespace-nowrap">
+              <div className="text-muted-foreground whitespace-nowrap">
                 {t('auditLog.total_logs', { count: totalCount })}
               </div>
               {totalCount > 0 && (

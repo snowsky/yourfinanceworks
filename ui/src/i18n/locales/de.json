@@ -60,7 +60,8 @@
     "back_to_invoices": "Zurück zu Rechnungen",
     "add_data": "Daten hinzufügen",
     "showing_of": "Zeige {{count}} von {{total}}",
-    "page_of": "Seite {{current}} von {{total}}"
+    "page_of": "Seite {{current}} von {{total}}",
+    "no_results": "Keine Ergebnisse gefunden"
   },
   "taxIntegration": {
     "title": "Steuerservice-Integration",
@@ -195,7 +196,6 @@
     "sign_in_with_google": "Mit Google anmelden",
     "sign_in_with_microsoft": "Mit Microsoft anmelden",
     "no_account": "Haben Sie noch kein Konto?",
-    "google_sso_coming_soon": "Google SSO wird bald verfügbar sein!",
     "signup": {
       "title": "Erstellen Sie Ihr Konto",
       "homepage": "Registrieren",
@@ -222,7 +222,6 @@
       "or_continue_with": "Oder fortfahren mit",
       "sign_up_with_google": "Mit Google registrieren",
       "sign_up_with_microsoft": "Mit Microsoft registrieren",
-      "google_sso_coming_soon": "Google SSO kommt bald!",
       "validation": {
         "passwords_not_match": "Passwörter stimmen nicht überein",
         "password_min_length": "Passwort muss mindestens 12 Zeichen lang sein",
@@ -2315,6 +2314,7 @@
     "database_header": "Datenbank",
     "message_header": "Nachricht",
     "recreate_database_button": "Neu erstellen",
+    "own_database": "Eigene Datenbank",
     "edit_tenant_title": "Mandanten bearbeiten",
     "update_tenant_button": "Mandanten aktualisieren",
     "edit_user_title": "Benutzer bearbeiten",

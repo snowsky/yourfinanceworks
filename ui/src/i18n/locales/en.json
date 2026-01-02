@@ -68,7 +68,8 @@
     "showing_of": "Showing {{count}} of {{total}}",
     "page_of": "Page {{current}} of {{total}}",
     "organization": "Organization",
-    "available": "available"
+    "available": "available",
+    "no_results": "No results found"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -203,7 +204,6 @@
     "sign_in_with_google": "Sign in with Google",
     "sign_in_with_microsoft": "Sign in with Microsoft",
     "no_account": "Don't have an account?",
-    "google_sso_coming_soon": "Google SSO will be available soon!",
     "signup": {
       "title": "Create your account",
       "homepage": "Sign Up",
@@ -230,7 +230,6 @@
       "or_continue_with": "Or continue with",
       "sign_up_with_google": "Sign up with Google",
       "sign_up_with_microsoft": "Sign up with Microsoft",
-      "google_sso_coming_soon": "Google SSO coming soon!",
       "validation": {
         "passwords_not_match": "Passwords do not match",
         "password_min_length": "Password must be at least 12 characters long",
@@ -2508,6 +2507,7 @@
     "database_header": "Database",
     "message_header": "Message",
     "recreate_database_button": "Recreate",
+    "own_database": "Own Database",
     "edit_tenant_title": "Edit Tenant",
     "update_tenant_button": "Update Tenant",
     "edit_user_title": "Edit User",

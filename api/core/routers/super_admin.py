@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from typing import List, Optional, Dict, Any
@@ -169,7 +169,8 @@ async def get_tenant_stats(
 async def create_tenant(
     tenant: TenantCreate,
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None
 ):
     """Create a new tenant and its database"""
     # Check if tenant name already exists
@@ -181,149 +182,174 @@ async def create_tenant(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Tenant name already exists"
         )
-    
-    # Create tenant in master database
-    tenant_data = tenant.model_dump()
-    # Map logo_url to company_logo_url to match the model field
-    if 'logo_url' in tenant_data:
-        tenant_data['company_logo_url'] = tenant_data.pop('logo_url')
-    
-    db_tenant = Tenant(**tenant_data)
-    master_db.add(db_tenant)
-    master_db.commit()
-    master_db.refresh(db_tenant)
 
-    # Create tenant database
-    success = tenant_db_manager.create_tenant_database(db_tenant.id, db_tenant.name)
-    if not success:
-        # Rollback tenant creation if database creation fails
-        master_db.delete(db_tenant)
+    try:
+        # Create tenant in master database
+        tenant_data = tenant.model_dump()
+        # Map logo_url to company_logo_url to match the model field
+        if 'logo_url' in tenant_data:
+            tenant_data['company_logo_url'] = tenant_data.pop('logo_url')
+
+        db_tenant = Tenant(**tenant_data)
+        master_db.add(db_tenant)
         master_db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create tenant database"
+        master_db.refresh(db_tenant)
+
+        # Create tenant database
+        success = tenant_db_manager.create_tenant_database(db_tenant.id, db_tenant.name)
+
+        if not success:
+            # If database creation fails, rollback tenant creation
+            master_db.delete(db_tenant)
+            master_db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create tenant database"
+            )
+
+        # Log audit event for successful tenant creation
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(db_tenant.id),
+            resource_name=db_tenant.name,
+            details={
+                "tenant_id": db_tenant.id,
+                "tenant_name": db_tenant.name,
+                "tenant_email": db_tenant.email,
+                "default_currency": db_tenant.default_currency,
+                "database_created": True
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="success",
+            tenant_id=db_tenant.id
         )
 
-    # Create a user with the tenant's email if provided
-    if db_tenant.email:
-        try:
-            from core.models.models import user_tenant_association
-
-            # Check if user already exists
-            existing_user = master_db.query(MasterUser).filter(
-                MasterUser.email == db_tenant.email
-            ).first()
-
-            if existing_user:
-                # Add existing user to this new organization
-                user_to_add = existing_user
-                hashed_password = existing_user.hashed_password
-
-                # Add user to the user_tenant_association table
-                master_db.execute(
-                    user_tenant_association.insert().values(
-                        user_id=existing_user.id,
-                        tenant_id=db_tenant.id,
-                        role="admin",
-                        is_active=True
-                    )
-                )
-                master_db.commit()
-
-                logger.info(f"Added existing user {existing_user.id} to new organization {db_tenant.id}")
-            else:
-                # Create new user in master database
-                hashed_password = get_password_hash("password123")  # Default password
-                master_user = MasterUser(
-                    email=db_tenant.email,
-                    hashed_password=hashed_password,
-                    first_name=db_tenant.name,
-                    last_name="Admin",
-                    role="admin",
-                    tenant_id=db_tenant.id,
-                    is_verified=True
-                )
-
-                master_db.add(master_user)
-                master_db.commit()
-                master_db.refresh(master_user)
-
-                user_to_add = master_user
-
-                # Add user to the user_tenant_association table for consistency
-                master_db.execute(
-                    user_tenant_association.insert().values(
-                        user_id=master_user.id,
-                        tenant_id=db_tenant.id,
-                        role="admin",
-                        is_active=True
-                    )
-                )
-                master_db.commit()
-
-            # Create user record in tenant database
-            tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)()
-
-            try:
-                tenant_user = TenantUser(
-                    id=user_to_add.id,
-                    email=db_tenant.email,
-                    hashed_password=hashed_password,
-                    first_name=user_to_add.first_name or db_tenant.name,
-                    last_name=user_to_add.last_name or "Admin",
-                    role="admin",
-                    is_verified=True
-                )
-
-                tenant_session.add(tenant_user)
-                tenant_session.commit()
-                logger.info(f"Created tenant user record for user {user_to_add.id} in organization {db_tenant.id}")
-            finally:
-                tenant_session.close()
-
-        except Exception as e:
-            # Don't fail tenant creation if user creation fails
-            logger.error(f"Failed to create/associate user for organization {db_tenant.id}: {str(e)}")
-            pass
-
-    return db_tenant
+        return db_tenant
+    except Exception as e:
+        # Log audit event for failed tenant creation
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE_TENANT",
+            resource_type="TENANT",
+            resource_name=tenant.name,
+            details={
+                "tenant_name": tenant.name,
+                "tenant_email": tenant.email,
+                "default_currency": tenant.default_currency,
+                "error": str(e)
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e)
+        )
+        raise
 
 @router.put("/tenants/{tenant_id}")
 async def update_tenant(
     tenant_id: int,
     tenant_update: TenantUpdate,
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None
 ):
     """Update any tenant's information"""
     db_tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not db_tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+
+    try:
+        # Store original values for audit
+        original_values = {
+            "name": db_tenant.name,
+            "email": db_tenant.email,
+            "default_currency": db_tenant.default_currency,
+            "company_logo_url": db_tenant.company_logo_url,
+            "is_active": db_tenant.is_active
+        }
+
+        # Update tenant fields
+        tenant_data = tenant_update.model_dump(exclude_unset=True)
+        # Map logo_url to company_logo_url to match the model field
+        if 'logo_url' in tenant_data:
+            tenant_data['company_logo_url'] = tenant_data.pop('logo_url')
+
+        for field, value in tenant_data.items():
+            setattr(db_tenant, field, value)
+
+        master_db.commit()
+        master_db.refresh(db_tenant)
+
+        # Log audit event for successful tenant update
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(db_tenant.id),
+            resource_name=db_tenant.name,
+            details={
+                "tenant_id": db_tenant.id,
+                "tenant_name": db_tenant.name,
+                "original_values": original_values,
+                "updated_values": tenant_data,
+                "changes": {k: {"old": original_values.get(k), "new": v} for k, v in tenant_data.items() if original_values.get(k) != v}
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="success",
+            tenant_id=db_tenant.id
+        )
+
+        return db_tenant
     
-    # Update tenant fields
-    tenant_data = tenant_update.model_dump(exclude_unset=True)
-    # Map logo_url to company_logo_url to match the model field
-    if 'logo_url' in tenant_data:
-        tenant_data['company_logo_url'] = tenant_data.pop('logo_url')
-    
-    for field, value in tenant_data.items():
-        setattr(db_tenant, field, value)
-    
-    master_db.commit()
-    master_db.refresh(db_tenant)
-    return db_tenant
+    except Exception as e:
+        # Log audit event for failed tenant update
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=f"Tenant {tenant_id}",
+            details={
+                "tenant_id": tenant_id,
+                "update_data": tenant_update.model_dump(exclude_unset=True),
+                "error": str(e)
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e),
+            tenant_id=tenant_id
+        )
+        raise
 
 @router.delete("/tenants/{tenant_id}")
 async def delete_tenant(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None
 ):
     """Delete a tenant and its database"""
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
     # Don't allow deleting your own tenant
     if tenant_id == current_user.tenant_id:
         raise HTTPException(
@@ -332,9 +358,19 @@ async def delete_tenant(
         )
 
     try:
+        # Store tenant info for audit before deletion
+        tenant_info = {
+            "tenant_id": tenant.id,
+            "tenant_name": tenant.name,
+            "tenant_email": tenant.email,
+            "default_currency": tenant.default_currency,
+            "is_active": tenant.is_active,
+            "created_at": tenant.created_at.isoformat() if tenant.created_at else None
+        }
+
         # Manually delete all related data for this tenant
         # Delete records that reference the tenant (in order to avoid foreign key constraints)
-        
+
         # Delete API-related records first
         master_db.query(ExternalTransaction).filter(ExternalTransaction.tenant_id == tenant_id).delete()
         
@@ -370,9 +406,32 @@ async def delete_tenant(
         master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
         master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
         master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
-        
+
     except Exception as e:
         master_db.rollback()
+
+        # Log audit event for failed tenant deletion
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DELETE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name,
+            details={
+                "tenant_info": tenant_info,
+                "error": str(e),
+                "stage": "data_deletion"
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e),
+            tenant_id=tenant_id
+        )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete tenant data: {str(e)}"
@@ -381,6 +440,28 @@ async def delete_tenant(
     # Delete tenant database first
     success = tenant_db_manager.drop_tenant_database(tenant_id)
     if not success:
+        # Log audit event for failed database deletion
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DELETE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name,
+            details={
+                "tenant_info": tenant_info,
+                "error": "Failed to delete tenant database",
+                "stage": "database_deletion"
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message="Failed to delete tenant database",
+            tenant_id=tenant_id
+        )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete tenant database"
@@ -390,31 +471,103 @@ async def delete_tenant(
     master_db.delete(tenant)
     master_db.commit()
 
+    # Log audit event for successful tenant deletion
+    from core.utils.audit import log_audit_event_master
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE_TENANT",
+        resource_type="TENANT",
+        resource_id=str(tenant_id),
+        resource_name=tenant.name,
+        details={
+            "tenant_info": tenant_info,
+            "database_deleted": True,
+            "all_data_deleted": True
+        },
+        ip_address=request.client.host if request else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+        status="success",
+        tenant_id=tenant_id
+    )
+
     return {"message": f"Tenant {tenant.name} deleted successfully"}
 
 @router.patch("/tenants/{tenant_id}/toggle-status")
 async def toggle_tenant_status(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None
 ):
     """Toggle tenant active/inactive status"""
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
     # Don't allow disabling your own tenant
     if tenant_id == current_user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot disable your own tenant"
         )
-    
-    tenant.is_active = not tenant.is_active
-    master_db.commit()
-    
-    status_text = "enabled" if tenant.is_active else "disabled"
-    return {"message": f"Tenant {tenant.name} {status_text} successfully"}
+
+    try:
+        old_status = tenant.is_active
+        tenant.is_active = not tenant.is_active
+        new_status = tenant.is_active
+        master_db.commit()
+
+        # Log audit event for successful tenant status toggle
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="TOGGLE_TENANT_STATUS",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name,
+            details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "old_status": old_status,
+                "new_status": new_status,
+                "status_change": "enabled" if new_status else "disabled"
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="success",
+            tenant_id=tenant_id
+        )
+
+        status_text = "enabled" if new_status else "disabled"
+        return {"message": f"Tenant {tenant.name} {status_text} successfully"}
+
+    except Exception as e:
+        # Log audit event for failed tenant status toggle
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="TOGGLE_TENANT_STATUS",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name if tenant else f"Tenant {tenant_id}",
+            details={
+                "tenant_id": tenant_id,
+                "old_status": tenant.is_active if tenant else "unknown",
+                "error": str(e)
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e),
+            tenant_id=tenant_id
+        )
+        raise
 
 # ========== CROSS-TENANT USER MANAGEMENT ==========
 
@@ -478,17 +631,17 @@ async def get_user(
     user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
-    
+
     # Get tenant information
     tenant = master_db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
-    
+
     # Get user's tenant memberships
     tenant_memberships = master_db.execute(
         user_tenant_association.select().where(
             user_tenant_association.c.user_id == user_id
         )
     ).fetchall()
-    
+
     user_dict = user.__dict__.copy()
     user_dict.pop('_sa_instance_state', None)
     user_dict['tenant_name'] = tenant.name if tenant else "Unknown"
@@ -501,7 +654,7 @@ async def get_user(
         role_value = getattr(membership, 'role', None) or 'user'
         tenant_roles[tid] = role_value
     user_dict['tenant_roles'] = tenant_roles
-    
+
     return user_dict
 
 @router.post("/users", response_model=Dict[str, Any])
@@ -946,21 +1099,100 @@ async def get_tenant_database_status(
 async def recreate_tenant_database(
     tenant_id: int,
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(require_super_admin)
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None
 ):
     """Recreate a tenant's database (WARNING: This will delete all data)"""
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
-    success = tenant_db_manager.recreate_tenant_database(tenant_id, tenant.name)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to recreate tenant database"
+
+    # Prevent super admin from recreating their own tenant's database
+    if tenant_id == current_user.tenant_id:
+        # Log audit event for attempted self-database recreation
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="RECREATE_DATABASE",
+            resource_type="DATABASE",
+            resource_id=str(tenant_id),
+            resource_name=f"{tenant.name} Database",
+            details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "error": "Attempted to recreate own tenant database",
+                "user_tenant_id": current_user.tenant_id
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message="Cannot recreate your own tenant's database",
+            tenant_id=tenant_id
         )
-    
-    return {"message": f"Database for tenant {tenant.name} recreated successfully"}
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot recreate your own tenant's database"
+        )
+
+    try:
+        success = tenant_db_manager.recreate_tenant_database(tenant_id, tenant.name)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to recreate tenant database"
+            )
+
+        # Log audit event for database recreation
+        from core.utils.audit import log_audit_event_master
+        print(f"DEBUG: Creating master audit log for database recreation by {current_user.email}")
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="RECREATE_DATABASE",
+            resource_type="DATABASE",
+            resource_id=str(tenant_id),
+            resource_name=f"{tenant.name} Database",
+            details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "database_name": f"tenant_{tenant_id}_{tenant.name.lower().replace(' ', '_')}"
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="success",
+            tenant_id=tenant_id
+        )
+        print(f"DEBUG: Master audit log created successfully")
+
+        return {"message": f"Database for tenant {tenant.name} recreated successfully"}
+
+    except Exception as e:
+        # Log audit event for failed database recreation
+        from core.utils.audit import log_audit_event_master
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="RECREATE_DATABASE",
+            resource_type="DATABASE",
+            resource_id=str(tenant_id),
+            resource_name=f"{tenant.name} Database",
+            details={
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "error": str(e)
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e),
+            tenant_id=tenant_id
+        )
+        raise
 
 @router.get("/database/overview")
 async def get_database_overview(

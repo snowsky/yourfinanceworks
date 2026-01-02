@@ -33,9 +33,9 @@ const ProfessionalInput = React.forwardRef<HTMLInputElement, ProfessionalInputPr
     ...props
   }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
-    const [internalValue, setInternalValue] = React.useState(value || '');
+    const [internalValue, setInternalValue] = React.useState((value ?? '') || '');
     
-    const inputValue = value !== undefined ? value : internalValue;
+    const inputValue = value !== undefined ? (value ?? '') : internalValue;
     const isPassword = type === 'password';
     const actualType = isPassword && showPassword ? 'text' : type;
 

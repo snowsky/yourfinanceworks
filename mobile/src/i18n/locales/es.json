@@ -91,7 +91,6 @@
     "sign_in_with_google": "Iniciar sesión con Google",
     "sign_in_with_microsoft": "Iniciar sesión con Microsoft",
     "no_account": "¿No tienes una cuenta?",
-    "google_sso_coming_soon": "¡El SSO de Google estará disponible pronto!",
     "signup": {
       "homepage": "Registrarse",
       "title": "Crea tu cuenta",
@@ -114,7 +113,6 @@
       "sign_in": "Iniciar Sesión",
       "or_continue_with": "O continuar con",
       "sign_up_with_google": "Registrarse con Google",
-      "google_sso_coming_soon": "¡El SSO de Google estará disponible pronto!",
       "validation": {
         "passwords_not_match": "Las contraseñas no coinciden",
         "password_min_length": "La contraseña debe tener al menos 6 caracteres",

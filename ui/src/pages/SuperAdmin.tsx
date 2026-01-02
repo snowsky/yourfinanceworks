@@ -565,11 +565,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
         </div>
 
         {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
-            <TabsTrigger value="tenants" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">Organizations</TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('superAdmin.users_tab')}</TabsTrigger>
-            <TabsTrigger value="databases" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('superAdmin.databases_tab')}</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
+          <TabsList className="grid grid-cols-3 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
+            <TabsTrigger value="tenants" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">Organizations</TabsTrigger>
+            <TabsTrigger value="users" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.users_tab')}</TabsTrigger>
+            <TabsTrigger value="databases" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.databases_tab')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tenants" className="space-y-4">
@@ -961,14 +961,20 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                           </TableCell>
                           <TableCell>{db.message || db.error || '-'}</TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRecreateDatabase(db)}
-                            >
-                              <Database className="h-4 w-4 mr-2" />
-                              {t('superAdmin.recreate_database_button')}
-                            </Button>
+                            {currentUser && db.tenant_id !== currentUser.tenant_id ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRecreateDatabase(db)}
+                              >
+                                <Database className="h-4 w-4 mr-2" />
+                                {t('superAdmin.recreate_database_button')}
+                              </Button>
+                            ) : (
+                              <div className="text-sm text-muted-foreground italic">
+                                {t('superAdmin.own_database')}
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
