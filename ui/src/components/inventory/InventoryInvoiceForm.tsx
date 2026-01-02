@@ -196,15 +196,24 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
     const loadData = async () => {
       setLoading(true);
       try {
-        const [clientsData, settingsData, discountRulesData] = await Promise.all([
+        // Only fetch discount rules if user has discount rules or is likely to use them
+        const shouldFetchDiscountRules = true; // Could be made conditional based on user preferences
+        
+        const [clientsData, settingsData] = await Promise.all([
           clientApi.getClients(),
           settingsApi.getSettings(),
-          discountRulesApi.getDiscountRules(),
         ]);
+        
+        let discountRulesData: any[] = [];
+        if (shouldFetchDiscountRules) {
+          discountRulesData = await discountRulesApi.getDiscountRules();
+        }
 
         setClients(clientsData);
         setSettings(settingsData);
-        setDiscountRules(discountRulesData);
+        if (shouldFetchDiscountRules) {
+          setDiscountRules(discountRulesData);
+        }
 
         // Set default currency from settings
         if ((settingsData as { default_currency?: string })?.default_currency) {

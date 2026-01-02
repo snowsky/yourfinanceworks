@@ -14,7 +14,7 @@ import {
   Trophy, Mail, Send, Cloud, ShieldCheck, Cookie, Receipt, User, Link, Globe, Activity, Bell,
   CreditCard, Package, CircleDollarSign, Shield
 } from "lucide-react";
-import { settingsApi, discountRulesApi, aiConfigApi, DiscountRule, DiscountRuleCreate, AIConfig, AIConfigCreate, AIProviderInfo } from "@/lib/api";
+import { settingsApi, discountRulesApi, aiConfigApi, AIConfig, AIConfigCreate, AIProviderInfo, DiscountRule, DiscountRuleCreate } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -56,6 +56,7 @@ import {
   ProfessionalTableHead,
   StatusBadge,
 } from "@/components/ui/professional-table";
+import { CompanyInfoTab, InvoiceSettingsTab, UserProfileTab } from "@/components/settings";
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -306,6 +307,25 @@ const Settings = () => {
     }
   }, [activeTab]);
 
+  // Fetch discount rules when tab changes to discount
+  useEffect(() => {
+    if (activeTab === 'discount' && isAdmin && discountRules.length === 0 && !loadingDiscountRules) {
+      const fetchDiscountRules = async () => {
+        try {
+          setLoadingDiscountRules(true);
+          const rules = await discountRulesApi.getDiscountRules();
+          setDiscountRules(rules);
+        } catch (error) {
+          console.error("Failed to fetch discount rules:", error);
+          toast.error(t('settings.failed_to_load_discount_rules'));
+        } finally {
+          setLoadingDiscountRules(false);
+        }
+      };
+      fetchDiscountRules();
+    }
+  }, [activeTab, isAdmin, discountRules.length, loadingDiscountRules]);
+
   // Fetch settings when component mounts
   useEffect(() => {
     const fetchSettings = async () => {
@@ -391,16 +411,18 @@ const Settings = () => {
           console.log("Email settings not configured yet");
         }
 
-        // Fetch discount rules
-        try {
-          setLoadingDiscountRules(true);
-          const rules = await discountRulesApi.getDiscountRules();
-          setDiscountRules(rules);
-        } catch (error) {
-          console.error("Failed to fetch discount rules:", error);
-          toast.error(t('settings.failed_to_load_discount_rules'));
-        } finally {
-          setLoadingDiscountRules(false);
+        // Fetch discount rules - only when discount tab is active
+        if (activeTab === 'discount') {
+          try {
+            setLoadingDiscountRules(true);
+            const rules = await discountRulesApi.getDiscountRules();
+            setDiscountRules(rules);
+          } catch (error) {
+            console.error("Failed to fetch discount rules:", error);
+            toast.error(t('settings.failed_to_load_discount_rules'));
+          } finally {
+            setLoadingDiscountRules(false);
+          }
         }
 
         // Fetch AI configurations
@@ -1460,352 +1482,45 @@ const Settings = () => {
 
             {isAdmin && (
               <TabsContent value="company" className="mt-6 space-y-6">
-                <ProfessionalCard variant="elevated">
-                  <ProfessionalCardHeader>
-                    <ProfessionalCardTitle className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-primary" />
-                      {t('settings.user_profile')}
-                    </ProfessionalCardTitle>
-                  </ProfessionalCardHeader>
-                  <ProfessionalCardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <ProfessionalInput
-                        label={t('settings.first_name')}
-                        id="first_name"
-                        name="first_name"
-                        value={userProfile.first_name || ''}
-                        onChange={handleProfileChange}
-                        autoComplete="given-name"
-                      />
-                      <ProfessionalInput
-                        label={t('settings.last_name')}
-                        id="last_name"
-                        name="last_name"
-                        value={userProfile.last_name || ''}
-                        onChange={handleProfileChange}
-                        autoComplete="family-name"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="show_analytics" className="text-base font-semibold">{t('settings.show_analytics_menu')}</Label>
-                        <p className="text-sm text-muted-foreground">{t('settings.show_analytics_menu_description')}</p>
-                      </div>
-                      <Switch
-                        id="show_analytics"
-                        checked={userProfile.show_analytics ?? true}
-                        onCheckedChange={(checked) => setUserProfile((prev: any) => ({ ...prev, show_analytics: checked }))}
-                      />
-                    </div>
-                    <div className="flex justify-end pt-4 gap-3">
-                      <ProfessionalButton
-                        variant="outline"
-                        onClick={() => setShowPasswordChange(!showPasswordChange)}
-                        leftIcon={<Key className="w-4 h-4" />}
-                      >
-                        {showPasswordChange ? t('settings.cancel') : t('settings.change_password')}
-                      </ProfessionalButton>
-                      <ProfessionalButton
-                        onClick={handleProfileSave}
-                        loading={profileSaving}
-                        variant="gradient"
-                      >
-                        {t('settings.save_profile')}
-                      </ProfessionalButton>
-                    </div>
+                <UserProfileTab
+                  userProfile={userProfile}
+                  passwordData={passwordData}
+                  showPasswordChange={showPasswordChange}
+                  profileSaving={profileSaving}
+                  passwordChanging={passwordChanging}
+                  onProfileChange={handleProfileChange}
+                  onPasswordChange={handlePasswordChange}
+                  onTogglePasswordChange={setShowPasswordChange}
+                  onProfileSave={handleProfileSave}
+                  onChangePassword={handleChangePassword}
+                  onShowAnalyticsChange={(checked) => setUserProfile((prev: any) => ({ ...prev, show_analytics: checked }))}
+                />
 
-                    {/* Password Change Section */}
-                    {showPasswordChange && (
-                      <div className="mt-8 pt-8 border-t border-border/50 animate-fade-in-up">
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                          <ShieldCheck className="w-5 h-5 text-primary" />
-                          {t('settings.change_password')}
-                        </h3>
-                        <div className="space-y-6">
-                          <ProfessionalInput
-                            label={t('settings.current_password')}
-                            id="current_password"
-                            name="current_password"
-                            type="password"
-                            value={passwordData.current_password}
-                            onChange={handlePasswordChange}
-                            placeholder={t('settings.current_password')}
-                          />
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <ProfessionalInput
-                              label={t('settings.new_password')}
-                              id="new_password"
-                              name="new_password"
-                              type="password"
-                              value={passwordData.new_password}
-                              onChange={handlePasswordChange}
-                              placeholder={t('auth.password_min_length')}
-                            />
-                            <ProfessionalInput
-                              label={t('settings.confirm_password')}
-                              id="confirm_password"
-                              name="confirm_password"
-                              type="password"
-                              value={passwordData.confirm_password}
-                              onChange={handlePasswordChange}
-                              placeholder={t('settings.confirm_password')}
-                            />
-                          </div>
-                          <div className="flex justify-end gap-3 pt-2">
-                            <ProfessionalButton
-                              variant="ghost"
-                              onClick={() => {
-                                setShowPasswordChange(false);
-                                setPasswordData({
-                                  current_password: '',
-                                  new_password: '',
-                                  confirm_password: ''
-                                });
-                              }}
-                            >
-                              {t('settings.cancel')}
-                            </ProfessionalButton>
-                            <ProfessionalButton
-                              onClick={handleChangePassword}
-                              loading={passwordChanging}
-                              variant="default"
-                            >
-                              {t('settings.change_password')}
-                            </ProfessionalButton>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </ProfessionalCardContent>
-                </ProfessionalCard>
-
-                <ProfessionalCard variant="elevated">
-                  <ProfessionalCardHeader>
-                    <ProfessionalCardTitle className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-primary" />
-                      {t('settings.company_info')}
-                    </ProfessionalCardTitle>
-                  </ProfessionalCardHeader>
-                  <ProfessionalCardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <ProfessionalInput
-                        label={t('settings.company_name')}
-                        id="name"
-                        name="name"
-                        value={companyInfo.name}
-                        onChange={handleCompanyChange}
-                      />
-                      <ProfessionalInput
-                        label={t('settings.tax_id')}
-                        id="tax_id"
-                        name="tax_id"
-                        value={companyInfo.tax_id}
-                        onChange={handleCompanyChange}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <ProfessionalInput
-                        label={t('settings.company_email')}
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={companyInfo.email}
-                        onChange={handleCompanyChange}
-                        disabled
-                        helperText="Company email cannot be changed here."
-                      />
-                      <ProfessionalInput
-                        label={t('settings.company_phone')}
-                        id="phone"
-                        name="phone"
-                        value={companyInfo.phone}
-                        onChange={handleCompanyChange}
-                      />
-                    </div>
-
-                    <ProfessionalTextarea
-                      label={t('settings.company_address')}
-                      id="address"
-                      name="address"
-                      rows={3}
-                      value={companyInfo.address}
-                      onChange={handleCompanyChange}
-                    />
-
-                    <div className="space-y-2">
-                      <Label htmlFor="timezone" className="text-sm font-medium">{t('settings.timezone')}</Label>
-                      <Select value={timezone} onValueChange={setTimezone}>
-                        <SelectTrigger id="timezone" className="rounded-lg">
-                          <SelectValue placeholder="Select timezone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
-                          <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
-                          <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
-                          <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
-                          <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
-                          <SelectItem value="America/Phoenix">Arizona</SelectItem>
-                          <SelectItem value="America/Anchorage">Alaska</SelectItem>
-                          <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
-                          <SelectItem value="Europe/London">London</SelectItem>
-                          <SelectItem value="Europe/Paris">Paris</SelectItem>
-                          <SelectItem value="Europe/Berlin">Berlin</SelectItem>
-                          <SelectItem value="Europe/Rome">Rome</SelectItem>
-                          <SelectItem value="Europe/Madrid">Madrid</SelectItem>
-                          <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
-                          <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
-                          <SelectItem value="Europe/Zurich">Zurich</SelectItem>
-                          <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                          <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
-                          <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
-                          <SelectItem value="Asia/Singapore">Singapore</SelectItem>
-                          <SelectItem value="Asia/Dubai">Dubai</SelectItem>
-                          <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
-                          <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
-                          <SelectItem value="Australia/Sydney">Sydney</SelectItem>
-                          <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
-                          <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
-                          <SelectItem value="Australia/Perth">Perth</SelectItem>
-                          <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
-                          <SelectItem value="America/Toronto">Toronto</SelectItem>
-                          <SelectItem value="America/Vancouver">Vancouver</SelectItem>
-                          <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
-                          <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
-                          <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
-                          <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
-                          <SelectItem value="Africa/Cairo">Cairo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-sm text-muted-foreground">{t('settings.organization_timezone')}</p>
-                    </div>
-
-                    <div className="space-y-4 pt-2">
-                      <Label className="text-sm font-medium">{t('settings.company_logo')}</Label>
-                      <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-4 bg-muted/30 rounded-xl border border-border/50">
-                        <div className="relative group">
-                          <div className="w-24 h-24 rounded-xl overflow-hidden bg-background border-2 border-dashed border-border group-hover:border-primary transition-colors flex items-center justify-center">
-                            {(logoPreview || companyInfo.logo) ? (
-                              <img
-                                src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
-                                alt="Company Logo"
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <Building2 className="w-8 h-8 text-muted-foreground" />
-                            )}
-                          </div>
-                          <input
-                            id="logo-upload"
-                            name="logo"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleLogoFileChange}
-                            disabled={uploadingLogo}
-                          />
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute -bottom-2 -right-2 rounded-full shadow-lg"
-                            onClick={() => document.getElementById('logo-upload')?.click()}
-                            disabled={uploadingLogo}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold">{t('settings.logo_preview')}</p>
-                          <p className="text-xs text-muted-foreground max-w-[200px]">{t('settings.recommended_size')}</p>
-                          <p className="text-xs font-medium text-primary mt-1">
-                            {logoFile ? logoFile.name : t('settings.no_file_selected')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-4">
-                      <ProfessionalButton onClick={handleSave} loading={saving} variant="gradient" size="lg">
-                        {t('settings.save_changes')}
-                      </ProfessionalButton>
-                    </div>
-                  </ProfessionalCardContent>
-                </ProfessionalCard>
+                <CompanyInfoTab
+                  companyInfo={companyInfo}
+                  timezone={timezone}
+                  logoFile={logoFile}
+                  logoPreview={logoPreview}
+                  uploadingLogo={uploadingLogo}
+                  saving={saving}
+                  onCompanyChange={handleCompanyChange}
+                  onTimezoneChange={setTimezone}
+                  onLogoFileChange={handleLogoFileChange}
+                  onSave={handleSave}
+                />
               </TabsContent>
             )}
 
             {isAdmin && (
               <TabsContent value="invoices" className="mt-6">
-                <ProfessionalCard variant="elevated">
-                  <ProfessionalCardHeader>
-                    <ProfessionalCardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      {t('settings.invoice_settings')}
-                    </ProfessionalCardTitle>
-                  </ProfessionalCardHeader>
-                  <ProfessionalCardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <ProfessionalInput
-                        label={t('settings.invoice_prefix')}
-                        id="prefix"
-                        name="prefix"
-                        value={invoiceSettings.prefix}
-                        onChange={handleInvoiceChange}
-                      />
-                      <ProfessionalInput
-                        label={t('settings.next_invoice_number')}
-                        id="next_number"
-                        name="next_number"
-                        type="number"
-                        value={invoiceSettings.next_number}
-                        onChange={handleInvoiceChange}
-                      />
-                    </div>
-
-                    <ProfessionalTextarea
-                      label={t('settings.default_notes')}
-                      id="default_notes"
-                      name="default_notes"
-                      rows={4}
-                      value={invoiceSettings.notes}
-                      onChange={handleInvoiceChange}
-                      placeholder={BACKEND_DEFAULT_NOTES}
-                    />
-
-                    <ProfessionalTextarea
-                      label={t('settings.default_footer')}
-                      id="default_footer"
-                      name="default_footer"
-                      rows={4}
-                      value={invoiceSettings.terms}
-                      onChange={handleInvoiceChange}
-                      placeholder={BACKEND_DEFAULT_TERMS}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <ProfessionalInput
-                        label={t('settings.default_tax_rate')}
-                        id="default_tax_rate"
-                        name="default_tax_rate"
-                        type="number"
-                        step="0.01"
-                        value={invoiceSettings.default_tax_rate}
-                        onChange={handleInvoiceChange}
-                        rightIcon={<Percent className="w-4 h-4" />}
-                      />
-                    </div>
-
-                    <div className="flex justify-end pt-4">
-                      <ProfessionalButton onClick={handleSave} loading={saving} variant="gradient" size="lg">
-                        {t('settings.save_changes')}
-                      </ProfessionalButton>
-                    </div>
-                  </ProfessionalCardContent>
-                </ProfessionalCard>
+                <InvoiceSettingsTab
+                  invoiceSettings={invoiceSettings}
+                  saving={saving}
+                  backendDefaultNotes={BACKEND_DEFAULT_NOTES}
+                  backendDefaultTerms={BACKEND_DEFAULT_TERMS}
+                  onInvoiceChange={handleInvoiceChange}
+                  onSave={handleSave}
+                />
               </TabsContent>
             )}
 
