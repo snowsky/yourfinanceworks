@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Input } from './input';
 import { Label } from './label';
 import { Switch } from './switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './alert-dialog';
 import { Badge } from './badge';
 import { Trash2, Edit, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -43,6 +44,8 @@ export function CurrencyManager() {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [currencyToDelete, setCurrencyToDelete] = useState<Currency | null>(null);
   const [newCurrency, setNewCurrency] = useState<CurrencyCreate>({
     code: '',
     name: '',
@@ -60,7 +63,7 @@ export function CurrencyManager() {
   const fetchCurrencies = async () => {
     try {
       setLoading(true);
-      const response = await fetchCurrenciesWithCache();
+      const response = await fetchCurrenciesWithCache(true); // Force refresh
       setCurrencies(response || []);
     } catch (error) {
       console.error('Failed to fetch currencies:', error);
@@ -98,11 +101,11 @@ export function CurrencyManager() {
     try {
       // Check if currency is used in invoices
       const invoices = await apiRequest<any[]>('/invoices/');
-      const invoiceCount = (invoices || []).filter(invoice => invoice.currency === currencyCode).length;
+      const invoiceCount = Array.isArray(invoices) ? invoices.filter(invoice => invoice.currency === currencyCode).length : 0;
       
       // Check if currency is used in payments
       const payments = await apiRequest<any[]>('/payments/');
-      const paymentCount = (payments || []).filter(payment => payment.currency === currencyCode).length;
+      const paymentCount = Array.isArray(payments) ? payments.filter(payment => payment.currency === currencyCode).length : 0;
       
       const totalCount = invoiceCount + paymentCount;
       return { used: totalCount > 0, count: totalCount };
@@ -132,18 +135,24 @@ export function CurrencyManager() {
     }
   };
 
-  const handleDeleteCurrency = async (currency: Currency) => {
-    if (!confirm(`Are you sure you want to delete ${currency.name} (${currency.code})?`)) {
-      return;
-    }
+  const handleDeleteCurrency = (currency: Currency) => {
+    setCurrencyToDelete(currency);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteCurrency = async () => {
+    if (!currencyToDelete) return;
 
     try {
-      await currencyApi.deleteCustomCurrency(currency.id);
+      await currencyApi.deleteCustomCurrency(currencyToDelete.id);
       toast.success('Currency deleted successfully');
       fetchCurrencies();
     } catch (error: any) {
       console.error('Failed to delete currency:', error);
       toast.error(getErrorMessage(error, t));
+    } finally {
+      setDeleteModalOpen(false);
+      setCurrencyToDelete(null);
     }
   };
 
@@ -335,6 +344,25 @@ export function CurrencyManager() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Currency Modal */}
+      <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Currency</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {currencyToDelete?.name} ({currencyToDelete?.code})? This action cannot be undone and the currency will be completely removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCurrency} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Currency
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 

@@ -9,7 +9,7 @@ import logging
 from core.models.database import get_db
 from core.models.models import MasterUser
 from core.models.models_per_tenant import SupportedCurrency, CurrencyRate
-from core.schemas.currency import SupportedCurrency as SupportedCurrencySchema, CurrencyRate as CurrencyRateSchema, CurrencyConversion
+from core.schemas.currency import SupportedCurrency as SupportedCurrencySchema, SupportedCurrencyCreate, SupportedCurrencyUpdate, CurrencyRate as CurrencyRateSchema, CurrencyConversion
 from core.routers.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -318,7 +318,7 @@ async def delete_exchange_rate(
         
 @router.post("/custom", response_model=SupportedCurrencySchema)
 async def create_custom_currency(
-    currency_data: SupportedCurrencySchema,
+    currency_data: SupportedCurrencyCreate,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -370,7 +370,7 @@ async def create_custom_currency(
 @router.put("/custom/{currency_id}", response_model=SupportedCurrencySchema)
 async def update_custom_currency(
     currency_id: int,
-    currency_update: SupportedCurrencySchema,
+    currency_update: SupportedCurrencyUpdate,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):

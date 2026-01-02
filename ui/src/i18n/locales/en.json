@@ -1752,6 +1752,7 @@
     "confirmNewPassword": "Confirm New Password"
   },
   "errors": {
+    "Field required": "This field is required",
     "USER_NOT_FOUND": "User does not exist. Please sign up first.",
     "INCORRECT_PASSWORD": "Incorrect password.",
     "INACTIVE_USER": "Your account is inactive.",
