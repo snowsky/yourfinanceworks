@@ -307,8 +307,8 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
       setEditUser(user);
       setEditUserForm({
-        first_name: userDetails.first_name,
-        last_name: userDetails.last_name,
+        first_name: userDetails.first_name || '',
+        last_name: userDetails.last_name || '',
         email: userDetails.email,
         role: userDetails.role,
         password: '',
@@ -321,8 +321,8 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
       // Fallback to basic user info
       setEditUser(user);
       setEditUserForm({
-        first_name: user.first_name,
-        last_name: user.last_name,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email,
         role: user.role,
         password: '',
@@ -335,28 +335,17 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   const handleUpdateUser = async () => {
     if (!editUser) return;
     try {
-      // Store original values to compare for Organizations & Roles changes
-      const originalTenantIds = editUserForm.tenant_ids;
-      const originalPrimaryTenantId = editUserForm.primary_tenant_id;
-      const originalTenantRoles = editUserForm.tenant_roles;
-
-      const updatedData = await apiRequest<any>(`/super-admin/users/${editUser.id}`, {
+      await apiRequest<any>(`/super-admin/users/${editUser.id}`, {
         method: 'PUT',
         body: JSON.stringify(editUserForm)
       }, { skipTenant: true });
-
-      // Check if Organizations & Roles were changed
-      const orgRolesChanged =
-        JSON.stringify(originalTenantIds) !== JSON.stringify(updatedData.tenant_ids || originalTenantIds) ||
-        originalPrimaryTenantId !== updatedData.primary_tenant_id ||
-        JSON.stringify(originalTenantRoles) !== JSON.stringify(updatedData.tenant_roles || originalTenantRoles);
 
       setEditUser(null);
       toast.success('User updated successfully');
       fetchUsers(selectedTenantForUsers?.id);
 
-      // Refresh page if Organizations & Roles were changed
-      if (orgRolesChanged) {
+      // Refresh page if the edited user is the same as the logged-in user
+      if (currentUser && editUser.id === currentUser.id) {
         window.location.reload();
       }
     } catch (err) {
