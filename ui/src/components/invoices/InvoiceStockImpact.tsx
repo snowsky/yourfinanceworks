@@ -173,7 +173,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/inventory/edit/${invoiceItem.inventory_item_id}`)}
+                        onClick={() => navigate(`/inventory/view/${invoiceItem.inventory_item_id}`)}
                         className="h-8 w-8 p-0"
                         title="View inventory item details"
                       >
@@ -277,7 +277,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/inventory/edit/${movement.item_id}`)}
+                        onClick={() => navigate(`/inventory/view/${movement.item_id}`)}
                         className="h-8 w-8 p-0"
                         title={t('inventory.view_item_details', 'View item details')}
                       >

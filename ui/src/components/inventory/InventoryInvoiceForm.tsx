@@ -209,7 +209,7 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
           discountRulesData = await discountRulesApi.getDiscountRules();
         }
 
-        setClients(clientsData);
+        setClients(clientsData.items || []);
         setSettings(settingsData);
         if (shouldFetchDiscountRules) {
           setDiscountRules(discountRulesData);
