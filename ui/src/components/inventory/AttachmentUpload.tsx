@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/lib/api';
 
 export interface FileUploadItem {
   id: string;
@@ -161,20 +162,10 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/v1/inventory/${itemId}/attachments`, {
+      const result = await apiRequest(`/inventory/${itemId}/attachments`, {
         method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        body: formData
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Upload failed');
-      }
-
-      const result = await response.json();
       return result;
     } catch (error) {
       throw error;
@@ -227,11 +218,11 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
         setUploadItems(prev => prev.map(uploadItem =>
           uploadItem.id === item.id
             ? {
-                ...uploadItem,
-                status: 'error',
-                progress: 0,
-                error: error instanceof Error ? error.message : 'Upload failed'
-              }
+              ...uploadItem,
+              status: 'error',
+              progress: 0,
+              error: error instanceof Error ? error.message : 'Upload failed'
+            }
             : uploadItem
         ));
 

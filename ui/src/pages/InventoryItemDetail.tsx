@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { inventoryApi, InventoryItem, getErrorMessage } from '@/lib/api';
+import { inventoryApi, InventoryItem, getErrorMessage, apiRequest } from '@/lib/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
@@ -57,6 +57,18 @@ const InventoryItemDetail: React.FC = () => {
         throw new Error('Failed to fetch image');
       }
 
+      const contentType = response.headers.get('content-type');
+
+      // Check if response is JSON (cloud URL response)
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'cloud_url' && data.url) {
+          // For cloud URLs, return the URL directly (it's pre-signed and doesn't need auth)
+          return data.url;
+        }
+      }
+
+      // Otherwise, it's a blob (local file served directly)
       const blob = await response.blob();
       return URL.createObjectURL(blob);
     } catch (error) {
@@ -98,29 +110,21 @@ const InventoryItemDetail: React.FC = () => {
   const loadAttachments = async () => {
     try {
       setAttachmentsLoading(true);
-      const response = await fetch(`/api/v1/inventory/${id}/attachments`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      const data = await apiRequest<Attachment[]>(`/inventory/${id}/attachments`);
+      setAttachments(data);
+
+      // Fetch blob URLs for image attachments
+      const imageAttachments = data.filter((att: Attachment) => att.attachment_type === 'image');
+      const newImageUrls: Record<number, string> = {};
+
+      for (const attachment of imageAttachments) {
+        const blobUrl = await fetchImageWithAuth(attachment.id);
+        if (blobUrl) {
+          newImageUrls[attachment.id] = blobUrl;
         }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAttachments(data);
-
-        // Fetch blob URLs for image attachments
-        const imageAttachments = data.filter((att: Attachment) => att.attachment_type === 'image');
-        const newImageUrls: Record<number, string> = {};
-
-        for (const attachment of imageAttachments) {
-          const blobUrl = await fetchImageWithAuth(attachment.id);
-          if (blobUrl) {
-            newImageUrls[attachment.id] = blobUrl;
-          }
-        }
-
-        setImageUrls(newImageUrls);
       }
+
+      setImageUrls(newImageUrls);
     } catch (error) {
       console.error('Failed to load attachments:', error);
     } finally {
@@ -229,6 +233,32 @@ const InventoryItemDetail: React.FC = () => {
                             throw new Error('Download failed');
                           }
 
+                          const contentType = response.headers.get('content-type');
+
+                          // Check if response is JSON (cloud URL response)
+                          if (contentType?.includes('application/json')) {
+                            const data = await response.json();
+                            if (data.type === 'cloud_url' && data.url) {
+                              // For cloud URLs, fetch from the URL and download
+                              const urlResponse = await fetch(data.url);
+                              if (!urlResponse.ok) {
+                                throw new Error('Failed to fetch from cloud URL');
+                              }
+                              const blob = await urlResponse.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = data.filename || primaryImage.filename;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                              toast.success('File downloaded successfully');
+                              return;
+                            }
+                          }
+
+                          // Otherwise, it's a blob (local file served directly)
                           const blob = await response.blob();
                           const url = window.URL.createObjectURL(blob);
                           const link = document.createElement('a');
@@ -263,6 +293,19 @@ const InventoryItemDetail: React.FC = () => {
                             throw new Error('Failed to load image');
                           }
 
+                          const contentType = response.headers.get('content-type');
+
+                          // Check if response is JSON (cloud URL response)
+                          if (contentType?.includes('application/json')) {
+                            const data = await response.json();
+                            if (data.type === 'cloud_url' && data.url) {
+                              // For cloud URLs, open directly
+                              window.open(data.url, '_blank');
+                              return;
+                            }
+                          }
+
+                          // Otherwise, it's a blob (local file served directly)
                           const blob = await response.blob();
                           const url = window.URL.createObjectURL(blob);
                           window.open(url, '_blank');

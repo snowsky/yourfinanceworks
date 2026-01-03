@@ -13,7 +13,7 @@ import {
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
-import { settingsApi, CompanyInfo } from "@/lib/api";
+import { settingsApi, CompanyInfo, apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -97,19 +97,10 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
             const formData = new FormData();
             formData.append('file', logoFile);
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/settings/upload-logo`, {
+            const result = await apiRequest<{ url: string }>('/settings/upload-logo', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
                 body: formData,
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to upload logo');
-            }
-
-            const result = await response.json();
             return result.url;
         } catch (error) {
             console.error('Failed to upload logo:', error);

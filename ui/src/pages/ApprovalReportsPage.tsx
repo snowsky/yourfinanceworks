@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
+import { apiRequest, API_BASE_URL } from '@/lib/api';
 
 interface ApprovalMetrics {
   total_approvals: number;
@@ -237,26 +238,17 @@ export default function ApprovalReportsPage() {
       }
 
       // Load metrics
-      const metricsResponse = await fetch(`/api/approval-reports/metrics?${params}`);
-      if (metricsResponse.ok) {
-        const metricsData = await metricsResponse.json();
-        setMetrics(metricsData);
-      }
+      const metricsData = await apiRequest<ApprovalMetrics>(`/approval-reports/metrics?${params}`);
+      setMetrics(metricsData);
 
       // Load patterns
-      const patternsResponse = await fetch(`/api/approval-reports/patterns?${params}`);
-      if (patternsResponse.ok) {
-        const patternsData = await patternsResponse.json();
-        setPatterns(patternsData);
-      }
+      const patternsData = await apiRequest<PatternAnalysis>(`/approval-reports/patterns?${params}`);
+      setPatterns(patternsData);
 
       // Load compliance (if user has permission)
       try {
-        const complianceResponse = await fetch(`/api/approval-reports/compliance?${params}`);
-        if (complianceResponse.ok) {
-          const complianceData = await complianceResponse.json();
-          setCompliance(complianceData);
-        }
+        const complianceData = await apiRequest<ComplianceReport>(`/approval-reports/compliance?${params}`);
+        setCompliance(complianceData);
       } catch (e) {
         // User might not have compliance permissions
         console.log('Compliance data not available');
@@ -280,10 +272,11 @@ export default function ApprovalReportsPage() {
         params.append('date_to', dateRange.to.toISOString());
       }
 
-      const response = await fetch('/api/approval-reports/generate', {
+      const response = await fetch(`${API_BASE_URL}/approval-reports/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
           report_type: 'metrics',

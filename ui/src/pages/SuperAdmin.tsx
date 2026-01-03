@@ -248,33 +248,18 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
     setPromoteLoading(true);
     setPromoteError(null);
     try {
-      const response = await fetch('/api/v1/super-admin/promote', {
+      const data = await apiRequest<{ message: string }>('/super-admin/promote', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ email: promoteEmail })
-      });
-      let data: any = {};
-      try {
-        data = await response.json();
-      } catch { }
-      if (response.ok) {
-        toast.success(data.message || 'User promoted to super admin!');
-        setPromoteEmail('');
-        setPromoteError(null);
-        fetchUsers(selectedTenantForUsers?.id);
-      } else {
-        const errorMsg =
-          (response.status === 404 && 'User does not exist') ||
-          data.detail ||
-          data.message ||
-          'Failed to promote user';
-        setPromoteError(errorMsg);
-      }
-    } catch (err) {
-      setPromoteError('Failed to promote user');
+      }, { skipTenant: true });
+
+      toast.success(data.message || 'User promoted to super admin!');
+      setPromoteEmail('');
+      setPromoteError(null);
+      fetchUsers(selectedTenantForUsers?.id);
+    } catch (err: any) {
+      const errorMsg = err?.detail || err?.message || 'Failed to promote user';
+      setPromoteError(errorMsg);
     } finally {
       setPromoteLoading(false);
     }
@@ -292,15 +277,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   const handleUpdateTenant = async () => {
     if (!editTenant) return;
     try {
-      const response = await fetch(`/api/v1/super-admin/tenants/${editTenant.id}`, {
+      await apiRequest(`/super-admin/tenants/${editTenant.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify(editTenantForm)
-      });
-      if (!response.ok) throw new Error('Failed to update tenant');
+      }, { skipTenant: true });
+
       setEditTenant(null);
       toast.success('Tenant updated successfully');
       fetchTenants();
@@ -359,18 +340,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
       const originalPrimaryTenantId = editUserForm.primary_tenant_id;
       const originalTenantRoles = editUserForm.tenant_roles;
 
-      const response = await fetch(`/api/v1/super-admin/users/${editUser.id}`, {
+      const updatedData = await apiRequest<any>(`/super-admin/users/${editUser.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify(editUserForm)
-      });
-      if (!response.ok) throw new Error('Failed to update user');
+      }, { skipTenant: true });
 
       // Check if Organizations & Roles were changed
-      const updatedData = await response.json();
       const orgRolesChanged =
         JSON.stringify(originalTenantIds) !== JSON.stringify(updatedData.tenant_ids || originalTenantIds) ||
         originalPrimaryTenantId !== updatedData.primary_tenant_id ||

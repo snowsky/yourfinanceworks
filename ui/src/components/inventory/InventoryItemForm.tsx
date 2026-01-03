@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Save, Loader2, Package, FileText } from "lucide-react";
-import { inventoryApi, InventoryItem, InventoryCategory, getErrorMessage } from "@/lib/api";
+import { inventoryApi, InventoryItem, InventoryCategory, getErrorMessage, apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from 'react-i18next';
 import { CurrencySelector } from "@/components/ui/currency-selector";
@@ -54,16 +54,8 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   const loadAttachments = async (itemId: number) => {
     try {
       setAttachmentsLoading(true);
-      const response = await fetch(`/api/v1/inventory/${itemId}/attachments`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAttachments(data);
-      }
+      const data = await apiRequest<Attachment[]>(`/inventory/${itemId}/attachments`);
+      setAttachments(data);
     } catch (error) {
       console.error('Failed to load attachments:', error);
     } finally {
