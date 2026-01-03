@@ -31,7 +31,7 @@
     "expo-localization": "~17.0.7",
     "expo-media-library": "~18.2.0",
     "expo-status-bar": "~3.0.8",
-    "i18next": "^25.3.2",
+    "i18next": "^25.7.2",
     "lucide-react": "^0.544.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
