@@ -278,11 +278,11 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     refetchOnMount: true, // Always refetch on mount for fresh data
   });
 
-  // Fetch AI configurations
+  // Fetch AI configurations - only when AI assistant is open
   const { data: aiConfigs, isLoading: aiConfigsLoading } = useQuery({
     queryKey: ['ai-configs'],
     queryFn: () => api.get('/ai-config/'),
-    enabled: !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
+    enabled: isOpen && !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
     retry: (failureCount, error) => {
       if (error.message.includes('403') || error.message.includes('Authentication failed')) {
         return false;
@@ -363,7 +363,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         return [];
       }
     },
-    enabled: !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
+    enabled: isOpen && !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
     retry: false,
   });
 

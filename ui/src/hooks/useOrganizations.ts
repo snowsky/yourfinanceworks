@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
 import { getCurrentUser } from "@/utils/auth";
+import { useMe } from "./useMe";
 
 export type Organization = {
     id: number;
@@ -10,22 +10,15 @@ export type Organization = {
 
 export function useOrganizations() {
     const user = getCurrentUser();
+    const { data: meData } = useMe();
 
     return useQuery({
         queryKey: ["user-organizations", user?.id],
         queryFn: async () => {
-            if (!user?.id) {
-                return [];
-            }
-            try {
-                const response: any = await apiRequest("/auth/me", {}, { skipTenant: true });
-                return (response?.organizations ?? []) as Organization[];
-            } catch (error) {
-                console.error('Failed to fetch organizations:', error);
-                throw error;
-            }
+            // Use data from useMe hook instead of making a duplicate request
+            return (meData?.organizations ?? []) as Organization[];
         },
-        enabled: !!user?.id,
+        enabled: !!user?.id && !!meData,
         staleTime: 1000 * 60 * 15, // 15 minutes cache
         gcTime: 1000 * 60 * 30, // 30 minutes garbage collection
     });

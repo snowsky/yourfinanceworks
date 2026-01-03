@@ -194,6 +194,7 @@ export function AppSidebar() {
 
   // Get company name from settings with reduced refetching frequency (only for admin users)
   // Note: We conditionally define the query to prevent API calls for non-admin users
+  // Only fetch settings when sidebar is actually visible (not on every page load)
   const { data: settings } = useQuery({
     queryKey: ['settings'], // Removed forceUpdate to prevent unnecessary refetches
     queryFn: () => {
@@ -204,9 +205,9 @@ export function AppSidebar() {
     refetchOnMount: false, // Don't refetch on mount
     refetchOnReconnect: false, // Disable reconnect refetching
     refetchIntervalInBackground: false,
-    staleTime: Infinity, // Never consider data stale
-    gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
-    enabled: (!roleLoading && isAdminEffective), // Only fetch settings after role is known and admin in current org
+    staleTime: 1000 * 60 * 60, // 1 hour cache
+    gcTime: 1000 * 60 * 60 * 2, // Keep in cache for 2 hours
+    enabled: (!roleLoading && isAdminEffective && state === 'expanded'), // Only fetch when sidebar is expanded and user is admin
     retry: (failureCount, error: any) => {
       // Don't retry on authentication/authorization errors
       if (error?.message?.includes('403') || error?.message?.includes('401')) {

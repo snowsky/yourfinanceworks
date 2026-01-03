@@ -3,18 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Edit,
-  Package,
-  DollarSign,
-  Hash,
-  Tag,
-  Calendar,
-  User,
   Image as ImageIcon,
-  FileText,
   Download,
   Eye,
-  Star,
-  StarOff,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

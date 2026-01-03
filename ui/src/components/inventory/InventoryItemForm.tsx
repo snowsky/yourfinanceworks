@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +32,9 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+
   // Detect user's business type to set appropriate defaults
   const getUserBusinessType = () => {
     try {
@@ -49,6 +50,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   };
 
   const businessType = getUserBusinessType();
+
+  // Fetch categories with React Query for better caching
+  const { data: categories = [] } = useQuery({
+    queryKey: ['inventory-categories'],
+    queryFn: () => inventoryApi.getCategories(),
+    staleTime: 1000 * 60 * 30, // 30 minutes cache
+    gcTime: 1000 * 60 * 60, // 1 hour garbage collection
+  });
 
   // Load attachments for the current item
   const loadAttachments = async (itemId: number) => {
@@ -98,9 +107,6 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const categoriesData = await inventoryApi.getCategories();
-        setCategories(categoriesData);
-
         if (isEdit && id) {
           const itemData = await inventoryApi.getItem(parseInt(id));
           // Check if stock is unlimited (very high number for services)

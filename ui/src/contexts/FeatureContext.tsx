@@ -48,8 +48,9 @@ const FeatureContext = createContext<FeatureContextType | undefined>(undefined);
 export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [features, setFeatures] = useState<FeatureFlags>({} as FeatureFlags);
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
   const fetchFeatures = async () => {
     try {
@@ -80,6 +81,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
         setLicenseStatus(null);
         setLoading(false);
+        setHasAttemptedFetch(true);
         return;
       }
 
@@ -157,6 +159,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       setLicenseStatus(licenseStatusData);
+      setHasAttemptedFetch(true);
     } catch (err) {
       console.error('Failed to fetch feature flags:', err);
 
@@ -186,13 +189,17 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         crm: false,
       });
       setLicenseStatus(null);
+      setHasAttemptedFetch(true);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFeatures();
+    // Only fetch on initial mount if not already loaded
+    if (!hasAttemptedFetch) {
+      fetchFeatures();
+    }
 
     // Listen for storage events (e.g., when token is set in another tab or after login)
     const handleStorageChange = (e: StorageEvent) => {
@@ -214,7 +221,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-changed', handleAuthChange);
     };
-  }, []);
+  }, [hasAttemptedFetch]);
 
   const isFeatureEnabled = (featureId: string): boolean => {
     return features[featureId] === true;
