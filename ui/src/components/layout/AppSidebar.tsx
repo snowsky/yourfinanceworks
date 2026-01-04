@@ -45,10 +45,11 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { useMe } from "@/hooks/useMe";
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile, isMobile: isMobileContext } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Use the hook directly or from context, consistency is key, but context one is synced with sidebar state
   const isMobile = useIsMobile();
   const { t } = useTranslation();
   const [forceUpdate, setForceUpdate] = useState(0);
@@ -402,6 +403,12 @@ export function AppSidebar() {
     return location.pathname === path;
   };
 
+  const handleNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <>
       <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl backdrop-blur-xl">
@@ -488,6 +495,7 @@ export function AppSidebar() {
                         to={item.path}
                         className="flex items-center gap-3 w-full h-full py-3 px-4"
                         data-tour={item.tourId}
+                        onClick={handleNavigation}
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
                           ? "bg-white/20 shadow-sm"
@@ -527,6 +535,7 @@ export function AppSidebar() {
                         to={item.path}
                         className="flex items-center gap-3 w-full h-full py-3 px-4"
                         data-tour={item.tourId}
+                        onClick={handleNavigation}
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
                           ? "bg-white/20 shadow-sm"

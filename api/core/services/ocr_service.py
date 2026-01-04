@@ -87,16 +87,8 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any], operation_type: str =
 
         else:
             logger.warning(f"❌ Could not find AI config to track usage: {provider_name}/{model_name}")
-            # Log all available configs for debugging
-            all_configs = db.query(AIConfigModel).all()
-            config_list = []
-            for c in all_configs:
-                config_list.append((
-                    c.provider_name or "None",
-                    c.model_name or "None",
-                    c.is_active or False
-                ))
-            logger.info(f"📋 Available AI configs: {config_list}")
+            # Avoid querying all configs to prevent crashing if the table is large or issues exist
+            logger.debug("Skipping full config dump for stability")
     except Exception as e:
         logger.error(f"❌ Failed to track AI usage: {e}")
         # Don't raise exception to avoid breaking the main functionality
@@ -1520,6 +1512,9 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             if expense.status is None:
                 expense.status = "recorded"
         else:
+            # Success! Mark as done so consumer knows to commit.
+            expense.analysis_status = "done"
+
             # Map fields robustly
             extracted = result if isinstance(result, dict) else {}
             logger.info(f"OCR extracted keys: {list(extracted.keys()) if isinstance(extracted, dict) else 'non-dict result'}")

@@ -530,7 +530,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
-          <TabsList className="grid grid-cols-3 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
+          <TabsList className="grid grid-cols-1 sm:grid-cols-3 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
             <TabsTrigger value="tenants" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">Organizations</TabsTrigger>
             <TabsTrigger value="users" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.users_tab')}</TabsTrigger>
             <TabsTrigger value="databases" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.databases_tab')}</TabsTrigger>
@@ -539,11 +539,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
           <TabsContent value="tenants" className="space-y-4">
             <ProfessionalCard className="slide-in">
               <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                   <h2 className="text-xl font-semibold">{t('superAdmin.organizations_management_title')}</h2>
                   <Dialog open={showCreateTenant} onOpenChange={setShowCreateTenant}>
                     <DialogTrigger asChild>
-                      <Button>
+                      <Button className="w-full sm:w-auto">
                         <Building className="h-4 w-4 mr-2" />
                         {t('superAdmin.create_organization_button')}
                       </Button>
@@ -657,13 +657,13 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
           <TabsContent value="users" className="space-y-4">
             <ProfessionalCard className="slide-in">
               <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                   <h2 className="text-xl font-semibold">{t('superAdmin.users_management_title')}</h2>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Label>{t('superAdmin.filter_by_organization')}</Label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                      <Label className="whitespace-nowrap">{t('superAdmin.filter_by_organization')}</Label>
                       <Select value={selectedTenantForUsers?.id?.toString() || 'all'} onValueChange={(value) => setSelectedTenantForUsers(value === 'all' ? null : tenants.find(t => t.id.toString() === value) || null)}>
-                        <SelectTrigger className="w-48">
+                        <SelectTrigger className="w-full sm:w-48">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -676,7 +676,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                     </div>
                     <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
                       <DialogTrigger asChild>
-                        <Button>
+                        <Button className="w-full sm:w-auto">
                           <UserPlus className="h-4 w-4 mr-2" />
                           {t('superAdmin.create_user_button')}
                         </Button>

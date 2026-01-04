@@ -390,6 +390,13 @@ class ExpenseMessageHandler(BaseMessageHandler):
                         self.logger.info(f"Expense {expense_id} manually overridden; skipping OCR")
                         return ProcessingResult(success=True, committed=True)
 
+                    # Check if already failed - prevent infinite retry loop
+                    if getattr(exp, "analysis_status", None) == ProcessingStatus.FAILED.value:
+                        self.logger.warning(f"Expense {expense_id} marked as FAILED. Skipping retry loop.")
+                        await self._commit_message(consumer, message)
+                        await self._publish_ocr_result(expense_id, tenant_id, "failed")
+                        return ProcessingResult(success=False, committed=True, should_retry=False)
+
                     # Update expense status
                     try:
                         exp.analysis_status = ProcessingStatus.PROCESSING.value
@@ -714,6 +721,12 @@ class BankStatementMessageHandler(BaseMessageHandler):
                     stmt = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
                     if not stmt:
                         return ProcessingResult(success=True, committed=True)
+                    
+                    # Check if already failed - prevent infinite retry loop
+                    if stmt.status == ProcessingStatus.FAILED.value:
+                        self.logger.warning(f"Bank statement {statement_id} marked as FAILED. Skipping retry loop.")
+                        await self._commit_message(consumer, message)
+                        return ProcessingResult(success=False, committed=True, should_retry=False)
                     
                     # Update status to processing
                     await self._handle_processing_status(db, stmt, ProcessingStatus.PROCESSING.value)
