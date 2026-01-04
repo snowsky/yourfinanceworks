@@ -1034,8 +1034,10 @@
     },
     "discount_rules": {
       "title": "Reglas de Descuento",
-      "description": "Configurar reglas de descuento para descuentos automáticos de facturas",
+      "description": "Configurar reglas de descuento para descuentos automáticos en facturas",
       "loading": "Cargando reglas de descuento...",
+      "no_discount_rules": "No hay reglas de descuento configuradas",
+      "add_discount_rules_hint": "Cree reglas de descuento para aplicar descuentos automáticamente",
       "no_rules_configured": "No hay reglas de descuento configuradas",
       "create_rules_to_apply_discounts": "Crea reglas de descuento para aplicar descuentos automáticamente",
       "create_discount_rule": "Crear Regla de Descuento",

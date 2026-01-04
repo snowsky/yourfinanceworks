@@ -1028,8 +1028,10 @@
     },
     "discount_rules": {
       "title": "Règles de Remise",
-      "description": "Configurer des règles de remise pour les remises automatiques sur les factures",
+      "description": "Configurer des règles de remise pour les rabais automatiques sur les factures",
       "loading": "Chargement des règles de remise...",
+      "no_discount_rules": "Aucune règle de remise configurée",
+      "add_discount_rules_hint": "Créez des règles de remise pour appliquer des remises automatiquement",
       "no_rules_configured": "Aucune règle de remise configurée",
       "create_rules_to_apply_discounts": "Créez des règles de remise pour appliquer des remises automatiquement",
       "create_discount_rule": "Créer une Règle de Remise",

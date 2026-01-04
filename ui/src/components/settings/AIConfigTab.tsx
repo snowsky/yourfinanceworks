@@ -97,46 +97,46 @@ export const AIConfigTab: React.FC<AIConfigTabProps> = ({
         mutationFn: (checked: boolean) => settingsApi.updateSettings({ enable_ai_assistant: checked }),
         onSuccess: (data, checked) => {
             setAiAssistantEnabled(checked);
-            toast.success(checked ? t('settings.ai_assistant_enabled') : t('settings.ai_assistant_disabled'));
+            toast.success(checked ? t('settings.ai_config.ai_assistant_enabled') : t('settings.ai_assistant_disabled'));
             queryClient.invalidateQueries({ queryKey: ['settings'] });
         },
         onError: () => {
-            toast.error(t('settings.failed_to_update_settings'));
+            toast.error(t('settings.ai_config.failed_to_update_settings'));
         }
     });
 
     const createConfigMutation = useMutation({
         mutationFn: (data: AIConfigCreate) => aiConfigApi.createAIConfig(data),
         onSuccess: () => {
-            toast.success(t('settings.ai_config_created'));
+            toast.success(t('settings.ai_config.ai_config_created'));
             queryClient.invalidateQueries({ queryKey: ['aiConfigs'] });
             handleCloseDialog();
         },
         onError: () => {
-            toast.error(t('settings.failed_to_create_ai_config'));
+            toast.error(t('settings.ai_config.failed_to_create_ai_config'));
         }
     });
 
     const updateConfigMutation = useMutation({
         mutationFn: ({ id, data }: { id: number; data: AIConfigCreate }) => aiConfigApi.updateAIConfig(id, data),
         onSuccess: () => {
-            toast.success(t('settings.ai_config_updated'));
+            toast.success(t('settings.ai_config.ai_config_updated'));
             queryClient.invalidateQueries({ queryKey: ['aiConfigs'] });
             handleCloseDialog();
         },
         onError: () => {
-            toast.error(t('settings.failed_to_update_ai_config'));
+            toast.error(t('settings.ai_config.failed_to_update_ai_config'));
         }
     });
 
     const deleteConfigMutation = useMutation({
         mutationFn: (id: number) => aiConfigApi.deleteAIConfig(id),
         onSuccess: () => {
-            toast.success(t('settings.ai_config_deleted'));
+            toast.success(t('settings.ai_config.ai_config_deleted'));
             queryClient.invalidateQueries({ queryKey: ['aiConfigs'] });
         },
         onError: () => {
-            toast.error(t('settings.failed_to_delete_ai_config'));
+            toast.error(t('settings.ai_config.failed_to_delete_ai_config'));
         }
     });
 

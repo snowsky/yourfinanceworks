@@ -624,6 +624,9 @@ This comprehensive analysis was performed using your actual invoice data through
 
                     # Helper function to get priority emoji
                     def get_priority_emoji(priority):
+                        # Ensure priority is a string
+                        if not isinstance(priority, str):
+                            priority = str(priority)
                         return {
                             'high': '🔴',
                             'medium': '🟡', 

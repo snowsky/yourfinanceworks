@@ -358,10 +358,10 @@ curl -X POST "https://your-api-domain.com/invoices/recycle-bin/empty" \
 
 ### Get Total Income
 
-**Endpoint:** `GET /invoices/stats/total-income`
+**Endpoint:** `GET /invoices/stats/comprehensive`
 
 ```bash
-curl -X GET "https://your-api-domain.com/invoices/stats/total-income?period=month" \
+curl -X GET "https://your-api-domain.com/invoices/stats/comprehensive?period=month" \
   -H "Authorization: Bearer YOUR_API_TOKEN"
 ```
 

@@ -1006,6 +1006,8 @@
       "title": "Rabattregeln",
       "description": "Rabattregeln für automatische Rechnungsrabatte konfigurieren",
       "loading": "Rabattregeln werden geladen...",
+      "no_discount_rules": "Keine Rabattregeln konfiguriert",
+      "add_discount_rules_hint": "Erstellen Sie Rabattregeln, um Rabatte automatisch anzuwenden",
       "no_rules_configured": "Keine Rabattregeln konfiguriert",
       "create_rules_to_apply_discounts": "Erstellen Sie Rabattregeln, um Rabatte automatisch anzuwenden",
       "create_discount_rule": "Rabattregel erstellen",

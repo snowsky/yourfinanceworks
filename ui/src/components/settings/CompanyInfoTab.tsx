@@ -249,7 +249,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
                 </div>
 
                 <div className="space-y-4 pt-2">
-                    <Label className="text-sm font-medium">{t('settings.company_logo')}</Label>
+                    <Label className="text-sm font-medium">{t('settings.company_info.company_logo')}</Label>
                     <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-4 bg-muted/30 rounded-xl border border-border/50">
                         <div className="relative group">
                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-background border-2 border-dashed border-border group-hover:border-primary transition-colors flex items-center justify-center">
