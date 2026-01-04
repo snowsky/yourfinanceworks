@@ -1,8 +1,9 @@
 import { useSearch } from "@/components/search/SearchProvider";
 import { Button } from "@/components/ui/button";
-import { Search, Command } from "lucide-react";
+import { Search } from "lucide-react";
 import { InAppNotifications } from "@/components/reminders";
 import { useTranslation } from "react-i18next";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function AppHeader() {
   const { setIsOpen } = useSearch();
@@ -10,13 +11,14 @@ export function AppHeader() {
 
   return (
     <header className="flex items-center justify-between p-4 border-b">
-      <div>
+      <div className="flex items-center gap-4">
+        <SidebarTrigger />
         {/* Add any other header content here */}
       </div>
       <div className="flex items-center gap-2">
         <InAppNotifications />
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
         >
