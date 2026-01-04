@@ -5,7 +5,7 @@ import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithAp
 import { InvoiceStockImpact } from "@/components/invoices/InvoiceStockImpact";
 import { InvoiceHistoryDetailsModal } from "@/components/invoices/InvoiceHistoryDetailsModal";
 import { InvoicePDF } from "@/components/invoices/InvoicePDF";
-import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi, settingsApi, Settings } from "@/lib/api";
 import { canEditInvoice, canEditInvoicePayment } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,7 @@ const EditInvoice = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Calculate payment editing permissions when invoice changes
   const canEditPayment = invoice ? canEditInvoicePayment(invoice) : false;
@@ -62,6 +63,25 @@ const EditInvoice = () => {
       setInvoiceHistory([]);
     }
   }, [invoice?.id]);
+
+  // Fetch settings data
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settingsData = await settingsApi.getSettings();
+        setSettings(settingsData);
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+        // Set fallback settings
+        setSettings({
+          company_info: { name: 'InvoiceApp', email: '', phone: '', address: '', tax_id: '', logo: '' },
+          invoice_settings: { prefix: 'INV-', next_number: '0001', terms: 'Net 30 days', notes: 'Thank you for your business!', send_copy: true, auto_reminders: true },
+          enable_ai_assistant: false
+        });
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -224,7 +244,7 @@ const EditInvoice = () => {
       const blob = await pdf(
         <InvoicePDF
           invoice={invoice}
-          companyName="Your Company Name" // This should come from settings/tenant info
+          companyName={settings?.company_info?.name || 'Your Company Name'}
           clientCompany={invoice.client_name}
           showDiscount={invoice.show_discount_in_pdf || false}
           template="modern"

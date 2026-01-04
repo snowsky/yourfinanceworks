@@ -87,6 +87,12 @@ const InvoiceRedirect = () => {
   return <Navigate to={`/invoices/view/${id}`} replace />;
 };
 
+// Simple redirect component for client IDs
+const ClientRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/clients/edit/${id}`} replace />;
+};
+
 const AppContent = () => {
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
@@ -141,6 +147,7 @@ const AppContent = () => {
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Index />} />
                     <Route path="/clients" element={<Clients />} />
+                    <Route path="/clients/:id" element={<ClientRedirect />} />
                     <Route path="/clients/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewClient /></RoleProtectedRoute>} />
                     <Route path="/clients/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditClient /></RoleProtectedRoute>} />
                     <Route path="/invoices" element={<Invoices />} />

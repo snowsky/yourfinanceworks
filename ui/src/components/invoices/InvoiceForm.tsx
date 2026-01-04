@@ -16,6 +16,7 @@ import { InvoiceClientSection } from "./InvoiceClientSection";
 import { InvoiceItemsSection } from "./InvoiceItemsSection";
 import { InvoiceDiscountSection } from "./InvoiceDiscountSection";
 import { InvoiceLabelsSection } from "./InvoiceLabelsSection";
+import { InvoiceNotesSection } from "./InvoiceNotesSection";
 import { InvoiceAttachmentSection } from "./InvoiceAttachmentSection";
 import { InvoicePaymentSection } from "./InvoicePaymentSection";
 
@@ -502,6 +503,12 @@ export function InvoiceForm({
             calculateDiscount={invoiceForm.calculateDiscount}
             calculateTotal={invoiceForm.calculateTotal}
             applyDiscountRule={invoiceForm.applyDiscountRule}
+          />
+
+          {/* Notes Section */}
+          <InvoiceNotesSection
+            form={invoiceForm.form}
+            isEdit={isEdit}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
