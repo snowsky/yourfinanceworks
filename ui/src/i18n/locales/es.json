@@ -1903,7 +1903,152 @@
     "payment_report": "Reporte de Pagos",
     "tax_report": "Reporte de Impuestos",
     "profit_loss": "Pérdidas y Ganancias",
-    "cash_flow": "Flujo de Caja"
+    "cash_flow": "Flujo de Caja",
+    "upgrade_message": "Los Reportes Avanzados requieren una licencia comercial. Actualiza para acceder a informes y análisis completos."
+  },
+  "analytics": {
+    "title": "Analíticas",
+    "description": "Análisis de uso e información",
+    "loading": "Cargando analíticas...",
+    "failed_to_load": "Error al cargar datos de analíticas",
+    "refresh": "Actualizar",
+    "last_7_days": "Últimos 7 días",
+    "last_14_days": "Últimos 14 días",
+    "last_30_days": "Últimos 30 días",
+    "last_90_days": "Últimos 90 días",
+    "total_views": "Vistas Totales",
+    "active_users": "Usuarios Activos",
+    "ai_usage": "Uso de IA",
+    "active_providers": "proveedores activos",
+    "avg_response": "Respuesta Promedio",
+    "daily_page_views": "Vistas Diarias de Página",
+    "most_popular_pages": "Páginas Más Populares",
+    "ai_provider_usage": "Uso de Proveedores de IA",
+    "usage_count": "Conteo de Uso",
+    "most_active_users": "Usuarios Más Activos",
+    "page_performance": "Rendimiento de Página",
+    "views": "vistas",
+    "avg_response_time": "tiempo promedio de respuesta"
+  },
+  "approvalReports": {
+    "title": "Reportes y Analíticas de Aprobación",
+    "description": "Información completa sobre su flujo de trabajo de aprobación de gastos",
+    "loading": "Cargando reportes de aprobación...",
+    "failed_to_load": "Error al cargar datos del reporte",
+    "export_pdf": "Exportar PDF",
+    "export_excel": "Exportar Excel",
+    "refresh": "Actualizar",
+    "filters": {
+      "title": "Filtros de Reporte",
+      "date_range": "Rango de Fechas",
+      "approver": "Aprobador",
+      "select_approver": "Seleccionar aprobador",
+      "all_approvers": "Todos los Aprobadores",
+      "category": "Categoría",
+      "select_category": "Seleccionar categoría",
+      "all_categories": "Todas las Categorías",
+      "travel": "Viajes",
+      "meals": "Comidas",
+      "office_supplies": "Suministros de Oficina",
+      "equipment": "Equipamiento"
+    },
+    "tabs": {
+      "overview": "Resumen",
+      "performance": "Rendimiento",
+      "patterns": "Patrones",
+      "compliance": "Cumplimiento"
+    },
+    "metrics": {
+      "total_approvals": "Total de Aprobaciones",
+      "approval_rate": "Tasa de Aprobación",
+      "avg_approval_time": "Tiempo Promedio de Aprobación",
+      "pending_approvals": "Aprobaciones Pendientes"
+    },
+    "overview": {
+      "monthly_trends": {
+        "title": "Tendencias Mensuales de Aprobación",
+        "description": "Volumen y tasas de aprobación a lo largo del tiempo"
+      },
+      "category_breakdown": {
+        "title": "Desglose de Aprobación por Categoría",
+        "description": "Métricas de rendimiento por categorías de gastos",
+        "total": "total",
+        "approved": "aprobado",
+        "avg_time": "tiempo promedio"
+      }
+    },
+    "performance": {
+      "bottlenecks": {
+        "title": "Cuellos de Botella de Aprobación",
+        "description": "Aprobadores con los tiempos promedio de aprobación más largos",
+        "approvals": "aprobaciones",
+        "avg": "promedio"
+      },
+      "approver_performance": {
+        "title": "Rendimiento del Aprobador",
+        "description": "Métricas de rendimiento detalladas para cada aprobador",
+        "approver": "Aprobador",
+        "assigned": "Asignado",
+        "approved": "Aprobado",
+        "rejected": "Rechazado",
+        "pending": "Pendiente",
+        "rate": "Tasa",
+        "avg_time": "Tiempo Promedio",
+        "score": "Puntuación"
+      }
+    },
+    "patterns": {
+      "rejection_reasons": {
+        "title": "Razones Comunes de Rechazo",
+        "description": "Razones más frecuentes para el rechazo de gastos",
+        "total_amount": "cantidad total",
+        "cases": "casos"
+      },
+      "approval_time_by_amount": {
+        "title": "Tiempo de Aprobación por Monto de Gasto",
+        "description": "Cómo varían los tiempos de aprobación por rangos de monto de gasto",
+        "avg_time": "Tiempo Promedio"
+      },
+      "peak_hours": {
+        "title": "Horas Pico",
+        "description": "Envíos por hora del día"
+      },
+      "peak_days": {
+        "title": "Días Pico",
+        "description": "Envíos por día de la semana"
+      },
+      "recommendations": {
+        "title": "Recomendaciones de Mejora de Procesos",
+        "description": "Sugerencias generadas por IA para optimizar su flujo de trabajo de aprobación",
+        "impact": "Impacto"
+      }
+    },
+    "compliance": {
+      "compliance_rate": "Tasa de Cumplimiento",
+      "bypassed_approvals": "Aprobaciones Omitidas",
+      "policy_violations": "Violaciones de Política",
+      "violations": {
+        "title": "Violaciones de Política",
+        "description": "Gastos que omitieron el flujo de trabajo de aprobación",
+        "expense_id": "ID de Gasto",
+        "amount": "Cantidad",
+        "category": "Categoría",
+        "date": "Fecha",
+        "violation": "Violación"
+      },
+      "rule_effectiveness": {
+        "title": "Efectividad de Reglas de Aprobación",
+        "description": "Análisis de rendimiento de sus reglas de aprobación",
+        "approvals_triggered": "aprobaciones activadas",
+        "active": "Activo",
+        "inactive": "Inactivo",
+        "score": "Puntuación"
+      },
+      "unavailable": {
+        "title": "Reportes de Cumplimiento No Disponibles",
+        "description": "No tiene permiso para ver reportes de cumplimiento, o los datos no están disponibles."
+      }
+    }
   },
   "recycleBin": {
     "title": "Papelera de Reciclaje",

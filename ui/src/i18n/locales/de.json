@@ -1855,7 +1855,152 @@
     "payment_report": "Zahlungsbericht",
     "tax_report": "Steuerbericht",
     "profit_loss": "Gewinn & Verlust",
-    "cash_flow": "Cashflow"
+    "cash_flow": "Cashflow",
+    "upgrade_message": "Erweiterte Berichte erfordern eine kommerzielle Lizenz. Aktualisieren Sie, um auf umfassende Berichte und Analysen zuzugreifen."
+  },
+  "analytics": {
+    "title": "Analytik",
+    "description": "Nutzungsanalysen und Erkenntnisse",
+    "loading": "Analytik wird geladen...",
+    "failed_to_load": "Fehler beim Laden der Analytikdaten",
+    "refresh": "Aktualisieren",
+    "last_7_days": "Letzte 7 Tage",
+    "last_14_days": "Letzte 14 Tage",
+    "last_30_days": "Letzte 30 Tage",
+    "last_90_days": "Letzte 90 Tage",
+    "total_views": "Gesamtansichten",
+    "active_users": "Aktive Benutzer",
+    "ai_usage": "KI-Nutzung",
+    "active_providers": "aktive Anbieter",
+    "avg_response": "Durchschn. Antwort",
+    "daily_page_views": "Tägliche Seitenaufrufe",
+    "most_popular_pages": "Beliebteste Seiten",
+    "ai_provider_usage": "KI-Anbieter-Nutzung",
+    "usage_count": "Nutzungsanzahl",
+    "most_active_users": "Aktivste Benutzer",
+    "page_performance": "Seitenleistung",
+    "views": "Aufrufe",
+    "avg_response_time": "durchschn. Antwortzeit"
+  },
+  "approvalReports": {
+    "title": "Genehmigungsberichte & Analytik",
+    "description": "Umfassende Einblicke in Ihren Ausgabengenehmigungsworkflow",
+    "loading": "Genehmigungsberichte werden geladen...",
+    "failed_to_load": "Fehler beim Laden der Berichtsdaten",
+    "export_pdf": "PDF exportieren",
+    "export_excel": "Excel exportieren",
+    "refresh": "Aktualisieren",
+    "filters": {
+      "title": "Berichtsfilter",
+      "date_range": "Datumsbereich",
+      "approver": "Genehmiger",
+      "select_approver": "Genehmiger auswählen",
+      "all_approvers": "Alle Genehmiger",
+      "category": "Kategorie",
+      "select_category": "Kategorie auswählen",
+      "all_categories": "Alle Kategorien",
+      "travel": "Reisen",
+      "meals": "Mahlzeiten",
+      "office_supplies": "Büromaterial",
+      "equipment": "Ausrüstung"
+    },
+    "tabs": {
+      "overview": "Übersicht",
+      "performance": "Leistung",
+      "patterns": "Muster",
+      "compliance": "Compliance"
+    },
+    "metrics": {
+      "total_approvals": "Genehmigungen gesamt",
+      "approval_rate": "Genehmigungsrate",
+      "avg_approval_time": "Durchschn. Genehmigungszeit",
+      "pending_approvals": "Ausstehende Genehmigungen"
+    },
+    "overview": {
+      "monthly_trends": {
+        "title": "Monatliche Genehmigungstrends",
+        "description": "Genehmigungsvolumen und -raten im Zeitverlauf"
+      },
+      "category_breakdown": {
+        "title": "Genehmigungsaufschlüsselung nach Kategorie",
+        "description": "Leistungskennzahlen nach Ausgabenkategorien",
+        "total": "gesamt",
+        "approved": "genehmigt",
+        "avg_time": "durchschn. Zeit"
+      }
+    },
+    "performance": {
+      "bottlenecks": {
+        "title": "Genehmigungsengpässe",
+        "description": "Genehmiger mit den längsten durchschnittlichen Genehmigungszeiten",
+        "approvals": "Genehmigungen",
+        "avg": "Durchschn."
+      },
+      "approver_performance": {
+        "title": "Leistung des Genehmigers",
+        "description": "Detaillierte Leistungskennzahlen für jeden Genehmiger",
+        "approver": "Genehmiger",
+        "assigned": "Zugewiesen",
+        "approved": "Genehmigt",
+        "rejected": "Abgelehnt",
+        "pending": "Ausstehend",
+        "rate": "Rate",
+        "avg_time": "Durchschn. Zeit",
+        "score": "Punktzahl"
+      }
+    },
+    "patterns": {
+      "rejection_reasons": {
+        "title": "Häufige Ablehnungsgründe",
+        "description": "Häufigste Gründe für Ausgabenablehnungen",
+        "total_amount": "Gesamtbetrag",
+        "cases": "Fälle"
+      },
+      "approval_time_by_amount": {
+        "title": "Genehmigungszeit nach Ausgabenbetrag",
+        "description": "Wie sich Genehmigungszeiten nach Ausgabenbetragsbereichen unterscheiden",
+        "avg_time": "Durchschn. Zeit"
+      },
+      "peak_hours": {
+        "title": "Hauptzeiten",
+        "description": "Einreichungen nach Tagesstunde"
+      },
+      "peak_days": {
+        "title": "Haupttage",
+        "description": "Einreichungen nach Wochentag"
+      },
+      "recommendations": {
+        "title": "Prozessverbesserungsempfehlungen",
+        "description": "KI-generierte Vorschläge zur Optimierung Ihres Genehmigungsworkflows",
+        "impact": "Auswirkung"
+      }
+    },
+    "compliance": {
+      "compliance_rate": "Compliance-Rate",
+      "bypassed_approvals": "Umgangene Genehmigungen",
+      "policy_violations": "Richtlinienverstöße",
+      "violations": {
+        "title": "Richtlinienverstöße",
+        "description": "Ausgaben, die den Genehmigungsworkflow umgangen haben",
+        "expense_id": "Ausgaben-ID",
+        "amount": "Betrag",
+        "category": "Kategorie",
+        "date": "Datum",
+        "violation": "Verstoß"
+      },
+      "rule_effectiveness": {
+        "title": "Effektivität der Genehmigungsregeln",
+        "description": "Leistungsanalyse Ihrer Genehmigungsregeln",
+        "approvals_triggered": "ausgelöste Genehmigungen",
+        "active": "Aktiv",
+        "inactive": "Inaktiv",
+        "score": "Punktzahl"
+      },
+      "unavailable": {
+        "title": "Compliance-Berichte nicht verfügbar",
+        "description": "Sie haben keine Berechtigung, Compliance-Berichte anzuzeigen, oder die Daten sind nicht verfügbar."
+      }
+    }
   },
   "expenses": {
     "title": "Ausgaben",

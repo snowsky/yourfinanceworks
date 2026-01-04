@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { getCurrentUser, isSuperAdmin } from "@/utils/auth";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { useTranslation } from 'react-i18next';
 
 interface AnalyticsData {
   path_stats: Array<{
@@ -43,6 +44,7 @@ interface AIProviderData {
 }
 
 const Analytics = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const user = getCurrentUser();
   const isCurrentUserSuperAdmin = isSuperAdmin();
@@ -82,7 +84,7 @@ const Analytics = () => {
       setData(response);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
-      toast.error('Failed to load analytics data');
+      toast.error(t('analytics.failed_to_load'));
     } finally {
       setLoading(false);
     }
@@ -122,7 +124,7 @@ const Analytics = () => {
         <div className="h-full flex items-center justify-center">
           <div className="flex items-center gap-2">
             <RefreshCw className="h-6 w-6 animate-spin" />
-            Loading analytics...
+            {t('analytics.loading')}
           </div>
         </div>
       </>
@@ -133,8 +135,8 @@ const Analytics = () => {
     <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
-          title="Analytics"
-          description="Usage analytics and insights"
+          title={t('analytics.title')}
+          description={t('analytics.description')}
           actions={
             <div className="flex gap-2">
               <Select value={days} onValueChange={setDays}>
@@ -142,15 +144,15 @@ const Analytics = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="7">Last 7 days</SelectItem>
-                  <SelectItem value="14">Last 14 days</SelectItem>
-                  <SelectItem value="30">Last 30 days</SelectItem>
-                  <SelectItem value="90">Last 90 days</SelectItem>
+                  <SelectItem value="7">{t('analytics.last_7_days')}</SelectItem>
+                  <SelectItem value="14">{t('analytics.last_14_days')}</SelectItem>
+                  <SelectItem value="30">{t('analytics.last_30_days')}</SelectItem>
+                  <SelectItem value="90">{t('analytics.last_90_days')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={fetchAnalytics} variant="outline">
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+                {t('analytics.refresh')}
               </Button>
             </div>
           }
@@ -159,26 +161,26 @@ const Analytics = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
-            title="Total Views"
+            title={t('analytics.total_views')}
             value={data?.total_views || 0}
             icon={BarChart3}
           />
 
           <MetricCard
-            title="Active Users"
+            title={t('analytics.active_users')}
             value={data?.user_stats.length || 0}
             icon={Users}
           />
 
           <MetricCard
-            title="AI Usage"
+            title={t('analytics.ai_usage')}
             value={aiData?.total_usage || 0}
             icon={Bot}
-            description={`${aiData?.active_providers || 0} active providers`}
+            description={`${aiData?.active_providers || 0} ${t('analytics.active_providers')}`}
           />
 
           <MetricCard
-            title="Avg Response"
+            title={t('analytics.avg_response')}
             value={`${Math.round(data?.path_stats.reduce((acc, stat) => acc + stat.avg_response_time, 0) / (data?.path_stats.length || 1) || 0)}ms`}
             icon={Clock}
           />
@@ -190,7 +192,7 @@ const Analytics = () => {
           {/* Daily Views Chart */}
           <ProfessionalCard>
             <CardHeader>
-              <CardTitle>Daily Page Views</CardTitle>
+              <CardTitle>{t('analytics.daily_page_views')}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -214,7 +216,7 @@ const Analytics = () => {
           {/* Top Pages Chart */}
           <ProfessionalCard>
             <CardHeader>
-              <CardTitle>Most Popular Pages</CardTitle>
+              <CardTitle>{t('analytics.most_popular_pages')}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -242,7 +244,7 @@ const Analytics = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5" />
-                AI Provider Usage
+                {t('analytics.ai_provider_usage')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -257,7 +259,7 @@ const Analytics = () => {
                   <Tooltip
                     labelFormatter={(value) => `${value || 'Unknown'} Provider`}
                   />
-                  <Bar dataKey="usage_count" fill="#8884d8" name="Usage Count" />
+                  <Bar dataKey="usage_count" fill="#8884d8" name={t('analytics.usage_count')} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -270,7 +272,7 @@ const Analytics = () => {
           {/* Top Users */}
           <ProfessionalCard>
             <CardHeader>
-              <CardTitle>Most Active Users</CardTitle>
+              <CardTitle>{t('analytics.most_active_users')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -280,7 +282,7 @@ const Analytics = () => {
                       <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
                       <span className="text-sm">{user.user}</span>
                     </div>
-                    <span className="text-sm font-medium">{user.views} views</span>
+                    <span className="text-sm font-medium">{user.views} {t('analytics.views')}</span>
                   </div>
                 ))}
               </div>
@@ -291,7 +293,7 @@ const Analytics = () => {
           {/* Performance */}
           <ProfessionalCard>
             <CardHeader>
-              <CardTitle>Page Performance</CardTitle>
+              <CardTitle>{t('analytics.page_performance')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -301,11 +303,11 @@ const Analytics = () => {
                       <div className="text-sm font-medium">
                         {page.path.split('/').pop() || page.path}
                       </div>
-                      <div className="text-xs text-muted-foreground">{page.views} views</div>
+                      <div className="text-xs text-muted-foreground">{page.views} {t('analytics.views')}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium">{Math.round(page.avg_response_time)}ms</div>
-                      <div className="text-xs text-muted-foreground">avg response</div>
+                      <div className="text-xs text-muted-foreground">{t('analytics.avg_response_time')}</div>
                     </div>
                   </div>
                 ))}

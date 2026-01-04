@@ -75,8 +75,15 @@ export function AppSidebar() {
   // Get current user data from localStorage
   const user = getCurrentUser();
   const userRole = user?.role || 'user';
-  const showAnalytics = (user as any)?.show_analytics !== false;
   const [isSuperUser, setIsSuperUser] = useState(false);
+
+  // Force re-reading user data when forceUpdate changes
+  const [currentUser, setCurrentUser] = useState(user);
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+  }, [forceUpdate]);
+
+  const showAnalytics = (currentUser as any)?.show_analytics !== false;
 
   const { data: me, isLoading: roleLoading } = useMe();
   const effectiveRole = me?.role || userRole;
@@ -101,19 +108,19 @@ export function AppSidebar() {
   // Check super admin status via API
   useEffect(() => {
     const checkSuperAdminStatus = async () => {
-      if (!user?.is_superuser) {
+      if (!currentUser?.is_superuser) {
         setIsSuperUser(false);
         return;
       }
 
-      const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+      const userTenantIdStr = currentUser?.tenant_id != null ? String(currentUser.tenant_id) : '';
       const currentOrgIdStr = localStorage.getItem('selected_tenant_id') || userTenantIdStr;
       const isInPrimaryTenant = currentOrgIdStr === userTenantIdStr;
-      setIsSuperUser(user.is_superuser && isInPrimaryTenant);
+      setIsSuperUser(currentUser.is_superuser && isInPrimaryTenant);
     };
 
     checkSuperAdminStatus();
-  }, [user?.is_superuser, user?.tenant_id]);
+  }, [currentUser?.is_superuser, currentUser?.tenant_id]);
 
   // Sync currentOrgId with localStorage when it changes
   useEffect(() => {
@@ -124,19 +131,26 @@ export function AppSidebar() {
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    // Also listen for custom events from OrganizationSwitcher
     const handleOrgSwitch = () => {
       const stored = localStorage.getItem('selected_tenant_id');
       if (stored && stored !== currentOrgId) {
         setCurrentOrgId(stored);
       }
     };
+
+    const handleUserUpdate = () => {
+      // Force re-render to pick up new user data
+      setForceUpdate(prev => prev + 1);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('org-switched', handleOrgSwitch);
+    window.addEventListener('user-updated', handleUserUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('org-switched', handleOrgSwitch);
+      window.removeEventListener('user-updated', handleUserUpdate);
     };
   }, [currentOrgId]);
 
@@ -242,7 +256,7 @@ export function AppSidebar() {
   }, [userOrganizations, currentOrgId, settings?.company_info?.name]);
   // Normalize tenant id types for safe comparisons
   const companyLogoUrl = settings?.company_info?.logo;
-  const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+  const userTenantIdStr = currentUser?.tenant_id != null ? String(currentUser.tenant_id) : '';
   const isPrimaryTenant = currentOrgId === userTenantIdStr;
 
 
@@ -377,7 +391,7 @@ export function AppSidebar() {
       icon: <BarChart className="w-5 h-5" />
     }] : []),
     // Only show Super Admin for super users in their primary tenant
-    ...((!roleLoading && user?.is_superuser && isPrimaryTenant) ? [{
+    ...((!roleLoading && currentUser?.is_superuser && isPrimaryTenant) ? [{
       path: '/super-admin',
       label: t('navigation.super_admin'),
       icon: <ShieldCheck className="w-5 h-5" />
@@ -401,12 +415,12 @@ export function AppSidebar() {
           <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700/20 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 ring-2 ring-slate-600/30">
-                <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
+                <AvatarImage src={undefined as any} alt={currentUser?.email || 'User'} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
                   {(() => {
-                    const first = (user?.first_name || '').trim();
-                    const last = (user?.last_name || '').trim();
-                    const name = `${first} ${last}`.trim() || (user?.email?.split('@')[0] || 'User');
+                    const first = (currentUser?.first_name || '').trim();
+                    const last = (currentUser?.last_name || '').trim();
+                    const name = `${first} ${last}`.trim() || (currentUser?.email?.split('@')[0] || 'User');
                     const parts = name.split(' ').filter(Boolean);
                     const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
                     return initials.toUpperCase();
@@ -416,10 +430,10 @@ export function AppSidebar() {
               <div className="flex flex-col leading-tight flex-1 min-w-0">
                 <span className="text-xs font-semibold text-white truncate">
                   {(() => {
-                    const first = (user?.first_name || '').trim();
-                    const last = (user?.last_name || '').trim();
+                    const first = (currentUser?.first_name || '').trim();
+                    const last = (currentUser?.last_name || '').trim();
                     const name = `${first} ${last}`.trim();
-                    return name || (user?.email?.split('@')[0] || 'User');
+                    return name || (currentUser?.email?.split('@')[0] || 'User');
                   })()}
                 </span>
                 <span className="text-xs text-slate-300 truncate">

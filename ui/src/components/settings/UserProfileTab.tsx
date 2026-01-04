@@ -14,6 +14,7 @@ import { ProfessionalInput } from "@/components/ui/professional-input";
 import { authApi, userApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateCurrentUser } from "@/utils/auth";
 
 interface UserProfile {
     id: number;
@@ -92,6 +93,14 @@ export const UserProfileTab: React.FC = () => {
                 last_name: userProfile.last_name,
                 show_analytics: userProfile.show_analytics
             });
+            
+            // Update localStorage with the new user data
+            updateCurrentUser({
+                first_name: userProfile.first_name,
+                last_name: userProfile.last_name,
+                show_analytics: userProfile.show_analytics
+            });
+            
             toast.success(t('settings.profile_updated_successfully'));
             queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         } catch (error) {

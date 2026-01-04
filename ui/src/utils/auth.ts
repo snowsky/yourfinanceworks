@@ -11,6 +11,7 @@ export interface User {
   last_name?: string;
   tenant_id?: number;
   is_superuser?: boolean;
+  show_analytics?: boolean;
 }
 
 export type UserRole = 'admin' | 'user' | 'viewer' | 'super_admin';
@@ -224,6 +225,25 @@ export const canDeleteExpense = (expense: { status: string }): boolean => {
   }
 
   return true;
+};
+
+/**
+ * Update current user data in localStorage
+ * @param userData Partial user data to update
+ */
+export const updateCurrentUser = (userData: Partial<User>): void => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    const updatedUser = { ...currentUser, ...userData };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    // Dispatch custom event to notify components of user data change
+    window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedUser }));
+  } catch (error) {
+    console.error('Error updating user data in localStorage:', error);
+  }
 };
 
 /**

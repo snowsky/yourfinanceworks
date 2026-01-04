@@ -53,6 +53,7 @@ import {
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 import { apiRequest, API_BASE_URL } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface ApprovalMetrics {
   total_approvals: number;
@@ -199,6 +200,7 @@ interface DelegationUsage {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function ApprovalReportsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
@@ -255,7 +257,7 @@ export default function ApprovalReportsPage() {
       }
 
     } catch (err) {
-      setError('Failed to load report data');
+      setError(t('approvalReports.failed_to_load'));
       console.error('Error loading report data:', err);
     } finally {
       setLoading(false);
@@ -346,7 +348,7 @@ export default function ApprovalReportsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading approval reports...</span>
+        <span className="ml-2">{t('approvalReports.loading')}</span>
       </div>
     );
   }
@@ -355,9 +357,9 @@ export default function ApprovalReportsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Approval Reports & Analytics</h1>
+          <h1 className="text-3xl font-bold">{t('approvalReports.title')}</h1>
           <p className="text-muted-foreground">
-            Comprehensive insights into your expense approval workflow
+            {t('approvalReports.description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -367,7 +369,7 @@ export default function ApprovalReportsPage() {
             disabled={loading}
           >
             <Download className="h-4 w-4 mr-2" />
-            Export PDF
+            {t('approvalReports.export_pdf')}
           </Button>
           <Button
             variant="outline"
@@ -375,11 +377,11 @@ export default function ApprovalReportsPage() {
             disabled={loading}
           >
             <Download className="h-4 w-4 mr-2" />
-            Export Excel
+            {t('approvalReports.export_excel')}
           </Button>
           <Button onClick={loadReportData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('approvalReports.refresh')}
           </Button>
         </div>
       </div>
@@ -387,41 +389,41 @@ export default function ApprovalReportsPage() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Report Filters</CardTitle>
+          <CardTitle>{t('approvalReports.filters.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 items-end">
             <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Date Range</label>
+              <label className="text-sm font-medium mb-2 block">{t('approvalReports.filters.date_range')}</label>
               <DatePickerWithRange
                 date={dateRange}
                 onDateChange={setDateRange}
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Approver</label>
+              <label className="text-sm font-medium mb-2 block">{t('approvalReports.filters.approver')}</label>
               <Select value={selectedApprover} onValueChange={setSelectedApprover}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select approver" />
+                  <SelectValue placeholder={t('approvalReports.filters.select_approver')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Approvers</SelectItem>
+                  <SelectItem value="all">{t('approvalReports.filters.all_approvers')}</SelectItem>
                   {/* Add dynamic approver options here */}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Category</label>
+              <label className="text-sm font-medium mb-2 block">{t('approvalReports.filters.category')}</label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t('approvalReports.filters.select_category')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="travel">Travel</SelectItem>
-                  <SelectItem value="meals">Meals</SelectItem>
-                  <SelectItem value="office">Office Supplies</SelectItem>
-                  <SelectItem value="equipment">Equipment</SelectItem>
+                  <SelectItem value="all">{t('approvalReports.filters.all_categories')}</SelectItem>
+                  <SelectItem value="travel">{t('approvalReports.filters.travel')}</SelectItem>
+                  <SelectItem value="meals">{t('approvalReports.filters.meals')}</SelectItem>
+                  <SelectItem value="office">{t('approvalReports.filters.office_supplies')}</SelectItem>
+                  <SelectItem value="equipment">{t('approvalReports.filters.equipment')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -438,10 +440,10 @@ export default function ApprovalReportsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="patterns">Patterns</TabsTrigger>
-          <TabsTrigger value="compliance">Compliance</TabsTrigger>
+          <TabsTrigger value="overview">{t('approvalReports.tabs.overview')}</TabsTrigger>
+          <TabsTrigger value="performance">{t('approvalReports.tabs.performance')}</TabsTrigger>
+          <TabsTrigger value="patterns">{t('approvalReports.tabs.patterns')}</TabsTrigger>
+          <TabsTrigger value="compliance">{t('approvalReports.tabs.compliance')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -454,7 +456,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Total Approvals
+                          {t('approvalReports.metrics.total_approvals')}
                         </p>
                         <p className="text-2xl font-bold">{metrics.total_approvals}</p>
                       </div>
@@ -468,7 +470,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Approval Rate
+                          {t('approvalReports.metrics.approval_rate')}
                         </p>
                         <p className="text-2xl font-bold">
                           {Math.round(metrics.approval_rate)}%
@@ -484,7 +486,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Avg. Approval Time
+                          {t('approvalReports.metrics.avg_approval_time')}
                         </p>
                         <p className="text-2xl font-bold">
                           {formatHours(metrics.average_approval_time)}
@@ -500,7 +502,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Pending Approvals
+                          {t('approvalReports.metrics.pending_approvals')}
                         </p>
                         <p className="text-2xl font-bold">{metrics.pending_approvals}</p>
                       </div>
@@ -513,9 +515,9 @@ export default function ApprovalReportsPage() {
               {/* Monthly Trends Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Monthly Approval Trends</CardTitle>
+                  <CardTitle>{t('approvalReports.overview.monthly_trends.title')}</CardTitle>
                   <CardDescription>
-                    Approval volume and rates over time
+                    {t('approvalReports.overview.monthly_trends.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -554,9 +556,9 @@ export default function ApprovalReportsPage() {
               {/* Category Breakdown */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Approval Breakdown by Category</CardTitle>
+                  <CardTitle>{t('approvalReports.overview.category_breakdown.title')}</CardTitle>
                   <CardDescription>
-                    Performance metrics across expense categories
+                    {t('approvalReports.overview.category_breakdown.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -566,9 +568,9 @@ export default function ApprovalReportsPage() {
                         <div className="flex justify-between items-center">
                           <span className="font-medium capitalize">{category}</span>
                           <div className="flex gap-4 text-sm text-muted-foreground">
-                            <span>{data.total} total</span>
-                            <span>{Math.round(data.approval_rate)}% approved</span>
-                            <span>{formatHours(data.average_time_hours)} avg time</span>
+                            <span>{data.total} {t('approvalReports.overview.category_breakdown.total')}</span>
+                            <span>{Math.round(data.approval_rate)}% {t('approvalReports.overview.category_breakdown.approved')}</span>
+                            <span>{formatHours(data.average_time_hours)} {t('approvalReports.overview.category_breakdown.avg_time')}</span>
                           </div>
                         </div>
                         <Progress
@@ -590,9 +592,9 @@ export default function ApprovalReportsPage() {
               {/* Bottlenecks */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Approval Bottlenecks</CardTitle>
+                  <CardTitle>{t('approvalReports.performance.bottlenecks.title')}</CardTitle>
                   <CardDescription>
-                    Approvers with the longest average approval times
+                    {t('approvalReports.performance.bottlenecks.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -607,7 +609,7 @@ export default function ApprovalReportsPage() {
                           <div>
                             <p className="font-medium">{bottleneck.approver_name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {bottleneck.approval_count} approvals
+                              {bottleneck.approval_count} {t('approvalReports.performance.bottlenecks.approvals')}
                             </p>
                           </div>
                         </div>
@@ -615,7 +617,7 @@ export default function ApprovalReportsPage() {
                           <Badge
                             variant={bottleneck.is_bottleneck ? "destructive" : "secondary"}
                           >
-                            {formatHours(bottleneck.average_time_hours)} avg
+                            {formatHours(bottleneck.average_time_hours)} {t('approvalReports.performance.bottlenecks.avg')}
                           </Badge>
                           {bottleneck.is_bottleneck && (
                             <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -630,9 +632,9 @@ export default function ApprovalReportsPage() {
               {/* Approver Performance */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Approver Performance</CardTitle>
+                  <CardTitle>{t('approvalReports.performance.approver_performance.title')}</CardTitle>
                   <CardDescription>
-                    Detailed performance metrics for each approver
+                    {t('approvalReports.performance.approver_performance.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -640,14 +642,14 @@ export default function ApprovalReportsPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2">Approver</th>
-                          <th className="text-right p-2">Assigned</th>
-                          <th className="text-right p-2">Approved</th>
-                          <th className="text-right p-2">Rejected</th>
-                          <th className="text-right p-2">Pending</th>
-                          <th className="text-right p-2">Rate</th>
-                          <th className="text-right p-2">Avg Time</th>
-                          <th className="text-right p-2">Score</th>
+                          <th className="text-left p-2">{t('approvalReports.performance.approver_performance.approver')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.assigned')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.approved')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.rejected')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.pending')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.rate')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.avg_time')}</th>
+                          <th className="text-right p-2">{t('approvalReports.performance.approver_performance.score')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -684,9 +686,9 @@ export default function ApprovalReportsPage() {
               {/* Common Rejection Reasons */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Common Rejection Reasons</CardTitle>
+                  <CardTitle>{t('approvalReports.patterns.rejection_reasons.title')}</CardTitle>
                   <CardDescription>
-                    Most frequent reasons for expense rejections
+                    {t('approvalReports.patterns.rejection_reasons.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -696,10 +698,10 @@ export default function ApprovalReportsPage() {
                         <div className="flex-1">
                           <p className="font-medium">{reason.reason}</p>
                           <p className="text-sm text-muted-foreground">
-                            ${reason.total_amount.toLocaleString()} total amount
+                            ${reason.total_amount.toLocaleString()} {t('approvalReports.patterns.rejection_reasons.total_amount')}
                           </p>
                         </div>
-                        <Badge variant="outline">{reason.count} cases</Badge>
+                        <Badge variant="outline">{reason.count} {t('approvalReports.patterns.rejection_reasons.cases')}</Badge>
                       </div>
                     ))}
                   </div>
@@ -709,9 +711,9 @@ export default function ApprovalReportsPage() {
               {/* Approval Time by Amount */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Approval Time by Expense Amount</CardTitle>
+                  <CardTitle>{t('approvalReports.patterns.approval_time_by_amount.title')}</CardTitle>
                   <CardDescription>
-                    How approval times vary by expense amount ranges
+                    {t('approvalReports.patterns.approval_time_by_amount.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -726,7 +728,7 @@ export default function ApprovalReportsPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="range" />
                         <YAxis />
-                        <Tooltip formatter={(value) => [`${value} hours`, 'Avg Time']} />
+                        <Tooltip formatter={(value) => [`${value} hours`, t('approvalReports.patterns.approval_time_by_amount.avg_time')]} />
                         <Bar dataKey="time" fill="#8884d8" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -738,8 +740,8 @@ export default function ApprovalReportsPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Peak Hours</CardTitle>
-                    <CardDescription>Submissions by hour of day</CardDescription>
+                    <CardTitle>{t('approvalReports.patterns.peak_hours.title')}</CardTitle>
+                    <CardDescription>{t('approvalReports.patterns.peak_hours.description')}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-48">
@@ -763,8 +765,8 @@ export default function ApprovalReportsPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Peak Days</CardTitle>
-                    <CardDescription>Submissions by day of week</CardDescription>
+                    <CardTitle>{t('approvalReports.patterns.peak_days.title')}</CardTitle>
+                    <CardDescription>{t('approvalReports.patterns.peak_days.description')}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-48">
@@ -790,9 +792,9 @@ export default function ApprovalReportsPage() {
               {/* Recommendations */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Process Improvement Recommendations</CardTitle>
+                  <CardTitle>{t('approvalReports.patterns.recommendations.title')}</CardTitle>
                   <CardDescription>
-                    AI-generated suggestions to optimize your approval workflow
+                    {t('approvalReports.patterns.recommendations.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -809,7 +811,7 @@ export default function ApprovalReportsPage() {
                           {rec.description}
                         </p>
                         <p className="text-sm font-medium text-green-600">
-                          Impact: {rec.impact}
+                          {t('approvalReports.patterns.recommendations.impact')}: {rec.impact}
                         </p>
                       </div>
                     ))}
@@ -830,7 +832,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Compliance Rate
+                          {t('approvalReports.compliance.compliance_rate')}
                         </p>
                         <p className="text-2xl font-bold">
                           {Math.round(compliance.compliance_rate)}%
@@ -846,7 +848,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Bypassed Approvals
+                          {t('approvalReports.compliance.bypassed_approvals')}
                         </p>
                         <p className="text-2xl font-bold">
                           {compliance.expenses_bypassed_approval}
@@ -862,7 +864,7 @@ export default function ApprovalReportsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">
-                          Policy Violations
+                          {t('approvalReports.compliance.policy_violations')}
                         </p>
                         <p className="text-2xl font-bold">
                           {compliance.policy_violations.length}
@@ -877,9 +879,9 @@ export default function ApprovalReportsPage() {
               {/* Policy Violations */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Policy Violations</CardTitle>
+                  <CardTitle>{t('approvalReports.compliance.violations.title')}</CardTitle>
                   <CardDescription>
-                    Expenses that bypassed the approval workflow
+                    {t('approvalReports.compliance.violations.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -887,11 +889,11 @@ export default function ApprovalReportsPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2">Expense ID</th>
-                          <th className="text-right p-2">Amount</th>
-                          <th className="text-left p-2">Category</th>
-                          <th className="text-left p-2">Date</th>
-                          <th className="text-left p-2">Violation</th>
+                          <th className="text-left p-2">{t('approvalReports.compliance.violations.expense_id')}</th>
+                          <th className="text-right p-2">{t('approvalReports.compliance.violations.amount')}</th>
+                          <th className="text-left p-2">{t('approvalReports.compliance.violations.category')}</th>
+                          <th className="text-left p-2">{t('approvalReports.compliance.violations.date')}</th>
+                          <th className="text-left p-2">{t('approvalReports.compliance.violations.violation')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -919,9 +921,9 @@ export default function ApprovalReportsPage() {
               {/* Rule Effectiveness */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Approval Rule Effectiveness</CardTitle>
+                  <CardTitle>{t('approvalReports.compliance.rule_effectiveness.title')}</CardTitle>
                   <CardDescription>
-                    Performance analysis of your approval rules
+                    {t('approvalReports.compliance.rule_effectiveness.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -931,17 +933,17 @@ export default function ApprovalReportsPage() {
                         <div className="flex-1">
                           <p className="font-medium">{rule.rule_name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {rule.approval_count} approvals triggered
+                            {rule.approval_count} {t('approvalReports.compliance.rule_effectiveness.approvals_triggered')}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge
                             variant={rule.is_active ? "default" : "secondary"}
                           >
-                            {rule.is_active ? 'Active' : 'Inactive'}
+                            {rule.is_active ? t('approvalReports.compliance.rule_effectiveness.active') : t('approvalReports.compliance.rule_effectiveness.inactive')}
                           </Badge>
                           <Badge variant="outline">
-                            Score: {Math.round(rule.effectiveness_score)}
+                            {t('approvalReports.compliance.rule_effectiveness.score')}: {Math.round(rule.effectiveness_score)}
                           </Badge>
                         </div>
                       </div>
@@ -954,9 +956,9 @@ export default function ApprovalReportsPage() {
             <Card>
               <CardContent className="p-6 text-center">
                 <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Compliance Reports Unavailable</h3>
+                <h3 className="text-lg font-medium mb-2">{t('approvalReports.compliance.unavailable.title')}</h3>
                 <p className="text-muted-foreground">
-                  You don't have permission to view compliance reports, or the data is not available.
+                  {t('approvalReports.compliance.unavailable.description')}
                 </p>
               </CardContent>
             </Card>
