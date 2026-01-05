@@ -18,7 +18,6 @@ import logging
 import os
 import signal
 import sys
-import time
 import asyncio
 from typing import Optional, List, Dict, Any, Union
 from dataclasses import dataclass
@@ -38,6 +37,7 @@ from core.services.ocr_service import (
     publish_ocr_task,
     release_processing_lock
 )
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 from core.models.database import set_tenant_context
 from core.services.tenant_database_manager import tenant_db_manager
 from sqlalchemy.orm import Session
@@ -782,7 +782,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                 stmt.status = "failed"
                 stmt.analysis_error = str(error)
                 stmt.extraction_method = "failed"
-                stmt.analysis_updated_at = datetime.now(timezone.utc)
+                stmt.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
                 try:
                     db.commit()
                 except Exception:
@@ -804,7 +804,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
         stmt.status = "failed"
         stmt.analysis_error = str(error)
         stmt.extraction_method = "failed"
-        stmt.analysis_updated_at = datetime.now(timezone.utc)
+        stmt.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
         try:
             db.commit()
         except Exception:
@@ -937,7 +937,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
         stmt.extracted_count = count
         stmt.extraction_method = method
         stmt.analysis_error = None
-        stmt.analysis_updated_at = datetime.now(timezone.utc)
+        stmt.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         self.logger.info(f"Bank statement processed: id={stmt.id}, transactions={count}")
 

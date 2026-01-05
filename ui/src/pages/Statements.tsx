@@ -28,6 +28,8 @@ import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
+import { useQuery } from '@tanstack/react-query';
+import { settingsApi } from '@/lib/api';
 
 
 const CATEGORY_OPTIONS = [
@@ -144,6 +146,32 @@ export default function Statements() {
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
   const readOnly = detail?.status === 'processing';
+
+  // Fetch settings to get timezone
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.getSettings(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Get timezone from settings, default to UTC
+  const timezone = settings?.timezone || 'UTC';
+
+  // Helper function to get locale for date formatting
+  const getLocale = () => {
+    const language = t('language', { defaultValue: 'en' });
+    switch (language) {
+      case 'es':
+        return 'es-ES';
+      case 'fr':
+        return 'fr-FR';
+      case 'de':
+        return 'de-DE';
+      default:
+        return 'en-US';
+    }
+  };
 
   // Selection and filtering
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -932,12 +960,12 @@ export default function Statements() {
                           }}
                         />
                       </TableHead>
+                      <TableHead className="font-bold text-foreground">ID</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
-                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('common.created_by')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.uploaded')}</TableHead>
+                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                       <TableHead className="w-[100px] text-right font-bold text-foreground">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -956,6 +984,7 @@ export default function Statements() {
                             }}
                           />
                         </TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">#{s.id}</TableCell>
                         <TableCell className="font-semibold text-foreground">{s.original_filename}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
@@ -1014,10 +1043,23 @@ export default function Statements() {
                           />
                         </TableCell>
                         <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                          {s.created_by_username || s.created_by_email || t('common.unknown')}
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="text-sm">
+                            <div className="text-muted-foreground">
+                              {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), { 
+                                timeZone: timezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {s.created_by_username || s.created_by_email || t('common.unknown')}
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell>{s.created_at ? format(new Date(s.created_at), 'PP p') : ''}</TableCell>
                         <TableCell className="text-right flex gap-2 justify-end">
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
                             <Eye className="w-4 h-4" />
@@ -1084,7 +1126,7 @@ export default function Statements() {
                     ))}
                     {statements.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-auto p-0 border-none">
+                        <TableCell colSpan={7} className="h-auto p-0 border-none">
                           <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                               <FileText className="h-8 w-8 text-primary" />
@@ -1404,7 +1446,14 @@ export default function Statements() {
                 </div>
                 <div>
                   <label className="text-sm">{t('statements.uploaded_at', { defaultValue: 'Uploaded At' })}</label>
-                  <Input value={detail?.created_at ? new Date(detail.created_at).toLocaleString() : ''} disabled={true} />
+                  <Input value={detail?.created_at ? new Date(detail.created_at).toLocaleString(getLocale(), { 
+                    timeZone: timezone,
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  }) : ''} disabled={true} />
                 </div>
                 {((detail as any)?.created_by_username || (detail as any)?.created_by_email) && (
                   <div>

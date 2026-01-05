@@ -951,7 +951,7 @@ const Expenses = () => {
                     <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
-                    <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('common.created_by')}</TableHead>
+                    <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
                     <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
@@ -1070,8 +1070,22 @@ const Expenses = () => {
                             approvals={[]} // TODO: Fetch approvals data
                           />
                         </TableCell>
-                        <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
-                          {e.created_by_username || e.created_by_email || t('common.unknown')}
+                        <TableCell className="hidden xl:table-cell">
+                          <div className="text-sm">
+                            <div className="text-muted-foreground">
+                              {e.created_at ? new Date(e.created_at).toLocaleString(getLocale(), { 
+                                timeZone: timezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {e.created_by_username || e.created_by_email || t('common.unknown')}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-2">

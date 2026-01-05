@@ -11,6 +11,7 @@ from core.models.models import MasterUser
 from core.models.models_per_tenant import SupportedCurrency, CurrencyRate
 from core.schemas.currency import SupportedCurrency as SupportedCurrencySchema, SupportedCurrencyCreate, SupportedCurrencyUpdate, CurrencyRate as CurrencyRateSchema, CurrencyConversion
 from core.routers.auth import get_current_user
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,7 @@ async def create_or_update_exchange_rate(
         
         if existing_rate:
             existing_rate.rate = rate_data.rate
-            existing_rate.updated_at = datetime.now(timezone.utc)
+            existing_rate.updated_at = get_tenant_timezone_aware_datetime(db)
         else:
             new_rate = CurrencyRate(
                 from_currency=rate_data.from_currency.upper(),
@@ -191,7 +192,7 @@ async def update_exchange_rate(
         if rate_update.effective_date is not None:
             existing_rate.effective_date = rate_update.effective_date
         
-        existing_rate.updated_at = datetime.now(timezone.utc)
+        existing_rate.updated_at = get_tenant_timezone_aware_datetime(db)
         
         db.commit()
         db.refresh(existing_rate)
@@ -348,7 +349,7 @@ async def create_custom_currency(
         
         # Set updated_at if the column exists
         try:
-            new_currency.updated_at = datetime.now(timezone.utc)
+            new_currency.updated_at = get_tenant_timezone_aware_datetime(db)
         except AttributeError:
             # updated_at column might not exist yet
             pass
@@ -404,7 +405,7 @@ async def update_custom_currency(
         
         from datetime import datetime
         try:
-            existing_currency.updated_at = datetime.now(timezone.utc)
+            existing_currency.updated_at = get_tenant_timezone_aware_datetime(db)
         except AttributeError:
             # updated_at column might not exist yet
             pass

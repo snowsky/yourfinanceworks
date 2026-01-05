@@ -28,6 +28,7 @@ from core.utils.rbac import require_non_viewer, require_admin
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -151,8 +152,8 @@ async def create_invoice(
             # Persist description into notes field for backward compatibility, or use default notes
             notes=invoice.description or invoice.notes or default_notes,
             client_id=invoice.client_id,
-            created_at=incoming_created_at or datetime.now(timezone.utc),
-            updated_at=incoming_created_at or datetime.now(timezone.utc),
+            created_at=incoming_created_at or get_tenant_timezone_aware_datetime(db),
+            updated_at=incoming_created_at or get_tenant_timezone_aware_datetime(db),
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             custom_fields=invoice.custom_fields,
@@ -561,8 +562,8 @@ async def clone_invoice(
             status="draft",
             notes=source_invoice.notes,
             client_id=source_invoice.client_id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db),
             is_recurring=source_invoice.is_recurring,
             recurring_frequency=source_invoice.recurring_frequency,
             custom_fields=source_invoice.custom_fields,
@@ -836,7 +837,7 @@ async def bulk_labels(
                     current_labels.remove(label)
 
             inv.labels = current_labels
-            inv.updated_at = datetime.now(timezone.utc)
+            inv.updated_at = get_tenant_timezone_aware_datetime(db)
 
         db.commit()
         return {"success": True, "count": len(invoices)}
@@ -1008,7 +1009,7 @@ async def restore_invoice(
         db_invoice.deleted_at = None
         db_invoice.deleted_by = None
         db_invoice.status = restore_request.new_status  # Set the new status
-        db_invoice.updated_at = datetime.now(timezone.utc)
+        db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Log the restoration in invoice history
         from core.models.models_per_tenant import InvoiceHistory
@@ -1465,7 +1466,7 @@ async def update_invoice(
                             'file_size': attachment.file_size
                         })
                         attachment.is_active = False
-                        attachment.updated_at = datetime.now(timezone.utc)
+                        attachment.updated_at = get_tenant_timezone_aware_datetime(db)
                         logger.info(f"Soft deleted new-style attachment: {attachment.filename}")
 
                     # Create history entry for attachment deletion
@@ -1620,7 +1621,7 @@ async def update_invoice(
                     existing_item.quantity = float(getattr(item_data, 'quantity', existing_item.quantity))
                     existing_item.price = float(getattr(item_data, 'price', existing_item.price))
                     existing_item.amount = float(getattr(item_data, 'quantity', existing_item.quantity)) * float(getattr(item_data, 'price', existing_item.price))
-                    existing_item.updated_at = datetime.now(timezone.utc)
+                    existing_item.updated_at = get_tenant_timezone_aware_datetime(db)
                     updated_item_ids.add(item_data.id)
                 else:
                     # Create new item (no ID or ID not found)
@@ -1787,7 +1788,7 @@ async def update_invoice(
             else:
                 db_invoice.amount = recalculated_subtotal
 
-            db_invoice.updated_at = datetime.now(timezone.utc)
+            db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(db_invoice)
             logger.info(f"[DEBUG] Saved custom_fields in DB (update): {db_invoice.custom_fields}")
@@ -2048,7 +2049,7 @@ async def bulk_delete_invoices(
 
                 # Soft delete invoice
                 invoice.is_deleted = True
-                invoice.deleted_at = datetime.now(timezone.utc)
+                invoice.deleted_at = get_tenant_timezone_aware_datetime(db)
                 invoice.deleted_by = current_user.id
 
                 # Log deletion in invoice history
@@ -2140,7 +2141,7 @@ async def delete_invoice(
 
         # Soft delete the invoice
         db_invoice.is_deleted = True
-        db_invoice.deleted_at = datetime.now(timezone.utc)
+        db_invoice.deleted_at = get_tenant_timezone_aware_datetime(db)
         db_invoice.deleted_by = current_user.id
 
         # Log the deletion in invoice history
@@ -2640,7 +2641,7 @@ async def upload_invoice_attachment(
         # Update invoice with attachment info (old system for backward compatibility)
         invoice.attachment_path = file_path
         invoice.attachment_filename = file.filename
-        invoice.updated_at = datetime.now(timezone.utc)
+        invoice.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Create new-style attachment record
         import hashlib
@@ -3269,7 +3270,7 @@ async def delete_invoice_attachment(
 
         # Soft delete the attachment (mark as inactive)
         attachment.is_active = False
-        attachment.updated_at = datetime.now(timezone.utc)
+        attachment.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Clear old-style attachment fields on the invoice if no active attachments remain
         remaining_attachments = db.query(InvoiceAttachment).filter(

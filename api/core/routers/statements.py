@@ -18,6 +18,7 @@ from core.services.statement_service import extract_transactions_from_pdf_paths
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
 from core.schemas.bank_statement import BankStatementResponse, DeletedBankStatement, RecycleBinStatementResponse, RestoreStatementRequest, PaginatedBankStatements
 from datetime import datetime, timezone
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 from fastapi.responses import FileResponse
 from core.services.ocr_service import publish_bank_statement_task
 from core.utils.audit import log_audit_event
@@ -283,7 +284,7 @@ async def bulk_labels(
                     current_labels.remove(label)
             
             s.labels = current_labels
-            s.updated_at = datetime.now(timezone.utc)
+            s.updated_at = get_tenant_timezone_aware_datetime(db)
             
         db.commit()
         return {"success": True, "count": len(statements)}
@@ -887,7 +888,7 @@ async def restore_statement(
     statement.deleted_at = None
     statement.deleted_by = None
     statement.status = restore_request.new_status  # Set the new status
-    statement.updated_at = datetime.now(timezone.utc)
+    statement.updated_at = get_tenant_timezone_aware_datetime(db)
 
     db.commit()
 
@@ -1018,7 +1019,7 @@ async def reprocess_statement(
     # Update status to processing
     s.status = "processing"
     s.analysis_error = None
-    s.analysis_updated_at = datetime.now(timezone.utc)
+    s.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
     db.commit()
 
     # Enqueue processing task
@@ -1130,9 +1131,9 @@ async def delete_statement(
 
     # Soft delete the statement (don't delete files yet - they'll be deleted when permanently deleted)
     s.is_deleted = True
-    s.deleted_at = datetime.now(timezone.utc)
+    s.deleted_at = get_tenant_timezone_aware_datetime(db)
     s.deleted_by = current_user.id
-    s.updated_at = datetime.now(timezone.utc)
+    s.updated_at = get_tenant_timezone_aware_datetime(db)
 
     db.commit()
 

@@ -17,6 +17,7 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.services.currency_service import CurrencyService
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import FAILED_TO_CREATE_PAYMENT, FAILED_TO_FETCH_PAYMENTS
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -269,8 +270,8 @@ async def create_payment(
             notes=payment.notes,
             invoice_id=payment.invoice_id,
             user_id=current_user.id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db),
         )
         db.add(db_payment)
         db.commit()
@@ -347,7 +348,7 @@ async def update_payment(
                     )
             setattr(db_payment, field, value)
         
-        db_payment.updated_at = datetime.now(timezone.utc)
+        db_payment.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_payment)
         # Audit log for payment update

@@ -26,6 +26,7 @@ from core.utils.file_deletion import delete_file_from_storage
 from core.services.ocr_service import queue_or_process_attachment, cancel_ocr_tasks_for_expense
 from core.constants.error_codes import EXPENSE_LINKED_TO_INVOICE
 from core.constants.expense_status import ExpenseStatus
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 
 logging.basicConfig(level=logging.INFO)
@@ -379,8 +380,8 @@ async def create_expense(
             receipt_timestamp=getattr(expense, "receipt_timestamp", None),
             receipt_time_extracted=bool(getattr(expense, "receipt_time_extracted", False)),
             created_by_user_id=current_user.id,  # User attribution
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db),
         )
         db.add(db_expense)
         db.flush()  # Ensure ID is generated
@@ -551,7 +552,7 @@ async def bulk_labels_expenses(
             else:
                 continue
             item.labels = labels or None
-            item.updated_at = datetime.now(timezone.utc)
+            item.updated_at = get_tenant_timezone_aware_datetime(db)
             updated += 1
         db.commit()
         return {"updated": int(updated)}
@@ -644,8 +645,8 @@ async def bulk_create_expenses(
                 receipt_timestamp=getattr(expense, "receipt_timestamp", None),
                 receipt_time_extracted=bool(getattr(expense, "receipt_time_extracted", False)),
                 created_by_user_id=current_user.id,  # User attribution
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=get_tenant_timezone_aware_datetime(db),
+                updated_at=get_tenant_timezone_aware_datetime(db),
             )
             db.add(db_expense)
             created_expenses.append(db_expense)
@@ -789,9 +790,9 @@ async def bulk_delete_expenses(
 
                 # Soft delete the expense (move to recycle bin)
                 expense.is_deleted = True
-                expense.deleted_at = datetime.now(timezone.utc)
+                expense.deleted_at = get_tenant_timezone_aware_datetime(db)
                 expense.deleted_by = current_user.id
-                expense.updated_at = datetime.now(timezone.utc)
+                expense.updated_at = get_tenant_timezone_aware_datetime(db)
                 deleted_count += 1
                 
             except Exception as e:
@@ -1007,7 +1008,7 @@ async def update_expense(
             except Exception:
                 pass
 
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_expense)
         if "invoice_id" in update_data:
@@ -1232,7 +1233,7 @@ async def restore_expense(
         db_expense.deleted_at = None
         db_expense.deleted_by = None
         db_expense.status = restore_request.new_status  # Set the new status
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         db.commit()
 
@@ -1420,9 +1421,9 @@ async def delete_expense(
 
         # Soft delete the expense
         db_expense.is_deleted = True
-        db_expense.deleted_at = datetime.now(timezone.utc)
+        db_expense.deleted_at = get_tenant_timezone_aware_datetime(db)
         db_expense.deleted_by = current_user.id
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         db.commit()
         uvicorn_logger.info(f"Successfully deleted expense {expense_id}")
@@ -1624,7 +1625,7 @@ async def upload_receipt(
             uploaded_by=current_user.id,
         )
         db.add(attachment)
-        expense.updated_at = datetime.now(timezone.utc)
+        expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Mark expense as imported and queue OCR if not manually overridden and AI not disabled
         try:
@@ -1635,7 +1636,7 @@ async def upload_receipt(
             elif disable_ai:
                 expense.analysis_status = "skipped"
                 logger.info(f"AI recognition disabled for expense {expense_id}")
-            expense.updated_at = datetime.now(timezone.utc)
+            expense.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(expense)
         except Exception:
@@ -1789,7 +1790,7 @@ async def reprocess_expense(
             expense.analysis_status = "queued"
             expense.analysis_error = None
             expense.manual_override = False
-            expense.updated_at = datetime.now(timezone.utc)
+            expense.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
 
             # Queue all attachments for reprocessing

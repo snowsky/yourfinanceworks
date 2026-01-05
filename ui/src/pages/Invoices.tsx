@@ -23,6 +23,8 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useQuery } from '@tanstack/react-query';
+import { settingsApi } from '@/lib/api';
 
 interface DeletedInvoice {
   id: number;
@@ -67,6 +69,32 @@ const Invoices = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [totalInvoices, setTotalInvoices] = useState(0);
+
+  // Fetch settings to get timezone
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.getSettings(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Get timezone from settings, default to UTC
+  const timezone = settings?.timezone || 'UTC';
+
+  // Helper function to get locale for date formatting
+  const getLocale = () => {
+    const language = t('language', { defaultValue: 'en' });
+    switch (language) {
+      case 'es':
+        return 'es-ES';
+      case 'fr':
+        return 'fr-FR';
+      case 'de':
+        return 'de-DE';
+      default:
+        return 'en-US';
+    }
+  };
 
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
@@ -732,12 +760,11 @@ const Invoices = () => {
                         <TableHead className="font-bold text-foreground">{t('invoices.table.invoice')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.client')}</TableHead>
                         <TableHead className="font-bold text-foreground">Labels</TableHead>
-                        <TableHead className="hidden sm:table-cell font-bold text-foreground">{t('invoices.table.date')}</TableHead>
                         <TableHead className="hidden md:table-cell font-bold text-foreground">{t('invoices.table.due_date')}</TableHead>
                         <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>
                         <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.status')}</TableHead>
-                        <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('common.created_by')}</TableHead>
+                        <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                         <TableHead className="w-[100px] text-right font-bold text-foreground">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -811,8 +838,14 @@ const Invoices = () => {
                               />
                             </div>
                           </TableCell>
-                          <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">{formatDate(invoice.created_at)}</TableCell>
-                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{formatDate(invoice.due_date)}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString(getLocale(), { 
+                              timeZone: timezone,
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            }) : 'N/A'}
+                          </TableCell>
                           <TableCell className="text-right font-semibold text-foreground">
                             <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
                           </TableCell>
@@ -834,8 +867,22 @@ const Invoices = () => {
                               {formatStatus(invoice.status)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                            {invoice.created_by_username || invoice.created_by_email || t('common.unknown')}
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="text-sm">
+                              <div className="text-muted-foreground">
+                                {invoice.created_at ? new Date(invoice.created_at).toLocaleString(getLocale(), { 
+                                  timeZone: timezone,
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'N/A'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {invoice.created_by_username || invoice.created_by_email || t('common.unknown')}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {canPerformAction && (

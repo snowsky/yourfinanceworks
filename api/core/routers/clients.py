@@ -18,6 +18,7 @@ from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -244,8 +245,8 @@ async def create_client(
         # No tenant_id needed since each tenant has its own database
         db_client = Client(
             **client_data,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db)
         )
         db.add(db_client)
         db.commit()
@@ -398,7 +399,7 @@ async def update_client(
 
         for field, value in update_data.items():
             setattr(db_client, field, value)
-        db_client.updated_at = datetime.now(timezone.utc)
+        db_client.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_client)
         log_audit_event(
@@ -546,7 +547,7 @@ async def bulk_labels(
                     current_labels.remove(label)
             
             client.labels = current_labels
-            client.updated_at = datetime.now(timezone.utc)
+            client.updated_at = get_tenant_timezone_aware_datetime(db)
             
         db.commit()
         return {"success": True, "count": len(clients)}
