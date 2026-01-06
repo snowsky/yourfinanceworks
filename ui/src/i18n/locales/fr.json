@@ -900,6 +900,7 @@
       "fr": "Français"
     },
     "settings_saved": "Paramètres enregistrés avec succès",
+    "settings_save_success": "Paramètres enregistrés avec succès",
     "settings_error": "Échec de l'enregistrement des paramètres",
     "tabs": {
       "profile": "Profil",

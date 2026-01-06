@@ -876,6 +876,7 @@
       "de": "Deutsch"
     },
     "settings_saved": "Einstellungen erfolgreich gespeichert",
+    "settings_save_success": "Einstellungen erfolgreich gespeichert",
     "settings_error": "Fehler beim Speichern der Einstellungen",
     "tabs": {
       "profile": "Profil",

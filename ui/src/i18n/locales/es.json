@@ -906,6 +906,7 @@
       "fr": "Francés"
     },
     "settings_saved": "Configuración guardada exitosamente",
+    "settings_save_success": "Configuración guardada exitosamente",
     "settings_error": "Error al guardar la configuración",
     "tabs": {
       "profile": "Perfil",

@@ -150,7 +150,7 @@ const EmailIntegrationSettingsContent: React.FC = () => {
     const saveMutation = useMutation({
         mutationFn: (data: EmailConfig) => api.post('/email-integration/config', data),
         onSuccess: () => {
-            toast.success(t('settings.save_success'));
+            toast.success(t('emailIntegration.saveSettings'));
             setHasExistingPassword(true);
             queryClient.invalidateQueries({ queryKey: ['email-config'] });
         },
@@ -321,9 +321,9 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                             <h4 className="font-semibold text-sm mb-1">{t('emailIntegration.gmailAlert.title')}</h4>
                             <div className="text-sm opacity-90 space-y-1">
                                 <p>{t('emailIntegration.gmailAlert.description')}</p>
-                                <p>1. {t('emailIntegration.gmailAlert.step1')}</p>
-                                <p>2. <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-blue-900">{t('emailIntegration.gmailAlert.step2')}</a></p>
-                                <p>3. {t('emailIntegration.gmailAlert.step3')}</p>
+                                <p>{t('emailIntegration.gmailAlert.step1')}</p>
+                                <p><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-blue-900">{t('emailIntegration.gmailAlert.step2')}</a></p>
+                                <p>{t('emailIntegration.gmailAlert.step3')}</p>
                             </div>
                         </div>
                     </div>
@@ -440,6 +440,7 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                         loading={syncing}
                         disabled={loading || testing || syncing || !config.enabled}
                         leftIcon={<RefreshCw className="h-4 w-4" />}
+                        title={!config.enabled ? "Enable email integration above first to sync" : undefined}
                     >
                         {t('emailIntegration.syncNow')}
                     </ProfessionalButton>

@@ -909,6 +909,7 @@
       "fr": "French"
     },
     "settings_saved": "Settings saved successfully",
+    "settings_save_success": "Settings saved successfully",
     "settings_error": "Failed to save settings",
     "tabs": {
       "profile": "Profile",
