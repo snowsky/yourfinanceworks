@@ -13,10 +13,13 @@ from core.models.database import get_master_db
 from core.models.models import MasterUser
 from core.models.api_models import APIClient, ExternalTransaction
 from core.schemas.api_schemas import (
-    ExternalTransactionCreate, ExternalTransactionResponse, 
-    ExternalTransactionUpdate, ExternalTransactionList
+    ExternalTransactionCreate,
+    ExternalTransactionResponse,
+    ExternalTransactionUpdate,
+    ExternalTransactionList,
 )
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext
+from core.decorators.sandbox_validation import require_production_auth_context
 from core.routers.auth import get_current_user
 
 
@@ -26,7 +29,7 @@ auth_service = ExternalAPIAuthService()
 
 def get_api_auth_context(request: Request) -> Optional[AuthContext]:
     """Get API authentication context from request state."""
-    return getattr(request.state, 'auth', None)
+    return getattr(request.state, "auth", None)
 
 
 def require_api_auth(request: Request) -> AuthContext:
@@ -55,6 +58,7 @@ def _generate_duplicate_hash(
 
 
 @router.post("/transactions", response_model=ExternalTransactionResponse)
+@require_production_auth_context("Sandbox API keys cannot create real transactions. Use a production API key for live transactions.")
 async def create_external_transaction(
     transaction_data: ExternalTransactionCreate,
     request: Request,
@@ -148,7 +152,7 @@ async def create_external_transaction(
         db.commit()
         db.refresh(new_transaction)
         
-        return ExternalTransactionResponse.from_orm(new_transaction)
+        return ExternalTransactionResponse.model_validate(new_transaction)
     
     # Create new transaction
     new_transaction = ExternalTransaction(
@@ -207,7 +211,7 @@ async def create_external_transaction(
             # Don't fail the transaction if webhook fails
             pass
     
-    return ExternalTransactionResponse.from_orm(new_transaction)
+    return ExternalTransactionResponse.model_validate(new_transaction)
 
 
 @router.get("/transactions", response_model=ExternalTransactionList)
@@ -268,7 +272,7 @@ async def list_external_transactions(
     total_pages = (total + per_page - 1) // per_page
     
     return ExternalTransactionList(
-        transactions=[ExternalTransactionResponse.from_orm(t) for t in transactions],
+        transactions=[ExternalTransactionResponse.model_validate(t) for t in transactions],
         total=total,
         page=page,
         per_page=per_page,
@@ -314,7 +318,7 @@ async def get_external_transaction(
             detail="Transaction not found"
         )
     
-    return ExternalTransactionResponse.from_orm(transaction)
+    return ExternalTransactionResponse.model_validate(transaction)
 
 
 @router.put("/transactions/{transaction_id}", response_model=ExternalTransactionResponse)
@@ -391,7 +395,7 @@ async def update_external_transaction(
             # Don't fail the update if webhook fails
             pass
     
-    return ExternalTransactionResponse.from_orm(transaction)
+    return ExternalTransactionResponse.model_validate(transaction)
 
 
 # UI endpoints for managing external transactions (requires JWT auth)
@@ -447,7 +451,7 @@ async def ui_list_external_transactions(
     total_pages = (total + per_page - 1) // per_page
     
     return ExternalTransactionList(
-        transactions=[ExternalTransactionResponse.from_orm(t) for t in transactions],
+        transactions=[ExternalTransactionResponse.model_validate(t) for t in transactions],
         total=total,
         page=page,
         per_page=per_page,
@@ -514,4 +518,4 @@ async def ui_review_external_transaction(
             # Don't fail the review if webhook fails
             pass
     
-    return ExternalTransactionResponse.from_orm(transaction)
+    return ExternalTransactionResponse.model_validate(transaction)

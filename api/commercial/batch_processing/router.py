@@ -20,6 +20,7 @@ from core.utils.feature_gate import require_feature
 from commercial.batch_processing.service import BatchProcessingService
 from core.services.rate_limiter_service import get_rate_limiter
 from core.utils.audit import log_audit_event
+from core.decorators.sandbox_validation import require_production_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -32,44 +33,43 @@ def get_api_key_auth(
 ) -> tuple[int, int, str, APIClient]:
     """
     Authenticate using API key and return tenant_id, user_id, api_client_id, and APIClient.
-    
+
     This validates the API key, checks rate limits, and returns the authenticated context.
-    
+
     Args:
         x_api_key: API key from X-API-Key header
         db: Master database session
-        
+
     Returns:
         Tuple of (tenant_id, user_id, api_client_id, api_client)
-        
+
     Raises:
         HTTPException: If API key is missing, invalid, or rate limit exceeded
     """
     import hashlib
-    
+
     if not x_api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key required. Provide X-API-Key header."
         )
-    
+
     # Hash the provided API key
     api_key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
-    
+
     # Query API client by hashed key
     api_client = db.query(APIClient).filter(
-        APIClient.api_key_hash == api_key_hash,
-        APIClient.is_active == True,
+            APIClient.api_key_hash == api_key_hash,
+            APIClient.is_active == True,
         APIClient.status == "active"
     ).first()
-    
+
     if not api_client:
         logger.warning(f"Invalid API key attempt: {x_api_key[:7]}...")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
         )
-    
+
     # Check rate limits (with custom quotas if configured)
     rate_limiter = get_rate_limiter()
     allowed, error_message, retry_after = rate_limiter.check_rate_limit(
@@ -79,7 +79,7 @@ def get_api_key_auth(
         rate_limit_per_day=api_client.rate_limit_per_day,
         custom_quotas=api_client.custom_quotas
     )
-    
+
     if not allowed:
         logger.warning(
             f"Rate limit exceeded for API client {api_client.client_id}: {error_message}"
@@ -89,52 +89,47 @@ def get_api_key_auth(
             detail=error_message,
             headers={"Retry-After": str(retry_after)} if retry_after else {}
         )
-    
+
     # Update last used timestamp
     api_client.last_used_at = datetime.now(timezone.utc)
     api_client.total_requests += 1
     db.commit()
-    
+
     # Set tenant context for this request
     from core.models.database import set_tenant_context
     set_tenant_context(api_client.tenant_id)
-    
+
     logger.info(
         f"API key authenticated: client={api_client.client_id}, "
         f"tenant={api_client.tenant_id}, tenant context set"
     )
-    
-    return (
-        api_client.tenant_id,
-        api_client.user_id,
-        api_client.client_id,
-        api_client
-    )
+
+    return (api_client.tenant_id, api_client.user_id, api_client.client_id, api_client)
 
 
 def get_batch_db(auth_context: tuple = Depends(get_api_key_auth)):
     """
     Get tenant database session after API key authentication.
     This ensures tenant context is set before accessing the database.
-    
+
     Args:
         auth_context: Authenticated API client context (tenant_id, user_id, client_id, api_client)
-        
+
     Returns:
         Tenant database session generator
     """
     tenant_id, user_id, client_id, api_client = auth_context
-    
+
     # Set tenant context explicitly before getting DB session
     from core.models.database import set_tenant_context
     set_tenant_context(tenant_id)
-    
+
     logger.info(f"get_batch_db: Set tenant context to {tenant_id}")
-    
+
     # Now get the tenant database session
     db_gen = get_db()
     db = next(db_gen)
-    
+
     try:
         yield db
     finally:
@@ -149,10 +144,10 @@ def get_batch_processing_service(
 ) -> BatchProcessingService:
     """
     Dependency to get BatchProcessingService with database session.
-    
+
     Args:
         db: Tenant database session
-        
+
     Returns:
         BatchProcessingService instance
     """
@@ -168,13 +163,13 @@ def get_batch_processing_service(
 # the get_api_key_auth dependency with get_current_user
 
 
-
 @router.post(
     "/upload",
     status_code=status.HTTP_201_CREATED,
     summary="Upload batch of files for processing",
     description="Upload up to 50 files for batch OCR processing and export. Requires API key authentication via X-API-Key header."
 )
+@require_production_api_key("Sandbox API keys cannot create real batch processing jobs. Use a production API key for live batch processing.")
 async def upload_batch(
     files: List[UploadFile] = File(..., description="Files to process (max 50)"),
     export_destination_id: Optional[int] = Form(None, description="Export destination configuration ID (uses default if not provided)"),
@@ -230,29 +225,31 @@ async def upload_batch(
         # Validate document types early to catch permission errors before other checks
         doc_types_list = None
         if document_types:
-            doc_types_list = [dt.strip().lower() for dt in document_types.split(',') if dt.strip()]
+            doc_types_list = [
+                dt.strip().lower() for dt in document_types.split(",") if dt.strip()
+            ]
             # Validate document types
-            valid_types = {'invoice', 'expense', 'statement'}
+            valid_types = {"invoice", "expense", "statement"}
             invalid_types = set(doc_types_list) - valid_types
             if invalid_types:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid document types: {', '.join(invalid_types)}. "
-                           f"Valid types: {', '.join(valid_types)}"
+                    detail=f"Invalid document types: {', '.join(invalid_types)}. Valid types: {', '.join(valid_types)}",
                 )
 
             # Validate document types against API key's allowed document types
             # Normalize allowed document types for comparison
-            normalized_allowed = [dt.lower().strip() if isinstance(dt, str) else dt
-                                 for dt in api_client.allowed_document_types]
+            normalized_allowed = [
+                dt.lower().strip() if isinstance(dt, str) else dt
+                for dt in api_client.allowed_document_types
+            ]
 
             # Check each document type against allowed document types
             for doc_type in doc_types_list:
                 if doc_type not in normalized_allowed:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Document type '{doc_type}' is not allowed for this API key. "
-                               f"Allowed types: {', '.join(api_client.allowed_document_types)}"
+                        detail=f"Document type '{doc_type}' is not allowed for this API key. Allowed types: {', '.join(api_client.allowed_document_types)}",
                     )
 
         # If no export destination specified, use default or create one
@@ -260,19 +257,25 @@ async def upload_batch(
             from core.models.models_per_tenant import ExportDestinationConfig
             from sqlalchemy import and_
             from datetime import datetime, timezone
-            
-            default_dest = service.db.query(ExportDestinationConfig).filter(
-                and_(
-                    ExportDestinationConfig.tenant_id == tenant_id,
-                    ExportDestinationConfig.is_active == True,
-                    ExportDestinationConfig.is_default == True
+
+            default_dest = (
+                service.db.query(ExportDestinationConfig)
+                .filter(
+                    and_(
+                        ExportDestinationConfig.tenant_id == tenant_id,
+                        ExportDestinationConfig.is_active == True,
+                        ExportDestinationConfig.is_default == True,
+                    )
                 )
-            ).first()
+                .first()
+            )
 
             if not default_dest:
                 # Try to create a default local export destination
-                logger.info(f"No default export destination found, creating one for tenant {tenant_id}")
-                
+                logger.info(
+                    f"No default export destination found, creating one for tenant {tenant_id}"
+                )
+
                 try:
                     default_dest = ExportDestinationConfig(
                         tenant_id=tenant_id,
@@ -280,20 +283,19 @@ async def upload_batch(
                         destination_type="local",
                         is_active=True,
                         is_default=True,
-                        config={
-                            "path": "/exports",
-                            "format": "csv"
-                        },
+                        config={"path": "/exports", "format": "csv"},
                         created_at=datetime.now(timezone.utc),
                         updated_at=datetime.now(timezone.utc)
                     )
-                    
+
                     service.db.add(default_dest)
                     service.db.commit()
                     service.db.refresh(default_dest)
-                    
-                    logger.info(f"Created default local export destination: {default_dest.name} (ID: {default_dest.id})")
-                    
+
+                    logger.info(
+                        f"Created default local export destination: {default_dest.name} (ID: {default_dest.id})"
+                    )
+
                 except Exception as e:
                     logger.error(f"Failed to create default export destination: {e}")
                     raise HTTPException(
@@ -302,7 +304,9 @@ async def upload_batch(
                     )
 
             export_destination_id = default_dest.id
-            logger.info(f"Using default export destination: {default_dest.name} (ID: {export_destination_id})")
+            logger.info(
+                f"Using default export destination: {default_dest.name} (ID: {export_destination_id})"
+            )
 
         logger.info(
             f"Batch upload request from user {user_id} (tenant {tenant_id}): "
@@ -347,7 +351,9 @@ async def upload_batch(
         # Parse custom fields if provided
         custom_fields_list = None
         if custom_fields:
-            custom_fields_list = [cf.strip() for cf in custom_fields.split(',') if cf.strip()]
+            custom_fields_list = [
+                cf.strip() for cf in custom_fields.split(",") if cf.strip()
+            ]
 
         # Read file contents and prepare file info
         file_infos = []
@@ -367,15 +373,17 @@ async def upload_batch(
                 if file_size > 20 * 1024 * 1024:  # 20MB
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=f"File '{file.filename}' exceeds maximum size of 20MB"
+                        detail=f"File '{file.filename}' exceeds maximum size of 20MB",
                     )
 
-                file_infos.append({
-                    'content': content,
-                    'filename': file.filename or f'file_{idx}',
-                    'size': file_size,
-                    'content_type': file.content_type
-                })
+                file_infos.append(
+                    {
+                        "content": content,
+                        "filename": file.filename or f"file_{idx}",
+                        "size": file_size,
+                        "content_type": file.content_type,
+                    }
+                )
 
                 logger.debug(
                     f"Read file {idx+1}/{len(files)}: {file.filename} "
@@ -412,10 +420,7 @@ async def upload_batch(
 
         except ValueError as e:
             logger.error(f"Validation error creating batch job: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         except Exception as e:
             logger.error(f"Failed to create batch job: {e}")
             raise HTTPException(
@@ -426,7 +431,7 @@ async def upload_batch(
         # Enqueue files to Kafka for processing
         try:
             enqueue_result = await service.enqueue_files_to_kafka(batch_job.job_id)
-            
+
             logger.info(
                 f"Enqueued {enqueue_result['enqueued']} files for job {batch_job.job_id}, "
                 f"{enqueue_result['failed']} failed"
@@ -444,7 +449,11 @@ async def upload_batch(
 
         # Log audit event
         # For API key auth, include both the API key prefix and the associated user's email
-        user_email_display = f"{api_client.api_key_prefix}*** ({api_client.user.email})" if api_client.user else f"{api_client.api_key_prefix}*** (user_{user_id})"
+        user_email_display = (
+            f"{api_client.api_key_prefix}*** ({api_client.user.email})"
+            if api_client.user
+            else f"{api_client.api_key_prefix}*** (user_{user_id})"
+        )
 
         log_audit_event(
             db=service.db,
@@ -503,40 +512,40 @@ async def get_job_status(
 ):
     """
     Get detailed status of a batch processing job.
-    
+
     Returns job status, progress, file details, and export URL when complete.
     Includes estimated completion time based on average processing time.
-    
+
     **Authentication**: Requires API key via X-API-Key header.
-    
+
     Args:
         job_id: Batch job ID (UUID)
         auth_context: Authenticated API client context (tenant_id, user_id, api_client_id, api_client)
         db: Database session
         service: Batch processing service
-        
+
     Returns:
         Job status details including progress and file information
-        
+
     Raises:
         HTTPException: If job not found or access denied
     """
     try:
         # Extract authentication context from API key
         tenant_id, user_id, api_client_id, api_client = auth_context
-        
+
         # Check if batch_processing feature is enabled
         from core.utils.feature_gate import check_feature
         check_feature("batch_processing", db)
-        
+
         logger.info(
             f"Job status request for {job_id} from API client {api_client_id} "
             f"(tenant {tenant_id})"
         )
-        
+
         # Get job status with tenant isolation validation
         job_status = service.get_job_status(job_id, tenant_id)
-        
+
         if not job_status:
             # Job not found or tenant doesn't have access (tenant isolation enforced)
             logger.warning(
@@ -546,10 +555,10 @@ async def get_job_status(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Batch job {job_id} not found or access denied"
             )
-        
+
         # Calculate estimated completion time if job is still processing
         estimated_completion_at = None
-        if job_status['status'] in ['pending', 'processing']:
+        if job_status["status"] in ["pending", "processing"]:
             # Estimate based on remaining files (30 seconds per file)
             remaining_files = (
                 job_status['progress']['total_files'] - 
@@ -561,15 +570,15 @@ async def get_job_status(
                 estimated_completion_at = (
                     datetime.now(timezone.utc) + timedelta(seconds=estimated_seconds)
                 ).isoformat()
-        
+
         # Add estimated completion time to response
         response = {
             **job_status,
             "estimated_completion_at": estimated_completion_at
         }
-        
+
         return response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -578,7 +587,6 @@ async def get_job_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get job status: {str(e)}"
         )
-
 
 
 @router.get(
@@ -596,61 +604,67 @@ async def list_jobs(
 ):
     """
     List all batch processing jobs for the authenticated API client.
-    
+
     Supports filtering by status and pagination.
     Returns job summaries without detailed file information.
-    
+
     **Authentication**: Requires API key via X-API-Key header.
-    
+
     Args:
         status_filter: Optional status filter (pending, processing, completed, failed, partial_failure)
         limit: Maximum number of jobs to return (default: 20, max: 100)
         offset: Number of jobs to skip (default: 0)
         auth_context: Authenticated API client context (tenant_id, user_id, api_client_id, api_client)
         db: Database session
-        
+
     Returns:
         List of job summaries with pagination info
-        
+
     Raises:
         HTTPException: If query fails
     """
     try:
         # Extract authentication context from API key
         tenant_id, user_id, api_client_id, api_client = auth_context
-        
+
         # Check if batch_processing feature is enabled
         from core.utils.feature_gate import check_feature
         check_feature("batch_processing", db)
-        
+
         logger.info(
             f"List jobs request from API client {api_client_id} (tenant {tenant_id}): "
             f"status={status_filter}, limit={limit}, offset={offset}"
         )
-        
+
         # Validate limit
         if limit < 1 or limit > 100:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Limit must be between 1 and 100"
             )
-        
+
         # Validate offset
         if offset < 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Offset must be non-negative"
             )
-        
+
         # Validate status filter if provided
         if status_filter:
-            valid_statuses = {'pending', 'processing', 'completed', 'failed', 'partial_failure'}
+            valid_statuses = {
+                "pending",
+                "processing",
+                "completed",
+                "failed",
+                "partial_failure",
+            }
             if status_filter not in valid_statuses:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid status filter. Valid values: {', '.join(valid_statuses)}"
                 )
-        
+
         # Build query with tenant isolation
         from sqlalchemy import and_
         query = db.query(BatchProcessingJob).filter(
@@ -659,19 +673,19 @@ async def list_jobs(
                 BatchProcessingJob.api_client_id == api_client_id
             )
         )
-        
+
         # Apply status filter if provided
         if status_filter:
             query = query.filter(BatchProcessingJob.status == status_filter)
-        
+
         # Get total count
         total = query.count()
-        
+
         # Apply pagination and ordering
         jobs = query.order_by(
             BatchProcessingJob.created_at.desc()
         ).limit(limit).offset(offset).all()
-        
+
         # Build job summaries (without file details)
         job_summaries = []
         for job in jobs:
@@ -692,12 +706,12 @@ async def list_jobs(
                 "completed_at": job.completed_at.isoformat() if job.completed_at else None
             }
             job_summaries.append(summary)
-        
+
         logger.info(
             f"Returning {len(job_summaries)} jobs (total: {total}) "
             f"for API client {api_client_id} (user {user_id})"
         )
-        
+
         return {
             "jobs": job_summaries,
             "total": total,
@@ -705,7 +719,7 @@ async def list_jobs(
             "offset": offset,
             "has_more": (offset + len(job_summaries)) < total
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -722,6 +736,7 @@ async def list_jobs(
     summary="Cancel batch job",
     description="Cancel a batch processing job and free up concurrent processing slots. Requires API key authentication via X-API-Key header."
 )
+@require_production_api_key("Sandbox API keys cannot cancel real batch processing jobs. Use a production API key for live batch processing.")
 async def cancel_job(
     job_id: str,
     auth_context: tuple = Depends(get_api_key_auth),
@@ -750,15 +765,15 @@ async def cancel_job(
         # Check if batch_processing feature is enabled
         from core.utils.feature_gate import check_feature
         check_feature("batch_processing", db)
-        
+
         logger.info(
             f"Cancel job request for {job_id} from API client {api_client_id} "
             f"(tenant {tenant_id})"
         )
-        
+
         # Cancel job with tenant isolation validation
         success, message = service.cancel_job(job_id, tenant_id)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -770,7 +785,7 @@ async def cancel_job(
             "status": "cancelled",
             "message": message
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -787,6 +802,7 @@ async def cancel_job(
     summary="Cancel all batch jobs",
     description="Cancel all active batch processing jobs for the authenticated API client. Requires API key authentication via X-API-Key header."
 )
+@require_production_api_key("Sandbox API keys cannot cancel real batch processing jobs. Use a production API key for live batch processing.")
 async def cancel_all_jobs(
     auth_context: tuple = Depends(get_api_key_auth),
     db: Session = Depends(get_batch_db),
@@ -806,23 +822,23 @@ async def cancel_all_jobs(
         # Check if batch_processing feature is enabled
         from core.utils.feature_gate import check_feature
         check_feature("batch_processing", db)
-        
+
         logger.info(f"Cancel all jobs request from API client {api_client_id} (tenant {tenant_id})")
-        
+
         # Cancel all jobs
         success, message = service.cancel_all_jobs(tenant_id, api_client_id)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=message
             )
-        
+
         return {
             "status": "success",
             "message": message
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -831,4 +847,3 @@ async def cancel_all_jobs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cancel all jobs: {str(e)}"
         )
-

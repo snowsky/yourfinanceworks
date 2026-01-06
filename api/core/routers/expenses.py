@@ -152,7 +152,7 @@ async def list_expenses(
         # Always return the structured response format
         return {
             "success": True,
-            "expenses": [ExpenseSchema.from_orm(ex) for ex in expenses],
+            "expenses": [ExpenseSchema.model_validate(ex) for ex in expenses],
             "total": total_count
         }
     except Exception as e:

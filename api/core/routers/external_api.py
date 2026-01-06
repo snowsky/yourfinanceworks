@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_db, set_tenant_context
 from core.models.api_models import APIClient, ExternalTransaction
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, Permission
+from core.decorators.sandbox_validation import require_production_auth_context
 from core.services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
 from core.utils.audit import log_audit_event
 
@@ -78,6 +79,7 @@ async def get_api_auth_context(
 
 
 @router.post("/statements/process")
+@require_production_auth_context("Sandbox API keys cannot process real statements. Use a production API key for live statement processing.")
 async def process_statement_pdf(
     file: UploadFile = File(..., description="PDF or CSV bank statement file"),
     format: str = "csv",  # Response format: csv, json
@@ -99,7 +101,6 @@ async def process_statement_pdf(
     
     **Rate Limits**: Subject to API client rate limits
     """
-    
     # Validate permissions
     if Permission.DOCUMENT_PROCESSING not in auth_context.permissions:
         raise HTTPException(

@@ -197,7 +197,7 @@ class GamificationService:
                 self._initialize_user_achievements(profile.id)
 
             self.db.commit()
-            return UserGamificationProfileResponse.from_orm(profile)
+            return UserGamificationProfileResponse.model_validate(profile)
 
         except Exception as e:
             logger.error(f"Error enabling gamification for user {user_id}: {str(e)}")
@@ -380,7 +380,7 @@ class GamificationService:
             financial_health_trend = await self._get_financial_health_trend(profile)
 
             return GamificationDashboard(
-                profile=UserGamificationProfileResponse.from_orm(profile),
+                profile=UserGamificationProfileResponse.model_validate(profile),
                 recent_achievements=recent_achievements,
                 active_streaks=active_streaks,
                 active_challenges=active_challenges,

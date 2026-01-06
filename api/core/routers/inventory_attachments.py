@@ -53,7 +53,7 @@ async def populate_attachment_urls(
     Returns:
         AttachmentResponse with populated URLs
     """
-    response = AttachmentResponse.from_orm(attachment)
+    response = AttachmentResponse.model_validate(attachment)
     
     # Add uploader information
     if attachment.uploader:
