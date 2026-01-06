@@ -991,7 +991,6 @@
       "ai_configuration": "AI Configuration",
       "ai_assistant": "AI Assistant",
       "ai_assistant_description": "Enable or disable the invoice AI assistant for your organization.",
-      "ai_assistant_license_required": "AI Assistant requires a valid license. Please upgrade your plan.",
       "ai_provider_configurations": "AI Provider Configurations",
       "ai_provider_configurations_description": "Configure AI providers for enhanced features",
       "configure_ai_provider_for_enhanced_features": "Configure AI provider for enhanced features",
@@ -1633,7 +1632,6 @@
     "reminder_sent_description": "When a reminder is sent to a client",
     "reminder_overdue": "Reminder Overdue",
     "reminder_overdue_description": "When a reminder becomes overdue",
-    "ai_assistant_license_required": "AI Assistant requires a valid license. Please upgrade your plan.",
     "bank_statement_license_required": "License Required: Bank statement processing requires the AI Bank Statement feature. Please upgrade your license to enable this functionality.",
     "update": "Update",
     "discount": "Discount",
@@ -2196,7 +2194,8 @@
       "actions": "Actions",
       "labels": "Labels",
       "approval_status": "Approval Status",
-      "id": "ID"
+      "id": "ID",
+      "created_at_by": "Created at / by"
     },
     "loading": "Loading expenses...",
     "status_done": "Done",
@@ -2868,6 +2867,7 @@
     "table_type": "Type",
     "table_category": "Category",
     "table_actions": "Actions",
+    "created_at_by": "Created at / by",
     "no_transactions": "No transactions found",
     "statement_detail": "Statement Detail",
     "details": "Details",

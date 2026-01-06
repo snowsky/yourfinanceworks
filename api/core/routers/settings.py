@@ -82,7 +82,7 @@ async def get_settings(
                 timezone = "UTC"
 
         # Return tenant info formatted as settings
-        return {
+        settings_data = {
             "company_info": {
                 "name": tenant.name,
                 "email": tenant.email or "",
@@ -96,6 +96,19 @@ async def get_settings(
             "ai_chat_history_retention_days": ai_chat_history_retention_days,
             "timezone": timezone
         }
+        
+        # If AI assistant is enabled, validate license status
+        if settings_data["enable_ai_assistant"]:
+            if not feature_enabled("ai_chat", db):
+                # License expired or deactivated - disable AI assistant
+                settings_data["enable_ai_assistant"] = False
+                settings_data["ai_assistant_license_error"] = "AI Assistant requires a valid license. Please upgrade your plan."
+                
+                # Also update tenant record to disable AI assistant
+                tenant.enable_ai_assistant = False
+                master_db.commit()
+        
+        return settings_data
     finally:
         master_db.close()
 

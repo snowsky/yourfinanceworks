@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { FeatureGate } from '@/components/FeatureGate';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -28,7 +29,7 @@ import { MetricCard } from '@/components/ui/professional-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   Plus, Edit, Trash2, RefreshCw, Save, RotateCcw, Eye, Play,
-  GitBranch, Activity, CheckCircle2, XCircle, Clock, Zap, Calendar, Code
+  GitBranch, Activity, CheckCircle2, XCircle, Clock, Zap, Calendar, Code, Terminal, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +67,70 @@ interface PromptUsageStats {
 }
 
 const PromptManagement = () => {
+  return (
+    <FeatureGate
+      feature="prompt_management"
+      fallback={
+        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+          <ProfessionalCardContent className="p-12 text-center">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Terminal className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
+              Prompt management allows you to customize AI behavior and create specialized templates for different document types.
+              Upgrade to a business license to access advanced prompt customization and template management.
+            </p>
+            <div className="bg-background/80 backdrop-blur-sm rounded-xl p-6 mb-8 max-w-lg mx-auto shadow-sm border border-border/50">
+              <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                With Business License, you get:
+              </h4>
+              <ul className="text-left space-y-3 text-sm text-foreground/80">
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Create custom AI prompts for specialized workflows</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Version control and prompt history tracking</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Test and optimize prompts with real-time preview</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Advanced template variables and conditional logic</span>
+                </li>
+              </ul>
+            </div>
+            <div className="flex justify-center gap-4">
+              <ProfessionalButton
+                variant="gradient"
+                onClick={() => window.location.href = '/settings?tab=license'}
+                size="lg"
+              >
+                Activate Business License
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="outline"
+                onClick={() => window.open('https://docs.example.com/prompt-management', '_blank')}
+                size="lg"
+              >
+                Learn More
+              </ProfessionalButton>
+            </div>
+          </ProfessionalCardContent>
+        </ProfessionalCard>
+      }
+    >
+      <PromptManagementContent />
+    </FeatureGate>
+  );
+};
+
+const PromptManagementContent = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedPrompt, setSelectedPrompt] = useState<PromptTemplate | null>(null);

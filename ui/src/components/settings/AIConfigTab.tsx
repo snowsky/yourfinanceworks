@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck } from "lucide-react";
+import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck, Shield, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -39,12 +39,79 @@ import { aiConfigApi, settingsApi, AIConfig, AIConfigCreate, AIProviderInfo } fr
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFeatures } from "@/contexts/FeatureContext";
+import { FeatureGate } from "@/components/FeatureGate";
 
 interface AIConfigTabProps {
     isAdmin: boolean;
 }
 
 export const AIConfigTab: React.FC<AIConfigTabProps> = ({
+    isAdmin,
+}) => {
+    return (
+        <FeatureGate
+            feature="ai_configuration"
+            fallback={
+                <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+                    <ProfessionalCardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                            <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
+                        <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
+                            AI configuration allows you to set up custom AI providers and models for invoice processing, expense analysis, and intelligent automation.
+                            Upgrade to a business license to access advanced AI features and customize your AI workflows.
+                        </p>
+                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-6 mb-8 max-w-lg mx-auto shadow-sm border border-border/50">
+                            <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-primary" />
+                                With Business License, you get:
+                            </h4>
+                            <ul className="text-left space-y-3 text-sm text-foreground/80">
+                                <li className="flex items-start">
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <span>Configure multiple AI providers (OpenAI, Anthropic, etc.)</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <span>Custom AI model selection and fine-tuning options</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <span>Advanced AI assistant with chat functionality</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <span>AI-powered invoice and expense processing automation</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div className="flex justify-center gap-4">
+                            <ProfessionalButton
+                                variant="gradient"
+                                onClick={() => window.location.href = '/settings?tab=license'}
+                                size="lg"
+                            >
+                                Activate Business License
+                            </ProfessionalButton>
+                            <ProfessionalButton
+                                variant="outline"
+                                onClick={() => window.open('https://docs.example.com/ai-configuration', '_blank')}
+                                size="lg"
+                            >
+                                Learn More
+                            </ProfessionalButton>
+                        </div>
+                    </ProfessionalCardContent>
+                </ProfessionalCard>
+            }
+        >
+            <AIConfigContent isAdmin={isAdmin} />
+        </FeatureGate>
+    );
+};
+
+const AIConfigContent: React.FC<AIConfigTabProps> = ({
     isAdmin,
 }) => {
     const { t } = useTranslation();
@@ -260,12 +327,6 @@ export const AIConfigTab: React.FC<AIConfigTabProps> = ({
                             <div className="space-y-1">
                                 <Label htmlFor="ai_assistant" className="text-base font-semibold">{t('settings.ai_config.ai_assistant')}</Label>
                                 <p className="text-sm text-muted-foreground">{t('settings.ai_config.ai_assistant_description')}</p>
-                                {!isFeatureEnabled('ai_chat') && (
-                                    <div className="flex items-center gap-2 mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                                        <ShieldCheck className="w-3.5 h-3.5" />
-                                        {t('settings.ai_config.ai_assistant_license_required', 'AI Assistant requires a valid license. Please upgrade your plan.')}
-                                    </div>
-                                )}
                             </div>
                             <Switch
                                 id="ai_assistant"

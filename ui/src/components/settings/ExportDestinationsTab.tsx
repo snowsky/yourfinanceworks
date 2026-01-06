@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { FeatureGate } from '@/components/FeatureGate';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Save, Globe, Database, Folder, HardDrive, FileText, Cloud } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Save, Globe, Database, Folder, HardDrive, FileText, Cloud, Shield, ExternalLink } from 'lucide-react';
 import { exportDestinationApi, ExportDestination, ExportDestinationCreate, ExportDestinationUpdate } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
@@ -27,6 +28,70 @@ interface ExportDestinationsTabProps {
 }
 
 export const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
+  return (
+    <FeatureGate
+      feature="export_destinations"
+      fallback={
+        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+          <ProfessionalCardContent className="p-12 text-center">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <ExternalLink className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
+              Export destinations allow you to automatically send invoices and data to external storage services and cloud platforms.
+              Upgrade to a business license to configure automated exports and streamline your data management workflow.
+            </p>
+            <div className="bg-background/80 backdrop-blur-sm rounded-xl p-6 mb-8 max-w-lg mx-auto shadow-sm border border-border/50">
+              <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                With Business License, you get:
+              </h4>
+              <ul className="text-left space-y-3 text-sm text-foreground/80">
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Connect to AWS S3, Azure Blob, and Google Cloud Storage</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Automated batch export and scheduled transfers</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Secure credential management and connection testing</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Integration with Google Drive and local file systems</span>
+                </li>
+              </ul>
+            </div>
+            <div className="flex justify-center gap-4">
+              <ProfessionalButton
+                variant="gradient"
+                onClick={() => window.location.href = '/settings?tab=license'}
+                size="lg"
+              >
+                Activate Business License
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="outline"
+                onClick={() => window.open('https://docs.example.com/export-destinations', '_blank')}
+                size="lg"
+              >
+                Learn More
+              </ProfessionalButton>
+            </div>
+          </ProfessionalCardContent>
+        </ProfessionalCard>
+      }
+    >
+      <ExportDestinationsContent isAdmin={isAdmin} />
+    </FeatureGate>
+  );
+};
+
+const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);

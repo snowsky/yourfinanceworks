@@ -765,6 +765,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   }, [isOpen]);
 
   const isAIAssistantEnabled = !!(settings && (settings as any).enable_ai_assistant);
+  const aiAssistantLicenseError = (settings as any)?.ai_assistant_license_error;
   const defaultAIConfig = aiConfigs && Array.isArray(aiConfigs) ?
     (aiConfigs as any[]).find((config: any) => config.is_default && config.is_active) :
     undefined;
@@ -801,6 +802,30 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
 
   // Check if AI assistant should be shown
   if (!isAIAssistantEnabled) {
+    // Show license error message if AI assistant is disabled due to license issues
+    if (aiAssistantLicenseError) {
+      if (DEBUG_AI_ASSISTANT) {
+        console.log('AI Assistant: Not rendering due to license error', {
+          settings,
+          aiAssistantLicenseError,
+          reason: 'License expired or deactivated'
+        });
+      }
+      return (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-12 w-12 rounded-full shadow-lg opacity-75 cursor-not-allowed"
+            disabled
+            title={aiAssistantLicenseError}
+          >
+            <MessageCircle className="h-6 w-6" />
+          </Button>
+        </div>
+      );
+    }
+    
     if (DEBUG_AI_ASSISTANT) {
       console.log('AI Assistant: Not rendering because AI assistant is disabled', {
         settings,

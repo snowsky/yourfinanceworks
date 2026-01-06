@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ThemeSwitcher } from '@/components/ui/theme-switcher';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
-import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import {
   Dialog,

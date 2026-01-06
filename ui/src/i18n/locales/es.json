@@ -984,7 +984,6 @@
       "ai_configuration": "Configuración de IA",
       "ai_assistant": "Asistente IA",
       "ai_assistant_description": "Activa o desactiva el asistente de IA de facturas para tu organización.",
-      "ai_assistant_license_required": "El Asistente IA requiere una licencia válida. Por favor actualiza tu plan.",
       "ai_provider_configurations": "Configuraciones de Proveedores de IA",
       "ai_provider_configurations_description": "Configura proveedores de IA para funciones mejoradas",
       "configure_ai_provider_for_enhanced_features": "Configura proveedores de IA para funciones mejoradas",
@@ -1607,7 +1606,6 @@
     "reminder_sent_description": "Cuando se envía un recordatorio a un cliente",
     "reminder_overdue": "Recordatorio Vencido",
     "reminder_overdue_description": "Cuando un recordatorio se vence",
-    "ai_assistant_license_required": "El Asistente de IA requiere una licencia válida. Por favor actualice su plan.",
     "bank_statement_license_required": "Licencia Requerida: El procesamiento de extractos bancarios requiere la función de Extractos Bancarios IA. Por favor actualice su licencia para habilitar esta funcionalidad.",
     "update": "Actualizar",
     "discount": "Descuento",
@@ -2132,7 +2130,8 @@
       "actions": "Acciones",
       "labels": "Etiquetas",
       "approval_status": "Estado de Aprobación",
-      "id": "ID"
+      "id": "ID",
+      "created_at_by": "Creado el / por"
     },
     "loading": "Cargando gastos...",
     "status_done": "Completado",
@@ -2855,6 +2854,7 @@
     "table_type": "Tipo",
     "table_category": "Categoría",
     "table_actions": "Acciones",
+    "created_at_by": "Creado el / por",
     "no_transactions": "No se encontraron transacciones",
     "statement_detail": "Detalles del Estado de Cuenta",
     "details": "Detalles",

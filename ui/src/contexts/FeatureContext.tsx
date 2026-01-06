@@ -17,6 +17,9 @@ interface FeatureFlags {
   approvals: boolean;
   advanced_search: boolean;
   email_integration: boolean;
+  export_destinations: boolean;
+  prompt_management: boolean;
+  ai_configuration: boolean;
   crm: boolean;
   [key: string]: boolean;
 }
@@ -77,6 +80,9 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           approvals: false,
           advanced_search: false,
           email_integration: false,
+          export_destinations: false,
+          prompt_management: false,
+          ai_configuration: false,
           crm: false,
         });
         setLicenseStatus(null);
@@ -120,6 +126,10 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approvals: hasAllFeatures || enabledFeatures.includes('approvals'),
         advanced_search: hasAllFeatures || enabledFeatures.includes('advanced_search'),
         email_integration: hasAllFeatures || enabledFeatures.includes('email_integration'),
+        // Map undefined features to existing ones that are likely enabled together
+        export_destinations: hasAllFeatures || enabledFeatures.includes('cloud_storage') || enabledFeatures.includes('batch_processing'),
+        prompt_management: hasAllFeatures || enabledFeatures.includes('prompt_management'),
+        ai_configuration: hasAllFeatures || enabledFeatures.includes('ai_chat') || enabledFeatures.includes('ai_invoice'),
         crm: false, // CRM removed from licensing
       };
 
@@ -186,6 +196,9 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approvals: false,
         advanced_search: false,
         email_integration: false,
+        export_destinations: false,
+        prompt_management: false,
+        ai_configuration: false,
         crm: false,
       });
       setLicenseStatus(null);

@@ -26,7 +26,8 @@ import {
     Hash,
     List,
     Clock,
-    Server
+    Server,
+    Shield
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, getErrorMessage } from "@/lib/api";
@@ -54,53 +55,58 @@ export const EmailIntegrationSettingsTab: React.FC = () => {
         <FeatureGate
             feature="email_integration"
             fallback={
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-center max-w-2xl mx-auto">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+                    <ProfessionalCardContent className="p-12 text-center">
+                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
                             <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Business License Required</h3>
-                        <p className="text-gray-600 dark:text-gray-300 mb-6">
+                        <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
+                        <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
                             Email integration allows you to automatically ingest expenses from your inbox - a powerful automation feature.
                             Upgrade to a business license to enable email integration and save time on manual entry.
                         </p>
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 mb-6">
-                            <h4 className="font-semibold text-gray-900 dark:text-white mb-3">With Business License, you get:</h4>
-                            <ul className="text-left space-y-2 text-gray-700 dark:text-gray-300">
+                        <div className="bg-background/80 backdrop-blur-sm rounded-xl p-6 mb-8 max-w-lg mx-auto shadow-sm border border-border/50">
+                            <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-primary" />
+                                With Business License, you get:
+                            </h4>
+                            <ul className="text-left space-y-3 text-sm text-foreground/80">
                                 <li className="flex items-start">
-                                    <span className="text-blue-600 mr-2">✓</span>
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
                                     <span>Automatic expense ingestion from email</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <span className="text-blue-600 mr-2">✓</span>
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
                                     <span>Support for Gmail, Outlook, and custom IMAP</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <span className="text-blue-600 mr-2">✓</span>
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
                                     <span>AI-powered expense classification</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <span className="text-blue-600 mr-2">✓</span>
+                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
                                     <span>Secure and encrypted connection</span>
                                 </li>
                             </ul>
                         </div>
-                        <div className="flex justify-center space-x-4">
+                        <div className="flex justify-center gap-4">
                             <ProfessionalButton
-                                onClick={() => window.location.href = '/settings?tab=license'}
                                 variant="gradient"
+                                onClick={() => window.location.href = '/settings?tab=license'}
+                                size="lg"
                             >
                                 Activate Business License
                             </ProfessionalButton>
                             <ProfessionalButton
                                 variant="outline"
                                 onClick={() => window.open('https://docs.example.com/email-integration', '_blank')}
+                                size="lg"
                             >
                                 Learn More
                             </ProfessionalButton>
                         </div>
-                    </div>
-                </div>
+                    </ProfessionalCardContent>
+                </ProfessionalCard>
             }
         >
             <EmailIntegrationSettingsContent />
