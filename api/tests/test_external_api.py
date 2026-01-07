@@ -16,7 +16,7 @@ def test_external_api_imports():
     """Test that all imports work correctly."""
     try:
         # Test basic imports
-        from core.routers.external_api import router
+        from commercial.ai_bank_statement.external_router import router
         from core.services.external_api_auth_service import ExternalAPIAuthService
         from core.services.statement_service import process_bank_pdf_with_llm
         

@@ -361,7 +361,7 @@ class EmailIngestionService:
             logger.error(f"Failed to save raw email: {e}")
             self.db.rollback()
 
-    async def process_pending_emails(self, limit: int = 10) -> int:
+    def process_pending_emails(self, limit: int = 10) -> int:
         """Process pending RawEmails into Expenses with AI classification."""
         from core.models.models_per_tenant import RawEmail
         from sqlalchemy import or_
@@ -609,7 +609,7 @@ Respond with ONLY valid JSON:
 
         return None
     
-    async def _create_expense_from_email(self, msg, raw_email, body: str = None) -> Expense:
+    def _create_expense_from_email(self, msg, raw_email, body: str = None) -> Expense:
         """Create expense from email with AI-powered extraction."""
         subject = self._decode_header(msg.get("Subject", ""))
 
@@ -618,7 +618,7 @@ Respond with ONLY valid JSON:
             body = self._extract_body_text(msg)
 
         # Try AI extraction from email body
-        expense_data = await asyncio.run(self._extract_expense_from_body_async(subject, body))
+        expense_data = asyncio.run(self._extract_expense_from_body_async(subject, body))
 
         # Create expense with extracted data or defaults
         expense = Expense(
@@ -649,7 +649,7 @@ Respond with ONLY valid JSON:
             tenant_session = tenant_db_manager.get_tenant_session(self.tenant_id)
 
             event_processor = create_financial_event_processor(tenant_session)
-            gamification_result = await event_processor.process_expense_added(
+            gamification_result = asyncio.run(event_processor.process_expense_added(
                 user_id=self.user_id,
                 expense_id=expense.id,
                 expense_data={
@@ -658,11 +658,11 @@ Respond with ONLY valid JSON:
                     "vendor": expense.vendor,
                     "has_attachments": bool(expense.attachments)
                 }
-            )
+            ))
 
-            self.logger.info(f"✅ STEP: Gamification processed for email expense {expense.id}")
+            logger.info(f"✅ STEP: Gamification processed for email expense {expense.id}")
         except Exception as e:
-            self.logger.warning(f"Failed to process gamification for email expense {expense.id}: {e}")
+            logger.warning(f"Failed to process gamification for email expense {expense.id}: {e}")
             # Don't fail the expense creation if gamification processing fails
 
         # Link expense to raw email

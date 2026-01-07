@@ -24,23 +24,17 @@ from core.routers import (
     discount_rules,
     crm,
     email,
-    analytics, # Add the new analytics router
-    statements,
-    reports,  # Add the new reports router
-    attachments,  # Add the new attachments router
-    search,
-    external_transactions,  # Add the new external transactions router
-    external_api,  # Add the new external API router
-    inventory,  # Add the new inventory router
-    inventory_attachments,  # Add the inventory attachments router
-    organization_join,  # Add the new organization join router
-    reminders,  # Add the new reminders router
-    files,  # Add the new files router
-    license,  # Add the license management router
-    super_admin,  # Add the super admin router
     audit_log,  # Add the audit log router
+    super_admin,  # Add the super admin router
+    inventory,
+    inventory_attachments,
+    organization_join,
+    reminders,
+    files,
+    attachments,
+    license,
+    analytics, # Add the new analytics router
     notifications,  # Add the notifications router
-    prompts,  # Add the new prompts router
     gamification,  # Add the gamification router
     social_features,  # Add the social features router
     user_preference_controls  # Add the user preference controls router
@@ -60,6 +54,13 @@ try:
     from commercial.ai import config_router as ai_config
     from commercial.ai import pdf_processor
     from commercial.export import router as export_destinations
+    from commercial.sso import router as sso_router
+    from commercial.ai_bank_statement import router as statements
+    from commercial.reporting import router as reports
+    from commercial.advanced_search import router as search
+    from commercial.prompt_management import router as prompts
+    from commercial.ai_bank_statement import external_router as external_api
+    from commercial.external_transactions import router as external_transactions
     COMMERCIAL_MODULES_AVAILABLE = True
 except ImportError:
     cloud_storage = None
@@ -74,6 +75,13 @@ except ImportError:
     ai_config = None
     pdf_processor = None
     export_destinations = None
+    sso_router = None
+    statements = None
+    reports = None
+    search = None
+    prompts = None
+    external_api = None
+    external_transactions = None
     COMMERCIAL_MODULES_AVAILABLE = False
 from core.models.database import engine
 from core.models import models
@@ -341,7 +349,14 @@ app.middleware('http')(tenant_context_middleware)
 from core.middleware.external_api_auth_middleware import ExternalAPIAuthMiddleware
 app.add_middleware(ExternalAPIAuthMiddleware)
 
-# Include routers with v1 API versioning
+# ==============================================================================
+# ROUTER REGISTRATION
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Core Routers (GPLv3)
+# These features are available in all versions of the application.
+# ------------------------------------------------------------------------------
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tenant.router, prefix="/api/v1")
 app.include_router(super_admin.router, prefix="/api/v1")  # Add super admin router
@@ -349,54 +364,82 @@ app.include_router(clients.router, prefix="/api/v1")
 app.include_router(invoices.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(expenses.router, prefix="/api/v1")
+app.include_router(currency.router, prefix="/api/v1")
 app.include_router(settings.router, prefix="/api/v1")
+app.include_router(discount_rules.router, prefix="/api/v1")
 app.include_router(email.router, prefix="/api/v1")
+app.include_router(crm.router, prefix="/api/v1")
+app.include_router(inventory.router, prefix="/api/v1")  # Add the new inventory router
+app.include_router(inventory_attachments.router, prefix="/api/v1")  # Add the inventory attachments router
+app.include_router(organization_join.router, prefix="/api/v1")  # Add the new organization join router
+app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"])  # Add the new reminders router
+app.include_router(files.router, prefix="/api/v1")  # Add the new files router
+app.include_router(notifications.router, prefix="/api/v1")  # Add the new notifications router
+app.include_router(attachments.router, prefix="/api/v1")  # Add the new attachments router
+app.include_router(license.router, prefix="/api/v1")  # Add the license management router
+app.include_router(user_preference_controls.router, prefix="/api/v1")  # Add the user preference controls router
+app.include_router(gamification.router, prefix="/api/v1")  # Add the gamification router
+app.include_router(social_features.router, prefix="/api/v1")  # Add the social features router
+app.include_router(analytics.router, prefix="/api/v1")       # Add the new analytics router
+app.include_router(audit_log.router, prefix="/api/v1")       # Add the new audit log router
+
+
+# ------------------------------------------------------------------------------
+# 2. Commercial Routers (Proprietary)
+# These features are only available with a valid commercial license.
+# Note: Some commercial features are temporarily in core import list but should be moved.
+# ------------------------------------------------------------------------------
+
+# --- Features in Commercial Module ---
+if sso_router:
+    app.include_router(sso_router, prefix="/api/v1")
+
+if ai:
+    app.include_router(ai.router, prefix="/api/v1")  # Include the new AI router
+if ai_config:
+    app.include_router(ai_config.router, prefix="/api/v1")  # Include the new AI config router
+if pdf_processor:
+    app.include_router(pdf_processor.router, prefix="/api/v1")  # Include the new PDF processor router
+
+if tax_integration:
+    app.include_router(tax_integration.router, prefix="/api/v1")  # Include the new tax integration router
 if email_integration:
     app.include_router(email_integration.router, prefix="/api/v1")
-app.include_router(currency.router, prefix="/api/v1")
-app.include_router(crm.router, prefix="/api/v1")
-app.include_router(discount_rules.router, prefix="/api/v1")
-if ai:
-    app.include_router(ai.router, prefix="/api/v1") # Include the new AI router
-if ai_config:
-    app.include_router(ai_config.router, prefix="/api/v1") # Include the new AI config router
-app.include_router(audit_log.router, prefix="/api/v1") # Include the new audit log router
 if slack_simplified:
-    app.include_router(slack_simplified.router, prefix="/api/v1") # Include the new simplified Slack router
-app.include_router(notifications.router, prefix="/api/v1") # Include the new notifications router
-app.include_router(analytics.router, prefix="/api/v1") # Include the new analytics router
-if pdf_processor:
-    app.include_router(pdf_processor.router, prefix="/api/v1") # Include the new PDF processor router
-app.include_router(statements.router, prefix="/api/v1")
-if tax_integration:
-    app.include_router(tax_integration.router, prefix="/api/v1") # Include the new tax integration router
-app.include_router(reports.router, prefix="/api/v1") # Include the new reports router
-app.include_router(attachments.router, prefix="/api/v1") # Include the new attachments router
-app.include_router(search.router, prefix="/api/v1") # Include the new search router
-if external_api_auth:
-    app.include_router(external_api_auth.router, prefix="/api/v1") # Include the new external API auth router
-app.include_router(external_transactions.router, prefix="/api/v1") # Include the new external transactions router
-app.include_router(external_api.router) # Include the new external API router (no prefix as it has its own)
-app.include_router(inventory.router, prefix="/api/v1") # Include the new inventory router
-app.include_router(inventory_attachments.router, prefix="/api/v1") # Include the inventory attachments router
-if approvals:
-    app.include_router(approvals.router, prefix="/api/v1") # Include the new approvals router
-if approval_reports:
-    app.include_router(approval_reports.router, prefix="/api/v1") # Include the new approval reports router
-app.include_router(organization_join.router, prefix="/api/v1") # Include the new organization join router
-app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"]) # Include the new reminders router
-app.include_router(files.router, prefix="/api/v1") # Include the new files router
+    app.include_router(slack_simplified.router, prefix="/api/v1")  # Include the new simplified Slack router
+
 if cloud_storage:
-    app.include_router(cloud_storage.router, prefix="/api/v1") # Include the new cloud storage router
+    app.include_router(cloud_storage.router, prefix="/api/v1")  # Include the new cloud storage router
 if export_destinations:
-    app.include_router(export_destinations.router, prefix="/api/v1") # Include the export destinations router
+    app.include_router(export_destinations.router, prefix="/api/v1")  # Include the export destinations router
 if batch_processing:
-    app.include_router(batch_processing.router, prefix="/api/v1") # Include the batch processing router
-app.include_router(license.router, prefix="/api/v1") # Include the license management router
-app.include_router(prompts.router, prefix="/api/v1") # Include the new prompts router
-app.include_router(gamification.router, prefix="/api/v1") # Include the gamification router
-app.include_router(social_features.router, prefix="/api/v1") # Include the social features router
-app.include_router(user_preference_controls.router, prefix="/api/v1") # Include the user preference controls router
+    app.include_router(batch_processing.router, prefix="/api/v1")  # Include the batch processing router
+
+if external_api_auth:
+    app.include_router(external_api_auth.router, prefix="/api/v1")  # Include the new external API auth router
+
+if approvals:
+    app.include_router(approvals.router, prefix="/api/v1")  # Include the new approvals router
+if approval_reports:
+    app.include_router(approval_reports.router, prefix="/api/v1")  # Include the new approval reports router
+
+if statements:
+    app.include_router(statements.router, prefix="/api/v1")  # Include the new statements router
+
+if reports:
+    app.include_router(reports.router, prefix="/api/v1")
+
+if search:
+    app.include_router(search.router, prefix="/api/v1")
+
+if prompts:
+    app.include_router(prompts.router, prefix="/api/v1")
+
+if external_api:
+    app.include_router(external_api.router, prefix="/api/v1")
+
+if external_transactions:
+    app.include_router(external_transactions.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

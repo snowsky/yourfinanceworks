@@ -78,7 +78,7 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
-        'sso': {
+        'sso_authentication': {
             'name': 'SSO Authentication',
             'description': 'Google and Azure AD single sign-on',
             'category': 'integration',

@@ -10,7 +10,6 @@ import time
 import os
 import secrets
 from sqlalchemy import func
-from httpx_oauth.clients.google import GoogleOAuth2
 import logging
 import traceback
 
@@ -22,27 +21,20 @@ from core.schemas.user import UserCreate, UserLogin, Token, UserRead, UserUpdate
 from core.schemas.password_reset import PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse
 from pydantic import BaseModel
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
-from core.utils.auth import verify_password, get_password_hash
+from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from core.utils.auth import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from core.utils.password_validation import validate_password_strength
 from core.models.models_per_tenant import User as TenantUser
 from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
 from core.utils.rbac import require_admin
 from core.utils.audit import log_audit_event, log_audit_event_master
+from core.utils.feature_gate import require_feature
 from core.constants.error_codes import USER_NOT_FOUND, INCORRECT_PASSWORD, INACTIVE_USER, TENANT_CONTEXT_REQUIRED, INVALID_CREDENTIALS
 
 from core.constants.password import MIN_PASSWORD_LENGTH
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-
-# JWT settings
-# Enforce SECRET_KEY in non-debug environments
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-SECRET_KEY = os.getenv("SECRET_KEY") or ("dev-insecure-key" if DEBUG else None)
-if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY must be set in the environment for production use")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 # Simple in-memory rate limiting (per email) to deter brute-force attacks
 # Note: For multi-instance deployments, replace with a shared store (e.g., Redis)
@@ -59,60 +51,7 @@ def _prune_attempts(attempts: deque, window_seconds: int) -> None:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 security = HTTPBearer()
-
-# --- Google OAuth2 (SSO) setup ---
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_OAUTH_SCOPES = [
-    "openid",
-    "email",
-    "profile",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile"
-]
-
-google_oauth_client: Optional[GoogleOAuth2] = None
-if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
-    google_oauth_client = GoogleOAuth2(client_id=GOOGLE_CLIENT_ID, client_secret=GOOGLE_CLIENT_SECRET)
-
-# --- Azure AD OAuth2 (SSO) setup ---
-AZURE_CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-AZURE_CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
-AZURE_TENANT_ID = os.getenv("AZURE_TENANT_ID", "common")  # 'common' for multi-tenant, or specific tenant ID
-AZURE_OAUTH_SCOPES = []  # Azure AD automatically includes openid, email, profile
-
-# Azure AD OAuth client using MSAL
-azure_oauth_client = None
-if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET:
-    try:
-        from msal import ConfidentialClientApplication
-        azure_oauth_client = ConfidentialClientApplication(
-            client_id=AZURE_CLIENT_ID,
-            client_credential=AZURE_CLIENT_SECRET,
-            authority=f"https://login.microsoftonline.com/{AZURE_TENANT_ID}"
-        )
-    except ImportError:
-        logger.warning("MSAL library not available. Azure AD SSO will be disabled.")
-
-# In-memory state store for CSRF protection and to carry 'next' parameter
-OAUTH_STATE_STORE: Dict[str, Dict[str, Any]] = {}
-OAUTH_STATE_TTL_SECONDS = 600
-
-def _oauth_prune_states() -> None:
-    cutoff = time.time() - OAUTH_STATE_TTL_SECONDS
-    stale = [s for s, v in OAUTH_STATE_STORE.items() if v.get("ts", 0) < cutoff]
-    for s in stale:
-        OAUTH_STATE_STORE.pop(s, None)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+# --- Google OAuth2 (SSO) and Azure AD OAuth2 (SSO) are now in commercial module ---
 
 def create_password_reset_token() -> str:
     """Generate a secure random token for password reset"""
@@ -576,324 +515,8 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
 
 # Intentionally no /signup endpoint; /register is the canonical signup route.
 
-# -------------------- Google OAuth (SSO) endpoints --------------------
-@router.get("/google/login")
-async def google_login(request: Request, next: Optional[str] = None):
-    if not google_oauth_client:
-        raise HTTPException(status_code=503, detail="Google SSO is not configured")
+# -------------------- Google OAuth (SSO) endpoints moved to commercial module --------------------
 
-    # Determine redirect URI (callback)
-    # Use UI_BASE_URL for external access (nginx on port 8080)
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    callback_url = f"{ui_base}/api/v1/auth/google/callback"
-
-    # Generate state for CSRF protection
-    state = secrets.token_urlsafe(32)
-    OAUTH_STATE_STORE[state] = {"ts": time.time(), "next": next or "/dashboard"}
-    _oauth_prune_states()
-
-    authorization_url = await google_oauth_client.get_authorization_url(
-        redirect_uri=callback_url,
-        scope=GOOGLE_OAUTH_SCOPES,
-        state=state
-    )
-    return RedirectResponse(url=authorization_url)
-
-@router.get("/google/callback")
-async def google_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, db: Session = Depends(get_master_db)):
-    if not google_oauth_client:
-        raise HTTPException(status_code=503, detail="Google SSO is not configured")
-    if not code or not state:
-        raise HTTPException(status_code=400, detail="Missing code or state")
-
-    # Validate state
-    state_data = OAUTH_STATE_STORE.pop(state, None)
-    _oauth_prune_states()
-    if not state_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired state")
-
-    base_url = str(request.base_url).rstrip("/")
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    callback_url = f"{ui_base}/api/v1/auth/google/callback"
-
-    # Exchange code for token
-    try:
-        token = await google_oauth_client.get_access_token(code, redirect_uri=callback_url)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
-
-    # Fetch user info
-    first_name = None
-    last_name = None
-    try:
-        user_info = await google_oauth_client.get_id_email(token["access_token"])  # returns tuple (id, email, verified)
-        google_id, email, verified_email = user_info
-        logger.info(f"Successfully fetched Google user info: {email}")
-    except Exception as e:
-        logger.error(f"get_id_email failed: {e}")
-        # Fallback to userinfo endpoint if needed
-        try:
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    "https://www.googleapis.com/oauth2/v2/userinfo",
-                    headers={"Authorization": f"Bearer {token['access_token']}"}
-                )
-                if response.status_code == 200:
-                    user_data = response.json()
-                    google_id = user_data.get("id")
-                    email = user_data.get("email")
-                    verified_email = user_data.get("verified_email", False)
-                    first_name = user_data.get("given_name")
-                    last_name = user_data.get("family_name")
-                    logger.info(f"Successfully fetched Google user info via userinfo endpoint: {email}")
-                else:
-                    logger.error(f"Userinfo endpoint failed: {response.status_code} - {response.text}")
-                    raise HTTPException(status_code=400, detail="Failed to fetch Google user info")
-        except Exception as e2:
-            logger.error(f"Both methods failed: {e2}")
-            raise HTTPException(status_code=400, detail="Failed to fetch Google user info")
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Google account has no email")
-
-    # Find or create user in master database
-    user = db.query(MasterUser).filter((MasterUser.google_id == google_id) | (MasterUser.email == email)).first()
-    if not user:
-        # Create a minimal tenant for first user if none exists yet, otherwise attach to the first active tenant
-        # Determine if this is the first user in the system
-        is_first_user = db.query(MasterUser).count() == 0
-        # Create tenant for first user
-        tenant_name = f"{email.split('@')[0]}'s Organization"
-        db_tenant = Tenant(name=tenant_name, email=email, is_active=True)
-        db.add(db_tenant)
-        db.commit()
-        db.refresh(db_tenant)
-
-        # Provision tenant DB
-        success = tenant_db_manager.create_tenant_database(db_tenant.id, tenant_name)
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to create tenant database")
-
-        # Create master user
-        user = MasterUser(
-            email=email,
-            hashed_password=get_password_hash(secrets.token_urlsafe(16)),
-            first_name=first_name,
-            last_name=last_name,
-            role="admin" if is_first_user else "admin",  # Owner of the new tenant
-            tenant_id=db_tenant.id,
-            is_active=True,
-            is_superuser=is_first_user,
-            is_verified=bool(verified_email),
-            google_id=str(google_id),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # Create tenant user mirror
-        set_tenant_context(db_tenant.id)
-        tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
-        tenant_db = tenant_session()
-        try:
-            tenant_user = TenantUser(
-                id=user.id,
-                email=email,
-                hashed_password=user.hashed_password,
-                first_name=first_name,
-                last_name=last_name,
-                role="admin",
-                is_active=True,
-                is_superuser=is_first_user,
-                is_verified=True,
-                google_id=str(google_id),
-            )
-            tenant_db.add(tenant_user)
-            tenant_db.commit()
-        finally:
-            tenant_db.close()
-    else:
-        # Ensure google_id is linked
-        if not user.google_id:
-            user.google_id = str(google_id)
-            db.commit()
-
-    # Issue JWT
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
-
-    # Redirect back to UI with token via fragment so it doesn't hit server logs
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    redirect_next = state_data.get("next") or "/dashboard"
-    # Compose URL: e.g., /oauth-callback?token=...&user=...
-    import json, base64
-    user_payload = UserRead.model_validate(user).model_dump()
-    # Convert datetime objects to strings for JSON serialization
-    def datetime_serializer(obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
-    redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
-    return RedirectResponse(url=redirect_url)
-
-# -------------------- Azure AD OAuth (SSO) endpoints --------------------
-@router.get("/azure/login")
-async def azure_login(request: Request, next: Optional[str] = None):
-    if not azure_oauth_client:
-        raise HTTPException(status_code=503, detail="Azure AD SSO is not configured")
-
-    # Determine redirect URI (callback)
-    # Use UI_BASE_URL for external access (nginx on port 8080)
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    callback_url = f"{ui_base}/api/v1/auth/azure/callback"
-
-    # Generate state for CSRF protection
-    state = secrets.token_urlsafe(32)
-    OAUTH_STATE_STORE[state] = {"ts": time.time(), "next": next or "/dashboard"}
-    _oauth_prune_states()
-
-    # Build authorization URL using MSAL
-    authorization_url = azure_oauth_client.get_authorization_request_url(
-        scopes=AZURE_OAUTH_SCOPES,
-        state=state,
-        redirect_uri=callback_url
-    )
-    return RedirectResponse(url=authorization_url)
-
-@router.get("/azure/callback")
-async def azure_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, db: Session = Depends(get_master_db)):
-    if not azure_oauth_client:
-        raise HTTPException(status_code=503, detail="Azure AD SSO is not configured")
-    if not code or not state:
-        raise HTTPException(status_code=400, detail="Missing code or state")
-
-    # Validate state
-    state_data = OAUTH_STATE_STORE.pop(state, None)
-    _oauth_prune_states()
-    if not state_data:
-        raise HTTPException(status_code=400, detail="Invalid or expired state")
-
-    base_url = str(request.base_url).rstrip("/")
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    callback_url = f"{ui_base}/api/v1/auth/azure/callback"
-
-    # Exchange code for token using MSAL
-    try:
-        result = azure_oauth_client.acquire_token_by_authorization_code(
-            code=code,
-            scopes=AZURE_OAUTH_SCOPES,
-            redirect_uri=callback_url
-        )
-        
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=f"Azure AD error: {result.get('error_description', result['error'])}")
-        
-        access_token = result["access_token"]
-        id_token_claims = result.get("id_token_claims", {})
-        
-    except Exception as e:
-        logger.error(f"Azure AD token exchange failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
-
-    # Extract user info from ID token claims
-    azure_id = id_token_claims.get("oid")  # Object ID
-    email = id_token_claims.get("email") or id_token_claims.get("preferred_username")
-    azure_tenant_id = id_token_claims.get("tid")  # Tenant ID
-    first_name = id_token_claims.get("given_name")
-    last_name = id_token_claims.get("family_name")
-    
-    if not email:
-        raise HTTPException(status_code=400, detail="Azure AD account has no email")
-    if not azure_id:
-        raise HTTPException(status_code=400, detail="Azure AD account has no object ID")
-
-    # Find or create user in master database
-    user = db.query(MasterUser).filter(
-        (MasterUser.azure_ad_id == azure_id) | (MasterUser.email == email)
-    ).first()
-    
-    if not user:
-        # Create a minimal tenant for first user if none exists yet
-        is_first_user = db.query(MasterUser).count() == 0
-        # Create tenant for first user
-        tenant_name = f"{email.split('@')[0]}'s Organization"
-        db_tenant = Tenant(name=tenant_name, email=email, is_active=True)
-        db.add(db_tenant)
-        db.commit()
-        db.refresh(db_tenant)
-
-        # Provision tenant DB
-        success = tenant_db_manager.create_tenant_database(db_tenant.id, tenant_name)
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to create tenant database")
-
-        # Create master user
-        user = MasterUser(
-            email=email,
-            hashed_password=get_password_hash(secrets.token_urlsafe(16)),
-            first_name=first_name,
-            last_name=last_name,
-            role="admin" if is_first_user else "admin",  # Owner of the new tenant
-            tenant_id=db_tenant.id,
-            is_active=True,
-            is_superuser=is_first_user,
-            is_verified=True,  # Azure AD users are pre-verified
-            azure_ad_id=str(azure_id),
-            azure_tenant_id=str(azure_tenant_id) if azure_tenant_id else None,
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # Create tenant user mirror
-        set_tenant_context(db_tenant.id)
-        tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
-        tenant_db = tenant_session()
-        try:
-            from core.models.models_per_tenant import User as TenantUser
-            tenant_user = TenantUser(
-                id=user.id,
-                email=email,
-                hashed_password=user.hashed_password,
-                first_name=first_name,
-                last_name=last_name,
-                role="admin",
-                is_active=True,
-                is_superuser=is_first_user,
-                is_verified=True,
-                azure_ad_id=str(azure_id),
-                azure_tenant_id=str(azure_tenant_id) if azure_tenant_id else None,
-            )
-            tenant_db.add(tenant_user)
-            tenant_db.commit()
-        finally:
-            tenant_db.close()
-    else:
-        # Ensure azure_ad_id is linked
-        if not user.azure_ad_id:
-            user.azure_ad_id = str(azure_id)
-            user.azure_tenant_id = str(azure_tenant_id) if azure_tenant_id else None
-            db.commit()
-
-    # Issue JWT
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
-
-    # Redirect back to UI with token
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
-    redirect_next = state_data.get("next") or "/dashboard"
-    import json, base64
-    user_payload = UserRead.model_validate(user).model_dump()
-    # Convert datetime objects to strings for JSON serialization
-    def datetime_serializer(obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
-    redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
-    return RedirectResponse(url=redirect_url)
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
@@ -2252,9 +1875,20 @@ async def remove_user_from_organization(
 @router.get("/sso-status")
 async def get_sso_status():
     """Get the status of available SSO providers (public endpoint)"""
+    # Check if commercial SSO module is available and clients are initialized
+    google_available = False
+    azure_available = False
+
+    try:
+        from commercial.sso.router import google_oauth_client, azure_oauth_client
+        google_available = google_oauth_client is not None
+        azure_available = azure_oauth_client is not None
+    except ImportError:
+        pass
+
     # Check environment variables for SSO enablement
-    google_enabled = os.getenv("GOOGLE_SSO_ENABLED", "false").lower() == "true" and google_oauth_client is not None
-    azure_enabled = os.getenv("AZURE_SSO_ENABLED", "false").lower() == "true" and azure_oauth_client is not None
+    google_enabled = os.getenv("GOOGLE_SSO_ENABLED", "false").lower() == "true" and google_available
+    azure_enabled = os.getenv("AZURE_SSO_ENABLED", "false").lower() == "true" and azure_available
 
     return {
         "google": google_enabled,

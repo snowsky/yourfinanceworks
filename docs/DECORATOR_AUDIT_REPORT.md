@@ -134,11 +134,11 @@ def upload_file(self, ...):
 
 When SSO endpoints are added, protect them:
 ```python
-@require_feature("sso")
+@require_feature("sso_authentication")
 async def google_oauth_login():
     pass
 
-@require_feature("sso")
+@require_feature("sso_authentication")
 async def azure_ad_oauth_login():
     pass
 ```

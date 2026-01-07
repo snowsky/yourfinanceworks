@@ -140,7 +140,7 @@ def check_bank_statement_processing():
     try:
         # Check external API router
         logger.info("  Checking External API Router...")
-        from core.routers.external_api import router
+        from commercial.ai_bank_statement import external_router as external_api
         logger.info("  ✅ External API router loaded")
         
         # Check OCR consumer worker
@@ -150,7 +150,7 @@ def check_bank_statement_processing():
         
         # Check if cloud storage is used in bank statement processing
         import inspect
-        from core.routers import external_api
+        # refer to the already imported external_api alias
         
         source = inspect.getsource(external_api.process_statement_pdf)
         if "CloudStorageService" in source:

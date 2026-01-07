@@ -35,7 +35,7 @@ def main():
             "tax_integration",
             "slack_integration",
             "cloud_storage",
-            "sso",
+            "sso_authentication",
             "email_integration",
             "batch_processing",
             "api_keys",

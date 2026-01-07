@@ -118,7 +118,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         tax_integration: hasAllFeatures || enabledFeatures.includes('tax_integration'),
         slack_integration: hasAllFeatures || enabledFeatures.includes('slack_integration'),
         cloud_storage: hasAllFeatures || enabledFeatures.includes('cloud_storage'),
-        sso: hasAllFeatures || enabledFeatures.includes('sso'),
+        sso: hasAllFeatures || enabledFeatures.includes('sso_authentication'),
         api_keys: hasAllFeatures || enabledFeatures.includes('api_keys'),
         batch_processing: hasAllFeatures || enabledFeatures.includes('batch_processing'),
         reporting: hasAllFeatures || enabledFeatures.includes('reporting'),
