@@ -54,14 +54,14 @@ class FeatureConfigService:
         },
         
         # Integration Features
-        'tax_integration': {
-            'name': 'Tax Service Integration',
-            'description': 'Automated tax tracking and reporting integration',
-            'category': 'integration',
-            'env_var': 'FEATURE_TAX_INTEGRATION_ENABLED',
-            'default': False,
-            'license_tier': 'commercial'
-        },
+        # 'tax_integration': {
+        #     'name': 'Tax Service Integration',
+        #     'description': 'Automated tax tracking and reporting integration',
+        #     'category': 'integration',
+        #     'env_var': 'FEATURE_TAX_INTEGRATION_ENABLED',
+        #     'default': False,
+        #     'license_tier': 'commercial'
+        # },
         'slack_integration': {
             'name': 'Slack Integration',
             'description': 'Slack bot commands and notifications',
@@ -71,14 +71,14 @@ class FeatureConfigService:
             'license_tier': 'commercial'
         },
         'cloud_storage': {
-            'name': 'Cloud Storage',
-            'description': 'AWS S3, Azure Blob, and GCP Storage providers',
+            'name': 'Cloud Storage Provider Management',
+            'description': 'Configure and monitor AWS S3, Azure Blob, and GCP Storage providers',
             'category': 'integration',
             'env_var': 'FEATURE_CLOUD_STORAGE_ENABLED',
             'default': False,
             'license_tier': 'commercial'
         },
-        'sso_authentication': {
+        'sso': {
             'name': 'SSO Authentication',
             'description': 'Google and Azure AD single sign-on',
             'category': 'integration',
@@ -94,21 +94,37 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
-        
-        # Advanced Features
-        'batch_processing': {
-            'name': 'Batch File Processing',
-            'description': 'Bulk file uploads and batch processing',
-            'category': 'advanced',
-            'env_var': 'FEATURE_BATCH_PROCESSING_ENABLED',
+        'external_api': {
+            'name': 'External API Access',
+            'description': 'External API access with API key authentication',
+            'category': 'integration',
+            'env_var': 'FEATURE_EXTERNAL_API_ENABLED',
             'default': False,
             'license_tier': 'commercial'
         },
-        'api_keys': {
-            'name': 'API Keys',
-            'description': 'External API access with API key authentication',
+        'external_transactions': {
+            'name': 'External Transactions',
+            'description': 'Ingest transaction data via external API',
             'category': 'integration',
-            'env_var': 'FEATURE_API_KEYS_ENABLED',
+            'env_var': 'FEATURE_EXTERNAL_TRANSACTIONS_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
+        
+        # Advanced Features
+        'advanced_export': {
+            'name': 'Advanced Export',
+            'description': 'Export data to cloud storage destinations',
+            'category': 'advanced',
+            'env_var': 'FEATURE_ADVANCED_EXPORT_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
+        'batch_processing': {
+            'name': 'Batch Processing',
+            'description': 'Bulk file uploads and batch processing',
+            'category': 'advanced',
+            'env_var': 'FEATURE_BATCH_PROCESSING_ENABLED',
             'default': False,
             'license_tier': 'commercial'
         },
@@ -125,6 +141,14 @@ class FeatureConfigService:
             'description': 'Custom reports and analytics dashboards',
             'category': 'advanced',
             'env_var': 'FEATURE_REPORTING_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
+        'approval_analytics': {
+            'name': 'Approval Analytics',
+            'description': 'Advanced analytics and reporting for approval workflows',
+            'category': 'advanced',
+            'env_var': 'FEATURE_APPROVAL_ANALYTICS_ENABLED',
             'default': False,
             'license_tier': 'commercial'
         },

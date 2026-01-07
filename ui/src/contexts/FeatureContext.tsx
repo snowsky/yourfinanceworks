@@ -6,21 +6,20 @@ interface FeatureFlags {
   ai_expense: boolean;
   ai_bank_statement: boolean;
   ai_chat: boolean;
-  tax_integration: boolean;
+  // tax_integration: boolean;
   slack_integration: boolean;
   cloud_storage: boolean;
   sso: boolean;
-  api_keys: boolean;
+  external_api: boolean;
+  external_transactions: boolean;
+  advanced_export: boolean;
+  approval_analytics: boolean;
   batch_processing: boolean;
   reporting: boolean;
-  inventory: boolean;
   approvals: boolean;
   advanced_search: boolean;
   email_integration: boolean;
-  export_destinations: boolean;
   prompt_management: boolean;
-  ai_configuration: boolean;
-  crm: boolean;
   [key: string]: boolean;
 }
 
@@ -69,21 +68,22 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ai_expense: false,
           ai_bank_statement: false,
           ai_chat: false,
-          tax_integration: false,
+          // tax_integration: false,
           slack_integration: false,
           cloud_storage: false,
           sso: false,
-          api_keys: false,
+          external_api: false,
+          external_transactions: false,
+          advanced_export: false,
+          approval_analytics: false,
           batch_processing: false,
           reporting: false,
-          inventory: false,
           approvals: false,
           advanced_search: false,
           email_integration: false,
-          export_destinations: false,
           prompt_management: false,
-          ai_configuration: false,
-          crm: false,
+          inventory: true,
+          crm: true,
         });
         setLicenseStatus(null);
         setLoading(false);
@@ -115,22 +115,24 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ai_expense: hasAllFeatures || enabledFeatures.includes('ai_expense'),
         ai_bank_statement: hasAllFeatures || enabledFeatures.includes('ai_bank_statement'),
         ai_chat: hasAllFeatures || enabledFeatures.includes('ai_chat'),
-        tax_integration: hasAllFeatures || enabledFeatures.includes('tax_integration'),
+        // tax_integration: hasAllFeatures || enabledFeatures.includes('tax_integration'),
         slack_integration: hasAllFeatures || enabledFeatures.includes('slack_integration'),
         cloud_storage: hasAllFeatures || enabledFeatures.includes('cloud_storage'),
-        sso: hasAllFeatures || enabledFeatures.includes('sso_authentication'),
-        api_keys: hasAllFeatures || enabledFeatures.includes('api_keys'),
+        sso: hasAllFeatures || enabledFeatures.includes('sso'),
+        external_api: hasAllFeatures || enabledFeatures.includes('external_api'),
+        external_transactions: hasAllFeatures || enabledFeatures.includes('external_transactions'),
+        advanced_export: hasAllFeatures || enabledFeatures.includes('advanced_export'),
+        approval_analytics: hasAllFeatures || enabledFeatures.includes('approval_analytics'),
         batch_processing: hasAllFeatures || enabledFeatures.includes('batch_processing'),
         reporting: hasAllFeatures || enabledFeatures.includes('reporting'),
-        inventory: hasAllFeatures || enabledFeatures.includes('inventory'),
         approvals: hasAllFeatures || enabledFeatures.includes('approvals'),
         advanced_search: hasAllFeatures || enabledFeatures.includes('advanced_search'),
         email_integration: hasAllFeatures || enabledFeatures.includes('email_integration'),
-        // Map undefined features to existing ones that are likely enabled together
-        export_destinations: hasAllFeatures || enabledFeatures.includes('cloud_storage') || enabledFeatures.includes('batch_processing'),
         prompt_management: hasAllFeatures || enabledFeatures.includes('prompt_management'),
-        ai_configuration: hasAllFeatures || enabledFeatures.includes('ai_chat') || enabledFeatures.includes('ai_invoice'),
-        crm: false, // CRM removed from licensing
+        
+        // Core features (client-side only for now)
+        inventory: true,
+        crm: true,
       };
 
       setFeatures(featureFlags);
@@ -185,21 +187,22 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ai_expense: false,
         ai_bank_statement: false,
         ai_chat: false,
-        tax_integration: false,
+        // tax_integration: false,
         slack_integration: false,
         cloud_storage: false,
         sso: false,
-        api_keys: false,
+        external_api: false,
+        external_transactions: false,
+        advanced_export: false,
+        approval_analytics: false,
         batch_processing: false,
         reporting: false,
-        inventory: false,
+        inventory: true,
         approvals: false,
         advanced_search: false,
         email_integration: false,
-        export_destinations: false,
         prompt_management: false,
-        ai_configuration: false,
-        crm: false,
+        crm: true,
       });
       setLicenseStatus(null);
       setHasAttemptedFetch(true);

@@ -53,7 +53,7 @@ try:
     from commercial.ai import router as ai
     from commercial.ai import config_router as ai_config
     from commercial.ai import pdf_processor
-    from commercial.export import router as export_destinations
+    from commercial.export import router as export_router
     from commercial.sso import router as sso_router
     from commercial.ai_bank_statement import router as statements
     from commercial.reporting import router as reports
@@ -74,7 +74,6 @@ except ImportError:
     ai = None
     ai_config = None
     pdf_processor = None
-    export_destinations = None
     sso_router = None
     statements = None
     reports = None
@@ -410,8 +409,8 @@ if slack_simplified:
 
 if cloud_storage:
     app.include_router(cloud_storage.router, prefix="/api/v1")  # Include the new cloud storage router
-if export_destinations:
-    app.include_router(export_destinations.router, prefix="/api/v1")  # Include the export destinations router
+if export_router:
+    app.include_router(export_router.router, prefix="/api/v1")  # Include the export destinations router
 if batch_processing:
     app.include_router(batch_processing.router, prefix="/api/v1")  # Include the batch processing router
 

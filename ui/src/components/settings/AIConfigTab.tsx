@@ -50,7 +50,7 @@ export const AIConfigTab: React.FC<AIConfigTabProps> = ({
 }) => {
     return (
         <FeatureGate
-            feature="ai_configuration"
+            feature="ai_chat"
             fallback={
                 <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
                     <ProfessionalCardContent className="p-12 text-center">

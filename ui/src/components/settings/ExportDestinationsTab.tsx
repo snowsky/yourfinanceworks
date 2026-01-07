@@ -30,7 +30,7 @@ interface ExportDestinationsTabProps {
 export const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
   return (
     <FeatureGate
-      feature="export_destinations"
+      feature="advanced_export"
       fallback={
         <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
           <ProfessionalCardContent className="p-12 text-center">

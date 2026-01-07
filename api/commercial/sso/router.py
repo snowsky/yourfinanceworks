@@ -18,7 +18,7 @@ from core.schemas.user import UserRead
 from core.models.models_per_tenant import User as TenantUser
 from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
-from core.utils.feature_gate import require_feature
+from core.utils.feature_gate import require_feature, check_feature
 from core.utils.auth import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 
 logger = logging.getLogger(__name__)
@@ -71,9 +71,18 @@ def _oauth_prune_states() -> None:
 
 # -------------------- Google OAuth (SSO) endpoints --------------------
 @router.get("/google/login")
-async def google_login(request: Request, next: Optional[str] = None):
+async def google_login(request: Request, next: Optional[str] = None, db: Session = Depends(get_master_db)):
     if not google_oauth_client:
         raise HTTPException(status_code=503, detail="Google SSO is not configured")
+
+    # Feature gating check - requires master DB since we don't have tenant context yet
+    # But usually SSO is a system-wide enabled feature or per-tenant.
+    # If it's licensed, it should be enabled.
+    # For now, let's just use a simple check.
+    # Actually, we'll check it after we identify the user/tenant in the callback.
+    # BUT, to prevent even starting the flow if not licensed, we can check it here too if we have a way.
+    # Since we don't have a tenant yet in google_login (usually), we might skip gating here
+    # and enforce it in the callback once we know who they are.
 
     # Determine redirect URI (callback)
     # Use UI_BASE_URL for external access (nginx on port 8080)
@@ -190,6 +199,15 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
         tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
         tenant_db = tenant_session()
         try:
+            # Gating check
+            try:
+                check_feature("sso", tenant_db)
+            except HTTPException as e:
+                if e.status_code == 402:
+                    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                raise
+
             tenant_user = TenantUser(
                 id=user.id,
                 email=email,
@@ -212,6 +230,20 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             user.google_id = str(google_id)
             db.commit()
 
+        # Gating check for existing users
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+        tenant_db = tenant_session()
+        try:
+            try:
+                check_feature("sso", tenant_db)
+            except HTTPException as e:
+                if e.status_code == 402:
+                    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                raise
+        finally:
+            tenant_db.close()
+
     # Issue JWT
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
@@ -232,7 +264,7 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
 
 # -------------------- Azure AD OAuth (SSO) endpoints --------------------
 @router.get("/azure/login")
-async def azure_login(request: Request, next: Optional[str] = None):
+async def azure_login(request: Request, next: Optional[str] = None, db: Session = Depends(get_master_db)):
     if not azure_oauth_client:
         raise HTTPException(status_code=503, detail="Azure AD SSO is not configured")
 
@@ -345,6 +377,15 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
         tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
         tenant_db = tenant_session()
         try:
+            # Gating check
+            try:
+                check_feature("sso", tenant_db)
+            except HTTPException as e:
+                if e.status_code == 402:
+                    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                raise
+
             tenant_user = TenantUser(
                 id=user.id,
                 email=email,
@@ -358,6 +399,20 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()
+        finally:
+            tenant_db.close()
+    else:
+        # Gating check for existing users
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+        tenant_db = tenant_session()
+        try:
+            try:
+                check_feature("sso", tenant_db)
+            except HTTPException as e:
+                if e.status_code == 402:
+                    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                raise
         finally:
             tenant_db.close()
 

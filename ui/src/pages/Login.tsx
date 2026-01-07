@@ -92,7 +92,7 @@ const Login = () => {
     }
   }, [navigate]);
 
-  // Fetch SSO status on component mount
+  // Fetch SSO status and handle URL errors on component mount
   useEffect(() => {
     const fetchSSOStatus = async () => {
       try {
@@ -106,7 +106,15 @@ const Login = () => {
     };
 
     fetchSSOStatus();
-  }, []);
+
+    // Handle URL errors (like sso_license_required)
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    if (errorParam === 'sso_license_required') {
+      setError(t('auth.sso_license_required_recovery'));
+      toast.warning(t('auth.sso_license_required_recovery'), { duration: 10000 });
+    }
+  }, [t]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">

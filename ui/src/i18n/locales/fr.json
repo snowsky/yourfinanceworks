@@ -205,6 +205,7 @@
     "password_min_length": "Le mot de passe doit contenir au moins {{min_length}} caractères",
     "passwords_not_match": "Les mots de passe ne correspondent pas",
     "login_description": "Entrez votre email et mot de passe pour accéder à votre compte",
+    "sso_license_required_recovery": "Votre licence SSO a expiré ou n'est pas valide. Pour retrouver l'accès, veuillez utiliser le flux 'Mot de passe oublié' ci-dessous pour définir un mot de passe local pour votre compte.",
     "email_placeholder": "Entrez votre email",
     "password_placeholder": "Entrez votre mot de passe",
     "signing_in": "Connexion en cours...",

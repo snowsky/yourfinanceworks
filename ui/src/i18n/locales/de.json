@@ -197,6 +197,7 @@
     "password_min_length": "Passwort muss mindestens {{min_length}} Zeichen lang sein",
     "passwords_not_match": "Passwörter stimmen nicht überein",
     "login_description": "Geben Sie Ihre E-Mail und Ihr Passwort ein, um auf Ihr Konto zuzugreifen",
+    "sso_license_required_recovery": "Ihre SSO-Lizenz ist abgelaufen oder ungültig. Um den Zugriff wiederherzustellen, verwenden Sie bitte den 'Passwort vergessen'-Ablauf unten, um ein lokales Passwort für Ihr Konto festzulegen.",
     "email_placeholder": "Geben Sie Ihre E-Mail ein",
     "password_placeholder": "Geben Sie Ihr Passwort ein",
     "signing_in": "Anmeldung läuft...",

@@ -205,6 +205,7 @@
     "password_min_length": "Password must be at least {{min_length}} characters",
     "passwords_not_match": "Passwords do not match",
     "login_description": "Enter your email and password to access your account",
+    "sso_license_required_recovery": "Your SSO license has expired or is invalid. To regain access, please use the 'Forgot Password' flow below to set a local password for your account.",
     "email_placeholder": "Enter your email",
     "password_placeholder": "Enter your password",
     "signing_in": "Signing in...",

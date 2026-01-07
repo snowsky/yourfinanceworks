@@ -14,14 +14,20 @@ import logging
 from core.models.database import get_db
 from commercial.workflows.approvals.services.approval_analytics_service import ApprovalAnalyticsService
 from core.schemas.approval_reports import (
-    ApprovalReportRequest, ApprovalReportResponse, ApprovalReportType,
-    ApprovalReportFilters, ApprovalMetricsReport, ApprovalPatternAnalysisReport,
-    ApprovalComplianceReport, ApprovalAnalyticsDashboard, ApprovalAnalyticsFilters,
-    ApprovalDashboardSummary
+    ApprovalReportRequest,
+    ApprovalReportResponse,
+    ApprovalReportType,
+    ApprovalMetricsReport,
+    ApprovalPatternAnalysisReport,
+    ApprovalComplianceReport,
+    ApprovalAnalyticsDashboard,
+    ApprovalAnalyticsFilters,
+    ApprovalDashboardSummary,
 )
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.utils.rbac import require_permission
+from core.utils.feature_gate import check_feature
 
 logger = logging.getLogger(__name__)
 
@@ -36,23 +42,26 @@ async def get_approval_analytics_dashboard(
 ):
     """
     Get comprehensive approval analytics dashboard data.
-    
+
     Requires: approval_view permission
     """
     # Check permissions
     require_permission(current_user, "approval_view")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         # Determine date range
         date_from, date_to = _parse_date_range(filters)
-        
+
         # Get dashboard summary
         summary_data = await _get_dashboard_summary(
             analytics_service, date_from, date_to, filters
         )
-        
+
         # Get trend data
         trends = await _get_trend_data(
             analytics_service, date_from, date_to, filters
@@ -65,16 +74,16 @@ async def get_approval_analytics_dashboard(
             approver_ids=[filters.approver_id] if filters.approver_id else None,
             categories=[filters.category] if filters.category else None
         )
-        
+
         # Get recent activity
         recent_activity = await _get_recent_activity(db, current_user)
-        
+
         # Get pattern analysis for recommendations
         pattern_analysis = analytics_service.analyze_approval_patterns(
             date_from=date_from,
             date_to=date_to
         )
-        
+
         dashboard = ApprovalAnalyticsDashboard(
             summary=summary_data,
             trends=trends,
@@ -83,9 +92,9 @@ async def get_approval_analytics_dashboard(
             recent_activity=recent_activity,
             recommendations=pattern_analysis.recommendations
         )
-        
+
         return dashboard
-        
+
     except Exception as e:
         logger.error(f"Error generating approval analytics dashboard: {e}")
         raise HTTPException(
@@ -103,34 +112,40 @@ async def get_approval_dashboard_summary(
 ):
     """
     Get approval dashboard summary data.
-    
+
     Requires: approval_view permission
     """
     # Check permissions
     require_permission(current_user, "approval_view")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         # Default to last 30 days if no dates provided
         if not date_from:
             date_from = datetime.now() - timedelta(days=30)
         if not date_to:
             date_to = datetime.now()
-        
+
         # Calculate metrics
         metrics = analytics_service.calculate_approval_metrics(
             date_from=date_from,
             date_to=date_to
         )
-        
+
         # Count overdue approvals (pending for more than 3 days)
         overdue_threshold = datetime.now() - timedelta(days=3)
-        overdue_count = len([
-            issue for issue in metrics.compliance_issues
-            if issue.get('type') == 'delayed_approval'
-        ])
-        
+        overdue_count = len(
+            [
+                issue
+                for issue in metrics.compliance_issues
+                if issue.get("type") == "delayed_approval"
+            ]
+        )
+
         summary = ApprovalDashboardSummary(
             pending_approvals_count=metrics.pending_approvals,
             overdue_approvals_count=overdue_count,
@@ -145,9 +160,9 @@ async def get_approval_dashboard_summary(
                 "median_approval_time": metrics.median_approval_time
             }
         )
-        
+
         return summary
-        
+
     except Exception as e:
         logger.error(f"Error generating approval dashboard summary: {e}")
         raise HTTPException(
@@ -164,7 +179,7 @@ async def generate_approval_report(
 ):
     """
     Generate comprehensive approval reports.
-    
+
     Requires: approval_view permission for basic reports, approval_admin for compliance reports
     """
     # Check permissions
@@ -172,10 +187,13 @@ async def generate_approval_report(
         require_permission(current_user, "approval_admin")
     else:
         require_permission(current_user, "approval_view")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         # Generate report based on type
         if request.report_type == ApprovalReportType.METRICS:
             report_data = analytics_service.calculate_approval_metrics(
@@ -184,28 +202,28 @@ async def generate_approval_report(
                 approver_ids=request.filters.approver_ids,
                 categories=request.filters.categories
             )
-            
+
         elif request.report_type == ApprovalReportType.PATTERNS:
             report_data = analytics_service.analyze_approval_patterns(
                 date_from=request.filters.date_from,
                 date_to=request.filters.date_to
             )
-            
+
         elif request.report_type == ApprovalReportType.COMPLIANCE:
             report_data = analytics_service.generate_compliance_report(
                 date_from=request.filters.date_from,
                 date_to=request.filters.date_to
             )
-            
+
         else:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported report type: {request.report_type}"
             )
-        
+
         # Convert to dictionary for response
         report_dict = _convert_report_to_dict(report_data)
-        
+
         response = ApprovalReportResponse(
             success=True,
             report_type=request.report_type,
@@ -213,9 +231,9 @@ async def generate_approval_report(
             filters_applied=request.filters,
             data=report_dict
         )
-        
+
         return response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -240,25 +258,28 @@ async def get_approval_metrics(
 ):
     """
     Get detailed approval metrics.
-    
+
     Requires: approval_view permission
     """
     # Check permissions
     require_permission(current_user, "approval_view")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         metrics = analytics_service.calculate_approval_metrics(
             date_from=date_from,
             date_to=date_to,
             approver_ids=approver_ids,
             categories=categories
         )
-        
+
         # Convert to Pydantic model
         return _convert_metrics_to_response(metrics)
-        
+
     except Exception as e:
         logger.error(f"Error calculating approval metrics: {e}")
         raise HTTPException(
@@ -276,23 +297,26 @@ async def get_approval_patterns(
 ):
     """
     Get approval pattern analysis.
-    
+
     Requires: approval_view permission
     """
     # Check permissions
     require_permission(current_user, "approval_view")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         patterns = analytics_service.analyze_approval_patterns(
             date_from=date_from,
             date_to=date_to
         )
-        
+
         # Convert to Pydantic model
         return _convert_patterns_to_response(patterns)
-        
+
     except Exception as e:
         logger.error(f"Error analyzing approval patterns: {e}")
         raise HTTPException(
@@ -310,23 +334,26 @@ async def get_approval_compliance(
 ):
     """
     Get approval compliance report.
-    
+
     Requires: approval_admin permission
     """
     # Check permissions
     require_permission(current_user, "approval_admin")
-    
+
+    # Check feature license
+    check_feature("approval_analytics", db)
+
     try:
         analytics_service = ApprovalAnalyticsService(db)
-        
+
         compliance = analytics_service.generate_compliance_report(
             date_from=date_from,
             date_to=date_to
         )
-        
+
         # Convert to Pydantic model
         return _convert_compliance_to_response(compliance)
-        
+
     except Exception as e:
         logger.error(f"Error generating compliance report: {e}")
         raise HTTPException(
@@ -337,6 +364,7 @@ async def get_approval_compliance(
 
 # Helper functions
 
+
 def _parse_date_range(filters: ApprovalAnalyticsFilters) -> tuple[datetime, datetime]:
     """Parse date range from filters"""
     if filters.date_range == "custom":
@@ -346,7 +374,7 @@ def _parse_date_range(filters: ApprovalAnalyticsFilters) -> tuple[datetime, date
                 detail="Custom date range requires both custom_date_from and custom_date_to"
             )
         return filters.custom_date_from, filters.custom_date_to
-    
+
     now = datetime.now()
     if filters.date_range == "last_7_days":
         return now - timedelta(days=7), now
@@ -372,13 +400,16 @@ async def _get_dashboard_summary(
         approver_ids=[filters.approver_id] if filters.approver_id else None,
         categories=[filters.category] if filters.category else None
     )
-    
+
     # Count overdue approvals
-    overdue_count = len([
-        issue for issue in metrics.compliance_issues
-        if issue.get('type') == 'delayed_approval'
-    ])
-    
+    overdue_count = len(
+        [
+            issue
+            for issue in metrics.compliance_issues
+            if issue.get("type") == "delayed_approval"
+        ]
+    )
+
     return ApprovalDashboardSummary(
         pending_approvals_count=metrics.pending_approvals,
         overdue_approvals_count=overdue_count,
@@ -409,7 +440,7 @@ async def _get_trend_data(
         approver_ids=[filters.approver_id] if filters.approver_id else None,
         categories=[filters.category] if filters.category else None
     )
-    
+
     trends = []
     for period, data in metrics.monthly_trends.items():
         trends.append({
@@ -427,32 +458,43 @@ async def _get_trend_data(
 async def _get_recent_activity(db: Session, current_user: MasterUser) -> List[dict]:
     """Get recent approval activity"""
     from core.models.models_per_tenant import ExpenseApproval
-    
+
     # Get recent approvals (last 10)
-    recent_approvals = db.query(ExpenseApproval).options(
-        joinedload(ExpenseApproval.expense),
-        joinedload(ExpenseApproval.approver)
-    ).order_by(ExpenseApproval.submitted_at.desc()).limit(10).all()
-    
+    recent_approvals = (
+        db.query(ExpenseApproval)
+        .options(
+            joinedload(ExpenseApproval.expense), joinedload(ExpenseApproval.approver)
+        )
+        .order_by(ExpenseApproval.submitted_at.desc())
+        .limit(10)
+        .all()
+    )
+
     activity = []
     for approval in recent_approvals:
-        activity.append({
-            "id": approval.id,
-            "expense_id": approval.expense_id,
-            "expense_amount": approval.expense.amount if approval.expense else 0,
-            "status": approval.status,
-            "approver_name": approval.approver.first_name + ' ' + approval.approver.last_name if approval.approver.first_name else approval.approver.email,
-            "submitted_at": approval.submitted_at,
-            "decided_at": approval.decided_at
-        })
-    
+        activity.append(
+            {
+                "id": approval.id,
+                "expense_id": approval.expense_id,
+                "expense_amount": approval.expense.amount if approval.expense else 0,
+                "status": approval.status,
+                "approver_name": (
+                    approval.approver.first_name + " " + approval.approver.last_name
+                    if approval.approver.first_name
+                    else approval.approver.email
+                ),
+                "submitted_at": approval.submitted_at,
+                "decided_at": approval.decided_at,
+            }
+        )
+
     return activity
 
 
 def _convert_report_to_dict(report_data) -> dict:
     """Convert report data object to dictionary"""
-    if hasattr(report_data, '__dict__'):
-        return {k: v for k, v in report_data.__dict__.items() if not k.startswith('_')}
+    if hasattr(report_data, "__dict__"):
+        return {k: v for k, v in report_data.__dict__.items() if not k.startswith("_")}
     return {}
 
 
@@ -462,7 +504,7 @@ def _convert_metrics_to_response(metrics) -> ApprovalMetricsReport:
         BottleneckInfo, ApproverPerformance, CategoryBreakdown,
         MonthlyTrend, ComplianceIssue
     )
-    
+
     return ApprovalMetricsReport(
         total_approvals=metrics.total_approvals,
         pending_approvals=metrics.pending_approvals,
@@ -485,7 +527,7 @@ def _convert_patterns_to_response(patterns) -> ApprovalPatternAnalysisReport:
     from core.schemas.approval_reports import (
         RejectionReason, PeakSubmissionTimes, EscalationPattern, ProcessRecommendation
     )
-    
+
     return ApprovalPatternAnalysisReport(
         common_rejection_reasons=[RejectionReason(**r) for r in patterns.common_rejection_reasons],
         approval_time_by_amount=patterns.approval_time_by_amount,
@@ -501,7 +543,7 @@ def _convert_compliance_to_response(compliance) -> ApprovalComplianceReport:
     from core.schemas.approval_reports import (
         PolicyViolation, RuleEffectiveness, DelegationUsage
     )
-    
+
     return ApprovalComplianceReport(
         total_expenses=compliance.total_expenses,
         expenses_requiring_approval=compliance.expenses_requiring_approval,

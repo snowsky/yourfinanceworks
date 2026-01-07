@@ -96,7 +96,7 @@ async def create_export_destination(
     Credentials are encrypted before storage.
     """
     # Check if export_destinations feature is enabled
-    check_feature("cloud_storage", db)
+    check_feature("advanced_export", db)
     
     # Check permissions
     require_non_viewer(current_user, "create export destinations")
@@ -187,8 +187,8 @@ async def list_export_destinations(
     Includes connection test status.
     Supports pagination.
     """
-    # Check if cloud_storage feature is enabled for read access
-    check_feature_read_only("cloud_storage", db)
+    # Check if advanced_export feature is enabled for read access
+    check_feature_read_only("advanced_export", db)
     
     try:
         # Get destinations
@@ -262,8 +262,8 @@ async def get_export_destination(
     
     Returns masked credentials.
     """
-    # Check if cloud_storage feature is enabled for read access
-    check_feature_read_only("cloud_storage", db)
+    # Check if advanced_export feature is enabled for read access
+    check_feature_read_only("advanced_export", db)
     
     try:
         # Get destination
@@ -331,8 +331,8 @@ async def update_export_destination(
     Re-encrypts credentials after update.
     Requires admin or write permissions.
     """
-    # Check if cloud_storage feature is enabled
-    check_feature("cloud_storage", db)
+    # Check if advanced_export feature is enabled
+    check_feature("advanced_export", db)
     
     # Check permissions
     require_non_viewer(current_user, "update export destinations")
@@ -420,8 +420,8 @@ async def test_export_destination(
     Updates last_test_at and last_test_success fields.
     Returns test result with error details if failed.
     """
-    # Check if cloud_storage feature is enabled
-    check_feature("cloud_storage", db)
+    # Check if advanced_export feature is enabled
+    check_feature("advanced_export", db)
     
     try:
         # Test connection
@@ -479,8 +479,8 @@ async def delete_export_destination(
     Validates no active batch jobs are using this destination.
     Requires admin permissions.
     """
-    # Check if cloud_storage feature is enabled
-    check_feature("cloud_storage", db)
+    # Check if advanced_export feature is enabled
+    check_feature("advanced_export", db)
     
     # Check permissions - require admin for deletion
     require_admin(current_user, "delete export destinations")

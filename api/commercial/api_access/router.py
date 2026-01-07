@@ -20,7 +20,7 @@ from core.schemas.api_schemas import (
 from core.services.external_api_auth_service import ExternalAPIAuthService, Permission
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
-from core.utils.feature_gate import require_business_license
+from core.utils.feature_gate import require_feature
 
 
 router = APIRouter(prefix="/external-auth", tags=["external-api-auth"])
@@ -56,7 +56,7 @@ def _get_api_key_prefix(api_key: str) -> str:
 
 
 @router.post("/api-keys", response_model=APIKeyResponse)
-@require_business_license
+@require_feature("external_api")
 async def create_api_key(
     request_data: APIKeyCreateRequest,
     current_user: MasterUser = Depends(get_current_user),
@@ -157,7 +157,7 @@ async def create_api_key(
 
 
 @router.get("/api-keys", response_model=List[APIClientResponse])
-@require_business_license
+@require_feature("external_api")
 async def list_api_keys(
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_master_db),
@@ -201,7 +201,7 @@ async def list_api_keys(
 
 
 @router.get("/api-keys/{client_id}", response_model=APIClientResponse)
-@require_business_license
+@require_feature("external_api")
 async def get_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),
@@ -244,7 +244,7 @@ async def get_api_key(
 
 
 @router.put("/api-keys/{client_id}", response_model=APIClientResponse)
-@require_business_license
+@require_feature("external_api")
 async def update_api_key(
     client_id: str,
     request_data: APIClientUpdateRequest,
@@ -308,7 +308,7 @@ async def update_api_key(
 
 
 @router.delete("/api-keys/{client_id}")
-@require_business_license
+@require_feature("external_api")
 async def revoke_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),
@@ -337,7 +337,7 @@ async def revoke_api_key(
 
 
 @router.post("/api-keys/{client_id}/regenerate", response_model=APIKeyResponse)
-@require_business_license
+@require_feature("external_api")
 async def regenerate_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),

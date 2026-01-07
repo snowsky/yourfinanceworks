@@ -20,6 +20,7 @@ from core.schemas.api_schemas import (
 )
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext
 from core.decorators.sandbox_validation import require_production_auth_context
+from core.utils.feature_gate import check_feature
 from core.routers.auth import get_current_user
 
 
@@ -44,10 +45,10 @@ def require_api_auth(request: Request) -> AuthContext:
 
 
 def _generate_duplicate_hash(
-    amount: float, 
-    currency: str, 
-    date: datetime, 
-    description: str, 
+    amount: float,
+    currency: str,
+    date: datetime,
+    description: str,
     external_reference_id: Optional[str] = None
 ) -> str:
     """Generate a hash for duplicate detection."""
@@ -58,17 +59,23 @@ def _generate_duplicate_hash(
 
 
 @router.post("/transactions", response_model=ExternalTransactionResponse)
-@require_production_auth_context("Sandbox API keys cannot create real transactions. Use a production API key for live transactions.")
+@require_production_auth_context(
+    "Sandbox API keys cannot create real transactions. Use a production API key for live transactions."
+)
 async def create_external_transaction(
     transaction_data: ExternalTransactionCreate,
     request: Request,
     db: Session = Depends(get_master_db)
 ):
     """Create a new external transaction via API."""
-    
+
     # Require API authentication
     auth_context = require_api_auth(request)
-    
+
+    # Check if external_transactions feature is enabled
+    # API tokens are tenant-specific, so db session will have tenant context set by middleware
+    check_feature("external_transactions", db)
+
     # Get API client
     api_client = db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
@@ -80,19 +87,19 @@ async def create_external_transaction(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API client"
         )
-    
+
     # Check permissions
     allowed, error_msg = await auth_service.check_api_client_permissions(
         db, api_client, transaction_data.transaction_type, 
         float(transaction_data.amount), transaction_data.currency
     )
-    
+
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=error_msg
         )
-    
+
     # Generate duplicate check hash
     duplicate_hash = _generate_duplicate_hash(
         float(transaction_data.amount),
@@ -101,7 +108,7 @@ async def create_external_transaction(
         transaction_data.description,
         transaction_data.external_reference_id
     )
-    
+
     # Check for duplicates
     existing_transaction = db.query(ExternalTransaction).filter(
         and_(
@@ -146,14 +153,14 @@ async def create_external_transaction(
             client_ip_address=request.client.host if request.client else None,
             disable_ai_recognition=transaction_data.disable_ai_recognition
         )
-        
+
         db.add(new_transaction)
         api_client.total_transactions_submitted += 1
         db.commit()
         db.refresh(new_transaction)
-        
+
         return ExternalTransactionResponse.model_validate(new_transaction)
-    
+
     # Create new transaction
     new_transaction = ExternalTransaction(
         user_id=api_client.user_id,
@@ -186,12 +193,12 @@ async def create_external_transaction(
         client_ip_address=request.client.host if request.client else None,
         disable_ai_recognition=transaction_data.disable_ai_recognition
     )
-    
+
     db.add(new_transaction)
     api_client.total_transactions_submitted += 1
     db.commit()
     db.refresh(new_transaction)
-    
+
     # Send webhook notification if configured
     if api_client.webhook_url:
         try:
@@ -210,7 +217,7 @@ async def create_external_transaction(
         except Exception:
             # Don't fail the transaction if webhook fails
             pass
-    
+
     return ExternalTransactionResponse.model_validate(new_transaction)
 
 
@@ -226,10 +233,10 @@ async def list_external_transactions(
     end_date: Optional[datetime] = Query(None)
 ):
     """List external transactions for the authenticated API client."""
-    
+
     # Require API authentication
     auth_context = require_api_auth(request)
-    
+
     # Get API client
     api_client = db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
@@ -241,38 +248,45 @@ async def list_external_transactions(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API client"
         )
-    
+
     # Build query
     query = db.query(ExternalTransaction).filter(
         ExternalTransaction.external_client_id == api_client.id,
         ExternalTransaction.tenant_id == api_client.tenant_id
     )
-    
+
     # Apply filters
     if transaction_type:
         query = query.filter(ExternalTransaction.transaction_type == transaction_type)
-    
+
     if status:
         query = query.filter(ExternalTransaction.status == status)
-    
+
     if start_date:
         query = query.filter(ExternalTransaction.date >= start_date)
-    
+
     if end_date:
         query = query.filter(ExternalTransaction.date <= end_date)
-    
+
     # Get total count
     total = query.count()
-    
+
     # Apply pagination
     offset = (page - 1) * per_page
-    transactions = query.order_by(ExternalTransaction.created_at.desc()).offset(offset).limit(per_page).all()
-    
+    transactions = (
+        query.order_by(ExternalTransaction.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
     # Calculate pagination info
     total_pages = (total + per_page - 1) // per_page
-    
+
     return ExternalTransactionList(
-        transactions=[ExternalTransactionResponse.model_validate(t) for t in transactions],
+        transactions=[
+            ExternalTransactionResponse.model_validate(t) for t in transactions
+        ],
         total=total,
         page=page,
         per_page=per_page,
@@ -287,10 +301,10 @@ async def get_external_transaction(
     db: Session = Depends(get_master_db)
 ):
     """Get a specific external transaction."""
-    
+
     # Require API authentication
     auth_context = require_api_auth(request)
-    
+
     # Get API client
     api_client = db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
@@ -302,7 +316,7 @@ async def get_external_transaction(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API client"
         )
-    
+
     # Find transaction
     transaction = db.query(ExternalTransaction).filter(
         and_(
@@ -317,7 +331,7 @@ async def get_external_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     return ExternalTransactionResponse.model_validate(transaction)
 
 
@@ -329,10 +343,10 @@ async def update_external_transaction(
     db: Session = Depends(get_master_db)
 ):
     """Update an external transaction."""
-    
+
     # Require API authentication
     auth_context = require_api_auth(request)
-    
+
     # Get API client
     api_client = db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
@@ -344,7 +358,7 @@ async def update_external_transaction(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API client"
         )
-    
+
     # Find transaction
     transaction = db.query(ExternalTransaction).filter(
         and_(
@@ -359,23 +373,23 @@ async def update_external_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     # Check if transaction can be updated
     if transaction.status in ["approved", "rejected"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot update approved or rejected transactions"
         )
-    
+
     # Update fields
     update_dict = update_data.dict(exclude_unset=True)
     for field, value in update_dict.items():
         setattr(transaction, field, value)
-    
+
     transaction.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(transaction)
-    
+
     # Send webhook notification if configured
     if api_client.webhook_url:
         try:
@@ -394,7 +408,7 @@ async def update_external_transaction(
         except Exception:
             # Don't fail the update if webhook fails
             pass
-    
+
     return ExternalTransactionResponse.model_validate(transaction)
 
 
@@ -412,12 +426,12 @@ async def ui_list_external_transactions(
     client_id: Optional[str] = Query(None)
 ):
     """List external transactions for UI (admin view)."""
-    
+
     # Build query
     query = db.query(ExternalTransaction).filter(
         ExternalTransaction.tenant_id == current_user.tenant_id
     )
-    
+
     # Filter by client if specified
     if client_id:
         api_client = db.query(APIClient).filter(
@@ -430,28 +444,35 @@ async def ui_list_external_transactions(
     # Apply filters
     if transaction_type:
         query = query.filter(ExternalTransaction.transaction_type == transaction_type)
-    
+
     if status:
         query = query.filter(ExternalTransaction.status == status)
-    
+
     if start_date:
         query = query.filter(ExternalTransaction.date >= start_date)
-    
+
     if end_date:
         query = query.filter(ExternalTransaction.date <= end_date)
-    
+
     # Get total count
     total = query.count()
-    
+
     # Apply pagination
     offset = (page - 1) * per_page
-    transactions = query.order_by(ExternalTransaction.created_at.desc()).offset(offset).limit(per_page).all()
-    
+    transactions = (
+        query.order_by(ExternalTransaction.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
     # Calculate pagination info
     total_pages = (total + per_page - 1) // per_page
-    
+
     return ExternalTransactionList(
-        transactions=[ExternalTransactionResponse.model_validate(t) for t in transactions],
+        transactions=[
+            ExternalTransactionResponse.model_validate(t) for t in transactions
+        ],
         total=total,
         page=page,
         per_page=per_page,
@@ -467,7 +488,7 @@ async def ui_review_external_transaction(
     db: Session = Depends(get_master_db)
 ):
     """Review and approve/reject an external transaction (UI)."""
-    
+
     # Find transaction
     transaction = db.query(ExternalTransaction).filter(
         and_(
@@ -481,22 +502,22 @@ async def ui_review_external_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transaction not found"
         )
-    
+
     # Update review fields
     if review_data.status:
         transaction.status = review_data.status
-    
+
     if review_data.review_notes:
         transaction.review_notes = review_data.review_notes
-    
+
     transaction.reviewed_by = current_user.id
     transaction.reviewed_at = datetime.now(timezone.utc)
     transaction.requires_review = False
     transaction.updated_at = datetime.now(timezone.utc)
-    
+
     db.commit()
     db.refresh(transaction)
-    
+
     # Send webhook notification if configured
     api_client = db.query(APIClient).filter(APIClient.id == transaction.external_client_id).first()
     if api_client and api_client.webhook_url:
@@ -511,11 +532,11 @@ async def ui_review_external_transaction(
                     "amount": float(transaction.amount),
                     "currency": transaction.currency,
                     "status": transaction.status,
-                    "reviewed_by": current_user.email
+                    "reviewed_by": current_user.email,
                 }
             )
         except Exception:
             # Don't fail the review if webhook fails
             pass
-    
+
     return ExternalTransactionResponse.model_validate(transaction)

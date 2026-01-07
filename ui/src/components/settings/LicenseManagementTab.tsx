@@ -90,9 +90,10 @@ export const LicenseManagementTab: React.FC = () => {
     .map(feature => {
       const enabledFeatureIds = licenseStatus?.enabled_features || [];
       const hasAllFeatures = licenseStatus?.has_all_features || enabledFeatureIds.includes('all');
+      let featureEnabled = enabledFeatureIds.includes(feature.id);
       return {
         ...feature,
-        enabled: hasAllFeatures || enabledFeatureIds.includes(feature.id)
+        enabled: hasAllFeatures || featureEnabled
       };
     });
 

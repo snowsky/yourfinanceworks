@@ -10,26 +10,26 @@ This document audits the current usage of `@require_feature` and `@require_busin
 
 ### ✅ Correctly Protected Features
 
-| Feature | Router | Decorator Used | Status |
-|---------|--------|----------------|--------|
-| `ai_invoice` | `ai.py` | `@require_feature("ai_invoice")` | ✅ Correct |
-| `ai_expense` | `ai.py` | `@require_feature("ai_expense")` | ✅ Correct (implied) |
-| `ai_chat` | `ai.py` | `@require_feature("ai_chat")` | ✅ Correct |
-| `ai_bank_statement` | `statements.py` | `@require_feature("ai_bank_statement")` | ✅ Correct |
-| `tax_integration` | `tax_integration.py` | `@require_feature("tax_integration")` | ✅ Correct (8 endpoints) |
-| `slack_integration` | `slack_simplified.py` | `@require_feature("slack_integration")` | ✅ Correct (2 endpoints) |
-| `batch_processing` | `batch_processing.py` | `@require_feature("batch_processing")` | ✅ Correct (3 endpoints) |
-| API Keys | `external_api_auth.py` | `@require_business_license` | ✅ Correct (6 endpoints) |
+| Feature             | Router                 | Decorator Used                          | Status                   |
+| ------------------- | ---------------------- | --------------------------------------- | ------------------------ |
+| `ai_invoice`        | `ai.py`                | `@require_feature("ai_invoice")`        | ✅ Correct               |
+| `ai_expense`        | `ai.py`                | `@require_feature("ai_expense")`        | ✅ Correct (implied)     |
+| `ai_chat`           | `ai.py`                | `@require_feature("ai_chat")`           | ✅ Correct               |
+| `ai_bank_statement` | `statements.py`        | `@require_feature("ai_bank_statement")` | ✅ Correct               |
+| `tax_integration`   | `tax_integration.py`   | `@require_feature("tax_integration")`   | ✅ Correct (8 endpoints) |
+| `slack_integration` | `slack_simplified.py`  | `@require_feature("slack_integration")` | ✅ Correct (2 endpoints) |
+| `batch_processing`  | `batch_processing.py`  | `@require_feature("batch_processing")`  | ✅ Correct (3 endpoints) |
+| API Keys            | `external_api_auth.py` | `@require_business_license`             | ✅ Correct (6 endpoints) |
 
 ### ⚠️ Missing Protection
 
-| Feature | Default | Router | Current Protection | Recommendation |
-|---------|---------|--------|-------------------|----------------|
-| `approvals` | `False` | `approvals.py` | ❌ None | Add `@require_feature("approvals")` |
-| `reporting` | `True` | `reports.py` | ❌ None | Optional (see below) |
-| `cloud_storage` | `False` | `azure_blob_provider.py` | ❌ None | Add `@require_feature("cloud_storage")` |
-| `sso` | `False` | N/A | ❌ None | Add when SSO endpoints exist |
-| `advanced_search` | `True` | N/A | ❌ None | Optional (core feature) |
+| Feature           | Default | Router                   | Current Protection | Recommendation                          |
+| ----------------- | ------- | ------------------------ | ------------------ | --------------------------------------- |
+| `approvals`       | `False` | `approvals.py`           | ❌ None            | Add `@require_feature("approvals")`     |
+| `reporting`       | `True`  | `reports.py`             | ❌ None            | Optional (see below)                    |
+| `cloud_storage`   | `False` | `azure_blob_provider.py` | ❌ None            | Add `@require_feature("cloud_storage")` |
+| `sso`             | `False` | N/A                      | ❌ None            | Add when SSO endpoints exist            |
+| `advanced_search` | `True`  | N/A                      | ❌ None            | Optional (core feature)                 |
 
 ---
 
@@ -38,6 +38,7 @@ This document audits the current usage of `@require_feature` and `@require_busin
 ### 1. Approvals Feature (`default: False`)
 
 **Current State:**
+
 - `approvals.py` has **NO** feature gate protection
 - All endpoints use only RBAC (`require_non_viewer`, `require_approval_permission`)
 - Feature is defined with `default: False` → should require licensing
@@ -54,6 +55,7 @@ router = APIRouter(
 ```
 
 **Rationale:**
+
 - Approval workflows are an advanced feature
 - Should require explicit licensing
 - Consistent with other `default: False` features
@@ -63,6 +65,7 @@ router = APIRouter(
 ### 2. Reporting Feature (`default: True`)
 
 **Current State:**
+
 - `reports.py` has **NO** feature gate protection
 - All endpoints use only RBAC (`require_non_viewer`)
 - Feature is defined with `default: True` → available without license
@@ -70,11 +73,13 @@ router = APIRouter(
 **Options:**
 
 #### Option A: Keep as Core Feature (`default: True`)
+
 - ✅ Basic reporting is essential for any business
 - ✅ Competitive with other tools
 - ❌ Less revenue from premium features
 
 #### Option B: Make Premium Feature (`default: False`)
+
 - ✅ Clear value proposition for paid licenses
 - ✅ Consistent with other advanced features
 - ❌ May frustrate users who expect basic reporting
@@ -82,6 +87,7 @@ router = APIRouter(
 **Recommendation:** 🤔 **BUSINESS DECISION REQUIRED**
 
 If you choose Option B, add:
+
 ```python
 # In api/routers/reports.py
 router = APIRouter(
@@ -96,6 +102,7 @@ router = APIRouter(
 ### 3. Cloud Storage Feature (`default: False`)
 
 **Current State:**
+
 - `azure_blob_provider.py` has **NO** feature gate protection
 - Service is used internally by other modules
 - Feature is defined with `default: False` → should require licensing
@@ -113,6 +120,7 @@ async def upload_to_cloud():
 ```
 
 **Alternative:** Add a check in the service itself:
+
 ```python
 # In azure_blob_provider.py
 def upload_file(self, ...):
@@ -126,6 +134,7 @@ def upload_file(self, ...):
 ### 4. SSO Feature (`default: False`)
 
 **Current State:**
+
 - No dedicated SSO router yet
 - OAuth endpoints exist in `auth.py` but not gated
 - Feature is defined with `default: False`
@@ -133,12 +142,13 @@ def upload_file(self, ...):
 **Recommendation:** 🔮 **FUTURE IMPLEMENTATION**
 
 When SSO endpoints are added, protect them:
+
 ```python
-@require_feature("sso_authentication")
+@require_feature("sso")
 async def google_oauth_login():
     pass
 
-@require_feature("sso_authentication")
+@require_feature("sso")
 async def azure_ad_oauth_login():
     pass
 ```
@@ -148,6 +158,7 @@ async def azure_ad_oauth_login():
 ### 5. Advanced Search Feature (`default: True`)
 
 **Current State:**
+
 - No dedicated advanced search router
 - Search functionality may be embedded in other endpoints
 - Feature is defined with `default: True` → core feature
@@ -170,6 +181,7 @@ If advanced search is a core feature, keep `default: True` and no gate needed.
 ### Medium Priority (Business Decision Required)
 
 2. **🤔 Decide on `reporting` feature**
+
    - Should it be `default: True` (core) or `default: False` (premium)?
    - Add protection if making it premium
 
@@ -233,13 +245,13 @@ router = APIRouter(
 
 ## Decision Matrix
 
-| Feature | Current Default | Should Gate? | Reason |
-|---------|----------------|--------------|--------|
-| `approvals` | `False` | ✅ YES | Premium feature, consistent with other `False` defaults |
-| `reporting` | `True` | 🤔 DECIDE | Business decision: core vs premium |
-| `advanced_search` | `True` | ❌ NO | Core functionality |
-| `cloud_storage` | `False` | ✅ YES | Premium integration, protect at usage points |
-| `sso` | `False` | ✅ YES | Premium auth method, implement when endpoints exist |
+| Feature           | Current Default | Should Gate? | Reason                                                  |
+| ----------------- | --------------- | ------------ | ------------------------------------------------------- |
+| `approvals`       | `False`         | ✅ YES       | Premium feature, consistent with other `False` defaults |
+| `reporting`       | `True`          | 🤔 DECIDE    | Business decision: core vs premium                      |
+| `advanced_search` | `True`          | ❌ NO        | Core functionality                                      |
+| `cloud_storage`   | `False`         | ✅ YES       | Premium integration, protect at usage points            |
+| `sso`             | `False`         | ✅ YES       | Premium auth method, implement when endpoints exist     |
 
 ---
 
@@ -251,4 +263,3 @@ router = APIRouter(
 4. **Future:** Protect SSO endpoints when implemented
 
 **Key Principle:** All features with `default: False` should have `@require_feature` protection to ensure consistent licensing enforcement.
-
