@@ -10,7 +10,7 @@ import logging
 from pydantic import BaseModel
 import os
 from datetime import datetime, timezone
-from config import APP_NAME
+from config import APP_NAME, config
 
 logger = logging.getLogger(__name__)
 
@@ -414,7 +414,7 @@ class EmailService:
         """Create password reset email message"""
         
         # Generate reset URL
-        reset_url = f"http://localhost:8080/reset-password?token={reset_token}"
+        reset_url = f"{config.UI_BASE_URL}/reset-password?token={reset_token}"
         
         # Create HTML template
         html_template = Template("""

@@ -1738,9 +1738,10 @@ async def request_password_reset(
             print(f"Error sending password reset email to {user.email}: {str(e)}")
     else:
         # Fallback: Log token if email service is not configured
+        from config import config
         print(f"Email service not configured for tenant {user.tenant_id}")
         print(f"Password reset token for {user.email}: {reset_token.token}")
-        print(f"Reset URL: http://localhost:8080/reset-password?token={reset_token.token}")
+        print(f"Reset URL: {config.UI_BASE_URL}/reset-password?token={reset_token.token}")
     
     return PasswordResetResponse(
         message="If the email address exists in our system, you will receive a password reset email shortly.",

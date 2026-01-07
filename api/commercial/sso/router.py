@@ -20,6 +20,7 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
 from core.utils.feature_gate import require_feature, check_feature
 from core.utils.auth import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +86,8 @@ async def google_login(request: Request, next: Optional[str] = None, db: Session
     # and enforce it in the callback once we know who they are.
 
     # Determine redirect URI (callback)
-    # Use UI_BASE_URL for external access (nginx on port 8080)
-    ui_base = os.getenv("UI_BASE_URL") or "http://localhost:8080"
+    # Use UI_BASE_URL from config
+    ui_base = config.UI_BASE_URL
     callback_url = f"{ui_base}/api/v1/auth/google/callback"
 
     # Generate state for CSRF protection

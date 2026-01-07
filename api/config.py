@@ -17,6 +17,9 @@ class Config:
     # API settings
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
+    
+    # UI settings
+    UI_BASE_URL: str = os.getenv("UI_BASE_URL", "http://localhost:8080")
 
     # Tax Service Integration settings
     TAX_SERVICE_ENABLED: bool = os.getenv("TAX_SERVICE_ENABLED", "false").lower() == "true"
