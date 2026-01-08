@@ -508,6 +508,11 @@
     "delete_success": "Rechnung erfolgreich in den Papierkorb verschoben",
     "delete_error": "Fehler beim Löschen der Rechnung",
     "delete_error_linked_expenses": "Rechnung kann nicht gelöscht werden, da verknüpfte Ausgaben vorhanden sind. Bitte trennen Sie zuerst die Verknüpfung auf oder löschen Sie die Ausgaben.",
+    "delete_single_title": "1 Rechnung in den Papierkorb verschieben",
+    "delete_single_description": "Sind Sie sicher, dass Sie diese Rechnung in den Papierkorb verschieben möchten? Sie können sie später wiederherstellen.",
+    "delete_multiple_title": "{{count}} Rechnungen in den Papierkorb verschieben",
+    "delete_multiple_description": "Sind Sie sicher, dass Sie {{count}} Rechnungen in den Papierkorb verschieben möchten? Sie können sie später wiederherstellen.",
+    "move_multiple_to_recycle_bin": "Alle in den Papierkorb verschieben",
     "invoice_created": "Rechnung erfolgreich erstellt",
     "invoice_updated": "Rechnung erfolgreich aktualisiert",
     "invoice_deleted": "Rechnung erfolgreich gelöscht",
@@ -2730,7 +2735,9 @@
     "original_filename": "Originaldateiname",
     "uploaded_at": "Hochgeladen am",
     "extracted_count": "Extrahierte Transaktionen",
-    "add_label_placeholder": "Label hinzufügen (Enter)"
+    "add_label_placeholder": "Label hinzufügen (Enter)",
+    "add_to_expense": "Zu Ausgabe hinzufügen",
+    "add_to_invoice": "Zu Rechnung hinzufügen"
   },
   "auditLog": {
     "title": "Audit-Log",

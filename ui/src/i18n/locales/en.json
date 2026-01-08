@@ -508,6 +508,8 @@
     "delete_success": "Invoice moved to recycle bin successfully",
     "delete_error": "Failed to delete invoice",
     "delete_error_linked_expenses": "Cannot delete invoice that has linked expenses. Please unlink or delete the expenses first.",
+    "delete_single_title": "Move 1 Invoice to Recycle Bin",
+    "delete_single_description": "Are you sure you want to move this invoice to the recycle bin? You can restore it later if needed.",
     "delete_multiple_title": "Move {{count}} Invoices to Recycle Bin",
     "delete_multiple_description": "Are you sure you want to move {{count}} invoices to the recycle bin? You can restore them later if needed.",
     "move_multiple_to_recycle_bin": "Move All to Recycle Bin",
@@ -748,6 +750,7 @@
     "paid_amount_updated": "Paid Amount Updated",
     "payment_reduced": "Payment Reduced",
     "payment_amount_changed_via_invoice_form": "Payment amount changed via invoice form",
+    "create_expense": "Create Expense",
     "client": "Client"
   },
   "clients": {
@@ -2878,7 +2881,9 @@
     "original_filename": "Original Filename",
     "uploaded_at": "Uploaded At",
     "extracted_count": "Extracted Transactions",
-    "add_label_placeholder": "Add label (Enter)"
+    "add_label_placeholder": "Add label (Enter)",
+    "add_to_expense": "Add to Expense",
+    "add_to_invoice": "Add to Invoice"
   },
   "auditLog": {
     "title": "Audit Log",

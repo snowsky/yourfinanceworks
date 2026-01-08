@@ -507,6 +507,11 @@
     "delete_success": "Factura movida a la papelera exitosamente",
     "delete_error": "Error al eliminar la factura",
     "delete_error_linked_expenses": "No se puede eliminar la factura que tiene gastos vinculados. Primero desvincule o elimine los gastos.",
+    "delete_single_title": "Mover 1 Factura a la Papelera de Reciclaje",
+    "delete_single_description": "¿Estás seguro de que quieres mover esta factura a la papelera de reciclaje? Puedes restaurarla más tarde.",
+    "delete_multiple_title": "Mover {{count}} Facturas a la Papelera de Reciclaje",
+    "delete_multiple_description": "¿Estás seguro de que quieres mover {{count}} facturas a la papelera de reciclaje? Puedes restaurarlas más tarde.",
+    "move_multiple_to_recycle_bin": "Mover Todo a la Papelera de Reciclaje",
     "invoice_created": "Factura creada exitosamente",
     "invoice_updated": "Factura actualizada exitosamente",
     "invoice_deleted": "Factura eliminada exitosamente",
@@ -2865,7 +2870,9 @@
     "original_filename": "Nombre de Archivo Original",
     "uploaded_at": "Subido el",
     "extracted_count": "Transacciones Extraídas",
-    "add_label_placeholder": "Agregar etiqueta (Enter)"
+    "add_label_placeholder": "Agregar etiqueta (Enter)",
+    "add_to_expense": "Agregar a Gasto",
+    "add_to_invoice": "Agregar a Factura"
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Considere implementar condiciones de pago más estrictas.",

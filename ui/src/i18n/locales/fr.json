@@ -504,6 +504,11 @@
     "delete_success": "Facture déplacée vers la corbeille avec succès",
     "delete_error": "Échec de la suppression de la facture",
     "delete_error_linked_expenses": "Impossible de supprimer une facture qui contient des dépenses liées. Veuillez d'abord dissocier ou supprimer les dépenses.",
+    "delete_single_title": "Déplacer 1 Facture vers la Corbeille",
+    "delete_single_description": "Êtes-vous sûr de vouloir déplacer cette facture vers la corbeille ? Vous pouvez la restaurer plus tard.",
+    "delete_multiple_title": "Déplacer {{count}} Factures vers la Corbeille",
+    "delete_multiple_description": "Êtes-vous sûr de vouloir déplacer {{count}} factures vers la corbeille ? Vous pouvez les restaurer plus tard.",
+    "move_multiple_to_recycle_bin": "Déplacer Tout vers la Corbeille",
     "invoice_created": "Facture créée avec succès",
     "invoice_updated": "Facture mise à jour avec succès",
     "invoice_deleted": "Facture supprimée avec succès",
@@ -2760,7 +2765,9 @@
     "original_filename": "Nom de Fichier Original",
     "uploaded_at": "Téléversé le",
     "extracted_count": "Transactions Extraites",
-    "add_label_placeholder": "Ajouter une étiquette (Entrée)"
+    "add_label_placeholder": "Ajouter une étiquette (Entrée)",
+    "add_to_expense": "Ajouter à une Dépense",
+    "add_to_invoice": "Ajouter à une Facture"
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Envisagez de mettre en place des conditions de paiement plus strictes.",

@@ -518,93 +518,6 @@ async def get_statement(
     }
 
 
-@router.post("/{statement_id}/reprocess", response_model=Dict[str, Any])
-@require_feature("ai_bank_statement")
-async def reprocess_statement(
-    statement_id: int,
-    db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user),
-):
-    """Requeue or inline-process a bank statement again.
-    Prevents duplicate reprocess requests that would send multiple Kafka messages.
-    """
-    require_non_viewer(current_user, "reprocess bank statement")
-    try:
-        from core.models.database import get_tenant_context
-        tenant_id = get_tenant_context()
-    except Exception:
-        tenant_id = None
-    if tenant_id is None:
-        raise HTTPException(status_code=401, detail="Tenant context required")
-
-    s = (
-        db.query(BankStatement)
-        .options(joinedload(BankStatement.created_by))
-        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id)
-        .first()
-    )
-    if not s:
-        raise HTTPException(status_code=404, detail="Statement not found")
-
-    # Import ProcessingLock model
-    from core.models.processing_lock import ProcessingLock
-
-    # Check if statement is already being processed
-    if ProcessingLock.is_locked(db, "bank_statement", statement_id):
-        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
-        return {
-            "success": True,
-            "message": "Statement is already being processed",
-            "status": "already_processing",
-            "lock_info": lock_info
-        }
-
-    # Acquire processing lock
-    request_id = f"reprocess_statement_{statement_id}_{datetime.utcnow().timestamp()}"
-    if not ProcessingLock.acquire_lock(
-        db, "bank_statement", statement_id, current_user.id,
-        lock_duration_minutes=30, metadata={"request_id": request_id}
-    ):
-        # Lock was acquired by someone else between check and acquire
-        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
-        return {
-            "success": True,
-            "message": "Statement is already being processed by another request",
-            "status": "already_processing",
-            "lock_info": lock_info
-        }
-
-    try:
-        # Mark as processing again
-        try:
-            s.status = "processing"
-            db.commit()
-        except Exception:
-            db.rollback()
-
-        # Publish Kafka task
-        ok = publish_bank_statement_task({
-            "tenant_id": tenant_id,
-            "statement_id": statement_id,
-            "file_path": s.file_path,
-            "ts": datetime.utcnow().isoformat(),
-        })
-        if not ok:
-            # Release lock on failure
-            ProcessingLock.release_lock(db, "bank_statement", statement_id)
-            raise HTTPException(status_code=500, detail="Failed to enqueue reprocess task")
-
-        logger.info(f"Reprocess started for bank statement {statement_id} by user {current_user.id} (request_id: {request_id})")
-        return {"success": True, "message": "Reprocessing started", "request_id": request_id}
-
-    except Exception as e:
-        # Release lock on failure
-        try:
-            ProcessingLock.release_lock(db, "bank_statement", statement_id)
-        except:
-            pass
-        logger.error(f"Failed to reprocess bank statement {statement_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to reprocess statement")
 
 
 @router.put("/{statement_id}", response_model=Dict[str, Any])
@@ -996,7 +909,7 @@ async def reprocess_statement(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    """Reprocess a bank statement's analysis."""
+    """Reprocess a bank statement's analysis with proper status reset and duplicate prevention."""
     require_non_viewer(current_user, "reprocess statement")
     
     try:
@@ -1007,6 +920,19 @@ async def reprocess_statement(
     if tenant_id is None:
         raise HTTPException(status_code=401, detail="Tenant context required")
 
+    # Import ProcessingLock model
+    from core.models.processing_lock import ProcessingLock
+
+    # Check if statement is already being processed
+    if ProcessingLock.is_locked(db, "bank_statement", statement_id):
+        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
+        return {
+            "success": True,
+            "message": "Statement is already being processed",
+            "status": "already_processing",
+            "lock_info": lock_info
+        }
+
     s = db.query(BankStatement).filter(
         BankStatement.id == statement_id, 
         BankStatement.tenant_id == tenant_id,
@@ -1016,33 +942,55 @@ async def reprocess_statement(
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
 
-    # Update status to processing
-    s.status = "processing"
-    s.analysis_error = None
-    s.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
-    db.commit()
+    # Acquire processing lock
+    request_id = f"reprocess_statement_{statement_id}_{datetime.utcnow().timestamp()}"
+    if not ProcessingLock.acquire_lock(
+        db, "bank_statement", statement_id, current_user.id,
+        lock_duration_minutes=30, metadata={"request_id": request_id}
+    ):
+        # Lock was acquired by someone else between check and acquire
+        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
+        return {
+            "success": True,
+            "message": "Statement is already being processed by another request",
+            "status": "already_processing",
+            "lock_info": lock_info
+        }
 
-    # Enqueue processing task
-    await publish_bank_statement_task({
-        "statement_id": s.id,
-        "file_path": s.file_path,
-        "tenant_id": tenant_id,
-        "attempt": 0
-    })
+    try:
+        # Update status to processing and clear error (KEY FIX)
+        s.status = "processing"
+        s.analysis_error = None  # This was missing in removed endpoint
+        s.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
+        db.commit()
 
-    await log_audit_event(
-        db,
-        "statement_reprocess",
-        f"Reprocessed statement: {s.original_filename}",
-        current_user.id,
-        {"statement_id": s.id}
-    )
+        # Enqueue processing task (sync call)
+        publish_bank_statement_task({
+            "statement_id": s.id,
+            "file_path": s.file_path,
+            "tenant_id": tenant_id,
+            "attempt": 0
+        })
 
-    return {
-        "success": True,
-        "message": "Statement reprocessing started",
-        "status": "processing"
-    }
+        await log_audit_event(
+            db,
+            "statement_reprocess",
+            f"Reprocessed statement: {s.original_filename}",
+            current_user.id,
+            {"statement_id": s.id}
+        )
+
+        logger.info(f"Reprocess started for bank statement {statement_id} by user {current_user.id} (request_id: {request_id})")
+        return {"success": True, "message": "Reprocessing started", "request_id": request_id}
+
+    except Exception as e:
+        # Release lock on failure
+        try:
+            ProcessingLock.release_lock(db, "bank_statement", statement_id)
+        except:
+            pass
+        logger.error(f"Failed to reprocess bank statement {statement_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reprocess statement")
 
 
 @router.delete("/{statement_id}", response_model=RecycleBinStatementResponse)

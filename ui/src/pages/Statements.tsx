@@ -1064,7 +1064,7 @@ export default function Statements() {
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {(s.status === 'failed' || s.status === 'processed') && (
+                          {(s.status === 'failed' || s.status === 'processed' || s.status === 'uploaded') && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1275,7 +1275,7 @@ export default function Statements() {
                     {t('statements.download')}
                   </ProfessionalButton>
 
-                  {(detail?.status === 'failed' || detail?.status === 'processed') && (
+                  {(detail?.status === 'failed' || detail?.status === 'processed' || detail?.status === 'uploaded') && (
                     <ProfessionalButton
                       variant="outline"
                       onClick={async () => {
