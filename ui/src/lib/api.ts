@@ -1935,7 +1935,8 @@ export const expenseApi = {
     if (opts.search) params.set('search', opts.search);
     const qs = params.toString();
     const url = `/expenses/${qs ? `?${qs}` : ''}`;
-    return apiRequest<Expense[]>(url);
+    const response = await apiRequest<{ success: boolean; expenses: Expense[]; total: number }>(url);
+    return response.expenses;
   },
   getExpensesPaginated: async (opts: { category?: string; label?: string; invoiceId?: number; unlinkedOnly?: boolean; skip?: number; limit?: number; excludeStatus?: string; search?: string } = {}) => {
     const params = new URLSearchParams();

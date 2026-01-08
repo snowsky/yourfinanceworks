@@ -1022,13 +1022,13 @@ const Invoices = () => {
             <AlertDialogTitle>
               {selectedIds.length === 1
                 ? t('invoices.delete_single_title', 'Move 1 Invoice to Recycle Bin')
-                : t('invoices.delete_multiple_title', `Move ${selectedIds.length} Invoices to Recycle Bin`)
+                : t('invoices.delete_multiple_title', 'Move {{count}} Invoices to Recycle Bin', { count: selectedIds.length })
               }
             </AlertDialogTitle>
             <AlertDialogDescription>
               {selectedIds.length === 1
                 ? t('invoices.delete_single_description', 'Are you sure you want to move this invoice to the recycle bin? You can restore it later if needed.')
-                : t('invoices.delete_multiple_description', `Are you sure you want to move ${selectedIds.length} invoices to the recycle bin? You can restore them later if needed.`)
+                : t('invoices.delete_multiple_description', 'Are you sure you want to move {{count}} invoices to the recycle bin? You can restore them later if needed.', { count: selectedIds.length })
               }
             </AlertDialogDescription>
           </AlertDialogHeader>

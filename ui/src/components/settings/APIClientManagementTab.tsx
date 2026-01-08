@@ -105,7 +105,7 @@ const OAUTH_SCOPES = [
 export const APIClientManagementTab: React.FC = () => {
   return (
     <FeatureGate
-      feature="api_keys"
+      feature="external_api"
       fallback={
         <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
           <ProfessionalCardContent className="p-12 text-center">
@@ -950,28 +950,24 @@ const APIClientManagementContent: React.FC = () => {
                     value={client.api_key_prefix}
                     icon={Key}
                     variant="default"
-                    className="bg-card shadow-sm"
                   />
                   <MetricCard
                     title="Total Requests"
                     value={client.total_requests.toLocaleString()}
                     icon={Activity}
                     variant="default"
-                    className="bg-card shadow-sm"
                   />
                   <MetricCard
                     title="Last Used"
                     value={client.last_used_at ? new Date(client.last_used_at).toLocaleDateString() : 'Never'}
                     icon={Clock}
                     variant={client.last_used_at ? "success" : "default"}
-                    className="bg-card shadow-sm"
                   />
                   <MetricCard
                     title="Created On"
                     value={new Date(client.created_at).toLocaleDateString()}
                     icon={Calendar}
                     variant="default"
-                    className="bg-card shadow-sm"
                   />
                 </div>
 
