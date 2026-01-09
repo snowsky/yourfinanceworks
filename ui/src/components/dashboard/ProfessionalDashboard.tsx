@@ -33,6 +33,11 @@ interface DashboardStats {
   invoicesPaid: number;
   invoicesPending: number;
   invoicesOverdue: number;
+  paymentTrends: {
+    onTimePaymentRate: number;
+    averagePaymentTime: number;
+    overdueRate: number;
+  };
   trends: {
     income: { value: number; isPositive: boolean };
     pending: { value: number; isPositive: boolean };
@@ -52,6 +57,11 @@ export function ProfessionalDashboard() {
     invoicesPaid: 0,
     invoicesPending: 0,
     invoicesOverdue: 0,
+    paymentTrends: {
+      onTimePaymentRate: 0,
+      averagePaymentTime: 0,
+      overdueRate: 0
+    },
     trends: {
       income: { value: 0, isPositive: true },
       pending: { value: 0, isPositive: true },
@@ -389,7 +399,7 @@ export function ProfessionalDashboard() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.on_time_payments')}</span>
                 </div>
-                <span className="text-lg font-bold text-green-600">87%</span>
+                <span className="text-lg font-bold text-green-600">{dashboardStats.paymentTrends.onTimePaymentRate}%</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
@@ -397,7 +407,7 @@ export function ProfessionalDashboard() {
                   <Clock className="h-4 w-4 text-yellow-600" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.average_payment_time')}</span>
                 </div>
-                <span className="text-lg font-bold text-yellow-600">12 days</span>
+                <span className="text-lg font-bold text-yellow-600">{dashboardStats.paymentTrends.averagePaymentTime} days</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
@@ -405,7 +415,7 @@ export function ProfessionalDashboard() {
                   <AlertCircle className="h-4 w-4 text-red-600" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.overdue_rate')}</span>
                 </div>
-                <span className="text-lg font-bold text-red-600">8%</span>
+                <span className="text-lg font-bold text-red-600">{dashboardStats.paymentTrends.overdueRate}%</span>
               </div>
             </div>
           </div>

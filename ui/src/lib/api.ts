@@ -2,6 +2,28 @@ import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, User, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate } from '@/types';
 
+// Import DashboardStats type from the dashboard component
+interface DashboardStats {
+  totalIncome: Record<string, number>;
+  pendingInvoices: Record<string, number>;
+  totalExpenses: Record<string, number>;
+  totalClients: number;
+  invoicesPaid: number;
+  invoicesPending: number;
+  invoicesOverdue: number;
+  paymentTrends: {
+    onTimePaymentRate: number;
+    averagePaymentTime: number;
+    overdueRate: number;
+  };
+  trends: {
+    income: { value: number; isPositive: boolean };
+    pending: { value: number; isPositive: boolean };
+    clients: { value: number; isPositive: boolean };
+    overdue: { value: number; isPositive: boolean };
+  };
+}
+
 // Define recycle bin types
 export interface DeletedExpense extends Expense {
   is_deleted: boolean;
@@ -2147,7 +2169,7 @@ export const expenseApi = {
 
 // Dashboard API
 export const dashboardApi = {
-  getStats: async () => {
+  getStats: async (): Promise<DashboardStats> => {
     try {
       const [clientsData, invoicesData, payments] = await Promise.all([
         clientApi.getClients(0, 1000), // get more for dashboard
@@ -2281,19 +2303,46 @@ export const dashboardApi = {
       const clientsTrend = calculatePercentageChange(currentMonthClients, previousMonthClients);
       const overdueTrend = calculatePercentageChange(currentMonthOverdue, previousMonthOverdue);
 
-      console.log('Trend calculations:', {
-        currentMonthIncome,
-        previousMonthIncome,
-        incomeTrend,
-        currentMonthPending,
-        previousMonthPending,
-        pendingTrend,
-        currentMonthClients,
-        previousMonthClients,
-        clientsTrend,
-        currentMonthOverdue,
-        previousMonthOverdue,
-        overdueTrend
+      // Calculate real payment trends metrics
+      let onTimePaymentRate = 0;
+      let averagePaymentTime = 0;
+      let overdueRate = 0;
+
+      if (invoices && invoices.length > 0) {
+        const paidInvoices = invoices.filter(inv => inv.status === 'paid' || inv.status === 'partially_paid');
+        const overdueInvoices = invoices.filter(inv => inv.status === 'overdue');
+        
+        // Calculate on-time payment rate
+        if (paidInvoices.length > 0) {
+          const onTimePayments = paidInvoices.filter(invoice => {
+            if (!invoice.due_date || !invoice.updated_at) return false;
+            const dueDate = new Date(invoice.due_date);
+            const paidDate = new Date(invoice.updated_at);
+            return paidDate <= dueDate;
+          });
+          onTimePaymentRate = Math.round((onTimePayments.length / paidInvoices.length) * 100);
+        }
+
+        // Calculate average payment time (in days)
+        if (paidInvoices.length > 0) {
+          const totalPaymentDays = paidInvoices.reduce((sum, invoice) => {
+            if (!invoice.date || !invoice.updated_at) return sum;
+            const createdDate = new Date(invoice.date);
+            const paidDate = new Date(invoice.updated_at);
+            const daysDiff = Math.ceil((paidDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+            return sum + daysDiff;
+          }, 0);
+          averagePaymentTime = Math.round(totalPaymentDays / paidInvoices.length);
+        }
+
+        // Calculate overdue rate
+        overdueRate = Math.round((overdueInvoices.length / invoices.length) * 100);
+      }
+
+      console.log('Payment trends calculations:', {
+        onTimePaymentRate,
+        averagePaymentTime,
+        overdueRate
       });
 
       return {
@@ -2304,6 +2353,11 @@ export const dashboardApi = {
         invoicesPaid,
         invoicesPending,
         invoicesOverdue,
+        paymentTrends: {
+          onTimePaymentRate,
+          averagePaymentTime,
+          overdueRate
+        },
         trends: {
           income: { value: Math.round(incomeTrend * 10) / 10, isPositive: incomeTrend >= 0 },
           pending: { value: Math.round(pendingTrend * 10) / 10, isPositive: pendingTrend >= 0 },
@@ -2321,6 +2375,11 @@ export const dashboardApi = {
         invoicesPaid: 0,
         invoicesPending: 0,
         invoicesOverdue: 0,
+        paymentTrends: {
+          onTimePaymentRate: 0,
+          averagePaymentTime: 0,
+          overdueRate: 0
+        },
         trends: {
           income: { value: 0, isPositive: true },
           pending: { value: 0, isPositive: true },
