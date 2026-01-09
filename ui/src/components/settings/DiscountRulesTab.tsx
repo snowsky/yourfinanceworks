@@ -189,9 +189,9 @@ export const DiscountRulesTab: React.FC<DiscountRulesTabProps> = ({
                     ) : discountRules.length === 0 ? (
                         <div className="text-center py-12 bg-muted/10 rounded-xl border-2 border-dashed border-border">
                             <Percent className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                            <p className="text-muted-foreground font-medium">{t('settings.no_discount_rules')}</p>
+                                <p className="text-muted-foreground font-medium">{t('settings.discount_rules.no_discount_rules')}</p>
                             <p className="text-sm text-muted-foreground mt-2">
-                                {t('settings.add_discount_rules_hint')}
+                                {t('settings.discount_rules.add_discount_rules_hint')}
                             </p>
                         </div>
                     ) : (

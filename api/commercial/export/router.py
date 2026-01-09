@@ -19,10 +19,11 @@ from core.schemas.export_destination import (
     ExportDestinationCreate,
     ExportDestinationUpdate,
     ExportDestinationResponse,
-    ExportDestinationList,
-    ExportDestinationTestResult
+    ExportDestinationTestResult,
+    ExportDestinationList
 )
-from core.utils.rbac import require_admin, require_non_viewer
+from core.utils.feature_gate import require_feature
+from core.utils.rbac import require_non_viewer, require_admin
 from core.utils.audit import log_audit_event
 from core.utils.feature_gate import check_feature, check_feature_read_only
 
@@ -62,14 +63,14 @@ def get_api_key_auth(
 
 
 def get_export_destination_service(
-    db: Session = Depends(get_db),
+    tenant_db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ) -> ExportDestinationService:
     """
     Dependency to get ExportDestinationService with tenant context.
     Uses JWT authentication (standard user authentication).
     """
-    return ExportDestinationService(db, current_user.tenant_id)
+    return ExportDestinationService(tenant_db, current_user.tenant_id)
 
 
 # ============================================================================
@@ -83,9 +84,11 @@ def get_export_destination_service(
     summary="Create export destination",
     description="Create a new export destination configuration with encrypted credentials"
 )
+@require_feature("advanced_export")
 async def create_export_destination(
     destination: ExportDestinationCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
     service: ExportDestinationService = Depends(get_export_destination_service)
 ):
@@ -95,8 +98,6 @@ async def create_export_destination(
     Requires admin or write permissions.
     Credentials are encrypted before storage.
     """
-    # Check if export_destinations feature is enabled
-    check_feature("advanced_export", db)
     
     # Check permissions
     require_non_viewer(current_user, "create export destinations")
@@ -169,12 +170,14 @@ async def create_export_destination(
     summary="List export destinations",
     description="List all export destinations for the authenticated tenant"
 )
+@require_feature("advanced_export")
 async def list_export_destinations(
     active_only: bool = True,
     destination_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
     service: ExportDestinationService = Depends(get_export_destination_service)
 ):
@@ -187,8 +190,6 @@ async def list_export_destinations(
     Includes connection test status.
     Supports pagination.
     """
-    # Check if advanced_export feature is enabled for read access
-    check_feature_read_only("advanced_export", db)
     
     try:
         # Get destinations

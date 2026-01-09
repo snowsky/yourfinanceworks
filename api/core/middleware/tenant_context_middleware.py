@@ -372,7 +372,7 @@ async def tenant_context_middleware(request: Request, call_next):
                     status_code=response.status_code
                 )
             except Exception as e:
-                logger.error(f"Analytics tracking failed: {str(e)}")
+                logger.debug(f"Analytics tracking failed: {str(e)}")
 
         return response
     finally:

@@ -112,7 +112,6 @@ const Login = () => {
     const errorParam = params.get('error');
     if (errorParam === 'sso_license_required') {
       setError(t('auth.sso_license_required_recovery'));
-      toast.warning(t('auth.sso_license_required_recovery'), { duration: 10000 });
     }
   }, [t]);
 

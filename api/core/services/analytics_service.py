@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 import os
+from concurrent.futures import ThreadPoolExecutor
 from core.models.database import get_master_db
 from core.models.analytics import PageView
 from core.services.external_analytics import external_analytics
@@ -8,17 +9,24 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Thread pool for blocking database operations
+_analytics_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="analytics_")
+
 class AnalyticsService:
     @staticmethod
     def track_page_view(user_email: str, tenant_id: int, path: str, method: str, 
                        user_agent: str, ip_address: str, response_time_ms: int, status_code: int):
         """Track page view asynchronously to avoid blocking requests"""
         try:
-            # Run in background to avoid blocking the request
-            asyncio.create_task(AnalyticsService._save_page_view(
+            # Run database operation in thread pool to avoid blocking the request
+            # and to properly manage database connections
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(
+                _analytics_executor,
+                AnalyticsService._save_page_view_sync,
                 user_email, tenant_id, path, method, user_agent, 
                 ip_address, response_time_ms, status_code
-            ))
+            )
             
             # Send to external analytics services
             event_data = {
@@ -31,14 +39,17 @@ class AnalyticsService:
                 "response_time_ms": response_time_ms,
                 "status_code": status_code
             }
-            asyncio.create_task(external_analytics.send_event(event_data))
+            try:
+                asyncio.create_task(external_analytics.send_event(event_data))
+            except Exception as e:
+                logger.debug(f"Failed to send external analytics: {e}")
         except Exception as e:
-            logger.error(f"Failed to track page view: {e}")
+            logger.debug(f"Failed to track page view: {e}")
     
     @staticmethod
-    async def _save_page_view(user_email: str, tenant_id: int, path: str, method: str,
-                             user_agent: str, ip_address: str, response_time_ms: int, status_code: int):
-        """Save page view to database"""
+    def _save_page_view_sync(user_email: str, tenant_id: int, path: str, method: str,
+                            user_agent: str, ip_address: str, response_time_ms: int, status_code: int):
+        """Save page view to database - runs in thread pool"""
         try:
             master_db = next(get_master_db())
             try:
@@ -58,6 +69,6 @@ class AnalyticsService:
             finally:
                 master_db.close()
         except Exception as e:
-            logger.error(f"Failed to save page view: {e}")
+            logger.debug(f"Failed to save page view: {e}")
 
 analytics_service = AnalyticsService()

@@ -1103,6 +1103,8 @@ class LicenseService:
             licensed_features = installation.licensed_features or []
             if tier == "core":
                 return True  # Core features always available with active license
+            if "all" in licensed_features:
+                return True
             return feature_id in licensed_features
 
         # No active license or trial

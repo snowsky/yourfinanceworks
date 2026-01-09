@@ -40,29 +40,35 @@ from core.routers import (
     user_preference_controls  # Add the user preference controls router
 )
 
+# Configure logging early so we can use it in imports
+logging.basicConfig(level=logging.INFO)  # Ensure INFO logs are shown
+logger = logging.getLogger(__name__)
+
 # Import Commercial Modules (Conditional)
 try:
-    from commercial.cloud_storage import router as cloud_storage
-    from commercial.integrations.tax import router as tax_integration
-    from commercial.integrations.slack import router as slack_simplified
-    from commercial.integrations.email import router as email_integration
-    from commercial.api_access import router as external_api_auth
-    from commercial.workflows.approvals import router as approvals
+    from commercial.cloud_storage.router import router as cloud_storage
+    from commercial.integrations.tax.router import router as tax_integration
+    from commercial.integrations.slack.router import router as slack_simplified
+    from commercial.integrations.email.router import router as email_integration
+    from commercial.api_access.router import router as external_api_auth
+    from commercial.workflows.approvals.router import router as approvals
     from commercial.routers import approval_reports
-    from commercial.batch_processing import router as batch_processing
-    from commercial.ai import router as ai
-    from commercial.ai import config_router as ai_config
-    from commercial.ai import pdf_processor
-    from commercial.export import router as export_router
-    from commercial.sso import router as sso_router
-    from commercial.ai_bank_statement import router as statements
-    from commercial.reporting import router as reports
-    from commercial.advanced_search import router as search
-    from commercial.prompt_management import router as prompts
-    from commercial.ai_bank_statement import external_router as external_api
-    from commercial.external_transactions import router as external_transactions
+    from commercial.batch_processing.router import router as batch_processing
+    from commercial.ai.router import router as ai
+    from commercial.ai.config_router import router as ai_config
+    from commercial.ai.pdf_processor import router as pdf_processor
+    from commercial.export.router import router as export_router
+    from commercial.sso.router import router as sso_router
+    from commercial.ai_bank_statement.router import router as statements
+    from commercial.reporting.router import router as reports
+    from commercial.advanced_search.router import router as search
+    from commercial.prompt_management.router import router as prompts
+    from commercial.ai_bank_statement.external_router import router as external_api
+    from commercial.external_transactions.router import router as external_transactions
     COMMERCIAL_MODULES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    logger.error(f"Failed to import commercial modules: {str(e)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
     cloud_storage = None
     tax_integration = None
     slack_simplified = None
@@ -74,6 +80,7 @@ except ImportError:
     ai = None
     ai_config = None
     pdf_processor = None
+    export_router = None
     sso_router = None
     statements = None
     reports = None
@@ -87,10 +94,6 @@ from core.models import models
 
 from db_init import init_db
 from core.services.search_indexer import search_indexer
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)  # Ensure INFO logs are shown
-logger = logging.getLogger(__name__)
 
 # Initialize database (create tables and populate initial data)
 try:
@@ -394,51 +397,63 @@ if sso_router:
     app.include_router(sso_router, prefix="/api/v1")
 
 if ai:
-    app.include_router(ai.router, prefix="/api/v1")  # Include the new AI router
+    app.include_router(ai, prefix="/api/v1")
 if ai_config:
-    app.include_router(ai_config.router, prefix="/api/v1")  # Include the new AI config router
+    app.include_router(ai_config, prefix="/api/v1")
 if pdf_processor:
-    app.include_router(pdf_processor.router, prefix="/api/v1")  # Include the new PDF processor router
+    app.include_router(pdf_processor, prefix="/api/v1")
 
 if tax_integration:
-    app.include_router(tax_integration.router, prefix="/api/v1")  # Include the new tax integration router
+    app.include_router(tax_integration, prefix="/api/v1")
 if email_integration:
-    app.include_router(email_integration.router, prefix="/api/v1")
+    app.include_router(email_integration, prefix="/api/v1")
 if slack_simplified:
-    app.include_router(slack_simplified.router, prefix="/api/v1")  # Include the new simplified Slack router
+    app.include_router(slack_simplified, prefix="/api/v1")
 
 if cloud_storage:
-    app.include_router(cloud_storage.router, prefix="/api/v1")  # Include the new cloud storage router
+    app.include_router(cloud_storage, prefix="/api/v1")
 if export_router:
-    app.include_router(export_router.router, prefix="/api/v1")  # Include the export destinations router
+    app.include_router(export_router, prefix="/api/v1")
 if batch_processing:
-    app.include_router(batch_processing.router, prefix="/api/v1")  # Include the batch processing router
+    app.include_router(batch_processing, prefix="/api/v1")
 
 if external_api_auth:
-    app.include_router(external_api_auth.router, prefix="/api/v1")  # Include the new external API auth router
+    app.include_router(external_api_auth, prefix="/api/v1")
 
 if approvals:
-    app.include_router(approvals.router, prefix="/api/v1")  # Include the new approvals router
+    app.include_router(approvals, prefix="/api/v1")
 if approval_reports:
-    app.include_router(approval_reports.router, prefix="/api/v1")  # Include the new approval reports router
+    app.include_router(approval_reports.router, prefix="/api/v1")
 
 if statements:
-    app.include_router(statements.router, prefix="/api/v1")  # Include the new statements router
+    app.include_router(statements, prefix="/api/v1")
 
 if reports:
-    app.include_router(reports.router, prefix="/api/v1")
+    app.include_router(reports, prefix="/api/v1")
 
 if search:
-    app.include_router(search.router, prefix="/api/v1")
+    logger.info("Registering advanced_search router")
+    app.include_router(search, prefix="/api/v1")
+else:
+    logger.warning("advanced_search router is None - not registering")
 
 if prompts:
-    app.include_router(prompts.router, prefix="/api/v1")
+    logger.info("Registering prompt_management router")
+    app.include_router(prompts, prefix="/api/v1")
+else:
+    logger.warning("prompt_management router is None - not registering")
 
 if external_api:
-    app.include_router(external_api.router, prefix="/api/v1")
+    logger.info("Registering external_api router")
+    app.include_router(external_api, prefix="/api/v1")
+else:
+    logger.warning("external_api router is None - not registering")
 
 if external_transactions:
-    app.include_router(external_transactions.router, prefix="/api/v1")
+    logger.info("Registering external_transactions router")
+    app.include_router(external_transactions, prefix="/api/v1")
+else:
+    logger.warning("external_transactions router is None - not registering")
 
 @app.get("/")
 def read_root():
