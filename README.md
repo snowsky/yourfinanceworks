@@ -1,17 +1,19 @@
 # YourFinanceWORKS
 
-A modern, multi-tenant financial management system built with FastAPI and React, with mobile app support for iOS and Android. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with comprehensive CRM capabilities and data management features.
+A modern, AI-powered multi-tenant financial management system. This application allows businesses to manage clients, create invoices, track payments, and generate professional PDF invoices with intelligent automation, smart expense categorization, natural language queries, MCP-powered AI chat, and comprehensive data management features.
 
 ## 🚀 Features
 
 ### Core Financial Management
-- **Client Management** - Complete CRM system with client profiles, contact information, and interaction history
+
+- **Client Management** - Manage client profiles, contact information, and interaction history
 - **Invoice Creation** - Generate professional invoices with automatic numbering, item management, and tax calculations
 - **Payment Tracking** - Monitor payment status, record partial payments, and automated payment reminders
 - **Expense Management** - Track business expenses with categorization, receipt attachments, and approval workflows
 - **Financial Dashboard** - Real-time overview of revenue, expenses, outstanding payments, and cash flow
 
 ### 📊 Advanced Financial Features
+
 - **Bank Statement Processing** - Upload and automatically extract transactions from bank statement PDFs
 - **Financial Reporting** - Generate comprehensive reports including profit/loss statements and cash flow analysis
 - **Multi-Currency Support** - Handle international transactions with automatic currency conversion
@@ -19,27 +21,23 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 - **Budget Tracking** - Set budgets and monitor spending against financial goals
 
 ### 🤖 AI-Powered Business Intelligence
+
 - **Smart Invoice Analysis** - AI analyzes invoice patterns and provides business insights
 - **Automated Expense Categorization** - AI automatically categorizes expenses based on descriptions
 - **Business Recommendations** - Get actionable suggestions based on your financial data
-- **Natural Language Queries** - Ask questions about your business finances in plain English
-- **Fraud Detection** - AI identifies unusual transactions and potential issues
+- **MCP-Powered AI Chat** - Natural language queries using Model Context Protocol to access real business data
+- **Intelligent Business Queries** - Ask questions like "Who owes me money?" or "Show me overdue invoices"
 
 ### 🏢 Enterprise Features
+
 - **Multi-Tenant Architecture** - Separate, secure databases for each organization
 - **Role-Based Access Control** - Granular permissions for admin, user, and viewer roles
 - **Audit Trail** - Complete tracking of all financial activities and changes
 - **Data Export & Import** - Backup and migrate your financial data with ease
 - **API Access** - Integrate with other business systems via RESTful API
 
-### 📱 Mobile & Accessibility
-- **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
-- **Mobile Apps** - Native iOS and Android applications for on-the-go management
-- **Offline Support** - Access key features even without internet connection
-- **Multi-Language Support** - Available in English, Spanish, French, and German
-- **Email Integration** - Send invoices and statements directly to clients
-
 ### 🔒 Security & Compliance
+
 - **Bank-Grade Security** - End-to-end encryption and secure data storage
 - **SSO Integration** - Support for Google OAuth and enterprise SSO solutions
 - **Data Privacy** - GDPR-compliant data handling and privacy controls
@@ -47,6 +45,7 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 - **Compliance Reporting** - Generate reports for tax and regulatory compliance
 
 ### 🛠️ System Administration
+
 - **Database Management** - Automated health monitoring, backup, and recovery for all tenant databases
 - **System Diagnostics** - Built-in tools for troubleshooting and maintaining system health
 - **Multi-Tenant Administration** - Centralized management of multiple organizations from a single interface
@@ -55,6 +54,7 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 ## 🏗️ Architecture
 
 ### Backend (FastAPI)
+
 - **Framework**: FastAPI
 - **Database**: Multi-tenant PostgreSQL with database-per-tenant architecture
 - **Master Database**: Central PostgreSQL database for tenant metadata and super users
@@ -64,6 +64,7 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 - **Deployment**: Docker containerized with PostgreSQL, Redis, and API services
 
 ### Frontend (React Web)
+
 - **Framework**: React with TypeScript
 - **Build Tool**: Vite
 - **UI Library**: ShadCN UI components with Tailwind CSS
@@ -71,57 +72,23 @@ A modern, multi-tenant financial management system built with FastAPI and React,
 - **Routing**: React Router with protected routes
 - **Deployment**: Docker containerized
 
-### Mobile App (React Native)
-- **Framework**: React Native with Expo
-- **Language**: TypeScript
-- **Navigation**: React Navigation v6
-- **State Management**: React Query (TanStack Query)
-- **UI Components**: React Native Paper
-- **Build Tool**: EAS Build
-- **Platforms**: iOS, Android, Web
-
 ### Infrastructure
+
 - **Orchestration**: Docker Compose with multi-service setup
 - **Master Database**: PostgreSQL for tenant metadata and super users
 - **Tenant Databases**: Isolated PostgreSQL databases per tenant
 - **Caching**: Redis for session management and caching
+- **Message Queue**: Kafka for asynchronous processing (OCR, bank statements)
 - **Networking**: Internal Docker network for secure service communication
 - **Health Checks**: Comprehensive health monitoring for all services
 - **Backup System**: Automated backup and restore capabilities
-
-## 📱 Mobile App Setup
-
-### Quick Start
-
-1. **Navigate to mobile directory**:
-   ```bash
-   cd mobile
-   ```
-
-2. **Run the setup script**:
-   ```bash
-   ./setup.sh
-   ```
-
-3. **Start development**:
-   ```bash
-   npm start
-   ```
-
-4. **Run on device/simulator**:
-   ```bash
-   # iOS (macOS only)
-   npm run ios
-   
-   # Android
-   npm run android
-   ```
 
 ## 🤖 AI Assistant Usage
 
 The AI assistant provides intelligent business insights using your actual data. Here are some example queries you can try:
 
 ### Business Analysis Queries
+
 - **"Can you analyze my invoice patterns and trends?"** - Get comprehensive invoice analysis
 - **"What actions should I take based on my invoice data?"** - Receive actionable business recommendations
 - **"Show me all my clients"** - List all clients with their details
@@ -134,11 +101,13 @@ The AI assistant provides intelligent business insights using your actual data. 
 - **"How many invoices do I have?"** - Get invoice statistics
 
 ### General Questions
+
 - **"What is the weather like today?"** - General questions use the LLM
 - **"Explain invoice terms"** - Educational content
 - **"How do I create a professional invoice?"** - Best practices guidance
 
 ### AI Configuration
+
 1. **Navigate to Settings** → **AI Configuration** tab
 2. **Configure AI Provider** - Set up OpenAI, Ollama, or other providers
 3. **Set as Default** - Mark your preferred provider as default
@@ -153,6 +122,7 @@ The AI assistant automatically detects the type of query and uses the appropriat
 - All subsequent users will follow the normal role and superuser logic.
 
 ### How it works
+
 - On first registration, if there are no users in the system, the new user is created as a super user and admin by default.
 - This ensures there is always at least one super admin in the system.
 
@@ -179,21 +149,25 @@ python scripts/create_super_user.py
 Access the super admin dashboard at `/super-admin` (requires super user login):
 
 #### 📊 Overview Tab
+
 - **System Statistics** - Total tenants, users, invoices, and payments across all tenants
 - **Tenant Health** - Real-time health status of all tenant databases
 - **Quick Actions** - Common administrative tasks
 
 #### 🏢 Tenants Tab
+
 - **Tenant Management** - Create, edit, and delete tenant organizations
 - **Tenant Statistics** - Individual tenant metrics and analytics
 - **Database Operations** - Health checks and database management
 
 #### 👥 Users Tab
+
 - **Cross-Tenant User View** - See users from all tenant databases
 - **User Management** - Create users for specific tenants
 - **Role Management** - Assign roles and permissions
 
 #### 🗄️ Database Tab
+
 - **Database Health Monitoring** - Real-time status of all databases
 - **Database Operations** - Create, backup, and restore tenant databases
 - **Troubleshooting Tools** - Fix missing or corrupted databases
@@ -219,6 +193,7 @@ docker-compose exec api python scripts/fix_missing_tenant_databases.py recreate
 #### Database Health Monitoring
 
 The system includes automatic database health monitoring:
+
 - **Middleware Detection** - Automatically detects missing tenant databases
 - **Auto-Recovery** - Creates missing databases on-the-fly
 - **Health Endpoints** - API endpoints for database status checks
@@ -227,6 +202,7 @@ The system includes automatic database health monitoring:
 ### Troubleshooting
 
 For database-related issues, see the comprehensive troubleshooting guide:
+
 - [Database Troubleshooting Guide](api/docs/TROUBLESHOOTING_MISSING_TENANT_DATABASES.md)
 
 ## 📧 Email Invoice Delivery
@@ -245,16 +221,19 @@ The application includes comprehensive email functionality to send invoices dire
 ### 📊 Supported Email Providers
 
 #### AWS SES (Simple Email Service)
+
 - **Setup**: Configure AWS credentials and region
 - **Features**: High deliverability, detailed analytics, cost-effective
 - **Requirements**: AWS Access Key ID, Secret Access Key, and region
 
 #### Azure Email Services
+
 - **Setup**: Configure Azure Communication Services connection string
 - **Features**: Enterprise-grade reliability, global scale
 - **Requirements**: Azure Communication Services connection string
 
 #### Mailgun
+
 - **Setup**: Configure API key and domain
 - **Features**: Developer-friendly API, detailed tracking
 - **Requirements**: Mailgun API key and verified domain
@@ -271,11 +250,13 @@ The application includes comprehensive email functionality to send invoices dire
 ### 📤 Sending Invoices
 
 #### From Invoice Form
+
 - Open any saved invoice
 - Click the **Send Email** button in the preview section
 - Email will be sent to the client's email address automatically
 
 #### Via API
+
 ```bash
 POST /api/v1/email/send-invoice
 {
@@ -292,18 +273,18 @@ POST /api/v1/email/send-invoice
 - Python 3.11+
 - Node.js 18+
 - Docker (optional)
-- iOS Simulator (for mobile development on macOS)
-- Android Studio (for mobile development)
 
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone <GIT_URL_FOR_THIS_PROJECT>
    cd finance-works
    ```
 
 2. **Start the backend**:
+
    ```bash
    cd api
    pip install -r requirements.txt
@@ -311,20 +292,14 @@ POST /api/v1/email/send-invoice
    ```
 
 3. **Start the web frontend**:
+
    ```bash
    cd ui
    npm install
    npm run dev
    ```
 
-4. **Start the mobile app** (optional):
-   ```bash
-   cd mobile
-   ./setup.sh
-   npm start
-   ```
-
-5. **Access the application**:
+4. **Access the application**:
    - Web: http://localhost:8080
    - API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
@@ -385,7 +360,6 @@ For detailed testing information, see [TESTING.md](TESTING.md).
 
 - [API Documentation](http://localhost:8000/docs) - Interactive API docs
 - [Testing Guide](TESTING.md) - Comprehensive testing documentation
-- [Mobile App Guide](mobile/README.md) - Mobile app setup and usage
 - [Backend API](api/README.md) - Backend development guide
 - [Frontend Guide](ui/README.md) - Frontend development guide
 - [Database Troubleshooting](api/docs/TROUBLESHOOTING_MISSING_TENANT_DATABASES.md) - Database troubleshooting guide
@@ -406,6 +380,7 @@ For detailed testing information, see [TESTING.md](TESTING.md).
 This project is dual-licensed under two options:
 
 1. **GNU General Public License v3 (GPLv3)**:
+
    - Free to use, modify, and distribute under the terms of the GPLv3.
    - Requires that derivative works be licensed under GPLv3 and source code be shared.
    - Ideal for open source projects and community use.
@@ -425,7 +400,3 @@ For support and questions:
 2. Review the troubleshooting guides
 3. Open an issue on GitHub
 4. Contact the development team
-
----
-
-**Note**: The mobile app requires the backend API to be running. Ensure your FastAPI backend is accessible before testing the mobile app.
