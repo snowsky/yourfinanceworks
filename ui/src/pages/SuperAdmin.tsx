@@ -101,10 +101,6 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
 
   const isAnomaliesEnabled = isFeatureEnabled('anomaly_detection');
   
-  // Debug: Log feature status
-  console.log('SuperAdmin - FinanceWorks Insights enabled:', isAnomaliesEnabled);
-  console.log('SuperAdmin - isFeatureEnabled function:', typeof isFeatureEnabled);
-  
   // Force re-render when feature status changes
   React.useEffect(() => {
     console.log('SuperAdmin - Feature status changed, isAnomaliesEnabled:', isAnomaliesEnabled);
@@ -113,7 +109,6 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   // Form states
   const [showCreateTenant, setShowCreateTenant] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [selectedTenantForUsers, setSelectedTenantForUsers] = useState<Tenant | null>(null);
   const [createTenantForm, setCreateTenantForm] = useState({ name: '', email: '', default_currency: 'USD' });
   const [createUserForm, setCreateUserForm] = useState({ email: '', first_name: '', last_name: '', role: 'user', password: '', tenant_ids: [], primary_tenant_id: '', tenant_roles: {}, is_sso: false });

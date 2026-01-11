@@ -436,8 +436,9 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
             # Only bypass license check for the FIRST user in the ENTIRE SYSTEM (global first user)
             # Not for every organization creator
             if not (config.IGNORE_LICENSE_FOR_FIRST_SSO_USER and is_global_first_user):
-                # Standard registration includes basic SSO features
-                check_feature("sso", tenant_db)
+                # Basic password registration is a core feature and doesn't require additional licensing
+                # Only check for commercial features, not basic user registration
+                pass
 
             # Check if tenant user already exists
             existing_tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == db_user.id).first()
