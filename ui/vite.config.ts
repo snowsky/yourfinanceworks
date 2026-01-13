@@ -33,5 +33,13 @@ export default defineConfig({
     port: 8080,
     host: '0.0.0.0',
     allowedHosts: ['ui', 'localhost', '127.0.0.1', '0.0.0.0', 'demo.yourfinanceworks.com'],
+    hmr: {
+      clientPort: 443, // Assuming they use HTTPS on the demo site
+    },
+    watch: {
+      usePolling: true,
+      interval: 1000,
+      ignored: ['**/node_modules/**', '**/.git/**'],
+    },
   },
 })

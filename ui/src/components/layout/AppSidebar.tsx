@@ -305,7 +305,8 @@ export function AppSidebar() {
     {
       path: '/',
       label: t('navigation.dashboard'),
-      icon: <BarChart className="w-5 h-5" />
+      icon: <BarChart className="w-5 h-5" />,
+      tourId: 'nav-dashboard'
     },
     {
       path: '/clients',
@@ -377,25 +378,29 @@ export function AppSidebar() {
     ...((!roleLoading && isAdminInCurrentOrg) ? [{
       path: '/users',
       label: t('navigation.users'),
-      icon: <UserCheck className="w-5 h-5" />
+      icon: <UserCheck className="w-5 h-5" />,
+      tourId: 'nav-users'
     }] : []),
     // Only show Audit Log for admin or superuser
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg)) ? [{
       path: '/audit-log',
       label: t('navigation.audit_log'),
-      icon: <ListChecks className="w-5 h-5" />
+      icon: <ListChecks className="w-5 h-5" />,
+      tourId: 'nav-audit-log'
     }] : []),
     // Only show Analytics for admin or superuser if user has enabled it
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg) && showAnalytics) ? [{
       path: '/analytics',
       label: 'Analytics',
-      icon: <BarChart className="w-5 h-5" />
+      icon: <BarChart className="w-5 h-5" />,
+      tourId: 'nav-analytics'
     }] : []),
     // Only show Super Admin for super users in their primary tenant
     ...((!roleLoading && currentUser?.is_superuser && isPrimaryTenant) ? [{
       path: '/super-admin',
       label: t('navigation.super_admin'),
-      icon: <ShieldCheck className="w-5 h-5" />
+      icon: <ShieldCheck className="w-5 h-5" />,
+      tourId: 'nav-super-admin'
     }] : [])
   ];
 

@@ -231,9 +231,9 @@ export function ProfessionalDashboard() {
 
 
   return (
-    <div className="h-full space-y-6 fade-in">
+    <div className="h-full space-y-6 fade-in" data-tour="dashboard-welcome">
       {/* Dashboard Header with Professional Styling */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm" data-tour="dashboard-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-2 flex-1">
             <h1 className="text-4xl font-bold tracking-tight">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
@@ -246,7 +246,7 @@ export function ProfessionalDashboard() {
               className="group h-9"
               onClick={() => {
                 // Scroll to Quick Actions section
-                const quickActionsElement = document.querySelector('[data-section="quick-actions"]');
+                const quickActionsElement = document.querySelector('[data-tour="dashboard-quick-actions"]');
                 if (quickActionsElement) {
                   quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   // Add a subtle highlight effect
@@ -266,7 +266,7 @@ export function ProfessionalDashboard() {
       </div>
 
       {/* Metrics Grid */}
-      <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')}>
+      <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')} data-tour="dashboard-stats">
         <GridLayout cols={5} gap="lg" responsive>
           {metrics.map((metric, index) => (
             <div key={index} className="space-y-2">
@@ -328,6 +328,7 @@ export function ProfessionalDashboard() {
             title={t('dashboard.sections.revenue_trends')}
             description={t('dashboard.sections.revenue_trends_desc')}
             variant="card"
+            data-tour="dashboard-revenue-chart"
           >
             <InvoiceChart />
           </ContentSection>
@@ -340,6 +341,7 @@ export function ProfessionalDashboard() {
             title={t('dashboard.sections.recent_activity')}
             description={t('dashboard.sections.recent_activity_desc')}
             variant="card"
+            data-tour="dashboard-recent"
             actions={
               <div className="flex items-center gap-2">
                 <ProfessionalButton
@@ -373,7 +375,7 @@ export function ProfessionalDashboard() {
         title={t('dashboard.quick_actions.title')}
         description={t('dashboard.quick_actions.subtitle')}
         className="scroll-mt-8"
-        data-section="quick-actions"
+        data-tour="dashboard-quick-actions"
         variant="card"
       >
         <QuickActions />
@@ -382,7 +384,7 @@ export function ProfessionalDashboard() {
       {/* Business Insights Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Payment Trends */}
-        <ProfessionalCard variant="elevated" className="p-6">
+        <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-payment-trends">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-blue-100 rounded-xl">
@@ -423,7 +425,7 @@ export function ProfessionalDashboard() {
         </ProfessionalCard>
 
         {/* Business Health */}
-        <ProfessionalCard variant="elevated" className="p-6">
+        <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-business-health">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-green-100 rounded-xl">
