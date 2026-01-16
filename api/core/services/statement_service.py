@@ -63,7 +63,13 @@ except ImportError:
             self.input_variables = input_variables or []
 
         def format(self, **kwargs):
-            return self.template.format(**kwargs)
+            # Safer formatting that doesn't trigger on other braces (like JSON)
+            result = self.template
+            for k, v in kwargs.items():
+                result = result.replace(f"{{{k}}}", str(v))
+                # Also handle double braces if they exist
+                result = result.replace(f"{{{{{k}}}}}", str(v))
+            return result
 
     # LLMChain is deprecated in LangChain v1.0+, no fallback needed
 
@@ -368,7 +374,7 @@ class UniversalBankTransactionExtractor:
         try:
             prompt_template = self.prompt_service.get_prompt(
                 name="bank_transaction_extraction",
-                variables={},
+                variables={"text": ""},  # Provide empty text to avoid warning
                 provider_name=self.provider_name,
                 fallback_prompt="""You are a financial data extraction expert. Extract bank transactions from the text below.
 
@@ -427,6 +433,21 @@ JSON:"""
                 input_variables=["text"]
             )
 
+    def _render_extraction_prompt(self, text: str) -> str:
+        """Safely render extraction prompt without triggering on other braces"""
+        if hasattr(self.extraction_prompt, 'format'):
+            # This handles both our dummy class and LangChain's if used safely
+            try:
+                # First try safe replacement
+                template_str = getattr(self.extraction_prompt, 'template', "")
+                if template_str:
+                    return template_str.replace("{text}", text).replace("{{text}}", text)
+                return self.extraction_prompt.format(text=text)
+            except Exception:
+                # Fallback to whatever the object provides
+                return str(self.extraction_prompt).replace("{text}", text)
+        return str(self.extraction_prompt).replace("{text}", text)
+
     def extract_transactions_with_litellm(self, text: str) -> List[Dict]:
         """Extract transactions using LiteLLM"""
         try:
@@ -437,7 +458,7 @@ JSON:"""
 
             kwargs.update({
                 "model": model_name,
-                "messages": [{"role": "user", "content": self.extraction_prompt.format(text=text)}],
+                "messages": [{"role": "user", "content": self._render_extraction_prompt(text)}],
                 "max_tokens": 2000,
                 "temperature": self.temperature
             })
@@ -453,6 +474,9 @@ JSON:"""
                 logger.warning("No response received from LLM")
                 return []
 
+        except KeyError as e:
+            logger.error(f"Error in LiteLLM extraction - missing field: {e}")
+            return []
         except Exception as e:
             logger.error(f"Error in LiteLLM extraction: {e}")
             return []
@@ -480,16 +504,26 @@ JSON:"""
                         data = json.loads(match)
 
                         if isinstance(data, list):
-                            return data
+                            # Validate and filter transactions
+                            valid_txns = []
+                            for txn in data:
+                                if isinstance(txn, dict) and txn.get('date'):
+                                    valid_txns.append(txn)
+                                else:
+                                    logger.warning(f"Skipping invalid transaction (missing date): {txn}")
+                            return valid_txns
                         elif isinstance(data, dict):
-                            return [data]
+                            if data.get('date'):
+                                return [data]
+                            else:
+                                logger.warning(f"Skipping invalid transaction (missing date): {data}")
+                                return []
 
                     except json.JSONDecodeError:
                         continue
 
-            # If no JSON found, try to extract transaction-like patterns
-            # If no JSON found, log and return empty. Do NOT fall back to regex silently.
-            logger.warning("No JSON content found in LLM response")
+            # If no JSON found, log and return empty
+            logger.warning("No valid JSON content found in LLM response")
             return []
 
         except Exception as e:
@@ -1398,7 +1432,12 @@ JSON:"""
 
                 # Use direct LLM call (LLMChain is deprecated)
                 if self.langchain_available and self.simple_llm:
-                    formatted_prompt = self.extraction_prompt_template.format(text=doc.page_content)
+                    # Safely format prompt
+                    template_str = getattr(self.extraction_prompt_template, 'template', "")
+                    if template_str:
+                        formatted_prompt = template_str.replace("{text}", doc.page_content).replace("{{text}}", doc.page_content)
+                    else:
+                        formatted_prompt = self.extraction_prompt_template.format(text=doc.page_content)
                     result = self.simple_llm.invoke(formatted_prompt)
                 else:
                     result = ""

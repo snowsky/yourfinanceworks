@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package, X, Tag } from "lucide-react";
@@ -142,25 +142,25 @@ const Invoices = () => {
     prevDeletedCount.current = deletedInvoices.length;
   }, [deletedInvoices.length, recycleBinLoading, showRecycleBin]);
 
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      setLoading(true);
-      try {
-        const status = statusFilter !== "all" ? statusFilter : undefined;
-        const skip = (page - 1) * pageSize;
-        const data = await invoiceApi.getInvoices(status, labelFilter || undefined, skip, pageSize);
-        setInvoices(data.items);
-        setTotalInvoices(data.total);
-      } catch (error) {
-        console.error("Failed to fetch invoices:", error);
-        toast.error(t('invoices.errors.load_failed'));
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInvoices = useCallback(async () => {
+    setLoading(true);
+    try {
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const skip = (page - 1) * pageSize;
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, skip, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
+    } catch (error) {
+      console.error("Failed to fetch invoices:", error);
+      toast.error(t('invoices.errors.load_failed'));
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, labelFilter, currentTenantId, page, pageSize, t]);
 
+  useEffect(() => {
     fetchInvoices();
-  }, [statusFilter, labelFilter, currentTenantId, page, pageSize]); // Use state variable as dependency
+  }, [fetchInvoices]);
 
   const fetchDeletedInvoices = async () => {
     try {
@@ -337,6 +337,16 @@ const Invoices = () => {
             </div>
             {canPerformAction && (
               <div className="flex gap-3 items-center flex-wrap justify-end">
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
+                  onClick={fetchInvoices}
+                  className="whitespace-nowrap"
+                  disabled={loading}
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
                   size="default"

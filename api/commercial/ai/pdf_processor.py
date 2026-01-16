@@ -315,7 +315,8 @@ async def process_pdf(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     # Check if ai_invoice feature is enabled
-    require_feature("ai_invoice", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("ai_invoice", db)
 
     if not pdf_file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")

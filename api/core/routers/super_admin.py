@@ -19,6 +19,7 @@ from core.schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSche
 from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.license_service import LicenseService
+from core.services.tenant_management_service import TenantManagementService
 from core.utils.auth import verify_password, get_password_hash
 from core.utils.password_validation import validate_password_strength
 from core.utils.rbac import require_superuser
@@ -38,6 +39,9 @@ class SuperAdminResetPasswordRequest(BaseModel):
     new_password: str
     confirm_password: str
     force_reset_on_login: bool = False
+
+class TenantSelectionRequest(BaseModel):
+    tenant_ids: List[int]
 
 def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
     """Require that the current user is a superuser in their primary tenant"""
@@ -75,17 +79,17 @@ async def get_organizations(
 ):
     """Get all organizations for super admin dropdown"""
     tenants = master_db.query(Tenant).offset(skip).limit(limit).all()
-    
+
     organizations = []
     for tenant in tenants:
         organizations.append({
             'id': tenant.id,
             'name': tenant.name
         })
-    
+
     # Sort by name for better UX
     organizations.sort(key=lambda x: x['name'])
-    
+
     return organizations
 
 @router.get("/tenants")
@@ -97,18 +101,18 @@ async def get_tenants(
 ):
     """List all tenants with their statistics"""
     tenants = master_db.query(Tenant).offset(skip).limit(limit).all()
-    
+
     # Add user counts for each tenant
     enriched_tenants = []
     for tenant in tenants:
         tenant_dict = tenant.__dict__.copy()
         # Remove SQLAlchemy internal attributes
         tenant_dict.pop('_sa_instance_state', None)
-        
+
         # Map company_logo_url back to logo_url for schema compatibility
         if 'company_logo_url' in tenant_dict:
             tenant_dict['logo_url'] = tenant_dict.pop('company_logo_url')
-        
+
         # Add user count - include users from both primary tenant and memberships
         # Get users with primary tenant
         primary_users = master_db.query(MasterUser.id).filter(
@@ -121,9 +125,9 @@ async def get_tenants(
         # Union and count unique users
         user_count = primary_users.union(member_users).count()
         tenant_dict['user_count'] = user_count
-        
+
         enriched_tenants.append(tenant_dict)
-    
+
     return enriched_tenants
 
 @router.get("/tenants/{tenant_id}/stats")
@@ -136,32 +140,32 @@ async def get_tenant_stats(
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
     # Get user count from master database
     user_count = master_db.query(MasterUser).filter(
         MasterUser.tenant_id == tenant_id
     ).count()
-    
+
     # Get data from tenant database
     tenant_stats = {"users": user_count, "clients": 0, "invoices": 0, "payments": 0}
-    
+
     try:
         # Get tenant database session
         tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
-        
+
         # Import tenant models
         from core.models.models_per_tenant import Client, Invoice, Payment
-        
+
         # Get counts from tenant database
         tenant_stats["clients"] = tenant_session.query(Client).count()
         tenant_stats["invoices"] = tenant_session.query(Invoice).count()
         tenant_stats["payments"] = tenant_session.query(Payment).count()
-        
+
         tenant_session.close()
     except Exception as e:
         # If tenant database doesn't exist or has issues, just return basic stats
         pass
-    
+
     return {
         "tenant": tenant,
         "stats": tenant_stats
@@ -188,7 +192,7 @@ async def create_tenant(
     # Check license tenant limit from super admin's primary tenant
     # The super admin can only create new tenants if their own license allows it
     from core.models.database import set_tenant_context
-    
+
     try:
         # Get super admin's primary tenant
         admin_tenant_id = current_user.tenant_id
@@ -197,18 +201,18 @@ async def create_tenant(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Super admin must have a primary tenant"
             )
-        
+
         # Set tenant context and get tenant session
         set_tenant_context(admin_tenant_id)
         tenant_session = tenant_db_manager.get_tenant_session(admin_tenant_id)
         admin_tenant_db = tenant_session()
-        
+
         try:
             # Check license from super admin's tenant
             license_service = LicenseService(admin_tenant_db)
             max_tenants = license_service.get_max_tenants()
             current_tenants_count = master_db.query(Tenant).count()
-            
+
             if current_tenants_count >= max_tenants:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -226,7 +230,7 @@ async def create_tenant(
         logger.error(f"Failed to check super admin license: {str(e)}")
         # Don't block tenant creation if license check fails
         pass
-    
+
     try:
         # Create tenant in master database
         tenant_data = tenant.model_dump()
@@ -357,7 +361,7 @@ async def update_tenant(
         )
 
         return db_tenant
-    
+
     except Exception as e:
         # Log audit event for failed tenant update
         from core.utils.audit import log_audit_event_master
@@ -417,28 +421,28 @@ async def delete_tenant(
 
         # Delete API-related records first
         master_db.query(ExternalTransaction).filter(ExternalTransaction.tenant_id == tenant_id).delete()
-        
+
         # Delete client permissions for API clients belonging to this tenant
         api_client_ids = master_db.query(APIClient.id).filter(APIClient.tenant_id == tenant_id).subquery()
         master_db.query(ClientPermission).filter(ClientPermission.client_id.in_(api_client_ids)).delete(synchronize_session=False)
-        
+
         master_db.query(APIClient).filter(APIClient.tenant_id == tenant_id).delete()
-        
+
         # Note: StorageOperationLog and CloudStorageConfiguration are in tenant databases, not master
-        
+
         # Delete audit logs for this tenant
         master_db.query(AuditLog).filter(AuditLog.tenant_id == tenant_id).delete()
-        
+
         # Delete organization join requests
         master_db.query(OrganizationJoinRequest).filter(OrganizationJoinRequest.tenant_id == tenant_id).delete()
-        
+
         # Delete tenant keys (encryption keys)
         master_db.query(TenantKey).filter(TenantKey.tenant_id == tenant_id).delete()
-        
+
         # Delete core business records
         # Delete user-tenant associations first
         master_db.execute(user_tenant_association.delete().where(user_tenant_association.c.tenant_id == tenant_id))
-        
+
         master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).delete()
         master_db.query(User).filter(User.tenant_id == tenant_id).delete()
         master_db.query(ClientNote).filter(ClientNote.tenant_id == tenant_id).delete()
@@ -710,13 +714,13 @@ async def create_user(
     """Create a new user for multiple tenants"""
     # Check if this is an SSO user
     is_sso_user = user_data.get('is_sso', False)
-    
+
     # Validate required fields - password is optional for SSO users
     if is_sso_user:
         required_fields = ['email', 'first_name', 'last_name', 'tenant_ids', 'primary_tenant_id']
     else:
         required_fields = ['email', 'first_name', 'last_name', 'password', 'tenant_ids', 'primary_tenant_id']
-    
+
     for field in required_fields:
         if field not in user_data:
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
@@ -769,9 +773,9 @@ async def create_user(
         hashed_password = get_password_hash(secrets.token_urlsafe(32))
     else:
         hashed_password = get_password_hash(user_data['password'])
-    
+
     primary_role = provided_tenant_roles.get(str(primary_tenant_id), user_data.get('role', 'user'))
-    
+
     # Create master user - SSO provider fields will be populated when user first signs in
     master_user = MasterUser(
         email=user_data['email'],
@@ -801,7 +805,7 @@ async def create_user(
         # Create user in each tenant database
         try:
             tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
-            
+
             # Create tenant user - SSO provider fields will be populated when user first signs in
             tenant_user = TenantUser(
                 id=master_user.id,
@@ -826,7 +830,7 @@ async def create_user(
     user_dict = master_user.__dict__.copy()
     user_dict.pop('_sa_instance_state', None)
     user_dict['tenant_names'] = [t.name for t in tenants]
-    
+
     # Add SSO information to response
     user_dict['is_sso'] = is_sso_user
 
@@ -1134,16 +1138,16 @@ async def get_tenant_database_status(
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
     try:
         # Try to connect to tenant database
         tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
-        
+
         # Test connection with a simple query
         tenant_session.execute(text("SELECT 1"))
-        
+
         tenant_session.close()
-        
+
         return {
             "tenant_id": tenant_id,
             "database_name": f"tenant_{tenant_id}",
@@ -1731,3 +1735,128 @@ async def trigger_reprocess_all(
         "entities_queued": total_triggered,
         "tenants_scanned": len(tenants)
     }
+
+# ==================== Tenant Management Endpoints ====================
+
+@router.get("/tenants/status")
+async def get_tenant_status(
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Get current tenant status and license information"""
+    try:
+        from core.models.database import get_tenant_context
+
+        # Get tenant context and create tenant session
+        tenant_id = get_tenant_context()
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
+        tenant_db = tenant_session()
+
+        try:
+            # Create tenant management service
+            tenant_service = TenantManagementService(master_db, tenant_db)
+            status = tenant_service.get_tenant_status()
+
+            return status
+
+        finally:
+            tenant_db.close()
+
+    except Exception as e:
+        logger.error(f"Failed to get tenant status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get tenant status: {str(e)}"
+        )
+
+@router.post("/tenants/enforce-limits")
+async def enforce_tenant_limits(
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Manually enforce tenant limits based on current license"""
+    try:
+        from core.models.database import get_tenant_context
+
+        # Get tenant context and create tenant session
+        tenant_id = get_tenant_context()
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
+        tenant_db = tenant_session()
+
+        try:
+            # Create tenant management service
+            tenant_service = TenantManagementService(master_db, tenant_db)
+            result = tenant_service.enforce_tenant_limits(current_user)
+
+            if result["success"]:
+                # Log the enforcement action
+                log_audit_event_master(
+                    master_db=master_db,
+                    user_id=current_user.id,
+                    action="tenant_limits_enforced",
+                    resource_type="system",
+                    details={
+                        "message": result["message"],
+                        "enabled_tenants": result.get("enabled_tenants", []),
+                        "disabled_tenants": result.get("disabled_tenants", []),
+                        "max_tenants": result.get("max_tenants")
+                    }
+                )
+
+            return result
+
+        finally:
+            tenant_db.close()
+
+    except Exception as e:
+        logger.error(f"Failed to enforce tenant limits: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enforce tenant limits: {str(e)}"
+        )
+
+@router.post("/tenants/select-enabled")
+async def select_enabled_tenants(
+    request: TenantSelectionRequest,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Select which tenants to enable (within license limits)"""
+    try:
+        from core.models.database import get_tenant_context
+
+        # Get tenant context and create tenant session
+        tenant_id = get_tenant_context()
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
+        tenant_db = tenant_session()
+
+        try:
+            # Create tenant management service
+            tenant_service = TenantManagementService(master_db, tenant_db)
+            result = tenant_service.select_enabled_tenants(current_user, request.tenant_ids)
+
+            if result["success"]:
+                # Log the tenant selection action
+                log_audit_event_master(
+                    master_db=master_db,
+                    user_id=current_user.id,
+                    action="tenants_selected",
+                    resource_type="system",
+                    details={
+                        "enabled_tenants": result.get("enabled_tenants", []),
+                        "disabled_tenants": result.get("disabled_tenants", []),
+                        "max_tenants": result.get("max_tenants")
+                    }
+                )
+
+            return result
+
+        finally:
+            tenant_db.close()
+
+    except Exception as e:
+        logger.error(f"Failed to select enabled tenants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to select enabled tenants: {str(e)}"
+        )

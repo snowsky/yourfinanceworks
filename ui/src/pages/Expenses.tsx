@@ -544,6 +544,16 @@ const Expenses = () => {
                 <ProfessionalButton
                   variant="outline"
                   size="default"
+                  onClick={fetchExpenses}
+                  className="whitespace-nowrap"
+                  disabled={loading}
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                </ProfessionalButton>
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
                   onClick={handleToggleRecycleBin}
                   className="whitespace-nowrap"
                 >

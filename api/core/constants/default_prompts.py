@@ -151,11 +151,11 @@ Document path: {{file_path}}""",
             "anthropic": "As an expert in document analysis, classify this invoice document with high precision."
         }
     },
-    {
-        "name": "bank_transaction_extraction",
-        "category": "bank_processing",
-        "description": "Extract bank transactions from statement text",
-        "template_content": """You are a financial data extraction expert. Extract bank transactions from the text below.
+  {
+    "name": "bank_transaction_extraction",
+    "category": "bank_processing",
+    "description": "Extract bank transactions from statement text",
+    "template_content": """You are a financial data extraction expert. Extract bank transactions from the text below.
 
 RULES:
 1. Look for dates, descriptions, and amounts
@@ -170,8 +170,8 @@ TEXT:
 
 Return ONLY a JSON array like this example:
 [
-  {{"date": "2024-01-15", "description": "GROCERY STORE", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56}},
-  {{"date": "2024-01-16", "description": "SALARY DEPOSIT", "amount": 2500.00, "transaction_type": "credit", "balance": 3689.89}}
+  {"date": "2024-01-15", "description": "GROCERY STORE", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56},
+  {"date": "2024-01-16", "description": "SALARY DEPOSIT", "amount": 2500.00, "transaction_type": "credit", "balance": 3689.89}
 ]
 
 JSON:""",

@@ -5,7 +5,7 @@ Centralized model for managing AI LLM prompts that can be customized
 by administrators and users.
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.models.database import Base
@@ -20,7 +20,7 @@ class PromptTemplate(Base):
     __tablename__ = "prompt_templates"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False, index=True)
     category = Column(String(50), nullable=False, index=True)  # invoice, bank_statement, email, etc.
     description = Column(Text, nullable=True)
     
@@ -51,6 +51,10 @@ class PromptTemplate(Base):
     
     def __repr__(self):
         return f"<PromptTemplate(name='{self.name}', category='{self.category}', version={self.version})>"
+
+    __table_args__ = (
+        UniqueConstraint('name', 'version', name='uq_prompt_name_version'),
+    )
 
 
 class PromptUsageLog(Base):

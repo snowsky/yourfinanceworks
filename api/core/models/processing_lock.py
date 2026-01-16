@@ -83,7 +83,7 @@ class ProcessingLock(Base):
             resource_type=resource_type,
             resource_id=str(resource_id),
             expires_at=expires_at,
-            metadata=json.dumps(metadata or {})
+            lock_metadata=json.dumps(metadata or {})
         )
         
         db_session.add(new_lock)
@@ -137,9 +137,9 @@ class ProcessingLock(Base):
         
         updated_count = query.update({
             "is_active": False,
-            "metadata": json.dumps({
+            "lock_metadata": json.dumps({
                 "recovery_note": f"Force released by cleanup at {now.isoformat()} due to suspected service crash",
-                "original_metadata": cls.get_metadata_safe()
+                "original_metadata": lock.get_metadata_safe() if 'lock' in locals() else {}
             })
         })
         
@@ -217,7 +217,7 @@ class ProcessingLock(Base):
                 "expires_at": active_lock.expires_at.isoformat(),
                 "time_remaining_minutes": round(time_remaining, 2),
                 "lock_age_minutes": round(lock_age, 2),
-                "metadata": active_lock.get_metadata_safe()
+                "lock_metadata": active_lock.get_metadata_safe()
             }
         else:
             return {"locked": False, "actively_processing": False}
@@ -258,7 +258,7 @@ class ProcessingLock(Base):
                 "acquired_at": active_lock.acquired_at.isoformat() if active_lock.acquired_at else None,
                 "created_at": active_lock.created_at.isoformat() if active_lock.created_at else None,
                 "expires_at": active_lock.expires_at.isoformat() if active_lock.expires_at else None,
-                "metadata": metadata
+                "lock_metadata": metadata
             }
         else:
             return {"locked": False}

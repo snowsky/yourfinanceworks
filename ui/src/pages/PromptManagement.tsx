@@ -28,6 +28,16 @@ import { Badge } from '@/components/ui/badge';
 import { MetricCard } from '@/components/ui/professional-card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Plus, Edit, Trash2, RefreshCw, Save, RotateCcw, Eye, Play,
   GitBranch, Activity, CheckCircle2, XCircle, Clock, Zap, Calendar, Code, Terminal, Shield
 } from 'lucide-react';
@@ -139,11 +149,25 @@ const PromptManagementContent = () => {
   const [testResult, setTestResult] = useState<string>('');
   const [showVersions, setShowVersions] = useState(false);
   const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
 
   // Queries
-  const { data: prompts = [], isLoading: loadingPrompts } = useQuery<PromptTemplate[]>({
+  const { data: prompts = [], isLoading: loadingPrompts, refetch: refetchPrompts } = useQuery<PromptTemplate[]>({
     queryKey: ['prompts'],
     queryFn: () => api.get('/prompts/'),
+    staleTime: 0, // Always consider data stale to ensure fresh fetches
+    gcTime: 0, // Don't cache the data
   });
 
   const { data: defaultPrompts = [] } = useQuery<PromptTemplate[]>({
@@ -162,9 +186,11 @@ const PromptManagementContent = () => {
       prompt.id ? api.put(`/prompts/${prompt.name}`, prompt) : api.post('/prompts/', prompt),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      refetchPrompts(); // Force immediate refetch
       toast.success(t('settings.promptManagement.messages.promptSavedSuccessfully'));
       setIsEditing(false);
       setSelectedPrompt(null);
+      setSelectedVersion(null);
     },
     onError: (error) => {
       toast.error(t('settings.promptManagement.messages.failedToSavePrompt'));
@@ -176,7 +202,9 @@ const PromptManagementContent = () => {
     mutationFn: (promptName: string) => api.delete(`/prompts/${promptName}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      refetchPrompts(); // Force immediate refetch
       toast.success(t('settings.promptManagement.messages.promptDeletedSuccessfully'));
+      setSelectedVersion(null);
     },
     onError: (error) => {
       toast.error(t('settings.promptManagement.messages.failedToDeletePrompt'));
@@ -188,7 +216,9 @@ const PromptManagementContent = () => {
     mutationFn: (promptName: string) => api.post(`/prompts/${promptName}/reset`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      refetchPrompts(); // Force immediate refetch
       toast.success(t('settings.promptManagement.messages.promptResetSuccessfully'));
+      setSelectedVersion(null);
     },
     onError: (error) => {
       toast.error(t('settings.promptManagement.messages.failedToResetPrompt'));
@@ -201,7 +231,9 @@ const PromptManagementContent = () => {
       api.post(`/prompts/${promptName}/versions/${version}/restore`),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      refetchPrompts(); // Force immediate refetch
       toast.success(t('settings.promptManagement.messages.versionRestoredSuccessfully', { version: variables.version }));
+      setSelectedVersion(variables.version);
       loadPromptVersions(variables.promptName);
     },
     onError: (error) => {
@@ -231,7 +263,8 @@ const PromptManagementContent = () => {
   const loadPromptVersions = async (promptName: string) => {
     try {
       const response = await api.get<PromptTemplate[]>(`/prompts/${promptName}/versions`);
-      const currentVersion = prompts.find(p => p.name === promptName)?.version || 0;
+      // The highest version number is the current active one
+      const currentVersion = Math.max(...response.map(v => v.version), 0);
       const versionsWithCurrent = response.map(v => ({
         ...v,
         is_current: v.version === currentVersion
@@ -243,17 +276,21 @@ const PromptManagementContent = () => {
   };
 
   const handleResetPrompt = (promptName: string) => {
-    if (!window.confirm(t('settings.promptManagement.messages.confirmResetPrompt'))) {
-      return;
-    }
-    resetMutation.mutate(promptName);
+    setConfirmModal({
+      open: true,
+      title: t('settings.promptManagement.messages.confirmResetPromptTitle', { defaultValue: 'Reset Prompt' }),
+      description: t('settings.promptManagement.messages.confirmResetPrompt'),
+      onConfirm: () => resetMutation.mutate(promptName),
+    });
   };
 
   const handleRestoreVersion = (promptName: string, version: number) => {
-    if (!window.confirm(t('settings.promptManagement.messages.confirmRestoreVersion', { version }))) {
-      return;
-    }
-    restoreVersionMutation.mutate({ promptName, version });
+    setConfirmModal({
+      open: true,
+      title: t('settings.promptManagement.messages.confirmRestoreVersionTitle', { defaultValue: 'Restore Version' }),
+      description: t('settings.promptManagement.messages.confirmRestoreVersion', { version }),
+      onConfirm: () => restoreVersionMutation.mutate({ promptName, version }),
+    });
   };
 
   const handleSavePrompt = (prompt: PromptTemplate) => {
@@ -261,15 +298,59 @@ const PromptManagementContent = () => {
   };
 
   const handleDeletePrompt = (promptName: string) => {
-    if (!window.confirm(t('settings.promptManagement.messages.confirmDeletePrompt'))) {
-      return;
-    }
-    deleteMutation.mutate(promptName);
+    setConfirmModal({
+      open: true,
+      title: t('settings.promptManagement.messages.confirmDeletePromptTitle', { defaultValue: 'Delete Prompt' }),
+      description: t('settings.promptManagement.messages.confirmDeletePrompt'),
+      onConfirm: () => deleteMutation.mutate(promptName),
+    });
   };
 
   const handleTestPrompt = (prompt: PromptTemplate) => {
     testMutation.mutate({ promptName: prompt.name, variables: testVariables });
   };
+
+  const handleEditPrompt = async (promptName: string) => {
+    try {
+      const latestPrompt = await api.get<PromptTemplate>(`/prompts/${promptName}`);
+      setSelectedPrompt(latestPrompt);
+      setSelectedVersion(latestPrompt.version);
+      setIsEditing(true);
+      loadPromptVersions(promptName);
+    } catch (error) {
+      console.error('Error loading prompt:', error);
+      toast.error(t('settings.promptManagement.messages.failedToLoadPrompt'));
+    }
+  };
+
+  const handleViewPrompt = async (prompt: PromptTemplate) => {
+    try {
+      // For default prompts, they might be customized, so try to get the latest
+      const latestPrompt = await api.get<PromptTemplate>(`/prompts/${prompt.name}`).catch(() => prompt);
+      setSelectedPrompt(latestPrompt);
+      setSelectedVersion(latestPrompt.version);
+      setIsEditing(true);
+      loadPromptVersions(prompt.name);
+    } catch (error) {
+      setSelectedPrompt(prompt);
+      setSelectedVersion(prompt.version);
+      setIsEditing(true);
+    }
+  };
+
+  // Refetch prompts when editor closes to ensure we have the latest data
+  useEffect(() => {
+    if (!isEditing && selectedPrompt === null) {
+      refetchPrompts();
+    }
+  }, [isEditing, selectedPrompt, refetchPrompts]);
+
+  // Ensure selectedVersion is synced with selectedPrompt if it's missing
+  useEffect(() => {
+    if (isEditing && selectedPrompt && (selectedVersion === null || selectedVersion === 0)) {
+      setSelectedVersion(selectedPrompt.version);
+    }
+  }, [isEditing, selectedPrompt?.id, selectedPrompt?.version, selectedVersion]);
 
   const loading = loadingPrompts || saveMutation.isPending || resetMutation.isPending || restoreVersionMutation.isPending;
   const isTesting = testMutation.isPending;
@@ -280,9 +361,42 @@ const PromptManagementContent = () => {
     return (
       <ProfessionalCard variant="elevated">
         <ProfessionalCardHeader>
-          <ProfessionalCardTitle>
-            {isEditing ? t('settings.promptManagement.editPrompt') : t('settings.promptManagement.createNewPrompt')}
-          </ProfessionalCardTitle>
+          <div className="flex items-center justify-between">
+            <ProfessionalCardTitle>
+              {isEditing ? t('settings.promptManagement.editPrompt') : t('settings.promptManagement.createNewPrompt')}
+            </ProfessionalCardTitle>
+            {isEditing && selectedPrompt.version && promptVersions.length > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('settings.promptManagement.selectVersion')}</Label>
+                  <Select
+                    key={`${selectedPrompt.name}-${selectedPrompt.version}-${selectedVersion}`}
+                    value={selectedVersion?.toString()}
+                    onValueChange={(value) => {
+                      const version = parseInt(value);
+                      setSelectedVersion(version);
+                      const versionData = promptVersions.find(v => v.version === version);
+                      if (versionData) {
+                        // Keep the editing state but update content with selected version
+                        setSelectedPrompt({ ...versionData });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {promptVersions.map((v) => (
+                        <SelectItem key={v.id} value={v.version.toString()}>
+                          v{v.version} {v.is_current ? '(current)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
         </ProfessionalCardHeader>
         <ProfessionalCardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -348,10 +462,28 @@ const PromptManagementContent = () => {
               onClick={() => {
                 setIsEditing(false);
                 setSelectedPrompt(null);
+                setSelectedVersion(null);
               }}
             >
               {t('settings.promptManagement.cancel')}
             </ProfessionalButton>
+            {isEditing && selectedVersion && selectedVersion !== prompts.find(p => p.name === selectedPrompt.name)?.version && (
+              <>
+                <ProfessionalButton
+                  onClick={() => {
+                    // Apply this version as the current version
+                    handleRestoreVersion(selectedPrompt.name, selectedVersion);
+                  }}
+                  disabled={loading}
+                  loading={loading}
+                  variant="outline"
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  {t('settings.promptManagement.applyVersion')}
+                </ProfessionalButton>
+              </>
+            )}
             <ProfessionalButton
               onClick={() => handleSavePrompt(selectedPrompt)}
               disabled={loading}
@@ -359,7 +491,7 @@ const PromptManagementContent = () => {
               variant="gradient"
             >
               <Save className="h-4 w-4 mr-2" />
-              {t('settings.promptManagement.savePrompt')}
+              {t('settings.promptManagement.saveNewVersion')}
             </ProfessionalButton>
           </div>
         </ProfessionalCardContent>
@@ -449,10 +581,7 @@ const PromptManagementContent = () => {
                           <ProfessionalButton
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
-                              setSelectedPrompt(prompt);
-                              setIsEditing(true);
-                            }}
+                            onClick={() => handleViewPrompt(prompt)}
                             title={t('settings.promptManagement.view')}
                           >
                             <Eye className="h-4 w-4 text-muted-foreground" />
@@ -524,10 +653,7 @@ const PromptManagementContent = () => {
                         <ProfessionalButton
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            setSelectedPrompt(prompt);
-                            setIsEditing(true);
-                          }}
+                          onClick={() => handleEditPrompt(prompt.name)}
                           title={t('settings.promptManagement.editAction')}
                         >
                           <Edit className="h-4 w-4 text-muted-foreground" />
@@ -725,9 +851,23 @@ const PromptManagementContent = () => {
                           </Badge>
                           {version.is_current && <span className="text-xs font-medium text-primary">({t('settings.promptManagement.current')})</span>}
                         </div>
-                        <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                          <p>Created: {new Date(version.created_at).toLocaleString()}</p>
-                          {version.updated_at && <p>Updated: {new Date(version.updated_at).toLocaleString()}</p>}
+                        <div className="mt-3 text-sm text-muted-foreground space-y-1">
+                          <p className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5" />
+                            Created: {new Date(version.created_at).toLocaleString()}
+                          </p>
+                          {version.updated_at && (
+                            <p className="flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5" />
+                              Updated: {new Date(version.updated_at).toLocaleString()}
+                            </p>
+                          )}
+                          {version.is_active && (
+                            <p className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Active
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -824,6 +964,29 @@ const PromptManagementContent = () => {
       )}
 
       {renderVersionModal()}
+
+      <AlertDialog open={confirmModal.open} onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmModal.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmModal.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirmModal.onConfirm();
+                setConfirmModal({ ...confirmModal, open: false });
+              }}
+              className={confirmModal.title.toLowerCase().includes('delete') ? 'bg-destructive text-white hover:bg-destructive/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}
+            >
+              {t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

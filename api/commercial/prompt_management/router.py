@@ -87,6 +87,17 @@ class PromptTestRequest(BaseModel):
     variables: Dict[str, Any] = Field(..., description="Variables for template rendering")
     provider_name: Optional[str] = Field(None, description="Provider for override testing")
 
+    @field_validator('variables', mode='before')
+    @classmethod
+    def parse_variables(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError("variables must be a valid JSON object or dictionary")
+        return v
+
 
 class PromptUsageStats(BaseModel):
     total_usage: int
@@ -143,7 +154,8 @@ async def create_prompt_template(
 ):
     """Create a new prompt template."""
     # Check feature gate for prompt management
-    require_feature("prompt_management", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
 
     prompt_service = get_prompt_service(db)
     template = prompt_service.create_prompt(
@@ -186,7 +198,8 @@ async def update_prompt_template(
 ):
     """Update an existing prompt template."""
     # Check feature gate for prompt management
-    require_feature("prompt_management", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
 
     prompt_service = get_prompt_service(db)
 
@@ -367,7 +380,8 @@ async def delete_prompt_template(
 ):
     """Delete a prompt template."""
     # Check feature gate for prompt management
-    require_feature("prompt_management", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
 
     prompt_service = get_prompt_service(db)
     success = prompt_service.delete_prompt(name, updated_by=current_user.id)
@@ -386,7 +400,8 @@ async def reset_prompt_to_default(
 ):
     """Reset a prompt template to its default version."""
     # Check feature gate for prompt management
-    require_feature("prompt_management", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
 
     prompt_service = get_prompt_service(db)
     template = prompt_service.reset_prompt_to_default(name, updated_by=current_user.id)
@@ -456,7 +471,8 @@ async def restore_prompt_version(
 ):
     """Restore a specific version of a prompt template."""
     # Check feature gate for prompt management
-    require_feature("prompt_management", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
 
     prompt_service = get_prompt_service(db)
     template = prompt_service.restore_prompt_version(name, version, updated_by=current_user.id)

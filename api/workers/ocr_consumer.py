@@ -52,6 +52,14 @@ from core.exceptions.bank_ocr_exceptions import (
     get_retry_delay
 )
 
+# Import models - these are used in multiple methods
+try:
+    from core.models.models_per_tenant import BankStatementTransaction
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Failed to import BankStatementTransaction: {e}")
+    BankStatementTransaction = None
+
 # Type imports for type hints
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -200,7 +208,42 @@ class BaseMessageHandler:
         raise NotImplementedError
 
     async def process(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
-        """Process the message"""
+        """Template method for processing messages with automatic lock release"""
+        is_batch = self.is_batch_job(payload)
+        resource_type = self.get_resource_type()
+
+        try:
+            if is_batch:
+                return await self.process_batch(consumer, message, payload)
+            else:
+                return await self.process_single(consumer, message, payload)
+        except Exception as e:
+            self.logger.error(f"Unexpected error processing {resource_type}: {e}")
+            return ProcessingResult(success=False, error_message=str(e))
+        finally:
+            # Release processing lock if this was a single reprocess request
+            if not is_batch:
+                resource_id = payload.get(f"{resource_type}_id")
+                # Special case for bank_statement -> statement_id
+                if resource_type == "bank_statement" and not resource_id:
+                    resource_id = payload.get("statement_id")
+
+                if resource_id:
+                    try:
+                        release_processing_lock(resource_type, int(resource_id))
+                    except Exception as e:
+                        self.logger.error(f"Failed to release lock for {resource_type} {resource_id}: {e}")
+
+    def get_resource_type(self) -> str:
+        """Get the resource type (e.g., 'expense', 'bank_statement')"""
+        raise NotImplementedError
+
+    async def process_single(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        """Hook for single document processing"""
+        raise NotImplementedError
+
+    async def process_batch(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        """Hook for batch document processing"""
         raise NotImplementedError
 
     def extract_tenant_id(self, payload: Dict[str, Any]) -> Optional[int]:
@@ -223,18 +266,14 @@ class ExpenseMessageHandler(BaseMessageHandler):
         expense_topic = os.getenv("KAFKA_OCR_TOPIC", "expenses_ocr")
         return topic == expense_topic
 
-    async def process(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
-        """Process expense OCR message"""
-        try:
-            # Handle batch job
-            if self.is_batch_job(payload):
-                return await self._process_batch_expense(consumer, message, payload)
-            else:
-                return await self._process_single_expense(consumer, message, payload)
+    def get_resource_type(self) -> str:
+        return "expense"
 
-        except Exception as e:
-            self.logger.error(f"Unexpected error processing expense: {e}")
-            return ProcessingResult(success=False, error_message=str(e))
+    async def process_single(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_single_expense(consumer, message, payload)
+
+    async def process_batch(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_batch_expense(consumer, message, payload)
 
     async def _process_batch_expense(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
         """Process batch expense job"""
@@ -266,12 +305,12 @@ class ExpenseMessageHandler(BaseMessageHandler):
                             # Query the master database to get API client info
                             from core.models.database import get_master_db
                             from core.models.api_models import APIClient
-                            
+
                             master_db = next(get_master_db())
                             api_client = master_db.query(APIClient).filter(
                                 APIClient.client_id == api_client_id
                             ).first()
-                            
+
                             if api_client:
                                 # Use the API client's owner user ID for both attribution and gamification
                                 created_by_user_id = api_client.user_id
@@ -480,7 +519,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
 
                     if getattr(exp, "analysis_status", None) == ProcessingStatus.DONE.value:
                         # Success - commit and publish result
-                        
+
                         # Trigger Anomaly Detection (AI Auditor)
                         try:
                             # Trigger Fraud Audit asynchronously via Kafka
@@ -601,18 +640,14 @@ class BankStatementMessageHandler(BaseMessageHandler):
         bank_topic = os.getenv("KAFKA_BANK_TOPIC", "bank_statements_ocr")
         return topic == bank_topic
 
-    async def process(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
-        """Process bank statement OCR message"""
-        try:
-            # Handle batch job
-            if self.is_batch_job(payload):
-                return await self._process_batch_statement(consumer, message, payload)
-            else:
-                return await self._process_single_statement(consumer, message, payload)
+    def get_resource_type(self) -> str:
+        return "bank_statement"
 
-        except Exception as e:
-            self.logger.error(f"Unexpected error processing bank statement: {e}")
-            return ProcessingResult(success=False, error_message=str(e))
+    async def process_single(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_single_statement(consumer, message, payload)
+
+    async def process_batch(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_batch_statement(consumer, message, payload)
 
     async def _process_batch_statement(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
         """Process batch bank statement"""
@@ -719,20 +754,29 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         db.add(attachment)
 
                         # Create transaction records
-                        from core.models.models_per_tenant import BankStatementTransaction
                         if txns:
                             for txn in txns:
-                                transaction = BankStatementTransaction(
-                                    statement_id=statement.id,
-                                    date=txn.get('date'),
-                                    description=txn.get('description', ''),
-                                    amount=parse_number(txn.get('amount', 0.0)),
-                                    transaction_type=txn.get('type', 'debit'),
-                                    balance=parse_number(txn.get('balance')),
-                                    category=txn.get('category')
-                                )
-                                db.add(transaction)
-                            self.logger.info(f"Created {len(txns)} transaction records for statement {statement.id}")
+                                # Validate required fields
+                                if not txn.get('date'):
+                                    logger.warning(f"Skipping transaction with missing date: {txn}")
+                                    continue
+
+                                try:
+                                    transaction = BankStatementTransaction(
+                                        statement_id=statement.id,
+                                        date=txn.get('date'),
+                                        description=txn.get('description', ''),
+                                        amount=parse_number(txn.get('amount', 0.0)),
+                                        transaction_type=txn.get('type', 'debit'),
+                                        balance=parse_number(txn.get('balance')),
+                                        category=txn.get('category')
+                                    )
+                                    db.add(transaction)
+                                except Exception as txn_error:
+                                    logger.error(f"Failed to create transaction record: {txn_error}, txn data: {txn}")
+                                    continue
+
+                            self.logger.info(f"Created transaction records for statement {statement.id}")
 
                         db.commit()
 
@@ -837,11 +881,10 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         # Trigger Anomaly Detection for each transaction
                         try:
                             # We get the fresh transactions from the DB to have their IDs
-                            from core.models.models_per_tenant import BankStatementTransaction
                             new_txns = db.query(BankStatementTransaction).filter(
                                 BankStatementTransaction.statement_id == statement_id
                             ).all()
-                            
+
                             for txn in new_txns:
                                 publish_fraud_audit_task(tenant_id, "bank_statement_transaction", txn.id)
                         except Exception as e:
@@ -984,17 +1027,17 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
     async def _handle_zero_transactions(self, db, stmt):
         """Handle statement with zero transactions"""
+
         db.query(BankStatementTransaction).filter(
             BankStatementTransaction.statement_id == stmt.id
         ).delete()
-        stmt.status = ProcessingStatus.DONE.value
+        stmt.status = "processed"
         stmt.extracted_count = 0
         db.commit()
         self.logger.info(f"Bank statement processed with 0 transactions: id={stmt.id}")
 
     async def _save_transactions(self, db, stmt, transactions: List[Dict[str, Any]], method: str = "unknown"):
         """Save extracted transactions to database"""
-        from core.models.models_per_tenant import BankStatementTransaction
         from datetime import datetime as dt
 
         # Delete existing transactions
@@ -1071,18 +1114,14 @@ class InvoiceMessageHandler(BaseMessageHandler):
         invoice_topic = os.getenv("KAFKA_INVOICE_TOPIC", "invoices_ocr")
         return topic == invoice_topic
 
-    async def process(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
-        """Process invoice OCR message"""
-        try:
-            # Handle batch job
-            if self.is_batch_job(payload):
-                return await self._process_batch_invoice(consumer, message, payload)
-            else:
-                return await self._process_single_invoice(consumer, message, payload)
+    def get_resource_type(self) -> str:
+        return "invoice"
 
-        except Exception as e:
-            self.logger.error(f"Unexpected error processing invoice: {e}")
-            return ProcessingResult(success=False, error_message=str(e))
+    async def process_single(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_single_invoice(consumer, message, payload)
+
+    async def process_batch(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
+        return await self._process_batch_invoice(consumer, message, payload)
 
     async def _process_batch_invoice(self, consumer, message, payload: Dict[str, Any]) -> ProcessingResult:
         """Process batch invoice job"""

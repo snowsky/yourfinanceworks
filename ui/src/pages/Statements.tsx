@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -69,9 +69,10 @@ function StatusBadge({
           ${status === 'processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800 animate-pulse' : ''}
           ${status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800' : ''}
           ${status === 'uploaded' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800' : ''}
+          ${status === 'merged' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800' : ''}
         `}
       >
-        {status === 'processed' ? t('common.done', 'Done') : t(`common.${status || 'unknown'}`, status || 'Unknown')}
+        {status === 'merged' ? t('common.merged', 'Merged') : (status === 'processed' || status === 'done') ? t('common.done', 'Done') : t(`common.${status || 'unknown'}`, status || 'Unknown')}
       </Badge>
       {status === 'processed' && extraction_method && (
         <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold tracking-tighter">
@@ -145,7 +146,9 @@ export default function Statements() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
-  const readOnly = detail?.status === 'processing';
+  const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
+  const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
+
 
   // Fetch settings to get timezone
   const { data: settings } = useQuery({
@@ -178,6 +181,7 @@ export default function Statements() {
   const [labelFilter, setLabelFilter] = useState('');
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkMergeModalOpen, setBulkMergeModalOpen] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -340,7 +344,7 @@ export default function Statements() {
     setShowInvoiceForm(true);
   };
 
-  const loadList = async () => {
+  const loadList = useCallback(async () => {
     try {
       const skip = (page - 1) * pageSize;
       const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined);
@@ -349,7 +353,7 @@ export default function Statements() {
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statements');
     }
-  };
+  }, [labelFilter, page, pageSize]);
 
   useEffect(() => {
     loadList();
@@ -527,6 +531,24 @@ export default function Statements() {
     }
   };
 
+  const handleBulkMerge = async () => {
+    setLoading(true);
+    try {
+      const resp = await bankStatementApi.merge(selectedIds);
+      toast.success(resp.message || 'Statements merged successfully');
+      await loadList();
+      setSelectedIds([]);
+      setBulkMergeModalOpen(false);
+      if (resp.id) {
+        openStatement(resp.id);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to merge statements');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Recycle bin functions
   const fetchDeletedStatements = async () => {
     try {
@@ -653,6 +675,16 @@ export default function Statements() {
                 <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
               </div>
               <div className="flex gap-3 items-center flex-wrap justify-end">
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
+                  onClick={loadList}
+                  className="whitespace-nowrap"
+                  disabled={loading}
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
                   size="default"
@@ -930,16 +962,29 @@ export default function Statements() {
                     </div>
 
                     <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
-
-                    <ProfessionalButton
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setBulkDeleteModalOpen(true)}
-                      className="h-9 px-3 gap-1.5 shadow-sm"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete Selected
-                    </ProfessionalButton>
+  
+                    <div className="flex items-center gap-2">
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBulkMergeModalOpen(true)}
+                        disabled={selectedIds.length < 2}
+                        className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 hover:bg-primary/10 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Merge transactions
+                      </ProfessionalButton>
+  
+                      <ProfessionalButton
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setBulkDeleteModalOpen(true)}
+                        className="h-9 px-3 gap-1.5 shadow-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Selected
+                      </ProfessionalButton>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1064,7 +1109,7 @@ export default function Statements() {
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {(s.status === 'failed' || s.status === 'processed' || s.status === 'uploaded') && (
+                          {isCompleted(s) && s.status !== 'merged' && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1096,19 +1141,19 @@ export default function Statements() {
                               {reprocessingLocks.has(s.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePreview(s.id)}
-                            disabled={previewLoading === s.id}
-                          >
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePreview(s.id)}
+                              disabled={previewLoading === s.id || s.status === 'merged'}
+                            >
                             {previewLoading === s.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                               <ExternalLink className="w-4 h-4" />
                             )}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)}>
+                          <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)} disabled={s.status === 'merged'}>
                             <Download className="w-4 h-4" />
                           </Button>
                           <Button
@@ -1261,7 +1306,7 @@ export default function Statements() {
                   <ProfessionalButton
                     variant="outline"
                     onClick={() => selected && handlePreview(selected)}
-                    disabled={previewLoading === selected}
+                    disabled={previewLoading === selected || detail?.status === 'merged'}
                     leftIcon={previewLoading === selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                   >
                     {t('statements.preview')}
@@ -1270,12 +1315,13 @@ export default function Statements() {
                   <ProfessionalButton
                     variant="outline"
                     onClick={() => selected && handleDownload(selected, detail?.original_filename)}
+                    disabled={detail?.status === 'merged'}
                     leftIcon={<Download className="h-4 w-4" />}
                   >
                     {t('statements.download')}
                   </ProfessionalButton>
 
-                  {(detail?.status === 'failed' || detail?.status === 'processed' || detail?.status === 'uploaded') && (
+                  {detail && isCompleted(detail) && detail.status !== 'merged' && (
                     <ProfessionalButton
                       variant="outline"
                       onClick={async () => {
@@ -1332,7 +1378,7 @@ export default function Statements() {
             {/* Status & Alerts Section */}
             {(readOnly || (detail as any)?.error_message) && (
               <div className="space-y-4">
-                {readOnly && (
+                {detail?.status === 'processing' && (
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3 text-amber-700 dark:text-amber-400 slide-in">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <div className="text-sm">
@@ -1350,12 +1396,14 @@ export default function Statements() {
                   </div>
                 )}
 
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3 text-blue-700 dark:text-blue-400 slide-in">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  <div className="text-sm">
-                    <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
-                  </div>
-                </div>
+                  {detail?.status !== 'merged' && (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3 text-blue-700 dark:text-blue-400 slide-in">
+                      <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                      <div className="text-sm">
+                        <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
 
@@ -1409,7 +1457,7 @@ export default function Statements() {
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{t('statements.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
-                      {detail.status === 'processed' ? (
+                      {(detail.status === 'processed' || detail.status === 'done') ? (
                         <Badge variant="success" className="h-6">{t('common.done', 'Done')}</Badge>
                       ) : detail.status === 'processing' ? (
                         <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
@@ -2085,6 +2133,44 @@ export default function Statements() {
               <AlertDialogAction onClick={confirmDeleteStatement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('statements.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Delete Modal */}
+        <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('statements.bulk_delete_confirm_title', { count: selectedIds.length, defaultValue: 'Delete Selected Statements' })}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('statements.bulk_delete_confirm_description', { count: selectedIds.length, defaultValue: `Are you sure you want to delete ${selectedIds.length} statements? This action will move them to the recycle bin.` })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('statements.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Merge Modal */}
+        <AlertDialog open={bulkMergeModalOpen} onOpenChange={setBulkMergeModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('statements.bulk_merge_confirm_title', { count: selectedIds.length, defaultValue: 'Merge Selected Statements' })}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('statements.bulk_merge_confirm_description', { count: selectedIds.length, defaultValue: `Are you sure you want to merge ${selectedIds.length} statements? This will create a single, non-editable statement containing all transactions. The original statements will remain in the list.` })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkMerge} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('statements.merge', { defaultValue: 'Merge' })}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -98,7 +98,7 @@ from core.services.search_indexer import search_indexer
 # Initialize database (create tables and populate initial data)
 try:
     logger.info("Starting database initialization...")
-    init_db(skip_migrations=True)  # Skip migrations to avoid hanging during startup
+    init_db()
     logger.info("Database initialization completed successfully.")
 except Exception as e:
     logger.error(f"Database initialization failed: {str(e)}")

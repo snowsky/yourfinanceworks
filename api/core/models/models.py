@@ -99,6 +99,7 @@ class Tenant(Base):
     name = Column(String, unique=True, index=True)
     subdomain = Column(String, unique=True, nullable=True, index=True)  # Optional subdomain
     is_active = Column(Boolean, default=True, nullable=False)
+    is_enabled = Column(Boolean, default=True, nullable=False)  # License-based tenant control
     
     # Company details
     email = Column(String, nullable=True)

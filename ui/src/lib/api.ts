@@ -657,6 +657,11 @@ export const bankStatementApi = {
       method: 'POST',
       body: JSON.stringify({ ids, action, label }),
     }),
+  merge: (ids: number[]) =>
+    apiRequest<{ success: boolean; message: string; id: number }>('/statements/merge', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 };
 
 // Add settings types

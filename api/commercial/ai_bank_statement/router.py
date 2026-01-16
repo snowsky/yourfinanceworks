@@ -16,7 +16,13 @@ from core.utils.rbac import require_non_viewer
 from core.utils.feature_gate import require_feature
 from core.services.statement_service import extract_transactions_from_pdf_paths
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
-from core.schemas.bank_statement import BankStatementResponse, DeletedBankStatement, RecycleBinStatementResponse, RestoreStatementRequest, PaginatedBankStatements
+from core.schemas.bank_statement import (
+    BankStatementResponse,
+    DeletedBankStatement,
+    RecycleBinStatementResponse,
+    RestoreStatementRequest,
+    PaginatedBankStatements,
+)
 from datetime import datetime, timezone
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 from fastapi.responses import FileResponse
@@ -50,6 +56,7 @@ async def upload_statements(
     # Save to tenant-scoped folder
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -65,10 +72,14 @@ async def upload_statements(
     try:
         for f in files:
             if f.content_type not in allowed_types:
-                raise HTTPException(status_code=400, detail="Only PDF or CSV files are supported")
+                raise HTTPException(
+                    status_code=400, detail="Only PDF or CSV files are supported"
+                )
             contents = await f.read()
             if len(contents) > 20 * 1024 * 1024:
-                raise HTTPException(status_code=400, detail="Each file must be <= 20 MB")
+                raise HTTPException(
+                    status_code=400, detail="Each file must be <= 20 MB"
+                )
             await f.seek(0)
 
             name = (f.filename or "statement.pdf").strip()
@@ -76,7 +87,7 @@ async def upload_statements(
             name = "".join(ch for ch in name if ch.isalnum() or ch in (".", "_", "-"))
             stem, _ext = os.path.splitext(name)
             unique = uuid.uuid4().hex
-            ext = (_ext.lower() if _ext else ".pdf")
+            ext = _ext.lower() if _ext else ".pdf"
             if ext not in (".pdf", ".csv"):
                 # Normalize unknown extensions to .pdf for storage but keep original filename for display
                 ext = ".pdf"
@@ -91,10 +102,10 @@ async def upload_statements(
                 try:
                     from commercial.cloud_storage.service import CloudStorageService
                     from commercial.cloud_storage.config import get_cloud_storage_config
-                    
+
                     cloud_config = get_cloud_storage_config()
                     cloud_storage_service = CloudStorageService(db, cloud_config)
-                    
+
                     # Upload file to cloud storage
                     storage_result = await cloud_storage_service.store_file(
                         file_content=contents,
@@ -109,17 +120,23 @@ async def upload_statements(
                             "uploaded_at": datetime.utcnow().isoformat(),
                             "file_size": len(contents),
                             "document_type": "bank_statement",
-                            "upload_method": "internal_api"
-                        }
+                            "upload_method": "internal_api",
+                        },
                     )
-                    
+
                     if storage_result.success:
                         cloud_file_url = storage_result.file_url
-                        logger.info(f"Bank statement uploaded to cloud storage: {cloud_file_url}")
+                        logger.info(
+                            f"Bank statement uploaded to cloud storage: {cloud_file_url}"
+                        )
                     else:
-                        logger.warning(f"Cloud storage upload failed, using local file: {storage_result.error}")
+                        logger.warning(
+                            f"Cloud storage upload failed, using local file: {storage_result.error}"
+                        )
                 except ImportError:
-                    logger.info("Commercial CloudStorageService not found, using local file only")
+                    logger.info(
+                        "Commercial CloudStorageService not found, using local file only"
+                    )
             except Exception as e:
                 logger.error(f"Cloud storage upload failed: {e}")
 
@@ -138,20 +155,26 @@ async def upload_statements(
             # Force async-only: always enqueue, no sync fallback
             try:
                 topic_name = os.getenv("KAFKA_BANK_TOPIC", "bank_statements_ocr")
-                logger.info(f"Enqueue bank statement id={statement.id} topic={topic_name}")
-                ok = publish_bank_statement_task({
-                    "tenant_id": tenant_id,
-                    "statement_id": statement.id,
-                    "file_path": str(out_path),
-                    "ts": datetime.utcnow().isoformat(),
-                })
+                logger.info(
+                    f"Enqueue bank statement id={statement.id} topic={topic_name}"
+                )
+                ok = publish_bank_statement_task(
+                    {
+                        "tenant_id": tenant_id,
+                        "statement_id": statement.id,
+                        "file_path": str(out_path),
+                        "ts": datetime.utcnow().isoformat(),
+                    }
+                )
                 if not ok:
                     logger.warning(
                         f"Bank enqueue failed servers={os.getenv('KAFKA_BOOTSTRAP_SERVERS')} topic={topic_name}"
                     )
                     raise RuntimeError("Failed to enqueue bank statement task")
                 else:
-                    logger.info(f"Bank enqueue success id={statement.id} topic={topic_name}")
+                    logger.info(
+                        f"Bank enqueue success id={statement.id} topic={topic_name}"
+                    )
             except Exception as e:
                 # Keep as processing so UI reflects pending state; worker retry/ops will handle later
                 pass
@@ -160,15 +183,38 @@ async def upload_statements(
                 db.commit()
                 db.refresh(statement)
 
-            created.append({
-                "id": statement.id,
-                "original_filename": statement.original_filename,
-                "stored_filename": statement.stored_filename,
-                "file_path": statement.file_path,
-                "status": statement.status,
-                "extracted_count": statement.extracted_count,
-                "created_at": statement.created_at.isoformat() if statement.created_at else None,
-            })
+            # Audit log for bank statement upload
+            try:
+                log_audit_event(
+                    db=db,
+                    user_id=current_user.id,
+                    user_email=current_user.email,
+                    action="statement_upload",
+                    resource_type="bank_statement",
+                    resource_id=str(statement.id),
+                    resource_name=statement.original_filename,
+                    details={"file_size": len(contents), "file_type": ext},
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to log audit event for bank statement {statement.id}: {e}"
+                )
+
+            created.append(
+                {
+                    "id": statement.id,
+                    "original_filename": statement.original_filename,
+                    "stored_filename": statement.stored_filename,
+                    "file_path": statement.file_path,
+                    "status": statement.status,
+                    "extracted_count": statement.extracted_count,
+                    "created_at": (
+                        statement.created_at.isoformat()
+                        if statement.created_at
+                        else None
+                    ),
+                }
+            )
 
         return {"success": True, "statements": created}
     except HTTPException:
@@ -176,7 +222,9 @@ async def upload_statements(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to process bank statements: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process bank statements: {e}"
+        )
     finally:
         # No cleanup: keep uploads under attachments for audit/debug
         pass
@@ -195,6 +243,7 @@ async def list_statements(
     require_non_viewer(current_user, "list statements")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -214,66 +263,85 @@ async def list_statements(
     # Apply label filter if provided
     if label:
         import sqlalchemy as sa
-        query = query.filter(sa.cast(BankStatement.labels, sa.String).ilike(f"%{label}%"))
+
+        query = query.filter(
+            sa.cast(BankStatement.labels, sa.String).ilike(f"%{label}%")
+        )
 
     total_count = query.count()
-    rows = query.order_by(BankStatement.created_at.desc()).offset(skip).limit(limit).all()
-    
+    rows = (
+        query.order_by(BankStatement.created_at.desc()).offset(skip).limit(limit).all()
+    )
+
     statements = []
     for s in rows:
-        statements.append({
-            "id": s.id,
-            "original_filename": s.original_filename,
-            "stored_filename": s.stored_filename,
-            "file_path": s.file_path,
-            "status": s.status,
-            "extracted_count": s.extracted_count,
-            "extraction_method": getattr(s, 'extraction_method', None),
-            "analysis_error": getattr(s, 'analysis_error', None),
-            "analysis_updated_at": s.analysis_updated_at.isoformat() if getattr(s, 'analysis_updated_at', None) else None,
-            "labels": getattr(s, 'labels', None),
-            "notes": getattr(s, 'notes', None),
-            "created_at": s.created_at.isoformat() if s.created_at else None,
-            "created_by_user_id": s.created_by_user_id,
-            "created_by_username": (f"{s.created_by.first_name or ''} {s.created_by.last_name or ''}".strip() or s.created_by.email) if s.created_by else None,
-            "created_by_email": s.created_by.email if s.created_by else None,
-        })
+        statements.append(
+            {
+                "id": s.id,
+                "original_filename": s.original_filename,
+                "stored_filename": s.stored_filename,
+                "file_path": s.file_path,
+                "status": s.status,
+                "extracted_count": s.extracted_count,
+                "extraction_method": getattr(s, "extraction_method", None),
+                "analysis_error": getattr(s, "analysis_error", None),
+                "analysis_updated_at": (
+                    s.analysis_updated_at.isoformat()
+                    if getattr(s, "analysis_updated_at", None)
+                    else None
+                ),
+                "labels": getattr(s, "labels", None),
+                "notes": getattr(s, "notes", None),
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "created_by_user_id": s.created_by_user_id,
+                "created_by_username": (
+                    (
+                        f"{s.created_by.first_name or ''} {s.created_by.last_name or ''}".strip()
+                        or s.created_by.email
+                    )
+                    if s.created_by
+                    else None
+                ),
+                "created_by_email": s.created_by.email if s.created_by else None,
+            }
+        )
 
-    return {
-        "success": True,
-        "statements": statements,
-        "total": total_count
-    }
-
+    return {"success": True, "statements": statements, "total": total_count}
 
 
 # Recycle Bin Endpoints (must come before /{statement_id} route)
+
 
 @router.post("/bulk-labels")
 async def bulk_labels(
     payload: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Bulk add or remove labels from bank statements"""
     require_non_viewer(current_user, "bulk update statements")
-    
+
     ids = payload.get("ids", [])
-    action = payload.get("action") # "add" or "remove"
+    action = payload.get("action")  # "add" or "remove"
     label = payload.get("label", "").strip()
-    
+
     if not ids or action not in ["add", "remove"] or label == "":
         raise HTTPException(status_code=400, detail="Invalid request payload")
-        
+
     try:
         # Check tenant context
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
         if tenant_id is None:
             raise HTTPException(status_code=401, detail="Tenant context required")
 
-        statements = db.query(BankStatement).filter(BankStatement.id.in_(ids), BankStatement.tenant_id == tenant_id).all()
-        
+        statements = (
+            db.query(BankStatement)
+            .filter(BankStatement.id.in_(ids), BankStatement.tenant_id == tenant_id)
+            .all()
+        )
+
         for s in statements:
             current_labels = list(s.labels or [])
             if action == "add":
@@ -282,10 +350,10 @@ async def bulk_labels(
             elif action == "remove":
                 if label in current_labels:
                     current_labels.remove(label)
-            
+
             s.labels = current_labels
             s.updated_at = get_tenant_timezone_aware_datetime(db)
-            
+
         db.commit()
         return {"success": True, "count": len(statements)}
     except Exception as e:
@@ -293,16 +361,141 @@ async def bulk_labels(
         logger.error(f"Error in bulk_labels for statements: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update labels")
 
+
+@router.post("/merge")
+async def merge_statements(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Merge multiple bank statements into one (originals are kept)"""
+    require_non_viewer(current_user, "merge statements")
+
+    ids = payload.get("ids", [])
+    if not isinstance(ids, list) or len(ids) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="At least two statement IDs are required for merging",
+        )
+
+    try:
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        if tenant_id is None:
+            raise HTTPException(status_code=401, detail="Tenant context required")
+
+        # Fetch statements and verify they belong to the tenant and are not deleted
+        statements = (
+            db.query(BankStatement)
+            .filter(
+                BankStatement.id.in_(ids),
+                BankStatement.tenant_id == tenant_id,
+                BankStatement.is_deleted == False,
+            )
+            .all()
+        )
+
+        if len(statements) != len(ids):
+            raise HTTPException(
+                status_code=404,
+                detail="One or more statements not found or already deleted",
+            )
+
+        now = datetime.now(timezone.utc)
+
+        # Create new merged statement
+        merged_filename = f"Merged Statement ({now.strftime('%Y-%m-%d %H:%M')}).pdf"
+        unique_id = uuid.uuid4().hex
+        stored_filename = f"merged_{unique_id}.txt"
+        file_path = f"merged_statements/{stored_filename}"  # Placeholder path
+
+        merged_statement = BankStatement(
+            tenant_id=tenant_id,
+            original_filename=merged_filename,
+            stored_filename=stored_filename,
+            file_path=file_path,
+            status="merged",
+            extracted_count=0,
+            created_by_user_id=current_user.id,
+            notes=f"Merged from statement IDs: {', '.join(map(str, sorted(ids)))}",
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(merged_statement)
+        db.flush()  # Get merged_statement.id
+
+        total_txns = 0
+        # Copy transactions from each statement
+        for s in statements:
+            txns = (
+                db.query(BankStatementTransaction)
+                .filter(BankStatementTransaction.statement_id == s.id)
+                .all()
+            )
+            for t in txns:
+                new_txn = BankStatementTransaction(
+                    statement_id=merged_statement.id,
+                    date=t.date,
+                    description=t.description,
+                    amount=t.amount,
+                    transaction_type=t.transaction_type,
+                    balance=t.balance,
+                    category=t.category,
+                    invoice_id=t.invoice_id,
+                    expense_id=t.expense_id,
+                )
+                db.add(new_txn)
+                total_txns += 1
+
+            # Original statements are kept in the list
+
+        merged_statement.extracted_count = total_txns
+
+        db.commit()
+
+        # Audit log
+        try:
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="MERGE",
+                resource_type="bank_statement",
+                resource_id=str(merged_statement.id),
+                resource_name=merged_filename,
+                details={"merged_from_ids": ids, "transaction_count": total_txns},
+            )
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "message": f"Successfully merged {len(ids)} statements",
+            "id": merged_statement.id,
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error merging statements: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to merge statements: {str(e)}"
+        )
+
+
 @router.get("/recycle-bin", response_model=List[DeletedBankStatement])
 async def get_deleted_statements(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Get all deleted statements in the recycle bin"""
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -310,17 +503,25 @@ async def get_deleted_statements(
         raise HTTPException(status_code=401, detail="Tenant context required")
 
     try:
-        deleted_statements = db.query(BankStatement).filter(
-            BankStatement.tenant_id == tenant_id,
-            BankStatement.is_deleted == True
-        ).offset(skip).limit(limit).all()
+        deleted_statements = (
+            db.query(BankStatement)
+            .filter(
+                BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == True
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
         result = []
         for statement in deleted_statements:
             # Get deleted by user information
             deleted_by_username = None
             if statement.deleted_by_user:
-                if statement.deleted_by_user.first_name and statement.deleted_by_user.last_name:
+                if (
+                    statement.deleted_by_user.first_name
+                    and statement.deleted_by_user.last_name
+                ):
                     deleted_by_username = f"{statement.deleted_by_user.first_name} {statement.deleted_by_user.last_name}"
                 elif statement.deleted_by_user.first_name:
                     deleted_by_username = statement.deleted_by_user.first_name
@@ -356,7 +557,7 @@ async def get_deleted_statements(
                 "deleted_by_username": deleted_by_username,
                 "created_by_user_id": statement.created_by_user_id,
                 "created_by_username": created_by_username,
-                "created_by_email": created_by_email
+                "created_by_email": created_by_email,
             }
             result.append(statement_dict)
 
@@ -365,25 +566,24 @@ async def get_deleted_statements(
     except Exception as e:
         logger.error(f"Error getting deleted statements: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get deleted statements: {str(e)}"
+            status_code=500, detail=f"Failed to get deleted statements: {str(e)}"
         )
+
 
 @router.post("/recycle-bin/empty", response_model=dict)
 async def empty_statement_recycle_bin(
-    db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: MasterUser = Depends(get_current_user)
 ):
     """Empty the entire statement recycle bin (admin only)"""
     try:
         # Only admins can empty the recycle bin
-        if current_user.role != 'admin':
+        if current_user.role != "admin":
             raise HTTPException(
-                status_code=403,
-                detail="Only admins can empty the recycle bin"
+                status_code=403, detail="Only admins can empty the recycle bin"
             )
 
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -391,10 +591,11 @@ async def empty_statement_recycle_bin(
         raise HTTPException(status_code=401, detail="Tenant context required")
 
     # Get all deleted statements
-    deleted_statements = db.query(BankStatement).filter(
-        BankStatement.tenant_id == tenant_id,
-        BankStatement.is_deleted == True
-    ).all()
+    deleted_statements = (
+        db.query(BankStatement)
+        .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == True)
+        .all()
+    )
     count = len(deleted_statements)
 
     if count == 0:
@@ -403,29 +604,44 @@ async def empty_statement_recycle_bin(
     # Delete all attachment files from storage before deleting statements
     try:
         from core.models.models_per_tenant import BankStatementAttachment
+
         for statement in deleted_statements:
             # Delete main statement file if exists
             if statement.file_path:
                 try:
-                    await delete_file_from_storage(statement.file_path, tenant_id, current_user.id, db)
+                    await delete_file_from_storage(
+                        statement.file_path, tenant_id, current_user.id, db
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to delete statement file {statement.file_path}: {e}")
+                    logger.warning(
+                        f"Failed to delete statement file {statement.file_path}: {e}"
+                    )
 
             # Delete attachments
-            attachments = db.query(BankStatementAttachment).filter(
-                BankStatementAttachment.statement_id == statement.id
-            ).all()
+            attachments = (
+                db.query(BankStatementAttachment)
+                .filter(BankStatementAttachment.statement_id == statement.id)
+                .all()
+            )
             for att in attachments:
                 if att.file_path:
                     try:
-                        await delete_file_from_storage(att.file_path, tenant_id, current_user.id, db)
+                        await delete_file_from_storage(
+                            att.file_path, tenant_id, current_user.id, db
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
+                        logger.warning(
+                            f"Failed to delete attachment file {att.file_path}: {e}"
+                        )
 
         if deleted_statements:
-            logger.info(f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty")
+            logger.info(
+                f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty"
+            )
     except Exception as e:
-        logger.warning(f"Failed to delete attachment files during statement recycle bin empty: {e}")
+        logger.warning(
+            f"Failed to delete attachment files during statement recycle bin empty: {e}"
+        )
 
     # Delete all statements in recycle bin
     for statement in deleted_statements:
@@ -442,13 +658,15 @@ async def empty_statement_recycle_bin(
         resource_type="statement",
         resource_id=None,
         resource_name=None,
-        details={"message": f"Statement recycle bin emptied, {count} statements permanently deleted."},
-        status="success"
+        details={
+            "message": f"Statement recycle bin emptied, {count} statements permanently deleted."
+        },
+        status="success",
     )
 
     return {
         "message": f"Statement recycle bin emptied successfully. {count} statements permanently deleted.",
-        "deleted_count": count
+        "deleted_count": count,
     }
 
 
@@ -461,6 +679,7 @@ async def get_statement(
     require_non_viewer(current_user, "view statement")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -470,7 +689,11 @@ async def get_statement(
     s = (
         db.query(BankStatement)
         .options(joinedload(BankStatement.created_by))
-        .filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
+        .filter(
+            BankStatement.id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == False,
+        )
         .first()
     )
     if not s:
@@ -479,7 +702,9 @@ async def get_statement(
     txns = (
         db.query(BankStatementTransaction)
         .filter(BankStatementTransaction.statement_id == s.id)
-        .order_by(BankStatementTransaction.date.asc(), BankStatementTransaction.id.asc())
+        .order_by(
+            BankStatementTransaction.date.asc(), BankStatementTransaction.id.asc()
+        )
         .all()
     )
     return {
@@ -491,11 +716,15 @@ async def get_statement(
             "file_path": s.file_path,
             "status": s.status,
             "extracted_count": s.extracted_count,
-            "extraction_method": getattr(s, 'extraction_method', None),
-            "analysis_error": getattr(s, 'analysis_error', None),
-            "analysis_updated_at": s.analysis_updated_at.isoformat() if getattr(s, 'analysis_updated_at', None) else None,
-            "labels": getattr(s, 'labels', None),
-            "notes": getattr(s, 'notes', None),
+            "extraction_method": getattr(s, "extraction_method", None),
+            "analysis_error": getattr(s, "analysis_error", None),
+            "analysis_updated_at": (
+                s.analysis_updated_at.isoformat()
+                if getattr(s, "analysis_updated_at", None)
+                else None
+            ),
+            "labels": getattr(s, "labels", None),
+            "notes": getattr(s, "notes", None),
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "created_by_user_id": s.created_by_user_id,
             "created_by_username": s.created_by.email if s.created_by else None,
@@ -509,15 +738,13 @@ async def get_statement(
                     "transaction_type": t.transaction_type,
                     "balance": t.balance,
                     "category": t.category,
-                    "invoice_id": getattr(t, 'invoice_id', None),
-                    "expense_id": getattr(t, 'expense_id', None),
+                    "invoice_id": getattr(t, "invoice_id", None),
+                    "expense_id": getattr(t, "expense_id", None),
                 }
                 for t in txns
             ],
         },
     }
-
-
 
 
 @router.put("/{statement_id}", response_model=Dict[str, Any])
@@ -531,6 +758,7 @@ async def update_statement_meta(
     require_non_viewer(current_user, "edit bank statement")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -557,7 +785,9 @@ async def update_statement_meta(
             if v in (None, ""):
                 s.labels = None
             elif not isinstance(v, list):
-                raise HTTPException(status_code=400, detail="labels must be an array of strings")
+                raise HTTPException(
+                    status_code=400, detail="labels must be an array of strings"
+                )
             else:
                 cleaned: list[str] = []
                 for item in v:
@@ -578,8 +808,13 @@ async def update_statement_meta(
             changed: Dict[str, Any] = {}
             if "notes" in payload and prev_notes != s.notes:
                 changed["notes"] = {"before": prev_notes, "after": s.notes}
-            if "labels" in payload and (prev_labels or []) != (getattr(s, "labels", []) or []):
-                changed["labels"] = {"before": prev_labels, "after": getattr(s, "labels", []) or []}
+            if "labels" in payload and (prev_labels or []) != (
+                getattr(s, "labels", []) or []
+            ):
+                changed["labels"] = {
+                    "before": prev_labels,
+                    "after": getattr(s, "labels", []) or [],
+                }
             if changed:
                 log_audit_event(
                     db=db,
@@ -602,8 +837,8 @@ async def update_statement_meta(
                 "file_path": s.file_path,
                 "status": s.status,
                 "extracted_count": s.extracted_count,
-                "labels": getattr(s, 'labels', None),
-                "notes": getattr(s, 'notes', None),
+                "labels": getattr(s, "labels", None),
+                "notes": getattr(s, "notes", None),
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "created_by_user_id": s.created_by_user_id,
                 "created_by_username": s.created_by.email if s.created_by else None,
@@ -625,6 +860,7 @@ async def replace_statement_transactions(
     require_non_viewer(current_user, "edit bank statement")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -649,13 +885,21 @@ async def replace_statement_transactions(
         prev_rows = (
             db.query(BankStatementTransaction)
             .filter(BankStatementTransaction.statement_id == s.id)
-            .order_by(BankStatementTransaction.date.asc(), BankStatementTransaction.id.asc())
+            .order_by(
+                BankStatementTransaction.date.asc(), BankStatementTransaction.id.asc()
+            )
             .all()
         )
         prev_count = len(prev_rows)
-        prev_ids = [getattr(r, "id", None) for r in prev_rows if getattr(r, "id", None) is not None]
+        prev_ids = [
+            getattr(r, "id", None)
+            for r in prev_rows
+            if getattr(r, "id", None) is not None
+        ]
         # Replace transactions: simple strategy but preserve invoice links if provided
-        db.query(BankStatementTransaction).filter(BankStatementTransaction.statement_id == s.id).delete()
+        db.query(BankStatementTransaction).filter(
+            BankStatementTransaction.statement_id == s.id
+        ).delete()
 
         count = 0
         for t in items:
@@ -668,8 +912,14 @@ async def replace_statement_transactions(
                 date=dt,
                 description=t.get("description", ""),
                 amount=float(t.get("amount", 0)),
-                transaction_type=(t.get("transaction_type") if t.get("transaction_type") in ("debit", "credit") else ("debit" if float(t.get("amount", 0)) < 0 else "credit")),
-                balance=(float(t["balance"]) if t.get("balance") not in (None, "") else None),
+                transaction_type=(
+                    t.get("transaction_type")
+                    if t.get("transaction_type") in ("debit", "credit")
+                    else ("debit" if float(t.get("amount", 0)) < 0 else "credit")
+                ),
+                balance=(
+                    float(t["balance"]) if t.get("balance") not in (None, "") else None
+                ),
                 category=t.get("category") or None,
             )
             inv_id = t.get("invoice_id")
@@ -712,7 +962,9 @@ async def replace_statement_transactions(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update transactions: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update transactions: {e}"
+        )
 
 
 @router.get("/{statement_id}/file")
@@ -728,6 +980,7 @@ async def download_statement_file(
     require_non_viewer(current_user, "download bank statement file")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -750,7 +1003,7 @@ async def download_statement_file(
         safe_path = validate_file_path(s.file_path)
     except ValueError:
         raise HTTPException(status_code=404, detail="Invalid file path")
-    
+
     if not os.path.exists(safe_path):
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -761,7 +1014,7 @@ async def download_statement_file(
 
     headers = None
     if inline:
-        headers = {"Content-Disposition": f"inline; filename=\"{_name}\""}
+        headers = {"Content-Disposition": f'inline; filename="{_name}"'}
         return FileResponse(path=safe_path, media_type=media_type, headers=headers)
     # Attachment with filename
     return FileResponse(path=safe_path, media_type=media_type, filename=_name)
@@ -772,11 +1025,12 @@ async def restore_statement(
     statement_id: int,
     restore_request: RestoreStatementRequest = RestoreStatementRequest(),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Restore a statement from the recycle bin"""
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -784,17 +1038,18 @@ async def restore_statement(
         raise HTTPException(status_code=401, detail="Tenant context required")
 
     # Find the deleted statement
-    statement = db.query(BankStatement).filter(
-        BankStatement.id == statement_id,
-        BankStatement.tenant_id == tenant_id,
-        BankStatement.is_deleted == True
-    ).first()
+    statement = (
+        db.query(BankStatement)
+        .filter(
+            BankStatement.id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == True,
+        )
+        .first()
+    )
 
     if not statement:
-        raise HTTPException(
-            status_code=404,
-            detail="Deleted statement not found"
-        )
+        raise HTTPException(status_code=404, detail="Deleted statement not found")
 
     # Restore the statement
     statement.is_deleted = False
@@ -815,24 +1070,26 @@ async def restore_statement(
         resource_id=str(statement_id),
         resource_name=f"Statement {statement_id}",
         details={"message": "Statement restored from recycle bin"},
-        status="success"
+        status="success",
     )
 
     return RecycleBinStatementResponse(
         message="Statement restored successfully",
         statement_id=statement_id,
-        action="restored"
+        action="restored",
     )
+
 
 @router.delete("/{statement_id}/permanent", response_model=RecycleBinStatementResponse)
 async def permanently_delete_statement(
     statement_id: int,
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Permanently delete a statement from the recycle bin"""
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -840,43 +1097,57 @@ async def permanently_delete_statement(
         raise HTTPException(status_code=401, detail="Tenant context required")
 
     # Find the deleted statement
-    statement = db.query(BankStatement).filter(
-        BankStatement.id == statement_id,
-        BankStatement.tenant_id == tenant_id,
-        BankStatement.is_deleted == True
-    ).first()
+    statement = (
+        db.query(BankStatement)
+        .filter(
+            BankStatement.id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == True,
+        )
+        .first()
+    )
 
     if not statement:
-        raise HTTPException(
-            status_code=404,
-            detail="Deleted statement not found"
-        )
+        raise HTTPException(status_code=404, detail="Deleted statement not found")
 
     # Delete attachment files from storage
     try:
         from core.models.models_per_tenant import BankStatementAttachment
+
         # Delete main statement file if exists
         if statement.file_path:
             try:
-                await delete_file_from_storage(statement.file_path, tenant_id, current_user.id, db)
+                await delete_file_from_storage(
+                    statement.file_path, tenant_id, current_user.id, db
+                )
             except Exception as e:
-                logger.warning(f"Failed to delete statement file {statement.file_path}: {e}")
+                logger.warning(
+                    f"Failed to delete statement file {statement.file_path}: {e}"
+                )
 
         # Delete attachments
-        attachments = db.query(BankStatementAttachment).filter(
-            BankStatementAttachment.statement_id == statement_id
-        ).all()
+        attachments = (
+            db.query(BankStatementAttachment)
+            .filter(BankStatementAttachment.statement_id == statement_id)
+            .all()
+        )
         for att in attachments:
             if att.file_path:
                 try:
-                    await delete_file_from_storage(att.file_path, tenant_id, current_user.id, db)
+                    await delete_file_from_storage(
+                        att.file_path, tenant_id, current_user.id, db
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
+                    logger.warning(
+                        f"Failed to delete attachment file {att.file_path}: {e}"
+                    )
 
         if attachments or statement.file_path:
             logger.info(f"Deleted attachment files for statement {statement_id}")
     except Exception as e:
-        logger.warning(f"Failed to delete attachment files for statement {statement_id}: {e}")
+        logger.warning(
+            f"Failed to delete attachment files for statement {statement_id}: {e}"
+        )
 
     # Permanently delete the statement
     db.delete(statement)
@@ -892,13 +1163,13 @@ async def permanently_delete_statement(
         resource_id=str(statement_id),
         resource_name=f"Statement {statement_id}",
         details={"message": "Statement permanently deleted"},
-        status="success"
+        status="success",
     )
 
     return RecycleBinStatementResponse(
         message="Statement permanently deleted",
         statement_id=statement_id,
-        action="permanently_deleted"
+        action="permanently_deleted",
     )
 
 
@@ -911,12 +1182,15 @@ async def reprocess_statement(
 ):
     """Reprocess a bank statement's analysis with proper status reset and duplicate prevention."""
     require_non_viewer(current_user, "reprocess statement")
-    
+
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Error getting tenant context for reprocess: {e}")
         tenant_id = None
+
     if tenant_id is None:
         raise HTTPException(status_code=401, detail="Tenant context required")
 
@@ -925,36 +1199,71 @@ async def reprocess_statement(
 
     # Check if statement is already being processed
     if ProcessingLock.is_locked(db, "bank_statement", statement_id):
-        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
-        return {
-            "success": True,
-            "message": "Statement is already being processed",
-            "status": "already_processing",
-            "lock_info": lock_info
-        }
+        # Check if the lock is stale (statement is already in a terminal state)
+        s_check = (
+            db.query(BankStatement)
+            .filter(
+                BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id
+            )
+            .first()
+        )
 
-    s = db.query(BankStatement).filter(
-        BankStatement.id == statement_id, 
-        BankStatement.tenant_id == tenant_id,
-        BankStatement.is_deleted == False
-    ).first()
-    
+        if s_check and s_check.status in ["processed", "failed", "done"]:
+            logger.info(
+                f"Statement {statement_id} is in terminal state '{s_check.status}' but locked. Releasing stale lock."
+            )
+            ProcessingLock.release_lock(db, "bank_statement", statement_id)
+        else:
+            lock_info = ProcessingLock.get_active_lock_info(
+                db, "bank_statement", statement_id
+            )
+            return {
+                "success": True,
+                "message": "Statement is already being processed",
+                "status": "already_processing",
+                "lock_info": lock_info,
+            }
+
+    s = (
+        db.query(BankStatement)
+        .filter(
+            BankStatement.id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == False,
+        )
+        .first()
+    )
+
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
 
+    if s.status == "merged":
+        raise HTTPException(
+            status_code=400, detail="Merged statements cannot be reprocessed"
+        )
+
     # Acquire processing lock
-    request_id = f"reprocess_statement_{statement_id}_{datetime.utcnow().timestamp()}"
+    from datetime import datetime, timezone
+
+    request_id = (
+        f"reprocess_statement_{statement_id}_{datetime.now(timezone.utc).timestamp()}"
+    )
     if not ProcessingLock.acquire_lock(
-        db, "bank_statement", statement_id, current_user.id,
-        lock_duration_minutes=30, metadata={"request_id": request_id}
+        db,
+        "bank_statement",
+        statement_id,
+        current_user.id,
+        lock_duration_minutes=30,
+        metadata={"request_id": request_id},
     ):
-        # Lock was acquired by someone else between check and acquire
-        lock_info = ProcessingLock.get_active_lock_info(db, "bank_statement", statement_id)
+        lock_info = ProcessingLock.get_active_lock_info(
+            db, "bank_statement", statement_id
+        )
         return {
             "success": True,
             "message": "Statement is already being processed by another request",
             "status": "already_processing",
-            "lock_info": lock_info
+            "lock_info": lock_info,
         }
 
     try:
@@ -965,30 +1274,41 @@ async def reprocess_statement(
         db.commit()
 
         # Enqueue processing task (sync call)
-        publish_bank_statement_task({
-            "statement_id": s.id,
-            "file_path": s.file_path,
-            "tenant_id": tenant_id,
-            "attempt": 0
-        })
-
-        await log_audit_event(
-            db,
-            "statement_reprocess",
-            f"Reprocessed statement: {s.original_filename}",
-            current_user.id,
-            {"statement_id": s.id}
+        publish_bank_statement_task(
+            {
+                "statement_id": s.id,
+                "file_path": s.file_path,
+                "tenant_id": tenant_id,
+                "attempt": 0,
+            }
         )
 
-        logger.info(f"Reprocess started for bank statement {statement_id} by user {current_user.id} (request_id: {request_id})")
-        return {"success": True, "message": "Reprocessing started", "request_id": request_id}
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="statement_reprocess",
+            resource_type="bank_statement",
+            resource_id=str(s.id),
+            resource_name=s.original_filename,
+            details={"statement_id": s.id},
+        )
+
+        logger.info(
+            f"Reprocess started for bank statement {statement_id} (request_id={request_id})"
+        )
+        return {
+            "success": True,
+            "message": "Reprocessing started",
+            "request_id": request_id,
+        }
 
     except Exception as e:
         # Release lock on failure
         try:
             ProcessingLock.release_lock(db, "bank_statement", statement_id)
-        except:
-            pass
+        except Exception as lock_err:
+            logger.error(f"Lock release failed after error: {lock_err}")
         logger.error(f"Failed to reprocess bank statement {statement_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to reprocess statement")
 
@@ -1003,6 +1323,7 @@ async def delete_statement(
     require_non_viewer(current_user, "delete statement")
     try:
         from core.models.database import get_tenant_context
+
         tenant_id = get_tenant_context()
     except Exception:
         tenant_id = None
@@ -1018,64 +1339,91 @@ async def delete_statement(
     )
     if not s:
         raise HTTPException(status_code=404, detail="Statement not found")
-    
+
     # If statement is already deleted, return success
     if s.is_deleted:
         return RecycleBinStatementResponse(
             message="Statement is already in recycle bin",
             statement_id=statement_id,
-            action="already_in_recycle_bin"
+            action="already_in_recycle_bin",
         )
 
     # Check if this statement was created from batch processing
     from core.models.models_per_tenant import BatchFileProcessing
-    batch_file = db.query(BatchFileProcessing).filter(
-        BatchFileProcessing.created_statement_id == statement_id
-    ).first()
+
+    batch_file = (
+        db.query(BatchFileProcessing)
+        .filter(BatchFileProcessing.created_statement_id == statement_id)
+        .first()
+    )
 
     if batch_file and batch_file.job_id:
         # Get the batch job to find export destination
-        from core.models.models_per_tenant import BatchProcessingJob, ExportDestinationConfig
-        batch_job = db.query(BatchProcessingJob).filter(
-            BatchProcessingJob.job_id == batch_file.job_id
-        ).first()
+        from core.models.models_per_tenant import (
+            BatchProcessingJob,
+            ExportDestinationConfig,
+        )
+
+        batch_job = (
+            db.query(BatchProcessingJob)
+            .filter(BatchProcessingJob.job_id == batch_file.job_id)
+            .first()
+        )
 
         # Get S3 config from export destination or use default
         bucket_name = None
         aws_credentials = None
         if batch_job and batch_job.export_destination_config_id:
-            export_dest = db.query(ExportDestinationConfig).filter(
-                ExportDestinationConfig.id == batch_job.export_destination_config_id
-            ).first()
+            export_dest = (
+                db.query(ExportDestinationConfig)
+                .filter(
+                    ExportDestinationConfig.id == batch_job.export_destination_config_id
+                )
+                .first()
+            )
             if export_dest and export_dest.config:
-                bucket_name = export_dest.config.get('bucket_name')
+                bucket_name = export_dest.config.get("bucket_name")
                 # Get AWS credentials from export destination
                 aws_credentials = {
-                    'access_key': export_dest.config.get('access_key_id'),
-                    'secret_key': export_dest.config.get('secret_access_key'),
-                    'region': export_dest.config.get('region')
+                    "access_key": export_dest.config.get("access_key_id"),
+                    "secret_key": export_dest.config.get("secret_access_key"),
+                    "region": export_dest.config.get("region"),
                 }
 
         # Delete entire batch job folder from S3
         job_folder_prefix = f"exported/{batch_file.job_id}/"
-        logger.info(f"Deleting batch job folder from S3: {job_folder_prefix} (bucket: {bucket_name}) for statement {statement_id}")
+        logger.info(
+            f"Deleting batch job folder from S3: {job_folder_prefix} (bucket: {bucket_name}) for statement {statement_id}"
+        )
 
         try:
             try:
                 from commercial.cloud_storage.service import CloudStorageService
+
                 storage_service = CloudStorageService(db)
-                
+
                 # Delete all files in the job folder
                 tenant_id_str = str(tenant_id)
-                result = await storage_service.delete_folder(job_folder_prefix, tenant_id_str, bucket_name, aws_credentials)
+                result = await storage_service.delete_folder(
+                    job_folder_prefix, tenant_id_str, bucket_name, aws_credentials
+                )
                 if result:
-                    logger.info(f"Successfully deleted batch job folder: {job_folder_prefix}")
+                    logger.info(
+                        f"Successfully deleted batch job folder: {job_folder_prefix}"
+                    )
                 else:
-                    logger.warning(f"Failed to delete batch job folder: {job_folder_prefix}")
+                    logger.warning(
+                        f"Failed to delete batch job folder: {job_folder_prefix}"
+                    )
             except ImportError:
-                logger.info("Commercial CloudStorageService not found, skipping batch job folder deletion")
+                logger.info(
+                    "Commercial CloudStorageService not found, skipping batch job folder deletion"
+                )
         except Exception as e:
-            logger.error(f"Exception deleting batch job folder {job_folder_prefix}: {e}", exc_info=True)
+            logger.error(
+                f"Exception deleting batch job folder {job_folder_prefix}: {e}",
+                exc_info=True,
+            )
 
     # Soft delete the statement (don't delete files yet - they'll be deleted when permanently deleted)
     s.is_deleted = True
@@ -1095,11 +1443,11 @@ async def delete_statement(
         resource_id=str(statement_id),
         resource_name=f"Statement {statement_id}",
         details={"message": "Statement moved to recycle bin"},
-        status="success"
+        status="success",
     )
 
     return RecycleBinStatementResponse(
         message="Statement moved to recycle bin successfully",
         statement_id=statement_id,
-        action="moved_to_recycle"
+        action="moved_to_recycle",
     )

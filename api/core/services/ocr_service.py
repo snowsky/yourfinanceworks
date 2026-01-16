@@ -1175,7 +1175,7 @@ def publish_bank_statement_task(message: Dict[str, Any]) -> bool:
             # Older client may not support headers
             logger.debug(f"Produce with headers failed, retrying without headers: {e}")
             producer.produce(topic, value=payload, key=key)
-        remaining = producer.flush(10.0)
+        remaining = producer.flush(1.0)
         if remaining == 0:
             logger.info(f"Published bank statement task to Kafka topic={topic} statement_id={message.get('statement_id')}")
             return True
