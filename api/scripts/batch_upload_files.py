@@ -26,7 +26,7 @@ class BatchFileUploader:
     
     def __init__(
         self,
-        api_url: str = "http://localhost:8000",
+        api_url: str = "http://localhost:8080",
         api_key: str = None
     ):
         """
@@ -211,6 +211,16 @@ class BatchFileUploader:
                 except:
                     # Fallback to simple text response
                     print(f"   Response: {e.response.text[:200]}")
+
+            # Additional hint for common port conflicts
+            if e.response is not None and e.response.status_code == 404:
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(url)
+                if parsed_url.port == 8000:
+                    print("\n💡 Port Conflict Detected?")
+                    print("   It seems you're hitting port 8000, but another service might be running there.")
+                    print("   In this project, the API is often accessible via Nginx on port 8080.")
+                    print("   Try adding --api-url http://localhost:8080 to your command.")
             sys.exit(1)
         finally:
             # Ensure all files are closed
@@ -429,8 +439,8 @@ Examples:
     # API configuration
     parser.add_argument(
         '--api-url',
-        default=os.getenv('API_URL', 'http://localhost:8000'),
-        help='API base URL (default: http://localhost:8000)'
+        default=os.getenv('API_URL', 'http://localhost:8080'),
+        help='API base URL (default: http://localhost:8080)'
     )
     parser.add_argument(
         '--api-key',

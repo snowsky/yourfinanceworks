@@ -2900,7 +2900,12 @@
     "extracted_count": "Extracted Transactions",
     "add_label_placeholder": "Add label (Enter)",
     "add_to_expense": "Add to Expense",
-    "add_to_invoice": "Add to Invoice"
+    "add_to_invoice": "Add to Invoice",
+    "bulk_label_placeholder": "Add or remove label",
+    "merge_transactions": "Merge transactions",
+    "delete_selected": "Delete Selected",
+    "bulk_delete_confirm_title": "Delete Selected Statements",
+    "bulk_delete_confirm_description": "Are you sure you want to delete {{count}} statements? This action will move them to the recycle bin."
   },
   "auditLog": {
     "title": "Audit Log",

@@ -179,6 +179,7 @@ export default function Statements() {
   // Selection and filtering
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [labelFilter, setLabelFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkMergeModalOpen, setBulkMergeModalOpen] = useState(false);
@@ -347,17 +348,17 @@ export default function Statements() {
   const loadList = useCallback(async () => {
     try {
       const skip = (page - 1) * pageSize;
-      const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined);
+      const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined, searchQuery || undefined);
       setStatements(data.statements);
       setTotalStatements(data.total);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statements');
     }
-  }, [labelFilter, page, pageSize]);
+  }, [labelFilter, searchQuery, page, pageSize]);
 
   useEffect(() => {
     loadList();
-  }, [labelFilter, page, pageSize]);
+  }, [labelFilter, searchQuery, page, pageSize]);
 
   useEffect(() => {
     if (!recycleBinLoading && deletedStatements.length === 0 && showRecycleBin && prevDeletedCount.current > 0) {
@@ -847,8 +848,18 @@ export default function Statements() {
                     <Input
                       placeholder={t('statements.search_placeholder')}
                       className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
-                    // Search query state not implemented yet in this file, but adding placeholder UI
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                    {searchQuery && (
+                      <button
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Label Filter */}
@@ -894,7 +905,7 @@ export default function Statements() {
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
                     <span className="text-sm font-bold text-foreground">
-                      {selectedIds.length} statement{selectedIds.length !== 1 ? 's' : ''} selected
+                      {selectedIds.length} {t('statements.title', { defaultValue: 'statement' })}{selectedIds.length !== 1 ? 's' : ''} {t('common.selected', { defaultValue: 'selected' })}
                     </span>
                     <ProfessionalButton
                       variant="ghost"
@@ -902,7 +913,7 @@ export default function Statements() {
                       onClick={() => setSelectedIds([])}
                       className="h-8 text-xs hover:bg-primary/10 transition-colors"
                     >
-                      Clear
+                      {t('common.clear')}
                     </ProfessionalButton>
                   </div>
 
@@ -936,7 +947,7 @@ export default function Statements() {
                         className="h-9 px-3 gap-1.5"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Add
+                        {t('common.add')}
                       </ProfessionalButton>
 
                       <ProfessionalButton
@@ -957,7 +968,7 @@ export default function Statements() {
                         className="h-9 px-3 gap-1.5"
                       >
                         <Minus className="h-3.5 w-3.5" />
-                        Remove
+                        {t('common.remove')}
                       </ProfessionalButton>
                     </div>
 
@@ -972,7 +983,7 @@ export default function Statements() {
                         className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 hover:bg-primary/10 transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        Merge transactions
+                        {t('statements.merge_transactions')}
                       </ProfessionalButton>
   
                       <ProfessionalButton
@@ -982,7 +993,7 @@ export default function Statements() {
                         className="h-9 px-3 gap-1.5 shadow-sm"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        Delete Selected
+                        {t('statements.delete_selected')}
                       </ProfessionalButton>
                     </div>
                   </div>

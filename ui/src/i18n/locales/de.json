@@ -2735,7 +2735,12 @@
     "extracted_count": "Extrahierte Transaktionen",
     "add_label_placeholder": "Label hinzufügen (Enter)",
     "add_to_expense": "Zu Ausgabe hinzufügen",
-    "add_to_invoice": "Zu Rechnung hinzufügen"
+    "add_to_invoice": "Zu Rechnung hinzufügen",
+    "bulk_label_placeholder": "Label hinzufügen oder entfernen",
+    "merge_transactions": "Transaktionen zusammenführen",
+    "delete_selected": "Ausgewählte löschen",
+    "bulk_delete_confirm_title": "Ausgewählte Kontoauszüge löschen",
+    "bulk_delete_confirm_description": "Sind Sie sicher, dass Sie {{count}} Kontoauszüge löschen möchten? Diese Aktion verschiebt sie in den Papierkorb."
   },
   "auditLog": {
     "title": "Audit-Log",

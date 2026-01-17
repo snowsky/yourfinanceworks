@@ -236,6 +236,7 @@ async def list_statements(
     skip: int = 0,
     limit: int = 100,
     label: Optional[str] = None,
+    search: Optional[str] = None,
     created_by_user_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
@@ -266,6 +267,18 @@ async def list_statements(
 
         query = query.filter(
             sa.cast(BankStatement.labels, sa.String).ilike(f"%{label}%")
+        )
+
+    # Apply search filter if provided
+    if search:
+        import sqlalchemy as sa
+
+        # Search in original_filename and stored_filename
+        query = query.filter(
+            sa.or_(
+                BankStatement.original_filename.ilike(f"%{search}%"),
+                BankStatement.stored_filename.ilike(f"%{search}%")
+            )
         )
 
     total_count = query.count()

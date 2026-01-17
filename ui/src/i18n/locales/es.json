@@ -2868,7 +2868,12 @@
     "extracted_count": "Transacciones Extraídas",
     "add_label_placeholder": "Agregar etiqueta (Enter)",
     "add_to_expense": "Agregar a Gasto",
-    "add_to_invoice": "Agregar a Factura"
+    "add_to_invoice": "Agregar a Factura",
+    "bulk_label_placeholder": "Agregar o eliminar etiqueta",
+    "merge_transactions": "Fusionar transacciones",
+    "delete_selected": "Eliminar seleccionados",
+    "bulk_delete_confirm_title": "Eliminar Estados de Cuenta Seleccionados",
+    "bulk_delete_confirm_description": "¿Está seguro de que desea eliminar {{count}} estados de cuenta? Esta acción los moverá a la papelera de reciclaje."
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Considere implementar condiciones de pago más estrictas.",

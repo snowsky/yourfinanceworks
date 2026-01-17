@@ -2783,7 +2783,12 @@
     "extracted_count": "Transactions Extraites",
     "add_label_placeholder": "Ajouter une étiquette (Entrée)",
     "add_to_expense": "Ajouter à une Dépense",
-    "add_to_invoice": "Ajouter à une Facture"
+    "add_to_invoice": "Ajouter à une Facture",
+    "bulk_label_placeholder": "Ajouter ou supprimer une étiquette",
+    "merge_transactions": "Fusionner les transactions",
+    "delete_selected": "Supprimer la sélection",
+    "bulk_delete_confirm_title": "Supprimer les Relevés Sélectionnés",
+    "bulk_delete_confirm_description": "Êtes-vous sûr de vouloir supprimer {{count}} relevés ? Cette action les déplacera vers la corbeille."
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Envisagez de mettre en place des conditions de paiement plus strictes.",
