@@ -22,16 +22,16 @@ def _looks_like_encrypted_data(value: str) -> bool:
     """
     if not isinstance(value, str) or len(value) < 30:
         return False
-    
+
     # Base64 pattern check
     base64_pattern = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
-    
+
     # If it contains common plain text patterns, it's probably not encrypted
     if '@' in value and '.' in value:  # Looks like email
         return False
     if ' ' in value:  # Has spaces - likely plain text
         return False
-    
+
     return base64_pattern.match(value) is not None and len(value) > 30
 
 def _sanitize_value(value: str, fallback: str = '') -> str:
@@ -52,7 +52,7 @@ class SearchService:
         self.port = int(os.getenv('OPENSEARCH_PORT', '9200'))
         self.enabled = os.getenv('OPENSEARCH_ENABLED', 'true').lower() == 'true'
         self.client = None
-        
+
         if self.enabled:
             try:
                 self.client = OpenSearch(
@@ -74,17 +74,20 @@ class SearchService:
                 logger.warning(f"OpenSearch connection failed: {e}. Search functionality will be disabled.")
                 self.enabled = False
                 self.client = None
-    
-    def _get_tenant_index(self, entity_type: str) -> str:
+
+    def _get_tenant_index(self, entity_type: str, tenant_id: int = None) -> str:
         """Get tenant-specific index name"""
-        tenant_id = get_tenant_context()
+        if tenant_id is None:
+            tenant_id = get_tenant_context()
+        if not tenant_id:
+            raise ValueError("Tenant context is required for search operations")
         return f"tenant_{tenant_id}_{entity_type}"
-    
+
     def _ensure_indices(self):
         """Create indices if they don't exist"""
         if not self.enabled or not self.client:
             return
-            
+
         # Skip if no tenant context (during initialization)
         try:
             tenant_id = get_tenant_context()
@@ -92,9 +95,9 @@ class SearchService:
                 return
         except Exception:
             return
-            
+
         indices = ['invoices', 'clients', 'payments', 'expenses', 'statements', 'attachments', 'inventory', 'reminders']
-        
+
         for entity_type in indices:
             index_name = self._get_tenant_index(entity_type)
             try:
@@ -108,7 +111,7 @@ class SearchService:
             except Exception as e:
                 logger.warning(f"Error creating index {index_name}: {e}")
                 # Don't disable search entirely, just log the error
-    
+
     def _get_mapping(self, entity_type: str) -> Dict[str, Any]:
         """Get mapping configuration for entity type"""
         base_mapping = {
@@ -123,7 +126,7 @@ class SearchService:
                 }
             }
         }
-        
+
         entity_mappings = {
             'invoices': {
                 'properties': {
@@ -216,14 +219,14 @@ class SearchService:
                 }
             }
         }
-        
+
         return entity_mappings.get(entity_type, base_mapping)
-    
+
     def index_invoice(self, invoice: Invoice, client: Client = None):
         """Index an invoice document"""
         if not self.enabled:
             return
-            
+
         # Skip indexing if no tenant context
         try:
             tenant_id = get_tenant_context()
@@ -233,7 +236,7 @@ class SearchService:
         except Exception:
             logger.debug("Skipping search indexing: failed to get tenant context")
             return
-            
+
         try:
             doc = {
                 'id': str(invoice.id),
@@ -250,7 +253,7 @@ class SearchService:
                 'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
                 'searchable_text': f"{invoice.number} {_sanitize_value(client.name, 'Unknown') if client else ''} {invoice.notes or ''} {invoice.attachment_filename or ''}"
             }
-            
+
             index_name = self._get_tenant_index('invoices')
             self.client.index(
                 index=index_name,
@@ -260,12 +263,12 @@ class SearchService:
             logger.debug(f"Indexed invoice {invoice.id}")
         except Exception as e:
             logger.error(f"Error indexing invoice {invoice.id}: {e}")
-    
+
     def index_client(self, client: Client):
         """Index a client document"""
         if not self.enabled:
             return
-            
+
         # Skip indexing if no tenant context
         try:
             tenant_id = get_tenant_context()
@@ -275,7 +278,7 @@ class SearchService:
         except Exception:
             logger.debug("Skipping search indexing: failed to get tenant context")
             return
-            
+
         try:
             doc = {
                 'id': str(client.id),
@@ -289,7 +292,7 @@ class SearchService:
                 'updated_at': client.updated_at.isoformat() if client.updated_at else None,
                 'searchable_text': f"{client.name} {client.email or ''} {client.company or ''} {client.address or ''}"
             }
-            
+
             index_name = self._get_tenant_index('clients')
             self.client.index(
                 index=index_name,
@@ -299,12 +302,12 @@ class SearchService:
             logger.debug(f"Indexed client {client.id}")
         except Exception as e:
             logger.error(f"Error indexing client {client.id}: {e}")
-    
+
     def index_payment(self, payment: Payment, invoice: Invoice = None, client: Client = None):
         """Index a payment document"""
         if not self.enabled:
             return
-            
+
         # Skip indexing if no tenant context
         try:
             tenant_id = get_tenant_context()
@@ -314,7 +317,7 @@ class SearchService:
         except Exception:
             logger.debug("Skipping search indexing: failed to get tenant context")
             return
-            
+
         try:
             doc = {
                 'id': str(payment.id),
@@ -330,7 +333,7 @@ class SearchService:
                 'updated_at': payment.updated_at.isoformat() if payment.updated_at else None,
                 'searchable_text': f"{invoice.number if invoice else ''} {_sanitize_value(client.name, 'Unknown') if client else ''} {payment.payment_method or ''} {payment.notes or ''}"
             }
-            
+
             index_name = self._get_tenant_index('payments')
             self.client.index(
                 index=index_name,
@@ -340,12 +343,12 @@ class SearchService:
             logger.debug(f"Indexed payment {payment.id}")
         except Exception as e:
             logger.error(f"Error indexing payment {payment.id}: {e}")
-    
+
     def index_inventory_item(self, item: InventoryItem):
         """Index an inventory item document"""
         if not self.enabled:
             return
-            
+
         try:
             doc = {
                 'id': str(item.id),
@@ -361,7 +364,7 @@ class SearchService:
                 'updated_at': item.updated_at.isoformat() if item.updated_at else None,
                 'searchable_text': f"{item.name} {item.sku or ''} {item.description or ''} {item.category or ''}"
             }
-            
+
             index_name = self._get_tenant_index('inventory')
             self.client.index(
                 index=index_name,
@@ -371,12 +374,12 @@ class SearchService:
             logger.debug(f"Indexed inventory item {item.id}")
         except Exception as e:
             logger.error(f"Error indexing inventory item {item.id}: {e}")
-    
+
     def index_expense(self, expense: Expense):
         """Index an expense document"""
         if not self.enabled:
             return
-            
+
         # Skip indexing if no tenant context
         try:
             tenant_id = get_tenant_context()
@@ -386,7 +389,7 @@ class SearchService:
         except Exception:
             logger.debug("Skipping search indexing: failed to get tenant context")
             return
-            
+
         try:
             doc = {
                 'id': str(expense.id),
@@ -401,7 +404,7 @@ class SearchService:
                 'updated_at': expense.updated_at.isoformat() if expense.updated_at else None,
                 'searchable_text': f"{expense.vendor or ''} {expense.category or ''} {expense.notes or ''} {expense.receipt_filename or ''}"
             }
-            
+
             index_name = self._get_tenant_index('expenses')
             self.client.index(
                 index=index_name,
@@ -411,12 +414,12 @@ class SearchService:
             logger.debug(f"Indexed expense {expense.id}")
         except Exception as e:
             logger.error(f"Error indexing expense {expense.id}: {e}")
-    
+
     def index_reminder(self, reminder: Reminder):
         """Index a reminder document"""
         if not self.enabled:
             return
-            
+
         try:
             doc = {
                 'id': str(reminder.id),
@@ -431,7 +434,7 @@ class SearchService:
                 'updated_at': reminder.updated_at.isoformat() if reminder.updated_at else None,
                 'searchable_text': f"{reminder.title} {reminder.description or ''}"
             }
-            
+
             index_name = self._get_tenant_index('reminders')
             self.client.index(
                 index=index_name,
@@ -441,40 +444,82 @@ class SearchService:
             logger.debug(f"Indexed reminder {reminder.id}")
         except Exception as e:
             logger.error(f"Error indexing reminder {reminder.id}: {e}")
-    
+
+    def index_bank_statement(self, statement: BankStatement):
+        """Index a bank statement document"""
+        if not self.enabled:
+            return
+
+        # Skip indexing if no tenant context
+        try:
+            tenant_id = get_tenant_context()
+            if tenant_id is None:
+                logger.debug("Skipping search indexing: no tenant context")
+                return
+        except Exception:
+            logger.debug("Skipping search indexing: failed to get tenant context")
+            return
+
+        try:
+            doc = {
+                'id': str(statement.id),
+                'tenant_id': get_tenant_context(),
+                'original_filename': statement.original_filename,
+                'bank_name': '',  # Can be extracted from filename or enhanced with parsing
+                'account_number': '',  # Can be extracted from filename or enhanced with parsing
+                'statement_content': statement.notes or '',
+                'status': statement.status,
+                'extracted_count': statement.extracted_count or 0,
+                'created_at': statement.created_at.isoformat() if statement.created_at else None,
+                'updated_at': statement.updated_at.isoformat() if statement.updated_at else None,
+                'searchable_text': f"{statement.original_filename} {statement.stored_filename or ''} {statement.notes or ''}"
+            }
+
+            index_name = self._get_tenant_index('statements')
+            self.client.index(
+                index=index_name,
+                id=str(statement.id),
+                body=doc
+            )
+            logger.debug(f"Indexed bank statement {statement.id}")
+        except Exception as e:
+            logger.error(f"Error indexing bank statement {statement.id}: {e}")
+
     def search(self, query: str, entity_types: List[str] = None, limit: int = 50, db: Session = None) -> Dict[str, Any]:
         """Search across all indexed documents with database fallback"""
+        logger.info(f"Search query: '{query}', entity_types: {entity_types}, limit: {limit}")
+        logger.info(f"OpenSearch enabled: {self.enabled}, client available: {self.client is not None}")
+
         if self.enabled and self.client:
+            logger.info("Using OpenSearch search")
             return self._opensearch_search(query, entity_types, limit)
         else:
+            logger.info("Using database fallback search")
             return self._database_fallback_search(query, entity_types, limit, db)
-    
+
     def _opensearch_search(self, query: str, entity_types: List[str] = None, limit: int = 50) -> Dict[str, Any]:
         """Search using OpenSearch"""
         try:
             # Ensure indices exist for current tenant
             self._ensure_indices()
-            
+
             if not entity_types:
                 entity_types = ['invoices', 'clients', 'payments', 'expenses', 'statements', 'attachments', 'inventory', 'reminders']
-            
-            indices = [self._get_tenant_index(et) for et in entity_types]
-            
+
+            # Get tenant context with fallback
+            tenant_id = get_tenant_context()
+            if not tenant_id:
+                tenant_id = 1
+                logger.warning(f"No tenant context available, using fallback tenant_id: {tenant_id}")
+
+            indices = [self._get_tenant_index(et, tenant_id) for et in entity_types]
+            logger.info(f"Searching indices: {indices}")
+
             search_body = {
                 'query': {
                     'bool': {
-                        'must': [
-                            {
-                                'multi_match': {
-                                    'query': query,
-                                    'fields': ['searchable_text^2', 'name', 'number', 'description', 'filename', 'client_name', 'vendor', 'title', 'email', 'phone', 'company', 'sku', 'category', 'payment_method', 'invoice_number', 'original_filename'],
-                                    'type': 'best_fields',
-                                    'fuzziness': 'AUTO'
-                                }
-                            }
-                        ],
                         'filter': [
-                            {'term': {'tenant_id': get_tenant_context()}}
+                            {'term': {'tenant_id': tenant_id}}
                         ]
                     }
                 },
@@ -491,12 +536,52 @@ class SearchService:
                 ],
                 'size': limit
             }
-            
+
+            # Use different query strategy for short terms vs long terms
+            if len(query) <= 4:
+                # For short queries, use wildcard search for better partial matching
+                search_body['query']['bool']['should'] = [
+                    {
+                        'wildcard': {
+                            'original_filename': f'*{query}*'
+                        }
+                    },
+                    {
+                        'wildcard': {
+                            'searchable_text': f'*{query}*'
+                        }
+                    }
+                ]
+                # Remove the empty 'must' array
+                search_body['query']['bool'].pop('must', None)
+            else:
+                # For longer queries, use multi_match with fuzziness
+                search_body['query']['bool']['must'] = [
+                    {
+                        'multi_match': {
+                            'query': query,
+                            'fields': ['searchable_text^2', 'name', 'number', 'description', 'filename', 'client_name', 'vendor', 'title', 'email', 'phone', 'company', 'sku', 'category', 'payment_method', 'invoice_number', 'original_filename'],
+                            'type': 'best_fields',
+                            'fuzziness': 'AUTO'
+                        }
+                    }
+                ]
+
+            # Add tenant filter
+            search_body['query']['bool']['filter'] = [
+                {'term': {'tenant_id': tenant_id}}
+            ]
+            logger.info(f"Added tenant filter for tenant_id: {tenant_id}")
+
+            logger.info(f"OpenSearch query body: {search_body}")
             response = self.client.search(
                 index=','.join(indices),
                 body=search_body
             )
-            
+
+            total_hits = response['hits']['total']['value']
+            logger.info(f"OpenSearch returned {total_hits} total hits")
+
             results = []
             for hit in response['hits']['hits']:
                 source = hit['_source']
@@ -508,29 +593,33 @@ class SearchService:
                     'highlights': hit.get('highlight', {})
                 }
                 results.append(result)
-            
+                logger.debug(f"Found {result['type']} with score {result['score']}: {result['data'].get('original_filename', result['data'].get('name', 'N/A'))}")
+
             return {
                 'results': results,
-                'total': response['hits']['total']['value'],
+                'total': total_hits,
                 'query': query
             }
-            
+
         except Exception as e:
             logger.error(f"Error searching with OpenSearch: {e}")
             return {'results': [], 'total': 0, 'error': str(e)}
-    
+
     def _database_fallback_search(self, query: str, entity_types: List[str] = None, limit: int = 50, db: Session = None) -> Dict[str, Any]:
         """Fallback search using database queries when OpenSearch is not available"""
         if not db:
             logger.warning("Database session not provided for fallback search")
             return {'results': [], 'total': 0, 'fallback': True}
-        
+
         try:
             results = []
-            
+
             if not entity_types:
                 entity_types = ['invoices', 'clients', 'payments', 'expenses', 'statements', 'attachments', 'inventory', 'reminders']
-            
+
+            # Calculate per-type limit with a minimum to ensure each type gets a fair chance
+            per_type_limit = max(5, limit // len(entity_types))
+
             # Search invoices
             if 'invoices' in entity_types:
                 invoices = db.query(Invoice).join(Client).filter(
@@ -540,8 +629,8 @@ class SearchService:
                         Invoice.notes.ilike(f"%{query}%"),
                         Client.name.ilike(f"%{query}%")
                     )
-                ).limit(limit // len(entity_types)).all()
-                
+                ).limit(per_type_limit).all()
+
                 for inv in invoices:
                     results.append({
                         'id': str(inv.id),
@@ -557,7 +646,7 @@ class SearchService:
                         },
                         'highlights': {}
                     })
-            
+
             # Search clients
             if 'clients' in entity_types:
                 clients = db.query(Client).filter(
@@ -566,8 +655,8 @@ class SearchService:
                         Client.email.ilike(f"%{query}%"),
                         Client.company.ilike(f"%{query}%")
                     )
-                ).limit(limit // len(entity_types)).all()
-                
+                ).limit(per_type_limit).all()
+
                 for client in clients:
                     results.append({
                         'id': str(client.id),
@@ -582,7 +671,7 @@ class SearchService:
                         },
                         'highlights': {}
                     })
-            
+
             # Search inventory
             if 'inventory' in entity_types:
                 inventory_items = db.query(InventoryItem).filter(
@@ -591,8 +680,8 @@ class SearchService:
                         InventoryItem.sku.ilike(f"%{query}%"),
                         InventoryItem.description.ilike(f"%{query}%")
                     )
-                ).limit(limit // len(entity_types)).all()
-                
+                ).limit(per_type_limit).all()
+
                 for item in inventory_items:
                     results.append({
                         'id': str(item.id),
@@ -608,7 +697,7 @@ class SearchService:
                         },
                         'highlights': {}
                     })
-            
+
             # Search expenses
             if 'expenses' in entity_types:
                 expenses = db.query(Expense).filter(
@@ -618,8 +707,8 @@ class SearchService:
                         Expense.notes.ilike(f"%{query}%"),
                         Expense.receipt_filename.ilike(f"%{query}%")
                     )
-                ).limit(limit // len(entity_types)).all()
-                
+                ).limit(per_type_limit).all()
+
                 for expense in expenses:
                     results.append({
                         'id': str(expense.id),
@@ -635,7 +724,7 @@ class SearchService:
                         },
                         'highlights': {}
                     })
-            
+
             # Search reminders
             if 'reminders' in entity_types:
                 reminders = db.query(Reminder).filter(
@@ -643,8 +732,8 @@ class SearchService:
                         Reminder.title.ilike(f"%{query}%"),
                         Reminder.description.ilike(f"%{query}%")
                     )
-                ).limit(limit // len(entity_types)).all()
-                
+                ).limit(per_type_limit).all()
+
                 for reminder in reminders:
                     results.append({
                         'id': str(reminder.id),
@@ -661,23 +750,54 @@ class SearchService:
                         },
                         'highlights': {}
                     })
-            
+
+            # Search bank statements
+            if 'statements' in entity_types:
+                try:
+                    statements = db.query(BankStatement).filter(
+                        BankStatement.is_deleted == False,
+                        or_(
+                            BankStatement.original_filename.ilike(f"%{query}%"),
+                            BankStatement.stored_filename.ilike(f"%{query}%"),
+                            BankStatement.notes.ilike(f"%{query}%")
+                        )
+                    ).limit(per_type_limit).all()
+
+                    for statement in statements:
+                        results.append({
+                            'id': str(statement.id),
+                            'type': 'statements',
+                            'score': 1.0,
+                            'data': {
+                                'id': str(statement.id),
+                                'original_filename': statement.original_filename,
+                                'status': statement.status,
+                                'extracted_count': statement.extracted_count or 0,
+                                'created_at': statement.created_at.isoformat() if statement.created_at else None
+                            },
+                            'highlights': {}
+                        })
+                except Exception as e:
+                    logger.warning(f"Error searching bank statements: {e}")
+                    # Continue with other entity types if bank statements table doesn't exist
+                    pass
+
             return {
                 'results': results[:limit],
                 'total': len(results),
                 'query': query,
                 'fallback': True
             }
-            
+
         except Exception as e:
             logger.error(f"Error in database fallback search: {e}")
             return {'results': [], 'total': 0, 'error': str(e), 'fallback': True}
-    
+
     def delete_document(self, entity_type: str, entity_id: str):
         """Delete a document from the index"""
         if not self.enabled:
             return
-            
+
         try:
             index_name = self._get_tenant_index(entity_type)
             self.client.delete(
@@ -688,12 +808,12 @@ class SearchService:
             logger.debug(f"Deleted {entity_type} {entity_id} from index")
         except Exception as e:
             logger.error(f"Error deleting {entity_type} {entity_id}: {e}")
-    
+
     def reindex_all(self, db: Session):
         """Reindex all documents for the current tenant"""
         if not self.enabled:
             return
-            
+
         try:
             # Clear existing indices
             entity_types = ['invoices', 'clients', 'payments', 'expenses', 'statements', 'attachments', 'inventory', 'reminders']
@@ -703,48 +823,53 @@ class SearchService:
                     self.client.indices.delete(index=index_name, ignore=[404])
                 except Exception:
                     pass
-            
+
             # Recreate indices
             self._ensure_indices()
-            
+
             # Reindex all data
             tenant_id = get_tenant_context()
-            
+
             # Index invoices
             invoices = db.query(Invoice).filter(Invoice.is_deleted == False).all()
             for invoice in invoices:
                 client = db.query(Client).filter(Client.id == invoice.client_id).first()
                 self.index_invoice(invoice, client)
-            
+
             # Index clients
             clients = db.query(Client).all()
             for client in clients:
                 self.index_client(client)
-            
+
             # Index payments
             payments = db.query(Payment).all()
             for payment in payments:
                 invoice = db.query(Invoice).filter(Invoice.id == payment.invoice_id).first()
                 client = db.query(Client).filter(Client.id == invoice.client_id).first() if invoice else None
                 self.index_payment(payment, invoice, client)
-            
+
             # Index inventory items
             inventory_items = db.query(InventoryItem).all()
             for item in inventory_items:
                 self.index_inventory_item(item)
-            
+
             # Index expenses
             expenses = db.query(Expense).all()
             for expense in expenses:
                 self.index_expense(expense)
-            
+
             # Index reminders
             reminders = db.query(Reminder).all()
             for reminder in reminders:
                 self.index_reminder(reminder)
-            
+
+            # Index bank statements
+            statements = db.query(BankStatement).filter(BankStatement.is_deleted == False).all()
+            for statement in statements:
+                self.index_bank_statement(statement)
+
             logger.info(f"Reindexed all documents for tenant {tenant_id}")
-            
+
         except Exception as e:
             logger.error(f"Error reindexing: {e}")
             raise
