@@ -45,6 +45,9 @@ const STATEMENT_PROVIDERS = [
   { value: 'other', label: 'Other', icon: '📄' }
 ];
 
+const STATEMENT_STATUSES = ['uploaded', 'processing', 'processed', 'failed', 'merged'] as const;
+type StatementStatus = typeof STATEMENT_STATUSES[number];
+
 type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null };
 
 // Helper component to display analysis status consistently
@@ -178,6 +181,7 @@ export default function Statements() {
 
   // Selection and filtering
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [labelFilter, setLabelFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [bulkLabel, setBulkLabel] = useState('');
@@ -348,17 +352,18 @@ export default function Statements() {
   const loadList = useCallback(async () => {
     try {
       const skip = (page - 1) * pageSize;
-      const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined, searchQuery || undefined);
+      const status = statusFilter !== 'all' ? statusFilter : undefined;
+      const data = await bankStatementApi.list(skip, pageSize, labelFilter || undefined, searchQuery || undefined, status);
       setStatements(data.statements);
       setTotalStatements(data.total);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load statements');
     }
-  }, [labelFilter, searchQuery, page, pageSize]);
+  }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
   useEffect(() => {
     loadList();
-  }, [labelFilter, searchQuery, page, pageSize]);
+  }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
   useEffect(() => {
     if (!recycleBinLoading && deletedStatements.length === 0 && showRecycleBin && prevDeletedCount.current > 0) {
@@ -860,6 +865,24 @@ export default function Statements() {
                         <X className="w-4 h-4" />
                       </button>
                     )}
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                        <SelectValue placeholder={t('statements.filter_by_status', { defaultValue: 'Filter by status' })} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('statements.all_statuses', { defaultValue: 'All Statuses' })}</SelectItem>
+                        {STATEMENT_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {t(`statements.status.${status}`, { defaultValue: formatStatus(status) })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Label Filter */}

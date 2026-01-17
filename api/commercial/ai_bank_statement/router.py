@@ -237,6 +237,7 @@ async def list_statements(
     limit: int = 100,
     label: Optional[str] = None,
     search: Optional[str] = None,
+    status: Optional[str] = None,
     created_by_user_id: Optional[int] = None,
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
@@ -261,6 +262,10 @@ async def list_statements(
     # Apply creator filter if provided
     if created_by_user_id is not None:
         query = query.filter(BankStatement.created_by_user_id == created_by_user_id)
+
+    # Apply status filter if provided
+    if status:
+        query = query.filter(BankStatement.status == status)
 
     # Apply label filter if provided
     if label:

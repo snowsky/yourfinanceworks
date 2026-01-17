@@ -548,12 +548,13 @@ export const bankStatementApi = {
     return JSON.parse(text);
   },
 
-  list: async (skip: number = 0, limit: number = 100, label?: string, search?: string): Promise<{ statements: BankStatementSummary[], total: number }> => {
+  list: async (skip: number = 0, limit: number = 100, label?: string, search?: string, status?: string): Promise<{ statements: BankStatementSummary[], total: number }> => {
     const params = new URLSearchParams();
     params.set('skip', skip.toString());
     params.set('limit', limit.toString());
     if (label) params.set('label', label);
     if (search) params.set('search', search);
+    if (status) params.set('status', status);
     const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[]; total: number }>(
       `/statements?${params.toString()}`,
       { method: 'GET' }
