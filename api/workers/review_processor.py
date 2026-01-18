@@ -298,22 +298,27 @@ class ReviewProcessorWorker:
 
     async def process_invoices(self, db: Session, tenant: Tenant, review_service: ReviewService, config: dict):
         # Fetch invoices needing review
-        # Condition: status not draft, review_status='not_started'
-        invoices = db.query(Invoice).filter(
-            Invoice.review_status == "not_started",
-            Invoice.status != "draft", 
-            Invoice.attachment_path.isnot(None)
+        # Condition: review_status in ('not_started', 'pending')
+        all_invoices = db.query(Invoice).filter(
+            Invoice.review_status.in_(["not_started", "pending"])
         ).limit(10).all()
-
-        if not invoices:
+        
+        if not all_invoices:
             return
 
-        logger.info(f"Found {len(invoices)} invoices to review for tenant {tenant.id}")
+        logger.info(f"Found {len(all_invoices)} invoices to review for tenant {tenant.id}")
+        
+        # Separate invoices with and without attachments
+        invoices_with_attachment = [i for i in all_invoices if i.attachment_path]
+        invoices_without_attachment = [i for i in all_invoices if not i.attachment_path]
+        
+        if invoices_with_attachment:
+            logger.info(f"Processing {len(invoices_with_attachment)} invoices with attachments")
         
         # Instantiate service with reviewer component
         invoice_service = InvoiceAIService(db, component="reviewer")
         
-        for invoice in invoices:
+        for invoice in invoices_with_attachment:
             if not self.running: break
             
             logger.info(f"Reviewing Invoice {invoice.id}...")
@@ -347,22 +352,43 @@ class ReviewProcessorWorker:
                 logger.error(f"Exception reviewing Invoice {invoice.id}: {e}")
                 invoice.review_status = "failed"
                 db.commit()
+        
+        # Handle invoices without attachments - mark as reviewed with no diff
+        if invoices_without_attachment:
+            logger.info(f"Marking {len(invoices_without_attachment)} invoices without attachments as reviewed")
+            for invoice in invoices_without_attachment:
+                if not self.running: break
+                try:
+                    invoice.review_status = "reviewed"
+                    invoice.review_result = {"note": "No attachment available for review"}
+                    invoice.reviewed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    logger.info(f"Marked Invoice {invoice.id} as reviewed (no attachment)")
+                except Exception as e:
+                    logger.error(f"Exception marking Invoice {invoice.id} as reviewed: {e}")
+                    invoice.review_status = "failed"
+                    db.commit()
 
     async def process_expenses(self, db: Session, tenant: Tenant, review_service: ReviewService, config: dict):
         # Fetch expenses needing review
-        # Condition: analysis_status='done', review_status='not_started'
-        expenses = db.query(Expense).filter(
-            Expense.review_status == "not_started",
-            Expense.analysis_status == "done",
-            Expense.receipt_path.isnot(None)
+        # Condition: review_status in ('not_started', 'pending')
+        all_expenses = db.query(Expense).filter(
+            Expense.review_status.in_(["not_started", "pending"])
         ).limit(10).all()
-
-        if not expenses:
+        
+        if not all_expenses:
             return
 
-        logger.info(f"Found {len(expenses)} expenses to review for tenant {tenant.id}")
+        logger.info(f"Found {len(all_expenses)} expenses to review for tenant {tenant.id}")
 
-        for expense in expenses:
+        # Separate expenses with and without receipts
+        expenses_with_receipt = [e for e in all_expenses if e.receipt_path]
+        expenses_without_receipt = [e for e in all_expenses if not e.receipt_path]
+
+        if expenses_with_receipt:
+            logger.info(f"Processing {len(expenses_with_receipt)} expenses with receipts")
+
+        for expense in expenses_with_receipt:
              if not self.running: break
 
              logger.info(f"Reviewing Expense {expense.id}...")
@@ -370,13 +396,6 @@ class ReviewProcessorWorker:
              db.commit()
 
              try:
-                 # Manually run OCR using helper, passing reviewer config explicitly
-                 # Note: _run_ocr returns just the data dict or error dict
-                 # We need to construct a prompt. Usually OCR service does this internally.
-                 # Let's use _run_ocr directly but we need a prompt.
-                 # Actually, `ocr_service.py` is lower level. `ExpenseAIService` doesn't exist?
-                 # `apply_ocr_extraction_to_expense` logic...
-                 
                  # Use dedicated reviewer prompt for expenses
                  prompt_service = get_prompt_service(db)
                  reviewer_prompt = prompt_service.get_prompt(
@@ -404,19 +423,41 @@ class ReviewProcessorWorker:
                  expense.review_status = "failed"
                  db.commit()
 
+        # Handle expenses without receipts - mark as reviewed with no diff
+        if expenses_without_receipt:
+            logger.info(f"Marking {len(expenses_without_receipt)} expenses without receipts as reviewed")
+            for expense in expenses_without_receipt:
+                if not self.running: break
+                try:
+                    expense.review_status = "reviewed"
+                    expense.review_result = {"note": "No receipt available for review"}
+                    expense.reviewed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    logger.info(f"Marked Expense {expense.id} as reviewed (no receipt)")
+                except Exception as e:
+                    logger.error(f"Exception marking Expense {expense.id} as reviewed: {e}")
+                    expense.review_status = "failed"
+                    db.commit()
+
     async def process_bank_statements(self, db: Session, tenant: Tenant, review_service: ReviewService, config: dict):
         # Fetch statements needing review
-        stmts = db.query(BankStatement).filter(
-            BankStatement.review_status == "not_started",
-            BankStatement.status == "processed",
-            BankStatement.file_path.isnot(None)
+        all_stmts = db.query(BankStatement).filter(
+            BankStatement.review_status.in_(["not_started", "pending"]),
+            BankStatement.status == "processed"
         ).limit(5).all()
 
-        if not stmts:
+        if not all_stmts:
             return
-            
-        logger.info(f"Found {len(stmts)} statements to review for tenant {tenant.id}")
-        
+
+        logger.info(f"Found {len(all_stmts)} statements to review for tenant {tenant.id}")
+
+        # Separate statements with and without files
+        stmts_with_file = [s for s in all_stmts if s.file_path]
+        stmts_without_file = [s for s in all_stmts if not s.file_path]
+
+        if stmts_with_file:
+            logger.info(f"Processing {len(stmts_with_file)} statements with files")
+
         # Instantiate service with reviewer prompt name
         # Note: StatementService is an alias for UniversalBankTransactionExtractor
         statement_service = StatementService(
@@ -424,8 +465,8 @@ class ReviewProcessorWorker:
             db_session=db, 
             prompt_name="bank_statement_review_extraction"
         )
-        
-        for stmt in stmts:
+
+        for stmt in stmts_with_file:
              if not self.running: break
              
              logger.info(f"Reviewing Bank Statement {stmt.id}...")
@@ -449,6 +490,22 @@ class ReviewProcessorWorker:
                   logger.error(f"Exception reviewing Statement {stmt.id}: {e}")
                   stmt.review_status = "failed"
                   db.commit()
+
+        # Handle statements without files - mark as reviewed with no diff
+        if stmts_without_file:
+            logger.info(f"Marking {len(stmts_without_file)} statements without files as reviewed")
+            for stmt in stmts_without_file:
+                if not self.running: break
+                try:
+                    stmt.review_status = "reviewed"
+                    stmt.review_result = {"note": "No file available for review"}
+                    stmt.reviewed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    logger.info(f"Marked Bank Statement {stmt.id} as reviewed (no file)")
+                except Exception as e:
+                    logger.error(f"Exception marking Bank Statement {stmt.id} as reviewed: {e}")
+                    stmt.review_status = "failed"
+                    db.commit()
 
 if __name__ == "__main__":
     worker = ReviewProcessorWorker()

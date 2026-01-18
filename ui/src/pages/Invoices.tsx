@@ -353,6 +353,20 @@ const Invoices = () => {
     }
   };
 
+  const handleCancelReview = async (invoiceId: number) => {
+    try {
+      await invoiceApi.cancelReview(invoiceId);
+      toast.success('Review cancelled.');
+      // Refresh list
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to cancel review');
+    }
+  };
+
   const handleBulkRunReview = async () => {
     if (selectedIds.length === 0) return;
 
@@ -983,6 +997,17 @@ const Invoices = () => {
                                   >
                                     <RotateCcw className="h-2.5 w-2.5 mr-1" />
                                     Trigger Review
+                                  </Button>
+                                )}
+                                {invoice.review_status === 'pending' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
+                                    onClick={() => handleCancelReview(invoice.id)}
+                                  >
+                                    <X className="h-2.5 w-2.5 mr-1" />
+                                    Cancel Review
                                   </Button>
                                 )}
                               </div>

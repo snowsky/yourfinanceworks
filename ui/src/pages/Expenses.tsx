@@ -180,6 +180,17 @@ const Expenses = () => {
     }
   };
 
+  const handleCancelReview = async (expenseId: number) => {
+    try {
+      await expenseApi.cancelReview(expenseId);
+      toast.success('Review cancelled.');
+      // Refresh list
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to cancel review');
+    }
+  };
+
   const handleBulkRunReview = async () => {
     if (selectedIds.length === 0) return;
 
@@ -1241,6 +1252,17 @@ const Expenses = () => {
                                 >
                                   <RotateCcw className="h-2.5 w-2.5 mr-1" />
                                   Trigger Review
+                                </Button>
+                              )}
+                              {e.review_status === 'pending' && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
+                                  onClick={() => handleCancelReview(e.id)}
+                                >
+                                  <X className="h-2.5 w-2.5 mr-1" />
+                                  Cancel Review
                                 </Button>
                               )}
                             </div>

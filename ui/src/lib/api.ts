@@ -610,6 +610,7 @@ export const bankStatementApi = {
   },
   acceptReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/accept-review`, { method: 'POST' }),
   reReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/review`, { method: 'POST' }),
+  cancelReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/cancel-review`, { method: 'POST' }),
 
   // Build URLs for preview/download (relative if API_BASE_URL is relative)
   fileUrl: (statementId: number, inline = true): string => {
@@ -1909,6 +1910,7 @@ export const invoiceApi = {
   getHistory: (id: number) => apiRequest<InvoiceHistory[]>(`/invoices/${id}/history`),
   acceptReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/accept-review`, { method: 'POST' }),
   reReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/review`, { method: 'POST' }),
+  cancelReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/cancel-review`, { method: 'POST' }),
 
   createInvoiceHistoryEntry: (invoiceId: number, historyEntry: InvoiceHistoryCreate) =>
     apiRequest<InvoiceHistory>(`/invoices/${invoiceId}/history`, {
@@ -2087,6 +2089,7 @@ export const expenseApi = {
   },
   acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
   reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),
+  cancelReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/cancel-review`, { method: 'POST' }),
   listAttachments: async (expenseId: number) => {
     return apiRequest<ExpenseAttachmentMeta[]>(`/expenses/${expenseId}/attachments`);
   },
@@ -2577,6 +2580,10 @@ export const aiConfigApi = {
     statements: { stats: Record<string, number>; total: number; completed: number; progress_percent: number };
     overall_progress_percent: number;
   }>(`/ai-config/review-progress`, { method: 'GET' }),
+  cancelFullReview: () => apiRequest<{
+    success: boolean;
+    message: string;
+  }>(`/ai-config/cancel-full-review`, { method: 'POST' }),
 };
 
 // AI Assistant API methods

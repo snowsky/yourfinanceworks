@@ -3425,11 +3425,67 @@ async def run_review(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    # Reset review status
+    # Reset review status to pending so it shows immediately in UI
+    # The worker will pick it up and process it
+    invoice.review_status = "pending"
+    invoice.review_result = None
+    invoice.reviewed_at = None
+
+    db.commit()
+    db.refresh(invoice)
+
+    # Publish Kafka event to trigger review
+    try:
+        from core.services.review_event_service import get_review_event_service
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        if tenant_id:
+            event_service = get_review_event_service()
+            event_service.publish_single_review_trigger(
+                tenant_id=tenant_id,
+                entity_type="invoice",
+                entity_id=invoice_id
+            )
+            logger.info(f"Published Kafka event to trigger review for invoice {invoice_id}")
+    except Exception as e:
+        logger.warning(f"Failed to publish Kafka event for invoice review trigger: {e}")
+
+    return invoice
+
+
+@router.post("/{invoice_id:int}/cancel-review", response_model=InvoiceSchema)
+async def cancel_invoice_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Cancel an in-progress review for an invoice"""
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Can only cancel if review is pending or not_started
+    if invoice.review_status not in ["pending", "not_started"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel review with status '{invoice.review_status}'. Only pending or not_started reviews can be cancelled."
+        )
+
+    # Cancel the review
     invoice.review_status = "not_started"
     invoice.review_result = None
     invoice.reviewed_at = None
 
     db.commit()
     db.refresh(invoice)
+
+    logger.info(f"Cancelled review for invoice {invoice_id}")
+
     return invoice

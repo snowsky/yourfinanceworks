@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck, Shield, Zap, RotateCcw, Wand } from "lucide-react";
+import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck, Shield, Zap, RotateCcw, Wand, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -400,6 +400,22 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
         }
     };
 
+    const handleCancelFullReview = async () => {
+        try {
+            setIsTriggeringReview(true);
+            const result = await aiConfigApi.cancelFullReview();
+            toast.success(result.message);
+            setShowReviewProgress(false);
+            setReviewProgress(null);
+            await fetchReviewProgress();
+        } catch (error: any) {
+            console.error("Error cancelling full review:", error);
+            toast.error(error?.message || "Failed to cancel full system review");
+        } finally {
+            setIsTriggeringReview(false);
+        }
+    };
+
     const startProgressPolling = () => {
         console.log("Starting progress polling...");
         const pollInterval = setInterval(async () => {
@@ -412,6 +428,8 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                 if (progress.overall_progress_percent === 100) {
                     clearInterval(pollInterval);
                     toast.success("Full system review completed!");
+                    // Clear progress after a short delay so user sees completion
+                    setTimeout(() => setReviewProgress(null), 2000);
                 }
             } catch (error) {
                 console.error('Error polling review progress:', error);
@@ -963,10 +981,24 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                     ) : null}
 
                     <DialogFooter className="flex items-center justify-between">
+                        <div className="flex gap-2">
+                            {reviewProgress && reviewProgress.overall_progress_percent > 0 && (
+                                <ProfessionalButton
+                                    onClick={handleCancelFullReview}
+                                    disabled={isTriggeringReview}
+                                    loading={isTriggeringReview}
+                                    variant="destructive"
+                                    className="bg-red-600 hover:bg-red-700"
+                                >
+                                    <X className="mr-2 h-4 w-4" />
+                                    Cancel Review
+                                </ProfessionalButton>
+                            )}
+                        </div>
                         <div>
                             <ProfessionalButton
                                 onClick={() => setShowReviewConfirmation(true)}
-                                disabled={isTriggeringReview || (reviewProgress && reviewProgress.overall_progress_percent > 0)}
+                                disabled={isTriggeringReview || (reviewProgress && (reviewProgress.invoices.stats.pending > 0 || reviewProgress.expenses.stats.pending > 0 || reviewProgress.statements.stats.pending > 0))}
                                 loading={isTriggeringReview}
                                 className="bg-blue-600 hover:bg-blue-700"
                             >

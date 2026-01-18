@@ -495,6 +495,12 @@ class ExpenseMessageHandler(BaseMessageHandler):
                         self.logger.info(f"Expense {expense_id} manually overridden; skipping OCR")
                         return ProcessingResult(success=True, committed=True)
 
+                    # Check if already done - skip reprocessing
+                    if getattr(exp, "analysis_status", None) == ProcessingStatus.DONE.value:
+                        self.logger.info(f"Expense {expense_id} already done. Skipping reprocessing.")
+                        await self._commit_message(consumer, message)
+                        return ProcessingResult(success=True, committed=True)
+
                     # Check if already failed - prevent infinite retry loop
                     if getattr(exp, "analysis_status", None) == ProcessingStatus.FAILED.value:
                         self.logger.warning(f"Expense {expense_id} marked as FAILED. Skipping retry loop.")
@@ -844,6 +850,12 @@ class BankStatementMessageHandler(BaseMessageHandler):
                          self.logger.info(f"Processing stmt {stmt.id}: initial created_by_user_id={stmt.created_by_user_id}")
 
                     if not stmt:
+                        return ProcessingResult(success=True, committed=True)
+
+                    # Check if already done - skip reprocessing
+                    if stmt.status == ProcessingStatus.DONE.value:
+                        self.logger.info(f"Bank statement {statement_id} already done. Skipping reprocessing.")
+                        await self._commit_message(consumer, message)
                         return ProcessingResult(success=True, committed=True)
 
                     # Check if already failed - prevent infinite retry loop
@@ -1299,10 +1311,15 @@ class InvoiceMessageHandler(BaseMessageHandler):
                     from core.models.models_per_tenant import AIConfig as AIConfigModel, InvoiceProcessingTask, Client
                     from commercial.ai.pdf_processor import process_pdf_with_ai
                     from types import SimpleNamespace
-                    import re
 
                     # Create or update processing task
                     task = await self._get_or_create_task(db, task_id, file_path, filename, user_id)
+
+                    # Check if already completed - skip reprocessing
+                    if task.status == ProcessingStatus.COMPLETED.value:
+                        self.logger.info(f"Invoice task {task_id} already completed. Skipping reprocessing.")
+                        await self._commit_message(consumer, message)
+                        return ProcessingResult(success=True, committed=True)
 
                     # Get AI config
                     ai_conf = await self._get_ai_config(db)
@@ -1429,6 +1446,11 @@ class InvoiceMessageHandler(BaseMessageHandler):
             )
             db.add(task)
         else:
+            # Check if already completed - skip reprocessing
+            if task.status == ProcessingStatus.COMPLETED.value:
+                self.logger.info(f"Invoice task {task_id} already completed. Skipping reprocessing.")
+                return task
+
             task.status = ProcessingStatus.PROCESSING.value
             task.updated_at = datetime.now(timezone.utc)
 

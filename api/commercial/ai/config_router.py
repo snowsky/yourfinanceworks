@@ -703,3 +703,63 @@ async def get_review_progress(
     except Exception as e:
         logger.error(f"Failed to get review progress: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cancel-full-review")
+async def cancel_full_system_review(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Cancel the full system review by resetting all pending reviews back to not_started"""
+    require_admin(current_user, "cancel full system review")
+
+    try:
+        logger.info(f"Cancelling full system review for tenant context")
+        from core.models.models_per_tenant import Invoice, Expense, BankStatement
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        logger.info(f"Cancel review: active tenant_id = {tenant_id}")
+
+        # Reset pending Invoices back to not_started
+        invoice_count = db.query(Invoice).filter(
+            Invoice.is_deleted == False,
+            Invoice.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset pending Expenses back to not_started
+        expense_count = db.query(Expense).filter(
+            Expense.is_deleted == False,
+            Expense.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset pending Bank Statements back to not_started
+        statement_count = db.query(BankStatement).filter(
+            BankStatement.is_deleted == False,
+            BankStatement.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        db.commit()
+
+        logger.info(f"Cancelled full system review. Reset {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements")
+
+        return {
+            "success": True,
+            "message": f"Full system review cancelled. Reset {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements back to not_started."
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to cancel full system review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

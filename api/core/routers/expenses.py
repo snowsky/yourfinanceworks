@@ -851,13 +851,69 @@ async def run_review(
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
-    # Reset review status
+    # Reset review status to pending so it shows immediately in UI
+    # The worker will pick it up and process it
+    expense.review_status = "pending"
+    expense.review_result = None
+    expense.reviewed_at = None
+
+    db.commit()
+    db.refresh(expense)
+
+    # Publish Kafka event to trigger review
+    try:
+        from core.services.review_event_service import get_review_event_service
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        if tenant_id:
+            event_service = get_review_event_service()
+            event_service.publish_single_review_trigger(
+                tenant_id=tenant_id,
+                entity_type="expense",
+                entity_id=expense_id
+            )
+            logger.info(f"Published Kafka event to trigger review for expense {expense_id}")
+    except Exception as e:
+        logger.warning(f"Failed to publish Kafka event for expense review trigger: {e}")
+
+    return expense
+
+
+@router.post("/{expense_id:int}/cancel-review", response_model=ExpenseSchema)
+async def cancel_expense_review(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Cancel an in-progress review for an expense"""
+    require_non_viewer(current_user, "review expenses")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.is_deleted == False).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    # Can only cancel if review is pending or not_started
+    if expense.review_status not in ["pending", "not_started"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel review with status '{expense.review_status}'. Only pending or not_started reviews can be cancelled."
+        )
+
+    # Cancel the review
     expense.review_status = "not_started"
     expense.review_result = None
     expense.reviewed_at = None
 
     db.commit()
     db.refresh(expense)
+
+    logger.info(f"Cancelled review for expense {expense_id}")
+
     return expense
 
 

@@ -1561,8 +1561,9 @@ async def run_review(
     if not statement:
         raise HTTPException(status_code=404, detail="Bank statement not found")
 
-    # Reset review status
-    statement.review_status = "not_started"
+    # Reset review status to pending so it shows immediately in UI
+    # The worker will pick it up and process it
+    statement.review_status = "pending"
     statement.review_result = None
     statement.reviewed_at = None
 
@@ -1576,5 +1577,45 @@ async def run_review(
         event_service.publish_single_review_trigger(tenant_id, "statement", statement_id)
     except Exception as e:
         logger.warning(f"Failed to publish review trigger event for statement {statement_id}: {e}")
+
+    return statement
+
+
+@router.post("/{statement_id:int}/cancel-review", response_model=BankStatementResponse)
+async def cancel_statement_review(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Cancel an in-progress review for a bank statement"""
+    require_non_viewer(current_user, "review bank statements")
+
+    # Set tenant context
+    from core.models.database import get_tenant_context, set_tenant_context
+    tenant_id = get_tenant_context()
+    if not tenant_id:
+        tenant_id = current_user.tenant_id
+        set_tenant_context(tenant_id)
+
+    statement = db.query(BankStatement).filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False).first()
+    if not statement:
+        raise HTTPException(status_code=404, detail="Bank statement not found")
+
+    # Can only cancel if review is pending or not_started
+    if statement.review_status not in ["pending", "not_started"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel review with status '{statement.review_status}'. Only pending or not_started reviews can be cancelled."
+        )
+
+    # Cancel the review
+    statement.review_status = "not_started"
+    statement.review_result = None
+    statement.reviewed_at = None
+
+    db.commit()
+    db.refresh(statement)
+
+    logger.info(f"Cancelled review for bank statement {statement_id}")
 
     return statement
