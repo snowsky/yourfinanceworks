@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -31,6 +31,11 @@ class BankStatementBase(BaseModel):
     extracted_count: Optional[int] = Field(0, description="Number of transactions extracted")
     labels: Optional[List[str]] = Field(None, description="Labels for categorization")
     notes: Optional[str] = Field(None, description="Additional notes")
+
+    # Review Worker fields
+    review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")
+    review_result: Optional[Dict[str, Any]] = Field(None, description="Data extracted by reviewer")
+    reviewed_at: Optional[datetime] = Field(None, description="When the review was performed")
 
 
 class BankStatementResponse(BankStatementBase):

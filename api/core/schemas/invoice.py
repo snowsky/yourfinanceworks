@@ -56,6 +56,11 @@ class InvoiceBase(BaseModel):
     payer: str = Field("You", description="Who is paying the invoice: 'You' or 'Client'")
     labels: Optional[List[str]] = Field(None, description="Invoice labels")
 
+    # Review Worker fields
+    review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")
+    review_result: Optional[Dict[str, Any]] = Field(None, description="Data extracted by reviewer")
+    reviewed_at: Optional[datetime] = Field(None, description="When the review was performed")
+
 class InvoiceCreate(InvoiceBase):
     number: Optional[str] = Field(None, description="Invoice number (optional - will be auto-generated if not provided)")
     items: Optional[List[InvoiceItemCreate]] = None

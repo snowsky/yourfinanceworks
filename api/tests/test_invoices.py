@@ -13,15 +13,17 @@ def auth_headers(client: TestClient):
         "/api/v1/auth/register",
         json={
             "email": unique_email,
-            "password": "testpass123",
+            "password": "TestPass123!",
             "first_name": "Test",
-            "last_name": "User"
+            "last_name": "User",
+            "tenant_id": 1,
+            "role": "admin"
         }
     )
     
     response = client.post(
         "/api/v1/auth/login",
-        json={"email": unique_email, "password": "testpass123"}
+        json={"email": unique_email, "password": "TestPass123!"}
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -32,7 +34,7 @@ def test_client_id(client: TestClient, auth_headers):
         "/api/v1/clients/",
         json={
             "name": "Test Client",
-            "email": "client@example.com"
+            "email": f"client_{uuid4().hex}@example.com"
         },
         headers=auth_headers
     )

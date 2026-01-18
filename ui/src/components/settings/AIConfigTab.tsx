@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck, Shield, Zap } from "lucide-react";
+import { Cpu as CpuIcon, Plus, Edit, Trash2, Loader2, ShieldCheck, Shield, Zap, RotateCcw, Wand } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -133,6 +133,16 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [configToDelete, setConfigToDelete] = useState<number | null>(null);
+    const [reviewWorkerEnabled, setReviewWorkerEnabled] = useState(false);
+    const [isTriggeringReview, setIsTriggeringReview] = useState(false);
+    const [reviewerConfig, setReviewerConfig] = useState<any>({
+        use_custom_config: false,
+        config: {
+            provider_name: '',
+            model_name: '',
+            api_key: '',
+        }
+    });
 
     const { data: configs = [], isLoading: isLoadingConfigs } = useQuery({
         queryKey: ['aiConfigs'],
@@ -157,6 +167,25 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
             setAiAssistantEnabled(generalSettings.enable_ai_assistant ?? false);
         }
     }, [generalSettings]);
+
+    useEffect(() => {
+        const fetchReviewerSettings = async () => {
+            try {
+                const workerSetting = await settingsApi.getSetting('review_worker_enabled');
+                setReviewWorkerEnabled(!!workerSetting?.value);
+
+                const configSetting = await settingsApi.getSetting('reviewer_ai_config');
+                if (configSetting?.value) {
+                    setReviewerConfig(configSetting.value);
+                }
+            } catch (error) {
+                console.error('Error fetching reviewer settings:', error);
+            }
+        };
+        if (isAdmin) {
+            fetchReviewerSettings();
+        }
+    }, [isAdmin]);
 
     const supportedProviders = providersData?.providers || {};
 
@@ -204,6 +233,19 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
         },
         onError: () => {
             toast.error(t('settings.ai_config.failed_to_delete_ai_config'));
+        }
+    });
+
+    const saveReviewerSettingsMutation = useMutation({
+        mutationFn: async () => {
+            await settingsApi.updateSetting('review_worker_enabled', reviewWorkerEnabled);
+            await settingsApi.updateSetting('reviewer_ai_config', reviewerConfig);
+        },
+        onSuccess: () => {
+            toast.success("Reviewer settings updated successfully");
+        },
+        onError: () => {
+            toast.error("Failed to update reviewer settings");
         }
     });
 
@@ -303,6 +345,22 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                     setConfigToDelete(null);
                 }
             });
+        }
+    };
+
+    const handleTriggerFullReview = async () => {
+        if (!window.confirm("This will reset the review status for ALL invoices, expenses, and bank statements. The review worker will re-process everything. Are you sure?")) {
+            return;
+        }
+
+        setIsTriggeringReview(true);
+        try {
+            const result = await aiConfigApi.triggerFullReview();
+            toast.success(result.message);
+        } catch (error: any) {
+            toast.error(error?.message || "Failed to trigger full system review");
+        } finally {
+            setIsTriggeringReview(false);
         }
     };
 
@@ -423,6 +481,128 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                                 </ProfessionalTable>
                             </div>
                         )}
+                    </div>
+
+                    {/* Reviewer Settings Section */}
+                    <div className="space-y-6 pt-8 border-t">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-lg font-semibold flex items-center gap-2">
+                                    <ShieldCheck className="w-5 h-5 text-primary" />
+                                    Review Worker Settings
+                                </h3>
+                                <p className="text-sm text-muted-foreground">Automatically review processed documents for potential inaccuracies.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/30 rounded-xl">
+                            <div className="flex items-start gap-3">
+                                <Zap className="w-5 h-5 text-yellow-600 mt-0.5" />
+                                <div className="space-y-1">
+                                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-400">AI Usage Notice</h4>
+                                    <p className="text-sm text-yellow-700 dark:text-yellow-500/80">
+                                        Enabling the Review Worker will perform a secondary AI analysis on every document, which will double your AI costs for processing.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-6 bg-muted/20 rounded-xl border border-border/50">
+                            <div className="space-y-1">
+                                <Label htmlFor="review_worker" className="text-base font-semibold">Enable Review Worker</Label>
+                                <p className="text-sm text-muted-foreground">Background AI agent will verify extraction results.</p>
+                            </div>
+                            <Switch
+                                id="review_worker"
+                                checked={reviewWorkerEnabled}
+                                onCheckedChange={setReviewWorkerEnabled}
+                            />
+                        </div>
+
+                        {reviewWorkerEnabled && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center space-x-2">
+                                    <Switch
+                                        id="use_custom_reviewer"
+                                        checked={reviewerConfig.use_custom_config}
+                                        onCheckedChange={(checked) => setReviewerConfig((prev: any) => ({ ...prev, use_custom_config: checked }))}
+                                    />
+                                    <Label htmlFor="use_custom_reviewer">Use Custom Reviewer AI Configuration</Label>
+                                </div>
+
+                                {!reviewerConfig.use_custom_config ? (
+                                    <div className="p-4 bg-muted/30 rounded-lg border border-border/50 text-sm text-muted-foreground italic">
+                                        The reviewer will use the system default AI provider and model.
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-muted/30 rounded-xl border border-border/50">
+                                        <div className="space-y-2">
+                                            <Label>Reviewer Provider</Label>
+                                            <Select
+                                                value={reviewerConfig.config.provider_name}
+                                                onValueChange={(value) => setReviewerConfig((prev: any) => ({
+                                                    ...prev,
+                                                    config: { ...prev.config, provider_name: value }
+                                                }))}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select provider" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(Object.values(supportedProviders) as AIProviderInfo[]).map((p) => (
+                                                        <SelectItem key={p.name} value={p.name}>
+                                                            {p.display_name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Model Name</Label>
+                                            <Input
+                                                value={reviewerConfig.config.model_name}
+                                                onChange={(e) => setReviewerConfig((prev: any) => ({
+                                                    ...prev,
+                                                    config: { ...prev.config, model_name: e.target.value }
+                                                }))}
+                                                placeholder="e.g. gpt-4"
+                                            />
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label>API Key (Optional override)</Label>
+                                            <Input
+                                                type="password"
+                                                value={reviewerConfig.config.api_key}
+                                                onChange={(e) => setReviewerConfig((prev: any) => ({
+                                                    ...prev,
+                                                    config: { ...prev.config, api_key: e.target.value }
+                                                }))}
+                                                placeholder="Leave blank to use provider key"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3">
+                            <ProfessionalButton
+                                variant="outline"
+                                onClick={handleTriggerFullReview}
+                                disabled={isTriggeringReview}
+                                loading={isTriggeringReview}
+                                leftIcon={<RotateCcw className="h-4 w-4" />}
+                            >
+                                Trigger Full System Review
+                            </ProfessionalButton>
+                            <ProfessionalButton
+                                onClick={() => saveReviewerSettingsMutation.mutate()}
+                                disabled={saveReviewerSettingsMutation.isPending}
+                                loading={saveReviewerSettingsMutation.isPending}
+                            >
+                                Save Reviewer Settings
+                            </ProfessionalButton>
+                        </div>
                     </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>

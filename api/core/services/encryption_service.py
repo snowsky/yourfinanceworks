@@ -46,8 +46,8 @@ class EncryptionService:
     def __init__(self, key_management_service: Optional[KeyManagementService] = None):
         self.config = EncryptionConfig()
         self.key_management = key_management_service or KeyManagementService()
-        self._key_cache: Dict[int, bytes] = {}
-        self._cache_timestamps: Dict[int, float] = {}
+        self._key_cache: Dict[str, bytes] = {}
+        self._cache_timestamps: Dict[str, float] = {}
         self._cache_lock = Lock()
 
         # Initialize AESGCM cipher
@@ -103,10 +103,10 @@ class EncryptionService:
         Args:
             encrypted_data: Base64 encoded encrypted data
             tenant_id: Tenant identifier for key selection
-            
+
         Returns:
             Decrypted plain text data
-            
+
         Raises:
             DecryptionError: If decryption fails
             KeyNotFoundError: If tenant key not found
@@ -122,66 +122,88 @@ class EncryptionService:
             )
 
         try:
-            # Get tenant-specific encryption key
-            key = self.get_tenant_key(tenant_id)
+            # Get primary iteration count
+            primary_iters = self.config.KEY_DERIVATION_ITERATIONS
 
-            # Create cipher instance
-            cipher = self.cipher_class(key)
+            # List of iteration counts to try (primary first, then fallbacks)
+            fallback_iters = getattr(self.config, 'KEY_DERIVATION_ITERATIONS_FALLBACK', [])
+            all_iters = [primary_iters]
+            for it in fallback_iters:
+                if it != primary_iters and it not in all_iters:
+                    all_iters.append(it)
 
-            # Decode base64 data with proper error handling
-            try:
-                # Fix base64 padding if needed
-                data_to_decode = encrypted_data
-                if isinstance(encrypted_data, str):
-                    # Add missing padding if needed
-                    missing_padding = len(encrypted_data) % 4
-                    if missing_padding:
-                        data_to_decode = encrypted_data + '=' * (4 - missing_padding)
-                    combined = base64.b64decode(data_to_decode.encode('ascii'))
-                else:
-                    combined = base64.b64decode(encrypted_data)
-            except Exception as base64_error:
-                logger.error(f"Invalid base64 data for tenant {tenant_id}: {str(base64_error)}")
-                raise InvalidEncodingError(
-                    "Invalid base64 encoding for encrypted data",
-                    tenant_id=tenant_id,
-                    encoding_type="base64"
-                )
+            last_error = None
 
-            # Validate minimum length (nonce + at least 1 byte of data)
-            if len(combined) < 13:
-                logger.error(f"Encrypted data too short for tenant {tenant_id}: {len(combined)} bytes")
-                raise DataTooShortError(
-                    "Encrypted data is too short to be valid",
-                    tenant_id=tenant_id,
-                    expected_length=">=13 bytes (12-byte nonce + data)",
-                    actual_length=len(combined)
-                )
+            for iters in all_iters:
+                try:
+                    # Get tenant-specific encryption key for these iterations
+                    key = self.get_tenant_key(tenant_id, iterations=iters)
 
-            # Extract nonce (first 12 bytes) and encrypted data
-            nonce = combined[:12]
-            ciphertext = combined[12:]
+                    # Create cipher instance
+                    cipher = self.cipher_class(key)
 
-            # Decrypt data
-            try:
-                decrypted_data = cipher.decrypt(nonce, ciphertext, None)
-                return decrypted_data.decode('utf-8')
-            except Exception as crypto_error:
-                # Handle cryptography-specific errors without returning sensitive data
-                from cryptography.exceptions import InvalidTag
+                    # Decode base64 data with proper error handling
+                    try:
+                        # Fix base64 padding if needed
+                        data_to_decode = encrypted_data
+                        if isinstance(encrypted_data, str):
+                            # Add missing padding if needed
+                            missing_padding = len(encrypted_data) % 4
+                            if missing_padding:
+                                data_to_decode = encrypted_data + '=' * (4 - missing_padding)
+                            combined = base64.b64decode(data_to_decode.encode('ascii'))
+                        else:
+                            combined = base64.b64decode(encrypted_data)
+                    except Exception as base64_error:
+                        logger.error(f"Invalid base64 data for tenant {tenant_id}: {str(base64_error)}")
+                        raise InvalidEncodingError(
+                            "Invalid base64 encoding for encrypted data",
+                            tenant_id=tenant_id,
+                            encoding_type="base64"
+                        )
 
-                if isinstance(crypto_error, InvalidTag):
-                    logger.warning(f"Authentication tag verification failed for tenant {tenant_id} - wrong key or corrupted data")
-                    raise DecryptionError(f"Failed to decrypt data: Authentication tag verification failed (wrong key or corrupted data)", tenant_id=tenant_id)
-                else:
-                    logger.error(f"Cryptography error during decryption for tenant {tenant_id}: {str(crypto_error)}")
-                    raise DecryptionError(f"Failed to decrypt data: Cryptographic error", tenant_id=tenant_id)
+                    # Validate minimum length (nonce + at least 1 byte of data)
+                    if len(combined) < 13:
+                        logger.error(f"Encrypted data too short for tenant {tenant_id}: {len(combined)} bytes")
+                        raise DataTooShortError(
+                            "Encrypted data is too short to be valid",
+                            tenant_id=tenant_id,
+                            expected_length=">=13 bytes (12-byte nonce + data)",
+                            actual_length=len(combined)
+                        )
 
-        except DecryptionError:
-            # Re-raise DecryptionError exceptions as-is
-            raise
-        except KeyNotFoundError:
-            # Re-raise KeyNotFoundError as-is
+                    # Extract nonce (first 12 bytes) and encrypted data
+                    nonce = combined[:12]
+                    ciphertext = combined[12:]
+
+                    # Decrypt data
+                    decrypted_data = cipher.decrypt(nonce, ciphertext, None)
+
+                    if iters != primary_iters:
+                        logger.info(f"Successfully decrypted data for tenant {tenant_id} using fallback iterations: {iters}")
+
+                    return decrypted_data.decode('utf-8')
+
+                except Exception as crypto_error:
+                    from cryptography.exceptions import InvalidTag
+                    if isinstance(crypto_error, InvalidTag):
+                        # Tag failure might mean wrong iteration count, try next one
+                        last_error = crypto_error
+                        continue
+                    else:
+                        # Other errors should probably be reported immediately
+                        logger.error(f"Cryptography error during decryption for tenant {tenant_id}: {str(crypto_error)}")
+                        raise DecryptionError(f"Failed to decrypt data: Cryptographic error", tenant_id=tenant_id)
+
+            # If we're here, all iteration counts failed
+            if last_error:
+                logger.warning(f"Authentication tag verification failed for tenant {tenant_id} after trying {len(all_iters)} iteration variants")
+                raise DecryptionError(f"Failed to decrypt data: Authentication tag verification failed (wrong key or corrupted data)", tenant_id=tenant_id)
+            else:
+                raise DecryptionError(f"Failed to decrypt data: All decryption attempts failed", tenant_id=tenant_id)
+
+        except (DecryptionError, KeyNotFoundError, InvalidEncodingError, DataTooShortError, TenantIdMissingError):
+            # Re-raise known exceptions
             raise
         except Exception as e:
             # Catch any other unexpected errors and convert to DecryptionError
@@ -208,7 +230,7 @@ class EncryptionService:
         try:
             # Convert dict to JSON string
             json_string = json.dumps(data, separators=(',', ':'), sort_keys=True)
-            
+
             # Encrypt the JSON string
             return self.encrypt_data(json_string, tenant_id)
 
@@ -232,7 +254,7 @@ class EncryptionService:
         """
         if not encrypted_data:
             return {}
-        
+
         if tenant_id is None:
             raise DecryptionError("Tenant ID cannot be None for JSON decryption", tenant_id=tenant_id)
 
@@ -259,12 +281,13 @@ class EncryptionService:
                 logger.error(f"JSON decryption failed for tenant {tenant_id}: {error_msg}")
                 raise DecryptionError(f"Failed to decrypt JSON data: {error_msg}", tenant_id=tenant_id)
 
-    def get_tenant_key(self, tenant_id: int) -> bytes:
+    def get_tenant_key(self, tenant_id: int, iterations: Optional[int] = None) -> bytes:
         """
         Get or derive encryption key for a specific tenant with caching.
 
         Args:
             tenant_id: Tenant identifier
+            iterations: Optional override for PBKDF2 iterations
 
         Returns:
             32-byte encryption key for AES-256
@@ -272,25 +295,28 @@ class EncryptionService:
         Raises:
             KeyNotFoundError: If tenant key cannot be retrieved
         """
+        iters = iterations or self.config.KEY_DERIVATION_ITERATIONS
+        cache_key = f"{tenant_id}:{iters}"
+
         with self._cache_lock:
             # Check cache first
             current_time = time.time()
 
-            if (tenant_id in self._key_cache and 
-                tenant_id in self._cache_timestamps and
-                current_time - self._cache_timestamps[tenant_id] < self.config.KEY_CACHE_TTL_SECONDS):
-                return self._key_cache[tenant_id]
+            if (cache_key in self._key_cache and
+                cache_key in self._cache_timestamps and
+                current_time - self._cache_timestamps[cache_key] < self.config.KEY_CACHE_TTL_SECONDS):
+                return self._key_cache[cache_key]
 
             try:
                 # Get tenant key from key management service
                 tenant_key_material = self.key_management.retrieve_tenant_key(tenant_id)
 
                 # Derive encryption key using PBKDF2
-                derived_key = self._derive_key(tenant_key_material, tenant_id)
+                derived_key = self._derive_key(tenant_key_material, tenant_id, iterations=iters)
 
                 # Cache the derived key
-                self._key_cache[tenant_id] = derived_key
-                self._cache_timestamps[tenant_id] = current_time
+                self._key_cache[cache_key] = derived_key
+                self._cache_timestamps[cache_key] = current_time
 
                 # Clean old cache entries
                 self._cleanup_cache()
@@ -298,17 +324,18 @@ class EncryptionService:
                 return derived_key
 
             except Exception as e:
-                logger.error(f"Failed to get tenant key for {tenant_id}: {str(e)}")
+                logger.error(f"Failed to get tenant key for {tenant_id} with {iters} iterations: {str(e)}")
                 raise KeyNotFoundError(f"Tenant key not found for tenant {tenant_id}")
 
-    def _derive_key(self, key_material: str, tenant_id: int) -> bytes:
+    def _derive_key(self, key_material: str, tenant_id: int, iterations: Optional[int] = None) -> bytes:
         """
         Derive encryption key from key material using PBKDF2.
 
         Args:
             key_material: Base64 encoded key material
             tenant_id: Tenant ID used as salt component
-            
+            iterations: Optional iterations override
+
         Returns:
             32-byte derived key
         """
@@ -319,12 +346,14 @@ class EncryptionService:
         # Create salt from tenant ID and config salt
         salt = f"{self.config.KEY_DERIVATION_SALT}:{tenant_id}".encode('utf-8')
 
+        iters = iterations or self.config.KEY_DERIVATION_ITERATIONS
+
         # Use PBKDF2 for key derivation
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,  # 256 bits for AES-256
             salt=salt,
-            iterations=self.config.KEY_DERIVATION_ITERATIONS,
+            iterations=iters,
         )
 
         return kdf.derive(key_bytes)

@@ -132,7 +132,7 @@ async def create_ai_config(
             status_code=500,
             detail=f"Failed to create AI configuration: {str(e)}"
         )
-    
+
 @router.put("/{config_id}", response_model=AIConfigSchema)
 async def update_ai_config(
     config_id: int,
@@ -143,15 +143,15 @@ async def update_ai_config(
     """Update an AI configuration"""
     # Only tenant admins can update AI configs
     require_admin(current_user, "update AI configurations")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         # If this is set as default, unset other defaults
         if config.is_default:
             # No tenant_id filtering needed since we're in the tenant's database
@@ -165,7 +165,7 @@ async def update_ai_config(
 
         for field, value in update_data.items():
             setattr(db_config, field, value)
-        
+
         db.commit()
         db.refresh(db_config)
         return db_config
@@ -186,15 +186,15 @@ async def delete_ai_config(
     """Delete an AI configuration"""
     # Only tenant admins can delete AI configs
     require_admin(current_user, "delete AI configurations")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         db.delete(db_config)
         db.commit()
         return {"message": "AI configuration deleted successfully"}
@@ -477,18 +477,18 @@ async def mark_config_as_tested(
     """Manually mark an AI configuration as tested"""
     # Only tenant admins can mark configs as tested
     require_admin(current_user, "mark AI configurations as tested")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         db_config.tested = True
         db.flush()  # Make the change visible to queries
-        
+
         # Check if this is the only tested config and set as default if so
         tested_count = db.query(AIConfigModel).filter(AIConfigModel.tested == True).count()
         if tested_count == 1:
@@ -498,9 +498,9 @@ async def mark_config_as_tested(
             ).update({"is_default": False})
             # Set this as default
             db_config.is_default = True
-        
+
         db.commit()
-        
+
         return {"message": "AI configuration marked as tested successfully" + (" and set as default" if db_config.is_default else "")}
     except HTTPException:
         raise
@@ -510,3 +510,68 @@ async def mark_config_as_tested(
             status_code=500,
             detail=f"Failed to mark AI configuration as tested: {str(e)}"
         )
+
+@router.post("/trigger-full-review")
+async def trigger_full_system_review(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Reset review status for all documents (Invoices, Expenses, Statements) to trigger a full re-review"""
+    require_admin(current_user, "trigger full system review")
+
+    try:
+        logger.info(f"Triggering full system review for tenant context")
+        from core.models.models_per_tenant import Invoice, Expense, BankStatement
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        logger.info(f"Full review trigger: active tenant_id = {tenant_id}")
+
+        # Reset Invoices
+        invoice_count = db.query(Invoice).filter(Invoice.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset Expenses
+        expense_count = db.query(Expense).filter(Expense.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset Bank Statements
+        statement_count = db.query(BankStatement).filter(BankStatement.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        db.commit()
+
+        # Publish Kafka event to trigger immediate processing
+        try:
+            from core.services.review_event_service import get_review_event_service
+
+            if tenant_id:
+                logger.info(f"Publishing full review trigger event for tenant {tenant_id}")
+                event_service = get_review_event_service()
+                event_service.publish_full_review_trigger(tenant_id)
+            else:
+                logger.warning("Could not publish review trigger event: No tenant_id in context")
+        except Exception as e:
+            logger.warning(f"Failed to publish review trigger event: {e}")
+
+        return {
+            "success": True,
+            "message": f"Full system review triggered. {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements queued for review.",
+            "counts": {
+                "invoices": invoice_count,
+                "expenses": expense_count,
+                "statements": statement_count
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

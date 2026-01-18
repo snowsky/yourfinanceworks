@@ -30,6 +30,8 @@ import { LicenseAlert } from '@/components/ui/license-alert';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { useQuery } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
+import { ReviewDiffModal } from '@/components/ReviewDiffModal';
+import { Wand } from 'lucide-react';
 
 
 const CATEGORY_OPTIONS = [
@@ -187,6 +189,60 @@ export default function Statements() {
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkMergeModalOpen, setBulkMergeModalOpen] = useState(false);
+
+  // Review Mode State
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewStatement, setSelectedReviewStatement] = useState<BankStatementSummary | null>(null);
+  const [isAcceptingReview, setIsAcceptingReview] = useState(false);
+
+  const handleReviewClick = (statement: BankStatementSummary) => {
+    setSelectedReviewStatement(statement);
+    setReviewModalOpen(true);
+  };
+
+  const handleAcceptReview = async () => {
+    if (!selectedReviewStatement) return;
+
+    try {
+      setIsAcceptingReview(true);
+      await bankStatementApi.acceptReview(selectedReviewStatement.id);
+      toast.success('Review accepted successfully');
+      setReviewModalOpen(false);
+      // Refresh list
+      loadList();
+    } catch (error) {
+      toast.error('Failed to accept review');
+    } finally {
+      setIsAcceptingReview(false);
+    }
+  };
+
+  const handleRunReview = async (statementId: number) => {
+    try {
+      await bankStatementApi.reReview(statementId);
+      toast.success('Review triggered. The agent will process it shortly.');
+      // Refresh list
+      loadList();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger review');
+    }
+  };
+
+  const handleBulkRunReview = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map(id => bankStatementApi.reReview(id)));
+      toast.success(`Review triggered for ${selectedIds.length} statements.`);
+      setSelectedIds([]);
+      loadList();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger bulk review');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -741,7 +797,7 @@ export default function Statements() {
                       <TableHeader>
                         <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30">
                           <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
-                          <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
+                          <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>
                           <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
                           <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_at')}</TableHead>
                           <TableHead className="font-bold text-foreground">{t('statementRecycleBin.deleted_by')}</TableHead>
@@ -996,8 +1052,19 @@ export default function Statements() {
                     </div>
 
                     <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
-  
+
                     <div className="flex items-center gap-2">
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkRunReview}
+                        disabled={loading}
+                        className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary whitespace-nowrap"
+                      >
+                        <Wand className="w-3.5 h-3.5" />
+                        Run Review
+                      </ProfessionalButton>
+
                       <ProfessionalButton
                         variant="outline"
                         size="sm"
@@ -1008,7 +1075,7 @@ export default function Statements() {
                         <Plus className="w-3.5 h-3.5" />
                         {t('statements.merge_transactions')}
                       </ProfessionalButton>
-  
+
                       <ProfessionalButton
                         variant="destructive"
                         size="sm"
@@ -1042,7 +1109,8 @@ export default function Statements() {
                       <TableHead className="font-bold text-foreground">ID</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.status')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
                       <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                       <TableHead className="w-[100px] text-right font-bold text-foreground">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
@@ -1120,6 +1188,42 @@ export default function Statements() {
                             extraction_method={s.extraction_method}
                             analysis_error={s.analysis_error}
                           />
+                        </TableCell>
+                        <TableCell>
+                          {s.review_status === 'diff_found' ? (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-7 text-xs border-amber-500/50 text-amber-600 hover:bg-amber-50"
+                              onClick={() => handleReviewClick(s)}
+                            >
+                              <Wand className="h-3 w-3 mr-1" />
+                              Review Diff
+                            </Button>
+                          ) : s.review_status === 'reviewed' || s.review_status === 'no_diff' ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">{t('statements.review_status.reviewed')}</Badge>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className={
+                                s.review_status === 'pending' 
+                                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                                  : "bg-muted/50 text-muted-foreground border-transparent"
+                              }>
+                                {s.review_status === 'pending' ? t('statements.review_status.pending') : t('common.not_started', { defaultValue: 'Not Started' })}
+                              </Badge>
+                              {(!s.review_status || s.review_status === 'not_started' || s.review_status === 'failed') && (
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
+                                  onClick={() => handleRunReview(s.id)}
+                                >
+                                  <RotateCcw className="h-2.5 w-2.5 mr-1" />
+                                  Trigger Review
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>
                         <TableCell className="hidden lg:table-cell">
@@ -1265,7 +1369,26 @@ export default function Statements() {
                 </div>
               </div>
             </div>
-          </ProfessionalCard>
+        </ProfessionalCard>
+        )}
+
+        {/* Review Diff Modal */}
+        {selectedReviewStatement && (
+          <ReviewDiffModal
+            isOpen={reviewModalOpen}
+            onClose={() => setReviewModalOpen(false)}
+            originalData={{
+              // For statement, we can pass relevant metadata or summary
+              filename: selectedReviewStatement.original_filename,
+              extracted_count: selectedReviewStatement.extracted_count,
+              status: selectedReviewStatement.status,
+              // Ideally backend should provide structured data for comparison in review_result but for statement mostly metadata
+            }}
+            reviewResult={selectedReviewStatement.review_result || {}}
+            onAccept={handleAcceptReview}
+            isAccepting={isAcceptingReview}
+            type="statement"
+          />
         )}
 
         <Dialog open={previewOpen} onOpenChange={(open) => {

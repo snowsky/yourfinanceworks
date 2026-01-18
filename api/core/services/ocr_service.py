@@ -75,7 +75,7 @@ async def apply_ocr_extraction_to_expense(
     # Map fields robustly
     extracted = extracted if isinstance(extracted, dict) else {}
     logger.info(f"OCR extracted keys: {list(extracted.keys()) if isinstance(extracted, dict) else 'non-dict result'}")
-    
+
     # Debug: Log the actual extracted data to see what the AI returned
     if isinstance(extracted, dict):
         logger.info(f"OCR extracted data: {json.dumps(extracted, indent=2, default=str)}")
@@ -314,7 +314,7 @@ async def apply_ocr_extraction_to_expense(
 
     # Aggregate all attachments for this expense
     all_attachments = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense.id).all()
-    
+
     # Check if this expense was imported from email and has multiple attachments
     # Or just generally sum up all successful OCR results
     total_sum = 0
@@ -403,10 +403,10 @@ async def apply_ocr_extraction_to_expense(
         logger.error(f"Failed to set analysis_result for expense {expense.id}: {e}")
         # Store a safe fallback that won't cause encryption issues
         expense.analysis_result = {"error": "Failed to store result", "timestamp": datetime.now(timezone.utc).isoformat()}
-    
+
     expense.analysis_status = "done"
     expense.analysis_updated_at = get_tenant_timezone_aware_datetime(db)
-    
+
     try:
         mapped_preview = {
             "amount": expense.amount,
@@ -421,7 +421,7 @@ async def apply_ocr_extraction_to_expense(
         logger.info(f"Mapped OCR fields for expense {expense.id}: {mapped_preview}")
     except Exception:
         pass
-    
+
     db.commit()
     logger.info(f"Expense {expense.id} analysis updated: {expense.analysis_status}")
 
@@ -472,7 +472,7 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any], operation_type: str =
             old_count = db_config.usage_count
             db_config.usage_count += 1
             db_config.last_used_at = datetime.now(timezone.utc)
- 
+
             # Track OCR-specific usage if this is an OCR operation
             if operation_type == "ocr":
                 # Initialize OCR usage count if not present
@@ -586,7 +586,7 @@ def publish_ocr_usage_metrics(db: Session, operation_type: str, extraction_metho
         # Example: Could publish to a metrics collection service
         # metrics_client.increment(f"ocr.{operation_type}.{extraction_method}.{'success' if success else 'failure'}")
         # metrics_client.histogram(f"ocr.{operation_type}.processing_time", processing_time)
-        
+
     except Exception as e:
         logger.error(f"Failed to publish OCR usage metrics: {e}")
 
@@ -939,7 +939,7 @@ async def _convert_raw_ocr_to_json(raw_content: str, model_name: str, provider_n
     """
     try:
         logger.info(f"Converting raw OCR output to JSON using {provider_name}/{model_name}")
-        
+
         # Define fallback prompt once to avoid duplication
         fallback_ocr_prompt = (
             "You are a data extraction expert. The following is OCR output from a receipt or invoice in various formats (markdown, text, etc.). "
@@ -1388,7 +1388,8 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
         if ai_config:
             provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name", "llama3.2-vision:11b")
-            base_url = ai_config.get("provider_url", "http://localhost:11434")
+            # Default to env vars if not explicitly set in config
+            base_url = ai_config.get("provider_url") or os.environ.get("OLLAMA_API_BASE") or os.environ.get("LLM_API_BASE") or "http://localhost:11434"
             api_key = ai_config.get("api_key")
 
             logger.info(f"🔧 OCR using AI config: provider={provider_name} model={model_name} file={file_path}")
@@ -1571,21 +1572,21 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                         parsed = _extract_json_from_text(content)
                         if parsed is not None:
                             return parsed
-                        
+
                         # If we got raw markdown/text, try a second-pass LLM call to convert to JSON
                         logger.info("First-pass OCR returned non-JSON format, attempting second-pass conversion...")
                         json_conversion_result = await _convert_raw_ocr_to_json(content, model_name, provider_name, kwargs, db_session)
                         if json_conversion_result and "error" not in json_conversion_result:
                             logger.info("Successfully converted raw OCR output to JSON via second-pass LLM")
                             return json_conversion_result
-                        
+
                         # If conversion failed, try heuristic parsing as fallback
                         logger.info("Second-pass LLM conversion failed, attempting heuristic parsing...")
                         heuristic_result = _heuristic_parse_text(content)
                         if heuristic_result:
                             logger.info(f"Heuristic parsing extracted {len(heuristic_result)} fields")
                             return heuristic_result
-                        
+
                         # Last resort: return raw
                         logger.warning("All parsing methods failed, returning raw content")
                         return {"raw": content}

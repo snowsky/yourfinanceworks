@@ -101,6 +101,7 @@ class Invoice(Base):
     payer = Column(String, default="Client", nullable=False)  # Who is paying the invoice: 'You' or 'Client'
     attachment_path = Column(String, nullable=True)  # Path to uploaded attachment file
     attachment_filename = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
+    description = Column(String, nullable=True)  # Short description of the invoice
     labels = Column(JSON, nullable=True)  # Multiple labels (tags) stored as JSON array of strings
 
     # Anomaly detection audit fields
@@ -114,6 +115,11 @@ class Invoice(Base):
 
     # User attribution
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -243,6 +249,11 @@ class Expense(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -461,6 +472,11 @@ class BankStatement(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -154,6 +154,10 @@ export interface Invoice {
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed';
+  review_result?: any;
+  reviewed_at?: string;
 }
 
 export const linkApi = {
@@ -473,6 +477,10 @@ export interface Expense {
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed';
+  review_result?: any;
+  reviewed_at?: string;
 }
 
 export interface ExpenseAttachmentMeta {
@@ -516,6 +524,10 @@ export interface BankStatementSummary {
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed';
+  review_result?: any;
+  reviewed_at?: string;
 }
 
 export interface BankStatementDetail extends BankStatementSummary {
@@ -596,6 +608,8 @@ export const bankStatementApi = {
       { method: 'POST' }
     );
   },
+  acceptReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/accept-review`, { method: 'POST' }),
+  reReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/review`, { method: 'POST' }),
 
   // Build URLs for preview/download (relative if API_BASE_URL is relative)
   fileUrl: (statementId: number, inline = true): string => {
@@ -1889,8 +1903,12 @@ export const invoiceApi = {
     apiRequest(`/invoices/${invoiceId}/attachments/${attachmentId}`, { method: 'DELETE' }),
 
   // Invoice history methods
-  getInvoiceHistory: (invoiceId: number) =>
-    apiRequest<InvoiceHistory[]>(`/invoices/${invoiceId}/history`),
+  send: (id: number) => apiRequest(`/invoices/${id}/send`, { method: 'POST' }),
+  reminder: (id: number) => apiRequest(`/invoices/${id}/reminder`, { method: 'POST' }),
+  duplicate: (id: number) => apiRequest<Invoice>(`/invoices/${id}/duplicate`, { method: 'POST' }),
+  getHistory: (id: number) => apiRequest<InvoiceHistory[]>(`/invoices/${id}/history`),
+  acceptReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/accept-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/review`, { method: 'POST' }),
 
   createInvoiceHistoryEntry: (invoiceId: number, historyEntry: InvoiceHistoryCreate) =>
     apiRequest<InvoiceHistory>(`/invoices/${invoiceId}/history`, {
@@ -2067,6 +2085,8 @@ export const expenseApi = {
     }
     return response.json();
   },
+  acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),
   listAttachments: async (expenseId: number) => {
     return apiRequest<ExpenseAttachmentMeta[]>(`/expenses/${expenseId}/attachments`);
   },
@@ -2086,7 +2106,7 @@ export const expenseApi = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
+    let url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
     const resp = await fetch(url, { headers });
     if (!resp.ok) {
       const text = await resp.text();
@@ -2104,7 +2124,7 @@ export const expenseApi = {
   bulkCreateExpenses: (expenses: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'receipt_filename'>[]) =>
     apiRequest<Expense[]>(`/expenses/bulk-create`, {
       method: 'POST',
-      body: JSON.stringify({ expenses }),
+      body: JSON.stringify(expenses),
     }),
 
   // Basic Expense Analytics (for Expenses page summary)
@@ -2406,6 +2426,12 @@ export const settingsApi = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+  getSetting: (key: string) => apiRequest<{ key: string; value: any }>(`/settings/value/${key}`),
+  updateSetting: (key: string, value: any) =>
+    apiRequest<{ key: string; value: any }>(`/settings/value/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
   getNotificationSettings: () => apiRequest<any>("/notifications/settings"),
   updateNotificationSettings: (settings: any) =>
     apiRequest<any>("/notifications/settings", {
@@ -2540,6 +2566,11 @@ export const aiConfigApi = {
     apiRequest<{ message: string }>(`/ai-config/mark-tested/${id}`, {
       method: 'POST',
     }),
+  triggerFullReview: () => apiRequest<{
+    success: boolean;
+    message: string;
+    counts: { invoices: number; expenses: number; statements: number }
+  }>(`/ai-config/trigger-full-review`, { method: 'POST' }),
 };
 
 // AI Assistant API methods
@@ -3090,6 +3121,16 @@ export const inventoryApi = {
     }),
 
   // Import/Export
+  uploadReceipt: async (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<Expense>(`/expenses/${id}/receipt`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),
   importInventoryCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

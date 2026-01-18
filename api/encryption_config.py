@@ -55,7 +55,10 @@ class EncryptionConfig:
 
     # Key derivation settings
     KEY_DERIVATION_ITERATIONS: int = field(default_factory=lambda:
-        int(os.getenv("KEY_DERIVATION_ITERATIONS", "10000")))
+        int(os.getenv("KEY_DERIVATION_ITERATIONS", "100000")))
+
+    KEY_DERIVATION_ITERATIONS_FALLBACK: List[int] = field(default_factory=lambda:
+        [int(x) for x in os.getenv("KEY_DERIVATION_ITERATIONS_FALLBACK", "10000").split(",") if x])
 
     KEY_DERIVATION_SALT: str = field(default_factory=lambda:
         os.getenv("KEY_DERIVATION_SALT", "tenant_encryption_salt_2024"))

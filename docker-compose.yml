@@ -69,6 +69,7 @@ services:
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       - KAFKA_BANK_TOPIC=bank_statements_ocr
+      - KAFKA_REVIEW_TOPIC=review_trigger
       - KAFKA_OCR_TOPIC_PARTITIONS=${KAFKA_OCR_TOPIC_PARTITIONS:-}
       # LLM Configuration - Unified AI Fallback
       # General configuration (fallback for all components)
@@ -408,6 +409,45 @@ services:
       - ./api:/app
       - encryption_keys:/app/keys
     command: ["python", "-m", "workers.email_processor"]
+
+  # Review Worker for background AI verification
+  review-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REVIEW_POLL_INTERVAL=60
+      - PYTHONPATH=/app
+      # Kafka for review events
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_REVIEW_TOPIC=review_trigger
+      # LLM Configuration for Reviewer
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+      - encryption_keys:/app/keys
+    command: ["python", "-m", "workers.review_processor"]
 
   # # Ollama AI service
   # ollama:

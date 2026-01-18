@@ -26,15 +26,17 @@ class InvoiceAIService:
     for invoice documents using multiple AI providers.
     """
     
-    def __init__(self, db_session: Session):
+    def __init__(self, db_session: Session, component: str = "invoice"):
         """
         Initialize the invoice AI service.
         
         Args:
             db_session: Database session for configuration and usage tracking
+            component: AI component to use for configuration (default: "invoice")
         """
         self.db_session = db_session
-        logger.info("InvoiceAIService initialized")
+        self.component = component
+        logger.info(f"InvoiceAIService initialized with component: {component}")
     
     def get_ai_config(self, require_ocr: bool = True) -> Optional[Dict[str, Any]]:
         """
@@ -48,7 +50,7 @@ class InvoiceAIService:
         """
         return AIConfigService.get_ai_config(
             self.db_session, 
-            component="invoice", 
+            component=self.component, 
             require_ocr=require_ocr
         )
     
@@ -117,7 +119,7 @@ class InvoiceAIService:
                 result["extraction_metadata"] = {
                     "provider": ai_config["provider_name"],
                     "model": ai_config["model_name"],
-                    "component": "invoice",
+                    "component": self.component,
                     "success": True
                 }
 
@@ -131,7 +133,7 @@ class InvoiceAIService:
                     "extraction_metadata": {
                         "provider": ai_config["provider_name"],
                         "model": ai_config["model_name"],
-                        "component": "invoice",
+                        "component": self.component,
                         "success": False
                     }
                 }
@@ -304,7 +306,7 @@ class InvoiceAIService:
                 ai_config=ai_config,
                 operation_type=operation_type,
                 metadata={
-                    "component": "invoice",
+                    "component": self.component,
                     "operation": operation_type,
                     "result_size": text_length,
                     "fields_extracted": len(result) if isinstance(result, dict) else 0

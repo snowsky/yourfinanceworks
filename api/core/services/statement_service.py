@@ -77,7 +77,7 @@ except ImportError:
         def __init__(self, **kwargs):
             self.chunk_size = kwargs.get('chunk_size', 6000)
             self.chunk_overlap = kwargs.get('chunk_overlap', 150)
-        
+
         def split_text(self, text):
             # Simple text splitting fallback
             chunks = []
@@ -203,7 +203,7 @@ class TransactionListModel(BaseModel):
 
 class OllamaCallbackHandler(BaseCallbackHandler):
     """Custom callback handler to track Ollama usage"""
-    
+
     def __init__(self):
         self.total_tokens = 0
         self.total_time = 0
@@ -225,17 +225,18 @@ class UniversalBankTransactionExtractor:
     Supports: OpenAI, OpenRouter, Anthropic, Google, Ollama, and other LiteLLM-compatible providers.
     Enhanced with OCR fallback capability for scanned documents.
     """
-    
+
     def __init__(self, 
                  ai_config: Dict[str, Any],
                  db_session: Session,
                  temperature: float = 0.1,
                  chunk_size: int = 6000,
                  chunk_overlap: int = 150,
-                 request_timeout: int = 120):
+                 request_timeout: int = 120,
+                 prompt_name: str = "bank_transaction_extraction"):
         """
         Initialize the extractor with AI configuration
-        
+
         Args:
             ai_config: AI configuration dict with provider_name, model_name, api_key, provider_url
             db_session: Database session for prompt management
@@ -260,12 +261,12 @@ class UniversalBankTransactionExtractor:
         self.request_timeout = request_timeout
         self.db_session = db_session
         self.prompt_service = get_prompt_service(db_session)
-        
+
         logger.info(f"🚀 Initializing UniversalBankTransactionExtractor: {self.provider_name} / {self.model_name}")
-        
+
         # Test provider connection
         # self._test_provider_connection()
-        
+
         # Initialize enhanced PDF text extractor with OCR fallback
         try:
             from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
@@ -274,7 +275,7 @@ class UniversalBankTransactionExtractor:
         except ImportError as e:
             logger.warning(f"Enhanced PDF extractor not available: {e}")
             self.text_extractor = None
-        
+
         # Initialize text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
@@ -363,7 +364,8 @@ class UniversalBankTransactionExtractor:
 
         # Provider-specific configurations
         if self.provider_name == "ollama" and not self.provider_url:
-            kwargs["api_base"] = "http://localhost:11434"
+            env_api_base = os.environ.get("OLLAMA_API_BASE") or os.environ.get("LLM_API_BASE")
+            kwargs["api_base"] = env_api_base or "http://localhost:11434"
 
         return kwargs
 
@@ -769,22 +771,22 @@ JSON:"""
                 with open("universal_debug_chunks.txt", "w", encoding="utf-8") as f:
                     f.write(debug_text)
                 logger.info("Debug chunks saved to universal_debug_chunks.txt")
-            
+
             # Extract transactions
             transactions = self.extract_transactions_from_documents(processed_docs)
-            
+
             if not transactions:
                 logger.error("No transactions found")
                 return pd.DataFrame() if pd else []
-            
+
             # Add extraction method metadata to transactions
             for transaction in transactions:
                 transaction['_extraction_method'] = extraction_method
                 transaction['_processing_time'] = processing_time
-            
+
             # Basic validation and cleaning
             result = self.validate_and_clean_data(transactions)
-            
+
             transaction_count = len(result) if hasattr(result, '__len__') else 0
             logger.info(f"Successfully processed {transaction_count} transactions using {extraction_method}")
 
@@ -1082,7 +1084,7 @@ class BankTransactionExtractor:
 
     def __init__(self, 
                  model_name: str = "gpt-oss:latest",
-                 ollama_base_url: str = "http://localhost:11434",
+                 ollama_base_url: Optional[str] = None,
                  temperature: float = 0.1,
                  chunk_size: int = 6000,  # Smaller chunks for local models
                  chunk_overlap: int = 150,
@@ -1106,6 +1108,11 @@ class BankTransactionExtractor:
             self.langchain_available = True
 
         self.model_name = model_name
+
+        # Determine Ollama base URL from args or environment
+        if not ollama_base_url:
+            ollama_base_url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("LLM_API_BASE") or "http://localhost:11434"
+
         self.ollama_base_url = ollama_base_url
         self.temperature = temperature
         self.request_timeout = request_timeout
@@ -1249,7 +1256,7 @@ class BankTransactionExtractor:
 
     def _create_extraction_prompt(self) -> PromptTemplate:
         """Create extraction prompt optimized for local models"""
-    
+
         template = """You are a financial data extraction expert. Extract bank transactions from the text below.
 
 RULES:
@@ -1270,7 +1277,7 @@ Return ONLY a JSON array like this example:
 ]
 
 JSON:"""
-        
+
         return PromptTemplate(
             template=template,
             input_variables=["text"]
@@ -1291,7 +1298,7 @@ Return ONLY a JSON array with one category per description:
 ["Food", "Income", "Transportation", "Shopping"]
 
 JSON:"""
-        
+
         return PromptTemplate(
             template=template,
             input_variables=["descriptions"]
@@ -1533,7 +1540,7 @@ JSON:"""
                 for match in matches:
                     try:
                         data = json.loads(match)
-                        
+
                         if isinstance(data, list):
                             return data
                         elif isinstance(data, dict):
@@ -2115,25 +2122,25 @@ def _clean_and_deduplicate_transactions(transactions: List[Dict[str, Any]]) -> L
     """Legacy function - use BankTransactionExtractor.validate_and_clean_data instead"""
     if not transactions:
         return []
-    
+
     # Remove duplicates
     seen = set()
     unique_transactions = []
-    
+
     for txn in transactions:
         # Create a key for deduplication
         key = (txn.get("date", ""), txn.get("description", ""), round(float(txn.get("amount", 0)), 2))
-        
+
         if key not in seen:
             seen.add(key)
             unique_transactions.append(txn)
-    
+
     # Sort by date
     try:
         unique_transactions.sort(key=lambda x: x.get("date", ""))
     except:
         pass
-    
+
     return unique_transactions
 
 
@@ -2144,17 +2151,17 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
     so callers can implement retries/backoff.
     """
     logger.info(f"Processing bank PDF: {pdf_path}")
-    
+
     try:
         # Configure model based on ai_config or environment
         model_name = "gpt-oss:latest"
         base_url = "http://localhost:11434"
-        
+
         if ai_config:
             provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name", "gpt-oss:latest")
             logger.info(f"🔧 Using AI config from database: {provider_name} model={model_name}")
-            
+
             # Use the new UniversalBankTransactionExtractor for all providers
             try:
                 extractor = UniversalBankTransactionExtractor(
@@ -2189,7 +2196,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
             model_name = os.getenv("LLM_MODEL_BANK_STATEMENTS") or os.getenv("LLM_MODEL_EXPENSES") or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
             base_url = os.getenv("LLM_API_BASE", "http://localhost:11434")
             logger.info(f"⚠️ Using environment variables: model={model_name} base_url={base_url}")
-            
+
             # Create ai_config from environment variables
             ai_config = {
                 "provider_name": "ollama",
@@ -2197,7 +2204,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 "provider_url": base_url,
                 "api_key": None
             }
-            
+
             try:
                 extractor = UniversalBankTransactionExtractor(
                     ai_config=ai_config,
@@ -2231,7 +2238,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 except Exception as fallback_e:
                     logger.error(f"Fallback check failed: {fallback_e}")
                     raise BankLLMUnavailableError(f"LLM initialization failed and fallback check failed: {fallback_e}")
-        
+
         # Dispatch based on file extension (supports PDF and CSV)
         from pathlib import Path as _P
         # Validate pdf_path to prevent path traversal
@@ -2250,7 +2257,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 categorize=True,
                 save_debug=False
             )
-        
+
         # Convert pandas DataFrame back to list of dicts for compatibility
         if not df.empty:
             transactions = df.to_dict('records')
@@ -2265,7 +2272,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 extraction_method = getattr(extractor, 'last_extraction_method', 'unknown')
                 processing_time = getattr(extractor, 'last_processing_time', 0.0)
                 text_length = getattr(extractor, 'last_text_length', 0)
-                
+
                 # Use enhanced OCR tracking with extraction method metadata
                 if extraction_method == 'ocr':
                     track_ocr_usage(
@@ -2292,7 +2299,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
             return transactions
         else:
             return []
-            
+
     except Exception as e:
         # Handle OCR-specific exceptions with proper error messages
         try:
@@ -2304,7 +2311,7 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 is_retryable_ocr_error,
                 get_retry_delay
             )
-            
+
             if isinstance(e, OCRUnavailableError):
                 logger.warning(f"OCR unavailable for {pdf_path}: {e}")
                 # Continue to fallback extraction
@@ -2326,10 +2333,10 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                 return []  # Don't retry for invalid files
             else:
                 logger.error(f"Processing failed: {e}")
-                
+
         except ImportError:
             logger.error(f"Processing failed: {e}")
-        
+
         # Final fallback check
         try:
             from pathlib import Path as _P
@@ -2358,12 +2365,12 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
 def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, Any]]:
     """Extract transactions from PDF paths using BankTransactionExtractor"""
     all_transactions = []
-    
+
     # Try to use the new BankTransactionExtractor first
     try:
         model_name = os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        
+
         extractor = BankTransactionExtractor(
             model_name=model_name,
             ollama_base_url=base_url,
@@ -2372,12 +2379,12 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
             chunk_overlap=150,
             request_timeout=120
         )
-        
+
         for pdf_path in pdf_paths:
             try:
                 logger.info(f"Processing {pdf_path} with BankTransactionExtractor")
                 df = extractor.process_pdf(pdf_path, categorize=False, save_debug=False)
-                
+
                 if not df.empty:
                     transactions = df.to_dict('records')
                     # Convert datetime objects to strings
@@ -2385,7 +2392,7 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
                         if 'date' in txn and hasattr(txn['date'], 'strftime'):
                             txn['date'] = txn['date'].strftime('%Y-%m-%d')
                     all_transactions.extend(transactions)
-                    
+
             except Exception as e:
                 logger.error(f"Failed to process {pdf_path} with BankTransactionExtractor: {e}")
                 # Fallback to regex extraction for this file
@@ -2395,7 +2402,7 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
                     except ImportError:
                         logger.error(f"pypdf not available for {pdf_path}")
                         continue
-                        
+
                     texts = []
                     with open(pdf_path, "rb") as f:
                         reader = PdfReader(f)
@@ -2409,7 +2416,7 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
                 except Exception as regex_e:
                     logger.error(f"Regex fallback also failed for {pdf_path}: {regex_e}")
                     continue
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize BankTransactionExtractor: {e}")
         # Fallback to simple regex extraction for all files
@@ -2420,7 +2427,7 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
                 except ImportError:
                     logger.error(f"pypdf not available for {pdf_path}")
                     continue
-                    
+
                 # Validate pdf_path to prevent path traversal
                 try:
                     safe_path = validate_file_path(pdf_path)
@@ -2441,7 +2448,7 @@ def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, 
             except Exception as file_e:
                 logger.error(f"Failed to process {pdf_path}: {file_e}")
                 continue
-    
+
     return _clean_and_deduplicate_transactions(all_transactions)
 
 
@@ -2452,7 +2459,7 @@ class BankStatementExtractor:
         self.model_name = model_name or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
         self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self._ollama_available = self._check_ollama()
-        
+
         # Initialize the new extractor if possible
         try:
             self._extractor = BankTransactionExtractor(
@@ -2498,15 +2505,15 @@ def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
                 "provider_url": os.getenv("LLM_API_BASE", "http://localhost:11434"),
                 "api_key": None
             }
-        
+
         provider_name = ai_config.get("provider_name", "ollama")
         logger.info(f"🔍 Testing reachability for provider: {provider_name}")
-        
+
         # For Ollama, test the /api/tags endpoint
         if provider_name == "ollama":
             model_name = ai_config.get("model_name", "gpt-oss:latest")
             provider_url = ai_config.get("provider_url", "http://localhost:11434")
-            
+
             if provider_url:
                 # Clean up the URL and extract base URL
                 url = provider_url.strip().rstrip('/')
@@ -2521,13 +2528,13 @@ def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
             data = resp.json() or {}
             models = [m.get("name") for m in (data.get("models") or [])]
             return model_name in models
-        
+
         else:
             # For other providers, use LiteLLM to test connection
             try:
                 from litellm import completion
                 from core.models.database import get_db
-                
+
                 # Create a temporary extractor to test connection
                 # Use a temporary database session for the connection test
                 temp_db = next(get_db())
@@ -2541,11 +2548,14 @@ def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
                     return True
                 finally:
                     temp_db.close()
-                
+
             except Exception as e:
                 logger.warning(f"LiteLLM connection test failed for {provider_name}: {e}")
                 return False
-        
+
     except Exception as e:
         logger.warning(f"Reachability check failed: {e}")
         return False
+
+# Alias for compatibility with ReviewProcessorWorker
+StatementService = UniversalBankTransactionExtractor

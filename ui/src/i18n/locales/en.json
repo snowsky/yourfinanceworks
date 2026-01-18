@@ -1,4 +1,5 @@
 {
+  "language": "en",
   "common": {
     "loading": "Loading...",
     "save": "Save",
@@ -1049,7 +1050,9 @@
       "status": "Status",
       "active": "Active",
       "cancel": "Cancel",
-      "test": "Test"
+      "test": "Test",
+      "ai_assistant_enabled": "AI Assistant is enabled.",
+      "ai_assistant_disabled": "AI Assistant is disabled."
     },
     "approval_rules": {
       "title": "Approval Rules Management",
@@ -1533,8 +1536,6 @@
     "timezone": "Timezone",
     "client": "Client",
     "invoice_number": "Invoice Number",
-    "ai_assistant_enabled": "AI Assistant is enabled.",
-    "ai_assistant_disabled": "AI Assistant is disabled.",
     "import_and_replace_data": "Import and replace data",
     "export_destinations": "Export Destinations",
     "export_destinations_description": "Configure cloud storage destinations for batch file processing exports",
@@ -2838,7 +2839,22 @@
     "supported_formats": "Supports PDF, CSV, and image files (JPG, PNG, WebP) (max 12 files)",
     "filename": "Filename",
     "labels": "Labels",
-    "status": "Status",
+    "status": {
+      "label": "Status",
+      "uploaded": "Uploaded",
+      "processing": "Processing",
+      "processed": "Processed",
+      "failed": "Failed",
+      "merged": "Merged"
+    },
+    "review_status": {
+      "label": "Review",
+      "reviewed": "Reviewed",
+      "not_started": "Not Started",
+      "pending": "Pending",
+      "failed": "Failed",
+      "diff_found": "Diff Found"
+    },
     "transactions": "Transactions",
     "uploaded": "Uploaded",
     "preview": "Preview",
@@ -2905,7 +2921,13 @@
     "merge_transactions": "Merge transactions",
     "delete_selected": "Delete Selected",
     "bulk_delete_confirm_title": "Delete Selected Statements",
-    "bulk_delete_confirm_description": "Are you sure you want to delete {{count}} statements? This action will move them to the recycle bin."
+    "bulk_delete_confirm_description": "Are you sure you want to delete {{count}} statements? This action will move them to the recycle bin.",
+    "filter_by_status": "Filter by status",
+    "all_statuses": "All Statuses",
+    "status_merged": "Merged",
+    "bulk_merge_confirm_title": "Merge Selected Statements",
+    "bulk_merge_confirm_description": "Are you sure you want to merge {{count}} statements? This will create a single, non-editable statement containing all transactions. The original statements will remain in the list.",
+    "merge": "Merge"
   },
   "auditLog": {
     "title": "Audit Log",

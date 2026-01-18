@@ -1297,7 +1297,9 @@
       "status": "Statut",
       "active": "Actif",
       "cancel": "Annuler",
-      "test": "Tester"
+      "test": "Tester",
+      "ai_assistant_enabled": "L'assistant IA est activé.",
+      "ai_assistant_disabled": "L'assistant IA est désactivé."
     },
     "failed_to_delete_discount_rule": "Échec de la suppression de la règle de remise",
     "loading_discount_rules": "Chargement des règles de remise...",
@@ -1505,8 +1507,6 @@
     "create": "Créer",
     "add_client": "Ajouter le client",
     "client": "Client",
-    "ai_assistant_enabled": "L'assistant IA est activé.",
-    "ai_assistant_disabled": "L'assistant IA est désactivé.",
     "configure_ai_provider_for_enhanced_features": "Configurez le fournisseur d'IA pour des fonctionnalités améliorées",
     "create_discount_rule": "Créer une Règle de Remise",
     "import_and_replace_data": "Importer et remplacer les données",
@@ -2720,7 +2720,22 @@
     "supported_formats": "Prend en charge les fichiers PDF, CSV et image (JPG, PNG, WebP) (max 12 fichiers)",
     "filename": "Nom du fichier",
     "labels": "Étiquettes",
-    "status": "Statut",
+    "status": {
+      "label": "Statut",
+      "uploaded": "Téléversé",
+      "processing": "Traitement",
+      "processed": "Traité",
+      "failed": "Échoué",
+      "merged": "Fusionné"
+    },
+    "review_status": {
+      "label": "Révision",
+      "reviewed": "Révisé",
+      "not_started": "Non commencé",
+      "pending": "En attente",
+      "failed": "Échoué",
+      "diff_found": "Différence trouvée"
+    },
     "transactions": "Transactions",
     "uploaded": "Téléversé",
     "preview": "Aperçu",
@@ -2788,7 +2803,13 @@
     "merge_transactions": "Fusionner les transactions",
     "delete_selected": "Supprimer la sélection",
     "bulk_delete_confirm_title": "Supprimer les Relevés Sélectionnés",
-    "bulk_delete_confirm_description": "Êtes-vous sûr de vouloir supprimer {{count}} relevés ? Cette action les déplacera vers la corbeille."
+    "bulk_delete_confirm_description": "Êtes-vous sûr de vouloir supprimer {{count}} relevés ? Cette action les déplacera vers la corbeille.",
+    "filter_by_status": "Filtrer par statut",
+    "all_statuses": "Tous les statuts",
+    "status_merged": "Fusionné",
+    "bulk_merge_confirm_title": "Fusionner les Relevés Sélectionnés",
+    "bulk_merge_confirm_description": "Êtes-vous sûr de vouloir fusionner {{count}} relevés ? Cela créera un seul relevé non modifiable contenant toutes les transactions. Les relevés originaux resteront dans la liste.",
+    "merge": "Fusionner"
   },
   "recommendations": {
     "CONSIDER_STRICTER_PAYMENT_TERMS": "Envisagez de mettre en place des conditions de paiement plus strictes.",

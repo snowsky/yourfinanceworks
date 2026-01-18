@@ -29,6 +29,7 @@ from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
 from core.utils.timezone import get_tenant_timezone_aware_datetime
+from core.services.review_service import ReviewService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -3380,3 +3381,55 @@ async def get_invoice_attachments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve attachments"
         )
+
+@router.post("/{invoice_id}/accept-review", response_model=InvoiceSchema)
+async def accept_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    review_service = ReviewService(db)
+    success = review_service.accept_review(invoice)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to accept review or no review available")
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+@router.post("/{invoice_id}/review", response_model=InvoiceSchema)
+async def run_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Trigger a full re-review (reset status to not_started for the worker to pick up)"""
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Reset review status
+    invoice.review_status = "not_started"
+    invoice.review_result = None
+    invoice.reviewed_at = None
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice

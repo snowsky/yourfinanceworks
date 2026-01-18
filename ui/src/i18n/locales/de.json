@@ -999,7 +999,9 @@
       "status": "Status",
       "active": "Aktiv",
       "cancel": "Abbrechen",
-      "test": "Testen"
+      "test": "Testen",
+      "ai_assistant_enabled": "KI-Assistent ist aktiviert.",
+      "ai_assistant_disabled": "KI-Assistent ist deaktiviert."
     },
     "approval_rules": {
       "title": "Genehmigungsregeln-Verwaltung",
@@ -1489,8 +1491,6 @@
     "update_rule": "Regel aktualisieren",
     "client": "Kunde",
     "invoice_number": "Rechnungsnummer",
-    "ai_assistant_enabled": "KI-Assistent ist aktiviert.",
-    "ai_assistant_disabled": "KI-Assistent ist deaktiviert.",
     "import_and_replace_data": "Daten importieren und ersetzen",
     "cancel": "Abbrechen",
     "delete_ai_configuration": "KI-Konfiguration löschen",
@@ -2675,7 +2675,22 @@
     "supported_formats": "Unterstützt PDF, CSV und Bilddateien (JPG, PNG, WebP) (max. 12 Dateien)",
     "filename": "Dateiname",
     "labels": "Labels",
-    "status": "Status",
+    "status": {
+      "label": "Status",
+      "uploaded": "Hochgeladen",
+      "processing": "Wird verarbeitet",
+      "processed": "Verarbeitet",
+      "failed": "Fehlgeschlagen",
+      "merged": "Zusammengeführt"
+    },
+    "review_status": {
+      "label": "Überprüfung",
+      "reviewed": "Überprüft",
+      "not_started": "Nicht begonnen",
+      "pending": "Ausstehend",
+      "failed": "Fehlgeschlagen",
+      "diff_found": "Unterschied gefunden"
+    },
     "transactions": "Transaktionen",
     "uploaded": "Hochgeladen",
     "preview": "Vorschau",
@@ -2740,7 +2755,13 @@
     "merge_transactions": "Transaktionen zusammenführen",
     "delete_selected": "Ausgewählte löschen",
     "bulk_delete_confirm_title": "Ausgewählte Kontoauszüge löschen",
-    "bulk_delete_confirm_description": "Sind Sie sicher, dass Sie {{count}} Kontoauszüge löschen möchten? Diese Aktion verschiebt sie in den Papierkorb."
+    "bulk_delete_confirm_description": "Sind Sie sicher, dass Sie {{count}} Kontoauszüge löschen möchten? Diese Aktion verschiebt sie in den Papierkorb.",
+    "filter_by_status": "Nach Status filtern",
+    "all_statuses": "Alle Status",
+    "status_merged": "Zusammengeführt",
+    "bulk_merge_confirm_title": "Ausgewählte Kontoauszüge zusammenführen",
+    "bulk_merge_confirm_description": "Sind Sie sicher, dass Sie {{count}} Kontoauszüge zusammenführen möchten? Dies erstellt einen einzigen, nicht bearbeitbaren Auszug, der alle Transaktionen enthält. Die Originalauszüge verbleiben in der Liste.",
+    "merge": "Zusammenführen"
   },
   "auditLog": {
     "title": "Audit-Log",

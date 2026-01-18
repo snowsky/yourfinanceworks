@@ -25,6 +25,8 @@ import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { useQuery } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
+import { ReviewDiffModal } from "@/components/ReviewDiffModal";
+import { Wand } from "lucide-react";
 
 interface DeletedInvoice {
   id: number;
@@ -57,6 +59,33 @@ const Invoices = () => {
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+
+  // Review Mode State
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewInvoice, setSelectedReviewInvoice] = useState<Invoice | null>(null);
+  const [isAcceptingReview, setIsAcceptingReview] = useState(false);
+
+  const handleReviewClick = (invoice: Invoice) => {
+    setSelectedReviewInvoice(invoice);
+    setReviewModalOpen(true);
+  };
+
+  const handleAcceptReview = async () => {
+    if (!selectedReviewInvoice) return;
+
+    try {
+      setIsAcceptingReview(true);
+      await invoiceApi.acceptReview(selectedReviewInvoice.id);
+      toast.success('Review accepted successfully');
+      setReviewModalOpen(false);
+      // Refresh list
+      fetchInvoices();
+    } catch (error) {
+      toast.error('Failed to accept review');
+    } finally {
+      setIsAcceptingReview(false);
+    }
+  };
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
@@ -307,6 +336,40 @@ const Invoices = () => {
       navigate(`/invoices/edit/${newInvoice.id}`);
     } catch (error) {
       toast.error('Failed to clone invoice');
+    }
+  };
+
+  const handleRunReview = async (invoiceId: number) => {
+    try {
+      await invoiceApi.reReview(invoiceId);
+      toast.success('Review triggered. The agent will process it shortly.');
+      // Refresh list
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger review');
+    }
+  };
+
+  const handleBulkRunReview = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map(id => invoiceApi.reReview(id)));
+      toast.success(`Review triggered for ${selectedIds.length} invoices.`);
+      setSelectedIds([]);
+      // Refresh list
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
+      setInvoices(data.items);
+      setTotalInvoices(data.total);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger bulk review');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -691,6 +754,17 @@ const Invoices = () => {
                   <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
 
                   <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBulkRunReview}
+                    disabled={!canPerformAction || loading}
+                    className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary"
+                  >
+                    <Wand className="w-3.5 h-3.5" />
+                    Run Review
+                  </ProfessionalButton>
+
+                  <ProfessionalButton
                     variant="destructive"
                     size="sm"
                     onClick={handleBulkDelete}
@@ -774,6 +848,7 @@ const Invoices = () => {
                         <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>
                         <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.status')}</TableHead>
+                        <TableHead className="font-bold text-foreground">Review</TableHead>
                         <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                         <TableHead className="w-[100px] text-right font-bold text-foreground">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
@@ -876,6 +951,42 @@ const Invoices = () => {
                             >
                               {formatStatus(invoice.status)}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {invoice.review_status === 'diff_found' ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 text-xs border-amber-500/50 text-amber-600 hover:bg-amber-50"
+                                onClick={() => handleReviewClick(invoice)}
+                              >
+                                <Wand className="h-3 w-3 mr-1" />
+                                Review Diff
+                              </Button>
+                            ) : invoice.review_status === 'reviewed' || invoice.review_status === 'no_diff' ? (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Reviewed</Badge>
+                            ) : (
+                              <div className="flex flex-col gap-1 items-start">
+                                <Badge variant="outline" className={
+                                  invoice.review_status === 'pending' 
+                                    ? "bg-blue-50 text-blue-700 border-blue-200" 
+                                    : "bg-muted/50 text-muted-foreground border-transparent"
+                                }>
+                                  {invoice.review_status === 'pending' ? 'Review Pending' : t('common.not_started', { defaultValue: 'Not Started' })}
+                                </Badge>
+                                {(!invoice.review_status || invoice.review_status === 'not_started' || invoice.review_status === 'failed') && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
+                                    onClick={() => handleRunReview(invoice.id)}
+                                  >
+                                    <RotateCcw className="h-2.5 w-2.5 mr-1" />
+                                    Trigger Review
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
                             <div className="text-sm">
@@ -987,6 +1098,26 @@ const Invoices = () => {
           </div>
         </ProfessionalCard >
       </div >
+
+      {/* Review Diff Modal */}
+      {selectedReviewInvoice && (
+        <ReviewDiffModal
+          isOpen={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          originalData={{
+            amount: selectedReviewInvoice.amount,
+            date: selectedReviewInvoice.date,
+            vendor: selectedReviewInvoice.client_name, // Using client name as vendor proxy
+            category: '', // Invoice doesn't have simple category field
+            notes: selectedReviewInvoice.notes,
+            tax_amount: 0 // Not in basic invoice list
+          }}
+          reviewResult={selectedReviewInvoice.review_result || {}}
+          onAccept={handleAcceptReview}
+          isAccepting={isAcceptingReview}
+          type="invoice"
+        />
+      )}
 
       {/* Permanent Delete Modal */}
       < AlertDialog open={permanentDeleteModalOpen} onOpenChange={setPermanentDeleteModalOpen} >

@@ -296,5 +296,140 @@ Respond with ONLY valid JSON in this format:
         "version": 1,
         "is_active": True,
         "provider_overrides": {}
+    },
+    {
+        "name": "invoice_review_extraction",
+        "category": "invoice_processing",
+        "description": "Premium reviewer prompt for high-precision invoice data extraction",
+        "template_content": """You are a Senior Financial Auditor and Invoice Specialist. Your task is to extract data from this invoice with 100% precision for a secondary review check.
+
+Instructions:
+1. Scan the document twice to ensure no line items are missed.
+2. Meticulously verify that the sum of line items matches the subtotal and total amount.
+3. Pay close attention to tax rates and amounts - ensure they are mathematically consistent.
+4. Extract vendor and client details exactly as they appear.
+5. If any data is ambiguous, mark it as null rather than guessing.
+
+Required JSON format:
+{
+  "invoice_number": "string",
+  "invoice_date": "YYYY-MM-DD",
+  "due_date": "YYYY-MM-DD",
+  "vendor_name": "string",
+  "vendor_address": "string",
+  "client_name": "string",
+  "client_address": "string",
+  "subtotal": 0.00,
+  "tax_amount": 0.00,
+  "tax_rate": 0.00,
+  "total_amount": 0.00,
+  "currency": "string",
+  "line_items": [
+    {
+      "description": "string",
+      "quantity": 0,
+      "unit_price": 0.00,
+      "total": 0.00
+    }
+  ],
+  "payment_terms": "string",
+  "notes": "string"
+}
+
+Invoice text:
+{{text}}
+
+Return ONLY valid JSON:""",
+        "template_variables": ["text"],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {
+            "openai": "You are a Senior Financial Auditor. Extract invoice data with absolute precision for a forensic review.",
+            "anthropic": "As an expert forensic accountant, extract every detail from this invoice text. Double-check all mathematical calculations and line item totals."
+        }
+    },
+    {
+        "name": "expense_review_extraction",
+        "category": "ocr",
+        "description": "Detailed reviewer prompt for expense/receipt extraction",
+        "template_content": """You are a Professional Expense Auditor. Your task is to perform a high-scrutiny extraction of this receipt/expense document.
+
+Instructions:
+1. Verify the exact vendor name and store location if available.
+2. Confirm the exact date and time (if present).
+3. Strictly separate the subtotal, tax amounts, and final total.
+4. Identify the expense category with high confidence.
+5. Look for any handwritten notes or alterations on the receipt.
+
+Required JSON format:
+{
+  "amount": 0.00,
+  "currency": "string",
+  "expense_date": "YYYY-MM-DD",
+  "category": "string",
+  "vendor": "string",
+  "tax_rate": 0.00,
+  "tax_amount": 0.00,
+  "total_amount": 0.00,
+  "payment_method": "string",
+  "reference_number": "string",
+  "notes": "string"
+}
+
+OCR Output:
+{{raw_content}}
+
+Return ONLY valid JSON:""",
+        "template_variables": ["raw_content"],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {
+            "openai": "You are an Expense Auditor. Extract receipt data with meticulous attention to subtotals and taxes.",
+            "anthropic": "As a specialist in financial compliance, extract data from this receipt text. Ensure the total matches the sum of individual items and taxes."
+        }
+    },
+    {
+        "name": "bank_statement_review_extraction",
+        "category": "bank_processing",
+        "description": "High-fidelity prompt for bank statement transaction review",
+        "template_content": """You are a Bank Reconciliation Specialist. Your task is to perform an exhaustive extraction of ALL transactions from this bank statement for a verification audit.
+
+CRITICAL INSTRUCTIONS:
+1. You must find EVERY SINGLE transaction. Compare the count against any summary totals provided in the text.
+2. Correctly sign amounts: negative for debits (money out), positive for credits (money in).
+3. Standardize all dates to YYYY-MM-DD.
+4. Clean the merchant/vendor names by removing noise from the description strings.
+5. If there are multiple pages or sections, ensure continuity.
+
+Required JSON format:
+{
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "Clean Merchant Name",
+      "amount": 0.00,
+      "transaction_type": "debit/credit",
+      "balance": 0.00
+    }
+  ]
+}
+
+Statement Text:
+{{text}}
+
+Return ONLY valid JSON:""",
+        "template_variables": ["text"],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {
+            "openai": "You are a Bank Reconciliation Specialist. Extract every transaction with high fidelity and standardized formatting.",
+            "anthropic": "As an expert in banking data analysis, meticulously extract all transaction entries. Ensure absolute accuracy in transaction dates and signed amounts."
+        }
     }
 ]

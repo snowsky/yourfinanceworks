@@ -30,6 +30,7 @@ from core.services.ocr_service import publish_bank_statement_task
 from core.utils.audit import log_audit_event
 from sqlalchemy.orm import joinedload
 from core.services.attribution_service import AttributionService
+from core.services.review_service import ReviewService
 
 
 router = APIRouter(prefix="/statements", tags=["statements"])
@@ -308,11 +309,11 @@ async def list_statements(
         creator = s.created_by
         if not creator and s.created_by_user_id and s.created_by_user_id in user_map:
              creator = user_map[s.created_by_user_id]
-        
+
         # Calculate username and email
         created_by_username = None
         created_by_email = None
-        
+
         if creator:
              created_by_email = creator.email
              name_parts = []
@@ -320,7 +321,7 @@ async def list_statements(
                  name_parts.append(creator.first_name)
              if creator.last_name:
                  name_parts.append(creator.last_name)
-             
+
              if name_parts:
                  created_by_username = " ".join(name_parts)
              else:
@@ -347,6 +348,13 @@ async def list_statements(
                 "created_by_user_id": s.created_by_user_id,
                 "created_by_username": created_by_username,
                 "created_by_email": created_by_email,
+                "review_status": getattr(s, "review_status", "not_started"),
+                "review_result": getattr(s, "review_result", None),
+                "reviewed_at": (
+                    s.reviewed_at.isoformat()
+                    if getattr(s, "reviewed_at", None)
+                    else None
+                ),
             }
         )
 
@@ -773,6 +781,13 @@ async def get_statement(
             "created_by_user_id": s.created_by_user_id,
             "created_by_username": s.created_by.email if s.created_by else None,
             "created_by_email": s.created_by.email if s.created_by else None,
+            "review_status": getattr(s, "review_status", "not_started"),
+            "review_result": getattr(s, "review_result", None),
+            "reviewed_at": (
+                s.reviewed_at.isoformat()
+                if getattr(s, "reviewed_at", None)
+                else None
+            ),
             "transactions": [
                 {
                     "id": t.id,
@@ -1495,3 +1510,71 @@ async def delete_statement(
         statement_id=statement_id,
         action="moved_to_recycle",
     )
+
+@router.post("/{statement_id}/accept-review", response_model=BankStatementResponse)
+async def accept_review(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "review bank statements")
+
+    # Set tenant context
+    from core.models.database import get_tenant_context, set_tenant_context
+    tenant_id = get_tenant_context()
+    if not tenant_id:
+        # Try to get from user
+        tenant_id = current_user.tenant_id
+        set_tenant_context(tenant_id)
+
+    statement = db.query(BankStatement).filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False).first()
+    if not statement:
+        raise HTTPException(status_code=404, detail="Bank statement not found")
+
+    review_service = ReviewService(db)
+    success = review_service.accept_review(statement)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to accept review or no review available")
+
+    db.commit()
+    db.refresh(statement)
+    return statement
+
+@router.post("/{statement_id}/review", response_model=BankStatementResponse)
+async def run_review(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Trigger a full re-review (reset status to not_started for the worker to pick up)"""
+    require_non_viewer(current_user, "review bank statements")
+
+    # Set tenant context
+    from core.models.database import get_tenant_context, set_tenant_context
+    tenant_id = get_tenant_context()
+    if not tenant_id:
+        tenant_id = current_user.tenant_id
+        set_tenant_context(tenant_id)
+
+    statement = db.query(BankStatement).filter(BankStatement.id == statement_id, BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False).first()
+    if not statement:
+        raise HTTPException(status_code=404, detail="Bank statement not found")
+
+    # Reset review status
+    statement.review_status = "not_started"
+    statement.review_result = None
+    statement.reviewed_at = None
+
+    db.commit()
+    db.refresh(statement)
+
+    # Publish Kafka event for immediate processing
+    try:
+        from core.services.review_event_service import get_review_event_service
+        event_service = get_review_event_service()
+        event_service.publish_single_review_trigger(tenant_id, "statement", statement_id)
+    except Exception as e:
+        logger.warning(f"Failed to publish review trigger event for statement {statement_id}: {e}")
+
+    return statement

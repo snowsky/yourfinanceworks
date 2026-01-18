@@ -12,13 +12,17 @@ import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X, Eye, AlertCircle } from 'lucide-react';
+import {
+  CalendarIcon, X, Eye, AlertCircle, Loader2, Plus, Minus, Tag, Search, Trash2, Upload,
+  ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt,
+  Clock, Filter, FilterX, FileText, Download, Wand, ChevronLeft, ChevronRight, Check
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
+import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import ExpenseSummary from '@/components/expenses/ExpenseSummary';
 import ExpenseCharts from '@/components/expenses/ExpenseCharts';
 import { format, parseISO, isValid } from 'date-fns';
@@ -35,7 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
-import { Loader2, Plus, Minus, Tag, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt, Clock, Filter } from 'lucide-react';
+// removed duplicate icons
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
@@ -140,6 +144,58 @@ const Expenses = () => {
   const [expenseToPermanentlyDelete, setExpenseToPermanentlyDelete] = useState<number | null>(null);
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
 
+  // Review state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewExpense, setSelectedReviewExpense] = useState<Expense | null>(null);
+  const [isAcceptingReview, setIsAcceptingReview] = useState(false);
+
+  const handleReviewClick = (expense: Expense) => {
+    setSelectedReviewExpense(expense);
+    setReviewModalOpen(true);
+  };
+
+  const handleAcceptReview = async () => {
+    if (!selectedReviewExpense) return;
+    setIsAcceptingReview(true);
+    try {
+      await expenseApi.acceptReview(selectedReviewExpense.id);
+      toast.success('Review accepted');
+      setReviewModalOpen(false);
+      fetchExpenses();
+    } catch (error) {
+      toast.error('Failed to accept review');
+    } finally {
+      setIsAcceptingReview(false);
+    }
+  };
+
+  const handleRunReview = async (expenseId: number) => {
+    try {
+      await expenseApi.reReview(expenseId);
+      toast.success('Review triggered. The agent will process it shortly.');
+      // Refresh list
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger review');
+    }
+  };
+
+  const handleBulkRunReview = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map(id => expenseApi.reReview(id)));
+      toast.success(`Review triggered for ${selectedIds.length} expenses.`);
+      setSelectedIds([]);
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger bulk review');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch settings to get timezone
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -233,7 +289,7 @@ const Expenses = () => {
 
       setExpenses(result.expenses);
       setTotalExpenses(result.total);
-      
+
       // Determine if there's a next page based on total count
       const hasMore = skip + pageSize < result.total;
       setHasNextPage(hasMore);
@@ -885,6 +941,19 @@ const Expenses = () => {
                       </ProfessionalButton>
                     </div>
 
+                    <div className="flex items-center gap-1.5 ml-2">
+                       <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkRunReview}
+                        disabled={!canPerformActions() || loading}
+                        className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary whitespace-nowrap"
+                      >
+                        <Wand className="w-3.5 h-3.5" />
+                        Run Review
+                      </ProfessionalButton>
+                    </div>
+
                     <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
 
                     <AlertDialog>
@@ -963,6 +1032,7 @@ const Expenses = () => {
                     <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
                     <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
+                    <TableHead className="font-bold text-foreground">Review</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
                     <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
                   </TableRow>
@@ -1141,6 +1211,40 @@ const Expenses = () => {
                               </Button>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {/* Review Status Column */}
+                          {e.review_status === 'diff_found' ? (
+                            <Button size="sm" variant="outline" className="border-amber-500 text-amber-600 hover:bg-amber-50" onClick={() => handleReviewClick(e)}>
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Review Diff
+                            </Button>
+                          ) : e.review_status === 'reviewed' ? (
+                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Reviewed</Badge>
+                          ) : e.review_status === 'no_diff' ? (
+                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Verified</Badge>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className={
+                                e.review_status === 'pending'
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-muted/50 text-muted-foreground border-transparent"
+                              }>
+                                {e.review_status === 'pending' ? 'Review Pending' : t('common.not_started', { defaultValue: 'Not Started' })}
+                              </Badge>
+                              {(!e.review_status || e.review_status === 'not_started' || e.review_status === 'failed') && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
+                                  onClick={() => handleRunReview(e.id)}
+                                >
+                                  <RotateCcw className="h-2.5 w-2.5 mr-1" />
+                                  Trigger Review
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-2">
@@ -1584,6 +1688,17 @@ const Expenses = () => {
         />
 
       </div>
+      {selectedReviewExpense && (
+        <ReviewDiffModal
+          isOpen={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          originalData={selectedReviewExpense}
+          reviewResult={selectedReviewExpense.review_result}
+          onAccept={handleAcceptReview}
+          isAccepting={isAcceptingReview}
+          type="expense"
+        />
+      )}
     </>
   );
 };
