@@ -111,6 +111,26 @@ class PDFExporter(BaseExporter):
             spaceAfter=15,
             textColor=colors.HexColor('#7f8c8d')
         ))
+        
+        # Table cell style for wrapping
+        self.styles.add(ParagraphStyle(
+            name='TableCell',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            leading=11,
+            alignment=TA_LEFT,
+            wordWrap='CJK'  # Better wrapping for various character sets
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='TableHeader',
+            parent=self.styles['Normal'],
+            fontSize=10,
+            leading=12,
+            alignment=TA_CENTER,
+            textColor=colors.whitesmoke,
+            fontName='Helvetica-Bold'
+        ))
     
     def export_report(self, report_data: ReportData, **kwargs) -> bytes:
         """Export report data to PDF format"""
@@ -247,10 +267,15 @@ class PDFExporter(BaseExporter):
             table_row = []
             for header in headers:
                 value = row.get(header, '')
-                # Format values appropriately and handle long text
+                # Format values appropriately
                 formatted_value = self._format_table_value(value, header)
-                table_row.append(formatted_value)
+                # Wrap in Paragraph for automatic wrapping/sizing in table cell
+                p = Paragraph(str(formatted_value), self.styles['TableCell'])
+                table_row.append(p)
             table_data.append(table_row)
+
+        # Wrap headers in Paragraphs too for consistency and wrapping
+        table_data[0] = [Paragraph(h, self.styles['TableHeader']) for h in headers]
 
         # Handle extreme cases with too many columns
         if num_cols > 25:
@@ -282,7 +307,7 @@ class PDFExporter(BaseExporter):
             ('FONTSIZE', (0, 1), (-1, -1), data_font_size),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.beige, colors.white]),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Changed to TOP for better multiline appearance
             ('LEFTPADDING', (0, 0), (-1, -1), 3),
             ('RIGHTPADDING', (0, 0), (-1, -1), 3),
             ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -310,34 +335,13 @@ class PDFExporter(BaseExporter):
         elif isinstance(value, datetime):
             return value.strftime('%Y-%m-%d')
 
-        # Handle long text values
+        # Format dates
+        elif isinstance(value, datetime):
+            return value.strftime('%Y-%m-%d')
+
+        # Return as string (Paragraph will handle the wrapping)
         else:
-            text_value = str(value)
-
-            # Truncate very long values to prevent table overflow
-            if len(text_value) > 50:
-                text_value = text_value[:47] + "..."
-
-            # For certain fields that might be long, try to find natural break points
-            if header.lower() in ['description', 'notes', 'address', 'comments']:
-                # Break long text at reasonable points
-                if len(text_value) > 30:
-                    # Try to break at word boundaries
-                    words = text_value.split()
-                    lines = []
-                    current_line = ""
-                    for word in words:
-                        if len(current_line + " " + word) <= 25:
-                            current_line += (" " + word) if current_line else word
-                        else:
-                            if current_line:
-                                lines.append(current_line)
-                            current_line = word
-                    if current_line:
-                        lines.append(current_line)
-                    text_value = "\n".join(lines)
-
-            return text_value
+            return str(value).replace('\n', '<br/>')
 
     def _calculate_column_widths(self, headers: List[str], table_data: List[List], num_cols: int) -> List[float]:
         """Calculate intelligent column widths based on content and available space"""
@@ -724,7 +728,8 @@ class ExcelExporter(BaseExporter):
                 if value is None:
                     cell_value = ''
                 elif isinstance(value, datetime):
-                    cell_value = value
+                    # openpyxl does not support timezone-aware datetimes
+                    cell_value = value.replace(tzinfo=None) if value.tzinfo else value
                 elif isinstance(value, (int, float)):
                     cell_value = value
                 else:

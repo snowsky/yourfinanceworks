@@ -68,6 +68,18 @@ const ReportDetail: React.FC = () => {
                 } else if (result.download_url) {
                     console.log('Report generated with direct URL:', result.download_url);
                     window.open(result.download_url, '_blank');
+                } else if (result.data) {
+                    // Handle direct JSON download
+                    console.log('Report generated with direct data (JSON)');
+                    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `report-${new Date().getTime()}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
                 }
                 toast.success('Report generated successfully!');
             } else {
