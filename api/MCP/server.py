@@ -1313,11 +1313,77 @@ async def delete_expense_attachment(expense_id: int, attachment_id: int) -> dict
 # Statement Management Tools
 
 @mcp.tool()
-async def list_statements() -> dict:
-    """List all statements with their processing status and metadata."""
+async def list_statements(skip: int = 0, limit: int = 100, status: Optional[str] = None, account_name: Optional[str] = None, month: Optional[str] = None) -> dict:
+    """
+    List all bank statements with optional filtering and pagination.
+    
+    Args:
+        skip: Number of statements to skip for pagination (default: 0)
+        limit: Maximum number of statements to return (default: 100)
+        status: Filter by processing status (e.g., 'processed', 'processing', 'failed')
+        account_name: Filter by account name (note: this searches in filename and labels)
+        month: Filter by month in format 'YYYY-MM' or 'Month YYYY' (e.g., '2024-01' or 'January 2024')
+    
+    Returns:
+        Formatted list of bank statements with readable information.
+    """
     if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
-    return await server_context.tools.list_statements()
+    
+    # If month is specified, we'll need to filter the results
+    result = await server_context.tools.list_bank_statements(skip=skip, limit=limit, status=status, account_name=account_name)
+    
+    if result.get("success") and result.get("data"):
+        statements = result["data"]
+        
+        # Filter by month if specified
+        if month:
+            try:
+                # Parse month in various formats
+                from datetime import datetime
+                if "-" in month:  # YYYY-MM format
+                    target_month = datetime.strptime(month, "%Y-%m")
+                else:  # Month YYYY format
+                    target_month = datetime.strptime(month, "%B %Y")
+                
+                filtered_statements = []
+                for stmt in statements:
+                    if stmt.get("created_at"):
+                        try:
+                            stmt_date = datetime.fromisoformat(stmt["created_at"].replace("Z", "+00:00"))
+                            if stmt_date.year == target_month.year and stmt_date.month == target_month.month:
+                                filtered_statements.append(stmt)
+                        except:
+                            pass
+                
+                statements = filtered_statements
+                result["data"] = statements
+                result["count"] = len(statements)
+            except ValueError:
+                return {"success": False, "error": f"Invalid month format. Use 'YYYY-MM' or 'Month YYYY' (e.g., '2024-01' or 'January 2024')"}
+        
+        # Create a human-readable summary
+        summary = f"Found {len(statements)} bank statement(s)"
+        if month:
+            summary += f" for {month}"
+        summary += ":\n\n"
+        
+        for stmt in statements:
+            # Create emoji indicators
+            status_emoji = "✅" if stmt.get("status") == "Processed" else "🔄" if stmt.get("status") == "Processing" else "❌"
+            transaction_info = f"{stmt.get('transaction_count', 'N/A')} transactions" if stmt.get('transaction_count') != "N/A" else "No transactions extracted"
+            
+            summary += f"Statement #{stmt.get('id')}\n"
+            summary += f"  🏦 Account: {stmt.get('account_name', 'Unknown')}\n"
+            summary += f"  📅 Period: {stmt.get('period', 'N/A')}\n"
+            summary += f"  📊 Status: {status_emoji} {stmt.get('status', 'Unknown')}\n"
+            summary += f"  📄 Transactions: {transaction_info}\n"
+            summary += f"  📅 Imported: {stmt.get('created_at', 'Unknown')[:10] if stmt.get('created_at') else 'Unknown'}\n"
+            summary += "\n"
+        
+        result["summary"] = summary
+    
+    return result
 
 @mcp.tool()
 async def get_bank_statement(statement_id: int) -> dict:
@@ -2192,6 +2258,7 @@ Available Tools:
   - upload_expense_receipt: Upload a receipt for an expense
   - list_expense_attachments: List attachments for an expense
   - delete_expense_attachment: Delete an attachment for an expense
+  - list_statements: List bank statements with optional filtering (supports month filtering)
   - list_bank_statements: List bank statements with optional filtering
   - get_bank_statement: Get bank statement with transactions
   - reprocess_bank_statement: Reprocess a bank statement

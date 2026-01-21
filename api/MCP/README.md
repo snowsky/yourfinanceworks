@@ -27,9 +27,16 @@ This is a **FastMCP** (Model Context Protocol) server that enables AI assistants
 
 ## 📚 Documentation
 
-For a high-level overview, architecture diagrams, and list of available tools, see the **[MCP Server Guide](../../docs/developer/MCP_SERVER_GUIDE.md)**.
+### 🚀 **New Users Start Here**
+- **[Quick Start Guide](QUICK_START.md)** - Get running in 5 minutes
+- **[Claude Desktop Setup](CLAUDE_DESKTOP_SETUP.md)** - Complete integration guide
+- **[Validation Script](scripts/validate_mcp_setup.py)** - Test your setup automatically
 
-## 🛠️ Available Tools
+### 📖 **Detailed Documentation**
+- **[MCP Server Guide](../../docs/developer/MCP_SERVER_GUIDE.md)** - Architecture and technical overview
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues
+
+### 🛠️ **Available Tools**
 
 The server exposes several tools for AI interaction:
 
@@ -42,7 +49,9 @@ The server exposes several tools for AI interaction:
 
 ## 🖥️ Claude Desktop Integration
 
-Add this snippet to your `claude_desktop_config.json`:
+**🎯 For easy setup, see the [Claude Desktop Setup Guide](CLAUDE_DESKTOP_SETUP.md)**
+
+For manual configuration, add this to your `claude_desktop_config.json`:
 
 ```json
 {

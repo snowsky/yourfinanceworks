@@ -1176,17 +1176,23 @@ class InvoiceTools:
 
     # Statement Management
     async def list_statements(self) -> Dict[str, Any]:
-        """List all statements"""
+        """List all statements with enhanced formatting"""
         try:
             response = await self.api_client.list_statements()
 
             # Extract statements from response
             statements = self._extract_items_from_response(response, ["statements", "items", "data"])
 
+            # Format statements for better readability
+            formatted_statements = []
+            for stmt in statements:
+                formatted = self._format_statement_for_display(stmt)
+                formatted_statements.append(formatted)
+
             return {
                 "success": True,
-                "data": statements,
-                "count": len(statements)
+                "data": formatted_statements,
+                "count": len(formatted_statements)
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to list bank statements: {e}"}
@@ -4173,23 +4179,29 @@ class InvoiceTools:
         status: Optional[str] = None,
         account_name: Optional[str] = None
     ) -> Dict[str, Any]:
-        """List bank statements with optional filtering"""
+        """List bank statements with optional filtering and enhanced formatting"""
         try:
             params = {"skip": skip, "limit": limit}
             if status:
                 params["status"] = status
             if account_name:
-                params["account_name"] = account_name
+                params["search"] = account_name  # Use search parameter for account name filtering
 
             response = await self.api_client._make_request("GET", "/statements", params=params)
 
             # Extract statements from response
             statements = self._extract_items_from_response(response, ["statements", "items", "data"])
 
+            # Format statements for better readability
+            formatted_statements = []
+            for stmt in statements:
+                formatted = self._format_statement_for_display(stmt)
+                formatted_statements.append(formatted)
+
             return {
                 "success": True,
-                "data": statements,
-                "count": len(statements),
+                "data": formatted_statements,
+                "count": len(formatted_statements),
                 "pagination": {
                     "skip": skip,
                     "limit": limit
@@ -4197,6 +4209,58 @@ class InvoiceTools:
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to list bank statements: {e}"}
+
+    def _format_statement_for_display(self, stmt: Dict[str, Any]) -> Dict[str, Any]:
+        """Format a bank statement for better user display"""
+        # Extract account name from filename or labels
+        account_name = "Unknown"
+        if stmt.get("original_filename"):
+            # Try to extract account name from filename
+            filename = stmt["original_filename"].lower()
+            if "checking" in filename:
+                account_name = "Checking Account"
+            elif "savings" in filename:
+                account_name = "Savings Account"
+            elif "credit" in filename:
+                account_name = "Credit Card"
+            elif "business" in filename:
+                account_name = "Business Account"
+            else:
+                # Use filename as fallback
+                account_name = stmt["original_filename"].replace(".pdf", "").replace("_", " ").title()
+        
+        # Extract period from filename or created date
+        period = "N/A"
+        if stmt.get("created_at"):
+            try:
+                from datetime import datetime
+                created_date = datetime.fromisoformat(stmt["created_at"].replace("Z", "+00:00"))
+                period = created_date.strftime("%B %Y")
+            except:
+                pass
+        
+        # Get transaction count
+        transaction_count = stmt.get("extracted_count", 0)
+        if transaction_count == 0:
+            transaction_count = "N/A"
+        
+        # Format status for display
+        status = stmt.get("status", "Unknown")
+        status_display = status.replace("_", " ").title()
+        
+        return {
+            "id": stmt.get("id"),
+            "account_name": account_name,
+            "period": period,
+            "status": status_display,
+            "transaction_count": transaction_count,
+            "original_filename": stmt.get("original_filename"),
+            "created_at": stmt.get("created_at"),
+            "extracted_count": stmt.get("extracted_count", 0),
+            "labels": stmt.get("labels", []),
+            "notes": stmt.get("notes"),
+            "review_status": stmt.get("review_status", "not_started")
+        }
 
     async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Get detailed information about a bank statement"""
