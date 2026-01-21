@@ -272,7 +272,7 @@ class GamificationModuleManager:
             self.db.refresh(profile)
             
             logger.info(f"Updated gamification preferences for user {user_id}")
-            return UserGamificationProfileResponse.from_orm(profile)
+            return UserGamificationProfileResponse.model_validate(profile)
             
         except Exception as e:
             logger.error(f"Error updating preferences for user {user_id}: {str(e)}")
@@ -297,7 +297,7 @@ class GamificationModuleManager:
             if not profile:
                 return None
             
-            return UserGamificationProfileResponse.from_orm(profile)
+            return UserGamificationProfileResponse.model_validate(profile)
             
         except Exception as e:
             logger.error(f"Error getting profile for user {user_id}: {str(e)}")

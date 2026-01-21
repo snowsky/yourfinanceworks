@@ -17,15 +17,17 @@ from core.models.database import get_db
 from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
-from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest
+from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest, ExpenseListResponse
 from core.services.currency_service import CurrencyService
 from core.services.search_service import search_service
 from core.utils.rbac import require_non_viewer
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
-from core.services.ocr_service import queue_or_process_attachment, cancel_ocr_tasks_for_expense
+from commercial.ai.services.ocr_service import queue_or_process_attachment, cancel_ocr_tasks_for_expense
 from core.constants.error_codes import EXPENSE_LINKED_TO_INVOICE
 from core.constants.expense_status import ExpenseStatus
+from core.utils.timezone import get_tenant_timezone_aware_datetime
+from core.services.review_service import ReviewService
 
 
 logging.basicConfig(level=logging.INFO)
@@ -55,10 +57,7 @@ def check_expense_modification_allowed(expense: Expense) -> None:
         )
 
 
-
-
-
-@router.get("/", response_model=List[ExpenseSchema])
+@router.get("/", response_model=ExpenseListResponse)
 async def list_expenses(
     skip: int = 0,
     limit: int = 100,
@@ -69,17 +68,18 @@ async def list_expenses(
     exclude_status: Optional[str] = None,
     search: Optional[str] = None,
     created_by_user_id: Optional[int] = None,
+    include_total: bool = False,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
-    
+
     try:
         # Build the base query with all filters
         # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
-        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}")
+        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}, include_total={include_total}")
         from sqlalchemy.orm import joinedload
         query = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.is_deleted == False)
         base_count = query.count()
@@ -109,7 +109,7 @@ async def list_expenses(
             logger.info(f"list_expenses: applying search filter with term={search}")
             # First, get all expenses with non-search filters applied
             all_expenses = query.order_by(Expense.id.desc()).all()
-            
+
             # Filter in Python to search encrypted fields
             search_lower = search.lower()
             filtered_expenses = []
@@ -136,9 +136,9 @@ async def list_expenses(
             # If skip is beyond available data, return empty results
             if skip >= total_count and total_count > 0:
                 logger.info(f"Pagination beyond available data: skip={skip} >= total={total_count}, returning empty results")
-                return []
-
-            expenses = query.order_by(Expense.id.desc()).offset(skip).limit(limit).all()
+                expenses = []
+            else:
+                expenses = query.order_by(Expense.id.desc()).offset(skip).limit(limit).all()
 
         # Log pagination info for debugging
         logger.info(f"Expenses query: total_count={total_count}, skip={skip}, limit={limit}, returned={len(expenses)}, exclude_status={exclude_status}")
@@ -149,13 +149,19 @@ async def list_expenses(
                 ex.attachments_count = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == ex.id).count()
         except Exception as e:
             logger.warning(f"Failed to get attachment count for expenses: {e}")
-        return expenses
+
+        # Always return the structured response format
+        return {
+            "success": True,
+            "expenses": [ExpenseSchema.model_validate(ex) for ex in expenses],
+            "total": total_count
+        }
     except Exception as e:
         logger.error(f"Failed to list expenses: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch expenses")
 
 
-@router.get("/{expense_id:\\d+}", response_model=ExpenseSchema)
+@router.get("/{expense_id:int}", response_model=ExpenseSchema)
 async def get_expense(
     expense_id: int,
     db: Session = Depends(get_db),
@@ -165,10 +171,20 @@ async def get_expense(
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
 
+    uvicorn_logger.info(f"Fetching expense {expense_id} for tenant {current_user.tenant_id}")
+
     from sqlalchemy.orm import joinedload
-    expense = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.id == expense_id).first()
+    expense = db.query(Expense).options(joinedload(Expense.created_by)).filter(
+        Expense.id == expense_id,
+        Expense.is_deleted == False
+    ).first()
+
     if not expense:
+        uvicorn_logger.warning(f"Expense {expense_id} not found for tenant {current_user.tenant_id}")
         raise HTTPException(status_code=404, detail="Expense not found")
+
+    uvicorn_logger.info(f"Successfully retrieved expense {expense_id}")
+
     try:
         expense.attachments_count = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense_id).count()
     except Exception as e:
@@ -365,12 +381,25 @@ async def create_expense(
             receipt_timestamp=getattr(expense, "receipt_timestamp", None),
             receipt_time_extracted=bool(getattr(expense, "receipt_time_extracted", False)),
             created_by_user_id=current_user.id,  # User attribution
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db),
         )
         db.add(db_expense)
+        db.flush()  # Ensure ID is generated
+        expense_id = db_expense.id
+        uvicorn_logger.info(f"Expense flushed with ID: {expense_id}")
+
         db.commit()
-        db.refresh(db_expense)
+        uvicorn_logger.info(f"Expense committed with ID: {expense_id}")
+
+        # After commit, query the expense fresh from the database to ensure we have the latest state
+        # This is critical for multi-session environments
+        db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        if not db_expense:
+            uvicorn_logger.error(f"CRITICAL: Expense {expense_id} not found after commit!")
+            raise HTTPException(status_code=500, detail=f"Expense was created but cannot be retrieved (ID: {expense_id})")
+
+        uvicorn_logger.info(f"Successfully created and verified expense with ID: {db_expense.id}")
 
         # Process inventory stock movements for inventory purchases
         if is_inventory_purchase and inventory_items:
@@ -433,7 +462,7 @@ async def create_expense(
         try:
             from core.services.tenant_database_manager import tenant_db_manager
             from core.services.financial_event_processor import create_financial_event_processor
-            
+
             # Get tenant database session for gamification
             tenant_session = tenant_db_manager.get_tenant_session(current_user.tenant_id)
             if tenant_session:
@@ -506,7 +535,10 @@ async def bulk_labels_expenses(
         if not payload.label or not isinstance(payload.label, str):
             raise HTTPException(status_code=400, detail="Label is required")
 
-        target_items = db.query(Expense).filter(Expense.id.in_(payload.expense_ids)).all()
+        target_items = db.query(Expense).filter(
+            Expense.id.in_(payload.expense_ids),
+            Expense.is_deleted == False
+        ).all()
         updated = 0
         for item in target_items:
             labels = list(getattr(item, 'labels', []) or [])
@@ -521,7 +553,7 @@ async def bulk_labels_expenses(
             else:
                 continue
             item.labels = labels or None
-            item.updated_at = datetime.now(timezone.utc)
+            item.updated_at = get_tenant_timezone_aware_datetime(db)
             updated += 1
         db.commit()
         return {"updated": int(updated)}
@@ -614,8 +646,8 @@ async def bulk_create_expenses(
                 receipt_timestamp=getattr(expense, "receipt_timestamp", None),
                 receipt_time_extracted=bool(getattr(expense, "receipt_time_extracted", False)),
                 created_by_user_id=current_user.id,  # User attribution
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=get_tenant_timezone_aware_datetime(db),
+                updated_at=get_tenant_timezone_aware_datetime(db),
             )
             db.add(db_expense)
             created_expenses.append(db_expense)
@@ -652,25 +684,28 @@ async def bulk_delete_expenses(
     current_user: MasterUser = Depends(get_current_user),
 ):
     require_non_viewer(current_user, "bulk delete expenses")
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
-    
+
     try:
         if not payload.expense_ids:
             raise HTTPException(status_code=400, detail="No expense IDs provided")
-        
+
         # Limit bulk delete to prevent performance issues
         if len(payload.expense_ids) > 100:
             raise HTTPException(status_code=400, detail="Cannot delete more than 100 expenses at once")
-        
+
         # Get all expenses to delete
-        expenses_to_delete = db.query(Expense).filter(Expense.id.in_(payload.expense_ids)).all()
-        
+        expenses_to_delete = db.query(Expense).filter(
+            Expense.id.in_(payload.expense_ids),
+            Expense.is_deleted == False
+        ).all()
+
         if not expenses_to_delete:
             raise HTTPException(status_code=404, detail="No expenses found")
-        
+
         # Check if any expenses cannot be deleted
         non_admin = current_user.role != 'admin'
         for expense in expenses_to_delete:
@@ -680,11 +715,11 @@ async def bulk_delete_expenses(
                     status_code=400, 
                     detail=f"Cannot delete expense #{expense.id} with status '{expense.status}'. Expense is in approval workflow."
                 )
-            
+
             # Prevent deleting an expense that is linked to an invoice
             if getattr(expense, "invoice_id", None) is not None:
                 raise HTTPException(status_code=400, detail=f"Expense #{expense.id} is linked to an invoice and cannot be deleted")
-        
+
         # Process each expense for deletion
         deleted_count = 0
         for expense in expenses_to_delete:
@@ -756,28 +791,161 @@ async def bulk_delete_expenses(
 
                 # Soft delete the expense (move to recycle bin)
                 expense.is_deleted = True
-                expense.deleted_at = datetime.now(timezone.utc)
+                expense.deleted_at = get_tenant_timezone_aware_datetime(db)
                 expense.deleted_by = current_user.id
-                expense.updated_at = datetime.now(timezone.utc)
+                expense.updated_at = get_tenant_timezone_aware_datetime(db)
                 deleted_count += 1
-                
+
             except Exception as e:
                 logger.error(f"Failed to delete expense {expense.id}: {e}")
                 # Continue with other expenses but log the failure
-                continue
-        
+
         db.commit()
-        logger.info(f"Successfully bulk soft deleted {deleted_count} expenses for user {current_user.id}")
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to bulk soft delete expenses: {e}")
-        raise HTTPException(status_code=500, detail="Failed to bulk soft delete expenses")
+        logger.error(f"Bulk delete failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{expense_id:int}/accept-review", response_model=ExpenseSchema)
+async def accept_review(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "review expenses")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.is_deleted == False).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    review_service = ReviewService(db)
+    success = review_service.accept_review(expense)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to accept review or no review available")
+
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+@router.post("/{expense_id:int}/reject-review", response_model=ExpenseSchema)
+async def reject_review(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_non_viewer(current_user, "review expenses")
+
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    review_service = ReviewService(db)
+    success = review_service.reject_review(expense)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to reject review")
+
+    return expense
+
+@router.post("/{expense_id:int}/review", response_model=ExpenseSchema)
+async def run_review(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Trigger a full re-review (reset status to not_started for the worker to pick up)"""
+    require_non_viewer(current_user, "review expenses")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.is_deleted == False).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    # Check if review worker is enabled
+    from commercial.ai.services.ai_config_service import AIConfigService
+    if not AIConfigService.is_review_worker_enabled(db):
+        raise HTTPException(
+            status_code=400,
+            detail="Review worker is currently disabled. Please enable it in Settings > AI Configuration before triggering a review."
+        )
+
+    # Reset review status to pending so it shows immediately in UI
+    # The worker will pick it up and process it
+    expense.review_status = "pending"
+    expense.review_result = None
+    expense.reviewed_at = None
+
+    db.commit()
+    db.refresh(expense)
+
+    # Publish Kafka event to trigger review
+    try:
+        from core.services.review_event_service import get_review_event_service
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        if tenant_id:
+            event_service = get_review_event_service()
+            event_service.publish_single_review_trigger(
+                tenant_id=tenant_id,
+                entity_type="expense",
+                entity_id=expense_id
+            )
+            logger.info(f"Published Kafka event to trigger review for expense {expense_id}")
+    except Exception as e:
+        logger.warning(f"Failed to publish Kafka event for expense review trigger: {e}")
+
+    return expense
 
 
-@router.put("/{expense_id}", response_model=ExpenseSchema)
+@router.post("/{expense_id:int}/cancel-review", response_model=ExpenseSchema)
+async def cancel_expense_review(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Cancel an in-progress review for an expense"""
+    require_non_viewer(current_user, "review expenses")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.is_deleted == False).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    # Can only cancel if review is pending, not_started, rejected, or failed
+    if expense.review_status not in ["pending", "not_started", "rejected", "failed"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel review with status '{expense.review_status}'. Only pending, rejected, failed, or not_started reviews can be cancelled."
+        )
+
+    # Cancel the review
+    expense.review_status = "not_started"
+    expense.review_result = None
+    expense.reviewed_at = None
+
+    db.commit()
+    db.refresh(expense)
+
+    logger.info(f"Cancelled review for expense {expense_id}")
+
+    return expense
+
+
+@router.put("/{expense_id:int}", response_model=ExpenseSchema)
 async def update_expense(
     expense_id: int,
     expense: ExpenseUpdate,
@@ -785,22 +953,25 @@ async def update_expense(
     current_user: MasterUser = Depends(get_current_user),
 ):
     require_non_viewer(current_user, "update expenses")
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
-    
+
     # Log the incoming update data for debugging
     uvicorn_logger.info(f"Updating expense {expense_id} with data: {expense.model_dump(exclude_unset=True)}")
-    
+
     try:
-        db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        db_expense = db.query(Expense).filter(
+            Expense.id == expense_id,
+            Expense.is_deleted == False
+        ).first()
         if not db_expense:
             raise HTTPException(status_code=404, detail="Expense not found")
-        
+
         # Check if expense can be modified based on current status
         check_expense_modification_allowed(db_expense)
-        
+
         previous_status = getattr(db_expense, "analysis_status", None)
 
         currency_service = CurrencyService(db)
@@ -971,7 +1142,7 @@ async def update_expense(
             except Exception:
                 pass
 
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_expense)
         if "invoice_id" in update_data:
@@ -1196,7 +1367,7 @@ async def restore_expense(
         db_expense.deleted_at = None
         db_expense.deleted_by = None
         db_expense.status = restore_request.new_status  # Set the new status
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         db.commit()
 
@@ -1304,7 +1475,7 @@ async def permanently_delete_expense(
         )
 
 
-@router.delete("/{expense_id}", response_model=RecycleBinExpenseResponse)
+@router.delete("/{expense_id:int}", response_model=RecycleBinExpenseResponse)
 async def delete_expense(
     expense_id: int,
     db: Session = Depends(get_db),
@@ -1318,12 +1489,31 @@ async def delete_expense(
     set_tenant_context(current_user.tenant_id)
 
     try:
+        uvicorn_logger.info(f"Attempting to delete expense {expense_id} for tenant {current_user.tenant_id}")
+
+        # First attempt to find the expense
         db_expense = db.query(Expense).filter(
             Expense.id == expense_id,
             Expense.is_deleted == False
         ).first()
+
         if not db_expense:
+            # If not found, try refreshing the session and querying again
+            # This handles cases where the expense was just created and the session hasn't seen it yet
+            try:
+                db.expire_all()  # Clear the session cache
+                db_expense = db.query(Expense).filter(
+                    Expense.id == expense_id,
+                    Expense.is_deleted == False
+                ).first()
+            except Exception as e:
+                uvicorn_logger.warning(f"Error refreshing session for expense {expense_id}: {e}")
+
+        if not db_expense:
+            uvicorn_logger.warning(f"Expense {expense_id} not found for deletion (tenant {current_user.tenant_id})")
             raise HTTPException(status_code=404, detail="Expense not found")
+
+        uvicorn_logger.info(f"Found expense {expense_id}, proceeding with deletion")
 
         # Check if expense can be deleted based on current status
         # Allow admins to bypass this check
@@ -1365,11 +1555,26 @@ async def delete_expense(
 
         # Soft delete the expense
         db_expense.is_deleted = True
-        db_expense.deleted_at = datetime.now(timezone.utc)
+        db_expense.deleted_at = get_tenant_timezone_aware_datetime(db)
         db_expense.deleted_by = current_user.id
-        db_expense.updated_at = datetime.now(timezone.utc)
+        db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         db.commit()
+        uvicorn_logger.info(f"Successfully deleted expense {expense_id}")
+
+        # After commit, verify the deletion was successful by querying fresh from the database
+        # This is critical for multi-session environments
+        db.expire_all()  # Clear the session cache
+        verification_expense = db.query(Expense).filter(
+            Expense.id == expense_id,
+            Expense.is_deleted == True
+        ).first()
+
+        if not verification_expense:
+            uvicorn_logger.error(f"CRITICAL: Expense {expense_id} deletion verification failed - expense not marked as deleted!")
+            raise HTTPException(status_code=500, detail=f"Expense deletion verification failed (ID: {expense_id})")
+
+        uvicorn_logger.info(f"Successfully verified deletion of expense {expense_id}")
 
         # Remove from search index
         try:
@@ -1415,7 +1620,10 @@ async def upload_receipt(
 ):
     require_non_viewer(current_user, "upload receipts")
     try:
-        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        expense = db.query(Expense).filter(
+            Expense.id == expense_id,
+            Expense.is_deleted == False
+        ).first()
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
 
@@ -1467,10 +1675,10 @@ async def upload_receipt(
             try:
                 from commercial.cloud_storage.service import CloudStorageService
                 from commercial.cloud_storage.config import get_cloud_storage_config
-                
+
                 cloud_config = get_cloud_storage_config()
                 cloud_storage_service = CloudStorageService(db, cloud_config)
-    
+
                 # Store file using cloud storage with automatic fallback
                 storage_result = await cloud_storage_service.store_file(
                     file_content=contents,
@@ -1484,13 +1692,13 @@ async def upload_receipt(
                         'expense_id': expense_id
                     }
                 )
-    
+
                 if not storage_result.success:
                     raise HTTPException(
                         status_code=500,
                         detail=f"Failed to store file: {storage_result.error_message}"
                     )
-    
+
                 # Determine storage location and file path
                 if storage_result.file_url:
                     # Cloud storage - use file_key as path
@@ -1508,12 +1716,12 @@ async def upload_receipt(
                     file_path = str(receipts_dir / filename)
                     file_size = len(contents)
                     is_cloud_stored = False
-    
+
                 logger.info(f"File stored successfully: {file_path} (cloud: {is_cloud_stored})")
             except ImportError:
                 logger.info("Commercial CloudStorageService not found, falling back to local storage")
                 raise Exception("Commercial module not found")
-                
+
         except Exception as e:
             if "Commercial module not found" not in str(e):
                 logger.error(f"Cloud storage service error: {e}")
@@ -1551,7 +1759,7 @@ async def upload_receipt(
             uploaded_by=current_user.id,
         )
         db.add(attachment)
-        expense.updated_at = datetime.now(timezone.utc)
+        expense.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Mark expense as imported and queue OCR if not manually overridden and AI not disabled
         try:
@@ -1562,7 +1770,7 @@ async def upload_receipt(
             elif disable_ai:
                 expense.analysis_status = "skipped"
                 logger.info(f"AI recognition disabled for expense {expense_id}")
-            expense.updated_at = datetime.now(timezone.utc)
+            expense.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(expense)
         except Exception:
@@ -1613,7 +1821,10 @@ async def list_expense_attachments(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    expense = db.query(Expense).filter(
+        Expense.id == expense_id,
+        Expense.is_deleted == False
+    ).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
     attachments = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense_id).order_by(ExpenseAttachment.uploaded_at.desc()).all()
@@ -1624,6 +1835,10 @@ async def list_expense_attachments(
             "content_type": att.content_type,
             "size_bytes": att.size_bytes,
             "uploaded_at": att.uploaded_at.isoformat() if att.uploaded_at else None,
+            "analysis_status": att.analysis_status,
+            "analysis_error": att.analysis_error,
+            "analysis_result": att.analysis_result,
+            "extracted_amount": att.extracted_amount,
         }
         for att in attachments
     ]
@@ -1637,34 +1852,43 @@ async def reprocess_expense(
     """Reprocess expense OCR analysis for expenses that can be reprocessed."""
     require_non_viewer(current_user, "reprocess expenses")
     try:
-        expense = db.query(Expense).filter(Expense.id == expense_id).first()
+        expense = db.query(Expense).filter(
+            Expense.id == expense_id,
+            Expense.is_deleted == False
+        ).first()
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
 
-        if expense.analysis_status not in ["not_started", "pending", "queued", "failed", "cancelled"]:
+        if expense.analysis_status not in ["not_started", "pending", "queued", "failed", "cancelled", "done"]:
             raise HTTPException(status_code=400, detail=f"Cannot reprocess expense with status: {expense.analysis_status}")
-        
-        # Find the most recent attachment
-        att = (
+
+        # Get all attachments for this expense
+        attachments = (
             db.query(ExpenseAttachment)
             .filter(ExpenseAttachment.expense_id == expense_id)
             .order_by(ExpenseAttachment.uploaded_at.desc())
-            .first()
+            .all()
         )
-        if not att or not getattr(att, "file_path", None):
-            raise HTTPException(status_code=400, detail="No attachment found to reprocess")
+        if not attachments or not any(getattr(att, "file_path", None) for att in attachments):
+            raise HTTPException(status_code=400, detail="No attachments found to reprocess")
 
         # Import ProcessingLock model
         from core.models.processing_lock import ProcessingLock
 
         # Check if expense is already being processed
         if ProcessingLock.is_locked(db, "expense", expense_id):
-            lock_info = ProcessingLock.get_active_lock_info(db, "expense", expense_id)
-            return {
-                "message": "Expense is already being processed",
-                "status": "already_processing",
-                "lock_info": lock_info
-            }
+            # If expense is in a terminal state but locked, it's a stale lock
+            if expense.analysis_status in ["done", "failed"]:
+                logger.info(f"Releasing stale lock for expense {expense_id} in terminal state '{expense.analysis_status}'")
+                ProcessingLock.release_lock(db, "expense", expense_id)
+                db.commit()
+            else:
+                lock_info = ProcessingLock.get_active_lock_info(db, "expense", expense_id)
+                return {
+                    "message": "Expense is already being processed",
+                    "status": "already_processing",
+                    "lock_info": lock_info
+                }
 
         # Acquire processing lock
         request_id = f"reprocess_{expense_id}_{datetime.now(timezone.utc).timestamp()}"
@@ -1706,18 +1930,21 @@ async def reprocess_expense(
             expense.analysis_status = "queued"
             expense.analysis_error = None
             expense.manual_override = False
-            expense.updated_at = datetime.now(timezone.utc)
+            expense.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
 
-            queue_or_process_attachment(
-                db=db,
-                tenant_id=tenant_id,
-                expense_id=expense_id,
-                attachment_id=att.id,
-                file_path=str(att.file_path),
-            )
+            # Queue all attachments for reprocessing
+            for att in attachments:
+                if getattr(att, "file_path", None):
+                    queue_or_process_attachment(
+                        db=db,
+                        tenant_id=tenant_id,
+                        expense_id=expense_id,
+                        attachment_id=att.id,
+                        file_path=str(att.file_path),
+                    )
 
-            logger.info(f"Reprocess started for expense {expense_id} by user {current_user.id} (request_id: {request_id})")
+            logger.info(f"Reprocess started for expense {expense_id} with {len([a for a in attachments if getattr(a, 'file_path', None)])} attachment(s) by user {current_user.id} (request_id: {request_id})")
             return {"message": "Expense reprocessing started", "status": "queued", "request_id": request_id}
 
         except Exception as e:
@@ -1746,7 +1973,7 @@ async def delete_expense_attachment(
     current_user: MasterUser = Depends(get_current_user),
 ):
     require_non_viewer(current_user, "delete attachments")
-    
+
     att = db.query(ExpenseAttachment).filter(ExpenseAttachment.id == attachment_id, ExpenseAttachment.expense_id == expense_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attachment not found")
@@ -1875,16 +2102,16 @@ async def download_expense_attachment(
                 try:
                     from core.models.models_per_tenant import ExportDestinationConfig
                     from core.services.export_destination_service import ExportDestinationService
-                    
+
                     export_service = ExportDestinationService(db, current_user.tenant_id)
-                    
+
                     # Get default S3 export destination
                     export_dest = db.query(ExportDestinationConfig).filter(
                         ExportDestinationConfig.tenant_id == current_user.tenant_id,
                         ExportDestinationConfig.destination_type == 's3',
                         ExportDestinationConfig.is_active == True
                     ).order_by(ExportDestinationConfig.is_default.desc()).first()
-                    
+
                     if export_dest:
                         try:
                             credentials = export_service.get_decrypted_credentials(export_dest.id)
@@ -1917,19 +2144,19 @@ async def download_expense_attachment(
 
             # Construct S3 key
             s3_key = att.file_path
-            
+
             # Check if this is a batch file (starts with batch_files/)
             is_batch_file = s3_key.startswith('batch_files/')
-            
+
             if is_batch_file and path_prefix:
                 # Batch file - reconstruct S3 key as: {path_prefix}/{job_id}/{original_filename}
                 import re
-                
+
                 # Extract generated filename from path: batch_files/tenant_X/{path_prefix}/{job_id}_{index}_{timestamp}.ext
                 match = re.search(r'batch_files/tenant_\d+/[^/]+/(.+)$', att.file_path)
                 if match:
                     generated_filename = match.group(1)  # job_id_index_timestamp.ext
-                    
+
                     # Extract job_id from generated filename (format: job_id_index_timestamp.ext)
                     job_id_match = re.match(r'([^_]+)_\d+_\d+\..+$', generated_filename)
                     if job_id_match:
@@ -1950,7 +2177,7 @@ async def download_expense_attachment(
             else:
                 # Manual upload - use file_path as-is (already in correct format like tenant_1/expenses/file.jpg)
                 logger.info(f"Manual upload - using file_path as-is: '{s3_key}'")
-            
+
             logger.info(f"Attempting S3 download with key: '{s3_key}'")
 
             # Download file content
@@ -1972,9 +2199,9 @@ async def download_expense_attachment(
                     logger.info(f"Guessed content type from filename: {media_type}")
                 else:
                     media_type = response.get('ContentType', 'application/octet-stream')
-            
+
             logger.info(f"Using content type: {media_type}")
-            
+
             # Use inline disposition for preview, attachment for download
             disposition = "inline" if inline else "attachment"
 
@@ -1994,7 +2221,7 @@ async def download_expense_attachment(
                 status_code=404, 
                 detail=f"Attachment file not accessible (tried local and cloud storage)"
             )
-    
+
     # If we reach here, cloud storage is not enabled and local file doesn't exist
     logger.error(f"File not found: local file doesn't exist and cloud storage not enabled")
     raise HTTPException(status_code=404, detail="Attachment file not found")
@@ -2011,16 +2238,17 @@ async def get_expense_summary(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Get expense summary statistics with period comparisons"""
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
-    
+
     try:
         # Base query for all expenses in tenant (not pending approval)
         # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
         base_query = db.query(Expense).filter(
-            Expense.status != 'pending_approval'
+            Expense.status != 'pending_approval',
+            Expense.is_deleted == False
         )
 
         # Determine date range
@@ -2136,7 +2364,7 @@ async def get_expense_trends(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Get expense trends over a time period"""
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -2151,7 +2379,8 @@ async def get_expense_trends(
         expenses = db.query(Expense).filter(
             Expense.status != 'pending_approval',
             Expense.expense_date >= start_date,
-            Expense.expense_date <= end_date
+            Expense.expense_date <= end_date,
+            Expense.is_deleted == False
         ).all()
 
         # Group expenses by the requested period
@@ -2244,7 +2473,7 @@ async def get_expense_categories_analytics(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Get expense analytics by category"""
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -2252,7 +2481,8 @@ async def get_expense_categories_analytics(
         # Base query for all expenses in tenant (not pending approval)
         # Note: No user_id filter needed - tenant isolation is provided by the per-tenant database
         base_query = db.query(Expense).filter(
-            Expense.status != 'pending_approval'
+            Expense.status != 'pending_approval',
+            Expense.is_deleted == False
         )
 
         # Apply date filters

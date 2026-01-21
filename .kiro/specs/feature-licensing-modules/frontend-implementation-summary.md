@@ -1,7 +1,7 @@
 # Frontend License Management UI - Implementation Summary
 
 ## Overview
-Successfully implemented the complete frontend license management UI system for the Invoice Management System. This implementation provides a comprehensive interface for managing licenses, displaying feature availability, and gating features based on license status.
+Successfully implemented the complete frontend license management UI system for the {APP_NAME}. This implementation provides a comprehensive interface for managing licenses, displaying feature availability, and gating features based on license status.
 
 ## Completed Tasks
 

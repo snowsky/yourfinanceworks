@@ -32,6 +32,7 @@ from core.models.database import SessionLocal, get_tenant_db
 from core.models.models import Tenant
 from core.models.models_per_tenant import InstallationInfo
 from core.services.license_service import LicenseService
+from config import APP_NAME
 
 # Import license generator if available
 try:
@@ -221,7 +222,7 @@ class CustomerMigration:
             email_body = f"""
 Dear {tenant_name},
 
-We're excited to announce that we've upgraded our Invoice Management System with a new licensing system!
+We're excited to announce that we've upgraded our {APP_NAME} with a new licensing system!
 
 As a valued existing customer, we've automatically activated a license for you with ALL features enabled for {self.license_years} year(s).
 

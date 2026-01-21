@@ -11,9 +11,9 @@ const currencyCache = {
   listeners: new Set<() => void>(),
 };
 
-const fetchCurrenciesWithCache = async () => {
-  // Return cached data if still valid
-  if (currencyCache.data && (Date.now() - currencyCache.lastFetch) < currencyCache.CACHE_DURATION) {
+const fetchCurrenciesWithCache = async (forceRefresh = false) => {
+  // Return cached data if still valid (unless force refresh)
+  if (!forceRefresh && currencyCache.data && (Date.now() - currencyCache.lastFetch) < currencyCache.CACHE_DURATION) {
     return currencyCache.data;
   }
 

@@ -65,12 +65,12 @@ class TestReportingFileIntegration:
     def test_report_services_exist(self):
         """Test that report service files exist"""
         services = [
-            "api/services/report_service.py",
-            "api/services/report_template_service.py", 
-            "api/services/scheduled_report_service.py",
-            "api/services/report_history_service.py",
-            "api/services/report_data_aggregator.py",
-            "api/services/report_exporter.py"
+            "core.services/report_service.py",
+            "core.services/report_template_service.py", 
+            "core.services/scheduled_report_service.py",
+            "core.services/report_history_service.py",
+            "core.services/report_data_aggregator.py",
+            "core.services/report_exporter.py"
         ]
         
         for service_file in services:
@@ -79,7 +79,7 @@ class TestReportingFileIntegration:
     def test_report_models_exist(self):
         """Test that report model definitions exist"""
         # Check that models file contains report models
-        with open("api/models/models_per_tenant.py", "r") as f:
+        with open("core.models/models_per_tenant.py", "r") as f:
             content = f.read()
             
         assert "class ReportTemplate" in content

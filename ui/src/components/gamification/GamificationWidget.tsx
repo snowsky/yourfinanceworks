@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ProfessionalCard, ProfessionalCardContent, ProfessionalCardHeader, ProfessionalCardTitle } from '@/components/ui/professional-card';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Trophy, 
-  Flame, 
-  Star, 
-  Zap, 
-  ChevronDown, 
+import {
+  Trophy,
+  Flame,
+  Star,
+  Zap,
+  ChevronDown,
   ChevronUp,
   Target,
   TrendingUp
@@ -30,14 +30,14 @@ export function GamificationWidget() {
   const activeChallenges = dashboard.active_challenges.filter(c => c.opted_in && !c.is_completed);
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between text-sm">
+    <ProfessionalCard className="w-full max-w-sm">
+      <ProfessionalCardHeader className="pb-3">
+        <ProfessionalCardTitle className="flex items-center justify-between text-sm">
           <div className="flex items-center space-x-2">
             <Trophy className="h-4 w-4 text-yellow-500" />
             <span>Progress</span>
           </div>
-          <Button
+          <ProfessionalButton
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -48,11 +48,11 @@ export function GamificationWidget() {
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="space-y-3">
+          </ProfessionalButton>
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+
+      <ProfessionalCardContent className="space-y-3">
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
@@ -60,34 +60,34 @@ export function GamificationWidget() {
               <Star className="h-3 w-3 text-yellow-500" />
               <span className="text-sm font-bold">{profile.level}</span>
             </div>
-            <p className="text-xs text-gray-600">{t('settings.gamification.dashboard.level')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.gamification.dashboard.level')}</p>
           </div>
           <div>
             <div className="flex items-center justify-center space-x-1">
               <Zap className="h-3 w-3 text-blue-500" />
               <span className="text-sm font-bold">{profile.total_experience_points.toLocaleString()}</span>
             </div>
-            <p className="text-xs text-gray-600">{t('settings.gamification.dashboard.total_xp')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.gamification.dashboard.total_xp')}</p>
           </div>
           <div>
             <div className="flex items-center justify-center space-x-1">
               <TrendingUp className="h-3 w-3 text-green-500" />
               <span className="text-sm font-bold">{Math.round(profile.financial_health_score)}</span>
             </div>
-            <p className="text-xs text-gray-600">{t('settings.gamification.dashboard.wellness_score')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.gamification.dashboard.wellness_score')}</p>
           </div>
         </div>
 
         {/* Active Streaks */}
         {activeStreaks.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">{t('settings.gamification.streaks.title')}</h4>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">{t('settings.gamification.streaks.title')}</h4>
             <div className="space-y-1">
               {activeStreaks.slice(0, 2).map((streak) => (
                 <div key={streak.id} className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-1">
                     <Flame className="h-3 w-3 text-orange-500" />
-                    <span className="text-gray-600 truncate">
+                    <span className="text-muted-foreground truncate">
                       {streak.habit_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </span>
                   </div>
@@ -103,12 +103,12 @@ export function GamificationWidget() {
         {/* Recent Achievements */}
         {recentAchievements.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">{t('settings.gamification.achievements.title')}</h4>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">{t('settings.gamification.achievements.title')}</h4>
             <div className="space-y-1">
               {recentAchievements.map((achievement) => (
                 <div key={achievement.id} className="flex items-center space-x-2 text-xs">
                   <Trophy className="h-3 w-3 text-purple-500" />
-                  <span className="text-gray-600 truncate flex-1">
+                  <span className="text-muted-foreground truncate flex-1">
                     {achievement.achievement.name}
                   </span>
                   <Badge variant="secondary" className="text-xs px-1 py-0">
@@ -123,13 +123,13 @@ export function GamificationWidget() {
         {/* Active Challenges */}
         {activeChallenges.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">{t('settings.gamification.challenges.title')}</h4>
+            <h4 className="text-xs font-medium text-muted-foreground mb-2">{t('settings.gamification.challenges.title')}</h4>
             <div className="space-y-1">
               {activeChallenges.slice(0, 2).map((challenge) => (
                 <div key={challenge.id} className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-1">
                     <Target className="h-3 w-3 text-blue-500" />
-                    <span className="text-gray-600 truncate">
+                    <span className="text-muted-foreground truncate">
                       {challenge.challenge.name}
                     </span>
                   </div>
@@ -146,16 +146,16 @@ export function GamificationWidget() {
         {isExpanded && (
           <div className="space-y-3 pt-3 border-t">
             <GamificationNotifications />
-            
+
             <div className="text-center">
-              <Button
+              <ProfessionalButton
                 variant="outline"
                 size="sm"
                 onClick={() => window.location.href = '/gamification'}
                 className="text-xs"
               >
                 {t('settings.gamification.dashboard.view_full_dashboard')}
-              </Button>
+              </ProfessionalButton>
             </div>
           </div>
         )}
@@ -163,17 +163,17 @@ export function GamificationWidget() {
         {/* Quick Action */}
         {!isExpanded && (
           <div className="text-center pt-2 border-t">
-            <Button
+            <ProfessionalButton
               variant="ghost"
               size="sm"
               onClick={() => window.location.href = '/gamification'}
-              className="text-xs text-blue-600 hover:text-blue-700"
+              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
               {t('settings.gamification.dashboard.view_dashboard')}
-            </Button>
+            </ProfessionalButton>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
   );
 }

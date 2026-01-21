@@ -10,13 +10,14 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from api.services.report_scheduler import ReportScheduler, ReportSchedulerError
-from api.services.scheduled_report_service import ScheduledReportService
-from api.services.report_service import ReportService
-from api.services.email_service import EmailService
-from api.services.report_exporter import ReportExportService
-from api.models.models_per_tenant import ScheduledReport, ReportTemplate, ReportHistory
-from api.schemas.report import (
+from core.services.report_scheduler import ReportScheduler
+from core.exceptions.report_exceptions import ReportSchedulerError
+from core.services.scheduled_report_service import ScheduledReportService
+from core.services.report_service import ReportService
+from core.services.email_service import EmailService
+from core.services.report_exporter import ReportExportService
+from core.models.models_per_tenant import ScheduledReport, ReportTemplate, ReportHistory
+from core.schemas.report import (
     ScheduledReportCreate, ScheduleConfig, ScheduleType, ExportFormat,
     ReportResult, ReportData, ReportSummary, ReportMetadata
 )
@@ -246,7 +247,7 @@ class TestReportSchedulerIntegration:
         assert retrieved_schedule.template_id == 1
         
         # Test Update
-        from api.schemas.report import ScheduledReportUpdate
+        from core.schemas.report import ScheduledReportUpdate
         update_data = ScheduledReportUpdate(
             recipients=["updated-report@company.com"],
             is_active=False
@@ -359,7 +360,7 @@ class TestReportSchedulerIntegration:
             time_of_day="14:30"
         )
         
-        with patch('api.services.report_scheduler.datetime') as mock_datetime:
+        with patch('core.services.report_scheduler.datetime') as mock_datetime:
             # Mock current time to be 10:00 AM
             mock_now = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
             mock_datetime.now.return_value = mock_now
@@ -378,7 +379,7 @@ class TestReportSchedulerIntegration:
             day_of_week=0  # Monday
         )
         
-        with patch('api.services.report_scheduler.datetime') as mock_datetime:
+        with patch('core.services.report_scheduler.datetime') as mock_datetime:
             # Mock current time to be Wednesday
             mock_now = datetime(2024, 1, 17, 10, 0, 0, tzinfo=timezone.utc)  # Wednesday
             mock_datetime.now.return_value = mock_now

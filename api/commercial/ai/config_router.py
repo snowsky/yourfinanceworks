@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
+import logging
 from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.models.models_per_tenant import AIConfig as AIConfigModel
-from core.schemas.ai_config import (
+from commercial.ai.schemas.ai_config import (
     AIConfigCreate,
     AIConfigUpdate,
     AIConfig as AIConfigSchema,
@@ -16,6 +17,8 @@ from core.schemas.ai_config import (
     SUPPORTED_PROVIDERS
 )
 from core.utils.rbac import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ai-config",
@@ -132,7 +135,7 @@ async def create_ai_config(
             status_code=500,
             detail=f"Failed to create AI configuration: {str(e)}"
         )
-    
+
 @router.put("/{config_id}", response_model=AIConfigSchema)
 async def update_ai_config(
     config_id: int,
@@ -143,15 +146,15 @@ async def update_ai_config(
     """Update an AI configuration"""
     # Only tenant admins can update AI configs
     require_admin(current_user, "update AI configurations")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         # If this is set as default, unset other defaults
         if config.is_default:
             # No tenant_id filtering needed since we're in the tenant's database
@@ -165,7 +168,7 @@ async def update_ai_config(
 
         for field, value in update_data.items():
             setattr(db_config, field, value)
-        
+
         db.commit()
         db.refresh(db_config)
         return db_config
@@ -186,15 +189,15 @@ async def delete_ai_config(
     """Delete an AI configuration"""
     # Only tenant admins can delete AI configs
     require_admin(current_user, "delete AI configurations")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         db.delete(db_config)
         db.commit()
         return {"message": "AI configuration deleted successfully"}
@@ -477,18 +480,18 @@ async def mark_config_as_tested(
     """Manually mark an AI configuration as tested"""
     # Only tenant admins can mark configs as tested
     require_admin(current_user, "mark AI configurations as tested")
-    
+
     # Manually set tenant context and get tenant database
     try:
         # No tenant_id filtering needed since we're in the tenant's database
         db_config = db.query(AIConfigModel).filter(AIConfigModel.id == config_id).first()
-        
+
         if not db_config:
             raise HTTPException(status_code=404, detail="AI configuration not found")
-        
+
         db_config.tested = True
         db.flush()  # Make the change visible to queries
-        
+
         # Check if this is the only tested config and set as default if so
         tested_count = db.query(AIConfigModel).filter(AIConfigModel.tested == True).count()
         if tested_count == 1:
@@ -498,9 +501,9 @@ async def mark_config_as_tested(
             ).update({"is_default": False})
             # Set this as default
             db_config.is_default = True
-        
+
         db.commit()
-        
+
         return {"message": "AI configuration marked as tested successfully" + (" and set as default" if db_config.is_default else "")}
     except HTTPException:
         raise
@@ -510,3 +513,264 @@ async def mark_config_as_tested(
             status_code=500,
             detail=f"Failed to mark AI configuration as tested: {str(e)}"
         )
+
+@router.post("/trigger-full-review")
+async def trigger_full_system_review(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Reset review status for all documents (Invoices, Expenses, Statements) to trigger a full re-review"""
+    require_admin(current_user, "trigger full system review")
+
+    try:
+        from core.models.models_per_tenant import Invoice, Expense, BankStatement
+        from commercial.ai.services.ai_config_service import AIConfigService
+        
+        # Check if review worker is enabled
+        if not AIConfigService.is_review_worker_enabled(db):
+            raise HTTPException(
+                status_code=400,
+                detail="Review worker is currently disabled. Please enable it in Settings > AI Configuration before triggering a review."
+            )
+
+        logger.info(f"Triggering full system review for tenant context")
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        logger.info(f"Full review trigger: active tenant_id = {tenant_id}")
+
+        # Reset Invoices
+        invoice_count = db.query(Invoice).filter(Invoice.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset Expenses
+        expense_count = db.query(Expense).filter(Expense.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset Bank Statements
+        statement_count = db.query(BankStatement).filter(BankStatement.is_deleted == False).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        db.commit()
+
+        # Publish Kafka event to trigger immediate processing
+        try:
+            from core.services.review_event_service import get_review_event_service
+
+            if tenant_id:
+                logger.info(f"Publishing full review trigger event for tenant {tenant_id}")
+                event_service = get_review_event_service()
+                event_service.publish_full_review_trigger(tenant_id)
+            else:
+                logger.warning("Could not publish review trigger event: No tenant_id in context")
+        except Exception as e:
+            logger.warning(f"Failed to publish review trigger event: {e}")
+
+        return {
+            "success": True,
+            "message": f"Full system review triggered. {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements queued for review.",
+            "counts": {
+                "invoices": invoice_count,
+                "expenses": expense_count,
+                "statements": statement_count
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/review-progress")
+async def get_review_progress(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Get the current review progress for all document types"""
+    require_admin(current_user, "view review progress")
+
+    try:
+        from core.models.models_per_tenant import Invoice, Expense, BankStatement
+
+        # Get counts for each status
+        invoice_stats = {
+            "not_started": db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.review_status == "not_started"
+            ).count(),
+            "pending": db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.review_status == "pending"
+            ).count(),
+            "reviewed": db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.review_status == "reviewed"
+            ).count(),
+            "diff_found": db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.review_status == "diff_found"
+            ).count(),
+            "failed": db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.review_status == "failed"
+            ).count(),
+        }
+
+        expense_stats = {
+            "not_started": db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.review_status == "not_started"
+            ).count(),
+            "pending": db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.review_status == "pending"
+            ).count(),
+            "reviewed": db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.review_status == "reviewed"
+            ).count(),
+            "diff_found": db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.review_status == "diff_found"
+            ).count(),
+            "failed": db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.review_status == "failed"
+            ).count(),
+        }
+
+        statement_stats = {
+            "not_started": db.query(BankStatement).filter(
+                BankStatement.is_deleted == False,
+                BankStatement.review_status == "not_started"
+            ).count(),
+            "pending": db.query(BankStatement).filter(
+                BankStatement.is_deleted == False,
+                BankStatement.review_status == "pending"
+            ).count(),
+            "reviewed": db.query(BankStatement).filter(
+                BankStatement.is_deleted == False,
+                BankStatement.review_status == "reviewed"
+            ).count(),
+            "diff_found": db.query(BankStatement).filter(
+                BankStatement.is_deleted == False,
+                BankStatement.review_status == "diff_found"
+            ).count(),
+            "failed": db.query(BankStatement).filter(
+                BankStatement.is_deleted == False,
+                BankStatement.review_status == "failed"
+            ).count(),
+        }
+
+        # Calculate totals and progress
+        invoice_total = sum(invoice_stats.values())
+        invoice_completed = invoice_stats["reviewed"] + invoice_stats["diff_found"] + invoice_stats["failed"]
+        invoice_progress = (invoice_completed / invoice_total * 100) if invoice_total > 0 else 0
+
+        expense_total = sum(expense_stats.values())
+        expense_completed = expense_stats["reviewed"] + expense_stats["diff_found"] + expense_stats["failed"]
+        expense_progress = (expense_completed / expense_total * 100) if expense_total > 0 else 0
+
+        statement_total = sum(statement_stats.values())
+        statement_completed = statement_stats["reviewed"] + statement_stats["diff_found"] + statement_stats["failed"]
+        statement_progress = (statement_completed / statement_total * 100) if statement_total > 0 else 0
+
+        return {
+            "invoices": {
+                "stats": invoice_stats,
+                "total": invoice_total,
+                "completed": invoice_completed,
+                "progress_percent": round(invoice_progress, 1)
+            },
+            "expenses": {
+                "stats": expense_stats,
+                "total": expense_total,
+                "completed": expense_completed,
+                "progress_percent": round(expense_progress, 1)
+            },
+            "statements": {
+                "stats": statement_stats,
+                "total": statement_total,
+                "completed": statement_completed,
+                "progress_percent": round(statement_progress, 1)
+            },
+            "overall_progress_percent": round(
+                ((invoice_completed + expense_completed + statement_completed) / 
+                 (invoice_total + expense_total + statement_total) * 100) 
+                if (invoice_total + expense_total + statement_total) > 0 else 0,
+                1
+            )
+        }
+    except Exception as e:
+        logger.error(f"Failed to get review progress: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cancel-full-review")
+async def cancel_full_system_review(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Cancel the full system review by resetting all pending reviews back to not_started"""
+    require_admin(current_user, "cancel full system review")
+
+    try:
+        logger.info(f"Cancelling full system review for tenant context")
+        from core.models.models_per_tenant import Invoice, Expense, BankStatement
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        logger.info(f"Cancel review: active tenant_id = {tenant_id}")
+
+        # Reset pending Invoices back to not_started
+        invoice_count = db.query(Invoice).filter(
+            Invoice.is_deleted == False,
+            Invoice.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset pending Expenses back to not_started
+        expense_count = db.query(Expense).filter(
+            Expense.is_deleted == False,
+            Expense.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        # Reset pending Bank Statements back to not_started
+        statement_count = db.query(BankStatement).filter(
+            BankStatement.is_deleted == False,
+            BankStatement.review_status == "pending"
+        ).update({
+            "review_status": "not_started",
+            "review_result": None,
+            "reviewed_at": None
+        }, synchronize_session=False)
+
+        db.commit()
+
+        logger.info(f"Cancelled full system review. Reset {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements")
+
+        return {
+            "success": True,
+            "message": f"Full system review cancelled. Reset {invoice_count} invoices, {expense_count} expenses, and {statement_count} statements back to not_started."
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to cancel full system review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

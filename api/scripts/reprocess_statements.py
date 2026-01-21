@@ -11,7 +11,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.services.statement_service import process_bank_pdf_with_llm
-from core.services.ocr_service import publish_bank_statement_task
+from commercial.ai.services.ocr_service import publish_bank_statement_task
 from core.models.database import get_tenant_context, set_tenant_context
 from core.services.tenant_database_manager import tenant_db_manager
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction

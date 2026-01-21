@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import tempfile
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from types import SimpleNamespace
 import logging
 
@@ -11,8 +11,8 @@ from core.models.database import get_db
 from core.models.models import MasterUser
 from core.models.models_per_tenant import AIConfig as AIConfigModel, Client
 from core.routers.auth import get_current_user
-from core.services.ocr_service import track_ai_usage
-from core.services.prompt_service import get_prompt_service
+from commercial.ai.services.ocr_service import track_ai_usage
+from commercial.prompt_management.services.prompt_service import get_prompt_service
 from core.utils.feature_gate import require_feature
 
 router = APIRouter(prefix="/invoices", tags=["pdf-processing"])
@@ -107,7 +107,7 @@ async def get_process_status(
         logger.error(f"Failed to get task status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
 
-async def process_pdf_with_ai(pdf_path: str, ai_config) -> Dict[str, Any]:
+async def process_pdf_with_ai(pdf_path: str, ai_config, db: Optional[Session] = None) -> Dict[str, Any]:
     """Process PDF using AI configuration and return extracted data"""
     try:
         # Import litellm for AI processing
@@ -141,43 +141,58 @@ async def process_pdf_with_ai(pdf_path: str, ai_config) -> Dict[str, Any]:
             logger.info(f"Truncated text to {max_text_length} characters")
 
         # Prepare prompt for invoice data extraction
-        # Define fallback prompt once to avoid duplication
-        fallback_pdf_prompt = f"""Extract invoice information from this text and return ONLY valid JSON:
+        # Use a template string that works with both Jinja2 and simple formatting
+        # We avoid f-strings here to keep the JSON braces literal for the next formatting step
+        fallback_pdf_prompt = """Extract invoice information from this text and return ONLY valid JSON:
 
-{{
+{
   "date": "YYYY-MM-DD",
   "bills_to": "Client name and email",
   "items": [
-    {{
+    {
       "description": "Item description", 
       "quantity": 1,
       "price": 0.00,
       "amount": 0.00,
       "discount": 0.0
-    }}
+    }
   ],
   "total_amount": 0.00,
   "total_discount": 0.0
-}}
+}
 
 Invoice text:
-{text}
+{{text}}
 
 Respond with JSON only:"""
 
         try:
-            # Get database session for prompt service
-            db = get_db()
-            prompt_service = get_prompt_service(db)
-            prompt = prompt_service.get_prompt(
-                name="pdf_invoice_extraction",
-                variables={"text": text},
-                provider_name=ai_config.provider_name,
-                fallback_prompt=fallback_pdf_prompt
-            )
+            # Get database session for prompt service if not provided
+            if db is None:
+                db_gen = get_db()
+                try:
+                    db_session = next(db_gen)
+                    prompt_service = get_prompt_service(db_session)
+                    prompt = prompt_service.get_prompt(
+                        name="pdf_invoice_extraction",
+                        variables={"text": text},
+                        provider_name=ai_config.provider_name,
+                        fallback_prompt=fallback_pdf_prompt
+                    )
+                finally:
+                    db_gen.close()
+            else:
+                prompt_service = get_prompt_service(db)
+                prompt = prompt_service.get_prompt(
+                    name="pdf_invoice_extraction",
+                    variables={"text": text},
+                    provider_name=ai_config.provider_name,
+                    fallback_prompt=fallback_pdf_prompt
+                )
         except Exception as e:
             logger.warning(f"Failed to get PDF invoice prompt from service: {e}")
-            prompt = fallback_pdf_prompt
+            # Manual fallback formatting if prompt service fails
+            prompt = fallback_pdf_prompt.replace("{{text}}", text)
 
         # Format model name for LiteLLM
         model_name = ai_config.model_name
@@ -315,14 +330,15 @@ async def process_pdf(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     # Check if ai_invoice feature is enabled
-    require_feature("ai_invoice", db)
+    from core.utils.feature_gate import check_feature
+    check_feature("ai_invoice", db)
 
     if not pdf_file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
     try:
         from core.models.database import get_tenant_context
-        from core.services.ocr_service import publish_invoice_task
+        from commercial.ai.services.ocr_service import publish_invoice_task
         from pathlib import Path
         import uuid
         from core.utils.file_validation import validate_file_path

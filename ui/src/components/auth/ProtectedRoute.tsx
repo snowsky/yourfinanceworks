@@ -16,16 +16,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
-    console.log('ProtectedRoute: Checking authentication', { 
-      token: !!token, 
-      user: !!user,
-      tokenLength: token?.length,
-      userLength: user?.length,
-      path: location.pathname
-    });
-
     if (!token || !user) {
-      console.log('ProtectedRoute: No token or user found, redirecting to login');
       setIsAuthenticated(false);
       setIsLoading(false);
       navigate('/login', { replace: true });
@@ -35,15 +26,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     try {
       // Validate that user data is valid JSON
       const userData = JSON.parse(user);
-      console.log('ProtectedRoute: Authentication valid', { 
-        userData,
-        role: userData?.role,
-        email: userData?.email 
-      });
       setIsAuthenticated(true);
       setIsLoading(false);
     } catch (error) {
-      console.log('ProtectedRoute: Invalid user data, clearing and redirecting', { error });
       // Invalid user data, clear and redirect
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -53,11 +38,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   };
 
-  // Re-check auth on mount and on every route change
+  // Re-check auth on mount only
   useEffect(() => {
     checkAuth();
-    // eslint-disable-next-line
-  }, [navigate, location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for storage events (cross-tab logout/login)
   useEffect(() => {
@@ -81,26 +66,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Show loading state while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return null; // Don't show loading state, just render nothing
   }
 
   // Don't render if not authenticated
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
-    );
+    return null; // Don't render, just redirect silently
   }
 
   return <>{children}</>;

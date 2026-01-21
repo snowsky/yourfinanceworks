@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how to activate your license, understand the trial period, and manage your feature licenses in the Invoice Management System.
+This guide explains how to activate your license, understand the trial period, and manage your feature licenses in the {APP_NAME}.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This guide explains how to activate your license, understand the trial period, a
 
 ### What is the Trial Period?
 
-When you first install the Invoice Management System, you automatically receive a **30-day free trial** with access to all features. This allows you to evaluate the system before purchasing a license.
+When you first install the {APP_NAME}, you automatically receive a **30-day free trial** with access to all features. This allows you to evaluate the system before purchasing a license.
 
 ### Trial Features
 
@@ -60,7 +60,7 @@ eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImN1c3RvbWVyQGV4YW1wbGUuY29tIiw
 
 ### Step 2: Navigate to License Management
 
-1. Log in to your Invoice Management System
+1. Log in to your {APP_NAME}
 2. Click on your profile icon in the top-right corner
 3. Select **"Settings"** from the dropdown menu
 4. Click on the **"License"** tab in the settings page
@@ -129,7 +129,7 @@ You'll receive warnings when your license is approaching expiration:
 
 ### Available Feature Modules
 
-The Invoice Management System offers the following licensable features:
+The {APP_NAME} offers the following licensable features:
 
 #### AI-Powered Features
 - **AI Invoice Processing** - Automatic invoice data extraction using AI

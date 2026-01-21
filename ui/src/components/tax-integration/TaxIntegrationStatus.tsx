@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, AlertCircle, Loader2, Settings } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Loader2, Settings, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
@@ -127,6 +127,15 @@ export const TaxIntegrationStatus: React.FC = () => {
         )}
       </CardHeader>
       <CardContent>
+        {/* Development Notice */}
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <p className="text-sm text-amber-800">
+              {t('taxIntegration.developmentNotice')}
+            </p>
+          </div>
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getStatusIcon()}

@@ -40,7 +40,12 @@ interface JoinRequestsTableProps {
   onRequestProcessed?: () => void;
 }
 
-export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({ 
+interface JoinRequestActionResponse {
+  success: boolean;
+  message: string;
+}
+
+export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
   showAsCard = true,
   onRequestProcessed
 }) => {
@@ -52,7 +57,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [approvalForm, setApprovalForm] = useState({
     status: 'approved' as 'approved' | 'rejected',
-    approved_role: '',
+    approved_role: null as string | null,
     rejection_reason: '',
     notes: ''
   });
@@ -87,11 +92,20 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
 
     try {
       setSubmitting(true);
-      const response = await apiRequest(
+      
+      // Prepare the approval form data
+      const formData = {
+        status: approvalForm.status,
+        approved_role: approvalForm.status === 'approved' ? approvalForm.approved_role : null,
+        rejection_reason: approvalForm.status === 'rejected' ? approvalForm.rejection_reason : null,
+        notes: approvalForm.notes || null
+      };
+
+      const response = await apiRequest<JoinRequestActionResponse>(
         `/organization-join/${selectedRequest.id}/approve`,
         {
           method: 'POST',
-          body: JSON.stringify(approvalForm),
+          body: JSON.stringify(formData),
         }
       );
 
@@ -116,7 +130,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
   const resetApprovalForm = () => {
     setApprovalForm({
       status: 'approved',
-      approved_role: '',
+      approved_role: null,
       rejection_reason: '',
       notes: ''
     });
@@ -125,9 +139,10 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
   const openApprovalDialog = (request: JoinRequestDetails, action: 'approved' | 'rejected') => {
     setSelectedRequest(request);
     setApprovalForm({
-      ...approvalForm,
       status: action,
-      approved_role: action === 'approved' ? request.requested_role : ''
+      approved_role: action === 'approved' ? request.requested_role : null,
+      rejection_reason: '',
+      notes: ''
     });
     setShowApprovalDialog(true);
   };
@@ -145,9 +160,12 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
     };
 
     const config = variants[status] || variants.pending;
-    
+
     return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
+      <Badge
+        variant={config.variant}
+        className="flex items-center gap-1 whitespace-nowrap py-1 px-2 w-fit"
+      >
         {config.icon}
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
@@ -217,46 +235,12 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
                       variant="outline"
                       size="sm"
                       onClick={() => fetchRequestDetails(request.id)}
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     >
                       <Eye className="w-3 h-3" />
                       {t('organizationJoinRequests.view')}
                     </Button>
-                    {request.status === 'pending' && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            fetchRequestDetails(request.id);
-                            setTimeout(() => {
-                              if (selectedRequest) {
-                                openApprovalDialog(selectedRequest, 'approved');
-                              }
-                            }, 100);
-                          }}
-                          className="flex items-center gap-1"
-                        >
-                          <CheckCircle className="w-3 h-3" />
-                          {t('organizationJoinRequests.approve')}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            fetchRequestDetails(request.id);
-                            setTimeout(() => {
-                              if (selectedRequest) {
-                                openApprovalDialog(selectedRequest, 'rejected');
-                              }
-                            }, 100);
-                          }}
-                          className="flex items-center gap-1"
-                        >
-                          <XCircle className="w-3 h-3" />
-                          {t('organizationJoinRequests.reject')}
-                        </Button>
-                      </>
-                    )}
+
                   </div>
                 </TableCell>
               </TableRow>
@@ -271,7 +255,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
           <DialogHeader>
             <DialogTitle>{t('organizationJoinRequests.join_request_details')}</DialogTitle>
           </DialogHeader>
-          
+
           {selectedRequest && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -395,8 +379,8 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
               <div>
                 <Label htmlFor="approved_role">{t('organizationJoinRequests.assign_role')}</Label>
                 <Select
-                  value={approvalForm.approved_role}
-                  onValueChange={(value) => setApprovalForm({...approvalForm, approved_role: value})}
+                  value={approvalForm.approved_role || ''}
+                  onValueChange={(value) => setApprovalForm({ ...approvalForm, approved_role: value || null })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('organizationJoinRequests.select_role')} />
@@ -416,7 +400,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
                 <Textarea
                   id="rejection_reason"
                   value={approvalForm.rejection_reason}
-                  onChange={(e) => setApprovalForm({...approvalForm, rejection_reason: e.target.value})}
+                  onChange={(e) => setApprovalForm({ ...approvalForm, rejection_reason: e.target.value })}
                   placeholder={t('organizationJoinRequests.explain_rejection')}
                   rows={3}
                 />
@@ -428,7 +412,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
               <Textarea
                 id="notes"
                 value={approvalForm.notes}
-                onChange={(e) => setApprovalForm({...approvalForm, notes: e.target.value})}
+                onChange={(e) => setApprovalForm({ ...approvalForm, notes: e.target.value })}
                 placeholder={t('organizationJoinRequests.add_internal_notes')}
                 rows={2}
               />

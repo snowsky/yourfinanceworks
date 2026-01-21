@@ -24,44 +24,51 @@ from core.routers import (
     discount_rules,
     crm,
     email,
-    analytics, # Add the new analytics router
-    statements,
-    reports,  # Add the new reports router
-    attachments,  # Add the new attachments router
-    search,
-    external_transactions,  # Add the new external transactions router
-    external_api,  # Add the new external API router
-    inventory,  # Add the new inventory router
-    inventory_attachments,  # Add the inventory attachments router
-    organization_join,  # Add the new organization join router
-    reminders,  # Add the new reminders router
-    files,  # Add the new files router
-    license,  # Add the license management router
-    super_admin,  # Add the super admin router
     audit_log,  # Add the audit log router
+    super_admin,  # Add the super admin router
+    inventory,
+    inventory_attachments,
+    organization_join,
+    reminders,
+    files,
+    attachments,
+    license,
+    analytics, # Add the new analytics router
     notifications,  # Add the notifications router
-    prompts,  # Add the new prompts router
     gamification,  # Add the gamification router
     social_features,  # Add the social features router
     user_preference_controls  # Add the user preference controls router
 )
 
+# Configure logging early so we can use it in imports
+logging.basicConfig(level=logging.INFO)  # Ensure INFO logs are shown
+logger = logging.getLogger(__name__)
+
 # Import Commercial Modules (Conditional)
 try:
-    from commercial.cloud_storage import router as cloud_storage
-    from commercial.integrations.tax import router as tax_integration
-    from commercial.integrations.slack import router as slack_simplified
-    from commercial.integrations.email import router as email_integration
-    from commercial.api_access import router as external_api_auth
-    from commercial.workflows.approvals import router as approvals
+    from commercial.cloud_storage.router import router as cloud_storage
+    from commercial.integrations.tax.router import router as tax_integration
+    from commercial.integrations.slack.router import router as slack_simplified
+    from commercial.integrations.email.router import router as email_integration
+    from commercial.api_access.router import router as external_api_auth
+    from commercial.workflows.approvals.router import router as approvals
     from commercial.routers import approval_reports
-    from commercial.batch_processing import router as batch_processing
-    from commercial.ai import router as ai
-    from commercial.ai import config_router as ai_config
-    from commercial.ai import pdf_processor
-    from commercial.export import router as export_destinations
+    from commercial.batch_processing.router import router as batch_processing
+    from commercial.ai.router import router as ai
+    from commercial.ai.config_router import router as ai_config
+    from commercial.ai.pdf_processor import router as pdf_processor
+    from commercial.export.router import router as export_router
+    from commercial.sso.router import router as sso_router
+    from commercial.ai_bank_statement.router import router as statements
+    from commercial.reporting.router import router as reports
+    from commercial.advanced_search.router import router as search
+    from commercial.prompt_management.router import router as prompts
+    from commercial.ai_bank_statement.external_router import router as external_api
+    from commercial.external_transactions.router import router as external_transactions
     COMMERCIAL_MODULES_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    logger.error(f"Failed to import commercial modules: {str(e)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
     cloud_storage = None
     tax_integration = None
     slack_simplified = None
@@ -73,7 +80,14 @@ except ImportError:
     ai = None
     ai_config = None
     pdf_processor = None
-    export_destinations = None
+    export_router = None
+    sso_router = None
+    statements = None
+    reports = None
+    search = None
+    prompts = None
+    external_api = None
+    external_transactions = None
     COMMERCIAL_MODULES_AVAILABLE = False
 from core.models.database import engine
 from core.models import models
@@ -81,14 +95,10 @@ from core.models import models
 from db_init import init_db
 from core.services.search_indexer import search_indexer
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)  # Ensure INFO logs are shown
-logger = logging.getLogger(__name__)
-
 # Initialize database (create tables and populate initial data)
 try:
     logger.info("Starting database initialization...")
-    init_db(skip_migrations=True)  # Skip migrations to avoid hanging during startup
+    init_db()
     logger.info("Database initialization completed successfully.")
 except Exception as e:
     logger.error(f"Database initialization failed: {str(e)}")
@@ -194,7 +204,7 @@ async def app_lifespan(app: FastAPI):
 
         # Shutdown: flush Kafka producers
         try:
-            from core.services.ocr_service import flush_all_producers
+            from commercial.ai.services.ocr_service import flush_all_producers
             flush_all_producers(10.0)
         except Exception:
             pass
@@ -210,7 +220,7 @@ async def app_lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Invoice API",
-    description="API for the Invoice Management System",
+    description="API for the YourFinanceWORKS",
     version="1.0.0",
     lifespan=app_lifespan,
     redirect_slashes=False  # Disable automatic trailing slash redirects
@@ -220,14 +230,45 @@ app = FastAPI(
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
+def serialize_validation_errors(errors):
+    """Convert Pydantic validation errors to JSON-serializable format"""
+    serialized_errors = []
+    for error in errors:
+        error_copy = error.copy()
+        # Convert any non-serializable objects to strings
+        if 'ctx' in error_copy and 'error' in error_copy['ctx']:
+            error_copy['ctx']['error'] = str(error_copy['ctx']['error'])
+        serialized_errors.append(error_copy)
+    return serialized_errors
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"Validation error on {request.method} {request.url.path}")
     logger.error(f"Validation errors: {exc.errors()}")
-    logger.error(f"Request body: {await request.body()}")
+    try:
+        body = await request.body()
+        logger.error(f"Request body: {body}")
+    except Exception:
+        body = b"Unable to read request body"
+        logger.error("Could not read request body")
+    
+    errors = serialize_validation_errors(exc.errors())
+    
     return JSONResponse(
         status_code=400,
-        content={"detail": exc.errors(), "body": str(exc.body)}
+        content={"detail": errors, "body": body.decode('utf-8', errors='replace') if body else ""}
+    )
+
+@app.exception_handler(ValidationError)
+async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
+    logger.error(f"Pydantic validation error on {request.method} {request.url.path}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    
+    errors = serialize_validation_errors(exc.errors())
+    
+    return JSONResponse(
+        status_code=400,
+        content={"detail": errors}
     )
 
 # Serve static files (e.g., for company logos)
@@ -254,6 +295,13 @@ else:
         allowed_origins = [
             "http://localhost:8080", "http://localhost:3000"
         ]
+
+    # Add license key request URL to allowed origins if specified
+    license_key_site = os.getenv("LICENSE_KEY_REQUEST_URL")
+    if license_key_site:
+        if license_key_site not in allowed_origins:
+            allowed_origins.append(license_key_site)
+
     allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "True").lower() == "true"
 
 # Log CORS configuration for debugging
@@ -292,7 +340,7 @@ async def catch_exceptions_middleware(request: Request, call_next):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return JSONResponse(
             status_code=500,
-            content={"detail": f"Internal server error: {str(e)}"}
+            content={"detail": f"Internal server error: {str(e)}" if isinstance(str(e), str) else "Internal server error"}
         )
 
 # Add tenant context middleware (function-based)
@@ -303,7 +351,14 @@ app.middleware('http')(tenant_context_middleware)
 from core.middleware.external_api_auth_middleware import ExternalAPIAuthMiddleware
 app.add_middleware(ExternalAPIAuthMiddleware)
 
-# Include routers with v1 API versioning
+# ==============================================================================
+# ROUTER REGISTRATION
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Core Routers (GPLv3)
+# These features are available in all versions of the application.
+# ------------------------------------------------------------------------------
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tenant.router, prefix="/api/v1")
 app.include_router(super_admin.router, prefix="/api/v1")  # Add super admin router
@@ -311,54 +366,94 @@ app.include_router(clients.router, prefix="/api/v1")
 app.include_router(invoices.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(expenses.router, prefix="/api/v1")
-app.include_router(settings.router, prefix="/api/v1")
-app.include_router(email.router, prefix="/api/v1")
-if email_integration:
-    app.include_router(email_integration.router, prefix="/api/v1")
 app.include_router(currency.router, prefix="/api/v1")
-app.include_router(crm.router, prefix="/api/v1")
+app.include_router(settings.router, prefix="/api/v1")
 app.include_router(discount_rules.router, prefix="/api/v1")
+app.include_router(email.router, prefix="/api/v1")
+app.include_router(crm.router, prefix="/api/v1")
+app.include_router(inventory.router, prefix="/api/v1")  # Add the new inventory router
+app.include_router(inventory_attachments.router, prefix="/api/v1")  # Add the inventory attachments router
+app.include_router(organization_join.router, prefix="/api/v1")  # Add the new organization join router
+app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"])  # Add the new reminders router
+app.include_router(files.router, prefix="/api/v1")  # Add the new files router
+app.include_router(notifications.router, prefix="/api/v1")  # Add the new notifications router
+app.include_router(attachments.router, prefix="/api/v1")  # Add the new attachments router
+app.include_router(license.router, prefix="/api/v1")  # Add the license management router
+app.include_router(user_preference_controls.router, prefix="/api/v1")  # Add the user preference controls router
+app.include_router(gamification.router, prefix="/api/v1")  # Add the gamification router
+app.include_router(social_features.router, prefix="/api/v1")  # Add the social features router
+app.include_router(analytics.router, prefix="/api/v1")       # Add the new analytics router
+app.include_router(audit_log.router, prefix="/api/v1")       # Add the new audit log router
+
+
+# ------------------------------------------------------------------------------
+# 2. Commercial Routers (Proprietary)
+# These features are only available with a valid commercial license.
+# Note: Some commercial features are temporarily in core import list but should be moved.
+# ------------------------------------------------------------------------------
+
+# --- Features in Commercial Module ---
+if sso_router:
+    app.include_router(sso_router, prefix="/api/v1")
+
 if ai:
-    app.include_router(ai.router, prefix="/api/v1") # Include the new AI router
+    app.include_router(ai, prefix="/api/v1")
 if ai_config:
-    app.include_router(ai_config.router, prefix="/api/v1") # Include the new AI config router
-app.include_router(audit_log.router, prefix="/api/v1") # Include the new audit log router
-if slack_simplified:
-    app.include_router(slack_simplified.router, prefix="/api/v1") # Include the new simplified Slack router
-app.include_router(notifications.router, prefix="/api/v1") # Include the new notifications router
-app.include_router(analytics.router, prefix="/api/v1") # Include the new analytics router
+    app.include_router(ai_config, prefix="/api/v1")
 if pdf_processor:
-    app.include_router(pdf_processor.router, prefix="/api/v1") # Include the new PDF processor router
-app.include_router(statements.router, prefix="/api/v1")
+    app.include_router(pdf_processor, prefix="/api/v1")
+
 if tax_integration:
-    app.include_router(tax_integration.router, prefix="/api/v1") # Include the new tax integration router
-app.include_router(reports.router, prefix="/api/v1") # Include the new reports router
-app.include_router(attachments.router, prefix="/api/v1") # Include the new attachments router
-app.include_router(search.router, prefix="/api/v1") # Include the new search router
-if external_api_auth:
-    app.include_router(external_api_auth.router, prefix="/api/v1") # Include the new external API auth router
-app.include_router(external_transactions.router, prefix="/api/v1") # Include the new external transactions router
-app.include_router(external_api.router) # Include the new external API router (no prefix as it has its own)
-app.include_router(inventory.router, prefix="/api/v1") # Include the new inventory router
-app.include_router(inventory_attachments.router, prefix="/api/v1") # Include the inventory attachments router
-if approvals:
-    app.include_router(approvals.router, prefix="/api/v1") # Include the new approvals router
-if approval_reports:
-    app.include_router(approval_reports.router, prefix="/api/v1") # Include the new approval reports router
-app.include_router(organization_join.router, prefix="/api/v1") # Include the new organization join router
-app.include_router(reminders.router, prefix="/api/v1/reminders", tags=["reminders"]) # Include the new reminders router
-app.include_router(files.router, prefix="/api/v1") # Include the new files router
+    app.include_router(tax_integration, prefix="/api/v1")
+if email_integration:
+    app.include_router(email_integration, prefix="/api/v1")
+if slack_simplified:
+    app.include_router(slack_simplified, prefix="/api/v1")
+
 if cloud_storage:
-    app.include_router(cloud_storage.router, prefix="/api/v1") # Include the new cloud storage router
-if export_destinations:
-    app.include_router(export_destinations.router, prefix="/api/v1") # Include the export destinations router
+    app.include_router(cloud_storage, prefix="/api/v1")
+if export_router:
+    app.include_router(export_router, prefix="/api/v1")
 if batch_processing:
-    app.include_router(batch_processing.router, prefix="/api/v1") # Include the batch processing router
-app.include_router(license.router, prefix="/api/v1") # Include the license management router
-app.include_router(prompts.router, prefix="/api/v1") # Include the new prompts router
-app.include_router(gamification.router, prefix="/api/v1") # Include the gamification router
-app.include_router(social_features.router, prefix="/api/v1") # Include the social features router
-app.include_router(user_preference_controls.router, prefix="/api/v1") # Include the user preference controls router
+    app.include_router(batch_processing, prefix="/api/v1")
+
+if external_api_auth:
+    app.include_router(external_api_auth, prefix="/api/v1")
+
+if approvals:
+    app.include_router(approvals, prefix="/api/v1")
+if approval_reports:
+    app.include_router(approval_reports.router, prefix="/api/v1")
+
+if statements:
+    app.include_router(statements, prefix="/api/v1")
+
+if reports:
+    app.include_router(reports, prefix="/api/v1")
+
+if search:
+    logger.info("Registering advanced_search router")
+    app.include_router(search, prefix="/api/v1")
+else:
+    logger.warning("advanced_search router is None - not registering")
+
+if prompts:
+    logger.info("Registering prompt_management router")
+    app.include_router(prompts, prefix="/api/v1")
+else:
+    logger.warning("prompt_management router is None - not registering")
+
+if external_api:
+    logger.info("Registering external_api router")
+    app.include_router(external_api, prefix="/api/v1")
+else:
+    logger.warning("external_api router is None - not registering")
+
+if external_transactions:
+    logger.info("Registering external_transactions router")
+    app.include_router(external_transactions, prefix="/api/v1")
+else:
+    logger.warning("external_transactions router is None - not registering")
 
 @app.get("/")
 def read_root():

@@ -1,295 +1,87 @@
 # Invoice Application FastMCP Server
 
-This is a FastMCP (Model Context Protocol) server that provides AI models with tools to interact with the Invoice Application API. It enables AI assistants to list, search, create, and manage clients and invoices through a standardized interface using the modern FastMCP framework.
+This is a **FastMCP** (Model Context Protocol) server that enables AI assistants to interact with the YourFinanceWORKS API.
 
-## 📊 Architecture Overview
+## 🚀 Quick Start
 
-### System Architecture
+1. **Install dependencies**:
 
-```mermaid
-graph TB
-    subgraph "Claude Desktop"
-        CD[Claude AI Assistant]
-    end
-    
-    subgraph "MCP Server Process"
-        MCP[FastMCP Server<br/>Invoice Application MCP]
-        SC[ServerContext<br/>• api_client<br/>• tools]
-        LIFESPAN[Lifespan Manager<br/>• Initialize<br/>• Cleanup]
-    end
-    
-    subgraph "API Layer"
-        API[InvoiceAPIClient<br/>JWT Authentication]
-        TOOLS[InvoiceTools<br/>Business Logic]
-    end
-    
-    subgraph "Invoice Application"
-        BACKEND[FastAPI Backend<br/>http://localhost:8000/api]
-        DB[(SQLite Database)]
-    end
-    
-    subgraph "Available MCP Tools"
-        CLIENT_TOOLS["Client Management<br/>• list_clients<br/>• search_clients<br/>• get_client<br/>• create_client"]
-        INVOICE_TOOLS["Invoice Management<br/>• list_invoices<br/>• search_invoices<br/>• get_invoice<br/>• create_invoice"]
-        EXPENSE_TOOLS["Expense Management<br/>• list_expenses<br/>• get_expense<br/>• create_expense<br/>• update_expense<br/>• delete_expense<br/>• upload_expense_receipt<br/>• list_expense_attachments<br/>• delete_expense_attachment"]
-        BANK_TOOLS["Statement Management<br/>• list_bank_statements<br/>• get_bank_statement<br/>• reprocess_bank_statement<br/>• update_bank_statement_meta<br/>• delete_bank_statement"]
-        INVENTORY_TOOLS["Inventory Management<br/>• list_inventory_categories<br/>• create_inventory_category<br/>• update_inventory_category<br/>• list_inventory_items<br/>• create_inventory_item<br/>• update_inventory_item<br/>• adjust_stock<br/>• get_inventory_analytics<br/>• get_low_stock_items"]
-        ANALYTICS["Analytics<br/>• get_clients_with_outstanding_balance<br/>• get_overdue_invoices<br/>• get_invoice_stats"]
-    end
-    
-    CD -.->|"MCP Protocol<br/>stdio transport"| MCP
-    MCP --> SC
-    SC --> API
-    SC --> TOOLS
-    API -->|"HTTP/REST<br/>JWT Auth"| BACKEND
-    BACKEND --> DB
-    
-    LIFESPAN -.-> SC
-    
-    MCP --> CLIENT_TOOLS
-    MCP --> INVOICE_TOOLS
-    MCP --> ANALYTICS
-    MCP --> EXPENSE_TOOLS
-    MCP --> BANK_TOOLS
-    MCP --> INVENTORY_TOOLS
+   ```bash
+   cd api/MCP
+   pip install -r requirements.txt
+   ```
 
-    TOOLS -.-> CLIENT_TOOLS
-    TOOLS -.-> INVOICE_TOOLS
-    TOOLS -.-> ANALYTICS
-    TOOLS -.-> INVENTORY_TOOLS
-    
-    style CD fill:#e1f5fe
-    style MCP fill:#f3e5f5
-    style SC fill:#fff3e0
-    style BACKEND fill:#e8f5e8
-    style DB fill:#fce4ec
+2. **Configure Environment**:
+   Copy `example.env` to `.env` and provide your credentials:
+
+   ```env
+   INVOICE_API_BASE_URL=http://localhost:8000/api
+   INVOICE_API_EMAIL=your_email@example.com
+   INVOICE_API_PASSWORD=your_secure_password
+   ```
+
+3. **Run the Server**:
+   ```bash
+   python -m MCP
+   ```
+
+## 📚 Documentation
+
+### 🚀 **New Users Start Here**
+- **[Quick Start Guide](QUICK_START.md)** - Get running in 5 minutes
+- **[Claude Desktop Setup](CLAUDE_DESKTOP_SETUP.md)** - Complete integration guide
+- **[Validation Script](scripts/validate_mcp_setup.py)** - Test your setup automatically
+
+### 📖 **Detailed Documentation**
+- **[MCP Server Guide](../../docs/developer/MCP_SERVER_GUIDE.md)** - Architecture and technical overview
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues
+
+### 🛠️ **Available Tools**
+
+The server exposes several tools for AI interaction:
+
+- `list_clients`, `search_clients`, `create_client`
+- `list_invoices`, `search_invoices`, `create_invoice`
+- `list_expenses`, `create_expense`, `upload_expense_receipt`
+- `list_bank_statements`, `reprocess_bank_statement`
+- `list_inventory_items`, `adjust_stock`
+- `get_overdue_invoices`, `get_invoice_stats`
+
+## 🖥️ Claude Desktop Integration
+
+**🎯 For easy setup, see the [Claude Desktop Setup Guide](CLAUDE_DESKTOP_SETUP.md)**
+
+For manual configuration, add this to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "invoice-app": {
+      "command": "/path/to/venv/bin/python",
+      "args": [
+        "/path/to/project/api/launch_mcp.py",
+        "--email",
+        "your@email.com",
+        "--password",
+        "your_pass"
+      ]
+    }
+  }
+}
 ```
 
-### MCP Tool Execution Flow
+## Security
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Claude as Claude Desktop
-    participant MCP as MCP Server
-    participant API as Invoice API Client
-    participant Backend as FastAPI Backend
-    participant DB as Database
-    
-    User->>Claude: "List all clients with outstanding balances"
-    Claude->>MCP: Tool call: get_clients_with_outstanding_balance()
-    MCP->>API: Authenticate with JWT token
-    API->>Backend: GET /api/v1/clients?outstanding=true
-    Backend->>DB: Query clients with unpaid invoices
-    DB-->>Backend: Client data with balances
-    Backend-->>API: JSON response
-    API-->>MCP: Formatted client data
-    MCP-->>Claude: Structured tool response
-    Claude-->>User: "Here are 3 clients with outstanding balances..."
-    
-    Note over MCP,API: ServerContext manages connections
-    Note over API,Backend: JWT token auto-refresh
-```
-
-## 📸 Screenshots
-
-### MCP Server Running
-When properly configured and started, you should see output similar to this:
-
-```
-INFO:MCP.server:Starting Invoice FastMCP Server...
-INFO:MCP.server:API Base URL: http://localhost:8000/api
-INFO:MCP.server:Initialized API client for http://localhost:8000/api
-[06/17/25 11:05:44] INFO     Starting MCP server 'Invoice Application MCP Server'  server.py:1168
-                             with transport 'stdio'                                              
-INFO:FastMCP.fastmcp.server.server:Starting MCP server 'Invoice Application MCP Server' with transport 'stdio'
-```
-
-### MCP Tools in Action
-
-The following screenshots demonstrate the MCP tools working through Claude Desktop integration:
-
-| MCP Tool | Screenshot | Description |
-|----------|------------|-------------|
-| `create_client` | [Create Invoice Client](images/create_invoice_client.png) | Create new clients with natural language requests |
-| `list_clients` | [List Invoice Clients](images/list_invoice_clients.png) | Get complete list of clients with contact info and balances |
-| `search_clients` | [Search Invoice Clients](images/search_invoice_clients.png) | Intelligent search across client data |
-| `list_invoices` | [List Invoices](images/list_invoices.png) | View all invoices with client info and payment status |
-
-#### 1. Creating Invoice Clients
-**Tool Used:** `create_client`
-
-![Create Invoice Client](images/create_invoice_client.png)
-
-*Claude can create new clients with natural language requests like "Create a new client named John Doe with email john@company.com"*
-
-#### 2. Listing Invoice Clients  
-**Tool Used:** `list_clients`
-
-![List Invoice Clients](images/list_invoice_clients.png)
-
-*Get a complete list of all clients with their contact information and balance details*
-
-#### 3. Searching Invoice Clients
-**Tool Used:** `search_clients` 
-
-![Search Invoice Clients](images/search_invoice_clients.png)
-
-*Intelligent search across client names, emails, phone numbers, and addresses*
-
-#### 4. Listing Invoices
-**Tool Used:** `list_invoices`
-
-![List Invoices](images/list_invoices.png)
-
-*View all invoices with client information, amounts, due dates, and payment status*
-
-### Claude Desktop Integration
-Once integrated with Claude Desktop, you can ask natural language questions like:
-
-**Example Conversation:**
-```
-User: "Show me all clients with outstanding balances"
-
-Claude: I'll check for clients with outstanding balances using the invoice system.
-
-[Uses get_clients_with_outstanding_balance tool]
-
-Based on the invoice data, here are the clients with outstanding balances:
-
-1. **John Doe Company** - Outstanding: $2,500.00
-   - Email: john@company.com
-   - Last invoice: #INV-001 (Overdue by 15 days)
-
-2. **Jane Smith LLC** - Outstanding: $1,200.00
-   - Email: jane@smithllc.com
-   - Last invoice: #INV-003 (Due in 5 days)
-
-Would you like me to get more details about any of these clients or their invoices?
-```
-
-**More Example Queries:**
-- *"Create a new client for ABC Company with email contact@abc.com"*
-- *"Search for clients containing 'Smith' in their name"*
-- *"Show me all invoices from the last 30 days"*
-- *"Find overdue invoices that need follow-up"*
-- *"What are my total outstanding receivables?"*
-- *"List all supported currencies"*
-- *"Create a custom currency for Bitcoin"*
-- *"Convert 100 USD to EUR"*
-- *"Record a payment of $500 for invoice #123"*
-- *"Get my company settings"*
-- *"Create a 10% discount rule for orders over $1000"*
-- *"Add a note to client John Doe about our meeting"*
-- *"Send invoice #123 via email"*
-- *"Test my email configuration"*
-- *"List all expenses from this quarter"*
-- *"Create an expense for office supplies costing $150"*
-- *"Upload a receipt for expense #456"*
-- *"Show me unlinked expenses that need categorization"*
-- *"List all imported bank statements"*
-- *"Show me statements from my business checking account"*
-- *"Get details for statement from January 2024"*
-- *"Reprocess statement for better transaction matching"*
-- *"Update statement notes to 'Reviewed Q1 transactions'"*
-- *"Delete old statement that was imported incorrectly"*
-- *"List all inventory items"*
-- *"Show me items with low stock levels"*
-- *"Create a new category for office supplies"*
-- *"Add a new inventory item for wireless mouse"*
-- *"Update stock level for item #123 to 50 units"*
-- *"Get inventory analytics and reports"*
-- *"Search for items containing 'laptop' in the name"*
-
-## ✨ Key Benefits
-
-🚀 **Natural Language Interface** - Talk to your invoice system in plain English  
-🔄 **Real-time Data** - Always up-to-date information from your live database  
-🔒 **Secure Authentication** - JWT-based API authentication with token management  
-⚡ **Fast Performance** - Optimized queries and efficient data processing  
-📊 **Rich Analytics** - Get insights on business metrics and client data  
-🛠️ **Developer Friendly** - Built with modern FastMCP framework
-
-## Features
-
-### Client Management
-- **List Clients**: Get paginated list of all clients with balance information
-- **Search Clients**: Search clients by name, email, phone, or address
-- **Get Client Details**: Retrieve detailed information for a specific client
-- **Create Client**: Add new clients to the system
-
-### Invoice Management
-- **List Invoices**: Get paginated list of all invoices with client information
-- **Search Invoices**: Search invoices by number, client name, status, notes, or amount
-- **Get Invoice Details**: Retrieve detailed information for a specific invoice
-- **Create Invoice**: Generate new invoices for clients
-
-### Expense Management
-- **List Expenses**: Get paginated list of all expenses with filtering options
-- **Create Expenses**: Record business expenses with tax calculations
-- **Update Expenses**: Modify existing expense details and categorization
-- **Delete Expenses**: Remove expenses from the system
-- **Receipt Management**: Upload, list, and delete expense receipt attachments
-- **Expense Filtering**: Filter by category, invoice linkage, and other criteria
-
-### Statement Management
-- **List Statements**: Get all imported statements with pagination and filtering
-- **Statement Details**: Retrieve detailed statement information with all transactions
-- **Reprocess Statements**: Reprocess statements for better transaction matching
-- **Update Metadata**: Modify statement account names, periods, notes, and status
-- **Delete Statements**: Remove statements and associated transactions with confirmation
-
-### Inventory Management
-- **Category Management**: Create, update, and list inventory categories
-- **Item Management**: Full CRUD operations for inventory items with detailed specifications
-- **Stock Tracking**: Automatic stock level monitoring and manual adjustments
-- **Low Stock Alerts**: Get notifications for items below minimum stock levels
-- **Analytics**: Comprehensive inventory analytics including value reports and turnover analysis
-- **Invoice Integration**: Automatic stock updates when invoices are created or paid
-
-### Analytics & Reporting
-- **Outstanding Balances**: Find clients with unpaid invoices (`get_clients_with_outstanding_balance`)
-- **Overdue Invoices**: Identify invoices past their due date (`get_overdue_invoices`)
-- **Invoice Statistics**: Get overall financial metrics (`get_invoice_stats`)
-- **Inventory Analytics**: Get comprehensive inventory statistics and reports
-
-### Currency Management
-- **List Currencies**: Get supported currencies with filtering options (`list_currencies`)
-- **Create Custom Currencies**: Add new currencies for your business (`create_currency`)
-- **Currency Conversion**: Convert amounts between currencies (`convert_currency`)
-
-### Payment Management
-- **List Payments**: Get all payments with pagination (`list_payments`)
-- **Create Payments**: Record payments for invoices (`create_payment`)
-
-### Settings & Configuration
-- **Get Settings**: Retrieve tenant settings and company information (`get_settings`)
-- **Tenant Information**: Get current tenant details (`get_tenant_info`)
-
-### Discount Rules
-- **List Discount Rules**: Get all discount rules for the tenant (`list_discount_rules`)
-- **Create Discount Rules**: Set up new discount rules (`create_discount_rule`)
-
-### CRM Features
-- **Client Notes**: Create notes for client interactions (`create_client_note`)
-
-### Email Integration
-- **Send Invoice Emails**: Send invoices via email (`send_invoice_email`)
-- **Test Email Configuration**: Verify email setup (`test_email_configuration`)
-
-## Installation
-
-1. Install the required dependencies:
-```bash
-cd api/MCP
-pip install -r requirements.txt
-```
-
-Note: This implementation uses FastMCP, a modern and simplified framework for building MCP servers with a decorator-based approach.
+- Use `.env` for local development; do not commit secrets.
+- Tokens are stored in `.mcp_token` by default.
+- Ensure the API base URL is accessible by the MCP process.
 
 2. Set up environment variables:
 
+Refer to the **[MCP Server Guide](../../docs/developer/MCP_SERVER_GUIDE.md)** for further configuration and tool details.
+
 ### Option A: Using Environment Variables
+
 ```bash
 export INVOICE_API_BASE_URL="http://localhost:8000/api"
 export INVOICE_API_EMAIL="your_email@example.com"
@@ -297,7 +89,9 @@ export INVOICE_API_PASSWORD="your_password"
 ```
 
 ### Option B: Using Environment File (Recommended)
+
 Copy the example environment file and customize it:
+
 ```bash
 cp example.env .env
 # Edit .env with your actual values
@@ -318,17 +112,18 @@ cp api/MCP/example.env api/MCP/.env
 
 #### Configuration Options
 
-| Environment Variable | Description | Default | Required |
-|---------------------|-------------|---------|----------|
-| `INVOICE_API_BASE_URL` | Base URL for the Invoice API | `http://localhost:8000/api` | No |
-| `INVOICE_API_EMAIL` | Email for API authentication | None | **Yes** |
-| `INVOICE_API_PASSWORD` | Password for API authentication | None | **Yes** |
-| `REQUEST_TIMEOUT` | HTTP request timeout in seconds | `30` | No |
-| `DEFAULT_PAGE_SIZE` | Default pagination size for lists | `100` | No |
-| `MAX_PAGE_SIZE` | Maximum allowed pagination size | `1000` | No |
-| `TOKEN_STORAGE_FILE` | File path for storing auth tokens | `.mcp_token` | No |
+| Environment Variable   | Description                       | Default                     | Required |
+| ---------------------- | --------------------------------- | --------------------------- | -------- |
+| `INVOICE_API_BASE_URL` | Base URL for the Invoice API      | `http://localhost:8000/api` | No       |
+| `INVOICE_API_EMAIL`    | Email for API authentication      | None                        | **Yes**  |
+| `INVOICE_API_PASSWORD` | Password for API authentication   | None                        | **Yes**  |
+| `REQUEST_TIMEOUT`      | HTTP request timeout in seconds   | `30`                        | No       |
+| `DEFAULT_PAGE_SIZE`    | Default pagination size for lists | `100`                       | No       |
+| `MAX_PAGE_SIZE`        | Maximum allowed pagination size   | `1000`                      | No       |
+| `TOKEN_STORAGE_FILE`   | File path for storing auth tokens | `.mcp_token`                | No       |
 
 #### Example `.env` file:
+
 ```env
 # Invoice Application MCP Server Configuration
 
@@ -358,6 +153,7 @@ The server uses the following configuration priority (highest to lowest):
 4. **Default values** (lowest priority)
 
 Examples:
+
 ```bash
 # Using .env file only
 python -m MCP
@@ -404,12 +200,12 @@ python -m MCP --email user@example.com --password mypassword --verbose
 
 The server can be configured through command-line arguments, which override environment variables:
 
-| CLI Argument | Environment Variable | Default | Description |
-|--------------|---------------------|---------|-------------|
-| `--api-url` | `INVOICE_API_BASE_URL` | `http://localhost:8000/api/v1` | Base URL for the Invoice API |
-| `--email` | `INVOICE_API_EMAIL` | None | Email for API authentication |
-| `--password` | `INVOICE_API_PASSWORD` | None | Password for API authentication |
-| `--verbose` | N/A | False | Enable verbose logging |
+| CLI Argument | Environment Variable   | Default                        | Description                     |
+| ------------ | ---------------------- | ------------------------------ | ------------------------------- |
+| `--api-url`  | `INVOICE_API_BASE_URL` | `http://localhost:8000/api/v1` | Base URL for the Invoice API    |
+| `--email`    | `INVOICE_API_EMAIL`    | None                           | Email for API authentication    |
+| `--password` | `INVOICE_API_PASSWORD` | None                           | Password for API authentication |
+| `--verbose`  | N/A                    | False                          | Enable verbose logging          |
 
 ### Using with Claude Desktop
 
@@ -420,7 +216,13 @@ Add this to your Claude Desktop configuration (`claude_desktop_config.json`):
   "mcpServers": {
     "invoice-app": {
       "command": "/path/to/your/venv/bin/python",
-      "args": ["/path/to/your/project/api/launch_mcp.py", "--email", "your_email@example.com", "--password", "your_password"],
+      "args": [
+        "/path/to/your/project/api/launch_mcp.py",
+        "--email",
+        "your_email@example.com",
+        "--password",
+        "your_password"
+      ],
       "env": {
         "INVOICE_API_BASE_URL": "http://localhost:8000/api/v1"
       }
@@ -436,13 +238,16 @@ Add this to your Claude Desktop configuration (`claude_desktop_config.json`):
 ### Client Tools
 
 #### `list_clients`
+
 List all clients with pagination support.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of clients to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of clients to return (default: 100)
 
 **Example:**
+
 ```json
 {
   "name": "list_clients",
@@ -454,14 +259,17 @@ List all clients with pagination support.
 ```
 
 #### `search_clients`
+
 Search for clients by name, email, phone, or address.
 
 **Parameters:**
+
 - `query` (string): Search query to find clients
 - `skip` (int, optional): Number of results to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of results to return (default: 100)
 
 **Example:**
+
 ```json
 {
   "name": "search_clients",
@@ -473,12 +281,15 @@ Search for clients by name, email, phone, or address.
 ```
 
 #### `get_client`
+
 Get detailed information about a specific client.
 
 **Parameters:**
+
 - `client_id` (int): ID of the client to retrieve
 
 **Example:**
+
 ```json
 {
   "name": "get_client",
@@ -489,15 +300,18 @@ Get detailed information about a specific client.
 ```
 
 #### `create_client`
+
 Create a new client.
 
 **Parameters:**
+
 - `name` (string): Client's full name
 - `email` (string, optional): Client's email address
 - `phone` (string, optional): Client's phone number
 - `address` (string, optional): Client's address
 
 **Example:**
+
 ```json
 {
   "name": "create_client",
@@ -513,30 +327,38 @@ Create a new client.
 ### Invoice Tools
 
 #### `list_invoices`
+
 List all invoices with pagination support.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of invoices to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of invoices to return (default: 100)
 
 #### `search_invoices`
+
 Search for invoices by number, client name, status, notes, or amount.
 
 **Parameters:**
+
 - `query` (string): Search query to find invoices
 - `skip` (int, optional): Number of results to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of results to return (default: 100)
 
 #### `get_invoice`
+
 Get detailed information about a specific invoice.
 
 **Parameters:**
+
 - `invoice_id` (int): ID of the invoice to retrieve
 
 #### `create_invoice`
+
 Create a new invoice for a client.
 
 **Parameters:**
+
 - `client_id` (int): ID of the client this invoice belongs to
 - `amount` (float): Total amount of the invoice
 - `due_date` (string): Due date in ISO format (YYYY-MM-DD)
@@ -544,12 +366,13 @@ Create a new invoice for a client.
 - `notes` (string, optional): Additional notes for the invoice
 
 **Example:**
+
 ```json
 {
   "name": "create_invoice",
   "arguments": {
     "client_id": 123,
-    "amount": 1500.00,
+    "amount": 1500.0,
     "due_date": "2024-02-15",
     "status": "sent",
     "notes": "Payment for consulting services"
@@ -560,23 +383,29 @@ Create a new invoice for a client.
 ### Analytics Tools
 
 #### `get_clients_with_outstanding_balance`
+
 Get all clients that have outstanding balances (unpaid invoices).
 
 #### `get_overdue_invoices`
+
 Get all invoices that are past their due date and still unpaid.
 
 #### `get_invoice_stats`
+
 Get overall invoice statistics including total income and other metrics.
 
 ### Currency Management Tools
 
 #### `list_currencies`
+
 List supported currencies with optional filtering for active currencies only.
 
 **Parameters:**
+
 - `active_only` (boolean, optional): Return only active currencies (default: true)
 
 **Example:**
+
 ```json
 {
   "name": "list_currencies",
@@ -587,9 +416,11 @@ List supported currencies with optional filtering for active currencies only.
 ```
 
 #### `create_currency`
+
 Create a custom currency for the tenant.
 
 **Parameters:**
+
 - `code` (string): Currency code (e.g., USD, EUR)
 - `name` (string): Currency name
 - `symbol` (string): Currency symbol
@@ -597,6 +428,7 @@ Create a custom currency for the tenant.
 - `is_active` (boolean, optional): Whether the currency is active (default: true)
 
 **Example:**
+
 ```json
 {
   "name": "create_currency",
@@ -611,20 +443,23 @@ Create a custom currency for the tenant.
 ```
 
 #### `convert_currency`
+
 Convert amount from one currency to another using current or historical exchange rates.
 
 **Parameters:**
+
 - `amount` (float): Amount to convert
 - `from_currency` (string): Source currency code
 - `to_currency` (string): Target currency code
 - `conversion_date` (string, optional): Date for conversion rate in YYYY-MM-DD format
 
 **Example:**
+
 ```json
 {
   "name": "convert_currency",
   "arguments": {
-    "amount": 100.00,
+    "amount": 100.0,
     "from_currency": "USD",
     "to_currency": "EUR",
     "conversion_date": "2024-01-15"
@@ -633,12 +468,15 @@ Convert amount from one currency to another using current or historical exchange
 ```
 
 ### Payment Management Tools
+
 ### Expense Management Tools
 
 #### `list_expenses`
+
 List expenses with optional filters and pagination.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of records to skip (default: 0)
 - `limit` (int, optional): Max records to return (default: 100)
 - `category` (string, optional): Filter by category
@@ -646,6 +484,7 @@ List expenses with optional filters and pagination.
 - `unlinked_only` (bool, optional): Only expenses not linked to any invoice
 
 **Example:**
+
 ```json
 {
   "name": "list_expenses",
@@ -659,12 +498,15 @@ List expenses with optional filters and pagination.
 ```
 
 #### `get_expense`
+
 Get a single expense by ID.
 
 **Parameters:**
+
 - `expense_id` (int): Expense ID
 
 **Example:**
+
 ```json
 {
   "name": "get_expense",
@@ -675,9 +517,11 @@ Get a single expense by ID.
 ```
 
 #### `create_expense`
+
 Create a new expense.
 
 **Parameters:**
+
 - `amount` (float): Expense amount before tax
 - `currency` (string): Currency code (e.g., USD)
 - `expense_date` (string): ISO date (YYYY-MM-DD)
@@ -693,11 +537,12 @@ Create a new expense.
 - `invoice_id` (int, optional)
 
 **Example:**
+
 ```json
 {
   "name": "create_expense",
   "arguments": {
-    "amount": 150.00,
+    "amount": 150.0,
     "currency": "USD",
     "expense_date": "2024-01-15",
     "category": "office_supplies",
@@ -714,13 +559,16 @@ Create a new expense.
 ```
 
 #### `update_expense`
+
 Update fields of an existing expense.
 
 **Parameters:**
+
 - `expense_id` (int): ID of the expense to update
 - Other fields same as `create_expense`, all optional
 
 **Example:**
+
 ```json
 {
   "name": "update_expense",
@@ -733,12 +581,15 @@ Update fields of an existing expense.
 ```
 
 #### `delete_expense`
+
 Delete an expense by ID.
 
 **Parameters:**
+
 - `expense_id` (int): ID to delete
 
 **Example:**
+
 ```json
 {
   "name": "delete_expense",
@@ -749,9 +600,11 @@ Delete an expense by ID.
 ```
 
 #### `upload_expense_receipt`
+
 Upload an attachment file for an expense.
 
 **Parameters:**
+
 - `expense_id` (int)
 - `file_path` (string): Absolute path to local file to upload
 - `filename` (string, optional): Override filename
@@ -760,6 +613,7 @@ Upload an attachment file for an expense.
 **Notes:** Up to 5 attachments per expense. Allowed types: PDF, JPG, PNG. Max 10 MB as enforced by backend.
 
 **Example:**
+
 ```json
 {
   "name": "upload_expense_receipt",
@@ -773,12 +627,15 @@ Upload an attachment file for an expense.
 ```
 
 #### `list_expense_attachments`
+
 List attachments for an expense.
 
 **Parameters:**
+
 - `expense_id` (int)
 
 **Example:**
+
 ```json
 {
   "name": "list_expense_attachments",
@@ -789,13 +646,16 @@ List attachments for an expense.
 ```
 
 #### `delete_expense_attachment`
+
 Delete an attachment of an expense.
 
 **Parameters:**
+
 - `expense_id` (int)
 - `attachment_id` (int)
 
 **Example:**
+
 ```json
 {
   "name": "delete_expense_attachment",
@@ -809,15 +669,18 @@ Delete an attachment of an expense.
 ### Statement Management Tools
 
 #### `list_statements`
+
 List all imported statements with pagination support.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of records to skip (default: 0)
 - `limit` (int, optional): Max records to return (default: 100)
 - `account_name` (string, optional): Filter by bank account name
 - `status` (string, optional): Filter by processing status
 
 **Example:**
+
 ```json
 {
   "name": "list_statements",
@@ -831,12 +694,15 @@ List all imported statements with pagination support.
 ```
 
 #### `get_bank_statement`
+
 Get detailed information about a specific statement.
 
 **Parameters:**
+
 - `statement_id` (int): ID of the statement to retrieve
 
 **Example:**
+
 ```json
 {
   "name": "get_bank_statement",
@@ -847,13 +713,16 @@ Get detailed information about a specific statement.
 ```
 
 #### `reprocess_bank_statement`
+
 Reprocess a statement for better transaction matching and categorization.
 
 **Parameters:**
+
 - `statement_id` (int): ID of the statement to reprocess
 - `force_reprocess` (bool, optional): Force reprocessing even if already processed (default: false)
 
 **Example:**
+
 ```json
 {
   "name": "reprocess_bank_statement",
@@ -865,9 +734,11 @@ Reprocess a statement for better transaction matching and categorization.
 ```
 
 #### `update_bank_statement_meta`
+
 Update metadata for a statement (name, description, etc.).
 
 **Parameters:**
+
 - `statement_id` (int): ID of the statement to update
 - `account_name` (string, optional): Bank account name
 - `statement_period` (string, optional): Statement period description
@@ -875,6 +746,7 @@ Update metadata for a statement (name, description, etc.).
 - `status` (string, optional): Processing status
 
 **Example:**
+
 ```json
 {
   "name": "update_bank_statement_meta",
@@ -889,13 +761,16 @@ Update metadata for a statement (name, description, etc.).
 ```
 
 #### `delete_bank_statement`
+
 Delete a statement and all associated transactions.
 
 **Parameters:**
+
 - `statement_id` (int): ID of the statement to delete
 - `confirm_deletion` (bool, optional): Confirmation flag to prevent accidental deletion (default: false)
 
 **Example:**
+
 ```json
 {
   "name": "delete_bank_statement",
@@ -909,12 +784,15 @@ Delete a statement and all associated transactions.
 ### Inventory Management Tools
 
 #### `list_inventory_categories`
+
 List all inventory categories with optional filtering for active categories only.
 
 **Parameters:**
+
 - `active_only` (boolean, optional): Return only active categories (default: true)
 
 **Example:**
+
 ```json
 {
   "name": "list_inventory_categories",
@@ -925,14 +803,17 @@ List all inventory categories with optional filtering for active categories only
 ```
 
 #### `create_inventory_category`
+
 Create a new inventory category for organizing inventory items.
 
 **Parameters:**
+
 - `name` (string): Category name
 - `description` (string, optional): Category description
 - `is_active` (boolean, optional): Whether category is active (default: true)
 
 **Example:**
+
 ```json
 {
   "name": "create_inventory_category",
@@ -945,15 +826,18 @@ Create a new inventory category for organizing inventory items.
 ```
 
 #### `update_inventory_category`
+
 Update an existing inventory category.
 
 **Parameters:**
+
 - `category_id` (int): ID of category to update
 - `name` (string, optional): New category name
 - `description` (string, optional): New category description
 - `is_active` (boolean, optional): New active status
 
 **Example:**
+
 ```json
 {
   "name": "update_inventory_category",
@@ -966,9 +850,11 @@ Update an existing inventory category.
 ```
 
 #### `list_inventory_items`
+
 List inventory items with optional filtering and pagination.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of items to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of items to return (default: 100)
 - `query` (string, optional): Search query for items
@@ -978,6 +864,7 @@ List inventory items with optional filtering and pagination.
 - `track_stock` (boolean, optional): Filter by stock tracking setting
 
 **Example:**
+
 ```json
 {
   "name": "list_inventory_items",
@@ -991,9 +878,11 @@ List inventory items with optional filtering and pagination.
 ```
 
 #### `create_inventory_item`
+
 Create a new inventory item with detailed specifications.
 
 **Parameters:**
+
 - `name` (string): Item name
 - `unit_price` (float): Unit selling price
 - `sku` (string, optional): Stock Keeping Unit
@@ -1009,6 +898,7 @@ Create a new inventory item with detailed specifications.
 - `is_active` (boolean, optional): Whether item is active (default: true)
 
 **Example:**
+
 ```json
 {
   "name": "create_inventory_item",
@@ -1025,13 +915,16 @@ Create a new inventory item with detailed specifications.
 ```
 
 #### `update_inventory_item`
+
 Update an existing inventory item.
 
 **Parameters:**
+
 - `item_id` (int): ID of item to update
 - Other parameters same as `create_inventory_item`, all optional
 
 **Example:**
+
 ```json
 {
   "name": "update_inventory_item",
@@ -1044,14 +937,17 @@ Update an existing inventory item.
 ```
 
 #### `adjust_stock`
+
 Adjust stock levels for an inventory item manually.
 
 **Parameters:**
+
 - `item_id` (int): ID of inventory item
 - `quantity` (float): Quantity to adjust (positive for increase, negative for decrease)
 - `reason` (string, optional): Reason for adjustment (default: "Manual adjustment")
 
 **Example:**
+
 ```json
 {
   "name": "adjust_stock",
@@ -1064,9 +960,11 @@ Adjust stock levels for an inventory item manually.
 ```
 
 #### `get_inventory_analytics`
+
 Get comprehensive inventory analytics and statistics.
 
 **Example:**
+
 ```json
 {
   "name": "get_inventory_analytics",
@@ -1075,9 +973,11 @@ Get comprehensive inventory analytics and statistics.
 ```
 
 #### `get_low_stock_items`
+
 Get items with stock levels below their minimum threshold.
 
 **Example:**
+
 ```json
 {
   "name": "get_low_stock_items",
@@ -1085,18 +985,21 @@ Get items with stock levels below their minimum threshold.
 }
 ```
 
-
 #### `list_payments`
+
 List all payments with pagination support.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of payments to skip for pagination (default: 0)
 - `limit` (int, optional): Maximum number of payments to return (default: 100)
 
 #### `create_payment`
+
 Create a new payment for an invoice.
 
 **Parameters:**
+
 - `invoice_id` (int): ID of the invoice this payment is for
 - `amount` (float): Payment amount
 - `payment_date` (string): Payment date in ISO format (YYYY-MM-DD)
@@ -1105,12 +1008,13 @@ Create a new payment for an invoice.
 - `notes` (string, optional): Additional notes
 
 **Example:**
+
 ```json
 {
   "name": "create_payment",
   "arguments": {
     "invoice_id": 123,
-    "amount": 500.00,
+    "amount": 500.0,
     "payment_date": "2024-01-15",
     "payment_method": "credit_card",
     "reference": "TXN-12345",
@@ -1122,9 +1026,11 @@ Create a new payment for an invoice.
 ### Settings Tools
 
 #### `get_settings`
+
 Get tenant settings including company information and invoice settings.
 
 **Example:**
+
 ```json
 {
   "name": "get_settings",
@@ -1135,9 +1041,11 @@ Get tenant settings including company information and invoice settings.
 ### Discount Rules Tools
 
 #### `list_discount_rules`
+
 List all discount rules for the current tenant.
 
 **Example:**
+
 ```json
 {
   "name": "list_discount_rules",
@@ -1146,9 +1054,11 @@ List all discount rules for the current tenant.
 ```
 
 #### `create_discount_rule`
+
 Create a new discount rule for the tenant.
 
 **Parameters:**
+
 - `name` (string): Name of the discount rule
 - `discount_type` (string): Type of discount (percentage, fixed)
 - `discount_value` (float): Discount value
@@ -1159,6 +1069,7 @@ Create a new discount rule for the tenant.
 - `currency` (string, optional): Currency code for the rule
 
 **Example:**
+
 ```json
 {
   "name": "create_discount_rule",
@@ -1178,15 +1089,18 @@ Create a new discount rule for the tenant.
 ### CRM Tools
 
 #### `create_client_note`
+
 Create a note for a client.
 
 **Parameters:**
+
 - `client_id` (int): ID of the client
 - `title` (string): Note title
 - `content` (string): Note content
 - `note_type` (string, optional): Type of note (general, call, meeting, etc.) (default: "general")
 
 **Example:**
+
 ```json
 {
   "name": "create_client_note",
@@ -1202,9 +1116,11 @@ Create a note for a client.
 ### Email Tools
 
 #### `send_invoice_email`
+
 Send an invoice via email.
 
 **Parameters:**
+
 - `invoice_id` (int): ID of the invoice to send
 - `to_email` (string, optional): Recipient email address (uses client email if not provided)
 - `to_name` (string, optional): Recipient name (uses client name if not provided)
@@ -1212,6 +1128,7 @@ Send an invoice via email.
 - `message` (string, optional): Custom message
 
 **Example:**
+
 ```json
 {
   "name": "send_invoice_email",
@@ -1226,12 +1143,15 @@ Send an invoice via email.
 ```
 
 #### `test_email_configuration`
+
 Test email configuration by sending a test email.
 
 **Parameters:**
+
 - `test_email` (string): Email address to send test email to
 
 **Example:**
+
 ```json
 {
   "name": "test_email_configuration",
@@ -1244,9 +1164,11 @@ Test email configuration by sending a test email.
 ### Tenant Tools
 
 #### `get_tenant_info`
+
 Get current tenant information including company details and settings.
 
 **Example:**
+
 ```json
 {
   "name": "get_tenant_info",
@@ -1272,6 +1194,7 @@ All tools return a JSON response with the following structure:
 ```
 
 For errors:
+
 ```json
 {
   "success": false,
@@ -1300,11 +1223,13 @@ The MCP server handles authentication automatically by:
 ### Common Issues
 
 1. **Authentication Failed**
+
    - Verify your email and password are correct
    - Ensure the Invoice API is running and accessible
    - Check that your user account is active
 
 2. **Connection Refused**
+
    - Verify the API base URL is correct
    - Ensure the Invoice API server is running
    - Check firewall and network settings
@@ -1358,13 +1283,14 @@ With FastMCP, adding new tools is simpler:
 4. Return a dictionary with the response data
 
 Example:
+
 ```python
 @mcp.tool()
 async def get_client_invoices(client_id: int, status: Optional[str] = None) -> dict:
     """Get all invoices for a specific client, optionally filtered by status."""
     if tools is None:
         return {"success": False, "error": "Server not properly initialized"}
-    
+
     # Implementation would go here
     return await tools.get_client_invoices(client_id=client_id, status=status)
 ```
@@ -1413,6 +1339,7 @@ This FastMCP server is part of the Invoice Application project. Please refer to 
 ## Recent Updates
 
 ### AI-Powered Intent Classification (Latest)
+
 - **Eliminated Hardcoded Patterns**: Replaced keyword pattern matching with AI-based intent classification
 - **Dynamic Tool Selection**: AI automatically determines which MCP tool to use based on message meaning
 - **Natural Language Understanding**: Supports natural language variations without maintaining pattern lists

@@ -10,7 +10,7 @@ import re
 import logging
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from core.settings.ocr_config import get_ocr_config
+from commercial.ai.settings.ocr_config import get_ocr_config
 
 logger = logging.getLogger(__name__)
 

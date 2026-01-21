@@ -21,7 +21,8 @@ from core.services.storage_monitoring_service import (
     PerformanceMetrics
 )
 from core.interfaces.storage_provider import StorageProvider, HealthCheckResult
-from core.models.models import StorageOperationLog, Tenant
+from core.models.models_per_tenant import StorageOperationLog
+from core.models.models import Tenant
 from commercial.cloud_storage.config import CloudStorageConfig
 
 

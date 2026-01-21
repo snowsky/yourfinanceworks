@@ -14,7 +14,7 @@ from core.models.database import get_db, get_master_db, set_tenant_context
 from core.models.models_per_tenant import User, Client, Invoice, Settings, ClientNote, InvoiceItem
 from core.models.models import Tenant, MasterUser
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_admin, require_admin_or_superuser
 from core.utils.audit import log_audit_event
 from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_IMPORT_DATA
@@ -30,21 +30,21 @@ async def get_settings(
     db: Session = Depends(get_db)
 ):
     """Get tenant settings (using tenant info as settings)"""
-    # Only admins can view settings
-    require_admin(current_user, "view settings")
-    
+    # Only org admins or superusers can view settings
+    require_admin_or_superuser(current_user, "view settings")
+
     # Manually get master database
     master_db = next(get_master_db())
-    
-    
+
+
     try:
         tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        
+
         # Get invoice settings from tenant database
         invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
-        
+
         # Default invoice settings
         default_invoice_settings = {
             "prefix": "INV-",
@@ -54,13 +54,13 @@ async def get_settings(
             "send_copy": True,
             "auto_reminders": True
         }
-        
+
         # Use stored settings or defaults
         if invoice_settings_record and invoice_settings_record.value:
             invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}
         else:
             invoice_settings = default_invoice_settings
-        
+
         # Get AI chat history retention setting from tenant database
         ai_chat_history_retention_setting = db.query(Settings).filter(Settings.key == "ai_chat_history_retention_days").first()
         ai_chat_history_retention_days = 7  # default
@@ -82,7 +82,7 @@ async def get_settings(
                 timezone = "UTC"
 
         # Return tenant info formatted as settings
-        return {
+        settings_data = {
             "company_info": {
                 "name": tenant.name,
                 "email": tenant.email or "",
@@ -96,6 +96,19 @@ async def get_settings(
             "ai_chat_history_retention_days": ai_chat_history_retention_days,
             "timezone": timezone
         }
+
+        # If AI assistant is enabled, validate license status
+        if settings_data["enable_ai_assistant"]:
+            if not feature_enabled("ai_chat", db):
+                # License expired or deactivated - disable AI assistant
+                settings_data["enable_ai_assistant"] = False
+                settings_data["ai_assistant_license_error"] = "AI Assistant requires a valid license. Please upgrade your plan."
+
+                # Also update tenant record to disable AI assistant
+                tenant.enable_ai_assistant = False
+                master_db.commit()
+
+        return settings_data
     finally:
         master_db.close()
 
@@ -107,15 +120,15 @@ async def update_settings(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update tenant settings"""
-    # Only admins can update settings
-    require_admin(current_user, "update settings")
-    
+    # Only org admins or superusers can update settings
+    require_admin_or_superuser(current_user, "update settings")
 
-    
+
+
     tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    
+
     # Update tenant info from company_info
     company_info = settings.get("company_info", {})
     if company_info:
@@ -125,7 +138,7 @@ async def update_settings(
             if len(new_name) < 2:
                 raise HTTPException(status_code=400, detail="Organization name must be at least 2 characters long")
             tenant.name = new_name
-        
+
         tenant.phone = company_info.get("phone", tenant.phone)
         tenant.address = company_info.get("address", tenant.address)
         tenant.tax_id = company_info.get("tax_id", tenant.tax_id)
@@ -164,14 +177,14 @@ async def update_settings(
             db.add(retention_setting)
 
         db.commit()
-    
+
     # Update invoice settings in tenant database
     invoice_settings = settings.get("invoice_settings", {})
 
     if invoice_settings:
         # Get or create invoice settings record
         invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
-        
+
         if invoice_settings_record:
             # Update existing record
             current_value = invoice_settings_record.value or {}
@@ -187,9 +200,9 @@ async def update_settings(
                 updated_at=datetime.now(timezone.utc)
             )
             db.add(invoice_settings_record)
-        
+
         db.commit()
-        
+
         # Log audit event in tenant DB for invoice settings
         log_audit_event(
             db=db,
@@ -202,7 +215,7 @@ async def update_settings(
             details=invoice_settings,
             status="success"
         )
-    
+
     # Update timezone setting in tenant database
     if "timezone" in settings:
         timezone_value = settings.get("timezone")
@@ -211,10 +224,10 @@ async def update_settings(
             timezone_str = str(timezone_value).strip()
             if not timezone_str:
                 raise HTTPException(status_code=400, detail="Timezone cannot be empty")
-            
+
             # Get or create timezone setting record
             timezone_setting = db.query(Settings).filter(Settings.key == "timezone").first()
-            
+
             if timezone_setting:
                 timezone_setting.value = timezone_str
                 timezone_setting.updated_at = datetime.now(timezone.utc)
@@ -226,12 +239,12 @@ async def update_settings(
                     updated_at=datetime.now(timezone.utc)
                 )
                 db.add(timezone_setting)
-            
+
             db.commit()
-    
+
     master_db.commit()
     master_db.refresh(tenant)
-    
+
     # Log audit event in master DB
     log_audit_event(
         db=master_db,
@@ -244,13 +257,13 @@ async def update_settings(
         details=settings,
         status="success"
     )
-    
+
     # Log audit event in tenant DB as well
     # Manually set tenant context and get tenant database
     set_tenant_context(current_user.tenant_id)
     tenant_session = tenant_db_manager.get_tenant_session(current_user.tenant_id)
     tenant_db = tenant_session()
-    
+
     try:
         log_audit_event(
             db=tenant_db,
@@ -274,7 +287,7 @@ async def export_tenant_data(
     master_db: Session = Depends(get_master_db)
 ):
     """Export tenant data to a real SQLite file"""
-    require_admin(current_user, "export data")
+    require_admin_or_superuser(current_user, "export data")
     import sqlalchemy
     from sqlalchemy.orm import sessionmaker
     from core.models.models_per_tenant import (
@@ -393,7 +406,7 @@ async def import_tenant_data(
     )
     from core.services.tenant_database_manager import tenant_db_manager
     try:
-        require_admin(current_user, "import data")
+        require_admin_or_superuser(current_user, "import data")
 
         # Validate file type
         if not file.filename or not file.filename.endswith('.sqlite'):
@@ -721,7 +734,7 @@ async def import_tenant_data(
                         )
                         db.add(new_config)
                     imported_counts['ai_configs'] = len(configs)
-                
+
                 # 13. Expenses
                 if 'expenses' in tables:
                     expenses = import_db.query(Expense).all()
@@ -760,7 +773,7 @@ async def import_tenant_data(
                         db.flush()
                         old_to_new_expense_ids[expense.id] = new_expense.id
                     imported_counts['expenses'] = len(expenses)
-                
+
                 # 14. ExpenseAttachments
                 if 'expense_attachments' in tables:
                     attachments = import_db.query(ExpenseAttachment).all()
@@ -781,7 +794,7 @@ async def import_tenant_data(
                             db.add(new_attachment)
                             attachment_count += 1
                     imported_counts['expense_attachments'] = attachment_count
-                
+
                 # 15. BankStatements
                 if 'bank_statements' in tables:
                     statements = import_db.query(BankStatement).all()
@@ -802,7 +815,7 @@ async def import_tenant_data(
                         db.flush()
                         old_to_new_statement_ids[statement.id] = new_statement.id
                     imported_counts['bank_statements'] = len(statements)
-                
+
                 # 16. BankStatementTransactions
                 if 'bank_statement_transactions' in tables:
                     transactions = import_db.query(BankStatementTransaction).all()
@@ -828,7 +841,7 @@ async def import_tenant_data(
                             db.add(new_transaction)
                             transaction_count += 1
                     imported_counts['bank_statement_transactions'] = transaction_count
-                
+
                 # 17. AuditLogs
                 if 'audit_logs' in tables:
                     audit_logs = import_db.query(AuditLog).all()
@@ -849,7 +862,7 @@ async def import_tenant_data(
                         )
                         db.add(new_log)
                     imported_counts['audit_logs'] = len(audit_logs)
-                
+
                 # 18. AIChatHistory
                 if 'ai_chat_history' in tables:
                     chat_history = import_db.query(AIChatHistory).all()
@@ -865,7 +878,7 @@ async def import_tenant_data(
                             )
                             db.add(new_chat)
                     imported_counts['ai_chat_history'] = len(chat_history)
-                
+
                 db.commit()
                 logger.info(f"Successfully imported data for tenant {current_user.tenant_id}: {imported_counts}")
                 return {
@@ -901,13 +914,13 @@ async def upload_company_logo(
     """Upload a company logo image and return its public URL (per-tenant directory)."""
     logger.info(f"🔍 LOGO UPLOAD ENDPOINT REACHED - user: {current_user.email}, tenant: {current_user.tenant_id}")
     logger.info(f"file: {file}")
-    
+
     # Only admins can upload company logo
     require_admin(current_user, "upload company logo")
-    
+
     # Debug logging to see what we're receiving
     logger.info(f"🔍 Logo upload request - filename: {file.filename}, content_type: {file.content_type}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
-    
+
     # Validate file extension first
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
@@ -916,7 +929,7 @@ async def upload_company_logo(
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'}
     if file_ext not in allowed_extensions:
         raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}")
-    
+
     # Validate content type
     allowed_content_types = {'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'}
     if file.content_type and file.content_type.lower() not in allowed_content_types:
@@ -927,11 +940,11 @@ async def upload_company_logo(
         file_content = await file.read()
         file_size = len(file_content)
         logger.info(f"Logo file size: {file_size} bytes")
-        
+
         MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5MB
         if file_size > MAX_LOGO_SIZE:
             raise HTTPException(status_code=400, detail=f"Logo file too large. Maximum size is 5MB, received {file_size} bytes")
-        
+
         # Validate magic numbers (file signature) for common image types
         if len(file_content) < 4:
             raise HTTPException(status_code=400, detail="File too small to be a valid image")
@@ -980,15 +993,15 @@ async def upload_company_logo(
         # Use the file_content we already read for size validation
         # Open and resize the image using PIL
         image = Image.open(io.BytesIO(file_content))
-        
+
         # Resize to 200x200 while maintaining aspect ratio
         image.thumbnail((200, 200), Image.Resampling.LANCZOS)
-        
+
         # Save the resized image
         image.save(file_path, quality=85, optimize=True)
-        
+
         print(f"Logo saved successfully to {file_path}")
-        
+
         # Return the public URL
         logo_url = f"/static/logos/{current_user.tenant_id}/{filename}"
 
@@ -1042,28 +1055,95 @@ async def get_company_logo(
         # Assuming company_logo_url is like /static/logos/<tenant_id>/logo.png
         # We need to convert this to an absolute file system path
         relative_path = tenant_record.company_logo_url.lstrip("/") # Remove leading slash
-        
+
         # Validate path to prevent directory traversal
         if ".." in relative_path or not relative_path.startswith("static/logos/"):
             raise HTTPException(status_code=400, detail="Invalid logo path")
-        
+
         from core.utils.file_validation import validate_file_path
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         file_path = os.path.join(base_dir, relative_path)
         validated_path = validate_file_path(file_path)
-        
+
         # Ensure the resolved path is still within the expected directory
         expected_dir = os.path.abspath(os.path.join(base_dir, "static", "logos"))
         if not validated_path.startswith(expected_dir):
             raise HTTPException(status_code=400, detail="Invalid logo path")
-        
+
         if not os.path.exists(validated_path):
             raise HTTPException(status_code=404, detail="Logo file not found on server.")
-        
+
         return FileResponse(validated_path)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving logo for tenant {tenant_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error while retrieving logo.")
+
+@router.get("/value/{key}")
+async def get_setting_value(
+    key: str,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Get a specific setting value by key"""
+    # Only admins
+    require_admin_or_superuser(current_user, "view settings")
+
+    setting = db.query(Settings).filter(Settings.key == key).first()
+    if not setting:
+        return {"key": key, "value": None}
+
+    return {"key": key, "value": setting.value}
+
+@router.put("/value/{key}")
+async def update_setting_value(
+    key: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Update a specific setting value by key"""
+    require_admin_or_superuser(current_user, "update settings")
+
+    # Expect payload to contain "value" key
+    if "value" not in payload:
+         # Optionally allow raw payload if it doesn't have "value"? 
+         # Best to require structure: {"value": <actual_value>}
+         # But if the user sends just a dict that happens to have "value"... 
+         # Let's enforce {"value": ...} wrapper in frontend.
+         pass
+
+    new_value = payload.get("value")
+
+    setting = db.query(Settings).filter(Settings.key == key).first()
+    if setting:
+        setting.value = new_value
+        setting.updated_at = datetime.now(timezone.utc)
+    else:
+        setting = Settings(
+            key=key,
+            value=new_value,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        db.add(setting)
+
+    db.commit()
+    db.refresh(setting)
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="setting",
+        resource_id=key,
+        resource_name=f"Setting: {key}",
+        details={"value": new_value},
+        status="success"
+    )
+
+    return {"key": key, "value": setting.value}

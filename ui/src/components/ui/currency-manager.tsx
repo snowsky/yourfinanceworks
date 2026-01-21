@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from './button';
-import { Card, CardContent, CardHeader, CardTitle } from './card';
+import { Card, CardContent } from './card';
 import { Input } from './input';
 import { Label } from './label';
 import { Switch } from './switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './alert-dialog';
 import { Badge } from './badge';
 import { Trash2, Edit, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { currencyApi } from '@/lib/api';
-import { apiRequest, getErrorMessage } from '@/lib/api';
+import { currencyApi, apiRequest, getErrorMessage } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
-import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Currency {
   id: number;
@@ -39,10 +39,13 @@ interface CurrencyUpdate {
 }
 
 export function CurrencyManager() {
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
   const [showDialog, setShowDialog] = useState(false);
   const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [currencyToDelete, setCurrencyToDelete] = useState<Currency | null>(null);
   const [newCurrency, setNewCurrency] = useState<CurrencyCreate>({
     code: '',
     name: '',
@@ -51,59 +54,53 @@ export function CurrencyManager() {
     is_active: true,
   });
 
-  const { t } = useTranslation();
+  const { data: currencies = [], isLoading } = useQuery({
+    queryKey: ['currencies'],
+    queryFn: () => currencyApi.getSupportedCurrencies(),
+  });
 
-  useEffect(() => {
-    fetchCurrencies();
-  }, []);
-
-  const fetchCurrencies = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchCurrenciesWithCache();
-      setCurrencies(response || []);
-    } catch (error) {
-      console.error('Failed to fetch currencies:', error);
-      toast.error(getErrorMessage(error, t));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateCurrency = async () => {
-    try {
-      if (!newCurrency.code || !newCurrency.name || !newCurrency.symbol) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
-
-      await currencyApi.createCustomCurrency(newCurrency);
+  const createMutation = useMutation({
+    mutationFn: (data: CurrencyCreate) => currencyApi.createCustomCurrency(data),
+    onSuccess: () => {
       toast.success('Currency created successfully');
+      queryClient.invalidateQueries({ queryKey: ['currencies'] });
       setShowDialog(false);
-      setNewCurrency({
-        code: '',
-        name: '',
-        symbol: '',
-        decimal_places: 2,
-        is_active: true,
-      });
-      fetchCurrencies();
-    } catch (error: any) {
-      console.error('Failed to create currency:', error);
+    },
+    onError: (error) => {
       toast.error(getErrorMessage(error, t));
     }
-  };
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: number; updates: CurrencyUpdate }) => currencyApi.updateCustomCurrency(id, updates),
+    onSuccess: () => {
+      toast.success('Currency updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['currencies'] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, t));
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => currencyApi.deleteCustomCurrency(id),
+    onSuccess: () => {
+      toast.success('Currency deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['currencies'] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, t));
+    }
+  });
 
   const checkCurrencyUsage = async (currencyCode: string): Promise<{ used: boolean; count: number }> => {
     try {
-      // Check if currency is used in invoices
       const invoices = await apiRequest<any[]>('/invoices/');
-      const invoiceCount = (invoices || []).filter(invoice => invoice.currency === currencyCode).length;
-      
-      // Check if currency is used in payments
+      const invoiceCount = Array.isArray(invoices) ? invoices.filter(invoice => invoice.currency === currencyCode).length : 0;
+
       const payments = await apiRequest<any[]>('/payments/');
-      const paymentCount = (payments || []).filter(payment => payment.currency === currencyCode).length;
-      
+      const paymentCount = Array.isArray(payments) ? payments.filter(payment => payment.currency === currencyCode).length : 0;
+
       const totalCount = invoiceCount + paymentCount;
       return { used: totalCount > 0, count: totalCount };
     } catch (error) {
@@ -112,38 +109,37 @@ export function CurrencyManager() {
     }
   };
 
-  const handleUpdateCurrency = async (currency: Currency, updates: CurrencyUpdate) => {
-    try {
-      // If trying to disable a currency, check if it's used
-      if (updates.is_active === false) {
-        const usage = await checkCurrencyUsage(currency.code);
-        if (usage.used) {
-          toast.error(`Cannot disable ${currency.name} (${currency.code}) as it is used in ${usage.count} invoice(s) or payment(s). Please update or delete those records first.`);
-          return;
-        }
+  const handleUpdateActive = async (currency: Currency, checked: boolean) => {
+    if (checked === false) {
+      const usage = await checkCurrencyUsage(currency.code);
+      if (usage.used) {
+        toast.error(`Cannot disable ${currency.name} (${currency.code}) as it is used in ${usage.count} invoice(s) or payment(s).`);
+        return;
       }
-
-      await currencyApi.updateCustomCurrency(currency.id, updates);
-      toast.success('Currency updated successfully');
-      fetchCurrencies();
-    } catch (error: any) {
-      console.error('Failed to update currency:', error);
-      toast.error(getErrorMessage(error, t));
     }
+    updateMutation.mutate({ id: currency.id, updates: { is_active: checked } });
   };
 
-  const handleDeleteCurrency = async (currency: Currency) => {
-    if (!confirm(`Are you sure you want to delete ${currency.name} (${currency.code})?`)) {
+  const handleSave = async () => {
+    if (!newCurrency.code || !newCurrency.name || !newCurrency.symbol) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    try {
-      await currencyApi.deleteCustomCurrency(currency.id);
-      toast.success('Currency deleted successfully');
-      fetchCurrencies();
-    } catch (error: any) {
-      console.error('Failed to delete currency:', error);
-      toast.error(getErrorMessage(error, t));
+    if (editingCurrency) {
+      updateMutation.mutate({
+        id: editingCurrency.id,
+        updates: {
+          name: newCurrency.name,
+          symbol: newCurrency.symbol,
+          decimal_places: newCurrency.decimal_places,
+          is_active: newCurrency.is_active,
+        }
+      }, {
+        onSuccess: () => setShowDialog(false)
+      });
+    } else {
+      createMutation.mutate(newCurrency);
     }
   };
 
@@ -171,20 +167,23 @@ export function CurrencyManager() {
     setShowDialog(true);
   };
 
-  const handleSave = async () => {
-    if (editingCurrency) {
-      await handleUpdateCurrency(editingCurrency, {
-        name: newCurrency.name,
-        symbol: newCurrency.symbol,
-        decimal_places: newCurrency.decimal_places,
-        is_active: newCurrency.is_active,
+  const handleDeleteClick = (currency: Currency) => {
+    setCurrencyToDelete(currency);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (currencyToDelete) {
+      deleteMutation.mutate(currencyToDelete.id, {
+        onSettled: () => {
+          setDeleteModalOpen(false);
+          setCurrencyToDelete(null);
+        }
       });
-    } else {
-      await handleCreateCurrency();
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -229,8 +228,9 @@ export function CurrencyManager() {
                 <div className="flex items-center space-x-2">
                   <Switch
                     checked={currency.is_active}
+                    disabled={updateMutation.isPending}
                     onCheckedChange={(checked) =>
-                      handleUpdateCurrency(currency, { is_active: checked })
+                      handleUpdateActive(currency, checked)
                     }
                   />
                   <Button
@@ -243,7 +243,8 @@ export function CurrencyManager() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteCurrency(currency)}
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteClick(currency)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -252,6 +253,11 @@ export function CurrencyManager() {
             </CardContent>
           </Card>
         ))}
+        {currencies.length === 0 && (
+          <div className="text-center py-12 bg-muted/10 rounded-xl border-2 border-dashed border-border">
+            <p className="text-muted-foreground font-medium">No custom currencies found</p>
+          </div>
+        )}
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -324,17 +330,50 @@ export function CurrencyManager() {
               />
               <Label htmlFor="is_active">Active</Label>
             </div>
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2 pt-4">
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
-                {editingCurrency ? 'Update' : 'Create'}
+              <Button
+                onClick={handleSave}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  editingCurrency ? 'Update' : 'Create'
+                )}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Currency</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {currencyToDelete?.name} ({currencyToDelete?.code})? This action cannot be undone and the currency will be completely removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Currency
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-} 
+}

@@ -11,6 +11,7 @@ interface JoinRequest {
 }
 
 const POLL_INTERVAL = 60000; // Poll every 60 seconds
+const INITIAL_DELAY = 5000; // Wait 5 seconds before first poll to let page load
 const SEEN_REQUESTS_KEY = 'seen_join_requests';
 
 export function useJoinRequestPolling(
@@ -19,6 +20,7 @@ export function useJoinRequestPolling(
 ) {
   const seenRequestsRef = useRef<Set<number>>(new Set());
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initialDelayRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load seen requests from localStorage
   useEffect(() => {
@@ -74,13 +76,18 @@ export function useJoinRequestPolling(
   useEffect(() => {
     if (!isAdmin) return;
 
-    // Initial check
-    checkForNewRequests();
+    // Delay initial check to avoid hammering the server on page load
+    initialDelayRef.current = setTimeout(() => {
+      checkForNewRequests();
 
-    // Set up polling
-    pollIntervalRef.current = setInterval(checkForNewRequests, POLL_INTERVAL);
+      // Set up polling after initial check
+      pollIntervalRef.current = setInterval(checkForNewRequests, POLL_INTERVAL);
+    }, INITIAL_DELAY);
 
     return () => {
+      if (initialDelayRef.current) {
+        clearTimeout(initialDelayRef.current);
+      }
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }

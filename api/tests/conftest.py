@@ -11,36 +11,73 @@ from fastapi.testclient import TestClient
 from core.models.models_per_tenant import Base
 from main import app
 
+# Create in-memory SQLite database for TestingSessionLocal
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+    echo=False
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create all tables once for TestingSessionLocal
+Base.metadata.create_all(bind=engine)
+
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+def create_test_client():
+    return TestClient(app)
 
 @pytest.fixture
 def client():
     """Create FastAPI test client"""
-    return TestClient(app)
+    return create_test_client()
+
+@pytest.fixture
+def create_test_user(db_session):
+    """Factory for creating test users"""
+    from core.models.models_per_tenant import User
+    from datetime import datetime, timezone
+
+    def _create_user(**kwargs):
+        defaults = {
+            "email": "test@example.com",
+            "hashed_password": "hashed_password",
+            "is_active": True,
+            "role": "admin",
+            "first_name": "Test",
+            "last_name": "User",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        defaults.update(kwargs)
+        user = User(**defaults)
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+    return _create_user
 
 
 @pytest.fixture
 def db_session():
     """Create an in-memory SQLite database session for testing"""
-    # Create in-memory SQLite database
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False
-    )
-
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-
-    # Create session
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = SessionLocal()
+    # Use the shared engine/sessionmaker for compatibility
+    session = TestingSessionLocal()
 
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        # Clean up data but keep tables
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+        session.commit()
 
 
 @pytest.fixture
@@ -50,13 +87,12 @@ def mock_db():
 
 
 @pytest.fixture
-def sample_inventory_category():
+def sample_inventory_category(db_session):
     """Create a sample inventory category for testing"""
     from core.models.models_per_tenant import InventoryCategory
     from datetime import datetime, timezone
 
-    return InventoryCategory(
-        id=1,
+    category = InventoryCategory(
         name="Test Category",
         description="Test category description",
         color="#FF5733",
@@ -64,20 +100,23 @@ def sample_inventory_category():
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
+    db_session.add(category)
+    db_session.commit()
+    db_session.refresh(category)
+    return category
 
 
 @pytest.fixture
-def sample_inventory_item():
+def sample_inventory_item(db_session, sample_inventory_category):
     """Create a sample inventory item for testing"""
     from core.models.models_per_tenant import InventoryItem
     from datetime import datetime, timezone
 
-    return InventoryItem(
-        id=1,
+    item = InventoryItem(
         name="Test Item",
         description="Test item description",
         sku="TEST-001",
-        category_id=1,
+        category_id=sample_inventory_category.id,
         unit_price=29.99,
         cost_price=15.50,
         currency="USD",
@@ -90,84 +129,100 @@ def sample_inventory_item():
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
+    db_session.add(item)
+    db_session.commit()
+    db_session.refresh(item)
+    return item
 
 
 @pytest.fixture
-def sample_stock_movement():
+def sample_stock_movement(db_session, sample_inventory_item, sample_user):
     """Create a sample stock movement for testing"""
     from core.models.models_per_tenant import StockMovement
     from core.schemas.inventory import StockMovementCreate
     from datetime import datetime, timezone
 
+    # We return the schema here to match previous behavior, but we might want the model
     return StockMovementCreate(
-        item_id=1,
+        item_id=sample_inventory_item.id,
         movement_type="sale",
         quantity=-5,
         reference_type="invoice",
         reference_id=123,
         notes="Test sale",
-        user_id=1,
+        user_id=sample_user.id,
         movement_date=datetime.now(timezone.utc)
     )
 
 
 @pytest.fixture
-def sample_user():
+def sample_user(db_session):
     """Create a sample user for testing"""
     from core.models.models_per_tenant import User
 
-    return User(
-        id=1,
+    user = User(
         email="test@example.com",
         hashed_password="hashed_password",
         is_active=True,
-        role="admin"
+        role="admin",
+        first_name="Test",
+        last_name="User"
     )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
 
 
 @pytest.fixture
-def sample_client():
+def sample_client(db_session):
     """Create a sample client for testing"""
     from core.models.models_per_tenant import Client
     from datetime import datetime, timezone
 
-    return Client(
-        id=1,
+    client = Client(
         name="Test Client",
         email="client@example.com",
         balance=0.0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
+    db_session.add(client)
+    db_session.commit()
+    db_session.refresh(client)
+    return client
 
 
 @pytest.fixture
-def sample_invoice():
+def sample_invoice(db_session, sample_client):
     """Create a sample invoice for testing"""
     from core.models.models_per_tenant import Invoice
     from datetime import datetime, timezone
 
-    return Invoice(
-        id=1,
+    invoice = Invoice(
         number="INV-001",
         amount=100.00,
         currency="USD",
         due_date=datetime.now(timezone.utc),
         status="draft",
         notes="Test invoice",
+        client_id=sample_client.id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
+    db_session.add(invoice)
+    db_session.commit()
+    db_session.refresh(invoice)
+    return invoice
 
 
 @pytest.fixture
-def sample_expense():
+def sample_expense(db_session, sample_user):
     """Create a sample expense for testing"""
     from core.models.models_per_tenant import Expense
     from datetime import datetime, timezone
 
-    return Expense(
-        id=1,
+    expense = Expense(
         amount=50.00,
         currency="USD",
         expense_date=datetime.now(timezone.utc),
@@ -176,10 +231,14 @@ def sample_expense():
         is_inventory_purchase=False,
         status="recorded",
         notes="Test expense",
-        user_id=1,
+        user_id=sample_user.id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc)
     )
+    db_session.add(expense)
+    db_session.commit()
+    db_session.refresh(expense)
+    return expense
 
 
 @pytest.fixture
@@ -254,27 +313,6 @@ def create_test_item(db_session, **kwargs):
     db_session.commit()
     db_session.refresh(item)
     return item
-
-
-def create_test_user(db_session, **kwargs):
-    """Factory for creating test users"""
-    from core.models.models_per_tenant import User
-
-    defaults = {
-        "email": "test@example.com",
-        "hashed_password": "hashed_password",
-        "is_active": True,
-        "role": "admin",
-        "first_name": "Test",
-        "last_name": "User"
-    }
-    defaults.update(kwargs)
-
-    user = User(**defaults)
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-    return user
 
 
 # Custom pytest markers

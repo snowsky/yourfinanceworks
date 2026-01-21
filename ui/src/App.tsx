@@ -1,78 +1,96 @@
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RoleProtectedRoute } from "./components/auth/RoleProtectedRoute";
 import { TenantProtectedRoute } from "./components/auth/TenantProtectedRoute";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import OAuthCallback from "./pages/OAuthCallback";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Clients from "./pages/Clients";
-import NewClient from "./pages/NewClient";
-import EditClient from "./pages/EditClient";
-import Invoices from "./pages/Invoices";
-import NewInvoice from "./pages/NewInvoice";
-import NewInvoiceManual from "./pages/NewInvoiceManual";
-import EditInvoice from "./pages/EditInvoice";
-import ViewInvoice from "./pages/ViewInvoice";
-import Payments from "./pages/Payments";
-import ExpensesNew from "./pages/ExpensesNew";
-import ExpensesImport from "./pages/ExpensesImport";
-import ExpensesEdit from "./pages/ExpensesEdit";
-import ExpensesView from "./pages/ExpensesView";
-import Expenses from "./pages/Expenses";
-import Statements from "./pages/Statements";
-import Settings from "./pages/Settings";
-import Users from "./pages/Users";
-import SuperAdmin from "./pages/SuperAdmin";
-import NotFound from "./pages/NotFound";
-import AIAssistant from "./components/AIAssistant";
 import { Toaster } from "sonner";
-import AuditLog from "./pages/AuditLog";
-import RecycleBin from "./pages/RecycleBin";
-import ExpenseRecycleBin from "./pages/ExpenseRecycleBin";
-import StatementRecycleBin from "./pages/StatementRecycleBin";
-import Analytics from "./pages/Analytics";
-import Reports from "./pages/Reports";
-import ReportDetail from "./pages/ReportDetail";
-import AttachmentSearch from "./pages/AttachmentSearch";
-import { ActivityPage } from "./pages/ActivityPage";
-import { NotificationBell } from "./components/notifications/NotificationBell";
 import { useNotifications } from "./hooks/useNotifications";
 import { useExpenseStatusPolling } from "./hooks/useExpenseStatusPolling";
 import { useJoinRequestPolling } from "./hooks/useJoinRequestPolling";
 import { getCurrentUser } from "./utils/auth";
-import { Favicon } from "./components/ui/favicon";
 import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
-import { OnboardingProvider } from "./components/onboarding/OnboardingProvider";
-import { TourOverlay } from "./components/onboarding/TourOverlay";
-import { SearchProvider } from "./components/search/SearchProvider";
-import { SearchDialog } from "./components/search/SearchDialog";
-import { FeatureProvider } from "./contexts/FeatureContext";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-import Inventory from "./pages/Inventory";
-import NewInventoryItem from "./pages/NewInventoryItem";
-import EditInventoryItem from "./pages/EditInventoryItem";
-import InventoryItemDetail from "./pages/InventoryItemDetail";
-import NewInventoryInvoice from "./pages/NewInventoryInvoice";
-import { ApprovalDashboard } from "./components/approvals/ApprovalDashboard";
-import ApprovalReportsPage from "./pages/ApprovalReportsPage";
-import Reminders from "./pages/Reminders";
-import { AppLayout } from "./components/layout/AppLayout";
-import { AuthenticatedLayout } from "./components/layout/AuthenticatedLayout";
-import OrganizationJoinRequests from "./pages/OrganizationJoinRequests";
-import PromptManagement from "./pages/PromptManagement";
-import Gamification from "./pages/Gamification";
-
-
+// Lazy load only page components for code splitting
+const Index = React.lazy(() => import("./pages/Index"));
+const Login = React.lazy(() => import("./pages/Login"));
+const OAuthCallback = React.lazy(() => import("./pages/OAuthCallback"));
+const Signup = React.lazy(() => import("./pages/Signup"));
+const ForgotPassword = React.lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
+const Clients = React.lazy(() => import("./pages/Clients"));
+const NewClient = React.lazy(() => import("./pages/NewClient"));
+const EditClient = React.lazy(() => import("./pages/EditClient"));
+const Invoices = React.lazy(() => import("./pages/Invoices"));
+const NewInvoice = React.lazy(() => import("./pages/NewInvoice"));
+const NewInvoiceManual = React.lazy(() => import("./pages/NewInvoiceManual"));
+const EditInvoice = React.lazy(() => import("./pages/EditInvoice"));
+const ViewInvoice = React.lazy(() => import("./pages/ViewInvoice"));
+const Payments = React.lazy(() => import("./pages/Payments"));
+const ExpensesNew = React.lazy(() => import("./pages/ExpensesNew"));
+const ExpensesImport = React.lazy(() => import("./pages/ExpensesImport"));
+const ExpensesEdit = React.lazy(() => import("./pages/ExpensesEdit"));
+const ExpensesView = React.lazy(() => import("./pages/ExpensesView"));
+const Expenses = React.lazy(() => import("./pages/Expenses"));
+const Statements = React.lazy(() => import("./pages/Statements"));
+const Settings = React.lazy(() => import("./pages/Settings"));
+const Users = React.lazy(() => import("./pages/Users"));
+const SuperAdmin = React.lazy(() => import("./pages/SuperAdmin"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
+const AIAssistant = React.lazy(() => import("./components/AIAssistant"));
+const AuditLog = React.lazy(() => import("./pages/AuditLog"));
+const RecycleBin = React.lazy(() => import("./pages/RecycleBin"));
+const ExpenseRecycleBin = React.lazy(() => import("./pages/ExpenseRecycleBin"));
+const StatementRecycleBin = React.lazy(() => import("./pages/StatementRecycleBin"));
+const Analytics = React.lazy(() => import("./pages/Analytics"));
+const Reports = React.lazy(() => import("./pages/Reports"));
+const ReportDetail = React.lazy(() => import("./pages/ReportDetail"));
+const AttachmentSearch = React.lazy(() => import("./pages/AttachmentSearch"));
+const ActivityPage = React.lazy(() => import("./pages/ActivityPage").then(module => ({ default: module.ActivityPage })));
+const NotificationBell = React.lazy(() => import("./components/notifications/NotificationBell").then(module => ({ default: module.NotificationBell })));
+const Favicon = React.lazy(() => import("./components/ui/favicon").then(module => ({ default: module.Favicon })));
+const OnboardingProvider = React.lazy(() => import("./components/onboarding/OnboardingProvider").then(module => ({ default: module.OnboardingProvider })));
+const TourOverlay = React.lazy(() => import("./components/onboarding/TourOverlay").then(module => ({ default: module.TourOverlay })));
+const SearchProvider = React.lazy(() => import("./components/search/SearchProvider").then(module => ({ default: module.SearchProvider })));
+const SearchDialog = React.lazy(() => import("./components/search/SearchDialog").then(module => ({ default: module.SearchDialog })));
+const FeatureProvider = React.lazy(() => import("./contexts/FeatureContext").then(module => ({ default: module.FeatureProvider })));
+const ApprovalDashboard = React.lazy(() => import("./components/approvals/ApprovalDashboard").then(module => ({ default: module.ApprovalDashboard })));
+const AppLayout = React.lazy(() => import("./components/layout/AppLayout").then(module => ({ default: module.AppLayout })));
+const AuthenticatedLayout = React.lazy(() => import("./components/layout/AuthenticatedLayout").then(module => ({ default: module.AuthenticatedLayout })));
+const Inventory = React.lazy(() => import("./pages/Inventory"));
+const NewInventoryItem = React.lazy(() => import("./pages/NewInventoryItem"));
+const EditInventoryItem = React.lazy(() => import("./pages/EditInventoryItem"));
+const InventoryItemDetail = React.lazy(() => import("./pages/InventoryItemDetail"));
+const NewInventoryInvoice = React.lazy(() => import("./pages/NewInventoryInvoice"));
+const ApprovalReportsPage = React.lazy(() => import("./pages/ApprovalReportsPage"));
+const Reminders = React.lazy(() => import("./pages/Reminders"));
+const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
+const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
 const queryClient = new QueryClient();
+
+// Simple redirect component for expense IDs
+const ExpenseRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/expenses/view/${id}`} replace />;
+};
+
+// Simple redirect component for invoice IDs
+const InvoiceRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/invoices/view/${id}`} replace />;
+};
+
+// Simple redirect component for client IDs
+const ClientRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/clients/edit/${id}`} replace />;
+};
 
 const AppContent = () => {
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
@@ -117,99 +135,60 @@ const AppContent = () => {
         <FeatureProvider>
           <SearchProvider>
             <OnboardingProvider>
-
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/oauth-callback" element={<OAuthCallback />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/dashboard" element={<Index />} />
-                  <Route path="/clients" element={<Clients />} />
-                  <Route path="/clients/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewClient /></RoleProtectedRoute>} />
-                  <Route path="/clients/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditClient /></RoleProtectedRoute>} />
-                  <Route path="/invoices" element={<Invoices />} />
-                  <Route path="/invoices/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoice /></RoleProtectedRoute>} />
-                  <Route path="/invoices/new-manual" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoiceManual /></RoleProtectedRoute>} />
-                  <Route path="/invoices/view/:id" element={<ViewInvoice />} />
-                  <Route path="/invoices/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInvoice /></RoleProtectedRoute>} />
-                  <Route path="/payments" element={<Payments />} />
-                  <Route path="/expenses/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesNew /></RoleProtectedRoute>} />
-                  <Route path="/expenses/import" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesImport /></RoleProtectedRoute>} />
-                  <Route path="/expenses/view/:id" element={<ExpensesView />} />
-                  <Route path="/expenses/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute>} />
-                  <Route path="/expenses" element={<Expenses />} />
-                  <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
-                  <Route path="/approvals" element={<ApprovalDashboard />} />
-                  <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
-                  <Route path="/statements" element={<Statements />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/users" element={<RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute>} />
-                  <Route path="/organization-join-requests" element={<RoleProtectedRoute allowedRoles={['admin']}><OrganizationJoinRequests /></RoleProtectedRoute>} />
-                  <Route path="/super-admin" element={<TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute>} />
-                  <Route path="/audit-log" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><AuditLog /></RoleProtectedRoute>} />
-                  <Route path="/recycle-bin" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute>} />
-                  <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute>} />
-                  <Route path="/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute>} />
-                  <Route path="/reports/:reportType" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute>} />
-                  <Route path="/attachments" element={<AttachmentSearch />} />
-                  <Route path="/activity" element={<ActivityPage />} />
-                  <Route path="/inventory" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Inventory /></RoleProtectedRoute>} />
-                  <Route path="/inventory/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryItem /></RoleProtectedRoute>} />
-                  <Route path="/inventory/view/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><InventoryItemDetail /></RoleProtectedRoute>} />
-                  <Route path="/inventory/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInventoryItem /></RoleProtectedRoute>} />
-                  <Route path="/inventory/new-inventory" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryInvoice /></RoleProtectedRoute>} />
-                  <Route path="/prompts" element={<RoleProtectedRoute allowedRoles={['admin']}><PromptManagement /></RoleProtectedRoute>} />
-                  <Route path="/recycle-bin" element={<RecycleBin />} />
-                  <Route path="/expenses/recycle-bin" element={<ExpenseRecycleBin />} />
-                  <Route path="/statements/recycle-bin" element={<StatementRecycleBin />} />
-                </Route>
-                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-                <Route path="/clients/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewClient /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/clients/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><EditClient /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-                <Route path="/invoices/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoice /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/invoices/new-manual" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoiceManual /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/invoices/view/:id" element={<ProtectedRoute><ViewInvoice /></ProtectedRoute>} />
-                <Route path="/invoices/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInvoice /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                <Route path="/expenses/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesNew /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/expenses/import" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesImport /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/expenses/view/:id" element={<ProtectedRoute><ExpensesView /></ProtectedRoute>} />
-                <Route path="/expenses/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
-                <Route path="/reminders" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/approvals" element={<ProtectedRoute><AppLayout><ApprovalDashboard /></AppLayout></ProtectedRoute>} />
-                <Route path="/approvals/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><AppLayout><ApprovalReportsPage /></AppLayout></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/statements" element={<ProtectedRoute><Statements /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/users" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/organization-join-requests" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><OrganizationJoinRequests /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/super-admin" element={<ProtectedRoute><TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute></ProtectedRoute>} />
-                <Route path="/audit-log" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><AuditLog /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/recycle-bin" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/analytics" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/reports/:reportType" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/attachments" element={<ProtectedRoute><AttachmentSearch /></ProtectedRoute>} />
-                <Route path="/activity" element={<ProtectedRoute><AppLayout><ActivityPage /></AppLayout></ProtectedRoute>} />
-                <Route path="/inventory" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><Inventory /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/inventory/new" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryItem /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/inventory/view/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><InventoryItemDetail /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/inventory/edit/:id" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInventoryItem /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/inventory/new-inventory" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryInvoice /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/prompts" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={['admin']}><PromptManagement /></RoleProtectedRoute></ProtectedRoute>} />
-                <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
-                <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
-                <Route path="/expenses/recycle-bin" element={<ProtectedRoute><ExpenseRecycleBin /></ProtectedRoute>} />
-                <Route path="/statements/recycle-bin" element={<ProtectedRoute><StatementRecycleBin /></ProtectedRoute>} />
-
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <React.Suspense fallback={<LoadingSpinner fullScreen />}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/oauth-callback" element={<OAuthCallback />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/dashboard" element={<Index />} />
+                    <Route path="/clients" element={<Clients />} />
+                    <Route path="/clients/:id" element={<ClientRedirect />} />
+                    <Route path="/clients/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewClient /></RoleProtectedRoute>} />
+                    <Route path="/clients/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditClient /></RoleProtectedRoute>} />
+                    <Route path="/invoices" element={<Invoices />} />
+                    <Route path="/invoices/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoice /></RoleProtectedRoute>} />
+                    <Route path="/invoices/new-manual" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInvoiceManual /></RoleProtectedRoute>} />
+                    <Route path="/invoices/view/:id" element={<ViewInvoice />} />
+                    <Route path="/invoices/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInvoice /></RoleProtectedRoute>} />
+                    <Route path="/invoices/:id" element={<InvoiceRedirect />} />
+                    <Route path="/expenses/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesNew /></RoleProtectedRoute>} />
+                    <Route path="/expenses/import" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesImport /></RoleProtectedRoute>} />
+                    <Route path="/expenses/view/:id" element={<ExpensesView />} />
+                    <Route path="/expenses/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute>} />
+                    <Route path="/expenses/:id" element={<ExpenseRedirect />} />
+                    <Route path="/expenses" element={<Expenses />} />
+                    <Route path="/payments" element={<Payments />} />
+                    <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
+                    <Route path="/approvals" element={<ApprovalDashboard />} />
+                    <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
+                    <Route path="/statements" element={<Statements />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/users" element={<RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute>} />
+                    <Route path="/organization-join-requests" element={<RoleProtectedRoute allowedRoles={['admin']}><OrganizationJoinRequests /></RoleProtectedRoute>} />
+                    <Route path="/super-admin" element={<TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute>} />
+                    <Route path="/audit-log" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><AuditLog /></RoleProtectedRoute>} />
+                    <Route path="/recycle-bin" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute>} />
+                    <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute>} />
+                    <Route path="/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute>} />
+                    <Route path="/reports/:reportType" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute>} />
+                    <Route path="/attachments" element={<AttachmentSearch />} />
+                    <Route path="/activity" element={<ActivityPage />} />
+                    <Route path="/inventory" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Inventory /></RoleProtectedRoute>} />
+                    <Route path="/inventory/new" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryItem /></RoleProtectedRoute>} />
+                    <Route path="/inventory/view/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><InventoryItemDetail /></RoleProtectedRoute>} />
+                    <Route path="/inventory/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><EditInventoryItem /></RoleProtectedRoute>} />
+                    <Route path="/inventory/new-inventory" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><NewInventoryInvoice /></RoleProtectedRoute>} />
+                    <Route path="/prompts" element={<RoleProtectedRoute allowedRoles={['admin']}><PromptManagement /></RoleProtectedRoute>} />
+                    <Route path="/expenses/recycle-bin" element={<ExpenseRecycleBin />} />
+                    <Route path="/statements/recycle-bin" element={<StatementRecycleBin />} />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </React.Suspense>
               {isLoggedIn && !bellHidden && (
                 <NotificationBell
                   notifications={notifications}
@@ -243,7 +222,9 @@ const AppContent = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <ThemeProvider defaultTheme="system" storageKey="invoice-app-theme">
+        <AppContent />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

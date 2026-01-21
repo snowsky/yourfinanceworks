@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 # Add API directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.services.prompt_service import PromptService
-from core.models.prompt_templates import PromptTemplate
+from commercial.prompt_management.services.prompt_service import PromptService
+from commercial.prompt_management.models.prompt_templates import PromptTemplate
 from core.constants.default_prompts import DEFAULT_PROMPT_TEMPLATES
 
 # Configure logging

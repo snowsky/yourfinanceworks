@@ -9,12 +9,12 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from api.services.report_template_service import ReportTemplateService
-from api.services.report_service import ReportService
-from api.schemas.report import (
+from core.services.report_template_service import ReportTemplateService
+from core.services.report_service import ReportService
+from core.schemas.report import (
     ReportTemplateCreate, ReportType, ExportFormat, ReportResult
 )
-from api.models.models_per_tenant import ReportTemplate, User
+from core.models.models_per_tenant import ReportTemplate, User
 
 
 class TestReportTemplateIntegration:
@@ -60,7 +60,7 @@ class TestReportTemplateIntegration:
             updated_at=datetime.now()
         )
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_template_based_report_generation_integration(
         self, 
         mock_report_service_class, 
@@ -111,7 +111,7 @@ class TestReportTemplateIntegration:
         # Check that user_id was passed
         assert call_args[1]['user_id'] == sample_template.user_id
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_template_with_filter_overrides_integration(
         self, 
         mock_report_service_class, 
@@ -162,7 +162,7 @@ class TestReportTemplateIntegration:
     
     def test_template_validation_with_report_service_filters(self, template_service, mock_db):
         """Test that template filter validation uses report service validation"""
-        with patch('api.services.report_template_service.ReportService') as mock_report_service_class:
+        with patch('core.services.report_template_service.ReportService') as mock_report_service_class:
             # Mock report service
             mock_report_service = Mock()
             mock_validated_filters = Mock()
@@ -223,7 +223,7 @@ class TestReportTemplateIntegration:
         mock_db.commit.assert_called_once()
         mock_db.refresh.assert_called_once()
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_error_handling_in_template_report_generation(
         self, 
         mock_report_service_class, 
@@ -318,7 +318,7 @@ class TestReportServiceTemplateIntegration:
     @pytest.fixture
     def sample_template_schema(self):
         """Sample template schema for testing"""
-        from api.schemas.report import ReportTemplate as ReportTemplateSchema
+        from core.schemas.report import ReportTemplate as ReportTemplateSchema
         return ReportTemplateSchema(
             id=1,
             name="Test Template",

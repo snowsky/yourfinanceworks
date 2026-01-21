@@ -22,6 +22,7 @@ interface InvoiceFormWithApprovalProps {
   openNewClientOnInit?: boolean;
   existingApproval?: { approver_id: number };
   canEditPayment?: boolean;
+  onSubmitStateChange?: (isSubmitting: boolean) => void;
 }
 
 export function InvoiceFormWithApproval({
@@ -33,7 +34,8 @@ export function InvoiceFormWithApproval({
   prefillNewClient,
   openNewClientOnInit,
   existingApproval,
-  canEditPayment = false
+  canEditPayment = false,
+  onSubmitStateChange
 }: InvoiceFormWithApprovalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -51,7 +53,8 @@ export function InvoiceFormWithApproval({
   useEffect(() => {
     const checkClients = async () => {
       try {
-        const clients = await clientApi.getClients();
+        const clientsResponse = await clientApi.getClients();
+        const clients = clientsResponse.items;
         setHasClients(Array.isArray(clients) && clients.length > 0);
       } catch (error) {
         console.error('Failed to fetch clients:', error);
@@ -69,7 +72,7 @@ export function InvoiceFormWithApproval({
         const response = await approvalApi.getApprovers();
         setAvailableApprovers(response);
         setApprovalsNotLicensed(false);
-        
+
         // Pre-populate approval state if existingApproval is provided
         if (existingApproval && existingApproval.approver_id) {
           setSubmitForApproval(true);
@@ -142,7 +145,8 @@ export function InvoiceFormWithApproval({
   const checkClientsAgain = async () => {
     try {
       setLoadingClients(true);
-      const clients = await clientApi.getClients();
+      const clientsResponse = await clientApi.getClients();
+      const clients = clientsResponse.items;
       setHasClients(Array.isArray(clients) && clients.length > 0);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -185,7 +189,10 @@ export function InvoiceFormWithApproval({
           submitForApproval={submitForApproval && !approvalsNotLicensed}
           approverIdForApproval={selectedApproverId ? parseInt(selectedApproverId) : undefined}
           submitButtonRef={submitButtonRef}
-          onSubmitStateChange={setIsSubmitting}
+          onSubmitStateChange={(val) => {
+            setIsSubmitting(val);
+            if (onSubmitStateChange) onSubmitStateChange(val);
+          }}
           canEditPayment={canEditPayment}
         />
       </div>
@@ -215,9 +222,9 @@ export function InvoiceFormWithApproval({
                       <p className="text-sm text-green-700 dark:text-green-300">
                         {t('invoices.approved_by', 'Approved by')}: {' '}
                         {approvalHistory.approved_by_username ||
-                         approvalHistory.approver?.name ||
-                         approvalHistory.approver?.email ||
-                         'Unknown'}
+                          approvalHistory.approver?.name ||
+                          approvalHistory.approver?.email ||
+                          'Unknown'}
                       </p>
                       {approvalHistory.decided_at && (
                         <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -247,9 +254,9 @@ export function InvoiceFormWithApproval({
                       <p className="text-sm text-red-700 dark:text-red-300">
                         {t('invoices.rejected_by', 'Rejected by')}: {' '}
                         {approvalHistory.rejected_by_username ||
-                         approvalHistory.approver?.name ||
-                         approvalHistory.approver?.email ||
-                         'Unknown'}
+                          approvalHistory.approver?.name ||
+                          approvalHistory.approver?.email ||
+                          'Unknown'}
                       </p>
                       {approvalHistory.decided_at && (
                         <p className="text-xs text-red-600 dark:text-red-400 mt-1">

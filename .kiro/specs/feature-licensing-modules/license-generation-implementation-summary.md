@@ -2,7 +2,7 @@
 
 ## Overview
 
-Task 7 "License Generation System (Your Side)" has been successfully implemented. This system provides a complete license generation infrastructure for creating, signing, and managing license keys for the Invoice Management System.
+Task 7 "License Generation System (Your Side)" has been successfully implemented. This system provides a complete license generation infrastructure for creating, signing, and managing license keys for the {APP_NAME}.
 
 ## What Was Implemented
 

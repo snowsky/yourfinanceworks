@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import func
-from typing import List, Optional
+from sqlalchemy import func, cast, String
+import sqlalchemy as sa
+from typing import List, Optional, Dict, Any
 import logging
 import traceback
 from datetime import datetime, timezone, timedelta
@@ -15,10 +16,10 @@ from pydantic import BaseModel
 from typing import List as TypingList
 
 from core.models.database import get_db
-from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings
+from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings, InvoiceAttachment
 from core.models.models import MasterUser
 from core.routers.payments import Payment
-from core.schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate, RecycleBinResponse, DeletedInvoice, RestoreInvoiceRequest
+from core.schemas.invoice import InvoiceCreate, InvoiceUpdate, Invoice as InvoiceSchema, InvoiceWithClient, InvoiceHistory, InvoiceHistoryCreate, RecycleBinResponse, DeletedInvoice, RestoreInvoiceRequest, PaginatedInvoices
 from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.currency_service import CurrencyService
@@ -27,6 +28,8 @@ from core.utils.rbac import require_non_viewer, require_admin
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
+from core.utils.timezone import get_tenant_timezone_aware_datetime
+from core.services.review_service import ReviewService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,12 +39,12 @@ def get_attachment_info(invoice, new_attachments):
     """Helper function to get attachment info from modern attachment system"""
     has_attachment = len(new_attachments) > 0
     attachment_filename = new_attachments[0].filename if new_attachments else None
-    
+
     # Fallback to legacy fields only if no modern attachments exist
     if not has_attachment and hasattr(invoice, 'attachment_filename') and invoice.attachment_filename:
         has_attachment = True
         attachment_filename = invoice.attachment_filename
-    
+
     return has_attachment, attachment_filename
 
 class BulkDeleteRequest(BaseModel):
@@ -84,7 +87,7 @@ async def create_invoice(
     logger.info(f"Current user: {current_user.email if current_user else 'None'}")
     # Check if user has permission to create invoices
     require_non_viewer(current_user, "create invoices")
-    
+
     try:
         # Validate that the client exists
         client = db.query(Client).filter(Client.id == invoice.client_id).first()
@@ -93,7 +96,7 @@ async def create_invoice(
                 status_code=404,
                 detail=f"Client with ID {invoice.client_id} not found. Please create a client first."
             )
-        
+
         # Use provided invoice number or generate unique one
         # No tenant_id needed since we're in the tenant's database
         if invoice.number and invoice.number.strip():
@@ -110,21 +113,21 @@ async def create_invoice(
             invoice_number = invoice.number.strip()
         else:
             invoice_number = generate_invoice_number(db)
-        
+
         # Initialize currency service
         currency_service = CurrencyService(db)
-        
+
         # Determine invoice currency
         client_preferred_currency = currency_service.get_client_preferred_currency(invoice.client_id)
         invoice_currency = client_preferred_currency if client_preferred_currency else invoice.currency
-        
+
         # Validate currency
         if not currency_service.validate_currency_code(invoice_currency):
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid currency code: {invoice_currency}"
             )
-        
+
         # No tenant_id needed since each tenant has its own database
         logger.debug(f"[DEBUG] Received custom_fields: {invoice.custom_fields}")
         # Normalize incoming dates to avoid off-by-one issues
@@ -150,16 +153,17 @@ async def create_invoice(
             # Persist description into notes field for backward compatibility, or use default notes
             notes=invoice.description or invoice.notes or default_notes,
             client_id=invoice.client_id,
-            created_at=incoming_created_at or datetime.now(timezone.utc),
-            updated_at=incoming_created_at or datetime.now(timezone.utc),
+            created_at=incoming_created_at or get_tenant_timezone_aware_datetime(db),
+            updated_at=incoming_created_at or get_tenant_timezone_aware_datetime(db),
             is_recurring=invoice.is_recurring,
             recurring_frequency=invoice.recurring_frequency,
             custom_fields=invoice.custom_fields,
             show_discount_in_pdf=invoice.show_discount_in_pdf,
             payer=invoice.payer,
+            labels=invoice.labels,
             created_by_user_id=current_user.id  # User attribution
         )
-        
+
         # Calculate subtotal and amount
         items_list = invoice.items or []
         if items_list:
@@ -233,7 +237,7 @@ async def create_invoice(
             except Exception:
                 logger.warning("Failed to create auto payment on invoice creation", exc_info=True)
         logger.info(f"[DEBUG] Saved custom_fields in DB: {db_invoice.custom_fields}")
-        
+
         # Create invoice items with inventory integration
         from core.services.inventory_integration_service import InventoryIntegrationService
         integration_service = InventoryIntegrationService(db)
@@ -272,7 +276,7 @@ async def create_invoice(
                 unit_of_measure=unit_of_measure
             )
             db.add(db_item)
-        
+
         # Create history entry for invoice creation
         from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         from core.utils.audit_sanitizer import sanitize_history_values
@@ -285,7 +289,7 @@ async def create_invoice(
             'due_date': db_invoice.due_date.isoformat() if db_invoice.due_date else None,
             'notes': db_invoice.notes  # This will be sanitized
         }
-        
+
         creation_history = InvoiceHistoryModel(
             invoice_id=db_invoice.id,
             user_id=current_user.id,
@@ -295,17 +299,17 @@ async def create_invoice(
             current_values=sanitize_history_values(current_values)
         )
         db.add(creation_history)
-        
+
         db.commit()
         db.refresh(db_invoice)
-        
+
         # Send notification
         try:
             from core.utils.notifications import notify_invoice_created
             notify_invoice_created(db, db_invoice, current_user.id)
         except Exception as e:
             logger.warning(f"Failed to send invoice creation notification: {str(e)}")
-        
+
         # Log audit event (sanitize sensitive data)
         from core.utils.audit_sanitizer import sanitize_for_context
         try:
@@ -333,7 +337,7 @@ async def create_invoice(
             details=audit_details,
             status="success"
         )
-        
+
         # Build response including description from notes and inventory information
         items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == db_invoice.id).all()
         items_data = [
@@ -403,7 +407,7 @@ async def create_invoice(
                     "track_stock": item.inventory_item.track_stock,
                     "is_active": item.inventory_item.is_active
                 }
-            
+
             item_data = {
                 "id": item.id,
                 "invoice_id": item.invoice_id,
@@ -446,19 +450,19 @@ async def create_invoice(
         try:
             from core.services.financial_event_processor import create_financial_event_processor
             event_processor = create_financial_event_processor(db)
-            
+
             invoice_data = {
                 "client_id": invoice.client_id,
                 "invoice_number": invoice.number,
                 "total": float(invoice.amount)
             }
-            
+
             gamification_result = await event_processor.process_invoice_created(
                 user_id=current_user.id,
                 invoice_id=invoice.id,
                 invoice_data=invoice_data
             )
-            
+
             if gamification_result:
                 logger.info(
                     f"Gamification event processed for invoice {invoice.id}: "
@@ -475,6 +479,7 @@ async def create_invoice(
             "currency": invoice.currency,
             "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
             "status": invoice.status,
+            "labels": invoice.labels,
             "notes": invoice.notes,
             "description": invoice.notes,
             "client_id": invoice.client_id,
@@ -504,7 +509,10 @@ async def create_invoice(
             "attachment_count": len(new_attachments),
             "created_by_user_id": invoice.created_by_user_id,
             "created_by_username": created_by_username,
-            "created_by_email": created_by_email
+            "created_by_email": created_by_email,
+            "review_status": invoice.review_status,
+            "review_result": invoice.review_result,
+            "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None
         }
     except HTTPException as he:
         logger.error(f"HTTPException in create_invoice: {he.status_code} - {he.detail}")
@@ -558,13 +566,14 @@ async def clone_invoice(
             status="draft",
             notes=source_invoice.notes,
             client_id=source_invoice.client_id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db),
             is_recurring=source_invoice.is_recurring,
             recurring_frequency=source_invoice.recurring_frequency,
             custom_fields=source_invoice.custom_fields,
             show_discount_in_pdf=source_invoice.show_discount_in_pdf,
-            payer=source_invoice.payer
+            payer=source_invoice.payer,
+            labels=source_invoice.labels
         )
 
         # If the original has items, recalc subtotal/amount like create endpoint
@@ -687,7 +696,10 @@ async def clone_invoice(
             "has_attachment": False,
             "attachment_filename": None,
             "attachments": [],
-            "attachment_count": 0
+            "attachment_count": 0,
+            "review_status": cloned_invoice.review_status,
+            "review_result": cloned_invoice.review_result,
+            "reviewed_at": cloned_invoice.reviewed_at.isoformat() if cloned_invoice.reviewed_at else None
         }
     except HTTPException:
         raise
@@ -696,11 +708,12 @@ async def clone_invoice(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="Failed to clone invoice")
 
-@router.get("/", response_model=List[InvoiceWithClient])
+@router.get("/", response_model=PaginatedInvoices)
 async def read_invoices(
     skip: int = 0,
     limit: int = 100,
     status_filter: Optional[str] = None,
+    label: Optional[str] = None,
     created_by_user_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -724,13 +737,12 @@ async def read_invoices(
             selectinload(Invoice.created_by)
         ).filter(Invoice.is_deleted == False)
 
-        # Apply status filter if provided
-        if status_filter and status_filter != "all":
-            query = query.filter(Invoice.status == status_filter)
+        # Apply label filter if provided
+        if label:
+            query = query.filter(sa.cast(Invoice.labels, sa.String).ilike(f"%{label}%"))
 
-        # Apply creator filter if provided
-        if created_by_user_id is not None:
-            query = query.filter(Invoice.created_by_user_id == created_by_user_id)
+        # Calculate total count before pagination
+        total_count = query.group_by(Invoice.id, Client.name).count()
 
         # Get invoices with client information and payment status
         invoices = query.group_by(
@@ -782,15 +794,22 @@ async def read_invoices(
                 "custom_fields": invoice.custom_fields if invoice.custom_fields is not None else {},
                 "show_discount_in_pdf": invoice.show_discount_in_pdf,
                 "payer": invoice.payer,
+                "labels": invoice.labels,
                 "has_attachment": get_attachment_info(invoice, new_attachments)[0],
                 "attachment_filename": get_attachment_info(invoice, new_attachments)[1],
                 "created_by_user_id": invoice.created_by_user_id,
                 "created_by_username": created_by_username,
-                "created_by_email": created_by_email
+                "created_by_email": created_by_email,
+                "review_status": invoice.review_status,
+                "review_result": invoice.review_result,
+                "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None
             }
             result.append(invoice_dict)
 
-        return result
+        return {
+            "items": result,
+            "total": total_count
+        }
     except Exception as e:
         logger.error(f"Error in read_invoices: {str(e)}")
         logger.error(traceback.format_exc())
@@ -799,7 +818,45 @@ async def read_invoices(
             detail=f"Failed to fetch invoices: {str(e)}"
         )# Recycle Bin Endpoints (must come before /{invoice_id} route)
 
-@router.get("/recycle-bin", response_model=List[DeletedInvoice])
+@router.post("/bulk-labels")
+async def bulk_labels(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Bulk add or remove labels from invoices"""
+    require_non_viewer(current_user, "bulk update invoices")
+
+    ids = payload.get("ids", [])
+    action = payload.get("action") # "add" or "remove"
+    label = payload.get("label", "").strip()
+
+    if not ids or action not in ["add", "remove"] or label == "":
+        raise HTTPException(status_code=400, detail="Invalid request payload")
+
+    try:
+        invoices = db.query(Invoice).filter(Invoice.id.in_(ids)).all()
+
+        for inv in invoices:
+            current_labels = list(inv.labels or [])
+            if action == "add":
+                if label not in current_labels:
+                    current_labels.append(label)
+            elif action == "remove":
+                if label in current_labels:
+                    current_labels.remove(label)
+
+            inv.labels = current_labels
+            inv.updated_at = get_tenant_timezone_aware_datetime(db)
+
+        db.commit()
+        return {"success": True, "count": len(invoices)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in bulk_labels: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update labels")
+
+@router.get("/recycle-bin")
 async def get_deleted_invoices(
     skip: int = 0,
     limit: int = 100,
@@ -811,7 +868,7 @@ async def get_deleted_invoices(
         deleted_invoices = db.query(Invoice).filter(
             Invoice.is_deleted == True
         ).offset(skip).limit(limit).all()
-        
+
         # Build response with additional info
         result = []
         for invoice in deleted_invoices:
@@ -839,9 +896,9 @@ async def get_deleted_invoices(
                 "show_discount_in_pdf": invoice.show_discount_in_pdf
             }
             result.append(invoice_dict)
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error getting deleted invoices: {str(e)}")
         logger.error(traceback.format_exc())
@@ -859,26 +916,26 @@ async def empty_recycle_bin(
     try:
         # Only admins can empty the recycle bin
         require_admin(current_user, "empty the recycle bin")
-        
+
         # Get all deleted invoices
         deleted_invoices = db.query(Invoice).filter(Invoice.is_deleted == True).all()
         count = len(deleted_invoices)
-        
+
         if count == 0:
             return {"message": "Recycle bin is already empty", "deleted_count": 0}
-        
+
         # Delete all attachments from storage before deleting invoices
         try:
             from core.models.models_per_tenant import InvoiceAttachment
-            
+
             # Get all invoice IDs
             invoice_ids = [inv.id for inv in deleted_invoices]
-            
+
             # Get all attachments for these invoices
             attachments = db.query(InvoiceAttachment).filter(
                 InvoiceAttachment.invoice_id.in_(invoice_ids)
             ).all()
-            
+
             # Delete attachments individually (still needed for proper cleanup)
             for att in attachments:
                 if att.file_path:
@@ -886,7 +943,7 @@ async def empty_recycle_bin(
                         await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
                     except Exception as e:
                         logger.warning(f"Failed to delete attachment {att.file_path}: {e}")
-            
+
             # Also delete legacy attachment paths
             for invoice in deleted_invoices:
                 if invoice.attachment_path:
@@ -894,18 +951,18 @@ async def empty_recycle_bin(
                         await delete_file_from_storage(invoice.attachment_path, current_user.tenant_id, current_user.id, db)
                     except Exception as e:
                         logger.warning(f"Failed to delete legacy attachment {invoice.attachment_path}: {e}")
-            
+
             if attachments:
                 logger.info(f"Deleted {len(attachments)} attachment(s) from storage during recycle bin empty")
         except Exception as e:
             logger.warning(f"Failed to delete attachments during recycle bin empty: {e}")
-        
+
         # Delete all invoices in recycle bin
         # Note: We don't create InvoiceHistory entries here because invoice_id is required
         # and we're deleting multiple invoices. The audit log below captures this action.
         for invoice in deleted_invoices:
             db.delete(invoice)
-        
+
         db.commit()
 
         # Audit log for empty recycle bin
@@ -920,12 +977,12 @@ async def empty_recycle_bin(
             details={"message": f"Recycle bin emptied, {count} invoices permanently deleted."},
             status="success"
         )
-        
+
         return {
             "message": f"Recycle bin emptied successfully. {count} invoices permanently deleted.",
             "deleted_count": count
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -950,20 +1007,20 @@ async def restore_invoice(
             Invoice.id == invoice_id,
             Invoice.is_deleted == True
         ).first()
-        
+
         if db_invoice is None:
             raise HTTPException(
                 status_code=404,
                 detail="Deleted invoice not found"
             )
-        
+
         # Restore the invoice
         db_invoice.is_deleted = False
         db_invoice.deleted_at = None
         db_invoice.deleted_by = None
         db_invoice.status = restore_request.new_status  # Set the new status
-        db_invoice.updated_at = datetime.now(timezone.utc)
-        
+        db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
+
         # Log the restoration in invoice history
         from core.models.models_per_tenant import InvoiceHistory
         history_entry = InvoiceHistory(
@@ -978,7 +1035,7 @@ async def restore_invoice(
             }
         )
         db.add(history_entry)
-        
+
         db.commit()
 
         # Audit log for restore
@@ -993,13 +1050,13 @@ async def restore_invoice(
             details={"message": "Invoice restored from recycle bin"},
             status="success"
         )
-        
+
         return RecycleBinResponse(
             message="Invoice restored successfully",
             invoice_id=invoice_id,
             action="restored"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1023,7 +1080,7 @@ async def permanently_delete_invoice(
             Invoice.id == invoice_id,
             Invoice.is_deleted == True
         ).first()
-        
+
         if db_invoice is None:
             raise HTTPException(
                 status_code=404,
@@ -1039,27 +1096,27 @@ async def permanently_delete_invoice(
 
         # Only admins can permanently delete invoices
         require_admin(current_user, "permanently delete invoices")
-        
+
         # Delete all attachments from storage before deleting the invoice
         try:
             from core.models.models_per_tenant import InvoiceAttachment
             attachments = db.query(InvoiceAttachment).filter(
                 InvoiceAttachment.invoice_id == invoice_id
             ).all()
-            
+
             for att in attachments:
                 if att.file_path:
                     await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
-            
+
             if attachments:
                 logger.info(f"Deleted {len(attachments)} attachment(s) from storage for invoice {invoice_id}")
         except Exception as e:
             logger.warning(f"Failed to delete attachments for invoice {invoice_id}: {e}")
-        
+
         # Delete legacy attachment if present
         if db_invoice.attachment_path:
             await delete_file_from_storage(db_invoice.attachment_path, current_user.tenant_id, current_user.id, db)
-        
+
         # Unlink any bank statement transactions that reference this invoice  
         try:
             from core.models.models_per_tenant import BankStatementTransaction
@@ -1088,7 +1145,7 @@ async def permanently_delete_invoice(
         )
         db.add(history_entry)
         db.commit()  # Commit the history first
-        
+
         # Now permanently delete the invoice (this will cascade to related records)
         db.delete(db_invoice)
         db.commit()
@@ -1105,13 +1162,13 @@ async def permanently_delete_invoice(
             details={"message": "Invoice permanently deleted"},
             status="success"
         )
-        
+
         return RecycleBinResponse(
             message="Invoice permanently deleted",
             invoice_id=invoice_id,
             action="permanently_deleted"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1130,13 +1187,13 @@ async def get_ai_status(
     """Check if AI/LLM is configured and available for PDF processing"""
     try:
         from core.models.models_per_tenant import AIConfig as AIConfigModel
-        
+
         # Check if there's at least one active and tested AI configuration, prioritizing default
         active_config = db.query(AIConfigModel).filter(
             AIConfigModel.is_active == True,
             AIConfigModel.tested == True
         ).order_by(AIConfigModel.is_default.desc()).first()
-        
+
         return {
             "configured": active_config is not None
         }
@@ -1269,6 +1326,7 @@ async def read_invoice(
             "currency": invoice.currency,
             "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
             "status": invoice.status,
+            "labels": invoice.labels,
             "notes": invoice.notes,
             "client_id": invoice.client_id,
             "client_name": client_name,
@@ -1297,7 +1355,10 @@ async def read_invoice(
             "attachment_count": len(new_attachments),
             "created_by_user_id": invoice.created_by_user_id,
             "created_by_username": created_by_username,
-            "created_by_email": created_by_email
+            "created_by_email": created_by_email,
+            "review_status": invoice.review_status,
+            "review_result": invoice.review_result,
+            "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None
         }
 
         return invoice_dict
@@ -1418,7 +1479,7 @@ async def update_invoice(
                             'file_size': attachment.file_size
                         })
                         attachment.is_active = False
-                        attachment.updated_at = datetime.now(timezone.utc)
+                        attachment.updated_at = get_tenant_timezone_aware_datetime(db)
                         logger.info(f"Soft deleted new-style attachment: {attachment.filename}")
 
                     # Create history entry for attachment deletion
@@ -1506,7 +1567,7 @@ async def update_invoice(
                             for payment in payments_to_adjust:
                                 if remaining_to_remove <= 0:
                                     break
-                                    
+
                                 if payment.amount <= remaining_to_remove:
                                     # Remove entire payment
                                     removed_payments.append(f"${payment.amount:.2f} ({payment.reference_number})")
@@ -1573,7 +1634,7 @@ async def update_invoice(
                     existing_item.quantity = float(getattr(item_data, 'quantity', existing_item.quantity))
                     existing_item.price = float(getattr(item_data, 'price', existing_item.price))
                     existing_item.amount = float(getattr(item_data, 'quantity', existing_item.quantity)) * float(getattr(item_data, 'price', existing_item.price))
-                    existing_item.updated_at = datetime.now(timezone.utc)
+                    existing_item.updated_at = get_tenant_timezone_aware_datetime(db)
                     updated_item_ids.add(item_data.id)
                 else:
                     # Create new item (no ID or ID not found)
@@ -1646,7 +1707,7 @@ async def update_invoice(
                         old_client_info += f" ({old_client.email})"
                 else:
                     old_client_info = f"Client ID {old_client_id}"
-                
+
                 if new_client:
                     new_client_info = f"{new_client.name}"
                     if new_client.email:
@@ -1740,7 +1801,7 @@ async def update_invoice(
             else:
                 db_invoice.amount = recalculated_subtotal
 
-            db_invoice.updated_at = datetime.now(timezone.utc)
+            db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(db_invoice)
             logger.info(f"[DEBUG] Saved custom_fields in DB (update): {db_invoice.custom_fields}")
@@ -1951,28 +2012,28 @@ async def bulk_delete_invoices(
 ):
     """Bulk delete invoices (move to recycle bin)"""
     require_non_viewer(current_user, "bulk delete invoices")
-    
+
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
-    
+
     try:
         if not payload.invoice_ids:
             raise HTTPException(status_code=400, detail="No invoice IDs provided")
-        
+
         # Limit bulk delete to prevent performance issues
         if len(payload.invoice_ids) > 100:
             raise HTTPException(status_code=400, detail="Cannot delete more than 100 invoices at once")
-        
+
         # Get all invoices to delete
         invoices_to_delete = db.query(Invoice).filter(
             Invoice.id.in_(payload.invoice_ids),
             Invoice.is_deleted == False
         ).all()
-        
+
         if not invoices_to_delete:
             raise HTTPException(status_code=404, detail="No invoices found")
-        
+
         # Check if any invoices cannot be deleted
         for invoice in invoices_to_delete:
             # Prevent deleting an invoice that has linked expenses
@@ -1981,7 +2042,7 @@ async def bulk_delete_invoices(
                     status_code=400, 
                     detail=f"Cannot delete invoice #{invoice.id} that has linked expenses. Please unlink or delete expenses first."
                 )
-        
+
         # Process each invoice for deletion
         deleted_count = 0
         for invoice in invoices_to_delete:
@@ -2001,7 +2062,7 @@ async def bulk_delete_invoices(
 
                 # Soft delete invoice
                 invoice.is_deleted = True
-                invoice.deleted_at = datetime.now(timezone.utc)
+                invoice.deleted_at = get_tenant_timezone_aware_datetime(db)
                 invoice.deleted_by = current_user.id
 
                 # Log deletion in invoice history
@@ -2026,9 +2087,9 @@ async def bulk_delete_invoices(
                     details={"message": "Invoice moved to recycle bin via bulk delete"},
                     status="success"
                 )
-                
+
                 deleted_count += 1
-                
+
             except Exception as e:
                 logger.error(f"Failed to delete invoice {invoice.id}: {e}")
                 db.rollback()
@@ -2039,7 +2100,7 @@ async def bulk_delete_invoices(
 
         db.commit()
         logger.info(f"Successfully moved {deleted_count} invoices to recycle bin")
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2093,7 +2154,7 @@ async def delete_invoice(
 
         # Soft delete the invoice
         db_invoice.is_deleted = True
-        db_invoice.deleted_at = datetime.now(timezone.utc)
+        db_invoice.deleted_at = get_tenant_timezone_aware_datetime(db)
         db_invoice.deleted_by = current_user.id
 
         # Log the deletion in invoice history
@@ -2175,6 +2236,49 @@ async def get_total_income(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to calculate total income: {str(e)}"
+        )
+
+@router.get("/stats/comprehensive", response_model=dict)
+async def get_comprehensive_stats(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Get comprehensive invoice statistics including counts and financial data"""
+    try:
+        # Get all invoices (exclude soft-deleted)
+        total_invoices_query = db.query(Invoice).filter(Invoice.is_deleted == False)
+        total_invoices = total_invoices_query.count()
+
+        # Count by status
+        paid_invoices = total_invoices_query.filter(Invoice.status == 'paid').count()
+        unpaid_invoices = total_invoices_query.filter(Invoice.status.in_(['pending', 'draft'])).count()
+        overdue_invoices = total_invoices_query.filter(Invoice.status == 'overdue').count()
+
+        # Calculate total revenue from paid invoices
+        total_revenue = db.query(
+            func.coalesce(func.sum(Invoice.amount), 0)
+        ).filter(
+            Invoice.status == 'paid',
+            Invoice.is_deleted == False
+        ).scalar()
+
+        # Calculate average invoice amount
+        average_invoice_amount = float(total_revenue / paid_invoices) if paid_invoices > 0 else 0.0
+
+        return {
+            "total_invoices": total_invoices,
+            "total_revenue": float(total_revenue) if total_revenue is not None else 0.0,
+            "average_invoice_amount": average_invoice_amount,
+            "paid_invoices": paid_invoices,
+            "unpaid_invoices": unpaid_invoices,
+            "overdue_invoices": overdue_invoices
+        }
+    except Exception as e:
+        logger.error(f"Error in get_comprehensive_stats: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate comprehensive statistics: {str(e)}"
         )
 
 @router.post("/calculate-discount")
@@ -2461,26 +2565,15 @@ async def upload_invoice_attachment(
         base_name = os.path.basename(original_name)
         base_name = re.sub(r"[^A-Za-z0-9._-]", "_", base_name)
 
-        # Deactivate any existing new-style attachments
-        from core.models.models_per_tenant import InvoiceAttachment
-        existing_attachments = db.query(InvoiceAttachment).filter(
-            InvoiceAttachment.invoice_id == invoice_id,
-            InvoiceAttachment.is_active == True
-        ).all()
-
-        for existing_attachment in existing_attachments:
-            existing_attachment.is_active = False
-            existing_attachment.updated_at = datetime.now(timezone.utc)
-
-        # Initialize cloud storage service
+        # Get tenant context
         try:
             try:
                 from commercial.cloud_storage.service import CloudStorageService
                 from commercial.cloud_storage.config import get_cloud_storage_config
-                
+
                 cloud_config = get_cloud_storage_config()
                 cloud_storage_service = CloudStorageService(db, cloud_config)
-                
+
                 # Store file using cloud storage with automatic fallback
                 storage_result = await cloud_storage_service.store_file(
                     file_content=contents,
@@ -2494,13 +2587,13 @@ async def upload_invoice_attachment(
                         'invoice_id': invoice_id
                     }
                 )
-                
+
                 if not storage_result.success:
                     raise HTTPException(
                         status_code=500,
                         detail=f"Failed to store file: {storage_result.error_message}"
                     )
-                
+
                 # Determine storage location and file path
                 if storage_result.file_url:
                     # Cloud storage - use file_key as path
@@ -2517,12 +2610,12 @@ async def upload_invoice_attachment(
                     file_path = str(attachments_dir / filename)
                     stored_filename = filename
                     is_cloud_stored = False
-                
+
                 logger.info(f"File stored successfully: {file_path} (cloud: {is_cloud_stored})")
             except ImportError:
                 logger.info("Commercial CloudStorageService not found, falling back to local storage")
                 raise Exception("Commercial module not found")
-            
+
         except Exception as e:
             if "Commercial module not found" not in str(e):
                 logger.error(f"Cloud storage service error: {e}")
@@ -2530,16 +2623,16 @@ async def upload_invoice_attachment(
             tenant_folder = f"tenant_{tenant_id}"
             attachments_dir = Path("attachments") / tenant_folder / "invoices"
             attachments_dir.mkdir(parents=True, exist_ok=True)
-            
+
             name_without_ext = os.path.splitext(base_name)[0][:100]
             ext_from_ct = allowed_types[file.content_type]
             filename = f"invoice_{invoice_id}_{name_without_ext}{ext_from_ct}"
             file_path = attachments_dir / filename
-            
+
             # Validate file path before any file operations
             from core.utils.file_validation import validate_file_path
             validated_path = validate_file_path(str(file_path), must_exist=False)
-            
+
             # Remove old attachment if exists
             if invoice.attachment_path and os.path.exists(invoice.attachment_path):
                 try:
@@ -2548,11 +2641,11 @@ async def upload_invoice_attachment(
                     logger.info(f"Removed old attachment: {invoice.attachment_path}")
                 except Exception as e:
                     logger.warning(f"Failed to remove old attachment: {e}")
-            
+
             # Save file locally
             with open(validated_path, "wb") as buffer:
                 buffer.write(contents)
-            
+
             file_path = str(file_path)
             stored_filename = filename
             is_cloud_stored = False
@@ -2561,7 +2654,7 @@ async def upload_invoice_attachment(
         # Update invoice with attachment info (old system for backward compatibility)
         invoice.attachment_path = file_path
         invoice.attachment_filename = file.filename
-        invoice.updated_at = datetime.now(timezone.utc)
+        invoice.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Create new-style attachment record
         import hashlib
@@ -2616,7 +2709,6 @@ async def upload_invoice_attachment(
         logger.info(f"🔍 VERIFICATION QUERY - has_attachment would be: {bool(verification_invoice.attachment_filename)}")
 
         # Check new-style attachments for consistent response
-        from core.models.models_per_tenant import InvoiceAttachment
         new_attachments = db.query(InvoiceAttachment).filter(
             InvoiceAttachment.invoice_id == invoice_id,
             InvoiceAttachment.is_active == True
@@ -2648,6 +2740,7 @@ async def upload_invoice_attachment(
 @router.get("/{invoice_id}/download-attachment")
 async def download_invoice_attachment(
     invoice_id: int,
+    attachment_id: Optional[int] = Query(None, description="Specific attachment ID to download"),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -2664,10 +2757,15 @@ async def download_invoice_attachment(
 
         # Try new-style attachments first
         from core.models.models_per_tenant import InvoiceAttachment
-        new_attachment = db.query(InvoiceAttachment).filter(
+        query = db.query(InvoiceAttachment).filter(
             InvoiceAttachment.invoice_id == invoice_id,
             InvoiceAttachment.is_active == True
-        ).first()
+        )
+
+        if attachment_id:
+            new_attachment = query.filter(InvoiceAttachment.id == attachment_id).first()
+        else:
+            new_attachment = query.order_by(InvoiceAttachment.created_at.desc()).first()
 
         if new_attachment:
             # Check if this is a cloud storage file (file_path doesn't start with local path)
@@ -2680,12 +2778,12 @@ async def download_invoice_attachment(
                         from core.models.database import get_tenant_context
                         from fastapi.responses import StreamingResponse
                         import io
-    
+
                         tenant_id = get_tenant_context()
                         if tenant_id:
                             cloud_config = get_cloud_storage_config()
                             cloud_storage_service = CloudStorageService(db, cloud_config)
-    
+
                             # Download file content from cloud storage
                             storage_result = await cloud_storage_service.retrieve_file(
                                 file_key=new_attachment.file_path,
@@ -2694,7 +2792,7 @@ async def download_invoice_attachment(
                                 generate_url=False,  # Download content instead of URL
                                 expiry_seconds=3600
                             )
-    
+
                             if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
                                 # Return file content as streaming response with attachment disposition
                                 headers = {
@@ -2704,7 +2802,7 @@ async def download_invoice_attachment(
                                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                                     "Access-Control-Allow-Headers": "*"
                                 }
-    
+
                                 return StreamingResponse(
                                     io.BytesIO(storage_result.metadata['content']),
                                     media_type=new_attachment.content_type or 'application/octet-stream',
@@ -2742,12 +2840,12 @@ async def download_invoice_attachment(
                         from core.models.database import get_tenant_context
                         from fastapi.responses import StreamingResponse
                         import io
-    
+
                         tenant_id = get_tenant_context()
                         if tenant_id:
                             cloud_config = get_cloud_storage_config()
                             cloud_storage_service = CloudStorageService(db, cloud_config)
-    
+
                             # Download file content from cloud storage
                             storage_result = await cloud_storage_service.retrieve_file(
                                 file_key=invoice.attachment_path,
@@ -2756,7 +2854,7 @@ async def download_invoice_attachment(
                                 generate_url=False,  # Download content instead of URL
                                 expiry_seconds=3600
                             )
-    
+
                             if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
                                 # Return file content as streaming response with attachment disposition
                                 headers = {
@@ -2766,7 +2864,7 @@ async def download_invoice_attachment(
                                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                                     "Access-Control-Allow-Headers": "*"
                                 }
-    
+
                                 return StreamingResponse(
                                     io.BytesIO(storage_result.metadata['content']),
                                     media_type='application/octet-stream',
@@ -2839,97 +2937,112 @@ async def get_invoice_attachment_info(
 @router.get("/{invoice_id}/preview-attachment")
 async def preview_invoice_attachment(
     invoice_id: int,
+    attachment_id: Optional[int] = Query(None, description="Specific attachment ID to preview"),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Serve the invoice attachment with inline Content-Disposition for browser preview (PDF/images)."""
     try:
+        # Verify invoice exists
         invoice = db.query(Invoice).filter(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).first()
+
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
 
-        if not invoice.attachment_path:
-            raise HTTPException(status_code=404, detail="Attachment file not found")
+        # Try new-style attachments first
+        from core.models.models_per_tenant import InvoiceAttachment
+        query = db.query(InvoiceAttachment).filter(
+            InvoiceAttachment.invoice_id == invoice_id,
+            InvoiceAttachment.is_active == True
+        )
 
-        # Check if this is a cloud storage file (file_path doesn't start with local path)
-        if not invoice.attachment_path.startswith('/') and not invoice.attachment_path.startswith('attachments'):
-            # This is likely a cloud storage file key - download and serve directly
+        if attachment_id:
+            new_attachment = query.filter(InvoiceAttachment.id == attachment_id).first()
+        else:
+            new_attachment = query.order_by(InvoiceAttachment.created_at.desc()).first()
+
+        if new_attachment:
+            # Check if this is a cloud storage file
+            if not new_attachment.file_path.startswith('/') and not new_attachment.file_path.startswith('attachments'):
+                # Cloud storage logic
+                try:
+                    try:
+                        from commercial.cloud_storage.service import CloudStorageService
+                        from commercial.cloud_storage.config import get_cloud_storage_config
+                        from core.models.database import get_tenant_context
+                        from fastapi.responses import StreamingResponse
+                        import io
+
+                        tenant_id = get_tenant_context()
+                        if tenant_id:
+                            cloud_config = get_cloud_storage_config()
+                            cloud_storage_service = CloudStorageService(db, cloud_config)
+                            storage_result = await cloud_storage_service.retrieve_file(
+                                file_key=new_attachment.file_path,
+                                tenant_id=str(tenant_id),
+                                user_id=current_user.id,
+                                generate_url=False,
+                                expiry_seconds=3600
+                            )
+
+                            if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                                media_type = new_attachment.content_type or mimetypes.guess_type(new_attachment.filename)[0] or "application/octet-stream"
+                                headers = {
+                                    "Content-Disposition": f"inline; filename={new_attachment.filename}",
+                                    "Access-Control-Allow-Origin": "*",
+                                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                                    "Access-Control-Allow-Headers": "*"
+                                }
+                                return StreamingResponse(io.BytesIO(storage_result.metadata['content']), media_type=media_type, headers=headers)
+                    except ImportError: pass
+                except Exception as e: logger.warning(f"Cloud preview failed: {e}")
+
+            # Local fallback
             try:
+                from core.utils.file_validation import validate_file_path
+                validated_path = validate_file_path(new_attachment.file_path)
+                media_type = new_attachment.content_type or mimetypes.guess_type(new_attachment.filename)[0] or "application/octet-stream"
+                return FileResponse(path=validated_path, filename=new_attachment.filename, media_type=media_type, headers={"Content-Disposition": f"inline; filename={new_attachment.filename}"})
+            except Exception as e:
+                logger.error(f"Failed to serve local file: {e}")
+                raise HTTPException(status_code=404, detail="Attachment file not accessible")
+
+        # Fallback to old-style attachment
+        if invoice.attachment_path:
+            # (Keep existing legacy fallback logic basically, but adapted)
+            if not invoice.attachment_path.startswith('/') and not invoice.attachment_path.startswith('attachments'):
+                # Cloud storage legacy...
                 try:
                     from commercial.cloud_storage.service import CloudStorageService
                     from commercial.cloud_storage.config import get_cloud_storage_config
                     from core.models.database import get_tenant_context
                     from fastapi.responses import StreamingResponse
                     import io
-    
                     tenant_id = get_tenant_context()
                     if tenant_id:
                         cloud_config = get_cloud_storage_config()
                         cloud_storage_service = CloudStorageService(db, cloud_config)
-    
-                        # Download file content from cloud storage
-                        storage_result = await cloud_storage_service.retrieve_file(
-                            file_key=invoice.attachment_path,
-                            tenant_id=str(tenant_id),
-                            user_id=current_user.id,
-                            generate_url=False,  # Download content instead of URL
-                            expiry_seconds=3600
-                        )
-    
+                        storage_result = await cloud_storage_service.retrieve_file(file_key=invoice.attachment_path, tenant_id=str(tenant_id), user_id=current_user.id, generate_url=False, expiry_seconds=3600)
                         if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
-                            # Guess media type from filename; fallback to octet-stream
                             media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
                             media_type = media_type or "application/octet-stream"
-    
-                            headers = {
-                                # Inline to allow preview in browser tabs for supported types (e.g., PDF, images)
-                                "Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}",
-                                # Add CORS headers for browser access
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Methods": "GET, OPTIONS",
-                                "Access-Control-Allow-Headers": "*"
-                            }
-    
-                            # Return file content as streaming response
-                            return StreamingResponse(
-                                io.BytesIO(storage_result.metadata['content']),
-                                media_type=media_type,
-                                headers=headers
-                            )
-                        else:
-                            logger.warning(f"Failed to download from cloud storage: {storage_result.error_message}")
-                except ImportError:
-                    logger.info("Commercial CloudStorageService not found, cannot preview from cloud")
-            except Exception as e:
-                logger.warning(f"Cloud storage retrieval failed, falling back to local: {e}")
+                            return StreamingResponse(io.BytesIO(storage_result.metadata['content']), media_type=media_type, headers={"Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS"})
+                except: pass
 
-        # Local file or cloud storage fallback - serve directly
-        try:
-            from core.utils.file_validation import validate_file_path
-            validated_path = validate_file_path(invoice.attachment_path)
-            # Guess media type from filename; fallback to octet-stream
-            media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
-            media_type = media_type or "application/octet-stream"
+            try:
+                from core.utils.file_validation import validate_file_path
+                validated_path = validate_file_path(invoice.attachment_path)
+                media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
+                media_type = media_type or "application/octet-stream"
+                return FileResponse(path=validated_path, filename=invoice.attachment_filename, media_type=media_type, headers={"Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}"})
+            except: pass
 
-            headers = {
-                # Inline to allow preview in browser tabs for supported types (e.g., PDF, images)
-                "Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}"
-            }
-            return FileResponse(
-                path=validated_path,
-                filename=invoice.attachment_filename,
-                media_type=media_type,
-                headers=headers
-            )
-        except Exception as e:
-            logger.error(f"Failed to serve local file: {e}")
-            raise HTTPException(status_code=404, detail="Attachment file not accessible")
+        raise HTTPException(status_code=404, detail="No attachment found")
 
-    except HTTPException:
-        raise
+    except HTTPException: raise
     except Exception as e:
         logger.error(f"Error previewing attachment for invoice {invoice_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to preview attachment")
@@ -3059,12 +3172,12 @@ async def upload_invoice_attachment_new(
         task_id = None
         if attachment_type == "document" and file_ext in {'.pdf', '.jpg', '.jpeg', '.png'}:
             try:
-                from core.services.ocr_service import publish_invoice_task
+                from commercial.ai.services.ocr_service import publish_invoice_task
                 import uuid
-                
+
                 # Generate task ID for tracking
                 task_id = str(uuid.uuid4())
-                
+
                 # Queue the OCR task
                 message = {
                     "tenant_id": tenant_id,
@@ -3109,7 +3222,7 @@ async def upload_invoice_attachment_new(
 
         # Release processing lock for invoice if it was used
         try:
-            from core.services.ocr_service import release_processing_lock
+            from commercial.ai.services.ocr_service import release_processing_lock
             invoice_id_for_lock = invoice_id
             released = release_processing_lock("invoice", invoice_id_for_lock)
             if released:
@@ -3170,7 +3283,7 @@ async def delete_invoice_attachment(
 
         # Soft delete the attachment (mark as inactive)
         attachment.is_active = False
-        attachment.updated_at = datetime.now(timezone.utc)
+        attachment.updated_at = get_tenant_timezone_aware_datetime(db)
 
         # Clear old-style attachment fields on the invoice if no active attachments remain
         remaining_attachments = db.query(InvoiceAttachment).filter(
@@ -3280,3 +3393,160 @@ async def get_invoice_attachments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve attachments"
         )
+
+@router.post("/{invoice_id}/accept-review", response_model=InvoiceSchema)
+async def accept_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    review_service = ReviewService(db)
+    success = review_service.accept_review(invoice)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to accept review or no review available")
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+@router.post("/{invoice_id}/reject-review", response_model=InvoiceSchema)
+async def reject_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_non_viewer(current_user, "review invoices")
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    review_service = ReviewService(db)
+    success = review_service.reject_review(invoice)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to reject review")
+
+    return invoice
+
+@router.post("/{invoice_id}/review", response_model=InvoiceSchema)
+async def run_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Trigger a full re-review (reset status to not_started for the worker to pick up)"""
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Check if review worker is enabled
+    from commercial.ai.services.ai_config_service import AIConfigService
+    if not AIConfigService.is_review_worker_enabled(db):
+        raise HTTPException(
+            status_code=400,
+            detail="Review worker is currently disabled. Please enable it in Settings > AI Configuration before triggering a review."
+        )
+
+    # Reset review status to pending so it shows immediately in UI
+    # The worker will pick it up and process it
+    invoice.review_status = "pending"
+    invoice.review_result = None
+    invoice.reviewed_at = None
+
+    db.commit()
+    db.refresh(invoice)
+
+    # Publish Kafka event to trigger review
+    try:
+        from core.services.review_event_service import get_review_event_service
+        from core.models.database import get_tenant_context
+
+        tenant_id = get_tenant_context()
+        if tenant_id:
+            event_service = get_review_event_service()
+            event_service.publish_single_review_trigger(
+                tenant_id=tenant_id,
+                entity_type="invoice",
+                entity_id=invoice_id
+            )
+            logger.info(f"Published Kafka event to trigger review for invoice {invoice_id}")
+    except Exception as e:
+        logger.warning(f"Failed to publish Kafka event for invoice review trigger: {e}")
+
+    # Poll for completion with timeout
+    import asyncio
+    max_wait_time = 30  # Maximum 30 seconds
+    poll_interval = 0.5  # Check every 500ms
+    elapsed_time = 0
+
+    while elapsed_time < max_wait_time:
+        await asyncio.sleep(poll_interval)
+        elapsed_time += poll_interval
+
+        # Refresh to get latest status
+        db.refresh(invoice)
+
+        # Check if worker has processed the invoice
+        if invoice.review_status in ["reviewed", "failed", "diff_found"]:
+            logger.info(f"Review processing completed for invoice {invoice_id}. Final status: {invoice.review_status}")
+            break
+
+    if invoice.review_status == "pending":
+        logger.warning(f"Review processing timed out for invoice {invoice_id} after {max_wait_time} seconds")
+
+    return invoice
+
+
+@router.post("/{invoice_id:int}/cancel-review", response_model=InvoiceSchema)
+async def cancel_invoice_review(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Cancel an in-progress review for an invoice"""
+    require_non_viewer(current_user, "review invoices")
+
+    # Set tenant context
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Can only cancel if review is pending, not_started, rejected, or failed
+    if invoice.review_status not in ["pending", "not_started", "rejected", "failed"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel review with status '{invoice.review_status}'. Only pending, rejected, failed, or not_started reviews can be cancelled."
+        )
+
+    # Cancel the review
+    invoice.review_status = "not_started"
+    invoice.review_result = None
+    invoice.reviewed_at = None
+
+    db.commit()
+    db.refresh(invoice)
+
+    logger.info(f"Cancelled review for invoice {invoice_id}")
+
+    return invoice

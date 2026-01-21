@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTranslation } from 'react-i18next';
+import { ProfessionalCard, ProfessionalCardContent, ProfessionalCardHeader, ProfessionalCardTitle } from '@/components/ui/professional-card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Target, Calendar, Users, Star, Clock, CheckCircle, XCircle } from 'lucide-react';
@@ -31,12 +32,12 @@ interface ChallengeCardProps {
 function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
   const IconComponent = challengeTypeIcons[challenge.challenge.challenge_type as keyof typeof challengeTypeIcons] || Target;
   const typeColor = challengeTypeColors[challenge.challenge.challenge_type as keyof typeof challengeTypeColors] || 'text-gray-500 bg-gray-50 border-gray-200';
-  
+
   const progress = Math.round(challenge.progress * 100);
   const isCompleted = challenge.is_completed;
   const isOptedIn = challenge.opted_in;
-  
-  const daysRemaining = challenge.challenge.end_date 
+
+  const daysRemaining = challenge.challenge.end_date
     ? Math.max(0, Math.ceil((new Date(challenge.challenge.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : challenge.challenge.duration_days;
 
@@ -58,9 +59,9 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
   };
 
   return (
-    <Card className={`transition-all duration-200 hover:shadow-md ${isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''}`}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+    <ProfessionalCard className={`transition-all duration-200 hover:shadow-md ${isCompleted ? 'ring-2 ring-green-200 bg-green-50 dark:bg-green-900/10 dark:ring-green-900/30' : ''}`}>
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className={`p-2 rounded-lg border ${typeColor}`}>
               <IconComponent className="h-4 w-4" />
@@ -84,9 +85,9 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
               </Badge>
             )}
           </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-4">
         <p className="text-sm text-gray-600">
           {challenge.challenge.description}
         </p>
@@ -133,7 +134,7 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
           <div className="flex items-center space-x-1">
             <Clock className="h-3 w-3" />
             <span>
-              {challenge.challenge.start_date 
+              {challenge.challenge.start_date
                 ? `Started ${new Date(challenge.challenge.start_date).toLocaleDateString()}`
                 : `Duration: ${challenge.challenge.duration_days} days`
               }
@@ -149,7 +150,7 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
 
         {/* Action Button */}
         {!isCompleted && (
-          <Button
+          <ProfessionalButton
             variant={isOptedIn ? "outline" : "default"}
             size="sm"
             onClick={handleOptToggle}
@@ -166,10 +167,10 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
                 Join Challenge
               </>
             )}
-          </Button>
+          </ProfessionalButton>
         )}
-      </CardContent>
-    </Card>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
   );
 }
 
@@ -178,6 +179,7 @@ interface ChallengeCardsProps {
 }
 
 export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsProps) {
+  const { t } = useTranslation();
   const [myChallenges, setMyChallenges] = useState<UserChallenge[]>([]);
   const [availableChallenges, setAvailableChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,12 +190,12 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
       try {
         setLoading(true);
         setError(null);
-        
+
         const [myData, availableData] = await Promise.all([
           gamificationApi.getMyChallenges(false, false), // Get all challenges
           gamificationApi.getAvailableChallenges()
         ]);
-        
+
         setMyChallenges(myData);
         setAvailableChallenges(availableData);
       } catch (err) {
@@ -254,15 +256,15 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600">
+      <ProfessionalCard variant="elevated" className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+        <ProfessionalCardContent className="p-6">
+          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
             <Target className="h-5 w-5" />
             <span className="font-medium">Error loading challenges</span>
           </div>
-          <p className="text-red-600 text-sm mt-2">{error}</p>
-        </CardContent>
-      </Card>
+          <p className="text-red-600 dark:text-red-400 text-sm mt-2">{error}</p>
+        </ProfessionalCardContent>
+      </ProfessionalCard>
     );
   }
 
@@ -288,8 +290,8 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
           {activeChallenges.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeChallenges.map((challenge) => (
-                <ChallengeCard 
-                  key={challenge.id} 
+                <ChallengeCard
+                  key={challenge.id}
                   challenge={challenge}
                   onOptIn={handleOptIn}
                   onOptOut={handleOptOut}
@@ -297,15 +299,15 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
               ))}
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Target className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Active Challenges</h3>
-                <p className="text-gray-600">
-                  Browse available challenges to start building better financial habits!
+            <ProfessionalCard variant="minimal">
+              <ProfessionalCardContent className="p-8 text-center">
+                <Target className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">{t('settings.gamification.challenges.no_active_challenges')}</h3>
+                <p className="text-muted-foreground">
+                  {t('settings.gamification.challenges.no_active_challenges_description')}
                 </p>
-              </CardContent>
-            </Card>
+              </ProfessionalCardContent>
+            </ProfessionalCard>
           )}
         </TabsContent>
 
@@ -325,10 +327,10 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 };
-                
+
                 return (
-                  <ChallengeCard 
-                    key={challenge.id} 
+                  <ChallengeCard
+                    key={challenge.id}
                     challenge={userChallenge}
                     onOptIn={handleOptIn}
                     onOptOut={handleOptOut}
@@ -337,15 +339,15 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
               })}
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Available Challenges</h3>
-                <p className="text-gray-600">
-                  Check back later for new challenges to join!
+            <ProfessionalCard variant="minimal">
+              <ProfessionalCardContent className="p-8 text-center">
+                <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">{t('settings.gamification.challenges.no_available_challenges')}</h3>
+                <p className="text-muted-foreground">
+                  {t('settings.gamification.challenges.no_available_challenges_description')}
                 </p>
-              </CardContent>
-            </Card>
+              </ProfessionalCardContent>
+            </ProfessionalCard>
           )}
         </TabsContent>
 
@@ -353,8 +355,8 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
           {completedChallenges.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {completedChallenges.map((challenge) => (
-                <ChallengeCard 
-                  key={challenge.id} 
+                <ChallengeCard
+                  key={challenge.id}
                   challenge={challenge}
                   onOptIn={handleOptIn}
                   onOptOut={handleOptOut}
@@ -362,15 +364,15 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
               ))}
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <CheckCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Completed Challenges</h3>
-                <p className="text-gray-600">
-                  Complete challenges to see them here and earn rewards!
+            <ProfessionalCard variant="minimal">
+              <ProfessionalCardContent className="p-8 text-center">
+                <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">{t('settings.gamification.challenges.no_completed_challenges')}</h3>
+                <p className="text-muted-foreground">
+                  {t('settings.gamification.challenges.no_completed_challenges_description')}
                 </p>
-              </CardContent>
-            </Card>
+              </ProfessionalCardContent>
+            </ProfessionalCard>
           )}
         </TabsContent>
       </Tabs>

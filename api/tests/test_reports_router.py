@@ -109,7 +109,7 @@ class TestReportTypesEndpoint(TestReportsRouter):
 class TestReportGenerationEndpoints(TestReportsRouter):
     """Test report generation endpoints"""
     
-    @patch('api.services.report_service.ReportService.generate_report')
+    @patch('core.services.report_service.ReportService.generate_report')
     def test_generate_report_json_success(self, mock_generate, client, auth_headers):
         """Test successful JSON report generation"""
         # Mock successful report generation
@@ -136,7 +136,7 @@ class TestReportGenerationEndpoints(TestReportsRouter):
         assert data["success"] is True
         assert "data" in data
     
-    @patch('api.services.report_service.ReportService.generate_report')
+    @patch('core.services.report_service.ReportService.generate_report')
     def test_generate_report_pdf_background(self, mock_generate, client, auth_headers, db_session):
         """Test PDF report generation in background"""
         request_data = {
@@ -175,7 +175,7 @@ class TestReportGenerationEndpoints(TestReportsRouter):
         response = client.post("/api/v1/reports/generate", json=request_data)
         assert response.status_code == 401
     
-    @patch('api.services.report_service.ReportService.generate_report')
+    @patch('core.services.report_service.ReportService.generate_report')
     def test_preview_report_success(self, mock_generate, client, auth_headers):
         """Test successful report preview"""
         mock_generate.return_value = MagicMock(
@@ -200,10 +200,10 @@ class TestReportGenerationEndpoints(TestReportsRouter):
         assert "summary" in data
         assert "data" in data
     
-    @patch('api.services.report_service.ReportService.generate_report')
+    @patch('core.services.report_service.ReportService.generate_report')
     def test_preview_report_validation_error(self, mock_generate, client, auth_headers):
         """Test report preview with validation error"""
-        from api.services.report_service import ReportValidationError
+        from core.exceptions.report_exceptions import ReportValidationError
         mock_generate.side_effect = ReportValidationError("Invalid date range", "date_from")
         
         request_data = {
@@ -252,7 +252,7 @@ class TestReportTemplateEndpoints(TestReportsRouter):
         response = client.get("/api/v1/reports/templates", params=params, headers=auth_headers)
         assert response.status_code == 200
     
-    @patch('api.services.report_service.ReportService.validate_filters')
+    @patch('core.services.report_service.ReportService.validate_filters')
     def test_create_template_success(self, mock_validate, client, auth_headers, sample_template_data):
         """Test successful template creation"""
         mock_validate.return_value = True
@@ -606,7 +606,7 @@ class TestReportHistoryEndpoints(TestReportsRouter):
         db_session.add(report_history)
         db_session.commit()
         
-        with patch('api.services.report_service.ReportService.generate_report') as mock_generate:
+        with patch('core.services.report_service.ReportService.generate_report') as mock_generate:
             mock_generate.return_value = MagicMock(success=True, data=MagicMock())
             
             response = client.post(f"/api/v1/reports/regenerate/{report_history.id}", headers=auth_headers)

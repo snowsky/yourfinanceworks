@@ -9,10 +9,10 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from openpyxl import load_workbook
 
-from api.services.report_exporter import (
+from core.services.report_exporter import (
     PDFExporter, CSVExporter, ExcelExporter, ReportExportService, ExportError
 )
-from api.schemas.report import (
+from core.schemas.report import (
     ReportData, ReportSummary, ReportMetadata, ReportType, ExportFormat
 )
 
@@ -395,7 +395,7 @@ class TestReportExportService:
         with pytest.raises(ExportError, match="Invalid export format"):
             service.validate_export_format("invalid")
     
-    @patch('api.services.report_exporter.PDFExporter.export_report')
+    @patch('core.services.report_exporter.PDFExporter.export_report')
     def test_export_error_handling(self, mock_pdf_export, sample_report_data):
         """Test error handling during export"""
         # Mock PDF exporter to raise an exception
@@ -417,7 +417,7 @@ class TestExportErrorHandling:
     
     def test_base_exporter_not_implemented(self, sample_report_data):
         """Test base exporter raises NotImplementedError"""
-        from api.services.report_exporter import BaseExporter
+        from core.services.report_exporter import BaseExporter
         
         exporter = BaseExporter()
         
@@ -426,7 +426,7 @@ class TestExportErrorHandling:
     
     def test_validation_with_missing_summary(self, sample_report_data):
         """Test validation with missing summary"""
-        from api.services.report_exporter import BaseExporter
+        from core.services.report_exporter import BaseExporter
         
         sample_report_data.summary = None
         exporter = BaseExporter()

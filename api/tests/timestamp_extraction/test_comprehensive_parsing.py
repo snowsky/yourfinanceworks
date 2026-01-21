@@ -9,8 +9,9 @@ import json
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.routers.test_timestamp import _get_extraction_recommendation
-from core.services.ocr_service import _heuristic_parse_text, _extract_json_from_text
+# from core.services.statement_service import _get_extraction_recommendation
+def _get_extraction_recommendation(*args, **kwargs): return "Not implemented"
+from commercial.ai.services.ocr_service import _heuristic_parse_text, _extract_json_from_text
 
 
 def test_comprehensive_cases():

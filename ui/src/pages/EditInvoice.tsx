@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceStockImpact } from "@/components/invoices/InvoiceStockImpact";
 import { InvoiceHistoryDetailsModal } from "@/components/invoices/InvoiceHistoryDetailsModal";
 import { InvoicePDF } from "@/components/invoices/InvoicePDF";
-import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi, settingsApi, Settings } from "@/lib/api";
 import { canEditInvoice, canEditInvoicePayment } from "@/utils/auth";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Package, Plus, FileText, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, History, Eye, Download, File } from "lucide-react";
+import { Trash, Loader2, Package, Plus, FileText, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, History, Eye, Download, File, ArrowLeft } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { pdf } from '@react-pdf/renderer';
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 
 const EditInvoice = () => {
   const { t } = useTranslation();
@@ -40,6 +40,8 @@ const EditInvoice = () => {
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Calculate payment editing permissions when invoice changes
   const canEditPayment = invoice ? canEditInvoicePayment(invoice) : false;
@@ -61,6 +63,25 @@ const EditInvoice = () => {
       setInvoiceHistory([]);
     }
   }, [invoice?.id]);
+
+  // Fetch settings data
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settingsData = await settingsApi.getSettings();
+        setSettings(settingsData);
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+        // Set fallback settings
+        setSettings({
+          company_info: { name: 'InvoiceApp', email: '', phone: '', address: '', tax_id: '', logo: '' },
+          invoice_settings: { prefix: 'INV-', next_number: '0001', terms: 'Net 30 days', notes: 'Thank you for your business!', send_copy: true, auto_reminders: true },
+          enable_ai_assistant: false
+        });
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -96,9 +117,9 @@ const EditInvoice = () => {
         setInvoice(data);
         try {
           const expenses = await expenseApi.getExpensesFiltered({ invoiceId: data.id });
-          setLinkedExpenses(expenses);
+          setLinkedExpenses(Array.isArray(expenses) ? expenses : []);
           const unlinked = await expenseApi.getExpensesFiltered({ unlinkedOnly: true });
-          setAvailableExpenses(unlinked);
+          setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
 
           // Fetch stock movements related to this invoice
           try {
@@ -223,7 +244,7 @@ const EditInvoice = () => {
       const blob = await pdf(
         <InvoicePDF
           invoice={invoice}
-          companyName="Your Company Name" // This should come from settings/tenant info
+          companyName={settings?.company_info?.name || 'Your Company Name'}
           clientCompany={invoice.client_name}
           showDiscount={invoice.show_discount_in_pdf || false}
           template="modern"
@@ -246,7 +267,8 @@ const EditInvoice = () => {
     // Fetch client data for resolving client_id in history
     let clients: Array<{ id: number; name: string; email?: string }> = [];
     try {
-      clients = await clientApi.getClients();
+      const clientsResponse = await clientApi.getClients();
+      clients = clientsResponse.items;
     } catch (error) {
       console.warn("Failed to fetch clients for history modal:", error);
     }
@@ -287,121 +309,120 @@ const EditInvoice = () => {
 
   return (
     <>
-      <div className="h-full space-y-8 fade-in">
-        {/* Enhanced Header with Status Overview */}
-        <div className="space-y-4 px-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+      <div className="h-full space-y-8 fade-in pb-12">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <ProfessionalButton
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => navigate('/invoices')}
+                  className="rounded-full"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </ProfessionalButton>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      invoice.status === 'paid' ? 'default' :
+                        invoice.status === 'overdue' ? 'destructive' :
+                          invoice.status === 'pending' || invoice.status === 'pending_approval' ? 'secondary' :
+                            invoice.status === 'sent' ? 'secondary' : 'outline'
+                    }
+                    className={cn(
+                      "px-3 py-1 font-medium capitalize",
+                      invoice.status === 'paid' && "bg-green-100 text-green-800 hover:bg-green-100 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+                      invoice.status === 'overdue' && "bg-red-100 text-red-800 hover:bg-red-100 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+                      (invoice.status === 'pending' || invoice.status === 'pending_approval') && "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
+                      invoice.status === 'sent' && "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                    )}
+                  >
+                    {t(`invoices.status.${invoice.status}`, invoice.status.replace('_', ' '))}
+                  </Badge>
+                  {invoice.number && (
+                    <Badge variant="secondary" className="px-3 py-1 font-mono font-medium">
+                      #{invoice.number}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
                 {t('editInvoice.editInvoice')}
               </h1>
-              <p className="text-muted-foreground mt-1">{t('editInvoice.updateInvoiceDetails')}</p>
+              <p className="text-lg text-muted-foreground">
+                {t('editInvoice.updateInvoiceDetails')}
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Badge variant="outline" className={`flex items-center gap-2 px-4 py-2 font-semibold ${getStatusColor(invoice.status)}`}>
-                {getStatusIcon(invoice.status)}
-                {t(`invoices.status.${invoice.status}`, invoice.status.replace('_', ' '))}
-              </Badge>
-              {invoice.number && (
-                <Badge variant="secondary" className="px-4 py-2 font-semibold">
-                  #{invoice.number}
-                </Badge>
-              )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <ProfessionalButton
+                variant="outline"
+                onClick={handleLivePreview}
+                leftIcon={<Eye className="h-4 w-4" />}
+                loading={livePreviewLoading}
+              >
+                {t('editInvoice.livePreview')}
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="outline"
+                onClick={() => setShowAllHistoryModal(true)}
+                leftIcon={<History className="h-4 w-4" />}
+              >
+                {t('editInvoice.viewHistory')} ({invoiceHistory.length})
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="default"
+                size="lg"
+                onClick={() => {
+                  const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+                  if (submitBtn) submitBtn.click();
+                }}
+                className="shadow-lg"
+                loading={isSubmitting}
+                leftIcon={<CheckCircle className="h-4 w-4" />}
+              >
+                {t('editInvoice.saveChanges')}
+              </ProfessionalButton>
             </div>
           </div>
+        </div>
 
-          {/* Invoice Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="p-4 shadow-soft hover:shadow-medium transition-shadow duration-300 border-l-4 border-l-blue-500">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-lg">
-                  <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('editInvoice.totalAmount')}</p>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-                    <CurrencyDisplay
-                      amount={invoice.amount || 0}
-                      currency={invoice.currency || 'USD'}
-                    />
-                  </p>
-                </div>
-              </div>
-            </Card>
+        <div className="px-8 -mt-10 relative z-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricCard
+              title={t('editInvoice.totalAmount')}
+              value={
+                <CurrencyDisplay
+                  amount={invoice.amount || 0}
+                  currency={invoice.currency || 'USD'}
+                />
+              }
+              variant="default"
+              icon={DollarSign}
+            />
 
-            <Card className="p-4 shadow-soft hover:shadow-medium transition-shadow duration-300 border-l-4 border-l-green-500">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-800/20 rounded-lg">
-                  <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('editInvoice.dueDate')}</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">
-                    {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Not set'}
-                  </p>
-                </div>
-              </div>
-            </Card>
+            <MetricCard
+              title={t('editInvoice.due_date')}
+              value={invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'Not set'}
+              variant="success"
+              icon={Calendar}
+            />
 
-            <Card className="p-4 shadow-soft hover:shadow-medium transition-shadow duration-300 border-l-4 border-l-purple-500">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg">
-                  <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('editInvoice.items')}</p>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{invoice.items?.length || 0}</p>
-                </div>
-              </div>
-            </Card>
+            <MetricCard
+              title={t('editInvoice.items')}
+              value={invoice.items?.length || 0}
+              variant="warning"
+              icon={FileText}
+            />
 
-            <Card className="p-4 shadow-soft hover:shadow-medium transition-shadow duration-300 border-l-4 border-l-orange-500">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 rounded-lg">
-                  <Package className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('invoices.linked_expenses_header')}</p>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{linkedExpenses.length}</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Action Buttons Row */}
-          <div className="flex flex-wrap gap-3 justify-end pt-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/invoices')}
-              className="flex items-center gap-2"
-            >
-              {t('editInvoice.cancel')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleLivePreview}
-              className="flex items-center gap-2"
-            >
-              <File className="h-4 w-4" />
-              {t('editInvoice.livePreview')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowAllHistoryModal(true)}
-              className="flex items-center gap-2"
-            >
-              <History className="h-4 w-4" />
-              {t('editInvoice.viewHistory')} ({invoiceHistory.length})
-            </Button>
-            <Button
-              onClick={() => {
-                const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-                if (submitBtn) submitBtn.click();
-              }}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-            >
-              {t('editInvoice.saveChanges')}
-            </Button>
+            <MetricCard
+              title={t('invoices.linked_expenses_header')}
+              value={linkedExpenses.length}
+              variant="default"
+              icon={Package}
+            />
           </div>
         </div>
 
@@ -411,13 +432,9 @@ const EditInvoice = () => {
             isEdit={true}
             existingApproval={existingApproval}
             canEditPayment={canEditPayment}
-            key={`${invoice.id}-${invoice.has_attachment}-${invoice.attachment_filename}`}
+            onSubmitStateChange={setIsSubmitting}
             onInvoiceUpdate={async (updatedInvoice) => {
               console.log("🔍 EDIT INVOICE - Invoice updated via callback:", updatedInvoice);
-              console.log("🔍 EDIT INVOICE - Updated attachment info:", {
-                has_attachment: updatedInvoice.has_attachment,
-                attachment_filename: updatedInvoice.attachment_filename
-              });
               setInvoice(updatedInvoice);
 
               // Refetch stock movements if invoice status changed to payable status
@@ -425,7 +442,6 @@ const EditInvoice = () => {
                 try {
                   const movements = await inventoryApi.getStockMovementsByReference('invoice', updatedInvoice.id);
                   setStockMovements(movements);
-                  console.log("🔍 EDIT INVOICE - Refetched stock movements after status change:", movements);
                 } catch (stockError) {
                   console.warn("Failed to refetch stock movements:", stockError);
                   setStockMovements([]);
@@ -435,51 +451,51 @@ const EditInvoice = () => {
           />
         </div>
 
-        <div className="px-6">
+        <div className="px-8 space-y-8">
           {/* Enhanced Linked Expenses Section */}
-          <Card className="slide-in shadow-medium border-0">
-            <CardHeader className="pb-4 border-b bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/50">
+          <ProfessionalCard variant="elevated" className="overflow-hidden border-0">
+            <div className="pb-6 border-b border-border/50">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 rounded-lg">
-                    <Package className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
+                    <Package className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl">{t('invoices.linked_expenses_header')}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.linked_expenses_header')}</h2>
+                    <p className="text-sm text-muted-foreground">
                       {t('invoices.connect_expenses_to_invoice')}
                     </p>
                   </div>
                 </div>
-                <Badge variant="secondary" className="px-3 py-1 font-semibold">
-                  {t('invoices.zero_linked', { count: linkedExpenses.length })}
+                <Badge variant="secondary" className="px-4 py-1.5 font-bold rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-0">
+                  {linkedExpenses.length}
                 </Badge>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
+            </div>
+            <div className="space-y-6 pt-8">
               {/* Action Bar */}
-              <div className="flex flex-col lg:flex-row gap-4 p-5 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/30 dark:to-slate-800/30 rounded-lg border border-slate-200 dark:border-slate-700">
-                <div className="flex-1">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block uppercase tracking-wide">
+              <div className="flex flex-col lg:flex-row gap-6 p-6 bg-muted/30 rounded-2xl border border-border/50">
+                <div className="flex-1 space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">
                     {t('invoices.link_existing_expense')}
                   </label>
                   <Select value={linkSelect} onValueChange={setLinkSelect}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full h-11 bg-background border-border/50 rounded-xl">
                       <SelectValue placeholder={t('invoices.choose_unlinked_expense')} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       {availableExpenses.length === 0 ? (
-                        <div className="p-3 text-center text-sm text-muted-foreground">
+                        <div className="p-4 text-center text-sm text-muted-foreground italic">
                           No unlinked expenses available
                         </div>
                       ) : (
                         availableExpenses.map(e => (
-                          <SelectItem key={e.id} value={String(e.id)}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>#{e.id} · {e.category}</span>
-                              <span className="text-muted-foreground">
+                          <SelectItem key={e.id} value={String(e.id)} className="rounded-lg">
+                            <div className="flex items-center justify-between w-full py-1">
+                              <span className="font-medium">#{e.id} · {e.category}</span>
+                              <Badge variant="outline" className="ml-4 font-mono bg-muted/50">
                                 <CurrencyDisplay amount={e.amount || 0} currency={e.currency || 'USD'} />
-                              </span>
+                              </Badge>
                             </div>
                           </SelectItem>
                         ))
@@ -487,8 +503,8 @@ const EditInvoice = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 lg:self-end">
-                  <Button
+                <div className="flex flex-col sm:flex-row gap-3 lg:self-end">
+                  <ProfessionalButton
                     disabled={!linkSelect}
                     onClick={async () => {
                       try {
@@ -504,8 +520,8 @@ const EditInvoice = () => {
                             expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
                             expenseApi.getExpensesFiltered({ unlinkedOnly: true })
                           ]);
-                          setLinkedExpenses(linked);
-                          setAvailableExpenses(unlinked);
+                          setLinkedExpenses(Array.isArray(linked) ? linked : []);
+                          setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
                         } catch { }
                         setLinkSelect(undefined);
                         toast.success('Expense linked successfully');
@@ -513,63 +529,63 @@ const EditInvoice = () => {
                         toast.error(e?.message || 'Failed to link expense');
                       }
                     }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    variant="gradient"
+                    className="h-11 px-6 rounded-xl shadow-lg shadow-blue-500/10"
+                    leftIcon={<Plus className="h-4 w-4" />}
                   >
-                    <Plus className="h-4 w-4" />
                     {t('invoices.link_expense')}
-                  </Button>
-                  <Button
+                  </ProfessionalButton>
+                  <ProfessionalButton
                     variant="outline"
                     onClick={() => navigate(`/expenses/new?amount=${invoice?.amount || 0}&currency=${invoice?.currency || 'USD'}&invoiceId=${invoice?.id}`)}
-                    className="flex items-center gap-2"
+                    className="h-11 px-6 rounded-xl border-border/50 hover:bg-muted"
+                    leftIcon={<Plus className="h-4 w-4" />}
                   >
-                    <Plus className="h-4 w-4" />
                     {t('invoices.create_expense')}
-                  </Button>
+                  </ProfessionalButton>
                 </div>
               </div>
 
               {/* Expenses List */}
               {linkedExpenses.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                    <Package className="h-8 w-8 text-slate-400 dark:text-slate-600" />
+                <div className="text-center py-20 px-6 rounded-2xl border-2 border-dashed border-border/50 bg-muted/10">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
+                    <Package className="h-10 w-10 text-muted-foreground/40" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">{t('invoices.no_expenses_linked_yet')}</h3>
-                  <p className="text-muted-foreground mb-6">
+                  <h3 className="text-xl font-bold text-foreground mb-2">{t('invoices.no_expenses_linked_yet')}</h3>
+                  <p className="text-muted-foreground max-sm mx-auto">
                     {t('invoices.link_existing_expenses_description')}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {linkedExpenses.map((e, idx) => (
-                    <div key={e.id} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-soft hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 bg-white dark:bg-slate-950/50 stagger-{idx % 5 + 1}">
+                    <div key={e.id} className="flex items-center justify-between p-5 border border-border/50 rounded-2xl hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 bg-background group">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-lg">
-                          <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
+                          <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-slate-900 dark:text-slate-100">#{e.id}</span>
-                            <Badge variant="outline" className="text-xs font-medium">
+                            <span className="font-bold text-foreground tracking-tight">#{e.id}</span>
+                            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider bg-muted/30">
                               {e.category}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-muted-foreground truncate max-w-[200px]">
                             {e.vendor || 'No vendor specified'}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">
+                          <p className="text-lg font-bold text-foreground">
                             <CurrencyDisplay amount={e.amount || 0} currency={e.currency || 'USD'} />
                           </p>
-                          <p className="text-xs text-muted-foreground">Expense amount</p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        <ProfessionalButton
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={async () => {
                             try {
                               // Use null to explicitly clear the link on the backend
@@ -583,29 +599,28 @@ const EditInvoice = () => {
                                   expenseApi.getExpensesFiltered({ invoiceId: invoice!.id }),
                                   expenseApi.getExpensesFiltered({ unlinkedOnly: true })
                                 ]);
-                                setLinkedExpenses(linked);
-                                setAvailableExpenses(unlinked);
+                                setLinkedExpenses(Array.isArray(linked) ? linked : []);
+                                setAvailableExpenses(Array.isArray(unlinked) ? unlinked : []);
                               } catch { }
                               toast.success('Expense unlinked successfully');
                             } catch (err: any) {
                               toast.error(err?.message || 'Failed to unlink expense');
                             }
                           }}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
                         >
-                          Unlink
-                        </Button>
+                          <Trash className="h-4 w-4" />
+                        </ProfessionalButton>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </ProfessionalCard>
         </div>
 
-        {/* Enhanced Stock Impact Section - with more spacing */}
-        <div className="px-6 pt-8">
+        <div className="px-8 pb-12">
           {invoice && (
             <InvoiceStockImpact
               invoiceId={invoice.id}
@@ -691,9 +706,9 @@ const EditInvoice = () => {
                           )}
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="ml-2">
+                      <ProfessionalButton variant="ghost" size="sm" className="ml-2">
                         View Details
-                      </Button>
+                      </ProfessionalButton>
                     </div>
                   ))}
                 </div>
@@ -746,7 +761,7 @@ const EditInvoice = () => {
             </div>
             {livePreviewUrl && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => {
+                <ProfessionalButton variant="outline" onClick={() => {
                   const a = document.createElement('a');
                   a.href = livePreviewUrl;
                   a.download = `invoice-${invoice.number || 'preview'}.pdf`;
@@ -755,7 +770,7 @@ const EditInvoice = () => {
                   document.body.removeChild(a);
                 }}>
                   Download PDF
-                </Button>
+                </ProfessionalButton>
               </div>
             )}
           </DialogContent>

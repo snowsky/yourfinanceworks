@@ -1,13 +1,8 @@
 import asyncio
 import logging
 import os
-import time
-import email
-import imaplib
 import threading
 from email.header import decode_header
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text

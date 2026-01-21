@@ -24,7 +24,7 @@ def check_unified_ocr_availability():
     logger.info("🔍 Checking UnifiedOCRService availability...")
     
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
         
         # Test service initialization
         service = UnifiedOCRService()
@@ -70,7 +70,7 @@ def check_legacy_services():
     
     # Check bank statement OCR processor
     try:
-        from core.services.bank_statement_ocr_processor import BankStatementOCRProcessor
+        from commercial.ai_bank_statement.services.bank_statement_ocr_processor import BankStatementOCRProcessor
         legacy_status["bank_statement_service"] = True
         logger.info("✅ BankStatementOCRProcessor available")
     except ImportError:
@@ -78,7 +78,7 @@ def check_legacy_services():
     
     # Check enhanced PDF extractor
     try:
-        from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+        from commercial.ai.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
         legacy_status["enhanced_pdf_extractor"] = True
         logger.info("✅ EnhancedPDFTextExtractor available")
     except ImportError:
@@ -86,7 +86,7 @@ def check_legacy_services():
     
     # Check OCR service
     try:
-        from core.services.ocr_service import _run_ocr
+        from commercial.ai.services.ocr_service import _run_ocr
         legacy_status["ocr_service"] = True
         logger.info("✅ OCR service (_run_ocr) available")
     except ImportError:
@@ -114,7 +114,7 @@ async def test_unified_vs_legacy(test_file_path: str = None):
     
     # Test UnifiedOCRService
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType
         
         service = UnifiedOCRService()
         
@@ -141,7 +141,7 @@ async def test_unified_vs_legacy(test_file_path: str = None):
     
     # Test legacy services (if available)
     try:
-        from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+        from commercial.ai.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
         
         logger.info("Testing legacy PDF extractor...")
         extractor = EnhancedPDFTextExtractor()
@@ -224,7 +224,7 @@ def validate_configuration():
     logger.info("⚙️ Validating OCR Configuration...")
     
     try:
-        from core.services.unified_ocr_service import OCRConfig
+        from commercial.ai.services.unified_ocr_service import OCRConfig
         
         # Test default configuration
         default_config = OCRConfig()

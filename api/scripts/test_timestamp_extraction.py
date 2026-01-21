@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 # Add the parent directory to the path so we can import from api
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.services.ocr_service import _heuristic_parse_text, _extract_json_from_text
+from commercial.ai.services.ocr_service import _heuristic_parse_text, _extract_json_from_text
 
 
 def test_timestamp_extraction():

@@ -14,17 +14,17 @@ import statistics
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 from unittest.mock import Mock, patch
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 import psutil
 import gc
 
-from api.services.encryption_service import EncryptionService
-from api.services.key_management_service import KeyManagementService
-from api.utils.column_encryptor import EncryptedColumn, EncryptedJSON
-from api.models.database import Base, set_tenant_context, clear_tenant_context
-from api.config.encryption_config import EncryptionConfig
+from core.services.encryption_service import EncryptionService
+from core.services.key_management_service import KeyManagementService
+from core.utils.column_encryptor import EncryptedColumn, EncryptedJSON
+from core.models.database import Base, set_tenant_context, clear_tenant_context
+from encryption_config import EncryptionConfig
 
 
 # Test models for performance testing
@@ -33,11 +33,11 @@ class PerformanceTestUser(Base):
     __tablename__ = "perf_test_users"
     
     id = Column(Integer, primary_key=True, index=True)
-    email = EncryptedColumn(String, nullable=False)
-    first_name = EncryptedColumn(String, nullable=True)
-    last_name = EncryptedColumn(String, nullable=True)
-    phone = EncryptedColumn(String, nullable=True)
-    address = EncryptedColumn(Text, nullable=True)
+    email = Column(EncryptedColumn(), nullable=False)
+    first_name = Column(EncryptedColumn(), nullable=True)
+    last_name = Column(EncryptedColumn(), nullable=True)
+    phone = Column(EncryptedColumn(), nullable=True)
+    address = Column(EncryptedColumn(), nullable=True)
     # Non-encrypted fields for comparison
     user_id = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True)
@@ -49,10 +49,10 @@ class PerformanceTestDocument(Base):
     __tablename__ = "perf_test_documents"
     
     id = Column(Integer, primary_key=True, index=True)
-    title = EncryptedColumn(String, nullable=False)
-    content = EncryptedColumn(Text, nullable=True)
-    metadata = EncryptedJSON(nullable=True)
-    tags = EncryptedJSON(nullable=True)
+    title = Column(EncryptedColumn(), nullable=False)
+    content = Column(EncryptedColumn(), nullable=True)
+    doc_metadata = Column(EncryptedJSON(), nullable=True)
+    tags = Column(EncryptedJSON(), nullable=True)
     # Non-encrypted fields
     document_type = Column(String, nullable=False)
     size_bytes = Column(Integer, default=0)
@@ -65,7 +65,7 @@ class TestEncryptionPerformance:
     @pytest.fixture
     def encryption_service(self):
         """Create encryption service with real cryptographic operations."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "performance-test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -505,7 +505,7 @@ class TestDatabasePerformance:
             doc = PerformanceTestDocument(
                 title=f"Document {i}",
                 content=f"Content for document {i} " * (i % 10 + 1),  # Varying content length
-                metadata=metadata,
+                doc_metadata=metadata,
                 tags=tags,
                 document_type=f"type_{i % 3}",
                 size_bytes=len(f"Content for document {i}") * (i % 10 + 1)
@@ -535,7 +535,7 @@ class TestDatabasePerformance:
         
         # Verify data integrity
         assert len(all_docs) == 100
-        assert all_docs[0].metadata["document_id"] == 0
+        assert all_docs[0].doc_metadata["document_id"] == 0
         assert isinstance(all_docs[0].tags, list)
         
         # Performance assertions
@@ -701,7 +701,7 @@ class TestResourceConsumption:
         
         process = psutil.Process(os.getpid())
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -749,7 +749,7 @@ class TestResourceConsumption:
 
     def test_encryption_scalability_limits(self):
         """Test encryption system behavior at scale limits."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -804,7 +804,7 @@ class TestResourceConsumption:
 
     def test_cache_efficiency_under_load(self):
         """Test cache efficiency under various load patterns."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance

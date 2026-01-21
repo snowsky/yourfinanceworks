@@ -7,12 +7,12 @@ for AWS KMS, Azure Key Vault, and HashiCorp Vault.
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from api.config.encryption_config import EncryptionConfig
-from api.integrations.key_vault_factory import KeyVaultFactory, KeyVaultProvider
-from api.integrations.aws_kms_provider import AWSKMSProvider
-from api.integrations.azure_keyvault_provider import AzureKeyVaultProvider
-from api.integrations.hashicorp_vault_provider import HashiCorpVaultProvider
-from api.exceptions.encryption_exceptions import EncryptionError, KeyNotFoundError
+from encryption_config import EncryptionConfig
+from commercial.integrations.key_vault_factory import KeyVaultFactory, KeyVaultProvider
+from commercial.integrations.aws_kms_provider import AWSKMSProvider
+from commercial.integrations.azure_keyvault_provider import AzureKeyVaultProvider
+from commercial.integrations.hashicorp_vault_provider import HashiCorpVaultProvider
+from core.exceptions.encryption_exceptions import EncryptionError, KeyNotFoundError
 
 
 class TestKeyVaultFactory:

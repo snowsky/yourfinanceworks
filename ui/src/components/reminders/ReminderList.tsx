@@ -13,7 +13,9 @@ import {
   Loader2,
   RefreshCw,
   Timer,
-  Trash2
+  Trash2,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -84,6 +86,9 @@ export function ReminderList({ className }: ReminderListProps) {
   const [formLoading, setFormLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState<number | null>(null);
+  const [selectedReminders, setSelectedReminders] = useState<Set<number>>(new Set());
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -112,7 +117,7 @@ export function ReminderList({ className }: ReminderListProps) {
     completed: 0,
   });
 
-  const activeTab = searchParams.get('tab') || 'all';
+  const activeTab = searchParams.get('tab') || 'my';
 
   useEffect(() => {
     loadReminders();
@@ -137,7 +142,7 @@ export function ReminderList({ className }: ReminderListProps) {
     if (dueDateFrom) params.set('due_from', format(dueDateFrom, 'yyyy-MM-dd'));
     if (dueDateTo) params.set('due_to', format(dueDateTo, 'yyyy-MM-dd'));
     if (page > 1) params.set('page', page.toString());
-    if (activeTab !== 'all') params.set('tab', activeTab);
+    if (activeTab !== 'my') params.set('tab', activeTab);
     setSearchParams(params);
   }, [searchQuery, statusFilter, priorityFilter, assignedToFilter, dueDateFrom, dueDateTo, page, activeTab, setSearchParams]);
 
@@ -150,12 +155,12 @@ export function ReminderList({ className }: ReminderListProps) {
 
       // Fetch counts for each tab in parallel
       const [allData, myData, dueTodayData, overdueData, snoozedData, completedData] = await Promise.all([
-        reminderApi.getReminders({ page: 1, per_page: 1 }), // all
+        currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, created_by_id: currentUser.id }) : Promise.resolve({ total: 0 }), // all (created by user)
         currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, assigned_to_id: currentUser.id }) : Promise.resolve({ total: 0 }), // my
-        reminderApi.getReminders({ page: 1, per_page: 1, due_date_from: today.toISOString(), due_date_to: tomorrow.toISOString(), status: ['pending', 'snoozed'] }), // due_today
-        reminderApi.getReminders({ page: 1, per_page: 1, due_date_to: new Date().toISOString(), status: ['pending'] }), // overdue
-        reminderApi.getReminders({ page: 1, per_page: 1, status: ['snoozed'] }), // snoozed
-        reminderApi.getReminders({ page: 1, per_page: 1, status: ['completed'] }), // completed
+        currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, assigned_to_id: currentUser.id, due_date_from: today.toISOString(), due_date_to: tomorrow.toISOString(), status: ['pending', 'snoozed'] }) : Promise.resolve({ total: 0 }), // due_today
+        currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, assigned_to_id: currentUser.id, due_date_to: new Date().toISOString(), status: ['pending'] }) : Promise.resolve({ total: 0 }), // overdue
+        currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, assigned_to_id: currentUser.id, status: ['snoozed'] }) : Promise.resolve({ total: 0 }), // snoozed
+        currentUser ? reminderApi.getReminders({ page: 1, per_page: 1, assigned_to_id: currentUser.id, status: ['completed'] }) : Promise.resolve({ total: 0 }), // completed
       ]);
 
       setTabCounts({
@@ -191,23 +196,34 @@ export function ReminderList({ className }: ReminderListProps) {
         case 'my':
           if (currentUser) params.assigned_to_id = currentUser.id;
           break;
+        case 'all':
+          // For non-admins, show reminders created by user (not assigned)
+          // For admins, the backend will already show all tenant reminders
+          if (currentUser) {
+            params.created_by_id = currentUser.id;
+          }
+          break;
         case 'due_today':
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const tomorrow = new Date(today);
           tomorrow.setDate(tomorrow.getDate() + 1);
+          if (currentUser) params.assigned_to_id = currentUser.id;
           params.due_date_from = today.toISOString();
           params.due_date_to = tomorrow.toISOString();
           params.status = ['pending', 'snoozed'];
           break;
         case 'overdue':
+          if (currentUser) params.assigned_to_id = currentUser.id;
           params.due_date_to = new Date().toISOString();
           params.status = ['pending'];
           break;
         case 'snoozed':
+          if (currentUser) params.assigned_to_id = currentUser.id;
           params.status = ['snoozed'];
           break;
         case 'completed':
+          if (currentUser) params.assigned_to_id = currentUser.id;
           params.status = ['completed'];
           break;
       }
@@ -361,6 +377,48 @@ export function ReminderList({ className }: ReminderListProps) {
     }
   };
 
+  const handleSelectReminder = (reminderId: number) => {
+    const newSelected = new Set(selectedReminders);
+    if (newSelected.has(reminderId)) {
+      newSelected.delete(reminderId);
+    } else {
+      newSelected.add(reminderId);
+    }
+    setSelectedReminders(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedReminders.size === reminders.length && reminders.length > 0) {
+      setSelectedReminders(new Set());
+    } else {
+      setSelectedReminders(new Set(reminders.map(r => r.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedReminders.size === 0) return;
+
+    try {
+      setBulkDeleteLoading(true);
+      const result = await reminderApi.bulkDeleteReminders(Array.from(selectedReminders));
+
+      if (result.failed_count > 0) {
+        toast.error(`Deleted ${result.updated_count} reminders, ${result.failed_count} failed`);
+      } else {
+        toast.success(`Successfully deleted ${result.updated_count} reminders`);
+      }
+
+      setSelectedReminders(new Set());
+      setBulkDeleteModalOpen(false);
+      loadReminders();
+      fetchTabCounts();
+    } catch (error) {
+      toast.error('Failed to delete reminders');
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
   // Use the fetched tab counts from state
   const counts = tabCounts;
 
@@ -391,6 +449,17 @@ export function ReminderList({ className }: ReminderListProps) {
             <p className="text-lg text-muted-foreground">{t('reminders.description')}</p>
           </div>
           <div className="flex items-center gap-2">
+            {selectedReminders.size > 0 && (
+              <ProfessionalButton
+                variant="destructive"
+                size="default"
+                onClick={() => setBulkDeleteModalOpen(true)}
+                className="whitespace-nowrap"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Selected ({selectedReminders.size})
+              </ProfessionalButton>
+            )}
             <ProfessionalButton
               variant="outline"
               size="default"
@@ -414,37 +483,51 @@ export function ReminderList({ className }: ReminderListProps) {
         value={activeTab}
         onValueChange={(value) => {
           const params = new URLSearchParams(searchParams);
-          if (value === 'all') {
-            params.delete('tab');
-          } else {
-            params.set('tab', value);
-          }
+          params.set('tab', value);
           setSearchParams(params);
           setPage(1);
         }}
       >
         <TabsList className="grid w-full grid-cols-6 bg-muted/30 border border-border/50 rounded-lg p-1">
-          <TabsTrigger value="all" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="all"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <List className="h-4 w-4" />
             {t('reminders.all')} ({counts.all})
           </TabsTrigger>
-          <TabsTrigger value="my" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="my"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <Clock className="h-4 w-4" />
             {t('reminders.my_tasks')} ({counts.my})
           </TabsTrigger>
-          <TabsTrigger value="due_today" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="due_today"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <Calendar className="h-4 w-4" />
             {t('reminders.due_today')} ({counts.due_today})
           </TabsTrigger>
-          <TabsTrigger value="overdue" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="overdue"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <AlertCircle className="h-4 w-4" />
             {t('reminders.overdue')} ({counts.overdue})
           </TabsTrigger>
-          <TabsTrigger value="snoozed" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="snoozed"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <Timer className="h-4 w-4" />
             {t('reminders.snoozed')} ({counts.snoozed})
           </TabsTrigger>
-          <TabsTrigger value="completed" className="flex items-center gap-2 rounded-md">
+          <TabsTrigger
+            value="completed"
+            className="flex items-center gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200"
+          >
             <CheckCircle className="h-4 w-4" />
             {t('reminders.completed')} ({counts.completed})
           </TabsTrigger>
@@ -591,19 +674,45 @@ export function ReminderList({ className }: ReminderListProps) {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-4">
-                    {reminders.map((reminder) => (
-                      <ReminderCard
-                        key={reminder.id}
-                        reminder={reminder}
-                        currentUserId={currentUser?.id || 0}
-                        onEdit={setEditingReminder}
-                        onComplete={handleCompleteReminder}
-                        onSnooze={handleSnoozeReminder}
-                        onUnsnooze={handleUnsnoozeReminder}
-                        onDelete={handleDeleteReminder}
-                      />
-                    ))}
+                  <div className="space-y-4">
+                    {reminders.length > 0 && (
+                      <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSelectAll}
+                          className="h-8 w-8 p-0"
+                        >
+                          {selectedReminders.size === reminders.length && reminders.length > 0 ? (
+                            <CheckSquare className="h-4 w-4" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {selectedReminders.size === reminders.length && reminders.length > 0
+                            ? 'Deselect all'
+                            : `Select all (${reminders.length})`}
+                        </span>
+                      </div>
+                    )}
+                    <div className="grid gap-4">
+                      {reminders.map((reminder) => (
+                        <ReminderCard
+                          key={reminder.id}
+                          reminder={reminder}
+                          currentUserId={currentUser?.id || 0}
+                          onEdit={setEditingReminder}
+                          onComplete={handleCompleteReminder}
+                          onSnooze={handleSnoozeReminder}
+                          onUnsnooze={handleUnsnoozeReminder}
+                          onDelete={handleDeleteReminder}
+                          isSelected={selectedReminders.has(reminder.id)}
+                          onSelect={handleSelectReminder}
+                          showSelection={true}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
               </TabsContent>
@@ -635,6 +744,33 @@ export function ReminderList({ className }: ReminderListProps) {
             </ProfessionalButton>
           </div>
         )}
+        {/* Bulk Delete Reminder Modal */}
+        <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Selected Reminders</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {selectedReminders.size} selected reminder(s)? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={bulkDeleteLoading}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleBulkDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={bulkDeleteLoading}
+              >
+                {bulkDeleteLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Delete {selectedReminders.size} Reminder(s)
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Delete Reminder Modal */}
         <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <AlertDialogContent>

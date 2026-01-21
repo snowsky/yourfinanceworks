@@ -9,12 +9,12 @@ from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from api.services.report_validation_service import ReportValidationService
-from api.exceptions.report_exceptions import (
+from core.services.report_validation_service import ReportValidationService
+from core.exceptions.report_exceptions import (
     ReportValidationException, ReportErrorCode
 )
-from api.schemas.report import ReportType, ExportFormat
-from api.models.models_per_tenant import Client
+from core.schemas.report import ReportType, ExportFormat
+from core.models.models_per_tenant import Client
 
 
 class TestReportValidationService:

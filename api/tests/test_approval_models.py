@@ -3,10 +3,10 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
-from api.models.models_per_tenant import (
+from core.models.models_per_tenant import (
     User, Expense, ExpenseApproval, ApprovalRule, ApprovalDelegate
 )
-from api.schemas.approval import (
+from core.schemas.approval import (
     ApprovalRuleCreate, ExpenseApprovalCreate, ApprovalDelegateCreate,
     ApprovalStatus
 )
@@ -195,5 +195,5 @@ def test_expense_approval_status_enum():
         "status": ApprovalStatus.APPROVED
     }
     # This should not raise an error
-    from api.schemas.approval import ExpenseApprovalBase
+    from core.schemas.approval import ExpenseApprovalBase
     approval = ExpenseApprovalBase(**approval_data)

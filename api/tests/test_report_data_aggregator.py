@@ -11,15 +11,15 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from unittest.mock import Mock, patch
 
-from api.services.report_data_aggregator import (
+from core.services.report_data_aggregator import (
     ReportDataAggregator, DateRange, ClientData, InvoiceMetrics,
     PaymentFlows, ExpenseBreakdown, TransactionData
 )
-from api.schemas.report import (
+from core.schemas.report import (
     ClientReportFilters, InvoiceReportFilters, PaymentReportFilters,
     ExpenseReportFilters, StatementReportFilters
 )
-from api.models.models_per_tenant import (
+from core.models.models_per_tenant import (
     Client, Invoice, Payment, Expense, BankStatement, BankStatementTransaction,
     InvoiceItem, User
 )

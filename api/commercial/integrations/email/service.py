@@ -11,12 +11,12 @@ import ssl
 import time
 from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Settings, Expense, ExpenseAttachment
-from core.services.ocr_service import _run_ocr
+from commercial.ai.services.ocr_service import _run_ocr, queue_or_process_attachment
 from core.services.currency_service import CurrencyService
 from core.services.inventory_service import InventoryService
 from core.services.inventory_integration_service import InventoryIntegrationService
-from core.services.email_classification_service import EmailClassificationService
-from core.services.ai_config_service import AIConfigService
+from commercial.ai_expense.services.email_classification_service import EmailClassificationService
+from commercial.ai.services.ai_config_service import AIConfigService
 from core.constants.expense_status import ExpenseStatus
 import tempfile
 import mimetypes
@@ -612,14 +612,14 @@ Respond with ONLY valid JSON:
     def _create_expense_from_email(self, msg, raw_email, body: str = None) -> Expense:
         """Create expense from email with AI-powered extraction."""
         subject = self._decode_header(msg.get("Subject", ""))
-        
+
         # Extract body if not provided
         if body is None:
             body = self._extract_body_text(msg)
-        
+
         # Try AI extraction from email body
         expense_data = asyncio.run(self._extract_expense_from_body_async(subject, body))
-        
+
         # Create expense with extracted data or defaults
         expense = Expense(
             user_id=self.user_id,
@@ -637,6 +637,33 @@ Respond with ONLY valid JSON:
         self.db.add(expense)
         self.db.commit()
         self.db.refresh(expense)
+
+        # Trigger gamification event for expense creation
+        try:
+            from core.services.tenant_database_manager import tenant_db_manager
+            from core.services.financial_event_processor import create_financial_event_processor
+
+            self.logger.info(f"STEP: Processing gamification for email expense {expense.id}")
+
+            # Get tenant database session for gamification
+            tenant_session = tenant_db_manager.get_tenant_session(self.tenant_id)
+
+            event_processor = create_financial_event_processor(tenant_session)
+            gamification_result = asyncio.run(event_processor.process_expense_added(
+                user_id=self.user_id,
+                expense_id=expense.id,
+                expense_data={
+                    "amount": float(expense.amount) if expense.amount else 0,
+                    "category": expense.category,
+                    "vendor": expense.vendor,
+                    "has_attachments": bool(expense.attachments)
+                }
+            ))
+
+            logger.info(f"✅ STEP: Gamification processed for email expense {expense.id}")
+        except Exception as e:
+            logger.warning(f"Failed to process gamification for email expense {expense.id}: {e}")
+            # Don't fail the expense creation if gamification processing fails
 
         # Link expense to raw email
         raw_email.expense_id = expense.id
@@ -667,7 +694,7 @@ Respond with ONLY valid JSON:
                 logger.info(f"[ATTACH] Found attachment: {filename}, type={content_type}, size={len(content)} bytes")
 
                 # Save attachment first
-                file_path = self._save_attachment(expense, filename, content, content_type)
+                attachment, file_path = self._save_attachment(expense, filename, content, content_type)
 
                 # Process PDFs and images for expense data extraction
                 is_pdf = content_type == 'application/pdf' or filename.lower().endswith('.pdf')
@@ -675,36 +702,19 @@ Respond with ONLY valid JSON:
 
                 if is_pdf or is_image:
                     file_type = "PDF" if is_pdf else "Image"
-                    logger.info(f"[{file_type}] Processing {file_type.lower()} attachment: {filename}")
+                    logger.info(f"[{file_type}] Queuing {file_type.lower()} attachment for OCR: {filename}")
                     try:
-                        # Extract data from PDF/image using OCR
-                        extracted_data = asyncio.run(self._extract_from_pdf_async(file_path))
-
-                        if extracted_data:
-                            # Update expense with extracted data
-                            if extracted_data.get('amount'):
-                                expense.amount = extracted_data['amount']
-                            if extracted_data.get('currency'):
-                                expense.currency = extracted_data['currency']
-                            if extracted_data.get('expense_date'):
-                                expense.expense_date = extracted_data['expense_date']
-                            if extracted_data.get('vendor'):
-                                expense.vendor = extracted_data['vendor']
-                            if extracted_data.get('category'):
-                                expense.category = extracted_data['category']
-
-                            # Update total amount if tax info available
-                            if extracted_data.get('tax_amount'):
-                                expense.tax_amount = extracted_data['tax_amount']
-                            if extracted_data.get('total_amount'):
-                                expense.total_amount = extracted_data['total_amount']
-
-                            self.db.commit()
-                            logger.info(f"[{file_type}] Updated expense {expense.id} with {file_type.lower()} data: amount={expense.amount}, vendor={expense.vendor}")
-                        else:
-                            logger.warning(f"[{file_type}] No data extracted from {filename}")
+                        # Queue OCR processing in background (Kafka or inline)
+                        # We use the attachment object returned by _save_attachment
+                        queue_or_process_attachment(
+                            self.db,
+                            self.tenant_id,
+                            expense.id,
+                            attachment.id,
+                            file_path
+                        )
                     except Exception as e:
-                        logger.error(f"[{file_type}] Failed to extract data from {filename}: {e}", exc_info=True)
+                        logger.error(f"[{file_type}] Failed to queue OCR for {filename}: {e}")
 
         logger.info(f"[ATTACH] Processed {attachment_count} attachments for expense {expense.id}")
 
@@ -786,5 +796,5 @@ Respond with ONLY valid JSON:
         self.db.add(attachment)
         self.db.commit()
 
-        # Return local path for OCR processing (cloud files will be downloaded if needed)
-        return local_file_path
+        # Return both attachment and local path for OCR processing
+        return attachment, local_file_path

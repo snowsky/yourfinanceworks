@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { api, superAdminApi, userApi } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { api, superAdminApi, userApi, authApi } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -10,19 +9,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import {
-  CardContent,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -41,12 +27,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Search, Mail, CheckCircle2 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@/lib/api';
 import { JoinRequestsTable } from '@/components/JoinRequestsTable';
 import { PageHeader } from '@/components/ui/professional-layout';
-import { ProfessionalCard } from '@/components/ui/professional-card';
+import { ProfessionalCard, ProfessionalCardHeader, ProfessionalCardTitle, ProfessionalCardContent, ProfessionalCardDescription } from '@/components/ui/professional-card';
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { ProfessionalInput } from "@/components/ui/professional-input";
+import {
+  ProfessionalTable,
+  ProfessionalTableHeader,
+  ProfessionalTableBody,
+  ProfessionalTableHead,
+  ProfessionalTableRow,
+  ProfessionalTableCell,
+  StatusBadge,
+  TableActionMenu
+} from "@/components/ui/professional-table";
+import { getCurrentUser } from '@/utils/auth';
+import { useOrganizations } from '@/hooks/useOrganizations';
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -72,13 +72,16 @@ type Invite = {
   invited_by?: string;
 };
 
-
-
 export default function UsersPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const user = getCurrentUser();
+  const { data: userOrganizations = [] } = useOrganizations();
+
   const [users, setUsers] = useState<User[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: "",
@@ -97,6 +100,45 @@ export default function UsersPage() {
   const [activating, setActivating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [passwordRequirements, setPasswordRequirements] = useState<any>(null);
+
+  // Check permission to access users page
+  useEffect(() => {
+    // Get current organization ID from localStorage
+    const currentOrgId = localStorage.getItem('selected_tenant_id') || user?.tenant_id?.toString() || '';
+    const currentOrg = userOrganizations.find(org => org.id.toString() === currentOrgId);
+    const isAdminInCurrentOrg = currentOrg?.role === 'admin';
+    setHasAccess(isAdminInCurrentOrg);
+
+    if (userOrganizations.length > 0 && !isAdminInCurrentOrg) {
+      navigate('/');
+    }
+  }, [userOrganizations, navigate, user?.tenant_id]);
+
+  // Fetch password requirements
+  useEffect(() => {
+    const fetchPasswordRequirements = async () => {
+      try {
+        const requirements = await authApi.getPasswordRequirements();
+        setPasswordRequirements(requirements);
+      } catch (error) {
+        console.error('Failed to fetch password requirements:', error);
+        // Fallback to default requirements
+        setPasswordRequirements({
+          min_length: 8,
+          complexity: {
+            require_uppercase: true,
+            require_lowercase: true,
+            require_numbers: true,
+            require_special_chars: true,
+            special_chars: "!@#$%^&*()_+-=[]{}|;:,.<>?"
+          }
+        });
+      }
+    };
+
+    fetchPasswordRequirements();
+  }, []);
 
   // User management states
   const [togglingStatus, setTogglingStatus] = useState(false);
@@ -107,7 +149,6 @@ export default function UsersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Get current user id from localStorage
   let currentUserId: number | null = null;
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -120,13 +161,11 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const res = await api.get("/auth/users");
-      console.log("Fetched users from API:", res);
-      // The API returns the array directly, not wrapped in a data property
       setUsers(Array.isArray(res) ? res : []);
     } catch (e: any) {
       console.error("Failed to load users:", e);
       toast.error(getErrorMessage(e, t));
-      setUsers([]); // Set empty array on error
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -135,35 +174,33 @@ export default function UsersPage() {
   const fetchInvites = async () => {
     try {
       const res = await api.get("/auth/invites");
-      // The API returns the array directly, not wrapped in a data property
       setInvites(Array.isArray(res) ? res : []);
     } catch (e: any) {
       console.error("Failed to load invites:", e);
       toast.error(getErrorMessage(e, t));
-      setInvites([]); // Set empty array on error
+      setInvites([]);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchInvites();
-  }, []);
+    if (hasAccess) {
+      fetchUsers();
+      fetchInvites();
+    }
+  }, [hasAccess]);
 
-  // Refetch data when tenant changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'selected_tenant_id') {
+      if (e.key === 'selected_tenant_id' && hasAccess) {
         fetchUsers();
         fetchInvites();
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
-
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [hasAccess]);
 
   const handleInviteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -189,9 +226,7 @@ export default function UsersPage() {
 
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
-      console.log("Updating role for user", userId, "to", newRole);
       await api.put(`/auth/users/${userId}/role`, { role: newRole });
-      console.log("Role update successful");
       toast.success(t('users.role_updated'));
       fetchUsers();
     } catch (err: any) {
@@ -201,19 +236,23 @@ export default function UsersPage() {
   };
 
   const getInviteStatus = (invite: Invite) => {
-    if (invite.is_accepted) return t('users.accepted');
+    if (invite.is_accepted) return 'accepted';
     const now = new Date();
     const expiresAt = new Date(invite.expires_at);
-    if (expiresAt < now) return t('users.expired');
-    return t('users.pending');
+    if (expiresAt < now) return 'expired';
+    return 'pending';
   };
 
-  const getStatusColor = (status: string) => {
+  const getInviteStatusBadge = (status: string) => {
     switch (status) {
-      case t('users.accepted'): return "text-green-600";
-      case t('users.expired'): return "text-red-600";
-      case t('users.pending'): return "text-yellow-600";
-      default: return "text-gray-600";
+      case 'accepted':
+        return <StatusBadge status="success">{t('users.accepted')}</StatusBadge>;
+      case 'expired':
+        return <StatusBadge status="danger">{t('users.expired')}</StatusBadge>;
+      case 'pending':
+        return <StatusBadge status="warning">{t('users.pending')}</StatusBadge>;
+      default:
+        return <StatusBadge status="neutral">{status}</StatusBadge>;
     }
   };
 
@@ -311,8 +350,13 @@ export default function UsersPage() {
     e.preventDefault();
     if (!userToReset) return;
 
-    if (newPassword.length < 6) {
-      toast.error(t('users.passwordTooShort'));
+    if (!passwordRequirements) {
+      toast.error('Password requirements not loaded. Please try again.');
+      return;
+    }
+
+    if (newPassword.length < passwordRequirements.min_length) {
+      toast.error(t('users.passwordTooShort', { min_length: passwordRequirements.min_length }));
       return;
     }
 
@@ -352,419 +396,409 @@ export default function UsersPage() {
     }
   };
 
-
-
-  // Filter users by search query
   const filteredUsers = users.filter(user =>
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     [user.first_name, user.last_name].filter(Boolean).join(" ").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Sort users by email (case-insensitive)
   const sortedUsers = [...filteredUsers].sort((a, b) =>
     a.email.localeCompare(b.email, undefined, { sensitivity: 'base' })
   );
 
   return (
-    <>
-      <div className="h-full space-y-6 fade-in">
-        <PageHeader
-          title={t('users.organization_users')}
-          description={t('users.manageorganization_users')}
-          actions={
-            <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="sm:self-end whitespace-nowrap">
-                  <Plus className="mr-2 h-4 w-4" /> {t('users.invite_user')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t('users.invite_user')}</DialogTitle>
-                </DialogHeader>
-                <form className="space-y-4" onSubmit={handleInvite}>
-                  <Input
-                    name="email"
-                    type="email"
-                    placeholder={t('users.email_placeholder')}
-                    value={inviteForm.email}
+    <div className="h-full space-y-8 p-8 fade-in">
+      <PageHeader
+        title={t('users.organization_users')}
+        description={t('users.manageorganization_users')}
+        actions={
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <ProfessionalButton className="sm:self-end whitespace-nowrap" variant="gradient">
+                <Plus className="mr-2 h-4 w-4" /> {t('users.invite_user')}
+              </ProfessionalButton>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('users.invite_user')}</DialogTitle>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={handleInvite}>
+                <ProfessionalInput
+                  name="email"
+                  type="email"
+                  placeholder={t('users.email_placeholder')}
+                  value={inviteForm.email}
+                  onChange={handleInviteChange}
+                  required
+                  leftIcon={<Mail className="h-4 w-4" />}
+                />
+                <div className="flex gap-2">
+                  <ProfessionalInput
+                    name="first_name"
+                    placeholder={t('users.first_name_placeholder')}
+                    value={inviteForm.first_name}
                     onChange={handleInviteChange}
-                    required
                   />
-                  <div className="flex gap-2">
-                    <Input
-                      name="first_name"
-                      placeholder={t('users.first_name_placeholder')}
-                      value={inviteForm.first_name}
-                      onChange={handleInviteChange}
-                    />
-                    <Input
-                      name="last_name"
-                      placeholder={t('users.last_name_placeholder')}
-                      value={inviteForm.last_name}
-                      onChange={handleInviteChange}
-                    />
-                  </div>
-                  <Select
-                    value={inviteForm.role}
-                    onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('users.role_placeholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <DialogFooter>
-                    <Button type="submit" disabled={inviting}>
-                      {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {t('users.invite')}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          }
-        />
+                  <ProfessionalInput
+                    name="last_name"
+                    placeholder={t('users.last_name_placeholder')}
+                    value={inviteForm.last_name}
+                    onChange={handleInviteChange}
+                  />
+                </div>
+                <Select
+                  value={inviteForm.role}
+                  onValueChange={(role: string) => setInviteForm((prev) => ({ ...prev, role }))}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder={t('users.role_placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <DialogFooter>
+                  <ProfessionalButton type="submit" disabled={inviting} loading={inviting} variant="gradient">
+                    {t('users.invite')}
+                  </ProfessionalButton>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-        <ProfessionalCard className="slide-in">
-          <CardHeader className="pb-3">
-            <CardTitle>{t('users.all_invites')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('users.email')}</TableHead>
-                    <TableHead>{t('users.name')}</TableHead>
-                    <TableHead>{t('users.role')}</TableHead>
-                    <TableHead>{t('users.status')}</TableHead>
-                    <TableHead>{t('users.invited_by')}</TableHead>
-                    <TableHead>{t('users.expires')}</TableHead>
-                    <TableHead>{t('users.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        <div className="flex justify-center items-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          {t('users.loadingInvites')}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (!invites || invites.length === 0) ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        {t('users.no_invites_found')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    invites.map((invite) => {
-                      const status = getInviteStatus(invite);
-                      return (
-                        <TableRow key={invite.id}>
-                          <TableCell>{invite.email}</TableCell>
-                          <TableCell>{[invite.first_name, invite.last_name].filter(Boolean).join(" ") || "-"}</TableCell>
-                          <TableCell>{invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}</TableCell>
-                          <TableCell className={getStatusColor(status)}>{status}</TableCell>
-                          <TableCell>{invite.invited_by || "-"}</TableCell>
-                          <TableCell>{new Date(invite.expires_at).toLocaleString()}</TableCell>
-                          <TableCell>
-                            {status === t('users.pending') && (
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => openActivationDialog(invite)}
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700"
-                                >
-                                  {t('users.activate')}
-                                </Button>
-                                <Button
-                                  onClick={() => handleCancelInvite(invite.id, invite.email)}
-                                  size="sm"
-                                  variant="destructive"
-                                  disabled={cancelling}
-                                >
-                                  {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : t('users.cancel')}
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
+      {invites && invites.length > 0 && (
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <ProfessionalCardHeader>
+            <ProfessionalCardTitle>{t('users.all_invites')}</ProfessionalCardTitle>
+            <ProfessionalCardDescription>{t('users.all_invites_desc', 'Pending and past invitations')}</ProfessionalCardDescription>
+          </ProfessionalCardHeader>
+          <ProfessionalCardContent>
+            <ProfessionalTable>
+              <ProfessionalTableHeader>
+                <ProfessionalTableRow>
+                  <ProfessionalTableHead>{t('users.email')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.name')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.role')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.status')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.invited_by')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.expires')}</ProfessionalTableHead>
+                  <ProfessionalTableHead>{t('users.actions')}</ProfessionalTableHead>
+                </ProfessionalTableRow>
+              </ProfessionalTableHeader>
+              <ProfessionalTableBody>
+                {loading ? (
+                  <ProfessionalTableRow>
+                    <ProfessionalTableCell colSpan={7} className="h-24 text-center">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        {t('users.loadingInvites')}
+                      </div>
+                    </ProfessionalTableCell>
+                  </ProfessionalTableRow>
+                ) : (
+                  invites.map((invite) => {
+                    const status = getInviteStatus(invite);
+                    return (
+                      <ProfessionalTableRow key={invite.id}>
+                        <ProfessionalTableCell className="font-medium">{invite.email}</ProfessionalTableCell>
+                        <ProfessionalTableCell>{[invite.first_name, invite.last_name].filter(Boolean).join(" ") || "-"}</ProfessionalTableCell>
+                        <ProfessionalTableCell>
+                          <StatusBadge status="neutral" variant="outline">
+                            {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
+                          </StatusBadge>
+                        </ProfessionalTableCell>
+                        <ProfessionalTableCell>{getInviteStatusBadge(status)}</ProfessionalTableCell>
+                        <ProfessionalTableCell>{invite.invited_by || "-"}</ProfessionalTableCell>
+                        <ProfessionalTableCell className="text-muted-foreground">{new Date(invite.expires_at).toLocaleDateString()}</ProfessionalTableCell>
+                        <ProfessionalTableCell>
+                          {status === 'pending' && (
+                            <div className="flex gap-2">
+                              <ProfessionalButton
+                                onClick={() => openActivationDialog(invite)}
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-green-500/20 text-green-600 hover:bg-green-500/10 hover:text-green-700 hover:border-green-500/30"
+                              >
+                                {t('users.activate')}
+                              </ProfessionalButton>
+                              <ProfessionalButton
+                                onClick={() => handleCancelInvite(invite.id, invite.email)}
+                                size="sm"
+                                variant="destructive"
+                                disabled={cancelling}
+                                className="h-8"
+                              >
+                                {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : t('users.cancel')}
+                              </ProfessionalButton>
+                            </div>
+                          )}
+                        </ProfessionalTableCell>
+                      </ProfessionalTableRow>
+                    );
+                  })
+                )}
+              </ProfessionalTableBody>
+            </ProfessionalTable>
+          </ProfessionalCardContent>
         </ProfessionalCard>
+      )}
 
-        {/* Join Requests Section */}
-        <div className="slide-in">
-          <JoinRequestsTable showAsCard={true} onRequestProcessed={fetchUsers} />
-        </div>
+      {/* Join Requests Section */}
+      <div className="slide-in">
+        <JoinRequestsTable showAsCard={true} onRequestProcessed={fetchUsers} />
+      </div>
 
-        <ProfessionalCard className="slide-in">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>{t('users.no_invites_found')}</CardTitle>
-              <div className="relative max-w-sm">
-                <Input
-                  placeholder={t('users.search_users_placeholder')}
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+      <ProfessionalCard className="slide-in" variant="elevated">
+        <ProfessionalCardHeader>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <ProfessionalCardTitle>{t('users.team_members', 'Team Members')}</ProfessionalCardTitle>
+              <ProfessionalCardDescription>{t('users.manage_access_and_roles', 'Manage access and roles for your team.')}</ProfessionalCardDescription>
+            </div>
+            <div className="relative w-full sm:w-[300px]">
+              <ProfessionalInput
+                placeholder={t('users.search_users_placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                leftIcon={<Search className="h-4 w-4 text-muted-foreground" />}
+              />
+            </div>
+          </div>
+        </ProfessionalCardHeader>
+        <ProfessionalCardContent>
+          <ProfessionalTable>
+            <ProfessionalTableHeader>
+              <ProfessionalTableRow>
+                <ProfessionalTableHead>{t('users.email')}</ProfessionalTableHead>
+                <ProfessionalTableHead>{t('users.name')}</ProfessionalTableHead>
+                <ProfessionalTableHead>{t('users.role')}</ProfessionalTableHead>
+                <ProfessionalTableHead>{t('users.status')}</ProfessionalTableHead>
+                <ProfessionalTableHead>{t('users.created')}</ProfessionalTableHead>
+                <ProfessionalTableHead className="text-right">{t('users.actions')}</ProfessionalTableHead>
+              </ProfessionalTableRow>
+            </ProfessionalTableHeader>
+            <ProfessionalTableBody>
+              {loading ? (
+                <ProfessionalTableRow>
+                  <ProfessionalTableCell colSpan={6} className="h-24 text-center">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      {t('users.loading_users')}
+                    </div>
+                  </ProfessionalTableCell>
+                </ProfessionalTableRow>
+              ) : (!filteredUsers || filteredUsers.length === 0) ? (
+                <ProfessionalTableRow>
+                  <ProfessionalTableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    {t('users.no_users_found')}
+                  </ProfessionalTableCell>
+                </ProfessionalTableRow>
+              ) : (
+                sortedUsers.map((user) => (
+                  <ProfessionalTableRow key={user.id}>
+                    <ProfessionalTableCell className="font-medium">{user.email}</ProfessionalTableCell>
+                    <ProfessionalTableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</ProfessionalTableCell>
+                    <ProfessionalTableCell>
+                      {user.id === currentUserId ? (
+                        <StatusBadge status="neutral" variant="outline">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</StatusBadge>
+                      ) : (
+                        <Select
+                          value={user.role}
+                          onValueChange={(role: string) => handleRoleChange(user.id, role)}
+                        >
+                          <SelectTrigger className="w-28 h-8 text-xs border-border/50 bg-background/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </ProfessionalTableCell>
+                    <ProfessionalTableCell>
+                      <StatusBadge status={user.is_active ? "success" : "neutral"}>
+                        {user.is_active ? t('users.active') : t('users.inactive')}
+                      </StatusBadge>
+                    </ProfessionalTableCell>
+                    <ProfessionalTableCell className="text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</ProfessionalTableCell>
+                    <ProfessionalTableCell className="text-right">
+                      <TableActionMenu
+                        actions={[
+                          {
+                            label: user.is_active ? t('users.deactivate') : t('users.activate'),
+                            onClick: () => handleToggleUserStatus(user.id, user.email, user.is_active),
+                            disabled: togglingStatus || user.id === currentUserId,
+                            variant: user.is_active ? 'destructive' : 'default'
+                          },
+                          {
+                            label: t('users.resetPassword'),
+                            onClick: () => openResetPasswordModal(user),
+                            disabled: resettingPassword
+                          },
+                          {
+                            label: t('users.delete'),
+                            onClick: () => handleDeleteUser(user.id, user.email),
+                            disabled: deletingUser || user.id === currentUserId,
+                            variant: 'destructive'
+                          }
+                        ]}
+                      />
+                    </ProfessionalTableCell>
+                  </ProfessionalTableRow>
+                ))
+              )}
+            </ProfessionalTableBody>
+          </ProfessionalTable>
+        </ProfessionalCardContent>
+      </ProfessionalCard>
+
+      <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('users.activateUser')}: {activationInvite?.email}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {t('users.activationDescription') || 'Activate this user account. You can set their password now or send them an invitation to set it themselves.'}
+            </p>
+          </DialogHeader>
+          <form onSubmit={handleActivateUser} className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <ProfessionalInput
+                  type="text"
+                  name="first_name"
+                  value={activationForm.first_name}
+                  onChange={handleActivationFormChange}
+                  placeholder={t('users.first_name_placeholder')}
+                  className="flex-1"
+                />
+                <ProfessionalInput
+                  type="text"
+                  name="last_name"
+                  value={activationForm.last_name}
+                  onChange={handleActivationFormChange}
+                  placeholder={t('users.last_name_placeholder')}
+                  className="flex-1"
                 />
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('users.email')}</TableHead>
-                    <TableHead>{t('users.name')}</TableHead>
-                    <TableHead>{t('users.role')}</TableHead>
-                    <TableHead>{t('users.status')}</TableHead>
-                    <TableHead>{t('users.created')}</TableHead>
-                    <TableHead>{t('users.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        <div className="flex justify-center items-center">
-                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                          {t('users.loading_users')}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (!filteredUsers || filteredUsers.length === 0) ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        {t('users.no_users_found')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</TableCell>
-                        <TableCell>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</TableCell>
-                        <TableCell>{user.is_active ? t('users.active') : t('users.inactive')}</TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 flex-wrap">
-                            <Select
-                              value={user.role}
-                              onValueChange={(role: string) => handleRoleChange(user.id, role)}
-                              disabled={user.id === currentUserId}
-                            >
-                              <SelectTrigger className="w-24 h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROLES.map((role) => (
-                                  <SelectItem key={role} value={role}>
-                                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
 
-                            <Button
-                              size="sm"
-                              variant={user.is_active ? "destructive" : "default"}
-                              onClick={() => handleToggleUserStatus(user.id, user.email, user.is_active)}
-                              disabled={togglingStatus || user.id === currentUserId}
-                              className="h-8 px-2 text-xs"
-                              title={user.is_active ? t('users.deactivateUser') : t('users.activateUser')}
-                            >
-                              {togglingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : (user.is_active ? t('users.deactivate') : t('users.activate'))}
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openResetPasswordModal(user)}
-                              disabled={resettingPassword}
-                              className="h-8 px-2 text-xs"
-                              title={t('users.resetPassword')}
-                            >
-                              {resettingPassword ? <Loader2 className="h-3 w-3 animate-spin" /> : t('users.reset')}
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteUser(user.id, user.email)}
-                              disabled={deletingUser || user.id === currentUserId}
-                              className="h-8 px-2 text-xs"
-                              title={t('users.deleteUser')}
-                            >
-                              {deletingUser ? <Loader2 className="h-3 w-3 animate-spin" /> : t('users.delete')}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </ProfessionalCard>
-
-        <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t('users.activateUser')}: {activationInvite?.email}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                {t('users.activationDescription') || 'Activate this user account. You can set their password now or send them an invitation to set it themselves.'}
-              </p>
-            </DialogHeader>
-            <form onSubmit={handleActivateUser} className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    name="first_name"
-                    value={activationForm.first_name}
-                    onChange={handleActivationFormChange}
-                    placeholder={t('users.first_name_placeholder')}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="text"
-                    name="last_name"
-                    value={activationForm.last_name}
-                    onChange={handleActivationFormChange}
-                    placeholder={t('users.last_name_placeholder')}
-                    className="flex-1"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t('users.passwordOptionLabel') || 'Password Setup'}
-                  </label>
-                  <Input
-                    type="password"
-                    name="password"
-                    value={activationForm.password}
-                    onChange={handleActivationFormChange}
-                    placeholder={t('users.enterPasswordForUserPlaceholder')}
-                  />
-                  {activationForm.password && (
-                    <div className="text-xs text-muted-foreground">
-                      {t('users.passwordWillBeSet') || '✓ User will be able to login immediately with this password'}
-                    </div>
-                  )}
-                  {!activationForm.password && (
-                    <div className="text-xs text-amber-600">
-                      {t('users.inviteWillBeSent') || '⚠ Leave blank to send invite email - user must set password on first login'}
-                    </div>
-                  )}
-                  {activationForm.password && activationForm.password.length > 0 && activationForm.password.length < 6 && (
-                    <div className="text-xs text-red-600">
-                      {t('users.passwordTooShort') || 'Password must be at least 6 characters long'}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <DialogFooter className="flex gap-2">
-                <Button type="button" variant="outline" onClick={closeActivationDialog} disabled={activating}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={activating || (activationForm.password && activationForm.password.length > 0 && activationForm.password.length < 6)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {activating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {activationForm.password ? (t('users.activateWithPassword') || 'Activate & Set Password') : (t('users.sendInvite') || 'Send Invite Email')}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Reset Password Modal */}
-        <AlertDialog open={resetPasswordModalOpen} onOpenChange={setResetPasswordModalOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t('users.resetPassword')}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t('users.resetPasswordDescription', { email: userToReset?.email })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t('users.newPassword')}
-                  </label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder={t('users.enterNewPassword')}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t('users.confirmPassword')}
-                  </label>
-                  <Input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder={t('users.confirmNewPassword')}
-                    required
-                  />
-                </div>
-                {newPassword && newPassword.length > 0 && newPassword.length < 6 && (
-                  <div className="text-xs text-red-600">
-                    {t('users.passwordTooShort')}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {t('users.passwordOptionLabel') || 'Password Setup'}
+                </label>
+                <ProfessionalInput
+                  type="password"
+                  name="password"
+                  value={activationForm.password}
+                  onChange={handleActivationFormChange}
+                  placeholder={t('users.enterPasswordForUserPlaceholder')}
+                />
+                {activationForm.password && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-green-600" />
+                    {t('users.passwordWillBeSet') || 'User will be able to login immediately with this password'}
                   </div>
                 )}
-                {newPassword && confirmPassword && newPassword !== confirmPassword && (
-                  <div className="text-xs text-red-600">
-                    {t('users.passwordsDoNotMatch')}
+                {!activationForm.password && (
+                  <div className="text-xs text-amber-600 flex items-center gap-1">
+                    <Mail className="w-3 h-3" />
+                    {t('users.inviteWillBeSent') || 'Leave blank to send invite email'}
+                  </div>
+                )}
+                {passwordRequirements && activationForm.password && activationForm.password.length > 0 && activationForm.password.length < passwordRequirements.min_length && (
+                  <div className="text-xs text-destructive">
+                    {t('users.passwordTooShort', { min_length: passwordRequirements.min_length }) || `Password must be at least ${passwordRequirements.min_length} characters long`}
                   </div>
                 )}
               </div>
-              <AlertDialogFooter className="flex gap-2">
-                <AlertDialogCancel disabled={resettingPassword}>
-                  {t('common.cancel')}
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  type="submit"
-                  disabled={resettingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {resettingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {t('users.resetPassword')}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </form>
-          </AlertDialogContent>
-        </AlertDialog>
+            </div>
 
-      </div>
-    </>
+            <DialogFooter className="flex gap-2">
+              <ProfessionalButton type="button" variant="outline" onClick={closeActivationDialog} disabled={activating}>
+                {t('common.cancel')}
+              </ProfessionalButton>
+              <ProfessionalButton
+                type="submit"
+                variant="gradient"
+                disabled={activating || (passwordRequirements && activationForm.password && activationForm.password.length > 0 && activationForm.password.length < passwordRequirements.min_length)}
+              >
+                {activationForm.password ? (t('users.activateWithPassword') || 'Activate & Set Password') : (t('users.sendInvite') || 'Send Invite Email')}
+              </ProfessionalButton>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={resetPasswordModalOpen} onOpenChange={setResetPasswordModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('users.resetPassword')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('users.resetPasswordDescription', { email: userToReset?.email })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {t('users.newPassword')}
+                </label>
+                <ProfessionalInput
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t('users.enterNewPassword')}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {t('users.confirmPassword')}
+                </label>
+                <ProfessionalInput
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t('users.confirmNewPassword')}
+                  required
+                />
+              </div>
+              {passwordRequirements && newPassword && newPassword.length > 0 && newPassword.length < passwordRequirements.min_length && (
+                <div className="text-xs text-destructive">
+                  {t('users.passwordTooShort', { min_length: passwordRequirements.min_length })}
+                </div>
+              )}
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <div className="text-xs text-destructive">
+                  {t('users.passwordsDoNotMatch')}
+                </div>
+              )}
+            </div>
+            <AlertDialogFooter className="flex gap-2">
+              <AlertDialogCancel disabled={resettingPassword}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                type="submit"
+                disabled={resettingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || (passwordRequirements && newPassword.length < passwordRequirements.min_length)}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {resettingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {t('users.resetPassword')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
+
+    </div>
   );
 }

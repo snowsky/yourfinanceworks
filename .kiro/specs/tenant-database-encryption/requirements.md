@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document outlines the requirements for implementing comprehensive encryption for tenant database contents in the multi-tenant invoice management system. The feature aims to provide data-at-rest encryption, secure key management, and transparent encryption/decryption operations while maintaining system performance and usability.
+This document outlines the requirements for implementing comprehensive encryption for tenant database contents in the multi-tenant {APP_NAME}. The feature aims to provide data-at-rest encryption, secure key management, and transparent encryption/decryption operations while maintaining system performance and usability.
 
 ## Glossary
 

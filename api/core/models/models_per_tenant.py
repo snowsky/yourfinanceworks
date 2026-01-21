@@ -46,7 +46,7 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     # No tenant_id needed since each tenant has its own database
-    
+
     name = Column(EncryptedColumn(), index=True)  # Encrypted for privacy
     email = Column(EncryptedColumn(), unique=True, nullable=False, index=True)  # Encrypted for privacy
     phone = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
@@ -55,6 +55,7 @@ class Client(Base):
     balance = Column(Float, default=0.0)  # Keep unencrypted for calculations
     paid_amount = Column(Float, default=0)  # Keep unencrypted for calculations
     preferred_currency = Column(String, nullable=True)  # Optional, fallback to tenant default
+    labels = Column(JSON, nullable=True)  # Multiple labels (tags) stored as JSON array of strings
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -100,6 +101,12 @@ class Invoice(Base):
     payer = Column(String, default="Client", nullable=False)  # Who is paying the invoice: 'You' or 'Client'
     attachment_path = Column(String, nullable=True)  # Path to uploaded attachment file
     attachment_filename = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
+    description = Column(String, nullable=True)  # Short description of the invoice
+    labels = Column(JSON, nullable=True)  # Multiple labels (tags) stored as JSON array of strings
+
+    # Anomaly detection audit fields
+    is_audited = Column(Boolean, default=False, nullable=False)  # Track if entity has been audited
+    last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
 
     # Soft delete fields for recycle bin functionality
     is_deleted = Column(Boolean, default=False, nullable=False)
@@ -108,6 +115,11 @@ class Invoice(Base):
 
     # User attribution
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -229,10 +241,19 @@ class Expense(Base):
     receipt_timestamp = Column(DateTime(timezone=True), nullable=True)  # Exact timestamp from receipt
     receipt_time_extracted = Column(Boolean, default=False, nullable=False)  # Whether timestamp was extracted from receipt
 
+    # Anomaly detection audit fields
+    is_audited = Column(Boolean, default=False, nullable=False)  # Track if entity has been audited
+    last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
+
     # Soft delete fields for recycle bin functionality
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -278,6 +299,16 @@ class ExpenseAttachment(Base):
     # Relationships
     expense = relationship("Expense")
     uploader = relationship("User")
+
+    # OCR / Analysis Fields
+    analysis_status = Column(String, default="not_started")  # not_started, processing, done, failed
+    analysis_result = Column(JSON, nullable=True)  # Raw OCR result
+    analysis_error = Column(Text, nullable=True)
+    extracted_amount = Column(Float, nullable=True)
+
+    # Cloud Storage Cache - stores local path after downloading from cloud storage
+    # This prevents re-downloading the same file on retries
+    local_cache_path = Column(String, nullable=True)
 
 class Settings(Base):
     __tablename__ = "settings"
@@ -427,8 +458,12 @@ class BankStatement(Base):
     stored_filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     cloud_file_url = Column(String, nullable=True)  # Cloud storage URL (S3, etc.)
-    status = Column(String, default="processed", nullable=False)  # uploaded|processing|processed|failed
+    status = Column(String, default="processing", nullable=False)  # uploaded|processing|processed|failed
     extracted_count = Column(Integer, default=0, nullable=False)
+    extraction_method = Column(String, nullable=True)  # llm|regex|csv
+    analysis_error = Column(Text, nullable=True)
+    analysis_updated_at = Column(DateTime(timezone=True), nullable=True)
+    local_cache_path = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     labels = Column(JSON, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
@@ -437,6 +472,11 @@ class BankStatement(Base):
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+
+    # Review Worker fields
+    review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found
+    review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -464,6 +504,10 @@ class BankStatementTransaction(Base):
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
     # Optional link to an expense created from this transaction (prevents duplicates)
     expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)
+
+    # Anomaly detection audit fields
+    is_audited = Column(Boolean, default=False, nullable=False)  # Track if entity has been audited
+    last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -529,40 +573,40 @@ class RawEmail(Base):
     sender = Column(String, nullable=True)  # Temporary staging, no encryption needed
     recipient = Column(String, nullable=True)  # Temporary staging, no encryption needed
     date = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Raw content storage
     raw_content = Column(Text, nullable=True)  # Store full raw email content
     content_type = Column(String, nullable=True)
-    
+
     # Processing status
     status = Column(String, default="pending", index=True, nullable=False)  # pending, processing, processed, failed, ignored
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0, nullable=False)
-    
+
     # Links
     expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
 class EmailNotificationSettings(Base):
     __tablename__ = "email_notification_settings"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     # User operation notifications
     user_created = Column(Boolean, default=False)
     user_updated = Column(Boolean, default=False)
     user_deleted = Column(Boolean, default=False)
     user_login = Column(Boolean, default=False)
-    
+
     # Client operation notifications
     client_created = Column(Boolean, default=True)
     client_updated = Column(Boolean, default=False)
     client_deleted = Column(Boolean, default=True)
-    
+
     # Invoice operation notifications
     invoice_created = Column(Boolean, default=True)
     invoice_updated = Column(Boolean, default=False)
@@ -570,12 +614,12 @@ class EmailNotificationSettings(Base):
     invoice_sent = Column(Boolean, default=True)
     invoice_paid = Column(Boolean, default=True)
     invoice_overdue = Column(Boolean, default=True)
-    
+
     # Payment operation notifications
     payment_created = Column(Boolean, default=True)
     payment_updated = Column(Boolean, default=False)
     payment_deleted = Column(Boolean, default=True)
-    
+
     # Expense operation notifications
     expense_created = Column(Boolean, default=True)
     expense_updated = Column(Boolean, default=False)
@@ -586,7 +630,7 @@ class EmailNotificationSettings(Base):
     expense_imported = Column(Boolean, default=True)
     expense_analysis_completed = Column(Boolean, default=True)
     expense_analysis_failed = Column(Boolean, default=True)
-    
+
     # Inventory operation notifications
     inventory_created = Column(Boolean, default=True)
     inventory_updated = Column(Boolean, default=False)
@@ -597,7 +641,7 @@ class EmailNotificationSettings(Base):
     inventory_category_created = Column(Boolean, default=False)
     inventory_category_updated = Column(Boolean, default=False)
     inventory_category_deleted = Column(Boolean, default=True)
-    
+
     # Statement operation notifications
     statement_generated = Column(Boolean, default=True)
     statement_sent = Column(Boolean, default=True)
@@ -606,7 +650,7 @@ class EmailNotificationSettings(Base):
     statement_processed = Column(Boolean, default=True)
     statement_processing_failed = Column(Boolean, default=True)
     statement_transaction_created = Column(Boolean, default=False)
-    
+
     # Settings operation notifications
     settings_updated = Column(Boolean, default=False)
 
@@ -635,11 +679,11 @@ class EmailNotificationSettings(Base):
     expense_auto_approved = Column(Boolean, default=True)
     approval_reminder = Column(Boolean, default=True)
     approval_escalation = Column(Boolean, default=True)
-    
+
     # Approval notification frequency preferences
     approval_notification_frequency = Column(String, default="immediate", nullable=False)  # immediate, daily_digest
     approval_reminder_frequency = Column(String, default="daily", nullable=False)  # daily, weekly, disabled
-    
+
     # Approval notification channel preferences
     approval_notification_channels = Column(JSON, default=["email"], nullable=False)  # ["email", "in_app"] or ["email"] or ["in_app"]
 
@@ -650,7 +694,7 @@ class EmailNotificationSettings(Base):
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     user = relationship("User")
 
@@ -659,7 +703,7 @@ class EmailNotificationSettings(Base):
 
 class ReportTemplate(Base):
     __tablename__ = "report_templates"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     report_type = Column(String, nullable=False)  # client, invoice, payment, expense, statement
@@ -668,10 +712,10 @@ class ReportTemplate(Base):
     formatting = Column(JSON, nullable=True)  # Formatting preferences
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     is_shared = Column(Boolean, default=False, nullable=False)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     user = relationship("User")
     scheduled_reports = relationship("ScheduledReport", back_populates="template", cascade="all, delete-orphan")
@@ -680,7 +724,7 @@ class ReportTemplate(Base):
 
 class ScheduledReport(Base):
     __tablename__ = "scheduled_reports"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     template_id = Column(Integer, ForeignKey("report_templates.id", ondelete="CASCADE"), nullable=False)
     schedule_type = Column(String, nullable=False)  # daily, weekly, monthly, yearly, cron
@@ -689,10 +733,10 @@ class ScheduledReport(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     last_run = Column(DateTime(timezone=True), nullable=True)
     next_run = Column(DateTime(timezone=True), nullable=True)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     template = relationship("ReportTemplate", back_populates="scheduled_reports")
 
@@ -1419,93 +1463,126 @@ class ExportDestinationConfig(Base):
         return f"<ExportDestinationConfig(id={self.id}, name='{self.name}', type='{self.destination_type}', active={self.is_active})>"
 
 
-# --- License Management Models ---
+# --- Anomaly Detection Models ---
 
-class InstallationInfo(Base):
+class Anomaly(Base):
     """
-    Stores installation and license information for self-hosted deployments.
-    Each tenant has one installation record that tracks trial status and license activation.
+    Model for tracking detected anomalies and high-risk items.
     """
-    __tablename__ = "installation_info"
+    __tablename__ = "anomalies"
 
     id = Column(Integer, primary_key=True, index=True)
+    entity_type = Column(String(50), nullable=False, index=True)  # expense, invoice, bank_transaction
+    entity_id = Column(Integer, nullable=False, index=True)
 
-    # Installation identification
-    installation_id = Column(String(36), unique=True, nullable=False, index=True)  # UUID for this installation
+    # Risk assessment
+    risk_score = Column(Float, default=0.0, nullable=False)
+    risk_level = Column(String(20), nullable=False, default="low")  # low, medium, high, critical
 
-    # Usage type selection
-    usage_type = Column(String(20), nullable=True)  # personal, business, None (not selected yet)
-    usage_type_selected_at = Column(DateTime(timezone=True), nullable=True)  # When user selected usage type
+    # Description and evidence
+    reason = Column(Text, nullable=False)
+    rule_id = Column(String(100), nullable=True)  # ID of the rule that triggered it
+    details = Column(JSON, nullable=True)  # JSON blob with evidence/metadata
 
-    # Trial information
-    trial_start_date = Column(DateTime(timezone=True), nullable=True)  # When trial started (when business selected)
-    trial_end_date = Column(DateTime(timezone=True), nullable=True)  # 30 days after trial_start_date
-    trial_extended_until = Column(DateTime(timezone=True), nullable=True)  # Optional trial extension
-
-    # License information
-    license_key = Column(Text, nullable=True)  # JWT license key (can be very long)
-    license_activated_at = Column(DateTime(timezone=True), nullable=True)  # When license was activated
-    license_expires_at = Column(DateTime(timezone=True), nullable=True)  # License expiration date
-    license_status = Column(String(20), default="invalid", nullable=False)  # invalid, personal, trial, active, expired, grace_period
-
-    # Licensed features (JSON array of feature IDs)
-    licensed_features = Column(JSON, nullable=True)  # ["ai_invoice", "ai_expense", "tax_integration", ...]
-
-    # License validation cache (to avoid repeated JWT verification)
-    last_validation_at = Column(DateTime(timezone=True), nullable=True)
-    last_validation_result = Column(Boolean, nullable=True)  # True if last validation succeeded
-    validation_cache_expires_at = Column(DateTime(timezone=True), nullable=True)  # Cache TTL (1 hour)
-
-    # Customer information (from license)
-    customer_email = Column(String(255), nullable=True)
-    customer_name = Column(String(255), nullable=True)
-    organization_name = Column(String(255), nullable=True)
+    # Status
+    is_dismissed = Column(Boolean, default=False, nullable=False)
+    dismissed_at = Column(DateTime(timezone=True), nullable=True)
+    dismissed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    dismiss_notes = Column(Text, nullable=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    validation_logs = relationship("LicenseValidationLog", back_populates="installation", cascade="all, delete-orphan")
+    dismissed_by = relationship("User", foreign_keys=[dismissed_by_id])
 
     def __repr__(self):
-        return f"<InstallationInfo(id={self.id}, installation_id='{self.installation_id}', status='{self.license_status}')>"
+        return f"<Anomaly(id={self.id}, entity='{self.entity_type}:{self.entity_id}', risk='{self.risk_level}')>"
+
+
+# --- License Management Models ---
+# NOTE: InstallationInfo and LicenseValidationLog are stored in tenant databases
+# Each tenant has its own license configuration and validation logs
+
+class InstallationInfo(Base):
+    """
+    License and installation information for a tenant.
+    Each tenant has exactly one InstallationInfo record.
+    """
+    __tablename__ = "installation_info"
+
+    id = Column(Integer, primary_key=True, index=True)
+    installation_id = Column(String(36), unique=True, nullable=False, index=True)
+    
+    # License status: invalid, personal, trial, active, expired, suspended
+    license_status = Column(String(20), default="invalid", nullable=False)
+    
+    # Usage type selection: personal (free) or business (trial/paid)
+    usage_type = Column(String(20), nullable=True)  # personal or business
+    usage_type_selected_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Trial management
+    trial_start_date = Column(DateTime(timezone=True), nullable=True)
+    trial_end_date = Column(DateTime(timezone=True), nullable=True)
+    trial_extended_until = Column(DateTime(timezone=True), nullable=True)  # For grace period extensions
+    
+    # License key storage
+    license_key = Column(Text, nullable=True)  # Encrypted in practice
+    license_activated_at = Column(DateTime(timezone=True), nullable=True)
+    license_expires_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Feature tracking
+    max_tenants = Column(Integer, nullable=True)  # From license
+    features = Column(JSON, nullable=True)  # List of enabled features from license
+    licensed_features = Column(JSON, nullable=True)  # List of licensed features (from activated license)
+    
+    # Customer information from license
+    customer_email = Column(String, nullable=True)  # Email from license
+    customer_name = Column(String, nullable=True)  # Name from license
+    organization_name = Column(String, nullable=True)  # Organization name from license
+    
+    # Validation cache for performance
+    last_validation_at = Column(DateTime(timezone=True), nullable=True)  # When license was last validated
+    last_validation_result = Column(Boolean, nullable=True)  # Result of last validation (True/False)
+    validation_cache_expires_at = Column(DateTime(timezone=True), nullable=True)  # When cache expires
+    
+    # Audit fields
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class LicenseValidationLog(Base):
     """
-    Audit trail for license validation attempts.
-    Tracks all license activations, validations, and errors for security and debugging.
+    Audit log for license validation attempts and changes.
+    Tracks all license-related operations for compliance and debugging.
     """
     __tablename__ = "license_validation_logs"
 
     id = Column(Integer, primary_key=True, index=True)
     installation_id = Column(Integer, ForeignKey("installation_info.id", ondelete="CASCADE"), nullable=False, index=True)
-
+    
     # Validation details
-    validation_type = Column(String(50), nullable=False)  # activation, periodic_check, manual_validation, startup_check
-    validation_result = Column(String(20), nullable=False)  # success, failed, expired, invalid_signature, malformed
-
-    # License information at time of validation
-    license_key_hash = Column(String(64), nullable=True)  # SHA-256 hash of license key (for tracking without storing full key)
+    validation_type = Column(String(50), nullable=False, index=True)  # activation, trial_start, usage_type_selected, etc.
+    validation_result = Column(String(20), nullable=False)  # success, failed
+    
+    # License information
+    license_key_hash = Column(String(64), nullable=True)  # SHA-256 hash for privacy
     features_validated = Column(JSON, nullable=True)  # Features that were validated
-    expiration_date = Column(DateTime(timezone=True), nullable=True)  # Expiration date from license
-
-    # Error information (if validation failed)
-    error_code = Column(String(50), nullable=True)  # EXPIRED, INVALID_SIGNATURE, MALFORMED, etc.
-    error_message = Column(Text, nullable=True)  # Detailed error message
-
-    # Context information
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # User who triggered validation (if applicable)
-    ip_address = Column(String(45), nullable=True)  # IP address of validation request
-    user_agent = Column(String(500), nullable=True)  # User agent string
-
-    # Timestamp
-    validated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
-
+    expiration_date = Column(DateTime(timezone=True), nullable=True)
+    max_tenants_validated = Column(Integer, nullable=True)
+    
+    # Error tracking
+    error_code = Column(String(50), nullable=True)
+    error_message = Column(Text, nullable=True)
+    
+    # Request context
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    
     # Relationships
-    installation = relationship("InstallationInfo", back_populates="validation_logs")
-    user = relationship("User", foreign_keys=[user_id])
-
-    def __repr__(self):
-        return f"<LicenseValidationLog(id={self.id}, type='{self.validation_type}', result='{self.validation_result}')>"
+    installation = relationship("InstallationInfo")

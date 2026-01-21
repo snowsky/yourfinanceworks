@@ -10,11 +10,11 @@ import time
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
 
-from api.services.report_retry_service import (
+from core.services.report_retry_service import (
     ReportRetryService, RetryConfig, CircuitBreakerConfig, RetryStrategy,
     CircuitBreaker, CircuitBreakerState, retry_on_failure, RetryResult
 )
-from api.exceptions.report_exceptions import (
+from core.exceptions.report_exceptions import (
     ReportValidationException, ReportGenerationException, ReportErrorCode
 )
 

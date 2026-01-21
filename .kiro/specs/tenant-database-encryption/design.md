@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design document outlines the implementation of comprehensive encryption for tenant database contents in the multi-tenant invoice management system. The solution provides transparent data-at-rest encryption using AES-256-GCM encryption with secure key management, while maintaining system performance and existing API compatibility.
+This design document outlines the implementation of comprehensive encryption for tenant database contents in the multi-tenant {APP_NAME}. The solution provides transparent data-at-rest encryption using AES-256-GCM encryption with secure key management, while maintaining system performance and existing API compatibility.
 
 ## Architecture
 

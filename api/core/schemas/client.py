@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class ClientBase(BaseModel):
@@ -9,6 +9,7 @@ class ClientBase(BaseModel):
     address: Optional[str] = Field(None, description="Client's address")
     company: Optional[str] = Field(None, description="Client's company name")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
+    labels: Optional[List[str]] = Field(None, description="Client's labels")
 
 class ClientCreate(ClientBase):
     pass
@@ -22,6 +23,7 @@ class ClientUpdate(BaseModel):
     balance: Optional[float] = Field(None, description="Current balance")
     paid_amount: Optional[float] = Field(None, description="Total amount paid")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
+    labels: Optional[List[str]] = Field(None, description="Client's labels")
 
 class Client(ClientBase):
     id: int
@@ -32,3 +34,7 @@ class Client(ClientBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedClients(BaseModel):
+    items: List[Client]
+    total: int

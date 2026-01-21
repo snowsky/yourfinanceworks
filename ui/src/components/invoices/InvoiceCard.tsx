@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useTaxIntegration } from "@/hooks/useTaxIntegration";
+import { AlertTriangle } from "lucide-react";
 
 interface InvoiceCardProps {
   invoice: Invoice;
@@ -19,6 +20,7 @@ interface InvoiceCardProps {
   canPerformActions?: boolean;
   selected?: boolean;
   onSelectionChange?: (selected: boolean) => void;
+  key?: React.Key;
 }
 
 const getStatusConfig = (status: string) => {
@@ -120,37 +122,43 @@ export function InvoiceCard({ invoice, onClone, onDelete, canPerformActions = tr
                     {t('invoices.clone_invoice')}
                   </DropdownMenuItem>
                   {taxIntegrationEnabled && (
-                    <DropdownMenuItem onClick={async () => {
-                      // Handle send to tax service directly here
-                      try {
-                        const response = await api.post<{
-                          success: boolean;
-                          transaction_id?: string;
-                          error_message?: string;
-                        }>('/tax-integration/send', {
-                          item_id: invoice.id,
-                          item_type: 'invoice',
-                        });
+                    <>
+                      <DropdownMenuItem onClick={async () => {
+                        // Handle send to tax service directly here
+                        try {
+                          const response = await api.post<{
+                            success: boolean;
+                            transaction_id?: string;
+                            error_message?: string;
+                          }>('/tax-integration/send', {
+                            item_id: invoice.id,
+                            item_type: 'invoice',
+                          });
 
-                        if (response.success) {
-                          toast.success(
-                            t('taxIntegration.tax_send_success')
-                          );
-                        } else {
+                          if (response.success) {
+                            toast.success(
+                              t('taxIntegration.tax_send_success')
+                            );
+                          } else {
+                            toast.error(
+                              response.error_message || t('taxIntegration.tax_send_error')
+                            );
+                          }
+                        } catch (error: any) {
+                          console.error('Error sending to tax service:', error);
                           toast.error(
-                            response.error_message || t('taxIntegration.tax_send_error')
+                            error?.message || t('taxIntegration.tax_send_error')
                           );
                         }
-                      } catch (error: any) {
-                        console.error('Error sending to tax service:', error);
-                        toast.error(
-                          error?.message || t('taxIntegration.tax_send_error')
-                        );
-                      }
-                    }}>
-                      <Send className="mr-2 h-4 w-4" />
-                      {t('taxIntegration.sendToTaxService')}
-                    </DropdownMenuItem>
+                      }}>
+                        <Send className="mr-2 h-4 w-4" />
+                        {t('taxIntegration.sendToTaxService')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-amber-700 focus:text-amber-800 focus:bg-amber-50" disabled>
+                        <AlertTriangle className="mr-2 h-4 w-4" />
+                        {t('taxIntegration.developmentNotice')}
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuItem
                     onClick={() => onDelete?.(invoice.id)}

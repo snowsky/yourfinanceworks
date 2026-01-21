@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { apiRequest } from '@/lib/api';
 
 export interface Attachment {
   id: number;
@@ -143,6 +144,18 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         throw new Error('Failed to fetch image');
       }
 
+      const contentType = response.headers.get('content-type');
+
+      // Check if response is JSON (cloud URL response)
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'cloud_url' && data.url) {
+          // For cloud URLs, return the URL directly (it's pre-signed and doesn't need auth)
+          return data.url;
+        }
+      }
+
+      // Otherwise, it's a blob (local file served directly)
       const blob = await response.blob();
       return URL.createObjectURL(blob);
     } catch (error) {
@@ -163,11 +176,43 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         throw new Error('Failed to fetch attachment');
       }
 
+      const contentType = response.headers.get('content-type');
+
+      // Check if response is JSON (cloud URL response)
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'cloud_url' && data.url) {
+          // For cloud URLs, fetch the content from the URL
+          const urlResponse = await fetch(data.url);
+          if (!urlResponse.ok) {
+            throw new Error('Failed to fetch from cloud URL');
+          }
+          const blob = await urlResponse.blob();
+          const blobContentType = urlResponse.headers.get('content-type') || blob.type || 'application/octet-stream';
+
+          // For text files, read as text
+          if (blobContentType.startsWith('text/') || blobContentType === 'application/json' || blobContentType === 'application/javascript') {
+            const text = await blob.text();
+            const lines = text.split('\n');
+            const isTruncated = lines.length > 100;
+            const truncatedContent = isTruncated ? lines.slice(0, 100).join('\n') + '\n\n[Content truncated - showing first 100 lines only]' : text;
+
+            return {
+              content: truncatedContent,
+              contentType: blobContentType,
+              isTruncated
+            };
+          }
+          return null;
+        }
+      }
+
+      // Otherwise, it's a blob (local file served directly)
       const blob = await response.blob();
-      const contentType = response.headers.get('content-type') || blob.type || 'application/octet-stream';
+      const blobContentType = contentType || blob.type || 'application/octet-stream';
 
       // For text files, read as text
-      if (contentType.startsWith('text/') || contentType === 'application/json' || contentType === 'application/javascript') {
+      if (blobContentType.startsWith('text/') || blobContentType === 'application/json' || blobContentType === 'application/javascript') {
         const text = await blob.text();
         const lines = text.split('\n');
         const isTruncated = lines.length > 100;
@@ -175,7 +220,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
         return {
           content: truncatedContent,
-          contentType,
+          contentType: blobContentType,
           isTruncated
         };
       }
@@ -198,6 +243,32 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         throw new Error('Download failed');
       }
 
+      const contentType = response.headers.get('content-type');
+
+      // Check if response is JSON (cloud URL response)
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'cloud_url' && data.url) {
+          // For cloud URLs, fetch from the URL and download
+          const urlResponse = await fetch(data.url);
+          if (!urlResponse.ok) {
+            throw new Error('Failed to fetch from cloud URL');
+          }
+          const blob = await urlResponse.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = data.filename || attachment.filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          toast.success('File downloaded successfully');
+          return;
+        }
+      }
+
+      // Otherwise, it's a blob (local file served directly)
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -221,16 +292,9 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachment.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      await apiRequest(`/inventory/${itemId}/attachments/${attachment.id}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Delete failed');
-      }
 
       toast.success('Attachment deleted successfully');
       onAttachmentUpdate?.();
@@ -244,16 +308,9 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const handleSetPrimary = async (attachment: Attachment) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachment.id}/set-primary`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      await apiRequest(`/inventory/${itemId}/attachments/${attachment.id}/set-primary`, {
+        method: 'POST'
       });
-
-      if (!response.ok) {
-        throw new Error('Set primary failed');
-      }
 
       toast.success('Primary image updated');
       onAttachmentUpdate?.();
@@ -267,18 +324,10 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const handleUpdateMetadata = async (attachmentId: number, metadata: Partial<Attachment>) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachmentId}`, {
+      await apiRequest(`/inventory/${itemId}/attachments/${attachmentId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify(metadata)
       });
-
-      if (!response.ok) {
-        throw new Error('Update failed');
-      }
 
       toast.success('Attachment updated successfully');
       setEditingAttachment(null);
@@ -372,8 +421,8 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
                     // For text files, fetch content for preview
                     if (attachment.content_type?.startsWith('text/') ||
-                        attachment.content_type === 'application/json' ||
-                        attachment.content_type === 'application/javascript') {
+                      attachment.content_type === 'application/json' ||
+                      attachment.content_type === 'application/javascript') {
                       const contentResult = await fetchAttachmentContent(attachment.id);
                       if (contentResult) {
                         setPreviewContent(contentResult.content);
@@ -487,8 +536,8 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
               // For text files, fetch content for preview
               if (attachment.content_type?.startsWith('text/') ||
-                  attachment.content_type === 'application/json' ||
-                  attachment.content_type === 'application/javascript') {
+                attachment.content_type === 'application/json' ||
+                attachment.content_type === 'application/javascript') {
                 const contentResult = await fetchAttachmentContent(attachment.id);
                 if (contentResult) {
                   setPreviewContent(contentResult.content);

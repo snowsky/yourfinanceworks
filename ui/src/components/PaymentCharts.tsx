@@ -27,7 +27,7 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
   const { t } = useTranslation();
   // Ensure payments is an array
   const paymentsArray = Array.isArray(payments) ? payments : [];
-  
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -62,185 +62,145 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
     switch (method.toLowerCase()) {
       case 'credit_card':
       case 'card':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
       case 'cash':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
       case 'check':
       case 'bank_transfer':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+    <div className="space-y-4 w-full">
+      {/* Summary Cards - Grid optimized for chat width (2 cols) */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 dark:border-blue-700/30 backdrop-blur-sm shadow-none">
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600">Total Amount</p>
-                <p className="text-2xl font-bold text-blue-900">
+                <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Total Amount</p>
+                <p className="text-lg font-bold text-blue-900 dark:text-blue-100 mt-1">
                   {formatCurrency(chartData.summary.total_amount)}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-blue-500" />
+              <div className="bg-blue-200/50 dark:bg-blue-800/50 p-1.5 rounded-full shrink-0">
+                <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200/50 dark:border-green-700/30 backdrop-blur-sm shadow-none">
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600">Total Payments</p>
-                <p className="text-2xl font-bold text-green-900">
+                <p className="text-xs font-medium text-green-600 dark:text-green-400">Total Payments</p>
+                <p className="text-lg font-bold text-green-900 dark:text-green-100 mt-1">
                   {chartData.summary.total_payments}
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-green-500" />
+              <div className="bg-green-200/50 dark:bg-green-800/50 p-1.5 rounded-full shrink-0">
+                <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-300" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50 dark:border-purple-700/30 backdrop-blur-sm shadow-none">
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600">Average Payment</p>
-                <p className="text-2xl font-bold text-purple-900">
+                <p className="text-xs font-medium text-purple-600 dark:text-purple-400">Average</p>
+                <p className="text-lg font-bold text-purple-900 dark:text-purple-100 mt-1">
                   {formatCurrency(chartData.summary.average_amount)}
                 </p>
               </div>
-              <Calendar className="h-8 w-8 text-purple-500" />
+              <div className="bg-purple-200/50 dark:bg-purple-800/50 p-1.5 rounded-full shrink-0">
+                <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-600">Date Range</p>
-                <p className="text-xs font-medium text-orange-900">
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200/50 dark:border-orange-700/30 backdrop-blur-sm shadow-none">
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Date Range</p>
+                <p className="text-[10px] sm:text-xs font-medium text-orange-900 dark:text-orange-100 mt-1 truncate">
                   {chartData.summary.date_range.earliest && chartData.summary.date_range.latest
-                    ? `${formatDate(chartData.summary.date_range.earliest)} - ${formatDate(chartData.summary.date_range.latest)}`
+                    ? `${new Date(chartData.summary.date_range.earliest).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })} - ${new Date(chartData.summary.date_range.latest).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })}`
                     : 'N/A'}
                 </p>
               </div>
-              <Calendar className="h-8 w-8 text-orange-500" />
+              <div className="bg-orange-200/50 dark:bg-orange-800/50 p-1.5 rounded-full shrink-0 ml-1">
+                <Calendar className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Payment Methods Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            {t('dashboard.paymentMethodsDistribution')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+      <div className="bg-white/50 dark:bg-gray-900/50 border border-white/20 dark:border-gray-800 backdrop-blur-sm rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800/50 flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">{t('dashboard.paymentMethodsDistribution')}</h3>
+        </div>
+        <div className="p-3">
+          <div className="space-y-2">
             {chartData.by_method.map((method, index) => (
-              <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {getMethodIcon(method.method)}
+              <div key={method.method} className="flex items-center justify-between p-2.5 bg-white/60 dark:bg-black/20 rounded-lg border border-gray-100 dark:border-gray-800/50">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${getMethodColor(method.method).split(' ')[0]}`}>
+                    {getMethodIcon(method.method)}
+                  </div>
                   <div>
-                    <p className="font-medium capitalize">
+                    <p className="font-medium capitalize text-xs">
                       {method.method.replace('_', ' ')}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      {((method.amount / chartData.summary.total_amount) * 100).toFixed(1)}% of total
-                    </p>
+                    <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${(method.amount / chartData.summary.total_amount) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-lg">{formatCurrency(method.amount)}</p>
-                  <Badge className={getMethodColor(method.method)}>
-                    {method.method.replace('_', ' ')}
-                  </Badge>
+                  <p className="font-bold text-xs">{formatCurrency(method.amount)}</p>
+                  <p className="text-[10px] text-muted-foreground">{((method.amount / chartData.summary.total_amount) * 100).toFixed(0)}%</p>
                 </div>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Timeline Chart */}
+      {/* Timeline Chart - simplified for chat */}
       {chartData.timeline.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Payment Timeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {chartData.timeline.map((item, index) => (
-                <div key={item.date} className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <div>
-                      <p className="font-medium">{formatDate(item.date)}</p>
-                      <p className="text-sm text-gray-500">
-                        {(paymentsArray || []).filter(p => 
-                          new Date(p.payment_date).toDateString() === new Date(item.date).toDateString()
-                        ).length} payments
-                      </p>
-                    </div>
-                  </div>
-                  <p className="font-bold text-lg text-blue-700">
-                    {formatCurrency(item.amount)}
-                  </p>
+        <div className="bg-white/50 dark:bg-gray-900/50 border border-white/20 dark:border-gray-800 backdrop-blur-sm rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800/50 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-semibold text-sm">Recent Activity</h3>
+          </div>
+          <div className="p-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+            <div className="space-y-2">
+              {chartData.timeline.slice(0, 5).map((item, index) => (
+                <div key={item.date} className="flex items-center justify-between text-xs py-1">
+                  <span className="text-muted-foreground">{formatDate(item.date)}</span>
+                  <span className="font-medium">{formatCurrency(item.amount)}</span>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Payments List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            {t('dashboard.paymentMethodsDistribution')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {paymentsArray.slice(0, 5).map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center gap-3">
-                  {getMethodIcon(payment.payment_method)}
-                  <div>
-                    <p className="font-medium">
-                      Payment #{payment.id} - Invoice #{payment.invoice_id}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(payment.payment_date)} • {payment.payment_method}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg">{formatCurrency(payment.amount)}</p>
-                  <Badge className={getMethodColor(payment.payment_method)}>
-                    {payment.payment_method}
-                  </Badge>
-                </div>
-              </div>
-            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 };
 
-export default PaymentCharts; 
+export default PaymentCharts;

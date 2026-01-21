@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains the Installation ID mechanism used in the Invoice Management System's licensing system. Installation IDs provide security and prevent unauthorized license sharing between different organizations.
+This guide explains the Installation ID mechanism used in the {APP_NAME}'s licensing system. Installation IDs provide security and prevent unauthorized license sharing between different organizations.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This guide explains the Installation ID mechanism used in the Invoice Management
 
 ## What is an Installation ID?
 
-An Installation ID is a **unique UUID (Universally Unique Identifier)** automatically generated when the Invoice Management System is first installed. It serves as a digital fingerprint for each specific installation.
+An Installation ID is a **unique UUID (Universally Unique Identifier)** automatically generated when the {APP_NAME} is first installed. It serves as a digital fingerprint for each specific installation.
 
 ### Key Characteristics
 

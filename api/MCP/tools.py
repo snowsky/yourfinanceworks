@@ -777,15 +777,40 @@ class DeleteBankStatementArgs(BaseModel):
 
 class InvoiceTools:
     """Implementation of MCP tools for the Invoice Application"""
-    
+
     def __init__(self, api_client: InvoiceAPIClient):
         self.api_client = api_client
-    
+
+    def _extract_items_from_response(self, response: Any, keys: List[str] = None) -> List[Dict[str, Any]]:
+        """Extract items from various response formats.
+
+        Tries multiple keys in order: items, data, expenses, payments, statements, etc.
+        Falls back to treating response as a list if it's not a dict.
+        """
+        if keys is None:
+            keys = ["items", "data", "expenses", "payments", "statements", "clients", "invoices"]
+
+        if isinstance(response, dict):
+            for key in keys:
+                if key in response:
+                    value = response[key]
+                    if isinstance(value, list):
+                        return value
+            # If none of the keys matched, return empty list
+            return []
+        elif isinstance(response, list):
+            return response
+        else:
+            return []
+
     async def list_clients(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List all clients"""
         try:
-            clients = await self.api_client.list_clients(skip=skip, limit=limit)
-            
+            response = await self.api_client.list_clients(skip=skip, limit=limit)
+
+            # Extract items from paginated response
+            clients = self._extract_items_from_response(response, ["items", "data", "clients"])
+
             return {
                 "success": True,
                 "data": clients,
@@ -795,23 +820,26 @@ class InvoiceTools:
                     "limit": limit
                 }
             }
-            
+
         except AuthenticationError as e:
             logger.error(f"Authentication failed in list_clients: {e}")
             return {"success": False, "error": f"Authentication failed: {e}"}
         except Exception as e:
             logger.error(f"Failed to list clients: {e}")
             return {"success": False, "error": f"Failed to list clients: {e}"}
-    
+
     async def search_clients(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """Search for clients"""
         try:
-            clients = await self.api_client.search_clients(
+            response = await self.api_client.search_clients(
                 query=query, 
                 skip=skip, 
                 limit=limit
             )
-            
+
+            # Extract items from paginated response
+            clients = self._extract_items_from_response(response, ["items", "data", "clients"])
+
             return {
                 "success": True,
                 "data": clients,
@@ -822,25 +850,25 @@ class InvoiceTools:
                     "limit": limit
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to search clients: {e}")
             return {"success": False, "error": f"Failed to search clients: {e}"}
-    
+
     async def get_client(self, client_id: int) -> Dict[str, Any]:
         """Get a specific client"""
         try:
             client = await self.api_client.get_client(client_id)
-            
+
             return {
                 "success": True,
                 "data": client
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to get client {client_id}: {e}")
             return {"success": False, "error": f"Failed to get client: {e}"}
-    
+
     async def create_client(self, name: str, email: Optional[str] = None, phone: Optional[str] = None, address: Optional[str] = None) -> Dict[str, Any]:
         """Create a new client"""
         try:
@@ -851,24 +879,27 @@ class InvoiceTools:
                 client_data["phone"] = phone
             if address:
                 client_data["address"] = address
-                
+
             client = await self.api_client.create_client(client_data)
-            
+
             return {
                 "success": True,
                 "data": client,
                 "message": "Client created successfully"
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to create client {name}: {e}")
             return {"success": False, "error": f"Failed to create client: {e}"}
-    
+
     async def list_invoices(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List all invoices"""
         try:
-            invoices = await self.api_client.list_invoices(skip=skip, limit=limit)
-            
+            response = await self.api_client.list_invoices(skip=skip, limit=limit)
+
+            # Extract items from paginated response
+            invoices = self._extract_items_from_response(response, ["items", "data", "invoices"])
+
             return {
                 "success": True,
                 "data": invoices,
@@ -878,19 +909,22 @@ class InvoiceTools:
                     "limit": limit
                 }
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to list invoices: {e}"}
-    
+
     async def search_invoices(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """Search for invoices"""
         try:
-            invoices = await self.api_client.search_invoices(
+            response = await self.api_client.search_invoices(
                 query=query,
                 skip=skip,
                 limit=limit
             )
-            
+
+            # Extract items from paginated response
+            invoices = self._extract_items_from_response(response, ["items", "data", "invoices"])
+
             return {
                 "success": True,
                 "data": invoices,
@@ -901,23 +935,23 @@ class InvoiceTools:
                     "limit": limit
                 }
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to search invoices: {e}"}
-    
+
     async def get_invoice(self, invoice_id: int) -> Dict[str, Any]:
         """Get a specific invoice"""
         try:
             invoice = await self.api_client.get_invoice(invoice_id)
-            
+
             return {
                 "success": True,
                 "data": invoice
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get invoice: {e}"}
-    
+
     async def create_invoice(self, client_id: int, amount: float, due_date: str, status: str = "draft", notes: Optional[str] = None) -> Dict[str, Any]:
         """Create a new invoice"""
         try:
@@ -929,15 +963,15 @@ class InvoiceTools:
             }
             if notes:
                 invoice_data["notes"] = notes
-                
+
             invoice = await self.api_client.create_invoice(invoice_data)
-            
+
             return {
                 "success": True,
                 "data": invoice,
                 "message": "Invoice created successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to create invoice: {e}"}
 
@@ -951,13 +985,17 @@ class InvoiceTools:
         unlinked_only: bool = False,
     ) -> Dict[str, Any]:
         try:
-            expenses = await self.api_client.list_expenses(
+            response = await self.api_client.list_expenses(
                 skip=skip,
                 limit=limit,
                 category=category,
                 invoice_id=invoice_id,
                 unlinked_only=unlinked_only,
             )
+
+            # Extract expenses from response
+            expenses = self._extract_items_from_response(response, ["expenses", "items", "data"])
+
             return {
                 "success": True,
                 "data": expenses,
@@ -966,6 +1004,32 @@ class InvoiceTools:
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to list expenses: {e}"}
+
+    async def search_expenses(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Search for expenses"""
+        try:
+            response = await self.api_client.search_expenses(
+                query=query,
+                skip=skip,
+                limit=limit
+            )
+
+            # Extract expenses from response
+            expenses = self._extract_items_from_response(response, ["expenses", "items", "data"])
+
+            return {
+                "success": True,
+                "data": expenses,
+                "count": len(expenses),
+                "search_query": query,
+                "pagination": {
+                    "skip": skip,
+                    "limit": limit
+                }
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to search expenses: {e}"}
 
     async def get_expense(self, expense_id: int) -> Dict[str, Any]:
         try:
@@ -1109,20 +1173,30 @@ class InvoiceTools:
             return {"success": True, "message": "Expense attachment deleted"}
         except Exception as e:
             return {"success": False, "error": f"Failed to delete expense attachment: {e}"}
-    
+
     # Statement Management
     async def list_statements(self) -> Dict[str, Any]:
-        """List all statements"""
+        """List all statements with enhanced formatting"""
         try:
-            statements = await self.api_client.list_statements()
+            response = await self.api_client.list_statements()
+
+            # Extract statements from response
+            statements = self._extract_items_from_response(response, ["statements", "items", "data"])
+
+            # Format statements for better readability
+            formatted_statements = []
+            for stmt in statements:
+                formatted = self._format_statement_for_display(stmt)
+                formatted_statements.append(formatted)
+
             return {
                 "success": True,
-                "data": statements.get("statements", []),
-                "count": len(statements.get("statements", []))
+                "data": formatted_statements,
+                "count": len(formatted_statements)
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to list bank statements: {e}"}
-    
+
     async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Get a specific bank statement with transactions"""
         try:
@@ -1130,7 +1204,7 @@ class InvoiceTools:
             return {"success": True, "data": statement.get("statement", {})}
         except Exception as e:
             return {"success": False, "error": f"Failed to get bank statement: {e}"}
-    
+
     async def reprocess_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Reprocess a bank statement"""
         try:
@@ -1138,7 +1212,7 @@ class InvoiceTools:
             return {"success": True, "data": result, "message": "Bank statement reprocessing started"}
         except Exception as e:
             return {"success": False, "error": f"Failed to reprocess bank statement: {e}"}
-    
+
     async def update_bank_statement_meta(self, statement_id: int, notes: Optional[str] = None, labels: Optional[List[str]] = None) -> Dict[str, Any]:
         """Update bank statement metadata"""
         try:
@@ -1147,12 +1221,12 @@ class InvoiceTools:
                 meta_data["notes"] = notes
             if labels is not None:
                 meta_data["labels"] = labels
-            
+
             result = await self.api_client.update_bank_statement_meta(statement_id, meta_data)
             return {"success": True, "data": result.get("statement", {}), "message": "Bank statement updated"}
         except Exception as e:
             return {"success": False, "error": f"Failed to update bank statement: {e}"}
-    
+
     async def delete_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Delete a bank statement"""
         try:
@@ -1162,23 +1236,339 @@ class InvoiceTools:
             return {"success": True, "message": "Bank statement deleted"}
         except Exception as e:
             return {"success": False, "error": f"Failed to delete bank statement: {e}"}
-    
+
+    # Recycle Bin Management
+    async def list_deleted_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """List all deleted statements in the recycle bin"""
+        try:
+            response = await self.api_client.list_deleted_statements(skip=skip, limit=limit)
+
+            # Extract items from paginated response
+            deleted_statements = self._extract_items_from_response(response, ["items", "data", "statements"])
+
+            return {
+                "success": True,
+                "data": deleted_statements,
+                "count": len(deleted_statements),
+                "pagination": {"skip": skip, "limit": limit}
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to list deleted statements: {e}"}
+
+    async def restore_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Restore a deleted statement from the recycle bin"""
+        try:
+            result = await self.api_client.restore_statement(statement_id)
+            return {
+                "success": True, 
+                "data": result, 
+                "message": "Bank statement restored successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to restore bank statement: {e}"}
+
+    async def permanently_delete_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Permanently delete a statement from the recycle bin"""
+        try:
+            ok = await self.api_client.permanently_delete_statement(statement_id)
+            if not ok:
+                return {"success": False, "error": "Failed to permanently delete bank statement"}
+            return {"success": True, "message": "Bank statement permanently deleted"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to permanently delete bank statement: {e}"}
+
+    # Approval Workflow Management
+    async def submit_expense_for_approval(self, expense_id: int, notes: str = None) -> Dict[str, Any]:
+        """Submit an expense for approval workflow"""
+        try:
+            result = await self.api_client.submit_expense_for_approval(expense_id=expense_id, notes=notes)
+            return {
+                "success": True,
+                "data": result,
+                "message": "Expense submitted for approval successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to submit expense for approval: {e}"}
+
+    async def get_pending_approvals(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Get pending approvals for current user"""
+        try:
+            pending_approvals = await self.api_client.get_pending_approvals(skip=skip, limit=limit)
+
+            return {
+                "success": True,
+                "data": pending_approvals,
+                "count": len(pending_approvals),
+                "pagination": {"skip": skip, "limit": limit}
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get pending approvals: {e}"}
+
+    async def approve_expense(self, approval_id: int, decision: str, notes: str = None) -> Dict[str, Any]:
+        """Approve or reject an expense"""
+        if decision not in ["approved", "rejected"]:
+            return {"success": False, "error": "Decision must be 'approved' or 'rejected'"}
+
+        try:
+            result = await self.api_client.approve_expense(approval_id=approval_id, decision=decision, notes=notes)
+            return {
+                "success": True,
+                "data": result,
+                "message": f"Expense {decision} successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to process approval decision: {e}"}
+
+    async def get_approval_history(self, entity_type: str = None, entity_id: int = None, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Get approval history"""
+        try:
+            history = await self.api_client.get_approval_history(
+                entity_type=entity_type, 
+                entity_id=entity_id, 
+                skip=skip, 
+                limit=limit
+            )
+
+            return {
+                "success": True,
+                "data": history,
+                "count": len(history),
+                "filters": {"entity_type": entity_type, "entity_id": entity_id},
+                "pagination": {"skip": skip, "limit": limit}
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get approval history: {e}"}
+
+    # Reports Generation
+    async def generate_report(self, report_type: str, start_date: str, end_date: str, format: str = "pdf") -> Dict[str, Any]:
+        """Generate a business report"""
+        if format not in ["pdf", "excel", "csv"]:
+            return {"success": False, "error": "Format must be 'pdf', 'excel', or 'csv'"}
+
+        try:
+            result = await self.api_client.generate_report(
+                report_type=report_type,
+                start_date=start_date,
+                end_date=end_date,
+                format=format
+            )
+            return {
+                "success": True,
+                "data": result,
+                "message": f"Report '{report_type}' generated successfully in {format.upper()} format"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to generate report: {e}"}
+
+    async def list_report_templates(self) -> Dict[str, Any]:
+        """List available report templates"""
+        try:
+            response = await self.api_client.list_report_templates()
+
+            # Extract items from paginated response
+            templates = self._extract_items_from_response(response, ["items", "data", "templates"])
+
+            return {
+                "success": True,
+                "data": templates,
+                "count": len(templates)
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to list report templates: {e}"}
+
+    async def get_report_history(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Get report generation history"""
+        try:
+            history = await self.api_client.get_report_history(skip=skip, limit=limit)
+
+            return {
+                "success": True,
+                "data": history,
+                "count": len(history),
+                "pagination": {"skip": skip, "limit": limit}
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get report history: {e}"}
+
+    # Advanced Search Tools
+    async def global_search(self, query: str, entity_types: List[str] = None, limit: int = 50) -> Dict[str, Any]:
+        """Perform global search across all entities"""
+        if not query or len(query.strip()) < 1:
+            return {"success": False, "error": "Search query cannot be empty"}
+
+        if limit < 1 or limit > 100:
+            return {"success": False, "error": "Limit must be between 1 and 100"}
+
+        try:
+            results = await self.api_client.global_search(
+                query=query.strip(),
+                entity_types=entity_types,
+                limit=limit
+            )
+
+            return {
+                "success": True,
+                "data": results,
+                "query": query,
+                "results_count": len(results.get('results', [])),
+                "total_available": results.get('total', 0),
+                "types_searched": results.get('types_searched', [])
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Search failed: {e}"}
+
+    async def search_suggestions(self, query: str, limit: int = 10) -> Dict[str, Any]:
+        """Get search suggestions based on partial query"""
+        if not query or len(query.strip()) < 1:
+            return {"success": False, "error": "Query cannot be empty"}
+
+        if limit < 1 or limit > 20:
+            return {"success": False, "error": "Limit must be between 1 and 20"}
+
+        try:
+            suggestions = await self.api_client.search_suggestions(
+                query=query.strip(),
+                limit=limit
+            )
+
+            return {
+                "success": True,
+                "data": suggestions,
+                "query": query,
+                "suggestions_count": len(suggestions.get('suggestions', []))
+            }
+
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get suggestions: {e}"}
+
+    async def reindex_all_data(self) -> Dict[str, Any]:
+        """Reindex all data for search (admin only)"""
+        try:
+            result = await self.api_client.reindex_all_data()
+            return {
+                "success": True,
+                "data": result,
+                "message": "Data reindexing completed successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Reindexing failed: {e}"}
+
+    async def get_search_status(self) -> Dict[str, Any]:
+        """Get search service status"""
+        try:
+            status = await self.api_client.get_search_status()
+            return {
+                "success": True,
+                "data": status,
+                "message": "Search status retrieved successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get search status: {e}"}
+
+    # Enhanced Reports Tools
+    async def preview_report(self, report_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Preview a report with limited results"""
+        if not report_config.get("report_type"):
+            return {"success": False, "error": "Report type is required"}
+
+        try:
+            result = await self.api_client.preview_report(report_config)
+            return {
+                "success": True,
+                "data": result,
+                "message": "Report preview generated successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to preview report: {e}"}
+
+    async def create_report_template(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new report template"""
+        required_fields = ["name", "report_type", "description"]
+        for field in required_fields:
+            if not template_data.get(field):
+                return {"success": False, "error": f"Required field missing: {field}"}
+
+        try:
+            result = await self.api_client.create_report_template(template_data)
+            return {
+                "success": True,
+                "data": result,
+                "message": "Report template created successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to create report template: {e}"}
+
+    async def get_scheduled_reports(self, skip: int = 0, limit: int = 100, active_only: bool = False) -> Dict[str, Any]:
+        """Get scheduled reports"""
+        if limit < 1 or limit > 1000:
+            return {"success": False, "error": "Limit must be between 1 and 1000"}
+
+        try:
+            result = await self.api_client.get_scheduled_reports(skip=skip, limit=limit, active_only=active_only)
+            return {
+                "success": True,
+                "data": result,
+                "count": len(result.get("scheduled_reports", [])),
+                "pagination": {"skip": skip, "limit": limit, "active_only": active_only}
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to get scheduled reports: {e}"}
+
+    async def download_report(self, report_id: int) -> Dict[str, Any]:
+        """Download a generated report file"""
+        if not report_id or report_id <= 0:
+            return {"success": False, "error": "Valid report ID is required"}
+
+        try:
+            response = await self.api_client.download_report(report_id)
+
+            # Handle file download response
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = f"report_{report_id}.pdf"
+            if "filename=" in content_disposition:
+                filename = content_disposition.split("filename=")[1].strip('"')
+
+            content_type = response.headers.get("content-type", "application/pdf")
+            content = await response.aread()
+
+            return {
+                "success": True,
+                "data": {
+                    "content": content,
+                    "content_type": content_type,
+                    "filename": filename,
+                    "size": len(content)
+                },
+                "message": f"Report '{filename}' downloaded successfully"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed to download report: {e}"}
+
     # Currency Management
     async def list_currencies(self, active_only: bool = True) -> Dict[str, Any]:
         """List supported currencies"""
         try:
-            currencies = await self.api_client.list_currencies(active_only=active_only)
-            
+            response = await self.api_client.list_currencies(active_only=active_only)
+
+            # Extract items from paginated response
+            currencies = self._extract_items_from_response(response, ["items", "data", "currencies"])
+
             return {
                 "success": True,
                 "data": currencies,
                 "count": len(currencies),
                 "active_only": active_only
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to list currencies: {e}"}
-    
+
     async def create_currency(self, code: str, name: str, symbol: str, decimal_places: int = 2, is_active: bool = True) -> Dict[str, Any]:
         """Create a custom currency"""
         try:
@@ -1189,18 +1579,18 @@ class InvoiceTools:
                 "decimal_places": decimal_places,
                 "is_active": is_active
             }
-            
+
             currency = await self.api_client.create_currency(currency_data)
-            
+
             return {
                 "success": True,
                 "data": currency,
                 "message": "Currency created successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to create currency: {e}"}
-    
+
     async def convert_currency(self, amount: float, from_currency: str, to_currency: str, conversion_date: Optional[str] = None) -> Dict[str, Any]:
         """Convert amount from one currency to another"""
         try:
@@ -1210,26 +1600,29 @@ class InvoiceTools:
                 to_currency=to_currency,
                 conversion_date=conversion_date
             )
-            
+
             return {
                 "success": True,
                 "data": conversion
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to convert currency: {e}"}
-    
+
     # Payments
     async def list_payments(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List all payments"""
         try:
-            payments = await self.api_client.list_payments(skip=skip, limit=limit)
-            
+            response = await self.api_client.list_payments(skip=skip, limit=limit)
+
+            # Extract payments from response
+            payments = self._extract_items_from_response(response, ["data", "items", "payments"])
+
             # Prepare chart data for smaller datasets only
             chart_data = None
             if len(payments) <= 500:  # Only generate charts for reasonable dataset sizes
                 chart_data = self._prepare_payment_chart_data(payments)
-            
+
             return {
                 "success": True,
                 "data": payments,
@@ -1240,21 +1633,21 @@ class InvoiceTools:
                 },
                 "chart_data": chart_data
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to list payments: {e}"}
-    
+
     def _prepare_payment_chart_data(self, payments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Prepare payment data for charts"""
         try:
             from datetime import datetime
             from collections import defaultdict
-            
+
             # Group payments by date for timeline chart
             payments_by_date = defaultdict(float)
             payments_by_method = defaultdict(float)
             payments_by_invoice = defaultdict(list)
-            
+
             for payment in payments:
                 # Date grouping
                 if payment.get('payment_date'):
@@ -1263,11 +1656,11 @@ class InvoiceTools:
                         payments_by_date[payment_date] += float(payment.get('amount', 0))
                     except:
                         pass
-                
+
                 # Payment method grouping
                 method = payment.get('payment_method', 'unknown')
                 payments_by_method[method] += float(payment.get('amount', 0))
-                
+
                 # Invoice grouping
                 invoice_id = payment.get('invoice_id')
                 if invoice_id:
@@ -1277,22 +1670,22 @@ class InvoiceTools:
                         'date': payment.get('payment_date'),
                         'method': payment.get('payment_method')
                     })
-            
+
             # Prepare chart datasets
             timeline_data = [
                 {'date': date, 'amount': amount} 
                 for date, amount in sorted(payments_by_date.items())
             ]
-            
+
             method_data = [
                 {'method': method, 'amount': amount} 
                 for method, amount in payments_by_method.items()
             ]
-            
+
             # Calculate summary stats
             total_amount = sum(float(payment.get('amount', 0)) for payment in payments)
             avg_amount = total_amount / len(payments) if payments else 0
-            
+
             return {
                 'timeline': timeline_data,
                 'by_method': method_data,
@@ -1306,14 +1699,14 @@ class InvoiceTools:
                     }
                 }
             }
-            
+
         except Exception as e:
             return {'error': f'Failed to prepare chart data: {e}'}
-    
+
     def _parse_date_filter(self, query_lower: str, payments: List[Dict[str, Any]]) -> Optional[tuple]:
         """Parse date-related keywords and filter payments accordingly"""
         from datetime import datetime, timedelta
-        
+
         if "yesterday" in query_lower:
             yesterday = (datetime.now() - timedelta(days=1)).date()
             filtered = [p for p in payments if p.get('payment_date') and datetime.fromisoformat(str(p['payment_date'])).date() == yesterday]
@@ -1363,16 +1756,16 @@ class InvoiceTools:
         """Query payments using natural language (e.g., 'payments yesterday', 'payments this week')"""
         try:
             from datetime import datetime, date, timedelta
-            
+
             # Get all payments first
             payments = await self.api_client.list_payments(skip=0, limit=1000)
-            
+
             # Parse the query for date-related keywords
             query_lower = query.lower()
             filtered_payments = payments
             date_filter_applied = False
             date_description = ""
-            
+
             # Parse date-related keywords using helper method
             date_filter_result = self._parse_date_filter(query_lower, payments)
             if date_filter_result:
@@ -1381,7 +1774,7 @@ class InvoiceTools:
                 date_filter_applied = False
                 date_description = ""
 
-            
+
             # Parse payment method filters
             if "credit card" in query_lower or "card" in query_lower:
                 filtered_payments = [
@@ -1398,7 +1791,7 @@ class InvoiceTools:
                     p for p in filtered_payments 
                     if p.get('payment_method') and 'check' in p['payment_method'].lower()
                 ]
-            
+
             # Parse amount filters
             if "over" in query_lower or "above" in query_lower:
                 import re
@@ -1418,12 +1811,12 @@ class InvoiceTools:
                         p for p in filtered_payments 
                         if p.get('amount') and float(p['amount']) < max_amount
                     ]
-            
+
             # Parse client filters
             if "from" in query_lower and "client" in query_lower:
                 # This is already handled by the existing filtering logic
                 pass
-            
+
             return {
                 "success": True,
                 "data": filtered_payments,
@@ -1433,10 +1826,10 @@ class InvoiceTools:
                 "date_description": date_description,
                 "total_payments_checked": len(payments)
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to query payments: {e}"}
-    
+
     async def create_payment(self, invoice_id: int, amount: float, payment_date: str, payment_method: str, reference: Optional[str] = None, notes: Optional[str] = None) -> Dict[str, Any]:
         """Create a new payment"""
         try:
@@ -1450,47 +1843,50 @@ class InvoiceTools:
                 payment_data["reference"] = reference
             if notes:
                 payment_data["notes"] = notes
-                
+
             payment = await self.api_client.create_payment(payment_data)
-            
+
             return {
                 "success": True,
                 "data": payment,
                 "message": "Payment created successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to create payment: {e}"}
-    
+
     # Settings
     async def get_settings(self) -> Dict[str, Any]:
         """Get tenant settings"""
         try:
             settings = await self.api_client.get_settings()
-            
+
             return {
                 "success": True,
                 "data": settings
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get settings: {e}"}
-    
+
     # Discount Rules
     async def list_discount_rules(self) -> Dict[str, Any]:
         """List all discount rules"""
         try:
-            discount_rules = await self.api_client.list_discount_rules()
-            
+            response = await self.api_client.list_discount_rules()
+
+            # Extract items from paginated response
+            discount_rules = self._extract_items_from_response(response, ["items", "data", "rules"])
+
             return {
                 "success": True,
                 "data": discount_rules,
                 "count": len(discount_rules)
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to list discount rules: {e}"}
-    
+
     async def create_discount_rule(self, name: str, discount_type: str, discount_value: float, min_amount: Optional[float] = None, max_discount: Optional[float] = None, priority: int = 1, is_active: bool = True, currency: Optional[str] = None) -> Dict[str, Any]:
         """Create a new discount rule"""
         try:
@@ -1507,18 +1903,18 @@ class InvoiceTools:
                 rule_data["max_discount"] = max_discount
             if currency:
                 rule_data["currency"] = currency
-                
+
             discount_rule = await self.api_client.create_discount_rule(rule_data)
-            
+
             return {
                 "success": True,
                 "data": discount_rule,
                 "message": "Discount rule created successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to create discount rule: {e}"}
-    
+
     # CRM
     async def create_client_note(self, client_id: int, title: str, content: str, note_type: str = "general") -> Dict[str, Any]:
         """Create a note for a client"""
@@ -1528,18 +1924,18 @@ class InvoiceTools:
                 "content": content,
                 "note_type": note_type
             }
-            
+
             note = await self.api_client.create_client_note(client_id, note_data)
-            
+
             return {
                 "success": True,
                 "data": note,
                 "message": "Client note created successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to create client note: {e}"}
-    
+
     # Email
     async def send_invoice_email(self, invoice_id: int, to_email: Optional[str] = None, to_name: Optional[str] = None, subject: Optional[str] = None, message: Optional[str] = None) -> Dict[str, Any]:
         """Send an invoice via email"""
@@ -1553,86 +1949,86 @@ class InvoiceTools:
                 email_data["subject"] = subject
             if message:
                 email_data["message"] = message
-                
+
             result = await self.api_client.send_invoice_email(email_data)
-            
+
             return {
                 "success": True,
                 "data": result,
                 "message": "Invoice email sent successfully"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to send invoice email: {e}"}
-    
+
     async def test_email_configuration(self, test_email: str) -> Dict[str, Any]:
         """Test email configuration"""
         try:
             result = await self.api_client.test_email_configuration(test_email)
-            
+
             return {
                 "success": True,
                 "data": result,
                 "message": "Email test completed"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to test email configuration: {e}"}
-    
+
     # Tenant
     async def get_tenant_info(self) -> Dict[str, Any]:
         """Get current tenant information"""
         try:
             tenant = await self.api_client.get_tenant_info()
-            
+
             return {
                 "success": True,
                 "data": tenant
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get tenant info: {e}"}
-    
+
     async def get_clients_with_outstanding_balance(self) -> Dict[str, Any]:
         """Get clients with outstanding balances"""
         try:
             clients = await self.api_client.get_clients_with_outstanding_balance()
-            
+
             return {
                 "success": True,
                 "data": clients,
                 "count": len(clients),
                 "message": f"Found {len(clients)} clients with outstanding balances"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get clients with outstanding balance: {e}"}
-    
+
     async def get_overdue_invoices(self) -> Dict[str, Any]:
         """Get overdue invoices"""
         try:
             invoices = await self.api_client.get_overdue_invoices()
-            
+
             return {
                 "success": True,
                 "data": invoices,
                 "count": len(invoices),
                 "message": f"Found {len(invoices)} overdue invoices"
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get overdue invoices: {e}"}
-    
+
     async def get_invoice_stats(self) -> Dict[str, Any]:
         """Get invoice statistics"""
         try:
             stats = await self.api_client.get_invoice_stats()
-            
+
             return {
                 "success": True,
                 "data": stats
             }
-            
+
         except Exception as e:
             return {"success": False, "error": f"Failed to get invoice stats: {e}"}
 
@@ -1655,7 +2051,7 @@ class InvoiceTools:
             paid_invoices = [inv for inv in invoices if inv['status'] == 'paid']
             unpaid_invoices = [inv for inv in invoices if inv['status'] != 'paid']
             overdue_invoices = [inv for inv in unpaid_invoices if inv.get('due_date') and inv['due_date'] < datetime.now().isoformat()]
-            
+
             total_revenue = sum(inv['amount'] for inv in paid_invoices)
             outstanding_revenue = sum(inv['amount'] for inv in unpaid_invoices)
 
@@ -1667,7 +2063,7 @@ class InvoiceTools:
                     paid_date = datetime.fromisoformat(inv['paid_date'])
                     created_date = datetime.fromisoformat(inv['created_at'])
                     payment_time = (paid_date - created_date).days
-                    
+
                     if client_id not in client_payment_times:
                         client_payment_times[client_id] = []
                     client_payment_times[client_id].append(payment_time)
@@ -1724,7 +2120,7 @@ class InvoiceTools:
                     "description": f"You have {overdue_invoices_count} overdue invoices. Would you like to draft reminder emails?",
                     "tool_to_use": "draft_reminder_email(invoice_id)"
                 })
-            
+
             if analysis_data.get("slowest_paying_clients"):
                 slow_client = analysis_data["slowest_paying_clients"][0]
                 actions.append({
@@ -1745,7 +2141,11 @@ class InvoiceTools:
     async def list_ai_configs(self) -> Dict[str, Any]:
         """List all AI configurations"""
         try:
-            configs = await self.api_client.list_ai_configs()
+            response = await self.api_client.list_ai_configs()
+
+            # Extract items from paginated response
+            configs = self._extract_items_from_response(response, ["items", "data", "configs"])
+
             return {
                 "success": True,
                 "data": configs,
@@ -1882,6 +2282,14 @@ class InvoiceTools:
         offset: int = 0
     ) -> Dict[str, Any]:
         """Get audit logs with optional filters"""
+        # Validate pagination parameters
+        if offset < 0:
+            offset = 0
+        if limit < 1:
+            limit = 100
+        if limit > 10000:  # Prevent excessive load
+            limit = 10000
+
         try:
             logs = await self.api_client.get_audit_logs(
                 user_id=user_id,
@@ -2123,7 +2531,11 @@ class InvoiceTools:
     async def list_tenant_users(self, tenant_id: int, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List users in a specific tenant"""
         try:
-            users = await self.api_client.list_tenant_users(tenant_id, skip=skip, limit=limit)
+            response = await self.api_client.list_tenant_users(tenant_id, skip=skip, limit=limit)
+
+            # Extract items from paginated response
+            users = self._extract_items_from_response(response, ["items", "data", "users"])
+
             return {
                 "success": True,
                 "data": users,
@@ -3076,13 +3488,17 @@ class InvoiceTools:
         try:
             params = {"q": query, "limit": limit}
             response = await self.api_client._make_request("GET", "/inventory/items/search", params=params)
+
+            # Extract results from response
+            results = self._extract_items_from_response(response, ["results", "items", "data"])
+
             return {
                 "success": True,
-                "data": response,
+                "data": results,
                 "query": query,
                 "limit": limit,
-                "result_count": len(response.get("results", [])),
-                "message": f"Found {len(response.get('results', []))} items matching '{query}'"
+                "result_count": len(results),
+                "message": f"Found {len(results)} items matching '{query}'"
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to search inventory items: {e}"}
@@ -3137,7 +3553,7 @@ class InvoiceTools:
 
             if not file_content:
                 return {"success": False, "error": "Empty file provided"}
- 
+
             # Prepare request data
             data = {"item_id": item_id}
             if attachment_type:
@@ -3337,7 +3753,7 @@ class InvoiceTools:
                 params["priority"] = priority
             if search:
                 params["search"] = search
-            
+
             response = await self.api_client._make_request("GET", "/reminders", params=params)
             return {
                 "success": True,
@@ -3372,7 +3788,7 @@ class InvoiceTools:
                 payload["description"] = description
             if tags:
                 payload["tags"] = tags
-            
+
             response = await self.api_client._make_request("POST", "/reminders", json=payload)
             return {"success": True, "data": response, "message": "Reminder created successfully"}
         except Exception as e:
@@ -3390,7 +3806,7 @@ class InvoiceTools:
                 payload["due_date"] = due_date
             if priority:
                 payload["priority"] = priority
-            
+
             response = await self.api_client._make_request("PUT", f"/reminders/{reminder_id}", json=payload)
             return {"success": True, "data": response, "message": "Reminder updated successfully"}
         except Exception as e:
@@ -3404,7 +3820,7 @@ class InvoiceTools:
                 payload["completion_notes"] = completion_notes
             if snoozed_until:
                 payload["snoozed_until"] = snoozed_until
-            
+
             response = await self.api_client._make_request("PATCH", f"/reminders/{reminder_id}/status", json=payload)
             return {"success": True, "data": response, "message": f"Reminder status updated to {status}"}
         except Exception as e:
@@ -3434,7 +3850,7 @@ class InvoiceTools:
                 payload["status"] = status
             if priority:
                 payload["priority"] = priority
-            
+
             response = await self.api_client._make_request("POST", "/reminders/bulk-update", json=payload)
             return {
                 "success": True,
@@ -3534,7 +3950,7 @@ class InvoiceTools:
                 payload["notes"] = notes
             if approver_id:
                 payload["approver_id"] = approver_id
-            
+
             response = await self.api_client._make_request("POST", f"/approvals/expenses/{expense_id}/submit-approval", json=payload)
             return {
                 "success": True,
@@ -3552,13 +3968,17 @@ class InvoiceTools:
                 params["limit"] = limit
             if offset:
                 params["offset"] = offset
-            
+
             response = await self.api_client._make_request("GET", "/approvals/pending", params=params)
+
+            # Extract approvals from response
+            approvals = self._extract_items_from_response(response, ["approvals", "items", "data"])
+
             return {
                 "success": True,
-                "data": response.get("approvals", []),
-                "total": response.get("total", 0),
-                "message": f"Found {response.get('total', 0)} pending approvals"
+                "data": approvals,
+                "total": response.get("total", 0) if isinstance(response, dict) else len(approvals),
+                "message": f"Found {response.get('total', 0) if isinstance(response, dict) else len(approvals)} pending approvals"
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to get pending approvals: {e}"}
@@ -3581,7 +4001,7 @@ class InvoiceTools:
             payload = {"status": "approved"}
             if notes:
                 payload["notes"] = notes
-            
+
             response = await self.api_client._make_request("POST", f"/approvals/{approval_id}/approve", json=payload)
             return {
                 "success": True,
@@ -3600,7 +4020,7 @@ class InvoiceTools:
             }
             if notes:
                 payload["notes"] = notes
-            
+
             response = await self.api_client._make_request("POST", f"/approvals/{approval_id}/reject", json=payload)
             return {
                 "success": True,
@@ -3628,7 +4048,7 @@ class InvoiceTools:
             params = {}
             if approver_id:
                 params["approver_id"] = approver_id
-            
+
             response = await self.api_client._make_request("GET", "/approvals/metrics", params=params)
             return {
                 "success": True,
@@ -3655,11 +4075,15 @@ class InvoiceTools:
         try:
             params = {"skip": skip, "limit": limit}
             response = await self.api_client._make_request("GET", "/approvals/approved-expenses", params=params)
+
+            # Extract expenses from response
+            expenses = self._extract_items_from_response(response, ["expenses", "items", "data"])
+
             return {
                 "success": True,
-                "data": response.get("expenses", []),
-                "total": response.get("total", 0),
-                "message": f"Found {response.get('total', 0)} approved expenses"
+                "data": expenses,
+                "total": response.get("total", 0) if isinstance(response, dict) else len(expenses),
+                "message": f"Found {response.get('total', 0) if isinstance(response, dict) else len(expenses)} approved expenses"
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to get approved expenses: {e}"}
@@ -3669,11 +4093,15 @@ class InvoiceTools:
         try:
             params = {"skip": skip, "limit": limit}
             response = await self.api_client._make_request("GET", "/approvals/processed-expenses", params=params)
+
+            # Extract expenses from response
+            expenses = self._extract_items_from_response(response, ["expenses", "items", "data"])
+
             return {
                 "success": True,
-                "data": response.get("expenses", []),
-                "total": response.get("total", 0),
-                "message": f"Found {response.get('total', 0)} processed expenses"
+                "data": expenses,
+                "total": response.get("total", 0) if isinstance(response, dict) else len(expenses),
+                "message": f"Found {response.get('total', 0) if isinstance(response, dict) else len(expenses)} processed expenses"
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to get processed expenses: {e}"}
@@ -3720,7 +4148,7 @@ class InvoiceTools:
                 payload["end_date"] = end_date
             if is_active is not None:
                 payload["is_active"] = is_active
-            
+
             response = await self.api_client._make_request("PUT", f"/approvals/delegates/{delegation_id}", json=payload)
             return {
                 "success": True,
@@ -3751,19 +4179,29 @@ class InvoiceTools:
         status: Optional[str] = None,
         account_name: Optional[str] = None
     ) -> Dict[str, Any]:
-        """List bank statements with optional filtering"""
+        """List bank statements with optional filtering and enhanced formatting"""
         try:
             params = {"skip": skip, "limit": limit}
             if status:
                 params["status"] = status
             if account_name:
-                params["account_name"] = account_name
+                params["search"] = account_name  # Use search parameter for account name filtering
 
             response = await self.api_client._make_request("GET", "/statements", params=params)
+
+            # Extract statements from response
+            statements = self._extract_items_from_response(response, ["statements", "items", "data"])
+
+            # Format statements for better readability
+            formatted_statements = []
+            for stmt in statements:
+                formatted = self._format_statement_for_display(stmt)
+                formatted_statements.append(formatted)
+
             return {
                 "success": True,
-                "data": response.get("statements", []),
-                "count": len(response.get("statements", [])),
+                "data": formatted_statements,
+                "count": len(formatted_statements),
                 "pagination": {
                     "skip": skip,
                     "limit": limit
@@ -3771,6 +4209,58 @@ class InvoiceTools:
             }
         except Exception as e:
             return {"success": False, "error": f"Failed to list bank statements: {e}"}
+
+    def _format_statement_for_display(self, stmt: Dict[str, Any]) -> Dict[str, Any]:
+        """Format a bank statement for better user display"""
+        # Extract account name from filename or labels
+        account_name = "Unknown"
+        if stmt.get("original_filename"):
+            # Try to extract account name from filename
+            filename = stmt["original_filename"].lower()
+            if "checking" in filename:
+                account_name = "Checking Account"
+            elif "savings" in filename:
+                account_name = "Savings Account"
+            elif "credit" in filename:
+                account_name = "Credit Card"
+            elif "business" in filename:
+                account_name = "Business Account"
+            else:
+                # Use filename as fallback
+                account_name = stmt["original_filename"].replace(".pdf", "").replace("_", " ").title()
+        
+        # Extract period from filename or created date
+        period = "N/A"
+        if stmt.get("created_at"):
+            try:
+                from datetime import datetime
+                created_date = datetime.fromisoformat(stmt["created_at"].replace("Z", "+00:00"))
+                period = created_date.strftime("%B %Y")
+            except:
+                pass
+        
+        # Get transaction count
+        transaction_count = stmt.get("extracted_count", 0)
+        if transaction_count == 0:
+            transaction_count = "N/A"
+        
+        # Format status for display
+        status = stmt.get("status", "Unknown")
+        status_display = status.replace("_", " ").title()
+        
+        return {
+            "id": stmt.get("id"),
+            "account_name": account_name,
+            "period": period,
+            "status": status_display,
+            "transaction_count": transaction_count,
+            "original_filename": stmt.get("original_filename"),
+            "created_at": stmt.get("created_at"),
+            "extracted_count": stmt.get("extracted_count", 0),
+            "labels": stmt.get("labels", []),
+            "notes": stmt.get("notes"),
+            "review_status": stmt.get("review_status", "not_started")
+        }
 
     async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Get detailed information about a bank statement"""

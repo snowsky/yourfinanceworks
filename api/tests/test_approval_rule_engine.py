@@ -7,11 +7,11 @@ import json
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 
-from api.services.approval_rule_engine import ApprovalRuleEngine
-from api.models.models_per_tenant import (
+from commercial.workflows.approvals.services.approval_rule_engine import ApprovalRuleEngine
+from core.models.models_per_tenant import (
     User, Expense, ApprovalRule, ApprovalDelegate, ExpenseApproval
 )
-from api.schemas.approval import ApprovalStatus
+from core.schemas.approval import ApprovalStatus
 
 
 @pytest.fixture

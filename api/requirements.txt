@@ -63,7 +63,7 @@ openpyxl==3.1.2
 croniter==3.0.3
 
 # Kafka
-confluent-kafka==2.10.0
+confluent-kafka==2.12.2
 
 # Redis for caching
 redis==5.2.1
@@ -82,7 +82,7 @@ azure-keyvault-secrets==4.8.0  # Azure Key Vault secrets
 azure-identity==1.19.0  # Azure authentication
 hvac==2.3.0  # HashiCorp Vault client
 tenacity==9.0.0  # Retry logic for key vault operations
-cryptography==44.0.1  # Cryptographic operations
+cryptography==46.0.3  # Cryptographic operations
 
 # Export Destination
 azure-storage-blob==12.27.1

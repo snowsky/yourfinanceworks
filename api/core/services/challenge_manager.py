@@ -68,7 +68,7 @@ class ChallengeManager:
             self.db.refresh(challenge)
             
             logger.info(f"Created challenge template: {challenge.challenge_id}")
-            return ChallengeResponse.from_orm(challenge)
+            return ChallengeResponse.model_validate(challenge)
             
         except Exception as e:
             logger.error(f"Error creating challenge template: {str(e)}")
@@ -119,7 +119,7 @@ class ChallengeManager:
             )
             
             challenges = query.all()
-            return [ChallengeResponse.from_orm(challenge) for challenge in challenges]
+            return [ChallengeResponse.model_validate(challenge) for challenge in challenges]
             
         except Exception as e:
             logger.error(f"Error getting available challenges for user {user_id}: {str(e)}")
@@ -160,7 +160,7 @@ class ChallengeManager:
                 query = query.filter(Challenge.organization_id.is_(None))
             
             challenges = query.all()
-            return [ChallengeResponse.from_orm(challenge) for challenge in challenges]
+            return [ChallengeResponse.model_validate(challenge) for challenge in challenges]
             
         except Exception as e:
             logger.error(f"Error getting weekly challenges: {str(e)}")
@@ -201,7 +201,7 @@ class ChallengeManager:
                 query = query.filter(Challenge.organization_id.is_(None))
             
             challenges = query.all()
-            return [ChallengeResponse.from_orm(challenge) for challenge in challenges]
+            return [ChallengeResponse.model_validate(challenge) for challenge in challenges]
             
         except Exception as e:
             logger.error(f"Error getting monthly challenges: {str(e)}")
@@ -246,7 +246,7 @@ class ChallengeManager:
                 existing.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
                 self.db.refresh(existing)
-                return UserChallengeResponse.from_orm(existing)
+                return UserChallengeResponse.model_validate(existing)
             
             # Create new participation record
             user_challenge = UserChallenge(
@@ -264,7 +264,7 @@ class ChallengeManager:
             self.db.refresh(user_challenge)
             
             logger.info(f"User {user_id} opted into challenge {challenge_id}")
-            return UserChallengeResponse.from_orm(user_challenge)
+            return UserChallengeResponse.model_validate(user_challenge)
             
         except Exception as e:
             logger.error(f"Error opting user {user_id} into challenge {challenge_id}: {str(e)}")
@@ -338,7 +338,7 @@ class ChallengeManager:
                 query = query.filter(UserChallenge.is_completed == True)
             
             user_challenges = query.order_by(desc(UserChallenge.started_at)).all()
-            return [UserChallengeResponse.from_orm(uc) for uc in user_challenges]
+            return [UserChallengeResponse.model_validate(uc) for uc in user_challenges]
             
         except Exception as e:
             logger.error(f"Error getting user challenges for user {user_id}: {str(e)}")

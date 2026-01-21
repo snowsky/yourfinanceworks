@@ -11,7 +11,7 @@ from alembic.script import ScriptDirectory
 from alembic.runtime.environment import EnvironmentContext
 from alembic.runtime.migration import MigrationContext
 
-from api.models.models_per_tenant import Base, ExpenseApproval, ApprovalRule, ApprovalDelegate
+from core.models.models_per_tenant import Base, ExpenseApproval, ApprovalRule, ApprovalDelegate
 
 
 class TestApprovalMigrations:

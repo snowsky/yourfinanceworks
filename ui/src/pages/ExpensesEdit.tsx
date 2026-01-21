@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Package, Eye, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
@@ -23,6 +23,7 @@ import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsum
 import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissionDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 
 export default function ExpensesEdit() {
   const { t } = useTranslation();
@@ -279,17 +280,45 @@ export default function ExpensesEdit() {
 
   return (
     <>
-      <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t('expenses.edit_title')}</h1>
-          <p className="text-muted-foreground">{t('expenses.edit_description')}</p>
+      <div className="h-full space-y-8 fade-in">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <ProfessionalButton
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => navigate('/expenses')}
+                  className="rounded-full"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </ProfessionalButton>
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('expenses.edit_title')}</h1>
+              <p className="text-lg text-muted-foreground">{t('expenses.edit_description')}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <ProfessionalButton
+                variant="default"
+                size="lg"
+                onClick={onSave}
+                disabled={saving || (submitForApproval && !selectedApproverId)}
+                className="shadow-lg"
+                leftIcon={<CheckCircle className="h-4 w-4" />}
+              >
+                {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
+                  (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
+              </ProfessionalButton>
+            </div>
+          </div>
         </div>
 
         <Card className="slide-in">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{t('expenses.details')}</CardTitle>
-              {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed') && (
+              {((form as any)?.analysis_status === 'pending' || (form as any)?.analysis_status === 'queued' || (form as any)?.analysis_status === 'failed' || (form as any)?.analysis_status === 'done') && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -317,10 +346,37 @@ export default function ExpensesEdit() {
               )}
             </div>
             {(form as any)?.analysis_status && (
-              <div className="text-sm text-muted-foreground">
-                {t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}: <span className="capitalize">{(form as any).analysis_status}</span>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                  <Badge
+                    variant={
+                      (form as any).analysis_status === 'done' ? 'default' :
+                        (form as any).analysis_status === 'failed' ? 'destructive' :
+                          (form as any).analysis_status === 'pending' || (form as any).analysis_status === 'queued' ? 'secondary' :
+                            'outline'
+                    }
+                    className="capitalize"
+                  >
+                    {(form as any).analysis_status === 'done' && '✓ '}
+                    {(form as any).analysis_status === 'failed' && '✗ '}
+                    {(form as any).analysis_status === 'pending' && '⏳ '}
+                    {(form as any).analysis_status === 'queued' && '⏳ '}
+                    {(form as any).analysis_status}
+                  </Badge>
+                </div>
                 {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
-                  <span className="text-red-600 ml-2">({(form as any).analysis_error})</span>
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800">
+                      <details className="cursor-pointer">
+                        <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details')}</summary>
+                        <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                          {(form as any).analysis_error}
+                        </div>
+                      </details>
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             )}
@@ -330,7 +386,7 @@ export default function ExpensesEdit() {
               <label className="text-sm">{t('expenses.labels.amount')}</label>
               <Input
                 type="number"
-                value={Number(form.amount || 0)}
+                value={Number(form.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4, useGrouping: false })}
                 onChange={e => setForm({ ...form, amount: Number(e.target.value) })}
                 disabled={isInventoryConsumption}
                 placeholder={isInventoryConsumption ? "Calculated from items" : ""}
@@ -421,7 +477,7 @@ export default function ExpensesEdit() {
                   <SelectValue placeholder={t('common.select_category')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                  {categoryOptions.map(c => (<SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -567,63 +623,95 @@ export default function ExpensesEdit() {
                 {attachments.length === 0 ? (
                   <div className="text-sm text-muted-foreground">{t('expenses.none')}</div>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {attachments.map(att => (
-                      <li key={att.id} className="flex items-center justify-between gap-3 border rounded p-2">
-                        <div className={`truncate text-sm ${pendingDelete.has(att.id) ? 'line-through text-muted-foreground' : ''}`}>
-                          {att.filename}
-                          {pendingDelete.has(att.id) && (
-                            <span className="ml-2 text-xs text-red-600">({t('expenses.will_delete_on_save', { defaultValue: 'will delete on save' })})</span>
+                      <li key={att.id} className="flex flex-col gap-2 border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className={`truncate text-sm font-medium flex items-center gap-2 ${pendingDelete.has(att.id) ? 'line-through text-muted-foreground' : ''}`}>
+                            {att.filename}
+                            {pendingDelete.has(att.id) && (
+                              <Badge variant="destructive" className="text-[10px] h-4 px-1">{t('expenses.to_delete', { defaultValue: 'DELETE' })}</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={async () => {
+                                setPreviewLoading(att.id);
+                                try {
+                                  const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
+                                  const url = URL.createObjectURL(blob);
+                                  setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
+                                } finally {
+                                  setPreviewLoading(null);
+                                }
+                              }}
+                              disabled={previewLoading === att.id}
+                            >
+                              {previewLoading === att.id ? (
+                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-8 px-2 ${pendingDelete.has(att.id) ? 'text-primary' : 'text-destructive hover:bg-destructive/10'}`}
+                              onClick={() => {
+                                if ((form as any)?.analysis_status === 'done' && !pendingDelete.has(att.id)) {
+                                  if (!confirm('This expense has been analyzed. Deleting attachments may affect the extracted data. Continue?')) {
+                                    return;
+                                  }
+                                }
+                                setPendingDelete(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(att.id)) next.delete(att.id); else next.add(att.id);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {pendingDelete.has(att.id) ? <CheckCircle className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-2 mt-1">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">Status:</span>
+                              <Badge
+                                variant={
+                                  att.analysis_status === 'done' ? 'default' :
+                                    att.analysis_status === 'failed' ? 'destructive' :
+                                      'outline'
+                                }
+                                className="h-4 text-[9px] px-1 font-bold tracking-tight"
+                              >
+                                {att.analysis_status || 'not_started'}
+                              </Badge>
+                            </div>
+                            {att.extracted_amount !== undefined && att.extracted_amount !== null && (
+                              <div className="flex items-center gap-1">
+                                <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">Amount:</span>
+                                <span className="font-bold text-foreground">
+                                  {new Intl.NumberFormat(undefined, { style: 'currency', currency: form.currency || 'USD' }).format(att.extracted_amount)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          {att.size_bytes && (
+                            <span>{(att.size_bytes / 1024).toFixed(1)} KB</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              setPreviewLoading(att.id);
-                              try {
-                                const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
-                                const url = URL.createObjectURL(blob);
-                                setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
-                              } finally {
-                                setPreviewLoading(null);
-                              }
-                            }}
-                            disabled={previewLoading === att.id}
-                          >
-                            {previewLoading === att.id ? (
-                              <>
-                                <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                {t('common.loading')}
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="w-4 h-4 mr-2" />
-                                {t('expenses.preview')}
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            variant={pendingDelete.has(att.id) ? 'outline' : 'destructive'}
-                            size="sm"
-                            onClick={() => {
-                              // Warn if expense is analyzed
-                              if ((form as any)?.analysis_status === 'done' && !pendingDelete.has(att.id)) {
-                                if (!confirm('This expense has been analyzed. Deleting attachments may affect the extracted data. Continue?')) {
-                                  return;
-                                }
-                              }
-                              setPendingDelete(prev => {
-                                const next = new Set(prev);
-                                if (next.has(att.id)) next.delete(att.id); else next.add(att.id);
-                                return next;
-                              });
-                            }}
-                          >
-                            {pendingDelete.has(att.id) ? t('expenses.undo', { defaultValue: 'Undo' }) : t('common.delete')}
-                          </Button>
-                        </div>
+
+                        {att.analysis_error && att.analysis_status === 'failed' && (
+                          <div className="text-[10px] text-destructive bg-destructive/5 p-1.5 rounded border border-destructive/10 mt-1 max-h-12 overflow-y-auto font-mono leading-tight">
+                            {att.analysis_error}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

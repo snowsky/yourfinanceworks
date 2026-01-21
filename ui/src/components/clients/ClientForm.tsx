@@ -3,20 +3,20 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Save, X } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProfessionalInput } from "@/components/ui/professional-input";
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { ProfessionalCard, ProfessionalCardHeader, ProfessionalCardTitle, ProfessionalCardContent, ProfessionalCardFooter } from "@/components/ui/professional-card";
 import { toast } from "sonner";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address").optional(),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
   company: z.string().optional(),
@@ -46,9 +46,9 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
       preferred_currency: client?.preferred_currency || "USD",
     },
   });
-  
 
-  
+
+
   // Reset form when client data changes (only for edit mode)
   useEffect(() => {
     if (isEdit && client) {
@@ -103,118 +103,154 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>{isEdit ? t('clientForm.editClient') : t('clientForm.createNewClient')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <ProfessionalCard className="w-full max-w-4xl mx-auto backdrop-blur-sm bg-card/95 shadow-xl border-primary/10">
+      <ProfessionalCardHeader className="pb-6 border-b border-border/50">
+        <ProfessionalCardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          {isEdit ? t('clientForm.editClient') : t('clientForm.createNewClient')}
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="pt-8">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('clientForm.name')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder={t('clientForm.namePlaceholder')} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <ProfessionalInput
+                        {...field}
+                        label={t('clientForm.name')}
+                        placeholder={t('clientForm.namePlaceholder')}
+                        variant="filled"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('clientForm.email')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder={t('clientForm.emailPlaceholder')}
-                      type="email"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <ProfessionalInput
+                        {...field}
+                        label={t('clientForm.email')}
+                        placeholder={t('clientForm.emailPlaceholder')}
+                        type="email"
+                        variant="filled"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('clientForm.phone')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder={t('clientForm.phonePlaceholder')} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <ProfessionalInput
+                        {...field}
+                        label={t('clientForm.phone')}
+                        placeholder={t('clientForm.phonePlaceholder')}
+                        variant="filled"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('clientForm.address')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder={t('clientForm.addressPlaceholder')} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <ProfessionalInput
+                        {...field}
+                        label={t('clientForm.company')}
+                        placeholder={t('clientForm.companyPlaceholder')}
+                        variant="filled"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="company"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter company name (optional)" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <ProfessionalInput
+                          {...field}
+                          label={t('clientForm.address')}
+                          placeholder={t('clientForm.addressPlaceholder')}
+                          variant="filled"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="preferred_currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('clientForm.preferredCurrency')}</FormLabel>
-                  <FormControl>
-                    <CurrencySelector
-                      key={client?.id || 'new'}
-                      value={field.value || client?.preferred_currency || 'USD'}
-                      onValueChange={field.onChange}
-                      placeholder={t('clientForm.selectPreferredCurrency')}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="preferred_currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        {t('clientForm.preferredCurrency')}
+                      </FormLabel>
+                      <FormControl>
+                        <CurrencySelector
+                          key={client?.id || 'new'}
+                          value={field.value || client?.preferred_currency || 'USD'}
+                          onValueChange={field.onChange}
+                          placeholder={t('clientForm.selectPreferredCurrency')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" type="button" onClick={() => navigate("/clients")}> 
+            <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
+              <ProfessionalButton
+                variant="outline"
+                type="button"
+                onClick={() => navigate("/clients")}
+                leftIcon={<X className="h-4 w-4" />}
+              >
                 {t('common.cancel')}
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              </ProfessionalButton>
+              <ProfessionalButton
+                type="submit"
+                disabled={submitting}
+                variant="gradient"
+                leftIcon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              >
                 {isEdit ? t('clientForm.updateClient') : t('clientForm.createClient')}
-              </Button>
+              </ProfessionalButton>
             </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
   );
 } 

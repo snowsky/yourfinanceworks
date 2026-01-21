@@ -13,9 +13,9 @@ import logging
 # Add the parent directory to the path so we can import from api
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.services.ocr_service import initialize_ocr_dependencies, validate_ocr_setup
-from core.settings.ocr_config import get_ocr_config, log_ocr_status
-from core.exceptions.bank_ocr_exceptions import OCRError
+from commercial.ai.services.ocr_service import initialize_ocr_dependencies, validate_ocr_setup
+from commercial.ai.settings.ocr_config import get_ocr_config, log_ocr_status
+from commercial.ai.exceptions.bank_ocr_exceptions import OCRError
 
 # Configure logging
 logging.basicConfig(

@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
+from config import APP_NAME
 from core.models.models_per_tenant import (
     ExpenseApproval, User, ApprovalRule, Expense
 )
@@ -40,7 +41,7 @@ class ApprovalNotificationScheduler:
         self.escalation_threshold_hours = 72  # Escalate after 72 hours
         self.reminder_frequency_hours = 24  # Send reminders every 24 hours
     
-    def send_pending_approval_reminders(self, company_name: str = "Invoice Management System") -> Dict[str, Any]:
+    def send_pending_approval_reminders(self, company_name: str = APP_NAME) -> Dict[str, Any]:
         """
         Send reminder notifications for pending approvals that exceed the threshold.
         
@@ -137,7 +138,7 @@ class ApprovalNotificationScheduler:
     
     def send_overdue_approval_escalations(
         self, 
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> Dict[str, Any]:
         """
         Send escalation notifications for overdue approvals.
@@ -243,7 +244,7 @@ class ApprovalNotificationScheduler:
     
     def process_all_approval_notifications(
         self, 
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> Dict[str, Any]:
         """
         Process all approval notifications (reminders and escalations).

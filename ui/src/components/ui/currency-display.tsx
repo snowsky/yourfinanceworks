@@ -3,8 +3,8 @@ import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
 import { AlertTriangle } from 'lucide-react';
 
 interface CurrencyDisplayProps {
-  amount: number;
-  currency: string;
+  amount?: number | null;
+  currency?: string;
   className?: string;
   showCode?: boolean;
 }
@@ -74,7 +74,10 @@ export function CurrencyDisplay({
     fetchCurrencyInfo();
   }, [safeCurrency]);
 
-  const formatCurrency = (amount: number = 0, currencyCode: string = 'USD') => {
+  const formatCurrency = (amount: number | null | undefined = 0, currencyCode: string = 'USD') => {
+    // Ensure we have a valid number
+    const safeAmount = (amount === null || amount === undefined || isNaN(Number(amount))) ? 0 : Number(amount);
+
     // Ensure we have a valid string
     const safeCurrencyCode = (currencyCode && typeof currencyCode === 'string') ? currencyCode : 'USD';
 
@@ -82,11 +85,11 @@ export function CurrencyDisplay({
       // Show loading state or fallback
       const fallback = fallbackCurrencySymbols[safeCurrencyCode.toUpperCase()];
       const info = fallback || { symbol: safeCurrencyCode, decimals: 2 };
-      const formattedAmount = amount.toFixed(info.decimals);
+      const formattedAmount = safeAmount.toFixed(info.decimals);
       return `${info.symbol}${formattedAmount}`;
     }
 
-    const formattedAmount = amount.toFixed(currencyInfo.decimals);
+    const formattedAmount = safeAmount.toFixed(currencyInfo.decimals);
     const symbol = currencyInfo.symbol;
 
     if (showCode) {

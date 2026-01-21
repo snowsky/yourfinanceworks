@@ -23,6 +23,7 @@ SECURITY MODEL:
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+import os
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,8 @@ from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.services.license_service import LicenseService
 from core.services.feature_config_service import FeatureConfigService
+from core.utils.rbac import require_admin_or_superuser
+from pathlib import Path
 
 
 router = APIRouter(prefix="/license", tags=["license"])
@@ -435,3 +438,55 @@ async def deactivate_license(
             status_code=500,
             detail=f"Failed to deactivate license: {str(e)}"
         )
+
+
+@router.get("/license-request-data")
+async def get_license_request_data(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the license request data including private key, installation ID, and license request URL.
+    Requires admin or superuser privileges.
+    """
+    require_admin_or_superuser(current_user, "get license request data")
+
+    try:
+        # Get installation ID from license service
+        license_service = LicenseService(db)
+        status = license_service.get_license_status()
+        installation_id = status.get("installation_id")
+
+        if not installation_id:
+            raise HTTPException(status_code=500, detail="Installation ID not found")
+
+        # Define keys directory relative to this file
+        keys_dir = Path(__file__).parent.parent / "keys"
+        private_key_path = keys_dir / "private_key.pem"
+
+        if not private_key_path.exists():
+            # If symlink doesn't exist, try to find the latest versioned key
+            versioned_keys = list(keys_dir.glob("private_key_v*.pem"))
+            if versioned_keys:
+                # Sort by version number (e.g., v2, v3)
+                def version_key(v):
+                    try:
+                        return int(v.stem.split('_')[-1][1:])
+                    except:
+                        return 0
+                private_key_path = sorted(versioned_keys, key=version_key)[-1]
+            else:
+                raise HTTPException(status_code=404, detail="Private key file not found")
+
+        # Read the private key content
+        with open(private_key_path, "r") as f:
+            content = f.read()
+
+        return {
+            "private_key": content,
+            "installation_id": installation_id,
+            "license_request_url": os.getenv("LICENSE_KEY_REQUEST_URL")
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get license request data: {str(e)}")

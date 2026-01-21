@@ -11,8 +11,8 @@ from decimal import Decimal
 from typing import Dict, List, Any
 from unittest.mock import Mock, AsyncMock
 
-from api.models.models_per_tenant import User, ApprovalRule, ApprovalDelegate
-from api.services.notification_service import NotificationService
+from core.models.models_per_tenant import User, ApprovalRule, ApprovalDelegate
+from core.services.notification_service import NotificationService
 
 
 class ApprovalTestConfig:
@@ -160,7 +160,7 @@ class ApprovalTestDataFactory:
     @staticmethod
     def create_test_expenses(db_session, user: User, count: int = 10) -> List:
         """Create test expenses with varying amounts and categories"""
-        from api.models.models_per_tenant import Expense
+        from core.models.models_per_tenant import Expense
         
         expenses = []
         categories = ApprovalTestConfig.TEST_EXPENSE_CATEGORIES
@@ -263,7 +263,7 @@ class ApprovalTestMocks:
     @staticmethod
     def create_approval_service_mock() -> Mock:
         """Create mock approval service"""
-        from api.services.approval_service import ApprovalService
+        from commercial.workflows.approvals.services.approval_service import ApprovalService
         
         mock_service = Mock(spec=ApprovalService)
         
@@ -314,7 +314,7 @@ class ApprovalTestAssertions:
     @staticmethod
     def assert_approval_history_complete(db_session, expense_id, expected_levels):
         """Assert approval history is complete for all levels"""
-        from api.models.models_per_tenant import ExpenseApproval
+        from core.models.models_per_tenant import ExpenseApproval
         
         approvals = db_session.query(ExpenseApproval).filter(
             ExpenseApproval.expense_id == expense_id

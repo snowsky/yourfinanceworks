@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  ProfessionalCard,
+  ProfessionalCardContent,
+  ProfessionalCardHeader,
+  ProfessionalCardTitle,
+  ProfessionalCardDescription
+} from '@/components/ui/professional-card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,11 +22,11 @@ interface FinancialHealthScoreProps {
   showTrend?: boolean;
 }
 
-export function FinancialHealthScore({ 
-  score, 
-  trend = [], 
-  detailed = false, 
-  showTrend = true 
+export function FinancialHealthScore({
+  score,
+  trend = [],
+  detailed = false,
+  showTrend = true
 }: FinancialHealthScoreProps) {
   const { t } = useTranslation();
   const [healthData, setHealthData] = useState<any>(null);
@@ -65,13 +71,13 @@ export function FinancialHealthScore({
 
   const getTrendIcon = () => {
     if (!trend || trend.length < 2) return <Minus className="h-4 w-4" />;
-    
+
     const recent = trend[trend.length - 1]?.score || 0;
     const previous = trend[trend.length - 2]?.score || 0;
-    
+
     if (recent > previous) return <TrendingUp className="h-4 w-4 text-green-600" />;
     if (recent < previous) return <TrendingDown className="h-4 w-4 text-red-600" />;
-    return <Minus className="h-4 w-4 text-gray-600" />;
+    return <Minus className="h-4 w-4 text-muted-foreground" />;
   };
 
   const chartData = trend.map(point => ({
@@ -81,32 +87,32 @@ export function FinancialHealthScore({
 
   if (detailed && loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
+      <ProfessionalCard>
+        <ProfessionalCardContent className="p-6">
           <div className="flex items-center justify-center">
             <RefreshCw className="h-5 w-5 animate-spin mr-2" />
             <span>{t('settings.gamification.loading')}</span>
           </div>
-        </CardContent>
-      </Card>
+        </ProfessionalCardContent>
+      </ProfessionalCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+    <ProfessionalCard>
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Gamepad2 className="h-5 w-5 text-purple-500" />
             <span>{t('settings.gamification.wellness_score.title')}</span>
           </div>
           {showTrend && getTrendIcon()}
-        </CardTitle>
-        <CardDescription>
+        </ProfessionalCardTitle>
+        <ProfessionalCardDescription>
           {t('settings.gamification.wellness_score.subtitle')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+        </ProfessionalCardDescription>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-6">
         {/* Main Score Display */}
         <div className="text-center">
           <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
@@ -142,7 +148,7 @@ export function FinancialHealthScore({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center justify-center space-x-2">
             <Badge variant="outline" className={getScoreColor(score)}>
               {getScoreLabel(score)}
@@ -159,20 +165,20 @@ export function FinancialHealthScore({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     tick={{ fontSize: 10 }}
                     interval="preserveStartEnd"
                   />
-                  <YAxis 
+                  <YAxis
                     domain={[0, 100]}
                     tick={{ fontSize: 10 }}
                   />
                   <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="score" 
-                    stroke="#3b82f6" 
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#3b82f6"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -197,13 +203,13 @@ export function FinancialHealthScore({
                 </div>
               </div>
             </div>
-            
+
             <h4 className="text-sm font-medium text-gray-700">{t('settings.gamification.wellness_score.score_components')}</h4>
             <div className="space-y-3">
               {Object.entries(healthData.components || {}).map(([key, value]) => {
                 const componentScore = typeof value === 'number' ? value : 0;
                 const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                
+
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex justify-between text-sm">
@@ -247,7 +253,7 @@ export function FinancialHealthScore({
             </ul>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
   );
 }

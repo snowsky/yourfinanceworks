@@ -18,6 +18,7 @@ from core.schemas.report import (
     ScheduledReportCreate, ScheduledReportUpdate, ScheduleConfig, 
     ReportResult, ReportStatus, ExportFormat
 )
+from config import APP_NAME
 from core.services.report_service import ReportService
 from core.services.email_service import EmailService, EmailMessage, EmailAttachment
 from core.services.report_exporter import ReportExportService
@@ -592,7 +593,7 @@ class ReportScheduler:
                     html_body=self._create_scheduled_report_html(template, report_result),
                     text_body=self._create_scheduled_report_text(template, report_result),
                     from_email=self.settings.EMAIL_FROM or "noreply@invoiceapp.com",
-                    from_name=self.settings.EMAIL_FROM_NAME or "Invoice Management System",
+                    from_name=self.settings.EMAIL_FROM_NAME or APP_NAME,
                     attachments=attachments
                 )
                 
@@ -656,7 +657,7 @@ class ReportScheduler:
                 </div>
                 
                 <div class="footer">
-                    <p>This is an automated email from your Invoice Management System.</p>
+                    <p>This is an automated email from your {APP_NAME}.</p>
                     <p>If you no longer wish to receive these reports, please contact your administrator.</p>
                 </div>
             </div>
@@ -682,6 +683,6 @@ Report Details:
 Please find the generated report attached to this email.
 
 ---
-This is an automated email from your Invoice Management System.
+This is an automated email from your {APP_NAME}.
 If you no longer wish to receive these reports, please contact your administrator.
         """

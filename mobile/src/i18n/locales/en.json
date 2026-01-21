@@ -91,7 +91,6 @@
     "sign_in_with_google": "Sign in with Google",
     "sign_in_with_microsoft": "Sign in with Microsoft",
     "no_account": "Don't have an account?",
-    "google_sso_coming_soon": "Google SSO will be available soon!",
     "signup": {
       "title": "Create your account",
       "homepage": "Sign Up",
@@ -114,7 +113,6 @@
       "sign_in": "Sign in",
       "or_continue_with": "Or continue with",
       "sign_up_with_google": "Sign up with Google",
-      "google_sso_coming_soon": "Google SSO coming soon!",
       "validation": {
         "passwords_not_match": "Passwords do not match",
         "password_min_length": "Password must be at least 6 characters long",

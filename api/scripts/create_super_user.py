@@ -9,9 +9,10 @@ import sys
 import getpass
 from datetime import datetime, timezone
 
-# Add the current directory to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the parent directory to the path so we can import from the core module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.constants.password import MIN_PASSWORD_LENGTH
 from core.models.database import get_master_db
 from core.models.models import MasterUser, Tenant
 from core.utils.auth import get_password_hash

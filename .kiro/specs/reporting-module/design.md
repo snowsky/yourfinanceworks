@@ -2,7 +2,7 @@
 
 ## Overview
 
-The reporting module will be implemented as a comprehensive system that provides flexible, customizable reports across all major data entities in the invoice management system. The module will follow the existing FastAPI architecture pattern and integrate seamlessly with the current multi-tenant database structure.
+The reporting module will be implemented as a comprehensive system that provides flexible, customizable reports across all major data entities in the {APP_NAME}. The module will follow the existing FastAPI architecture pattern and integrate seamlessly with the current multi-tenant database structure.
 
 The system will support real-time report generation, scheduled automated reports, customizable templates, and multiple export formats. All reports will respect tenant isolation and user permissions, ensuring data security and appropriate access control.
 

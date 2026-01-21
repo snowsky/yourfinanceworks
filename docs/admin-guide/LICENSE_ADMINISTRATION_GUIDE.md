@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide is for system administrators and license managers who need to generate licenses, handle customer support requests, and manage the licensing system for the Invoice Management System.
+This guide is for system administrators and license managers who need to generate licenses, handle customer support requests, and manage the licensing system for the {APP_NAME}.
 
 ## Table of Contents
 
@@ -345,7 +345,7 @@ Your license key is:
 [LICENSE_KEY]
 
 To activate:
-1. Log in to your Invoice Management System
+1. Log in to your {APP_NAME}
 2. Go to Settings → License
 3. Paste the license key above
 4. Click "Activate License"

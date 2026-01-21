@@ -16,6 +16,7 @@ import {
 } from '@/lib/api';
 import { Eye, FileDown, RefreshCw, ArrowLeft } from 'lucide-react';
 import { ensureAuthenticated } from '@/utils/auth';
+import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 
 const ReportDetail: React.FC = () => {
     const { reportType } = useParams<{ reportType: string }>();
@@ -67,6 +68,18 @@ const ReportDetail: React.FC = () => {
                 } else if (result.download_url) {
                     console.log('Report generated with direct URL:', result.download_url);
                     window.open(result.download_url, '_blank');
+                } else if (result.data) {
+                    // Handle direct JSON download
+                    console.log('Report generated with direct data (JSON)');
+                    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `report-${new Date().getTime()}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
                 }
                 toast.success('Report generated successfully!');
             } else {
@@ -186,27 +199,29 @@ const ReportDetail: React.FC = () => {
     return (
         <>
             <div className="h-full space-y-6 fade-in">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/reports')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">
-                            {selectedTypeConfig.name}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {selectedTypeConfig.description}
-                        </p>
-                    </div>
-                </div>
+                <PageHeader
+                    title={selectedTypeConfig.name}
+                    description={selectedTypeConfig.description}
+                    actions={
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/reports')}
+                            className="flex items-center gap-2"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Back to Reports
+                        </Button>
+                    }
+                />
 
-                {/* Quick Actions - Moved to top */}
-                <Card className="slide-in">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Quick Actions</CardTitle>
-                        <CardDescription>Common report generation shortcuts</CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <ContentSection className="slide-in">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Quick Actions</CardTitle>
+                            <CardDescription>Common report generation shortcuts</CardDescription>
+                        </CardHeader>
+                        <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Button
                                 variant="outline"
@@ -344,6 +359,7 @@ const ReportDetail: React.FC = () => {
                         />
                     </CardContent>
                 </Card>
+                </ContentSection>
             </div>
         </>
     );

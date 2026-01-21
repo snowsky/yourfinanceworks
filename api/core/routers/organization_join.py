@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from typing import List
 import logging
+from pydantic import BaseModel
 
 from db_init import get_master_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.services.organization_join_service import OrganizationJoinService
+from core.services.user_role_service import UserRoleService
 from core.schemas.organization_join import (
     OrganizationJoinRequestCreate,
     OrganizationJoinRequestRead,
@@ -53,11 +55,11 @@ async def get_pending_requests(
     Get pending join requests for the current user's organization.
     Only admins can view join requests.
     """
-    # Check if user has admin privileges
-    if current_user.role not in ["admin"]:
+    # Check if user has admin privileges using centralized service
+    if not UserRoleService.is_admin_user(db, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can view join requests"
+            detail=f"Only administrators can view join requests. Current role: {UserRoleService.get_user_role(db, current_user.id)}"
         )
     
     service = OrganizationJoinService(db)

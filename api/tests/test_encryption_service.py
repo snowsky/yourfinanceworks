@@ -11,10 +11,10 @@ import time
 from unittest.mock import Mock, patch, MagicMock
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from api.services.encryption_service import EncryptionService, get_encryption_service
-from api.services.key_management_service import KeyManagementService
-from api.config.encryption_config import EncryptionConfig
-from api.exceptions.encryption_exceptions import (
+from core.services.encryption_service import EncryptionService, get_encryption_service
+from core.services.key_management_service import KeyManagementService
+from encryption_config import EncryptionConfig
+from core.exceptions.encryption_exceptions import (
     EncryptionError,
     DecryptionError,
     KeyNotFoundError
@@ -28,7 +28,7 @@ class TestEncryptionService:
     def mock_key_management(self):
         """Mock key management service."""
         mock_service = Mock(spec=KeyManagementService)
-        mock_service.retrieve_tenant_key.return_value = "test-key-material-123"
+        mock_service.retrieve_tenant_key.return_value = "dGVzdC1rZXktbWF0ZXJpYWwtMTIz"  # Valid base64
         return mock_service
 
     @pytest.fixture
@@ -245,7 +245,7 @@ class TestEncryptionService:
         # Mock key management to raise exception
         mock_key_management.retrieve_tenant_key.side_effect = Exception("Key retrieval failed")
 
-        with pytest.raises(KeyNotFoundError):
+        with pytest.raises(EncryptionError):
             encryption_service.encrypt_data(original_data, tenant_id)
 
     def test_decryption_error_handling(self, encryption_service, sample_data):
@@ -277,7 +277,7 @@ class TestEncryptionService:
         with pytest.raises(DecryptionError, match="Failed to decrypt JSON data"):
             encryption_service.decrypt_json(encrypted, tenant_id)
 
-    @patch('api.services.encryption_service.os.urandom')
+    @patch('core.services.encryption_service.os.urandom')
     def test_nonce_generation(self, mock_urandom, encryption_service, sample_data):
         """Test that nonce is properly generated and used."""
         mock_urandom.return_value = b'123456789012'  # 12 bytes
@@ -313,13 +313,15 @@ class TestEncryptionService:
         assert len(key1) == 32
         assert len(key2) == 32
 
-    @patch('api.services.encryption_service.time.time')
+    @patch('core.services.encryption_service.time.time')
     def test_cache_expiration(self, mock_time, encryption_service, mock_key_management, sample_data):
         """Test cache expiration functionality."""
         tenant_id = sample_data["tenant_id"]
         
         # Mock time progression
-        mock_time.side_effect = [0, 0, 3700]  # Start, cache, expired
+        # Start (get_tenant_key), cleanup (inside get_tenant_key), 
+        # Second call start (get_tenant_key - expired), cleanup (inside second call)
+        mock_time.side_effect = [0, 0, 3700, 3700, 3700]
         
         # First call - should cache
         encryption_service.get_tenant_key(tenant_id)
@@ -359,9 +361,9 @@ class TestEncryptionServiceIntegration:
     @pytest.fixture
     def real_encryption_service(self):
         """Create encryption service with real key management."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
-            mock_kms_instance.retrieve_tenant_key.return_value = "real-test-key-material"
+            mock_kms_instance.retrieve_tenant_key.return_value = "cmVhbC10ZXN0LWtleS1tYXRlcmlhbA=="  # Valid base64
             mock_kms.return_value = mock_kms_instance
             
             service = EncryptionService()
@@ -469,7 +471,7 @@ class TestEncryptionServiceConfiguration:
         assert isinstance(service.config, EncryptionConfig)
         assert service.cipher_class == AESGCM
 
-    @patch('api.config.encryption_config.EncryptionConfig')
+    @patch('core.services.encryption_service.EncryptionConfig')
     def test_custom_config(self, mock_config_class):
         """Test service with custom configuration."""
         mock_config = Mock()

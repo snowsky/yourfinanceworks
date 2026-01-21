@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 import logging
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, desc, asc, func
+from sqlalchemy import and_, or_, desc, asc, func, text
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
-
+from core.services.user_role_service import UserRoleService
 from core.models.database import get_db
-from core.models.models_per_tenant import User, Reminder, ReminderNotification, RecurrencePattern, ReminderStatus, ReminderPriority
+from core.models.models_per_tenant import User as TenantUser, Reminder, ReminderNotification, RecurrencePattern, ReminderStatus, ReminderPriority
 from core.models.models import MasterUser
 from core.schemas.reminders import (
     ReminderCreate, ReminderUpdate, ReminderStatusUpdate, ReminderResponse, 
@@ -17,6 +17,7 @@ from core.schemas.reminders import (
 )
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
+from core.constants.reminders import JOIN_REQUEST_REMINDER_TITLE_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,27 @@ def check_reminder_permissions(reminder: Reminder, current_user: MasterUser, act
     except HTTPException:
         pass  # Not an admin, check user permissions
 
+    # Prevent non-admins from accessing reminders tagged with 'admin' or identified as join requests
+    is_admin_reminder = False
+
+    # Check tags
+    if reminder.tags and "admin" in reminder.tags:
+        is_admin_reminder = True
+
+    # Check metadata (for legacy reminders)
+    elif reminder.extra_metadata and "join_request_id" in reminder.extra_metadata:
+        is_admin_reminder = True
+
+    # Check title (failsafe for very old legacy reminders)
+    elif reminder.title and reminder.title.startswith(JOIN_REQUEST_REMINDER_TITLE_PREFIX):
+        is_admin_reminder = True
+
+    if is_admin_reminder:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Not authorized to {action} this admin reminder"
+        )
+
     # Users can access reminders they created or are assigned to
     if reminder.created_by_id != current_user.id and reminder.assigned_to_id != current_user.id:
         raise HTTPException(
@@ -47,7 +69,7 @@ def calculate_next_due_date(due_date: datetime, pattern: RecurrencePattern, inte
     """Calculate the next due date for a recurring reminder"""
     if pattern == RecurrencePattern.NONE:
         return None
-    
+
     if pattern == RecurrencePattern.DAILY:
         return due_date + timedelta(days=interval)
     elif pattern == RecurrencePattern.WEEKLY:
@@ -58,7 +80,7 @@ def calculate_next_due_date(due_date: datetime, pattern: RecurrencePattern, inte
     elif pattern == RecurrencePattern.YEARLY:
         # Add years (approximate with 365 days)
         return due_date + timedelta(days=365 * interval)
-    
+
     return None
 
 @router.get("/", response_model=ReminderList)
@@ -79,97 +101,105 @@ def get_reminders(
 ):
     """Get paginated list of reminders with filtering and sorting"""
 
-    # Base query with joins for user information
-    query = db.query(Reminder).options(
-        joinedload(Reminder.created_by),
-        joinedload(Reminder.assigned_to),
-        joinedload(Reminder.completed_by)
-    ).filter(Reminder.is_deleted == False)
-
-    # Apply permission filters - users can only see reminders they created or are assigned to
-    # Admins can see all reminders
     try:
-        require_admin(current_user, "view all reminders")
-    except HTTPException:
-        # Not an admin, filter to only user's reminders
-        query = query.filter(
-            or_(
-                Reminder.created_by_id == current_user.id,
-                Reminder.assigned_to_id == current_user.id
+        # Base query with joins for user information
+        query = db.query(Reminder).options(
+            joinedload(Reminder.created_by),
+            joinedload(Reminder.assigned_to),
+            joinedload(Reminder.completed_by)
+        ).filter(Reminder.is_deleted == False)
+
+        # Apply permission filters - users can only see reminders they created or are assigned to
+        # Admins can see all reminders (using centralized role service)
+        from core.models.database import get_master_db
+        master_db = next(get_master_db())
+        try:
+            is_admin = UserRoleService.is_admin_user(master_db, current_user.id)
+        finally:
+            master_db.close()
+
+        if not is_admin:
+            # Non-admin users can only see reminders they created or are assigned to
+            query = query.filter(
+                or_(
+                    Reminder.created_by_id == current_user.id,
+                    Reminder.assigned_to_id == current_user.id
+                )
             )
-        )
 
-    # Apply filters
-    if status:
-        query = query.filter(Reminder.status.in_(status))
+            query = query.filter(
+                and_(
+                    text("(tags IS NULL OR NOT (tags::jsonb @> '[\"admin\"]'))"),
+                    text("(extra_metadata IS NULL OR NOT (extra_metadata::jsonb ? 'join_request_id'))"),
+                    ~Reminder.title.startswith(JOIN_REQUEST_REMINDER_TITLE_PREFIX)
+                )
+            )
 
-    if priority:
-        query = query.filter(Reminder.priority.in_(priority))
+        # Apply filters
+        if status:
+            query = query.filter(Reminder.status.in_(status))
 
-    if assigned_to_id:
-        query = query.filter(Reminder.assigned_to_id == assigned_to_id)
+        if priority:
+            query = query.filter(Reminder.priority.in_(priority))
 
-    if created_by_id:
-        query = query.filter(Reminder.created_by_id == created_by_id)
+        if assigned_to_id:
+            query = query.filter(Reminder.assigned_to_id == assigned_to_id)
 
-    if due_date_from:
-        query = query.filter(Reminder.due_date >= due_date_from)
+        if created_by_id:
+            query = query.filter(Reminder.created_by_id == created_by_id)
 
-    if due_date_to:
-        query = query.filter(Reminder.due_date <= due_date_to)
+        if due_date_from:
+            query = query.filter(Reminder.due_date >= due_date_from)
 
-    if search:
-        search_filter = or_(
-            Reminder.title.ilike(f"%{search}%"),
-            Reminder.description.ilike(f"%{search}%")
-        )
-        query = query.filter(search_filter)
+        if due_date_to:
+            query = query.filter(Reminder.due_date <= due_date_to)
 
-    # Apply sorting
-    if sort_order == "desc":
+        if search:
+            search_filter = or_(
+                Reminder.title.ilike(f"%{search}%"),
+                Reminder.description.ilike(f"%{search}%")
+            )
+            query = query.filter(search_filter)
+
+        # Apply sorting
         if sort_by == "due_date":
-            query = query.order_by(desc(Reminder.due_date))
+            query = query.order_by(Reminder.due_date.asc() if sort_order == "asc" else Reminder.due_date.desc())
         elif sort_by == "created_at":
-            query = query.order_by(desc(Reminder.created_at))
+            query = query.order_by(Reminder.created_at.asc() if sort_order == "asc" else Reminder.created_at.desc())
+        elif sort_by == "title":
+            query = query.order_by(Reminder.title.asc() if sort_order == "asc" else Reminder.title.desc())
         elif sort_by == "priority":
-            # Order by priority: URGENT, HIGH, MEDIUM, LOW
-            priority_order = func.case(
-                (Reminder.priority == ReminderPriority.URGENT, 1),
-                (Reminder.priority == ReminderPriority.HIGH, 2),
-                (Reminder.priority == ReminderPriority.MEDIUM, 3),
-                (Reminder.priority == ReminderPriority.LOW, 4),
-                else_=5
+            # Custom priority ordering
+            priority_order = case(
+                (Reminder.priority == ReminderPriority.HIGH, 1),
+                (Reminder.priority == ReminderPriority.MEDIUM, 2),
+                (Reminder.priority == ReminderPriority.LOW, 3),
+                else_=4
             )
-            query = query.order_by(desc(priority_order))
-    else:
-        if sort_by == "due_date":
-            query = query.order_by(asc(Reminder.due_date))
-        elif sort_by == "created_at":
-            query = query.order_by(asc(Reminder.created_at))
-        elif sort_by == "priority":
-            priority_order = func.case(
-                (Reminder.priority == ReminderPriority.URGENT, 1),
-                (Reminder.priority == ReminderPriority.HIGH, 2),
-                (Reminder.priority == ReminderPriority.MEDIUM, 3),
-                (Reminder.priority == ReminderPriority.LOW, 4),
-                else_=5
-            )
-            query = query.order_by(asc(priority_order))
+            query = query.order_by(asc(priority_order) if sort_order == "asc" else desc(priority_order))
 
-    # Get total count
-    total = query.count()
+        # Get total count
+        total = query.count()
 
-    # Apply pagination
-    offset = (page - 1) * per_page
-    items = query.offset(offset).limit(per_page).all()
+        # Apply pagination
+        offset = (page - 1) * per_page
+        items = query.offset(offset).limit(per_page).all()
 
-    return ReminderList(
-        items=[ReminderWithUsers.model_validate(item) for item in items],
-        total=total,
-        page=page,
-        per_page=per_page,
-        pages=max(1, (total + per_page - 1) // per_page)
-    )
+        # Convert to response models
+        reminder_responses = [ReminderWithUsers.model_validate(item) for item in items]
+
+        return ReminderList(
+            items=reminder_responses,
+            total=total,
+            page=page,
+            per_page=per_page,
+            pages=(total + per_page - 1) // per_page
+        )
+    except Exception as e:
+        # Rollback the transaction on error
+        db.rollback()
+        logger.error(f"Database error in get_reminders: {e}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
 
 @router.get("/{reminder_id}", response_model=ReminderWithUsers)
 def get_reminder(
@@ -208,7 +238,7 @@ def create_reminder(
     """Create a new reminder"""
 
     # Verify assigned user exists and create in tenant DB if needed
-    assigned_user = db.query(User).filter(User.id == reminder_data.assigned_to_id).first()
+    assigned_user = db.query(TenantUser).filter(TenantUser.id == reminder_data.assigned_to_id).first()
 
     # If not in tenant database, check master database and create tenant user
     if not assigned_user:
@@ -327,7 +357,7 @@ def update_reminder(
     for field, value in update_data.items():
         if field == "assigned_to_id" and value:
             # Verify assigned user exists and create in tenant DB if needed
-            assigned_user = db.query(User).filter(User.id == value).first()
+            assigned_user = db.query(TenantUser).filter(TenantUser.id == value).first()
             if not assigned_user:
                 from core.models.database import get_master_db
                 master_db = next(get_master_db())
@@ -365,6 +395,7 @@ def update_reminder(
             )
         else:
             reminder.next_due_date = None
+
     db.commit()
     db.refresh(reminder)
 
@@ -417,6 +448,12 @@ def update_reminder_status(
         reminder.completion_notes = status_data.completion_notes
         reminder.snoozed_until = None
 
+        # Mark associated notifications as read
+        db.query(ReminderNotification).filter(
+            ReminderNotification.reminder_id == reminder.id,
+            ReminderNotification.is_read == False
+        ).update({"is_read": True})
+
         # Create next recurring instance if applicable
         if (reminder.recurrence_pattern != RecurrencePattern.NONE and 
             reminder.next_due_date and
@@ -459,6 +496,7 @@ def update_reminder_status(
         reminder.completed_by_id = None
         reminder.completion_notes = None
         reminder.snoozed_until = None
+
     db.commit()
     db.refresh(reminder)
 
@@ -524,6 +562,60 @@ def unsnooze_reminder(
 
     return ReminderWithUsers.model_validate(reminder)
 
+@router.delete("/bulk-delete", response_model=BulkReminderResponse)
+def bulk_delete_reminders(
+    bulk_data: List[int],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Bulk delete multiple reminders"""
+    logger.info(f"bulk_delete_reminders: received request for {len(bulk_data)} reminders")
+
+    reminders = db.query(Reminder).filter(
+        Reminder.id.in_(bulk_data),
+        Reminder.is_deleted == False
+    ).all()
+
+    if not reminders:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No reminders found"
+        )
+
+    deleted_count = 0
+    failed_count = 0
+    errors = []
+
+    for reminder in reminders:
+        try:
+            # Check permissions
+            check_reminder_permissions(reminder, current_user, "delete")
+
+            # Soft delete
+            reminder.is_deleted = True
+            reminder.deleted_at = datetime.now(timezone.utc)
+            reminder.deleted_by_id = current_user.id
+
+            # Mark associated notifications as read so they don't count towards unread count
+            db.query(ReminderNotification).filter(
+                ReminderNotification.reminder_id == reminder.id,
+                ReminderNotification.is_read == False
+            ).update({"is_read": True})
+
+            deleted_count += 1
+
+        except Exception as e:
+            failed_count += 1
+            errors.append(f"Error deleting reminder {reminder.id}: {str(e)}")
+
+    db.commit()
+
+    return BulkReminderResponse(
+        updated_count=deleted_count,
+        failed_count=failed_count,
+        errors=errors
+    )
+
 @router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_reminder(
     reminder_id: int,
@@ -550,6 +642,12 @@ def delete_reminder(
     reminder.is_deleted = True
     reminder.deleted_at = datetime.now(timezone.utc)
     reminder.deleted_by_id = current_user.id
+
+    # Mark associated notifications as read so they don't count towards unread count
+    db.query(ReminderNotification).filter(
+        ReminderNotification.reminder_id == reminder.id,
+        ReminderNotification.is_read == False
+    ).update({"is_read": True})
 
     db.commit()
 
@@ -588,7 +686,7 @@ def bulk_update_reminders(
             for field, value in update_data.items():
                 if field == "assigned_to_id" and value is not None:
                     # Verify assigned user exists and create in tenant DB if needed
-                    assigned_user = db.query(User).filter(User.id == value).first()
+                    assigned_user = db.query(TenantUser).filter(TenantUser.id == value).first()
                     if not assigned_user:
                         from core.models.database import get_master_db
                         master_db = next(get_master_db())
@@ -739,10 +837,16 @@ def get_unread_notification_count(
 ):
     """Get count of unread notifications for the current user"""
 
-    count = db.query(func.count(ReminderNotification.id)).filter(
+    count = db.query(func.count(ReminderNotification.id)).outerjoin(
+        Reminder, ReminderNotification.reminder_id == Reminder.id
+    ).filter(
         ReminderNotification.user_id == current_user.id,
         ReminderNotification.is_sent == True,
-        ReminderNotification.is_read == False
+        ReminderNotification.is_read == False,
+        or_(
+            ReminderNotification.reminder_id.is_(None),
+            Reminder.is_deleted == False
+        )
     ).scalar()
 
     return NotificationCountResponse(count=count or 0)

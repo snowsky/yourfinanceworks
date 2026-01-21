@@ -258,7 +258,7 @@ async def ai_chat(
             print("No AI config found in database, checking environment variables...")
             logger.info("No AI config found in database, checking environment variables...")
 
-            from core.services.ai_config_service import AIConfigService
+            from commercial.ai.services.ai_config_service import AIConfigService
             env_config = AIConfigService.get_ai_config(db, component="chat", require_ocr=False)
 
             if not env_config:
@@ -624,6 +624,9 @@ This comprehensive analysis was performed using your actual invoice data through
 
                     # Helper function to get priority emoji
                     def get_priority_emoji(priority):
+                        # Ensure priority is a string
+                        if not isinstance(priority, str):
+                            priority = str(priority)
                         return {
                             'high': '🔴',
                             'medium': '🟡', 
@@ -994,7 +997,7 @@ This comprehensive outstanding balance information was retrieved using your actu
                         # Calculate total overdue amount
                         total_overdue = sum(inv.get('amount', 0) for inv in invoices)
                         avg_days_overdue = sum(inv.get('days_overdue', 0) for inv in invoices) / len(invoices) if invoices else 0
-                        
+
                         # Format overdue details for f-string
                         overdue_lines = '\n'.join([f"• **Invoice #{inv.get('invoice_number', inv.get('id', 'N/A'))}**\n" +
                                         f"  👤 Client: {inv.get('client_name', 'Unknown Client')}\n" +
@@ -1020,7 +1023,7 @@ This comprehensive overdue invoice information was retrieved using your actual i
                         """.strip()
                     else:
                         mcp_response = "No overdue invoices found."
-                    
+
                     return {
                         "success": True,
                         "data": {
@@ -1058,7 +1061,7 @@ This comprehensive overdue invoice information was retrieved using your actual i
                     # List all expenses
                     print("MCP Integration: Listing expenses...")
                     result = await tools.list_expenses(limit=20)
-                
+
                 if result.get("success"):
                     expenses = result.get("data", [])
                     if expenses:
@@ -1066,7 +1069,7 @@ This comprehensive overdue invoice information was retrieved using your actual i
                         total_amount = sum(exp.get('amount', 0) or 0 for exp in expenses)
                         total_tax = sum(exp.get('tax_amount', 0) or 0 for exp in expenses)
                         total_with_tax = sum((exp.get('total_amount') or exp.get('amount', 0) or 0) for exp in expenses)
-                        
+
                         # Format expense details for f-string
                         expense_lines = '\n'.join([f"• **Expense #{exp.get('id', 'N/A')}**\n" +
                                         f"  📝 Category: {exp.get('category', 'Unknown')}\n" +
@@ -1095,7 +1098,7 @@ This comprehensive expense information was retrieved using your actual expense d
                         """.strip()
                     else:
                         mcp_response = "No expenses found matching your query."
-                    
+
                     return {
                         "success": True,
                         "data": {
@@ -1113,7 +1116,7 @@ This comprehensive expense information was retrieved using your actual expense d
                 print(f"MCP Integration: Exception during tool execution: {e}")
                 # Fallback to LLM
                 pass
-        
+
         elif intent == "statements":
             print(f"MCP Integration: Detected statement pattern in message: '{request.message}'")
             logger.info(f"MCP Integration: Detected statement pattern in message: '{request.message}'")
@@ -1123,7 +1126,7 @@ This comprehensive expense information was retrieved using your actual expense d
                 result = await tools.list_statements()
                 print(f"MCP Integration: Statements result: {result}")
                 logger.info(f"MCP Integration: Statements result: {result}")
-                
+
                 if result.get("success"):
                     statements = result.get("data", [])
                     print(f"MCP Integration: Retrieved {len(statements)} statements")
@@ -1154,7 +1157,7 @@ This comprehensive bank statement information was retrieved using your actual ba
                         """.strip()
                     else:
                         mcp_response = "No bank statements found."
-                    
+
                     return {
                         "success": True,
                         "data": {
@@ -1172,13 +1175,13 @@ This comprehensive bank statement information was retrieved using your actual ba
                 print(f"MCP Integration: Exception during tool execution: {e}")
                 # Fallback to LLM
                 pass
-        
+
         elif intent == "statistics":
             print(f"MCP Integration: Detected statistics pattern in message: '{request.message}'")
             try:
                 print("MCP Integration: Getting invoice statistics...")
                 result = await tools.get_invoice_stats()
-                
+
                 if result.get("success"):
                     stats = result.get("data", {})
                     mcp_response = f"""
@@ -1201,7 +1204,7 @@ This comprehensive bank statement information was retrieved using your actual ba
 📋 **📊 Data Source:**
 This comprehensive statistical analysis was performed using your actual invoice data through our advanced MCP tools.
                     """.strip()
-                    
+
                     return {
                         "success": True,
                         "data": {
@@ -1219,7 +1222,7 @@ This comprehensive statistical analysis was performed using your actual invoice 
                 print(f"MCP Integration: Exception during tool execution: {e}")
                 # Fallback to LLM
                 pass
-        
+
         # For general queries or unmatched intents, use the regular LLM
         else:
             print(f"MCP Integration: Intent '{intent}' - falling back to LLM")
@@ -1231,10 +1234,10 @@ This comprehensive statistical analysis was performed using your actual invoice 
                 "success": False,
                 "error": "LiteLLM not installed. Please install it with: pip install litellm"
             }
-        
+
         # Format model name based on provider for LiteLLM
         model_name = ai_config.model_name
-        
+
         if ai_config.provider_name == "ollama":
             # For Ollama, prefix with ollama/
             model_name = f"ollama/{ai_config.model_name}"
@@ -1250,14 +1253,14 @@ This comprehensive statistical analysis was performed using your actual invoice 
         elif ai_config.provider_name == "custom":
             # For custom providers, use the model name as-is
             model_name = ai_config.model_name
-        
+
         # Prepare the completion call
         kwargs = {
             "model": model_name,
             "messages": [{"role": "user", "content": request.message}],
             "max_tokens": 500
         }
-        
+
         # Add provider-specific configuration
         if ai_config.provider_name == "openai":
             if ai_config.api_key:
@@ -1278,12 +1281,12 @@ This comprehensive statistical analysis was performed using your actual invoice 
                 kwargs["api_key"] = ai_config.api_key
             if ai_config.provider_url:
                 kwargs["api_base"] = ai_config.provider_url
-        
+
         # Make the completion call
         response = await completion(**kwargs)
-        
+
         ai_response = response.choices[0].message.content if response.choices else "I'm sorry, I couldn't generate a response."
-        
+
         return {
             "success": True,
             "data": {
@@ -1293,7 +1296,7 @@ This comprehensive statistical analysis was performed using your actual invoice 
                 "source": "llm"
             }
         }
-        
+
     except Exception as e:
         return {
             "success": False,
@@ -1335,13 +1338,19 @@ def save_ai_chat_message(
             status_code=500,
             detail=f"Failed to save AI chat message: {str(e)}"
         )
-    
+
 @router.get("/chat/history")
 def get_ai_chat_history(
+    limit: int = 20,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     try:
+        # Validate pagination parameters
+        limit = max(1, min(100, limit))  # Clamp between 1 and 100
+        offset = max(0, offset)
+
         # Get retention period from core.settings (default 7 days, max 30 days)
         # Use the same approach as settings router - get from key-value store
         retention_setting = db.query(Settings).filter(Settings.key == "ai_chat_history_retention_days").first()
@@ -1356,7 +1365,7 @@ def get_ai_chat_history(
 
         try:
             user_id = current_user.id
-            logger.info(f"AI Chat History: retention_days={retention_days}, user_id={user_id}")
+            logger.info(f"AI Chat History: retention_days={retention_days}, user_id={user_id}, limit={limit}, offset={offset}")
         except AttributeError as e:
             logger.error(f"AI Chat History: current_user has no id attribute: {e}, user_attrs={dir(current_user)}")
             raise HTTPException(status_code=500, detail="User authentication error")
@@ -1364,21 +1373,33 @@ def get_ai_chat_history(
         # Calculate cutoff date
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
-        # Get chat history within retention period
+        # Get total count for pagination info
+        total_count = db.query(AIChatHistory).filter(
+            AIChatHistory.user_id == current_user.id,
+            AIChatHistory.created_at >= cutoff_date
+        ).count()
+
+        # Get chat history within retention period, ordered by most recent first, then paginate
         history = db.query(AIChatHistory).filter(
             AIChatHistory.user_id == current_user.id,
             AIChatHistory.created_at >= cutoff_date
-        ).order_by(AIChatHistory.created_at.asc()).limit(50).all()
+        ).order_by(AIChatHistory.created_at.desc()).offset(offset).limit(limit).all()
 
-        # Purge old messages (older than retention period)
-        deleted_count = db.query(AIChatHistory).filter(
-            AIChatHistory.user_id == current_user.id,
-            AIChatHistory.created_at < cutoff_date
-        ).delete()
+        # For initial load (offset=0), reverse to get chronological order (oldest first in the batch)
+        # For pagination, keep descending order since we're prepending
+        if offset == 0:
+            history = list(reversed(history))
 
-        if deleted_count > 0:
-            db.commit()
-            logger.info(f"Purged {deleted_count} old AI chat messages for user {current_user.id}")
+        # Purge old messages (older than retention period) - only on first request
+        if offset == 0:
+            deleted_count = db.query(AIChatHistory).filter(
+                AIChatHistory.user_id == current_user.id,
+                AIChatHistory.created_at < cutoff_date
+            ).delete()
+
+            if deleted_count > 0:
+                db.commit()
+                logger.info(f"Purged {deleted_count} old AI chat messages for user {current_user.id}")
 
         return [{
             "id": msg.id,

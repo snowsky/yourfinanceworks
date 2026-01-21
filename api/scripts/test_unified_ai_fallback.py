@@ -10,7 +10,7 @@ from unittest.mock import Mock
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.services.ai_config_service import AIConfigService
+from commercial.ai.services.ai_config_service import AIConfigService
 
 
 def test_unified_ai_config_service():
@@ -176,7 +176,7 @@ def test_component_specific_services():
         # Test OCR service integration
         print("\n📄 Testing OCR Service Integration:")
         try:
-            from core.services.ocr_service import _get_ai_config_from_env
+            from commercial.ai.services.ocr_service import _get_ai_config_from_env
             ocr_config = _get_ai_config_from_env()
             if ocr_config:
                 print(f"   ✅ OCR Config: {ocr_config['provider_name']}/{ocr_config['model_name']}")
@@ -210,7 +210,7 @@ def test_component_specific_services():
         # Test Invoice service
         print("\n📄 Testing Invoice Service:")
         try:
-            from core.services.invoice_ai_service import get_invoice_ai_config
+            from commercial.ai_invoice.services.invoice_ai_service import get_invoice_ai_config
             invoice_config = get_invoice_ai_config(mock_db)
             if invoice_config:
                 print(f"   ✅ Invoice Config: {invoice_config['provider_name']}/{invoice_config['model_name']}")

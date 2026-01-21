@@ -31,9 +31,7 @@ export function LanguageSwitcher() {
 
   const handleLanguageChange = (languageCode: string) => {
     setCurrentLanguage(languageCode);
-    i18n.changeLanguage(languageCode).then(() => {
-      window.location.reload();
-    });
+    i18n.changeLanguage(languageCode);
   };
 
   // Find the current language display name

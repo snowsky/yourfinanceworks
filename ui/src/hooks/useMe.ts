@@ -21,7 +21,7 @@ export function useMe() {
         queryFn: async () => {
             if (!user?.id) return null;
             console.log('👤 Fetching user profile (me)');
-            return await apiRequest("/auth/me") as MeResponse;
+            return await apiRequest("/auth/me", {}, { skipTenant: true }) as MeResponse;
         },
         enabled: !!user?.id,
         staleTime: 1000 * 60 * 5, // 5 minutes cache

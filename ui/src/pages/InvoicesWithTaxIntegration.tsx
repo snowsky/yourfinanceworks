@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Send, Eye, Download } from 'lucide-react';
+import { Plus, Search, Send, Eye, Download, AlertTriangle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -107,6 +107,21 @@ const InvoicesWithTaxIntegration: React.FC = () => {
 
         {/* Tax Integration Status */}
         <TaxIntegrationStatus />
+
+        {/* Development Notice */}
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <div>
+              <h3 className="text-sm font-medium text-amber-800">
+                {t('taxIntegration.developmentNotice')}
+              </h3>
+              <p className="text-xs text-amber-700 mt-1">
+                Some features may not work as expected while this integration is being developed.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">

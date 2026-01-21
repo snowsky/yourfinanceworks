@@ -82,12 +82,15 @@ async def read_tenants(
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    """List all tenants (only superusers can see all tenants)"""
+    """List all tenants (only superusers can see all tenants, regular users see only enabled tenants)"""
     if current_user.is_superuser:
         tenants = master_db.query(Tenant).offset(skip).limit(limit).all()
     else:
-        # Regular users can only see their own tenant
-        tenants = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).offset(skip).limit(limit).all()
+        # Regular users can only see their own tenant if it's enabled
+        tenants = master_db.query(Tenant).filter(
+            Tenant.id == current_user.tenant_id,
+            Tenant.is_enabled == True
+        ).offset(skip).limit(limit).all()
     
     return tenants
 
@@ -97,11 +100,14 @@ async def read_tenant_me(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get current user's tenant"""
-    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    tenant = master_db.query(Tenant).filter(
+        Tenant.id == current_user.tenant_id,
+        Tenant.is_enabled == True
+    ).first()
     if not tenant:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your organization is currently disabled. Please contact your administrator."
         )
     return tenant
 
@@ -119,12 +125,26 @@ async def read_tenant(
             detail=NOT_AUTHORIZED
         )
     
-    tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    # For regular users, also check if tenant is enabled
+    if current_user.is_superuser:
+        tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    else:
+        tenant = master_db.query(Tenant).filter(
+            Tenant.id == tenant_id,
+            Tenant.is_enabled == True
+        ).first()
+    
     if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant not found"
-        )
+        if not current_user.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organization is currently disabled. Please contact your administrator."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found"
+            )
     return tenant
 
 @router.put("/{tenant_id}", response_model=TenantSchema)

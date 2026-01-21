@@ -19,7 +19,7 @@ const Reports: React.FC = () => {
           <FeatureGate
             feature="reporting"
             showUpgradePrompt={true}
-            upgradeMessage="Advanced Reporting requires a commercial license. Upgrade to access comprehensive reports and analytics."
+            upgradeMessage={t('reports.upgrade_message')}
           >
             <ReportGenerator />
           </FeatureGate>

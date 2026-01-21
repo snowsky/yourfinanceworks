@@ -15,18 +15,18 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from api.services.approval_service import (
+from commercial.workflows.approvals.services.approval_service import (
     ApprovalService, ApprovalServiceError, InsufficientApprovalPermissions,
     ExpenseAlreadyApproved, NoApprovalRuleFound, ApprovalLevelMismatch,
     InvalidApprovalState
 )
-from api.models.models_per_tenant import (
+from core.models.models_per_tenant import (
     Expense, ExpenseApproval, ApprovalRule, User, ApprovalDelegate
 )
-from api.schemas.approval import (
+from core.schemas.approval import (
     ApprovalStatus, ApprovalDelegateCreate, ExpenseApprovalCreate
 )
-from api.services.approval_service import ValidationError
+from commercial.workflows.approvals.services.approval_service import ValidationError
 
 
 class TestApprovalService:

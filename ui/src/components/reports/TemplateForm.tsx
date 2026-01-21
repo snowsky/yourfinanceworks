@@ -21,6 +21,7 @@ import {
 import { ReportTypeSelector } from './ReportTypeSelector';
 import { ReportFilters as ReportFiltersComponent } from './ReportFilters';
 import { Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface TemplateFormProps {
   template?: ReportTemplate;
@@ -33,6 +34,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(template?.name || '');
   const [reportType, setReportType] = useState<string | null>(template?.report_type || null);
   const [filters, setFilters] = useState<ReportFilters>(template?.filters || {});
@@ -135,7 +137,7 @@ export const TemplateForm: React.FC<TemplateFormProps> = ({
             <CardHeader>
               <CardTitle>Template Information</CardTitle>
               <CardDescription>
-                Basic template settings and report type selection
+                Basic template settings and {t('reports.report_type_selection').toLowerCase()}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

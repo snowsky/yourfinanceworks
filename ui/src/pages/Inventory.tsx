@@ -215,22 +215,22 @@ const Inventory = () => {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
-          <TabsList className="grid w-full grid-cols-4 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
-            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
+          <TabsList className="grid w-full grid-cols-4 bg-muted/50 border border-border/50 rounded-lg p-1">
+            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Package className="h-4 w-4" />
-              Overview
+              {t('inventory.tabs.overview', 'Overview')}
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
+            <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <BarChart3 className="h-4 w-4" />
-              Analytics
+              {t('inventory.tabs.analytics', 'Analytics')}
             </TabsTrigger>
-            <TabsTrigger value="forecasting" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
+            <TabsTrigger value="forecasting" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Target className="h-4 w-4" />
-              Forecasting
+              {t('inventory.tabs.forecasting', 'Forecasting')}
             </TabsTrigger>
-            <TabsTrigger value="insights" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
+            <TabsTrigger value="insights" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Lightbulb className="h-4 w-4" />
-              Insights
+              {t('inventory.tabs.insights', 'Insights')}
             </TabsTrigger>
           </TabsList>
 

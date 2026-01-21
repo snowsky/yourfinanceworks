@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -19,10 +19,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { HelpCenter } from "@/components/onboarding/HelpCenter";
 import {
   BarChart,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   DollarSign,
   FileText,
   LogOut,
@@ -33,29 +34,26 @@ import {
   ListChecks,
   Moon,
   Sun,
-  Trash2,
-  Bot,
   Package,
   Clock,
 } from "lucide-react";
-import { API_BASE_URL, settingsApi, apiRequest } from "@/lib/api";
+import { API_BASE_URL, settingsApi } from "@/lib/api";
 import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
-import { createSettingsQueryOptions } from "@/utils/query";
 import { Building } from 'lucide-react';
-import { toast } from 'sonner';
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useMe } from "@/hooks/useMe";
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile, isMobile: isMobileContext } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Use the hook directly or from context, consistency is key, but context one is synced with sidebar state
   const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const [open, setOpen] = useState(!isMobile);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('theme');
@@ -78,8 +76,15 @@ export function AppSidebar() {
   // Get current user data from localStorage
   const user = getCurrentUser();
   const userRole = user?.role || 'user';
-  const showAnalytics = (user as any)?.show_analytics !== false;
   const [isSuperUser, setIsSuperUser] = useState(false);
+
+  // Force re-reading user data when forceUpdate changes
+  const [currentUser, setCurrentUser] = useState(user);
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+  }, [forceUpdate]);
+
+  const showAnalytics = (currentUser as any)?.show_analytics !== false;
 
   const { data: me, isLoading: roleLoading } = useMe();
   const effectiveRole = me?.role || userRole;
@@ -97,40 +102,117 @@ export function AppSidebar() {
   const [currentOrgId, setCurrentOrgId] = useState(initialOrgId);
   const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
 
+  // Get the current organization's role
+  const currentOrgRole = userOrganizations.find(org => org.id.toString() === currentOrgId)?.role || 'user';
+  const isAdminInCurrentOrg = currentOrgRole === 'admin';
+
   // Check super admin status via API
   useEffect(() => {
     const checkSuperAdminStatus = async () => {
-      if (!user?.is_superuser) {
+      if (!currentUser?.is_superuser) {
         setIsSuperUser(false);
         return;
       }
 
-      const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+      const userTenantIdStr = currentUser?.tenant_id != null ? String(currentUser.tenant_id) : '';
       const currentOrgIdStr = localStorage.getItem('selected_tenant_id') || userTenantIdStr;
       const isInPrimaryTenant = currentOrgIdStr === userTenantIdStr;
-      setIsSuperUser(user.is_superuser && isInPrimaryTenant);
+      setIsSuperUser(currentUser.is_superuser && isInPrimaryTenant);
     };
 
     checkSuperAdminStatus();
-  }, [user?.is_superuser, user?.tenant_id]);
+  }, [currentUser?.is_superuser, currentUser?.tenant_id]);
 
-  console.log('Sidebar: User check:', {
-    user,
-    userRole,
-    effectiveRole,
-    isAdminEffective,
-    isSuperUser,
-    currentOrgId,
-    primaryTenant: user?.tenant_id?.toString(),
-    shouldFetchSettings: isAdminEffective
-  });
+  // Sync currentOrgId with localStorage when it changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem('selected_tenant_id');
+      if (stored && stored !== currentOrgId) {
+        setCurrentOrgId(stored);
+      }
+    };
+
+    const handleOrgSwitch = () => {
+      const stored = localStorage.getItem('selected_tenant_id');
+      if (stored && stored !== currentOrgId) {
+        setCurrentOrgId(stored);
+      }
+    };
+
+    const handleUserUpdate = () => {
+      // Force re-render to pick up new user data
+      setForceUpdate(prev => prev + 1);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('org-switched', handleOrgSwitch);
+    window.addEventListener('user-updated', handleUserUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('org-switched', handleOrgSwitch);
+      window.removeEventListener('user-updated', handleUserUpdate);
+    };
+  }, [currentOrgId]);
+
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  // Optimized scroll handler using requestAnimationFrame
+  const handleScroll = useCallback(() => {
+    if (!contentRef.current) return;
+
+    // Use requestAnimationFrame to throttle updates and prevent flashing
+    requestAnimationFrame(() => {
+      if (!contentRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+
+      // Add a small buffer (e.g., 2px) to prevent flickering at boundaries
+      const hasScrollUp = scrollTop > 2;
+      const hasScrollDown = scrollTop + clientHeight < scrollHeight - 2;
+
+      setCanScrollUp(hasScrollUp);
+      setCanScrollDown(hasScrollDown);
+    });
+  }, []);
+
+  const scrollToDirection = useCallback((direction: 'up' | 'down') => {
+    if (!contentRef.current) return;
+    const scrollAmount = 200;
+    contentRef.current.scrollBy({
+      top: direction === 'down' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element) return;
+
+    // Initial check
+    handleScroll();
+
+    element.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+
+    // Also check when content size might change (e.g. expansion panels)
+    const observer = new ResizeObserver(handleScroll);
+    observer.observe(element);
+
+    return () => {
+      element.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      observer.disconnect();
+    };
+  }, [handleScroll]);
+
 
   // Get company name from settings with reduced refetching frequency (only for admin users)
   // Note: We conditionally define the query to prevent API calls for non-admin users
-  const { data: settings, isLoading: settingsLoading, refetch } = useQuery({
-    queryKey: ['settings', forceUpdate], // Include forceUpdate in query key to force refetch
+  // Only fetch settings when sidebar is actually visible (not on every page load)
+  const { data: settings } = useQuery({
+    queryKey: ['settings'], // Removed forceUpdate to prevent unnecessary refetches
     queryFn: () => {
-      console.log('Sidebar: Refetching settings data, forceUpdate:', forceUpdate);
       return settingsApi.getSettings();
     },
     refetchInterval: false, // Disable automatic refetching
@@ -138,9 +220,9 @@ export function AppSidebar() {
     refetchOnMount: false, // Don't refetch on mount
     refetchOnReconnect: false, // Disable reconnect refetching
     refetchIntervalInBackground: false,
-    staleTime: Infinity, // Never consider data stale
-    gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
-    enabled: (!roleLoading && isAdminEffective), // Only fetch settings after role is known and admin in current org
+    staleTime: 1000 * 60 * 60, // 1 hour cache
+    gcTime: 1000 * 60 * 60 * 2, // Keep in cache for 2 hours
+    enabled: (!roleLoading && isAdminEffective && state === 'expanded'), // Only fetch when sidebar is expanded and user is admin
     retry: (failureCount, error: any) => {
       // Don't retry on authentication/authorization errors
       if (error?.message?.includes('403') || error?.message?.includes('401')) {
@@ -175,44 +257,21 @@ export function AppSidebar() {
   }, [userOrganizations, currentOrgId, settings?.company_info?.name]);
   // Normalize tenant id types for safe comparisons
   const companyLogoUrl = settings?.company_info?.logo;
-  const userTenantIdStr = user?.tenant_id != null ? String(user.tenant_id) : '';
+  const userTenantIdStr = currentUser?.tenant_id != null ? String(currentUser.tenant_id) : '';
   const isPrimaryTenant = currentOrgId === userTenantIdStr;
 
 
 
 
-  // Listen for localStorage changes with reduced frequency
-  useEffect(() => {
-    const checkForUpdates = () => {
-      const lastUpdate = localStorage.getItem('settings_updated');
-      if (lastUpdate) {
-        console.log('Sidebar: Detected settings update via localStorage');
-        setForceUpdate(prev => prev + 1);
-      }
-    };
-
-    // Check immediately
-    checkForUpdates();
-
-    // Set up interval to check for updates (reduced from 5 seconds to 30 seconds)
-    const interval = setInterval(checkForUpdates, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Listen for settings updates and force refetch
   useEffect(() => {
     const handleSettingsUpdate = () => {
-      console.log('Sidebar: Settings update event received');
-      // Only invalidate settings, don't refetch immediately to avoid page refresh
+      // Invalidate settings cache when updated
       queryClient.invalidateQueries({ queryKey: ['settings'] });
-      // Force component re-render
-      setForceUpdate(prev => prev + 1);
     };
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'settings_updated') {
-        console.log('Sidebar: Storage event received for settings update');
         handleSettingsUpdate();
       }
     };
@@ -246,7 +305,8 @@ export function AppSidebar() {
     {
       path: '/',
       label: t('navigation.dashboard'),
-      icon: <BarChart className="w-5 h-5" />
+      icon: <BarChart className="w-5 h-5" />,
+      tourId: 'nav-dashboard'
     },
     {
       path: '/clients',
@@ -315,28 +375,32 @@ export function AppSidebar() {
       tourId: 'nav-settings'
     }] : []),
     // User Management section for admins
-    ...((!roleLoading && isAdminEffective) ? [{
+    ...((!roleLoading && isAdminInCurrentOrg) ? [{
       path: '/users',
       label: t('navigation.users'),
-      icon: <UserCheck className="w-5 h-5" />
+      icon: <UserCheck className="w-5 h-5" />,
+      tourId: 'nav-users'
     }] : []),
     // Only show Audit Log for admin or superuser
-    ...((!roleLoading && (isAdminEffective || isSuperUser)) ? [{
+    ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg)) ? [{
       path: '/audit-log',
       label: t('navigation.audit_log'),
-      icon: <ListChecks className="w-5 h-5" />
+      icon: <ListChecks className="w-5 h-5" />,
+      tourId: 'nav-audit-log'
     }] : []),
     // Only show Analytics for admin or superuser if user has enabled it
-    ...((!roleLoading && (isAdminEffective || isSuperUser) && showAnalytics) ? [{
+    ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg) && showAnalytics) ? [{
       path: '/analytics',
       label: 'Analytics',
-      icon: <BarChart className="w-5 h-5" />
+      icon: <BarChart className="w-5 h-5" />,
+      tourId: 'nav-analytics'
     }] : []),
     // Only show Super Admin for super users in their primary tenant
-    ...((!roleLoading && user?.is_superuser && isPrimaryTenant) ? [{
+    ...((!roleLoading && currentUser?.is_superuser && isPrimaryTenant) ? [{
       path: '/super-admin',
       label: t('navigation.super_admin'),
-      icon: <ShieldCheck className="w-5 h-5" />
+      icon: <ShieldCheck className="w-5 h-5" />,
+      tourId: 'nav-super-admin'
     }] : [])
   ];
 
@@ -344,59 +408,31 @@ export function AppSidebar() {
     return location.pathname === path;
   };
 
+  const handleNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   return (
     <>
       <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl backdrop-blur-xl">
         <SidebarHeader className="py-4 px-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
-          {/* Enhanced Company Branding Section */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {companyLogoUrl ? (
-                <img
-                  src={companyLogoUrl.startsWith('http') ? companyLogoUrl : `${API_BASE_URL}${companyLogoUrl}`}
-                  alt={`${companyName} Logo`}
-                  className="h-10 w-10 object-contain rounded-xl shadow-lg ring-2 ring-blue-500/20 bg-white/10 p-1 backdrop-blur-sm"
-                  onError={(e) => {
-                    console.error('Failed to load company logo:', e);
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              ) : (
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-blue-500/20">
-                  <Building className="h-5 w-5 text-white" />
-                </div>
-              )}
-              <div className="flex flex-col leading-tight">
-                <span className="text-base font-bold text-white truncate max-w-[140px] tracking-tight">
-                  {companyName}
-                </span>
-                <span className="text-xs text-slate-300 font-medium">
-                  YourFinanceWORKS
-                </span>
-              </div>
-            </div>
-            <SidebarTrigger>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Toggle sidebar"
-                className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg h-8 w-8 transition-all duration-200"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </SidebarTrigger>
+          {/* Organization Switcher (Topmost) */}
+          <div className="mb-4">
+            <OrganizationSwitcher />
           </div>
 
-          {/* Enhanced User Profile Section */}
+          {/* User Profile Section */}
           <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700/20 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8 ring-2 ring-slate-600/30">
-                <AvatarImage src={undefined as any} alt={user?.email || 'User'} />
+                <AvatarImage src={undefined as any} alt={currentUser?.email || 'User'} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
                   {(() => {
-                    const first = (user?.first_name || '').trim();
-                    const last = (user?.last_name || '').trim();
-                    const name = `${first} ${last}`.trim() || (user?.email?.split('@')[0] || 'User');
+                    const first = (currentUser?.first_name || '').trim();
+                    const last = (currentUser?.last_name || '').trim();
+                    const name = `${first} ${last}`.trim() || (currentUser?.email?.split('@')[0] || 'User');
                     const parts = name.split(' ').filter(Boolean);
                     const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
                     return initials.toUpperCase();
@@ -406,98 +442,137 @@ export function AppSidebar() {
               <div className="flex flex-col leading-tight flex-1 min-w-0">
                 <span className="text-xs font-semibold text-white truncate">
                   {(() => {
-                    const first = (user?.first_name || '').trim();
-                    const last = (user?.last_name || '').trim();
+                    const first = (currentUser?.first_name || '').trim();
+                    const last = (currentUser?.last_name || '').trim();
                     const name = `${first} ${last}`.trim();
-                    return name || (user?.email?.split('@')[0] || 'User');
+                    return name || (currentUser?.email?.split('@')[0] || 'User');
                   })()}
                 </span>
                 <span className="text-xs text-slate-300 truncate">
-                  {effectiveRole === 'admin' ? 'Administrator' : 'User'}
+                  {currentOrgRole === 'admin' ? 'Administrator' : 'User'}
                 </span>
               </div>
             </div>
           </div>
         </SidebarHeader>
-        <SidebarContent className="pt-4 px-3 space-y-6">
-          {/* Organization Switcher - rendered in portal to avoid unmounting */}
-          <OrganizationSwitcher />
 
-          <SidebarMenu className="space-y-6">
-            {/* Core Navigation Section */}
-            <div className="space-y-1">
-              <div className="px-3 mb-3">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Core
-                </h3>
-              </div>
-              {mainMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                      : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
-                      }`}
-                    isActive={isActive(item.path)}
-                  >
-                    <Link
-                      to={item.path}
-                      className="flex items-center gap-3 w-full h-full py-3 px-4"
-                      data-tour={item.tourId}
+
+
+
+        {/* Wrapper for flexible content with relative positioning for scroll indicators */}
+        <div className="flex-1 min-h-0 relative flex flex-col">
+          {/* Scroll Up Indicator */}
+          <div
+            className={`absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent z-10 flex items-start justify-center pt-1 transition-opacity duration-300 pointer-events-none ${canScrollUp ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <button
+              onClick={() => scrollToDirection('up')}
+              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              tabIndex={canScrollUp ? 0 : -1}
+              aria-label="Scroll up"
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <SidebarContent className="px-3 pt-4 pb-20 space-y-6 scrollbar-hide overflow-y-auto" ref={contentRef}>
+            {/* Menu items only - org picker moved above */}
+
+            <SidebarMenu className="space-y-6">
+              {/* Core Navigation Section */}
+              <div className="space-y-1">
+                <div className="px-3 mb-3">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Core
+                  </h3>
+                </div>
+                {mainMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        }`}
+                      isActive={isActive(item.path)}
                     >
-                      <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                        ? "bg-white/20 shadow-sm"
-                        : "bg-slate-700/30 group-hover:bg-slate-600/30"
-                        }`}>
-                        {item.icon}
-                      </div>
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </div>
-
-            {/* Separator */}
-            <div className="px-3">
-              <div className="border-t border-slate-700/30"></div>
-            </div>
-
-            {/* Administration Section */}
-            <div className="space-y-1">
-              <div className="px-3 mb-3">
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Administration
-                </h3>
+                      <Link
+                        to={item.path}
+                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        data-tour={item.tourId}
+                        onClick={handleNavigation}
+                      >
+                        <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          }`}>
+                          {item.icon}
+                        </div>
+                        <span className="font-medium text-sm">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </div>
-              {settingsMenuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                      : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
-                      }`}
-                    isActive={isActive(item.path)}
-                  >
-                    <Link
-                      to={item.path}
-                      className="flex items-center gap-3 w-full h-full py-3 px-4"
-                      data-tour={item.tourId}
+
+              {/* Separator */}
+              <div className="px-3">
+                <div className="border-t border-slate-700/30"></div>
+              </div>
+
+              {/* Administration Section */}
+              <div className="space-y-1">
+                <div className="px-3 mb-3">
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Administration
+                  </h3>
+                </div>
+                {settingsMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
+                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
+                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        }`}
+                      isActive={isActive(item.path)}
                     >
-                      <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                        ? "bg-white/20 shadow-sm"
-                        : "bg-slate-700/30 group-hover:bg-slate-600/30"
-                        }`}>
-                        {item.icon}
-                      </div>
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </div>
-          </SidebarMenu>
-        </SidebarContent>
+                      <Link
+                        to={item.path}
+                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        data-tour={item.tourId}
+                        onClick={handleNavigation}
+                      >
+                        <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
+                          ? "bg-white/20 shadow-sm"
+                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          }`}>
+                          {item.icon}
+                        </div>
+                        <span className="font-medium text-sm">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </div>
+            </SidebarMenu>
+          </SidebarContent>
+
+          {/* Scroll Down Indicator */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent z-10 flex items-end justify-center pb-1 transition-opacity duration-300 pointer-events-none ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <button
+              onClick={() => scrollToDirection('down')}
+              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              tabIndex={canScrollDown ? 0 : -1}
+              aria-label="Scroll down"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+
         <SidebarFooter className="py-4 px-4 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
           <div className="space-y-4">
             {/* Controls */}

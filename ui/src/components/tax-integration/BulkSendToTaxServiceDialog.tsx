@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Send, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
@@ -184,6 +184,15 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Development Notice */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <p className="text-sm text-amber-800">
+                {t('taxIntegration.developmentNotice')}
+              </p>
+            </div>
+          </div>
           {/* Selection Summary */}
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
             <div className="flex items-center space-x-2">

@@ -2,11 +2,11 @@
 
 ## Introduction
 
-This document defines the requirements for implementing a feature licensing and modularization system that allows the Invoice Management System to sell individual features as separate licensed modules. The system will enable granular control over feature availability based on tenant licenses, with a flexible architecture that supports both built-in and add-on features.
+This document defines the requirements for implementing a feature licensing and modularization system that allows the {APP_NAME} to sell individual features as separate licensed modules. The system will enable granular control over feature availability based on tenant licenses, with a flexible architecture that supports both built-in and add-on features.
 
 ## Glossary
 
-- **System**: The Invoice Management System (Invoice App)
+- **System**: The {APP_NAME} (Invoice App)
 - **Feature Module**: A discrete, licensable unit of functionality within the System
 - **License**: A permission grant that enables a specific Feature Module for a Tenant
 - **Tenant**: An organization or customer using the System

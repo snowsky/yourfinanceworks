@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ReportTypeSelector } from './ReportTypeSelector';
 import { reportApi } from '@/lib/api';
 import { FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export const ReportGenerator: React.FC = () => {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   // Fetch available report types
@@ -23,10 +25,10 @@ export const ReportGenerator: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Report Type Selection
+            {t('reports.report_type_selection')}
           </CardTitle>
           <CardDescription>
-            Choose the type of report you want to generate
+            {t('reports.choose_report_type')}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">

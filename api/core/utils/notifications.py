@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Settings, User
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from config import APP_NAME
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ def send_notification(
     resource_id: str,
     resource_name: str,
     details: Dict[str, Any],
-    company_name: str = "Invoice Management System"
+    company_name: str = APP_NAME
 ) -> bool:
     """Send notification for an operation"""
     try:

@@ -22,6 +22,7 @@ import { ApprovalSubmissionDialog } from '@/components/expenses/ApprovalSubmissi
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { ProfessionalCard } from '@/components/ui/professional-card';
 
 export default function ExpensesNew() {
   const { t } = useTranslation();
@@ -36,7 +37,7 @@ export default function ExpensesNew() {
   const prefillInvoiceId = searchParams.get('invoiceId');
 
   const [form, setForm] = useState<Partial<Expense>>({
-    amount: prefillAmount ? Number(prefillAmount) : 0,
+    amount: prefillAmount ? prefillAmount : '',
     currency: prefillCurrency || 'USD',
     expense_date: new Date().toISOString().split('T')[0],
     category: 'General',
@@ -104,29 +105,7 @@ export default function ExpensesNew() {
   }, [isInventoryPurchase, isInventoryConsumption]);
 
   const validateExpenseForm = () => {
-    if ((!form.amount || Number(form.amount) === 0) && files.length === 0) {
-      toast.error(t('expenses.amount_required'));
-      return false;
-    }
-    if (!form.category) {
-      toast.error(t('expenses.category_required'));
-      return false;
-    }
-
-    // Validate consumption items
-    if (isInventoryConsumption) {
-      if (!consumptionItems || consumptionItems.length === 0) {
-        toast.error(t('expenses.at_least_one_inventory_item_must_be_selected_for_consumption'));
-        return false;
-      }
-      // Validate that all consumption items have valid quantities
-      const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
-      if (invalidItems.length > 0) {
-        toast.error(t('expenses.all_inventory_consumption_items_must_have_quantity_greater_than_0'));
-        return false;
-      }
-    }
-
+    // This function is no longer used - validation is done inline in onSubmit
     return true;
   };
 
@@ -225,7 +204,26 @@ export default function ExpensesNew() {
     setSaving(true);
 
     try {
-      if (!validateExpenseForm()) {
+      // Validate using current form state directly
+      const amountValue = Number(form.amount);
+      const hasValidAmount = form.amount && form.amount !== '' && amountValue > 0;
+      
+      if (!hasValidAmount && files.length === 0 && !isInventoryConsumption) {
+        toast.error(t('expenses.amount_required'));
+        // Re-enable button on validation failure
+        if (buttonRef.current) {
+          buttonRef.current.disabled = false;
+          buttonRef.current.style.pointerEvents = 'auto';
+          buttonRef.current.style.opacity = '1';
+          buttonRef.current.style.cursor = 'pointer';
+        }
+        isProcessingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!form.category) {
+        toast.error(t('expenses.category_required'));
         // Re-enable button on validation failure
         if (buttonRef.current) {
           buttonRef.current.disabled = false;
@@ -238,6 +236,38 @@ export default function ExpensesNew() {
         return;
       }
 
+      // Validate consumption items
+      if (isInventoryConsumption) {
+        if (!consumptionItems || consumptionItems.length === 0) {
+          toast.error(t('expenses.at_least_one_inventory_item_must_be_selected_for_consumption'));
+          // Re-enable button on validation failure
+          if (buttonRef.current) {
+            buttonRef.current.disabled = false;
+            buttonRef.current.style.pointerEvents = 'auto';
+            buttonRef.current.style.opacity = '1';
+            buttonRef.current.style.cursor = 'pointer';
+          }
+          isProcessingRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
+        // Validate that all consumption items have valid quantities
+        const invalidItems = consumptionItems.filter(item => !item.quantity || item.quantity <= 0);
+        if (invalidItems.length > 0) {
+          toast.error(t('expenses.all_inventory_consumption_items_must_have_quantity_greater_than_0'));
+          // Re-enable button on validation failure
+          if (buttonRef.current) {
+            buttonRef.current.disabled = false;
+            buttonRef.current.style.pointerEvents = 'auto';
+            buttonRef.current.style.opacity = '1';
+            buttonRef.current.style.cursor = 'pointer';
+          }
+          isProcessingRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const created = await createExpense();
 
       if (submitForApproval) {
@@ -247,10 +277,8 @@ export default function ExpensesNew() {
         // Keep button disabled when showing approval dialog
       } else {
         toast.success(isInventoryConsumption ? t('expenses.consumption_expense_created_successfully') : t('expenses.expense_created'));
-        // Small delay to show success message before navigating
-        setTimeout(() => {
-          window.history.back();
-        }, 1000);
+        // Navigate back immediately
+        window.history.back();
       }
     } catch (e: any) {
       const addNotification = (window as any).addAINotification;
@@ -270,7 +298,7 @@ export default function ExpensesNew() {
     } finally {
       setSaving(false);
     }
-  }, [submitForApproval, isInventoryConsumption, files, isSubmitting]);
+  }, [form, submitForApproval, isInventoryConsumption, consumptionItems, files, isSubmitting, t]);
 
   // Reset button state when approval dialog is closed
   const handleApprovalDialogClose = (open: boolean) => {
@@ -297,114 +325,137 @@ export default function ExpensesNew() {
 
   return (
     <>
-      <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t('expenses.new_title')}</h1>
-          <p className="text-muted-foreground">{t('expenses.new_description')}</p>
+      <div className="h-full space-y-8 fade-in">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('expenses.new_title')}</h1>
+            <p className="text-lg text-muted-foreground">{t('expenses.new_description')}</p>
+          </div>
         </div>
 
-        <Card className="slide-in">
-          <CardHeader>
-            <CardTitle>{t('expenses.details')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm">{t('expenses.labels.amount')}</label>
-              <Input
-                type="number"
-                value={Number(form.amount || 0)}
-                onChange={e => setForm({ ...form, amount: Number(e.target.value) })}
-                disabled={isInventoryConsumption}
-                placeholder={isInventoryConsumption ? t('expenses.calculated_from_items') : undefined}
-              />
-              {isInventoryConsumption && (
-                <p className="text-xs text-muted-foreground mt-1">{t('expenses.amount_calculated_from_selected_inventory_items')}</p>
-              )}
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            <div className="pb-6 border-b border-border/50">
+              <h2 className="text-2xl font-bold text-foreground">{t('expenses.details')}</h2>
+              <p className="text-muted-foreground mt-1">Enter the basic information for this expense</p>
             </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.currency')}</label>
-              <CurrencySelector value={form.currency || 'USD'} onValueChange={v => setForm({ ...form, currency: v })} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.amount')}</label>
+                <Input
+                  type="number"
+                  value={form.amount === undefined || form.amount === null ? '' : String(form.amount)}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  disabled={isInventoryConsumption}
+                  placeholder={isInventoryConsumption ? t('expenses.calculated_from_items') : undefined}
+                />
+                {isInventoryConsumption && (
+                  <p className="text-xs text-muted-foreground mt-1">{t('expenses.amount_calculated_from_selected_inventory_items')}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.currency')}</label>
+                <CurrencySelector value={form.currency || 'USD'} onValueChange={v => setForm({ ...form, currency: v })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.date')}</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-10 rounded-lg border-border/50 bg-muted/30">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.expense_date ? format(new Date(form.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={form.expense_date ? new Date(form.expense_date) : undefined}
+                      onSelect={(d) => {
+                        if (d) {
+                          const year = d.getFullYear();
+                          const month = String(d.getMonth() + 1).padStart(2, '0');
+                          const day = String(d.getDate()).padStart(2, '0');
+                          const iso = `${year}-${month}-${day}`;
+                          setForm({ ...form, expense_date: iso });
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.link_to_invoice')}</label>
+                <Select value={form.invoice_id ? String(form.invoice_id) : undefined} onValueChange={v => setForm({ ...form, invoice_id: v === 'none' ? undefined : Number(v) })}>
+                  <SelectTrigger className="w-full h-10 rounded-lg border-border/50 bg-muted/30">
+                    <SelectValue placeholder={t('expenses.select_invoice')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('expenses.none')}</SelectItem>
+                    {invoiceOptions.map(inv => (
+                      <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.category')}</label>
+                <Select value={(form.category as string) || 'General'} onValueChange={v => setForm({ ...form, category: v })}>
+                  <SelectTrigger className="w-full h-10 rounded-lg border-border/50 bg-muted/30">
+                    <SelectValue placeholder={t('expenses.select_category')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map(c => (<SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.vendor')}</label>
+                <Input
+                  value={form.vendor || ''}
+                  onChange={e => setForm({ ...form, vendor: e.target.value })}
+                  className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.payment_method')}</label>
+                <Input
+                  value={form.payment_method || ''}
+                  onChange={e => setForm({ ...form, payment_method: e.target.value })}
+                  className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.reference_number')}</label>
+                <Input
+                  value={form.reference_number || ''}
+                  onChange={e => setForm({ ...form, reference_number: e.target.value })}
+                  className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.labels.notes')}</label>
+                <Input
+                  value={form.notes || ''}
+                  onChange={e => setForm({ ...form, notes: e.target.value })}
+                  className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.date')}</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {form.expense_date ? format(new Date(form.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={form.expense_date ? new Date(form.expense_date) : undefined}
-                    onSelect={(d) => {
-                      if (d) {
-                        const year = d.getFullYear();
-                        const month = String(d.getMonth() + 1).padStart(2, '0');
-                        const day = String(d.getDate()).padStart(2, '0');
-                        const iso = `${year}-${month}-${day}`;
-                        setForm({ ...form, expense_date: iso });
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <label className="text-sm">{t('expenses.link_to_invoice')}</label>
-              <Select value={form.invoice_id ? String(form.invoice_id) : undefined} onValueChange={v => setForm({ ...form, invoice_id: v === 'none' ? undefined : Number(v) })}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('expenses.select_invoice')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('expenses.none')}</SelectItem>
-                  {invoiceOptions.map(inv => (
-                    <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.category')}</label>
-              <Select value={(form.category as string) || 'General'} onValueChange={v => setForm({ ...form, category: v })}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('expenses.select_category')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map(c => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.vendor')}</label>
-              <Input value={form.vendor || ''} onChange={e => setForm({ ...form, vendor: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.payment_method')}</label>
-              <Input value={form.payment_method || ''} onChange={e => setForm({ ...form, payment_method: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm">{t('expenses.labels.reference_number')}</label>
-              <Input value={form.reference_number || ''} onChange={e => setForm({ ...form, reference_number: e.target.value })} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-sm">{t('expenses.labels.notes')}</label>
-              <Input value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} />
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </ProfessionalCard>
 
         {/* Inventory Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              {t('expenses.inventory_integration')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            <div className="pb-6 border-b border-border/50">
+              <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                {t('expenses.inventory_integration')}
+              </h2>
+              <p className="text-muted-foreground mt-1">Link this expense to inventory purchases or consumption</p>
+            </div>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -502,25 +553,24 @@ export default function ExpensesNew() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </ProfessionalCard>
 
         {/* File Upload Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              {t('expenses.receipt_attachments')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            <div className="pb-6 border-b border-border/50">
+              <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                {t('expenses.receipt_attachments')}
+              </h2>
+              <p className="text-muted-foreground mt-1">Upload receipts and supporting documents</p>
+            </div>
             {!hasAIExpenseFeature && (
               <Alert className="mb-4 border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
-                  <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan.
-                  Files will be uploaded as attachments only, without automatic data extraction.
-                  Please enter expense details manually.
+                  <strong>{t('expenses.ai_license_reminder.title')}</strong> {t('expenses.ai_license_reminder.message')}
                 </AlertDescription>
               </Alert>
             )}
@@ -540,15 +590,16 @@ export default function ExpensesNew() {
                 enableBulkOperations={true}
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </ProfessionalCard>
 
         {/* Approval Submission Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('expenses.approval_workflow')}</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ProfessionalCard className="slide-in" variant="elevated">
+          <div className="space-y-6">
+            <div className="pb-6 border-b border-border/50">
+              <h2 className="text-2xl font-bold text-foreground">{t('expenses.approval_workflow')}</h2>
+              <p className="text-muted-foreground mt-1">Submit this expense for approval after creation</p>
+            </div>
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="submit-for-approval"
@@ -603,10 +654,10 @@ export default function ExpensesNew() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </ProfessionalCard>
 
-        <div className="flex gap-2">
+        <div className="flex gap-4 pt-4">
           <Button
             variant="outline"
             onClick={() => window.history.back()}

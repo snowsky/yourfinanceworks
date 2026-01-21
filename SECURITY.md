@@ -2,7 +2,7 @@
 
 ## Report a Vulnerability
 
-If you found a security vulnerability, create an issue (will use an email later).
+If you found a security vulnerability, please send an email to hao.1.wang@gmail.com.
 
 In your message, please include:
 
@@ -12,14 +12,10 @@ In your message, please include:
 
 ## Vulnerability Response
 
-We'll review your report within 5 business days and we will do a preliminary analysis
-to confirm that the vulnerability is plausible. Otherwise, we'll decline the report.
+We'll review your report within 5 business days and we will do a preliminary analysis to confirm that the vulnerability is plausible. Otherwise, we'll decline the report.
 
-We won't disclose any information you share with us but we'll use it to get the issue
-fixed or to coordinate a vendor response, as needed.
+We won't disclose any information you share with us but we'll use it to get the issue fixed or to coordinate a vendor response, as needed.
 
 We'll keep you updated of the status of the issue.
 
-Our goal is to disclose bugs as soon as possible once a user mitigation is available.
-Once we get a good understanding of the vulnerability, we'll set a disclosure date after
-consulting the author of the report and maintainers.
+Our goal is to disclose bugs as soon as possible once a user mitigation is available. Once we get a good understanding of the vulnerability, we'll set a disclosure date after consulting the author of the report and maintainers.

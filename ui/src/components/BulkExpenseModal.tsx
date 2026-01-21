@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, Plus, Trash2, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, Expense } from '@/lib/api';
@@ -28,6 +28,7 @@ interface ExpenseFormData {
   payment_method?: string;
   reference_number?: string;
   notes?: string;
+  files: File[];
 }
 
 const defaultExpense: ExpenseFormData = {
@@ -35,6 +36,7 @@ const defaultExpense: ExpenseFormData = {
   currency: 'USD',
   expense_date: new Date().toISOString().split('T')[0],
   category: 'General',
+  files: [],
 };
 
 export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseModalProps) {
@@ -64,12 +66,12 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
   const handleSubmit = async () => {
     try {
       setSaving(true);
-      
+
       // Validate all expenses
       for (let i = 0; i < expenses.length; i++) {
         const expense = expenses[i];
-        if (!expense.amount || expense.amount <= 0) {
-          toast.error(`Expense ${i + 1}: Amount is required`);
+        if ((!expense.amount || expense.amount <= 0) && expense.files.length === 0) {
+          toast.error(`Expense ${i + 1}: Amount or attachment is required`);
           return;
         }
         if (!expense.category) {
@@ -89,11 +91,33 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
         reference_number: expense.reference_number,
         status: 'recorded',
         notes: expense.notes,
+        imported_from_attachment: expense.files.length > 0,
       }));
 
-      await expenseApi.bulkCreateExpenses(expensePayloads as any);
-      
-      toast.success(`Successfully created ${expenses.length} expenses`);
+      const createdExpenses = await expenseApi.bulkCreateExpenses(expensePayloads as any);
+
+      // Upload attachments for each expense
+      let uploadErrors = 0;
+      for (let i = 0; i < createdExpenses.length; i++) {
+        const expenseId = createdExpenses[i].id;
+        const filesToUpload = expenses[i].files;
+
+        for (const file of filesToUpload) {
+          try {
+            await expenseApi.uploadReceipt(expenseId, file);
+          } catch (error) {
+            console.error(`Failed to upload attachment for expense ${expenseId}:`, error);
+            uploadErrors++;
+          }
+        }
+      }
+
+      if (uploadErrors > 0) {
+        toast.warning(`Created ${expenses.length} expenses, but ${uploadErrors} attachment(s) failed to upload`);
+      } else {
+        toast.success(`Successfully created ${expenses.length} expenses`);
+      }
+
       onSuccess();
       onOpenChange(false);
       setExpenses([defaultExpense]);
@@ -117,7 +141,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
         <DialogHeader>
           <DialogTitle>Create Multiple Expenses</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {expenses.map((expense, index) => (
             <div key={index} className="border rounded-lg p-4 space-y-4">
@@ -133,7 +157,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                   </Button>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium">Amount *</label>
@@ -144,7 +168,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     placeholder="0.00"
                   />
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">Currency</label>
                   <CurrencySelector
@@ -152,7 +176,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     onValueChange={(value) => updateExpense(index, 'currency', value)}
                   />
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">Date</label>
                   <Popover>
@@ -176,7 +200,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     </PopoverContent>
                   </Popover>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">Category *</label>
                   <Select
@@ -195,7 +219,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">Vendor</label>
                   <Input
@@ -204,7 +228,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     placeholder="Vendor name"
                   />
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">Payment Method</label>
                   <Input
@@ -213,7 +237,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     placeholder="Credit Card, Cash, etc."
                   />
                 </div>
-                
+
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="text-sm font-medium">Reference Number</label>
                   <Input
@@ -222,7 +246,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     placeholder="Reference or receipt number"
                   />
                 </div>
-                
+
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="text-sm font-medium">Notes</label>
                   <Input
@@ -231,10 +255,56 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
                     placeholder="Additional notes"
                   />
                 </div>
+
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="text-sm font-medium">Attachments (Max 10)</label>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {expense.files.map((file, fileIndex) => (
+                        <div key={fileIndex} className="flex items-center gap-2 bg-muted p-2 rounded-md text-sm">
+                          <span className="max-w-[200px] truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newFiles = expense.files.filter((_, i) => i !== fileIndex);
+                              updateExpense(index, 'files', newFiles);
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {expense.files.length < 10 && (
+                      <div className="flex items-center gap-2">
+                        <label className="cursor-pointer">
+                          <div className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-accent transition-colors">
+                            <Upload className="w-4 h-4" />
+                            <span className="text-sm font-medium">Upload Files</span>
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            multiple
+                            onChange={(e) => {
+                              const selectedFiles = Array.from(e.target.files || []);
+                              const newFiles = [...expense.files, ...selectedFiles].slice(0, 10);
+                              updateExpense(index, 'files', newFiles);
+                            }}
+                          />
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          {expense.files.length}/10 files
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
-          
+
           {expenses.length < 10 && (
             <Button
               variant="outline"
@@ -246,7 +316,7 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
             </Button>
           )}
         </div>
-        
+
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

@@ -295,14 +295,23 @@ def seed_prompt_templates():
                             'category': template['category'],
                             'description': template['description'],
                             'template_content': template['template_content'],
-                            'template_variables': json.dumps(template['template_variables']),
+                            'template_variables': template['template_variables'],
                             'output_format': template['output_format'],
-                            'default_values': json.dumps(template['default_values']),
-                            'provider_overrides': json.dumps(template['provider_overrides'])
+                            'default_values': template['default_values'],
+                            'provider_overrides': template['provider_overrides']
                         })
                     
                     connection.commit()
                     logger.info(f"Successfully seeded default templates for tenant_{tenant.id}")
+
+                    # Seed review_worker_enabled setting
+                    connection.execute(text("""
+                        INSERT INTO settings (key, value, category, description, is_public)
+                        VALUES ('review_worker_enabled', 'true', 'system', 'Enable background AI review processing', false)
+                        ON CONFLICT (key) DO NOTHING
+                    """))
+                    connection.commit()
+                    logger.info(f"Seeded review_worker_enabled setting for tenant_{tenant.id}")
                     
             except Exception as e:
                 logger.error(f"Error processing tenant {tenant.id}: {e}")

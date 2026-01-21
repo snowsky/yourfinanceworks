@@ -26,14 +26,14 @@ from core.models.models_per_tenant import (
     ReportTemplate, ScheduledReport, ReportHistory
 )
 from core.schemas.report import (
-    ReportType, ExportFormat, ReportRequest, ReportTemplateCreate,
+    ReportType, ExportFormat, ReportGenerateRequest, ReportTemplateCreate,
     ClientReportFilters, InvoiceReportFilters, PaymentReportFilters,
     ExpenseReportFilters, StatementReportFilters
 )
 from core.services.report_service import ReportService
 from core.services.report_scheduler import ReportScheduler
 from core.services.report_data_aggregator import ReportDataAggregator
-from core.services.report_exporter import ReportExporter
+from core.services.report_exporter import ReportExportService
 from core.services.report_template_service import ReportTemplateService
 from core.services.report_security_service import ReportSecurityService
 from core.services.report_audit_service import ReportAuditService
@@ -738,7 +738,7 @@ class TestLargeDatasetPerformance:
     
     def test_export_performance_large_dataset(self, large_dataset):
         """Test export performance with large datasets"""
-        exporter = ReportExporter()
+        exporter = ReportExportService()
         
         # Create large report data
         report_data = {

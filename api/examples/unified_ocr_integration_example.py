@@ -21,7 +21,7 @@ async def example_expense_processing():
     logger.info("=== Expense Receipt Processing Example ===")
     
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
         
         # Configure OCR service
         ai_config = {
@@ -72,7 +72,7 @@ async def example_bank_statement_processing():
     logger.info("=== Bank Statement Processing Example ===")
     
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
         
         # Configure OCR service for text extraction
         config = OCRConfig(
@@ -115,7 +115,7 @@ async def example_invoice_processing():
     logger.info("=== Invoice Processing Example ===")
     
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
         
         # Configure OCR service
         ai_config = {
@@ -164,7 +164,7 @@ def example_service_status():
     logger.info("=== Service Status Example ===")
     
     try:
-        from core.services.unified_ocr_service import UnifiedOCRService
+        from commercial.ai.services.unified_ocr_service import UnifiedOCRService
         
         service = UnifiedOCRService()
         status = service.get_service_status()
@@ -200,7 +200,7 @@ async def example_backward_compatibility():
     logger.info("=== Backward Compatibility Example ===")
     
     try:
-        from core.services.unified_ocr_service import extract_expense_data, extract_bank_statement_text
+        from commercial.ai.services.unified_ocr_service import extract_expense_data, extract_bank_statement_text
         
         ai_config = {
             "provider_name": "ollama",

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
-from typing import List
+from sqlalchemy import func, and_, cast, String
+import sqlalchemy as sa
+from typing import List, Dict, Any, Optional
 import logging
 import traceback
 from datetime import datetime, timezone
@@ -10,13 +11,14 @@ from core.models.database import get_db, get_master_db
 from core.models.models_per_tenant import Client, Invoice, Settings
 from core.models.models import MasterUser, Tenant
 from core.routers.payments import Payment
-from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema
+from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema, PaginatedClients
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_non_viewer
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,17 +26,19 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
-@router.get("/", response_model=List[ClientSchema])
+@router.get("/", response_model=PaginatedClients)
 async def read_clients(
     skip: int = 0,
     limit: int = 100,
+    label_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     try:
         # Get clients with their total invoice amounts, total paid amounts, and calculate outstanding balance
         # No tenant_id filtering needed since we're in the tenant's database
-        clients = db.query(
+        # Build query
+        query = db.query(
             Client,
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid'),
             func.coalesce(func.sum(Invoice.amount), 0).label('total_invoiced')
@@ -42,7 +46,15 @@ async def read_clients(
             Invoice, and_(Invoice.client_id == Client.id, Invoice.is_deleted == False)
         ).outerjoin(
             Payment, Payment.invoice_id == Invoice.id
-        ).group_by(
+        )
+
+        # Apply label filter if provided
+        if label_filter:
+            query = query.filter(sa.cast(Client.labels, sa.String).ilike(f"%{label_filter}%"))
+
+        total_count = query.group_by(Client.id).count()
+
+        clients = query.group_by(
             Client.id
         ).offset(skip).limit(limit).all()
 
@@ -83,12 +95,16 @@ async def read_clients(
                 "paid_amount": float(total_paid),
                 "outstanding_balance": outstanding_balance,
                 "preferred_currency": client.preferred_currency,
+                "labels": client.labels,
                 "created_at": client.created_at.isoformat() if client.created_at else None,
                 "updated_at": client.updated_at.isoformat() if client.updated_at else None
             }
             result.append(client_dict)
 
-        return result
+        return {
+            "items": result,
+            "total": total_count
+        }
     except Exception as e:
         logger.error(f"Error in read_clients: {str(e)}")
         logger.error(traceback.format_exc())
@@ -161,6 +177,7 @@ async def read_client(
             "paid_amount": float(total_paid),
             "outstanding_balance": outstanding_balance,
             "preferred_currency": client.preferred_currency,
+            "labels": client.labels,
             "created_at": client.created_at.isoformat() if client.created_at else None,
             "updated_at": client.updated_at.isoformat() if client.updated_at else None
         }
@@ -228,8 +245,8 @@ async def create_client(
         # No tenant_id needed since each tenant has its own database
         db_client = Client(
             **client_data,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+            created_at=get_tenant_timezone_aware_datetime(db),
+            updated_at=get_tenant_timezone_aware_datetime(db)
         )
         db.add(db_client)
         db.commit()
@@ -269,7 +286,7 @@ async def create_client(
                 master_db = next(get_master_db())
                 try:
                     tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-                    company_name = tenant.name if tenant else "Invoice Management System"
+                    company_name = tenant.name if tenant else APP_NAME
                 finally:
                     master_db.close()
 
@@ -301,6 +318,7 @@ async def create_client(
             "paid_amount": 0,
             "outstanding_balance": 0,
             "preferred_currency": db_client.preferred_currency,
+            "labels": db_client.labels,
             "created_at": db_client.created_at.isoformat() if db_client.created_at else None,
             "updated_at": db_client.updated_at.isoformat() if db_client.updated_at else None
         }
@@ -381,7 +399,7 @@ async def update_client(
 
         for field, value in update_data.items():
             setattr(db_client, field, value)
-        db_client.updated_at = datetime.now(timezone.utc)
+        db_client.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_client)
         log_audit_event(
@@ -406,6 +424,7 @@ async def update_client(
             "paid_amount": 0,  # Will be calculated by frontend if needed
             "outstanding_balance": 0,  # Will be calculated by frontend if needed
             "preferred_currency": db_client.preferred_currency,
+            "labels": db_client.labels,
             "created_at": db_client.created_at.isoformat() if db_client.created_at else None,
             "updated_at": db_client.updated_at.isoformat() if db_client.updated_at else None
         }
@@ -499,3 +518,40 @@ async def delete_client(
             status_code=500,
             detail=FAILED_TO_FETCH_CLIENTS
         ) 
+@router.post("/bulk-labels")
+async def bulk_labels(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Bulk add or remove labels from clients"""
+    require_non_viewer(current_user, "bulk update clients")
+    
+    ids = payload.get("ids", [])
+    action = payload.get("action") # "add" or "remove"
+    label = payload.get("label", "").strip()
+    
+    if not ids or action not in ["add", "remove"] or not label:
+        raise HTTPException(status_code=400, detail="Invalid request payload")
+        
+    try:
+        clients = db.query(Client).filter(Client.id.in_(ids)).all()
+        
+        for client in clients:
+            current_labels = list(client.labels or [])
+            if action == "add":
+                if label not in current_labels:
+                    current_labels.append(label)
+            elif action == "remove":
+                if label in current_labels:
+                    current_labels.remove(label)
+            
+            client.labels = current_labels
+            client.updated_at = get_tenant_timezone_aware_datetime(db)
+            
+        db.commit()
+        return {"success": True, "count": len(clients)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in bulk_labels: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update labels")

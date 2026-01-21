@@ -174,7 +174,7 @@ class AchievementEngine:
             for user_achievement, achievement in results:
                 achievements.append({
                     "id": user_achievement.id,
-                    "achievement": AchievementResponse.from_orm(achievement),
+                    "achievement": AchievementResponse.model_validate(achievement),
                     "progress": user_achievement.progress,
                     "is_completed": user_achievement.is_completed,
                     "unlocked_at": user_achievement.unlocked_at,
@@ -215,7 +215,7 @@ class AchievementEngine:
             progress = await self._calculate_achievement_progress(profile, achievement)
             
             return {
-                "achievement": AchievementResponse.from_orm(achievement),
+                "achievement": AchievementResponse.model_validate(achievement),
                 "current_progress": progress,
                 "user_achievement": user_achievement,
                 "requirements_status": await self._get_requirements_status(profile, achievement)
@@ -237,7 +237,7 @@ class AchievementEngine:
                 )
             ).order_by(Achievement.difficulty, Achievement.created_at).all()
             
-            return [AchievementResponse.from_orm(achievement) for achievement in achievements]
+            return [AchievementResponse.model_validate(achievement) for achievement in achievements]
             
         except Exception as e:
             logger.error(f"Error getting milestone achievements for category {category}: {str(e)}")
@@ -391,7 +391,7 @@ class AchievementEngine:
             self.db.commit()
             
             logger.info(f"Achievement '{achievement.name}' unlocked for user {profile.user_id}")
-            return AchievementResponse.from_orm(achievement)
+            return AchievementResponse.model_validate(achievement)
             
         except Exception as e:
             logger.error(f"Error unlocking achievement: {str(e)}")

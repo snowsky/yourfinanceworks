@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Loader2, FileText, Mail } from "lucide-react";
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { CheckCircle2, ChevronLeft, Save, Loader2, FileText, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useTranslation } from "react-i18next";
@@ -14,6 +15,8 @@ import { useAttachmentManagement } from "@/hooks/useAttachmentManagement";
 import { InvoiceClientSection } from "./InvoiceClientSection";
 import { InvoiceItemsSection } from "./InvoiceItemsSection";
 import { InvoiceDiscountSection } from "./InvoiceDiscountSection";
+import { InvoiceLabelsSection } from "./InvoiceLabelsSection";
+import { InvoiceNotesSection } from "./InvoiceNotesSection";
 import { InvoiceAttachmentSection } from "./InvoiceAttachmentSection";
 import { InvoicePaymentSection } from "./InvoicePaymentSection";
 
@@ -204,17 +207,18 @@ export function InvoiceForm({
           }, {}),
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
+          labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
         };
 
         await invoiceApi.updateInvoice(invoice.id, updateData);
 
         // Handle attachment upload for updates
-        if (attachmentManagement.invoiceAttachment) {
+        if (attachmentManagement.invoiceAttachments.length > 0) {
           try {
-            await attachmentManagement.uploadAttachment(invoice.id);
-            toast.success("Invoice updated with attachment successfully!");
+            await attachmentManagement.uploadAttachments(invoice.id);
+            toast.success("Invoice updated with attachments successfully!");
           } catch {
-            toast.success("Invoice updated successfully, but attachment upload failed");
+            toast.success("Invoice updated successfully, but some attachments failed to upload");
           }
         } else {
           toast.success("Invoice updated successfully!");
@@ -272,17 +276,18 @@ export function InvoiceForm({
           }, {}),
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
+          labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
         };
 
         const newInvoice = await invoiceApi.createInvoice(invoiceData);
 
         // Handle attachment upload
-        if (attachmentManagement.invoiceAttachment) {
+        if (attachmentManagement.invoiceAttachments.length > 0) {
           try {
-            await attachmentManagement.uploadAttachment(newInvoice.id);
-            toast.success("Invoice created with attachment successfully!");
+            await attachmentManagement.uploadAttachments(newInvoice.id);
+            toast.success("Invoice created with attachments successfully!");
           } catch {
-            toast.success("Invoice created successfully, but attachment upload failed");
+            toast.success("Invoice created successfully, but some attachments failed to upload");
           }
         } else {
           toast.success("Invoice created successfully!");
@@ -437,235 +442,134 @@ export function InvoiceForm({
   return (
     <div className="w-full px-6 py-6 space-y-6">
       {/* Global attachment indicator */}
-      {attachmentManagement.invoiceAttachment && !isEdit && (
+      {attachmentManagement.invoiceAttachments.length > 0 && !isEdit && (
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg shadow-sm">
           <div className="flex items-center gap-3">
             <FileText className="h-6 w-6 text-blue-600" />
             <div className="flex-1">
               <h4 className="text-sm font-semibold text-gray-900">
-                📄 PDF Uploaded Successfully
+                📄 {attachmentManagement.invoiceAttachments.length} {attachmentManagement.invoiceAttachments.length === 1 ? 'File' : 'Files'} Ready to Upload
               </h4>
               <p className="text-sm text-gray-600">
-                <span className="font-medium">{attachmentManagement.invoiceAttachment.name}</span>
+                <span className="font-medium">
+                  {attachmentManagement.invoiceAttachments.map(f => f.name).join(', ')}
+                </span>
               </p>
             </div>
           </div>
         </div>
       )}
 
-      <Card className="pt-6">
-        <CardContent>
-          <Form {...invoiceForm.form}>
-            <form onSubmit={invoiceForm.form.handleSubmit(onSubmit, (errors) => {
-              console.error("Form validation errors:", errors);
-              toast.error("Please fix validation errors before submitting");
-              invoiceForm.setSubmitting(false);
-            })} className="space-y-8">
+      <Form {...invoiceForm.form}>
+        <form onSubmit={invoiceForm.form.handleSubmit(onSubmit, (errors) => {
+          console.error("Form validation errors:", errors);
+          toast.error("Please fix validation errors before submitting");
+          invoiceForm.setSubmitting(false);
+        })} className="space-y-12 pb-20">
 
-              {/* Client Section */}
-              <InvoiceClientSection
-                form={invoiceForm.form}
-                clients={invoiceForm.clients}
-                isEdit={isEdit}
-                isInvoicePaid={false}
-                tenantInfo={invoiceForm.tenantInfo}
-                showNewClientDialog={clientManagement.showNewClientDialog}
-                setShowNewClientDialog={clientManagement.setShowNewClientDialog}
-                newClientForm={clientManagement.newClientForm}
-                setNewClientForm={clientManagement.setNewClientForm}
-                resetNewClientForm={clientManagement.resetNewClientForm}
-                handleCreateClient={handleCreateClientWithCallback}
-              />
+          {/* Client Section */}
+          <InvoiceClientSection
+            form={invoiceForm.form}
+            clients={invoiceForm.clients}
+            isEdit={isEdit}
+            isInvoicePaid={false}
+            tenantInfo={invoiceForm.tenantInfo}
+            showNewClientDialog={clientManagement.showNewClientDialog}
+            setShowNewClientDialog={clientManagement.setShowNewClientDialog}
+            newClientForm={clientManagement.newClientForm}
+            setNewClientForm={clientManagement.setNewClientForm}
+            resetNewClientForm={clientManagement.resetNewClientForm}
+            handleCreateClient={handleCreateClientWithCallback}
+          />
 
-              {/* Items Section */}
-              <InvoiceItemsSection
-                form={invoiceForm.form}
-                isEdit={isEdit}
-                isInvoicePaid={false}
-                submitting={invoiceForm.submitting}
-                itemKeyCounter={0}
-                setItemKeyCounter={() => { }}
-              />
+          {/* Items Section */}
+          <InvoiceItemsSection
+            form={invoiceForm.form}
+            isEdit={isEdit}
+            isInvoicePaid={false}
+            submitting={invoiceForm.submitting}
+            itemKeyCounter={0}
+            setItemKeyCounter={() => { }}
+          />
 
-              {/* Discount Section */}
-              <InvoiceDiscountSection
-                form={invoiceForm.form}
-                isEdit={isEdit}
-                isInvoicePaid={false}
-                availableDiscountRules={invoiceForm.availableDiscountRules}
-                appliedDiscountRule={invoiceForm.appliedDiscountRule}
-                calculateSubtotal={invoiceForm.calculateSubtotal}
-                calculateDiscount={invoiceForm.calculateDiscount}
-                calculateTotal={invoiceForm.calculateTotal}
-                applyDiscountRule={invoiceForm.applyDiscountRule}
-              />
+          {/* Discount Section */}
+          <InvoiceDiscountSection
+            form={invoiceForm.form}
+            isEdit={isEdit}
+            isInvoicePaid={false}
+            availableDiscountRules={invoiceForm.availableDiscountRules}
+            appliedDiscountRule={invoiceForm.appliedDiscountRule}
+            calculateSubtotal={invoiceForm.calculateSubtotal}
+            calculateDiscount={invoiceForm.calculateDiscount}
+            calculateTotal={invoiceForm.calculateTotal}
+            applyDiscountRule={invoiceForm.applyDiscountRule}
+          />
 
-              {/* Payment Section - Only show for approved invoices or when payment editing is allowed */}
-              {isEdit && (invoice?.status === 'approved' || canEditPayment) && (
-                <InvoicePaymentSection
-                  form={invoiceForm.form}
-                  canEditPayment={canEditPayment}
-                />
-              )}
+          {/* Notes Section */}
+          <InvoiceNotesSection
+            form={invoiceForm.form}
+            isEdit={isEdit}
+          />
 
-              {/* Attachment Section */}
-              <InvoiceAttachmentSection
-                isEdit={isEdit}
-                invoiceAttachment={attachmentManagement.invoiceAttachment}
-                attachmentInfo={attachmentManagement.attachmentInfo}
-                attachmentPreview={attachmentManagement.attachmentPreview}
-                attachmentPreviewLoading={attachmentManagement.attachmentPreviewLoading}
-                onFileSelect={attachmentManagement.handleFileSelect}
-                onPreviewExisting={attachmentManagement.previewExistingAttachment}
-                onPreviewNew={attachmentManagement.previewNewAttachment}
-                onDownload={attachmentManagement.downloadAttachment}
-                onDelete={attachmentManagement.deleteAttachment}
-                onClosePreview={attachmentManagement.closePreview}
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Labels Section */}
+            <InvoiceLabelsSection
+              form={invoiceForm.form}
+            />
 
-              {/* Form Actions */}
-              {renderButtons && !isEdit && (
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onFormCancel ? onFormCancel() : navigate('/invoices')}
-                  >
-                    {t('invoices.cancel')}
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={invoiceForm.submitting}
-                  >
-                    {invoiceForm.submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {t('invoices.create_invoice')}
-                  </Button>
-                </div>
-              )}
-
-              {/* Hidden submit button for external triggering */}
-              <button type="submit" style={{ display: 'none' }} ref={submitButtonRef} />
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Client Creation Dialog */}
-      <Dialog
-        open={clientManagement.showNewClientDialog}
-        onOpenChange={(open) => {
-          clientManagement.setShowNewClientDialog(open);
-          if (!open) {
-            clientManagement.resetNewClientForm();
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('invoices.add_new_client')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">{t('invoices.name')}</label>
-              <input
-                className="w-full p-2 border rounded"
-                value={clientManagement.newClientForm.name}
-                onChange={(e) => clientManagement.setNewClientForm({
-                  ...clientManagement.newClientForm,
-                  name: e.target.value
-                })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">{t('invoices.email')}</label>
-              <input
-                className="w-full p-2 border rounded"
-                type="email"
-                value={clientManagement.newClientForm.email}
-                onChange={(e) => clientManagement.setNewClientForm({
-                  ...clientManagement.newClientForm,
-                  email: e.target.value
-                })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">{t('invoices.phone')}</label>
-              <input
-                className="w-full p-2 border rounded"
-                value={clientManagement.newClientForm.phone || ''}
-                onChange={(e) => clientManagement.setNewClientForm({
-                  ...clientManagement.newClientForm,
-                  phone: e.target.value
-                })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">{t('invoices.address')}</label>
-              <input
-                className="w-full p-2 border rounded"
-                value={clientManagement.newClientForm.address || ''}
-                onChange={(e) => clientManagement.setNewClientForm({
-                  ...clientManagement.newClientForm,
-                  address: e.target.value
-                })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">{t('invoices.preferred_currency')}</label>
-              <CurrencySelector
-                value={clientManagement.newClientForm.preferred_currency || invoiceForm.tenantInfo?.default_currency || 'USD'}
-                onValueChange={(val) => clientManagement.setNewClientForm({ ...clientManagement.newClientForm, preferred_currency: val })}
-                placeholder={t('invoices.select_preferred_currency')}
-              />
-            </div>
+            {/* Attachment Section */}
+            <InvoiceAttachmentSection
+              isEdit={isEdit}
+              invoiceAttachments={attachmentManagement.invoiceAttachments}
+              existingAttachments={attachmentManagement.existingAttachments}
+              attachmentPreview={attachmentManagement.attachmentPreview}
+              attachmentPreviewLoading={attachmentManagement.attachmentPreviewLoading}
+              onAddFiles={attachmentManagement.addFiles}
+              onRemoveNewFile={attachmentManagement.removeNewFile}
+              onPreviewExisting={attachmentManagement.previewExistingAttachment}
+              onPreviewNew={attachmentManagement.previewNewAttachment}
+              onDownload={attachmentManagement.downloadAttachment}
+              onDelete={attachmentManagement.deleteAttachment}
+              onClosePreview={attachmentManagement.closePreview}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              clientManagement.setShowNewClientDialog(false);
-              clientManagement.resetNewClientForm();
-            }}>
-              {t('invoices.cancel')}
-            </Button>
-            <Button onClick={handleCreateClientWithCallback}>
-              {t('invoices.add_client')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Attachment Preview Modal */}
-      <Dialog
-        open={attachmentManagement.attachmentPreview.open}
-        onOpenChange={(open) => {
-          if (!open) attachmentManagement.closePreview();
-        }}
-      >
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>
-              {attachmentManagement.attachmentPreview.filename || t('invoices.preview')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[70vh] overflow-auto">
-            {attachmentManagement.attachmentPreview.url &&
-              (attachmentManagement.attachmentPreview.contentType || '').startsWith('image/') && (
-                <img
-                  src={attachmentManagement.attachmentPreview.url}
-                  alt={attachmentManagement.attachmentPreview.filename || 'attachment'}
-                  className="max-w-full h-auto"
-                />
-              )}
-            {attachmentManagement.attachmentPreview.url &&
-              attachmentManagement.attachmentPreview.contentType === 'application/pdf' && (
-                <iframe
-                  src={attachmentManagement.attachmentPreview.url}
-                  className="w-full h-[70vh]"
-                  title="PDF Preview"
-                />
-              )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          {/* Payment Section - Only show for approved invoices or when payment editing is allowed */}
+          {isEdit && (invoice?.status === 'approved' || canEditPayment) && (
+            <InvoicePaymentSection
+              form={invoiceForm.form}
+              canEditPayment={canEditPayment}
+            />
+          )}
+
+          {/* Form Actions */}
+          {renderButtons && !isEdit && (
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 p-4 bg-background/80 backdrop-blur-2xl border border-border/50 rounded-3xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-10 duration-500">
+              <ProfessionalButton
+                type="button"
+                variant="outline"
+                onClick={() => onFormCancel ? onFormCancel() : navigate('/invoices')}
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
+                className="rounded-2xl"
+              >
+                {t('invoices.cancel')}
+              </ProfessionalButton>
+              <ProfessionalButton
+                type="submit"
+                variant="gradient"
+                loading={invoiceForm.submitting}
+                leftIcon={<Save className="h-4 w-4" />}
+                className="rounded-2xl px-8"
+              >
+                {t('invoices.create_invoice')}
+              </ProfessionalButton>
+            </div>
+          )}
+
+          {/* Hidden submit button for external triggering */}
+          <button type="submit" style={{ display: 'none' }} ref={submitButtonRef} />
+        </form>
+      </Form>
     </div>
   );
 }

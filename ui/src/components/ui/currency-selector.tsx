@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Label } from './label';
-import { fetchCurrenciesWithCache } from '@/hooks/useCurrencyCache';
+import { currencyApi } from '@/lib/api';
 
 interface Currency {
   id: number;
@@ -37,38 +38,35 @@ export function CurrencySelector({
 }: CurrencySelectorProps) {
   // Handle empty/null values by using fallback - ensure we always have a value
   const effectiveValue = value || "USD";
-  const [currencies, setCurrencies] = useState<Currency[]>(FALLBACK_CURRENCIES);
-  const [loading, setLoading] = useState(true);
+
+  // Fetch currencies with React Query for better caching
+  const { data: currenciesData = FALLBACK_CURRENCIES, isLoading: loading, error: apiError } = useQuery({
+    queryKey: ['currencies'],
+    queryFn: () => currencyApi.getSupportedCurrencies(),
+    staleTime: 1000 * 60 * 30, // 30 minutes cache
+    gcTime: 1000 * 60 * 60, // 1 hour garbage collection
+    retry: 1,
+  });
+
   const [error, setError] = useState<string | null>(null);
-  const hasLoadedRef = useRef(false);
+  const hasNotifiedRef = useRef(false);
 
   useEffect(() => {
-    if (hasLoadedRef.current) return;
-    
-    const fetchCurrencies = async () => {
-      setLoading(true);
-      try {
-        const data = await fetchCurrenciesWithCache();
-        if (data && data.length > 0) {
-          setCurrencies(data);
-          console.log("Currencies loaded:", data.length, "currencies");
-        } else {
-          setError('No currencies available from API.');
-        }
-      } catch (err) {
-        setError('API unavailable - using default currencies');
-      } finally {
-        setLoading(false);
-        hasLoadedRef.current = true;
-        if (onCurrenciesLoaded) {
-          onCurrenciesLoaded();
-        }
-      }
-    };
+    if (apiError) {
+      setError('API unavailable - using default currencies');
+    } else {
+      setError(null);
+    }
+  }, [apiError]);
 
-    fetchCurrencies();
-  }, [onCurrenciesLoaded]);
+  useEffect(() => {
+    if (!loading && !hasNotifiedRef.current && onCurrenciesLoaded) {
+      hasNotifiedRef.current = true;
+      onCurrenciesLoaded();
+    }
+  }, [loading, onCurrenciesLoaded]);
 
+  const currencies = Array.isArray(currenciesData) ? currenciesData : FALLBACK_CURRENCIES;
   const activeCurrencies = currencies.filter(c => c.is_active);
 
   const formatCurrency = (currency: Currency) => {

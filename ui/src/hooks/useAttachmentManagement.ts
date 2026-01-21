@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Invoice, invoiceApi, API_BASE_URL } from "@/lib/api";
+import { Invoice, invoiceApi, API_BASE_URL, InvoiceAttachmentMeta } from "@/lib/api";
 
 interface UseAttachmentManagementProps {
   invoice?: Invoice;
@@ -13,142 +13,93 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
   const { t } = useTranslation();
 
   // Attachment state
-  const [invoiceAttachment, setInvoiceAttachment] = useState<File | null>(null);
-  const [attachmentInfo, setAttachmentInfo] = useState<{ has_attachment: boolean, filename?: string } | null>(null);
+  const [invoiceAttachments, setInvoiceAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<InvoiceAttachmentMeta[]>([]);
   const [attachmentPreview, setAttachmentPreview] = useState<{
     open: boolean;
     url: string | null;
     contentType: string | null;
-    filename: string | null
+    filename: string | null;
   }>({ open: false, url: null, contentType: null, filename: null });
   const [attachmentPreviewLoading, setAttachmentPreviewLoading] = useState<{
-    type: 'existing' | 'new';
-    loading: boolean
-  }>({ type: 'existing', loading: false });
+    id: number | string | null;
+    loading: boolean;
+  }>({ id: null, loading: false });
 
-  // Initialize attachment info when invoice changes
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Initialize from invoice
   useEffect(() => {
-    if (invoice) {
-      console.log("🔍 INITIALIZING attachmentInfo from invoice:", {
-        has_attachment: invoice.has_attachment,
-        attachment_filename: invoice.attachment_filename
-      });
-      setAttachmentInfo({
-        has_attachment: invoice.has_attachment || !!invoice.attachment_filename,
-        filename: invoice.attachment_filename
-      });
+    if (invoice?.attachments) {
+      setExistingAttachments(invoice.attachments);
     } else {
-      setAttachmentInfo(null);
+      setExistingAttachments([]);
     }
   }, [invoice]);
 
-  // Handle attachment prop changes
+  // Handle attachment prop (for new invoices with initial attachment)
   useEffect(() => {
-    if (attachment && !isEdit) {
-      console.log("🔍 ATTACHMENT PROP CHANGED - Setting attachment:", {
-        name: attachment.name,
-        size: attachment.size,
-        type: attachment.type
-      });
-      setInvoiceAttachment(attachment);
+    if (attachment && !isEdit && invoiceAttachments.length === 0) {
+      setInvoiceAttachments([attachment]);
     }
-  }, [attachment, isEdit]);
+  }, [attachment, isEdit, invoiceAttachments.length]);
 
   // Preview existing attachment
-  const previewExistingAttachment = useCallback(async () => {
+  const previewExistingAttachment = useCallback(async (attachmentId: number) => {
     if (!invoice?.id) return;
 
-    setAttachmentPreviewLoading({ type: 'existing', loading: true });
+    setAttachmentPreviewLoading({ id: attachmentId, loading: true });
     try {
-      const blob = await invoiceApi.previewAttachmentBlob(invoice.id);
+      const blob = await invoiceApi.previewAttachmentBlob(invoice.id, attachmentId);
       const url = window.URL.createObjectURL(blob);
-      const filename = attachmentInfo?.filename || invoice.attachment_filename || 'attachment';
+      const att = existingAttachments.find(a => a.id === attachmentId);
+      const filename = att?.filename || 'attachment';
       setAttachmentPreview({ open: true, url, contentType: blob.type || null, filename });
     } catch (e) {
       console.error('Preview failed:', e);
       toast.error(t('invoices.preview_failed', { defaultValue: 'Preview failed' }));
     } finally {
-      setAttachmentPreviewLoading({ type: 'existing', loading: false });
+      setAttachmentPreviewLoading({ id: null, loading: false });
     }
-  }, [invoice, attachmentInfo, t]);
+  }, [invoice?.id, existingAttachments, t]);
 
   // Preview new attachment
-  const previewNewAttachment = useCallback(async () => {
-    if (!invoiceAttachment) return;
+  const previewNewAttachment = useCallback(async (index: number) => {
+    const file = invoiceAttachments[index];
+    if (!file) return;
 
-    setAttachmentPreviewLoading({ type: 'new', loading: true });
+    setAttachmentPreviewLoading({ id: `new-${index}`, loading: true });
     try {
-      const url = window.URL.createObjectURL(invoiceAttachment);
+      const url = window.URL.createObjectURL(file);
       setAttachmentPreview({
         open: true,
         url,
-        contentType: invoiceAttachment.type || null,
-        filename: invoiceAttachment.name
+        contentType: file.type || null,
+        filename: file.name
       });
     } catch (e) {
       console.error('Preview failed:', e);
       toast.error(t('invoices.preview_failed', { defaultValue: 'Preview failed' }));
     } finally {
-      setAttachmentPreviewLoading({ type: 'new', loading: false });
+      setAttachmentPreviewLoading({ id: null, loading: false });
     }
-  }, [invoiceAttachment, t]);
+  }, [invoiceAttachments, t]);
 
   // Download attachment
-  const downloadAttachment = useCallback(async () => {
+  const downloadAttachment = useCallback(async (attachmentId: number) => {
+    if (!invoice?.id) return;
+    invoiceApi.downloadAttachment(invoice.id, attachmentId);
+  }, [invoice?.id]);
+
+  // Delete existing attachment
+  const deleteAttachment = useCallback(async (attachmentId: number, onUpdate?: (updatedInvoice: Invoice) => void) => {
     if (!invoice?.id) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const tenantId = localStorage.getItem('selected_tenant_id') ||
-        (() => {
-          try {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            return user.tenant_id?.toString();
-          } catch { return undefined; }
-        })();
+      await invoiceApi.deleteAttachment(invoice.id, attachmentId);
+      setExistingAttachments(prev => prev.filter(a => a.id !== attachmentId));
 
-      const response = await fetch(`${API_BASE_URL}/invoices/${invoice.id}/download-attachment`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-ID': tenantId || '1'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const downloadFilename = attachmentInfo?.filename || invoice?.attachment_filename || 'attachment';
-      console.log("🔍 DOWNLOAD FILENAME:", downloadFilename);
-      a.download = downloadFilename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast.error(t('invoices.download_failed'));
-    }
-  }, [invoice, attachmentInfo, t]);
-
-  // Delete attachment
-  const deleteAttachment = useCallback(async (onUpdate?: (updatedInvoice: Invoice) => void) => {
-    if (!invoice?.id) {
-      toast.error(t('invoices.delete_failed_no_id', { defaultValue: 'Failed to delete attachment: Invoice ID not found' }));
-      return;
-    }
-
-    try {
-      await invoiceApi.updateInvoice(invoice.id, { attachment_filename: null });
-      setAttachmentInfo(null);
-      setInvoiceAttachment(null);
-
-      if (onUpdate && invoice) {
+      if (onUpdate) {
         const updatedInvoice = await invoiceApi.getInvoice(invoice.id);
         onUpdate(updatedInvoice);
       }
@@ -158,39 +109,46 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
       console.error('Failed to delete attachment:', error);
       toast.error(t('invoices.delete_attachment_failed', { defaultValue: 'Failed to delete attachment' }));
     }
-  }, [invoice, t]);
+  }, [invoice?.id, t]);
 
-  // Upload attachment
-  const uploadAttachment = useCallback(async (invoiceId: number) => {
-    if (!invoiceAttachment) return null;
+  // Upload all attachments
+  const uploadAttachments = useCallback(async (invoiceId: number) => {
+    if (invoiceAttachments.length === 0) return [];
 
-    console.log("✅ STARTING ATTACHMENT UPLOAD for invoice:", invoiceId);
-    try {
-      const uploadResult = await invoiceApi.uploadAttachment(invoiceId, invoiceAttachment);
-      console.log("✅ UPLOAD API CALL COMPLETED - Upload result:", uploadResult);
-
-      setAttachmentInfo({
-        has_attachment: true,
-        filename: uploadResult.filename
-      });
-
-      setInvoiceAttachment(null);
-      toast.success("Invoice saved with attachment successfully!");
-
-      return uploadResult;
-    } catch (attachmentError) {
-      console.error("❌ ATTACHMENT UPLOAD FAILED:", attachmentError);
-      toast.error("Invoice saved successfully, but attachment upload failed");
-      throw attachmentError;
+    setIsUploading(true);
+    console.log("✅ STARTING ATTACHMENTS UPLOAD for invoice:", invoiceId);
+    const results = [];
+    for (const file of invoiceAttachments) {
+      try {
+        const result = await invoiceApi.uploadAttachment(invoiceId, file);
+        results.push(result);
+      } catch (error) {
+        console.error(`❌ ATTACHMENT UPLOAD FAILED for ${file.name}:`, error);
+        toast.error(`Failed to upload ${file.name}`);
+      }
     }
-  }, [invoiceAttachment, t]);
 
-  // Handle attachment file selection
-  const handleFileSelect = useCallback((file: File | null) => {
-    setInvoiceAttachment(file);
+    setInvoiceAttachments([]);
+    setIsUploading(false);
+    if (results.length > 0) {
+      toast.success(t('invoices.attachments_uploaded', { count: results.length, defaultValue: 'Attachments uploaded successfully' }));
+    }
+    return results;
+  }, [invoiceAttachments, t]);
+
+  // Add file(s)
+  const addFiles = useCallback((files: FileList | File[] | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setInvoiceAttachments(prev => [...prev, ...newFiles]);
   }, []);
 
-  // Close preview modal
+  // Remove new file
+  const removeNewFile = useCallback((index: number) => {
+    setInvoiceAttachments(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Close preview
   const closePreview = useCallback(() => {
     if (attachmentPreview.url) {
       URL.revokeObjectURL(attachmentPreview.url);
@@ -199,23 +157,18 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
   }, [attachmentPreview.url]);
 
   return {
-    // State
-    invoiceAttachment,
-    attachmentInfo,
+    invoiceAttachments,
+    existingAttachments,
     attachmentPreview,
     attachmentPreviewLoading,
-
-    // Actions
+    isUploading,
     previewExistingAttachment,
     previewNewAttachment,
     downloadAttachment,
     deleteAttachment,
-    uploadAttachment,
-    handleFileSelect,
+    uploadAttachments,
+    addFiles,
+    removeNewFile,
     closePreview,
-
-    // Setters
-    setAttachmentInfo,
-    setInvoiceAttachment,
   };
 }

@@ -8,7 +8,7 @@ import sys
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.services.ocr_service import _get_ai_config_from_env
+from commercial.ai.services.ocr_service import _get_ai_config_from_env
 
 
 def test_env_fallback():

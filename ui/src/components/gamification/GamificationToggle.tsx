@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -18,11 +18,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Trophy, Settings, AlertTriangle, Info } from 'lucide-react';
+import { Trophy, Settings, AlertTriangle, Info, CheckCircle2, Moon, Sparkles, TrendingUp } from 'lucide-react';
 import { useGamification } from '@/hooks/useGamification';
 import { useTranslation } from 'react-i18next';
 import { DataRetentionPolicy, NotificationFrequency } from '@/types/gamification';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export function GamificationToggle() {
   const { t } = useTranslation();
@@ -88,11 +90,13 @@ export function GamificationToggle() {
 
   return (
     <>
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2">
-          <Trophy className="h-4 w-4 text-yellow-500" />
-          <span className="text-sm font-medium">{t('settings.gamification.title')}</span>
-          <Badge variant={isEnabled ? "default" : "secondary"} className="text-xs">
+      <div className="flex items-center gap-4 bg-muted/40 p-2 rounded-lg border border-border/50 shadow-sm">
+        <div className="flex items-center gap-2 px-2">
+          <div className={cn("p-1.5 rounded-full", isEnabled ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" : "bg-muted text-muted-foreground")}>
+            <Trophy className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-medium hidden sm:inline-block">{t('settings.gamification.title')}</span>
+          <Badge variant={isEnabled ? "default" : "secondary"} className={cn("text-xs font-normal", isEnabled ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" : "")}>
             {isEnabled ? t('settings.gamification.enabled') : t('settings.gamification.disabled')}
           </Badge>
         </div>
@@ -100,70 +104,78 @@ export function GamificationToggle() {
           checked={isEnabled}
           onCheckedChange={handleToggle}
           disabled={loading}
+          className="data-[state=checked]:bg-green-600"
         />
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
+            <DialogTitle className="flex items-center gap-2 text-xl">
               {isEnabling ? (
                 <>
-                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  <div className="bg-yellow-100 p-2 rounded-full">
+                    <Trophy className="h-5 w-5 text-yellow-600" />
+                  </div>
                   <span>{t('settings.gamification.toggle_title')}</span>
                 </>
               ) : (
                 <>
-                  <Settings className="h-5 w-5 text-gray-500" />
+                  <div className="bg-gray-100 p-2 rounded-full">
+                    <Settings className="h-5 w-5 text-gray-500" />
+                  </div>
                   <span>{t('settings.gamification.disable_title')}</span>
                 </>
               )}
             </DialogTitle>
-            <DialogDescription>
-              {isEnabling ? (
-                <>
-                  {t('settings.gamification.enable_description')}
-                </>
-              ) : (
-                <>
-                  {t('settings.gamification.disable_description')}
-                </>
-              )}
+            <DialogDescription className="pt-2 text-base">
+              {isEnabling ? t('settings.gamification.enable_description') : t('settings.gamification.disable_description')}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-6 py-4">
             {/* Data Retention Policy */}
-            <div className="space-y-2">
-              <Label htmlFor="retention-policy">{t('settings.gamification.data_retention_policy')}</Label>
+            <div className="space-y-3">
+              <Label htmlFor="retention-policy" className="text-sm font-medium text-foreground">
+                {t('settings.gamification.data_retention_policy')}
+              </Label>
               <Select
                 value={dataRetentionPolicy}
                 onValueChange={(value) => setDataRetentionPolicy(value as DataRetentionPolicy)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full h-auto py-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={DataRetentionPolicy.PRESERVE}>
+                  <SelectItem value={DataRetentionPolicy.PRESERVE} className="py-3">
                     <div className="space-y-1">
-                      <div className="font-medium">{t('settings.gamification.preserve_data.label')}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        {t('settings.gamification.preserve_data.label')}
+                      </div>
+                      <div className="text-xs text-muted-foreground pl-6">
                         {t('settings.gamification.preserve_data.description')}
                       </div>
                     </div>
                   </SelectItem>
-                  <SelectItem value={DataRetentionPolicy.ARCHIVE}>
+                  <SelectItem value={DataRetentionPolicy.ARCHIVE} className="py-3">
                     <div className="space-y-1">
-                      <div className="font-medium">{t('settings.gamification.archive_data.label')}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="font-semibold flex items-center gap-2">
+                        <Moon className="w-4 h-4 text-blue-600" />
+                        {t('settings.gamification.archive_data.label')}
+                      </div>
+                      <div className="text-xs text-muted-foreground pl-6">
                         {t('settings.gamification.archive_data.description')}
                       </div>
                     </div>
                   </SelectItem>
-                  <SelectItem value={DataRetentionPolicy.DELETE}>
+                  <SelectItem value={DataRetentionPolicy.DELETE} className="py-3">
                     <div className="space-y-1">
-                      <div className="font-medium">{t('settings.gamification.delete_data.label')}</div>
-                      <div className="text-xs text-gray-600">
+                      <div className="font-semibold flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="w-4 h-4" />
+                        {t('settings.gamification.delete_data.label')}
+                      </div>
+                      <div className="text-xs text-muted-foreground pl-6">
                         {t('settings.gamification.delete_data.description')}
                       </div>
                     </div>
@@ -174,45 +186,53 @@ export function GamificationToggle() {
 
             {/* Warning for delete policy */}
             {dataRetentionPolicy === DataRetentionPolicy.DELETE && (
-              <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-red-800">{t('settings.gamification.warning')}</p>
-                  <p className="text-red-600">
-                    {t('settings.gamification.delete_warning')}
-                  </p>
-                </div>
-              </div>
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{t('settings.gamification.warning')}</AlertTitle>
+                <AlertDescription>
+                  {t('settings.gamification.delete_warning')}
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Info about enabling */}
             {isEnabling && (
-              <div className="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <Info className="h-4 w-4 text-blue-500 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-blue-800">{t('settings.gamification.what_you_get')}</p>
-                  <ul className="text-blue-600 mt-1 space-y-1">
-                    <li>• {t('settings.gamification.benefits.points')}</li>
-                    <li>• {t('settings.gamification.benefits.achievements')}</li>
-                    <li>• {t('settings.gamification.benefits.streaks')}</li>
-                    <li>• {t('settings.gamification.benefits.challenges')}</li>
-                    <li>• {t('settings.gamification.benefits.wellness')}</li>
+              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800">
+                <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertTitle className="text-blue-800 dark:text-blue-300">{t('settings.gamification.what_you_get')}</AlertTitle>
+                <AlertDescription className="text-blue-700 dark:text-blue-400 mt-2">
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <Trophy className="w-3 h-3" /> {t('settings.gamification.benefits.points')}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Sparkles className="w-3 h-3" /> {t('settings.gamification.benefits.achievements')}
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <TrendingUp className="w-3 h-3" /> {t('settings.gamification.benefits.streaks')}
+                    </li>
                   </ul>
-                </div>
-              </div>
+                </AlertDescription>
+              </Alert>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <ProfessionalButton variant="ghost" onClick={() => setShowDialog(false)}>
               {t('common.cancel')}
-            </Button>
-            <Button onClick={handleConfirm}>
+            </ProfessionalButton>
+            <ProfessionalButton
+              variant={isEnabling ? "gradient" : "destructive"}
+              onClick={handleConfirm}
+              className={isEnabling ? "bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 border-0" : ""}
+            >
               {isEnabling ? t('settings.gamification.toggle_title') : t('settings.gamification.disable_title')}
-            </Button>
+            </ProfessionalButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+export default GamificationToggle;

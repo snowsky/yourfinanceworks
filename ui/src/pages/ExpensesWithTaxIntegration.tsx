@@ -209,7 +209,7 @@ const ExpensesWithTaxIntegration = () => {
               <SelectItem value="all">{t('common.all')}</SelectItem>
               {categoryOptions.map((category) => (
                 <SelectItem key={category} value={category}>
-                  {category}
+                  {t(`expenses.categories.${category}`)}
                 </SelectItem>
               ))}
             </SelectContent>

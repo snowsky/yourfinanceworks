@@ -33,7 +33,7 @@ export const LicenseAlert: React.FC<LicenseAlertProps> = ({
           className="flex-shrink-0 ml-2"
         >
           <Link to="/settings?tab=license">
-            {t('license.upgrade', 'Upgrade')}
+            {t('settings.license.upgrade', 'Upgrade')}
           </Link>
         </Button>
       </div>
@@ -46,7 +46,7 @@ export const LicenseAlert: React.FC<LicenseAlertProps> = ({
         <Lock className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
-            {t('license.required', 'License Required')}
+            {t('settings.license.required', 'License Required')}
           </h3>
           <p className="text-sm text-amber-800 dark:text-amber-200">
             {message}
@@ -60,7 +60,7 @@ export const LicenseAlert: React.FC<LicenseAlertProps> = ({
           variant="default"
         >
           <Link to="/settings?tab=license">
-            {t('license.upgrade', 'Upgrade License')}
+            {t('settings.license.upgrade', 'Upgrade License')}
           </Link>
         </Button>
       </div>

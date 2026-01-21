@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.models.database import get_db
 from core.models.models import AIConfig
 from sqlalchemy.orm import Session
+from config import APP_NAME
 
 def test_litellm_with_mcp():
     """Test if LiteLLM can use MCP tools for invoice analysis"""
@@ -61,7 +62,7 @@ def test_litellm_with_mcp():
         
         # Create a prompt that should trigger MCP-like analysis
         mcp_prompt = """
-        You are an AI assistant for an invoice management system. 
+        You are an AI assistant for {APP_NAME}. 
         When users ask to "analyze invoice patterns" or "suggest actions", 
         you should use the available tools to provide detailed analysis.
         

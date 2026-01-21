@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { APP_NAME } from '../../constants/app';
 
 interface OnboardingStep {
   id: string;
@@ -30,6 +31,7 @@ interface OnboardingContextType {
   showWelcome: boolean;
   setShowWelcome: (show: boolean) => void;
   markAsCompleted: (tourId: string) => void;
+  getLastVisibleStep: () => number;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -37,117 +39,166 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 const TOURS: OnboardingTour[] = [
   {
     id: 'dashboard',
-    name: 'Dashboard Overview',
+    name: 'Finance Command Center',
     steps: [
       {
         id: 'welcome',
-        title: 'Welcome to Invoice Manager!',
-        content: 'Let\'s take a quick tour to get you started with managing your invoices and clients.',
+        title: 'Welcome to Your Finance Platform',
+        content: 'Let\'s take a brief tour of your new financial command center, designed to give you total clarity and control over your business growth.',
         target: '[data-tour="dashboard-welcome"]',
         placement: 'bottom'
       },
       {
+        id: 'header',
+        title: 'Personalized Overview',
+        content: 'Your dashboard provides a high-level summary of your financial status and quick access to essential management tools.',
+        target: '[data-tour="dashboard-header"]',
+        placement: 'bottom'
+      },
+      {
         id: 'stats',
-        title: 'Financial Overview',
-        content: 'These cards show your key financial metrics - total income, pending amounts, client count, and overdue invoices.',
+        title: 'Critical Metrics',
+        content: 'Monitor your vital signs—total revenue, pending receivables, active client base, and overdue accounts—all in real-time.',
         target: '[data-tour="dashboard-stats"]',
         placement: 'bottom'
       },
       {
         id: 'chart',
-        title: 'Invoice Analytics',
-        content: 'This chart visualizes your invoice trends over time to help you track your business performance.',
-        target: '[data-tour="dashboard-chart"]',
+        title: 'Performance Analytics',
+        content: 'Visualize your revenue trends and business trajectory with high-fidelity charts, helping you make data-driven decisions.',
+        target: '[data-tour="dashboard-revenue-chart"]',
         placement: 'top'
       },
       {
         id: 'recent',
-        title: 'Recent Activity',
-        content: 'Keep track of your latest invoices and their status at a glance.',
+        title: 'Real-time Activity',
+        content: 'Stay informed with a live feed of your latest transactions, invoices, and financial events.',
         target: '[data-tour="dashboard-recent"]',
+        placement: 'top'
+      },
+      {
+        id: 'quick-actions',
+        title: 'Efficiency Hub',
+        content: 'Execute frequent tasks with precision—create invoices, log expenses, and record payments directly from here.',
+        target: '[data-tour="dashboard-quick-actions"]',
+        placement: 'top'
+      },
+      {
+        id: 'payment-trends',
+        title: 'Liquidity Insights',
+        content: 'Analyze your cash flow health with deep-dive metrics on payment cycles and collection efficiency.',
+        target: '[data-tour="dashboard-payment-trends"]',
+        placement: 'top'
+      },
+      {
+        id: 'business-health',
+        title: 'Strategic Growth',
+        content: 'Get a comprehensive view of your business health, including growth rates and client retention metrics.',
+        target: '[data-tour="dashboard-business-health"]',
         placement: 'top'
       }
     ]
   },
   {
     id: 'navigation',
-    name: 'Navigation Tour',
+    name: 'Integrated Navigation',
     steps: [
       {
         id: 'sidebar',
-        title: 'Main Navigation',
-        content: 'Use this sidebar to navigate between different sections of your invoice management system.',
+        title: 'Unified Sidebar',
+        content: `Access your entire suite of financial management tools from this centralized navigation hub.`,
         target: '[data-tour="sidebar"]',
         placement: 'right'
       },
       {
+        id: 'dashboard',
+        title: 'Insights Dashboard',
+        content: 'Your primary workspace for financial intelligence and real-time performance monitoring.',
+        target: '[data-tour="nav-dashboard"]',
+        placement: 'right'
+      },
+      {
         id: 'clients',
-        title: 'Client Management',
-        content: 'Manage your client information, contact details, and view their invoice history.',
+        title: 'Client Capital',
+        content: 'Manage your client ecosystem, track historical interactions, and optimize relationships.',
         target: '[data-tour="nav-clients"]',
         placement: 'right'
       },
       {
         id: 'invoices',
-        title: 'Invoices Section',
-        content: 'Create, edit, and manage all your invoices here. You can also send them directly to clients.',
+        title: 'Revenue Management',
+        content: 'Generate professional invoices and manage your accounts receivable with ease.',
         target: '[data-tour="nav-invoices"]',
         placement: 'right'
       },
       {
         id: 'payments',
-        title: 'Payment Management',
-        content: 'Track and record payments from clients, view payment history, and manage outstanding balances.',
+        title: 'Cash Flow Control',
+        content: 'Track inbound payments, reconcile balances, and maintain a healthy cash position.',
         target: '[data-tour="nav-payments"]',
         placement: 'right'
       },
       {
         id: 'expenses',
-        title: 'Expense Tracking',
-        content: 'Record business expenses, categorize costs, and link expenses to invoices for better financial tracking.',
+        title: 'Outbound Optimization',
+        content: 'Log business expenses and categorize costs to maximize tax efficiency and budget control.',
         target: '[data-tour="nav-expenses"]',
         placement: 'right'
       },
       {
         id: 'approvals',
-        title: 'Approval Workflows',
-        content: 'Set up and manage expense approval processes to ensure proper authorization before processing expenses.',
+        title: 'Governance & Compliance',
+        content: 'Streamline your internal controls with automated expense approval workflows.',
         target: '[data-tour="nav-approvals"]',
         placement: 'right'
       },
       {
         id: 'inventory',
-        title: 'Inventory Management',
-        content: 'Track and manage your inventory items, stock levels, and inventory transactions.',
+        title: 'Asset Management',
+        content: 'Maintain precise inventory levels and track your physical assets across the enterprise.',
         target: '[data-tour="nav-inventory"]',
         placement: 'right'
       },
       {
         id: 'bank-statements',
-        title: 'Statement Management',
-        content: 'Import and manage bank statements to reconcile transactions and maintain accurate financial records.',
+        title: 'Bank Reconciliation',
+        content: 'Seamlessly import and reconcile bank statements to ensure accounting accuracy.',
         target: '[data-tour="nav-statements"]',
         placement: 'right'
       },
       {
         id: 'reminders',
-        title: 'Automated Reminders',
-        content: 'Configure automated payment reminders and notifications for overdue invoices.',
+        title: 'Automated Outreach',
+        content: 'Let the system handle payment reminders, ensuring you get paid faster without the manual effort.',
         target: '[data-tour="nav-reminders"]',
         placement: 'right'
       },
       {
         id: 'reports',
-        title: 'Reports & Analytics',
-        content: 'Generate detailed reports and analytics to gain insights into your business performance.',
+        title: 'Business Intelligence',
+        content: 'Generate comprehensive financial reports and export data for accounting or auditing.',
         target: '[data-tour="nav-reports"]',
         placement: 'right'
       },
       {
         id: 'settings',
-        title: 'Settings & Configuration',
-        content: 'Customize your experience, set up email delivery, and configure your business details.',
+        title: 'Global Configuration',
+        content: 'Customize the platform to fit your specific business requirements and branding.',
         target: '[data-tour="nav-settings"]',
+        placement: 'right'
+      },
+      {
+        id: 'users',
+        title: 'Team Collaboration',
+        content: 'Manage organizational access, roles, and permissions for your entire team.',
+        target: '[data-tour="nav-users"]',
+        placement: 'right'
+      },
+      {
+        id: 'audit-log',
+        title: 'System Transparency',
+        content: 'Review a secure audit trail of all system activities for full accountability.',
+        target: '[data-tour="nav-audit-log"]',
         placement: 'right'
       }
     ]
@@ -188,24 +239,76 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       navigate(`/?tour=${tourId}`);
       return;
     }
-    
+
     setCurrentTour(tourId);
-    setCurrentStep(0);
+
+    // Find the first available step (skip steps where target doesn't exist)
+    const tour = TOURS.find(t => t.id === tourId);
+    if (tour) {
+      let firstAvailableStep = 0;
+      while (firstAvailableStep < tour.steps.length) {
+        const targetElement = document.querySelector(tour.steps[firstAvailableStep].target);
+        if (targetElement) {
+          break;
+        }
+        firstAvailableStep++;
+      }
+      setCurrentStep(firstAvailableStep);
+    } else {
+      setCurrentStep(0);
+    }
+
     setIsActive(true);
+  };
+
+  const handleStepNavigation = (targetElement: HTMLElement) => {
+    // If the target is a navigation link, click it to navigate to the page
+    const link = targetElement.closest('a');
+    if (link && link.href) {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('http')) {
+        // It's a relative link, navigate using React Router
+        navigate(href);
+      }
+    }
   };
 
   const nextStep = () => {
     const tour = TOURS.find(t => t.id === currentTour);
-    if (tour && currentStep < tour.steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
+    if (tour) {
+      let nextStepIndex = currentStep + 1;
+
+      // Skip steps where the target element doesn't exist (for role-based menu items)
+      while (nextStepIndex < tour.steps.length) {
+        const targetElement = document.querySelector(tour.steps[nextStepIndex].target) as HTMLElement;
+        if (targetElement) {
+          setCurrentStep(nextStepIndex);
+          handleStepNavigation(targetElement);
+          return;
+        }
+        nextStepIndex++;
+      }
+
+      // If we've gone through all remaining steps, end the tour
       endTour();
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+    const tour = TOURS.find(t => t.id === currentTour);
+    if (tour && currentStep > 0) {
+      let prevStepIndex = currentStep - 1;
+
+      // Skip steps where the target element doesn't exist (for role-based menu items)
+      while (prevStepIndex >= 0) {
+        const targetElement = document.querySelector(tour.steps[prevStepIndex].target) as HTMLElement;
+        if (targetElement) {
+          setCurrentStep(prevStepIndex);
+          handleStepNavigation(targetElement);
+          return;
+        }
+        prevStepIndex--;
+      }
     }
   };
 
@@ -220,12 +323,28 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setIsActive(false);
     setCurrentTour(null);
     setCurrentStep(0);
+    // Navigate back to dashboard
+    navigate('/');
   };
 
   const markAsCompleted = (tourId: string) => {
     const updated = [...completedTours, tourId];
     setCompletedTours(updated);
     localStorage.setItem('onboarding-completed', JSON.stringify(updated));
+  };
+
+  const getLastVisibleStep = () => {
+    const tour = TOURS.find(t => t.id === currentTour);
+    if (!tour) return 0;
+
+    // Find the last step that has a visible target element
+    for (let i = tour.steps.length - 1; i >= 0; i--) {
+      const targetElement = document.querySelector(tour.steps[i].target);
+      if (targetElement) {
+        return i;
+      }
+    }
+    return 0;
   };
 
   return (
@@ -243,7 +362,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         isFirstTime,
         showWelcome,
         setShowWelcome,
-        markAsCompleted
+        markAsCompleted,
+        getLastVisibleStep
       }}
     >
       {children}

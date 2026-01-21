@@ -13,18 +13,18 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from typing import Dict, List, Any
 
-from api.services.key_rotation_service import (
+from core.services.key_rotation_service import (
     KeyRotationService,
     RotationStatus,
     RotationPhase,
     RotationJob,
     get_key_rotation_service
 )
-from api.services.key_management_service import KeyManagementService
-from api.services.encryption_service import EncryptionService
-from api.utils.data_reencryption import DataReencryptionUtility
-from api.services.encrypted_backup_service import EncryptedBackupService
-from api.exceptions.encryption_exceptions import (
+from core.services.key_management_service import KeyManagementService
+from core.services.encryption_service import EncryptionService
+from core.utils.data_reencryption import DataReencryptionService
+from core.services.encrypted_backup_service import EncryptedBackupService
+from core.exceptions.encryption_exceptions import (
     KeyRotationError,
     EncryptionError,
     KeyNotFoundError
@@ -349,7 +349,7 @@ class TestDataReencryption:
     @pytest.fixture
     def mock_data_reencryption(self):
         """Mock data re-encryption utility."""
-        with patch('api.utils.data_reencryption.DataReencryptionUtility') as mock_class:
+        with patch('api.utils.data_reencryption.DataReencryptionService') as mock_class:
             mock_instance = Mock()
             mock_instance.reencrypt_tenant_data.return_value = {
                 'records_processed': 1000,
@@ -363,14 +363,14 @@ class TestDataReencryption:
     @pytest.mark.asyncio
     async def test_data_reencryption_integration(self, mock_data_reencryption):
         """Test integration with data re-encryption utility."""
-        from api.utils.data_reencryption import DataReencryptionUtility
+        from core.utils.data_reencryption import DataReencryptionService
         
         tenant_id = 1
         old_key_id = "old-key-123"
         new_key_id = "new-key-456"
         
         # Create utility instance
-        utility = DataReencryptionUtility()
+        utility = DataReencryptionService()
         
         # Execute re-encryption
         result = utility.reencrypt_tenant_data(tenant_id, old_key_id, new_key_id)
@@ -392,8 +392,8 @@ class TestDataReencryption:
             'validation_time': 5.2
         }
         
-        from api.utils.data_reencryption import DataReencryptionUtility
-        utility = DataReencryptionUtility()
+        from core.utils.data_reencryption import DataReencryptionService
+        utility = DataReencryptionService()
         
         # Validate re-encryption
         result = utility.validate_reencryption(1, "old-key", "new-key")
@@ -407,8 +407,8 @@ class TestDataReencryption:
         # Mock re-encryption failure
         mock_data_reencryption.reencrypt_tenant_data.side_effect = Exception("Database connection failed")
         
-        from api.utils.data_reencryption import DataReencryptionUtility
-        utility = DataReencryptionUtility()
+        from core.utils.data_reencryption import DataReencryptionService
+        utility = DataReencryptionService()
         
         # Should handle errors gracefully
         with pytest.raises(Exception, match="Database connection failed"):
@@ -435,8 +435,8 @@ class TestDataReencryption:
         
         mock_data_reencryption.reencrypt_tenant_data.side_effect = mock_batch_reencrypt
         
-        from api.utils.data_reencryption import DataReencryptionUtility
-        utility = DataReencryptionUtility()
+        from core.utils.data_reencryption import DataReencryptionService
+        utility = DataReencryptionService()
         
         # Track progress
         progress_updates = []
@@ -458,7 +458,7 @@ class TestBackupAndRecovery:
     @pytest.fixture
     def mock_backup_service(self):
         """Mock encrypted backup service."""
-        with patch('api.services.encrypted_backup_service.EncryptedBackupService') as mock_class:
+        with patch('core.services.encrypted_backup_service.EncryptedBackupService') as mock_class:
             mock_instance = Mock()
             mock_instance.create_encrypted_backup.return_value = {
                 'backup_id': 'backup-123',
@@ -480,7 +480,7 @@ class TestBackupAndRecovery:
     @pytest.mark.asyncio
     async def test_encrypted_backup_creation(self, mock_backup_service):
         """Test creation of encrypted backups."""
-        from api.services.encrypted_backup_service import EncryptedBackupService
+        from core.services.encrypted_backup_service import EncryptedBackupService
         
         service = EncryptedBackupService()
         tenant_id = 1
@@ -498,7 +498,7 @@ class TestBackupAndRecovery:
     @pytest.mark.asyncio
     async def test_encrypted_backup_restoration(self, mock_backup_service):
         """Test restoration from encrypted backups."""
-        from api.services.encrypted_backup_service import EncryptedBackupService
+        from core.services.encrypted_backup_service import EncryptedBackupService
         
         service = EncryptedBackupService()
         backup_id = 'backup-123'
@@ -523,7 +523,7 @@ class TestBackupAndRecovery:
             'verification_time': 10.5
         }
         
-        from api.services.encrypted_backup_service import EncryptedBackupService
+        from core.services.encrypted_backup_service import EncryptedBackupService
         service = EncryptedBackupService()
         
         # Verify backup integrity with different keys
@@ -543,7 +543,7 @@ class TestBackupAndRecovery:
             'status': 'completed'
         }
         
-        from api.services.encrypted_backup_service import EncryptedBackupService
+        from core.services.encrypted_backup_service import EncryptedBackupService
         service = EncryptedBackupService()
         
         # Perform point-in-time recovery
@@ -568,7 +568,7 @@ class TestBackupAndRecovery:
             'current_key_active': True
         }
         
-        from api.services.encrypted_backup_service import EncryptedBackupService
+        from core.services.encrypted_backup_service import EncryptedBackupService
         service = EncryptedBackupService()
         
         # Get backup key information
@@ -584,9 +584,9 @@ class TestSecurityValidation:
 
     def test_key_material_not_logged(self, caplog):
         """Test that key material is not exposed in logs."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "secret-key-material-123"
             mock_kms.return_value = mock_kms_instance
@@ -604,9 +604,9 @@ class TestSecurityValidation:
 
     def test_encrypted_data_format_validation(self):
         """Test that encrypted data follows expected format."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -626,9 +626,9 @@ class TestSecurityValidation:
 
     def test_nonce_uniqueness(self):
         """Test that encryption nonces are unique."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -646,9 +646,9 @@ class TestSecurityValidation:
 
     def test_tenant_isolation_security(self):
         """Test that tenant data isolation is maintained."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             
             # Return different keys for different tenants
@@ -674,9 +674,9 @@ class TestSecurityValidation:
 
     def test_memory_cleanup_after_operations(self):
         """Test that sensitive data is cleaned from memory."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -698,10 +698,10 @@ class TestSecurityValidation:
 
     def test_error_message_sanitization(self):
         """Test that error messages don't expose sensitive information."""
-        from api.services.encryption_service import EncryptionService
-        from api.exceptions.encryption_exceptions import DecryptionError
+        from core.services.encryption_service import EncryptionService
+        from core.exceptions.encryption_exceptions import DecryptionError
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -720,10 +720,10 @@ class TestSecurityValidation:
     @pytest.mark.asyncio
     async def test_key_rotation_security_validation(self):
         """Test security aspects of key rotation process."""
-        from api.services.key_rotation_service import KeyRotationService
+        from core.services.key_rotation_service import KeyRotationService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
-            with patch('api.services.encryption_service.EncryptionService') as mock_enc:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
+            with patch('core.services.encryption_service.EncryptionService') as mock_enc:
                 mock_kms_instance = Mock()
                 mock_enc_instance = Mock()
                 
@@ -747,9 +747,9 @@ class TestSecurityValidation:
 
     def test_audit_trail_completeness(self, caplog):
         """Test that all encryption operations are properly audited."""
-        from api.services.encryption_service import EncryptionService
+        from core.services.encryption_service import EncryptionService
         
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "test-key-material"
             mock_kms.return_value = mock_kms_instance

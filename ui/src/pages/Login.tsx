@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { Eye, EyeOff } from "lucide-react";
 import { authApi, API_BASE_URL } from "@/lib/api";
 import { toast } from "sonner";
@@ -36,6 +39,7 @@ const Login = () => {
       // Dispatch custom event to notify FeatureContext
       window.dispatchEvent(new Event('auth-changed'));
       toast.success(t('auth.login_success'));
+
       navigate("/dashboard");
     } catch (error: any) {
       const errorMessage = getErrorMessage(error, t);
@@ -88,7 +92,7 @@ const Login = () => {
     }
   }, [navigate]);
 
-  // Fetch SSO status on component mount
+  // Fetch SSO status and handle URL errors on component mount
   useEffect(() => {
     const fetchSSOStatus = async () => {
       try {
@@ -102,37 +106,51 @@ const Login = () => {
     };
 
     fetchSSOStatus();
-  }, []);
+
+    // Handle URL errors (like sso_license_required)
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    if (errorParam === 'sso_license_required') {
+      setError(t('auth.sso_license_required_recovery'));
+    }
+  }, [t]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">{t('auth.login')}</CardTitle>
-          <CardDescription className="text-center">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+
+      {/* Professional Header Section */}
+      <div className="w-full max-w-md mb-6">
+        <div className="text-center space-y-3">
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">{t('auth.login')}</h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
             {t('auth.login_description')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+      </div>
+
+      <div className="w-full max-w-md bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl shadow-lg dark:shadow-2xl border border-slate-200 dark:border-slate-800/50">
+        <div className="p-8 space-y-6">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-300 dark:border-red-500/50 text-red-700 dark:text-red-200 px-4 py-3.5 rounded-xl backdrop-blur-sm shadow-sm" role="alert">
+              <p className="text-sm font-medium">{error}</p>
             </div>
           )}
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.email')}</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder={t('auth.email_placeholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
+                className="bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/50 transition-all shadow-sm hover:border-slate-400 dark:hover:border-slate-600 h-11 rounded-lg"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t('auth.password')}</Label>
+              <Label htmlFor="password" className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('auth.password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -140,13 +158,15 @@ const Login = () => {
                   placeholder={t('auth.password_placeholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   required
+                  className="bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/50 transition-all shadow-sm hover:border-slate-400 dark:hover:border-slate-600 h-11 rounded-lg"
                 />
-                <Button
+                <ProfessionalButton
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  size="icon-sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -154,17 +174,17 @@ const Login = () => {
                   ) : (
                     <Eye className="h-4 w-4" />
                   )}
-                </Button>
+                </ProfessionalButton>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <ProfessionalButton type="submit" variant="gradient" className="w-full py-3 text-sm font-semibold shadow-lg hover:shadow-xl transition-all" disabled={isLoading}>
               {isLoading ? t('auth.signing_in') : t('auth.login')}
-            </Button>
-            
+            </ProfessionalButton>
+
             <div className="text-center">
-              <Link 
-                to="/forgot-password" 
-                className="text-sm text-blue-600 hover:text-blue-500"
+              <Link
+                to="/forgot-password"
+                className="text-sm text-blue-600 dark:text-primary hover:text-blue-500 dark:hover:text-primary/80 transition-colors"
               >
                 {t('auth.forgot_password')}
               </Link>
@@ -175,18 +195,18 @@ const Login = () => {
             <>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+                  <span className="w-full border-t border-slate-300/50 dark:border-slate-600/30" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">{t('auth.or_continue_with')}</span>
+                  <span className="bg-white dark:bg-slate-800/50 px-3 text-slate-500 dark:text-slate-400 backdrop-blur-sm rounded-lg border border-slate-200/50 dark:border-slate-600/20">{t('auth.or_continue_with')}</span>
                 </div>
               </div>
 
               {ssoStatus.google && (
-                <Button
+                <ProfessionalButton
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="w-full bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:border-slate-400 dark:hover:border-slate-500/50"
                   onClick={handleGoogleLogin}
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -208,14 +228,14 @@ const Login = () => {
                     />
                   </svg>
                   {t('auth.sign_in_with_google')}
-                </Button>
+                </ProfessionalButton>
               )}
 
               {ssoStatus.microsoft && (
-                <Button
+                <ProfessionalButton
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="w-full bg-white dark:bg-slate-800/50 border-slate-300 dark:border-slate-600/50 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:border-slate-400 dark:hover:border-slate-500/50"
                   onClick={handleAzureLogin}
                 >
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -229,21 +249,22 @@ const Login = () => {
                     />
                   </svg>
                   {t('auth.sign_in_with_microsoft')}
-                </Button>
+                </ProfessionalButton>
               )}
             </>
           )}
-          
+
           <div className="text-center text-sm">
-            {t('auth.no_account')}{" "}
-            <Link to="/signup" className="underline underline-offset-4 hover:text-primary">
+            <span className="text-slate-600 dark:text-slate-400">{t('auth.no_account')}</span>{" "}
+            <Link to="/signup" className="text-blue-600 dark:text-primary hover:text-blue-500 dark:hover:text-primary/80 underline underline-offset-4 transition-colors">
               {t('auth.signup.homepage')}
             </Link>
           </div>
-        </CardContent>
-      </Card>
-      <div className="mt-6">
+        </div>
+      </div>
+      <div className="mt-6 flex items-center justify-center gap-4">
         <LanguageSwitcher />
+        <ThemeSwitcher />
       </div>
     </div>
   );

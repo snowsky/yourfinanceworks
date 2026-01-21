@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
+import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
@@ -15,7 +15,7 @@ const professionalButtonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground shadow hover:bg-secondary/80 hover:shadow-md active:scale-[0.98]",
         ghost: "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
         link: "text-primary underline-offset-4 hover:underline",
-        
+
         // Professional variants
         gradient: "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl hover:from-primary/90 hover:to-primary/70 active:scale-[0.98]",
         success: "bg-success text-success-foreground shadow hover:bg-success/90 hover:shadow-md active:scale-[0.98]",
@@ -42,7 +42,7 @@ const professionalButtonVariants = cva(
 
 export interface ProfessionalButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof professionalButtonVariants> {
+  VariantProps<typeof professionalButtonVariants> {
   asChild?: boolean;
   loading?: boolean;
   leftIcon?: React.ReactNode;
@@ -52,7 +52,7 @@ export interface ProfessionalButtonProps
 const ProfessionalButton = React.forwardRef<HTMLButtonElement, ProfessionalButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    
+
     return (
       <Comp
         className={cn(professionalButtonVariants({ variant, size, className }))}
@@ -60,18 +60,10 @@ const ProfessionalButton = React.forwardRef<HTMLButtonElement, ProfessionalButto
         disabled={disabled || loading}
         {...props}
       >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {children}
-          </>
-        ) : (
-          <>
-            {leftIcon && <span className="flex-shrink-0">{leftIcon}</span>}
-            {children}
-            {rightIcon && <span className="flex-shrink-0">{rightIcon}</span>}
-          </>
-        )}
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {!loading && leftIcon && <span className="flex-shrink-0">{leftIcon}</span>}
+        <Slottable>{children}</Slottable>
+        {!loading && rightIcon && <span className="flex-shrink-0">{rightIcon}</span>}
       </Comp>
     );
   }

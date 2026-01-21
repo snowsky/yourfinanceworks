@@ -7,12 +7,13 @@ from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from api.services.report_scheduler import ReportScheduler, ReportSchedulerError
-from api.services.report_service import ReportService
-from api.services.email_service import EmailService
-from api.services.report_exporter import ReportExportService
-from api.models.models_per_tenant import ScheduledReport, ReportTemplate, User
-from api.schemas.report import (
+from core.services.report_scheduler import ReportScheduler
+from core.exceptions.report_exceptions import ReportSchedulerError
+from core.services.report_service import ReportService
+from core.services.email_service import EmailService
+from core.services.report_exporter import ReportExportService
+from core.models.models_per_tenant import ScheduledReport, ReportTemplate, User
+from core.schemas.report import (
     ScheduledReportCreate, ScheduledReportUpdate, ScheduleConfig, 
     ScheduleType, ExportFormat, ReportResult, ReportData, ReportSummary, ReportMetadata
 )
@@ -376,7 +377,7 @@ class TestReportScheduler:
         )
         
         # Mock current time to be before the scheduled time
-        with patch('api.services.report_scheduler.datetime') as mock_datetime:
+        with patch('core.services.report_scheduler.datetime') as mock_datetime:
             mock_now = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
             mock_datetime.now.return_value = mock_now
             mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
@@ -396,7 +397,7 @@ class TestReportScheduler:
         )
         
         # Mock current time to be Wednesday
-        with patch('api.services.report_scheduler.datetime') as mock_datetime:
+        with patch('core.services.report_scheduler.datetime') as mock_datetime:
             mock_now = datetime(2024, 1, 17, 10, 0, 0, tzinfo=timezone.utc)  # Wednesday
             mock_datetime.now.return_value = mock_now
             mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)

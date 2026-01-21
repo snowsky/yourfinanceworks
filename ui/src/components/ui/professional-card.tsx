@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
 
 interface ProfessionalCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -25,8 +25,8 @@ const ProfessionalCard = React.forwardRef<HTMLDivElement, ProfessionalCardProps>
       lg: "p-8"
     };
 
-    const interactiveStyles = interactive 
-      ? "transition-all duration-200 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5 cursor-pointer" 
+    const interactiveStyles = interactive
+      ? "transition-all duration-200 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5 cursor-pointer"
       : "";
 
     return (
@@ -47,9 +47,68 @@ const ProfessionalCard = React.forwardRef<HTMLDivElement, ProfessionalCardProps>
 
 ProfessionalCard.displayName = "ProfessionalCard";
 
+const ProfessionalCardHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    {...props}
+  />
+))
+ProfessionalCardHeader.displayName = "ProfessionalCardHeader"
+
+const ProfessionalCardTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h3
+    ref={ref}
+    className={cn(
+      "text-2xl font-semibold leading-none tracking-tight",
+      className
+    )}
+    {...props}
+  />
+))
+ProfessionalCardTitle.displayName = "ProfessionalCardTitle"
+
+const ProfessionalCardDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+))
+ProfessionalCardDescription.displayName = "ProfessionalCardDescription"
+
+const ProfessionalCardContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+))
+ProfessionalCardContent.displayName = "ProfessionalCardContent"
+
+const ProfessionalCardFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex items-center p-6 pt-0", className)}
+    {...props}
+  />
+))
+ProfessionalCardFooter.displayName = "ProfessionalCardFooter"
+
 interface MetricCardProps {
   title: string;
-  value: string | number;
+  value: React.ReactNode;
   change?: {
     value: number;
     type: 'increase' | 'decrease' | 'neutral';
@@ -58,10 +117,11 @@ interface MetricCardProps {
   description?: string;
   variant?: 'default' | 'success' | 'warning' | 'danger';
   loading?: boolean;
+  className?: string;
 }
 
 const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
-  ({ title, value, change, icon: Icon, description, variant = 'default', loading = false }, ref) => {
+  ({ title, value, change, icon: Icon, description, variant = 'default', loading = false, className }, ref) => {
     const variantStyles = {
       default: "border-l-4 border-l-primary bg-primary/5",
       success: "border-l-4 border-l-success bg-success/5",
@@ -91,9 +151,9 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
     }
 
     return (
-      <ProfessionalCard 
-        variant="elevated" 
-        className={cn("group hover:shadow-xl transition-all duration-300", variantStyles[variant])}
+      <ProfessionalCard
+        variant="elevated"
+        className={cn("group hover:shadow-xl transition-all duration-300", variantStyles[variant], className)}
         interactive
         ref={ref}
       >
@@ -108,20 +168,20 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
               </div>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <div className="text-2xl font-bold tracking-tight">{value}</div>
-            
+
             {change && (
               <div className={cn(
                 "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
                 changeColors[change.type]
               )}>
-                {change.type === 'increase' ? '↗' : change.type === 'decrease' ? '↘' : '→'} 
+                {change.type === 'increase' ? '↗' : change.type === 'decrease' ? '↘' : '→'}
                 {Math.abs(change.value)}%
               </div>
             )}
-            
+
             {description && (
               <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
             )}
@@ -134,4 +194,12 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
 
 MetricCard.displayName = "MetricCard";
 
-export { ProfessionalCard, MetricCard };
+export {
+  ProfessionalCard,
+  ProfessionalCardHeader,
+  ProfessionalCardTitle,
+  ProfessionalCardDescription,
+  ProfessionalCardContent,
+  ProfessionalCardFooter,
+  MetricCard
+};

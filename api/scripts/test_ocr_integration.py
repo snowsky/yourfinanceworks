@@ -22,12 +22,12 @@ def test_ocr_integration():
     # Test 1: Import all OCR-related modules
     print("\n1. Testing imports...")
     try:
-        from core.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
-        from core.services.bank_statement_ocr_processor import BankStatementOCRProcessor
+        from commercial.ai.services.enhanced_pdf_extractor import EnhancedPDFTextExtractor
+        from commercial.ai_bank_statement.services.bank_statement_ocr_processor import BankStatementOCRProcessor
         from core.utils.text_sufficiency_validator import TextSufficiencyValidator
-        from core.exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
+        from commercial.ai.exceptions.bank_ocr_exceptions import OCRTimeoutError, OCRProcessingError
         from core.utils.ocr_notifications import notify_ocr_processing_started
-        from core.settings.ocr_config import get_ocr_config
+        from commercial.ai.settings.ocr_config import get_ocr_config
         print("   ✅ All OCR modules imported successfully")
     except Exception as e:
         print(f"   ❌ Import error: {e}")
@@ -130,7 +130,7 @@ def test_ocr_integration():
     # Test 7: Test error handling
     print("\n7. Testing OCR error handling...")
     try:
-        from core.exceptions.bank_ocr_exceptions import is_retryable_ocr_error, get_retry_delay
+        from commercial.ai.exceptions.bank_ocr_exceptions import is_retryable_ocr_error, get_retry_delay
         
         timeout_error = OCRTimeoutError("Test timeout", timeout_seconds=300)
         processing_error = OCRProcessingError("Test processing error", is_transient=True)

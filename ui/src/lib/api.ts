@@ -2,6 +2,28 @@ import { toast } from 'sonner';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, User, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate } from '@/types';
 
+// Import DashboardStats type from the dashboard component
+interface DashboardStats {
+  totalIncome: Record<string, number>;
+  pendingInvoices: Record<string, number>;
+  totalExpenses: Record<string, number>;
+  totalClients: number;
+  invoicesPaid: number;
+  invoicesPending: number;
+  invoicesOverdue: number;
+  paymentTrends: {
+    onTimePaymentRate: number;
+    averagePaymentTime: number;
+    overdueRate: number;
+  };
+  trends: {
+    income: { value: number; isPositive: boolean };
+    pending: { value: number; isPositive: boolean };
+    clients: { value: number; isPositive: boolean };
+    overdue: { value: number; isPositive: boolean };
+  };
+}
+
 // Define recycle bin types
 export interface DeletedExpense extends Expense {
   is_deleted: boolean;
@@ -33,6 +55,7 @@ export interface Client {
   paid_amount: number;
   outstanding_balance?: number;
   preferred_currency?: string;
+  labels?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -74,7 +97,7 @@ export interface InvoiceItem {
   };
 }
 
-export const INVOICE_STATUSES = ["draft", "pending", "paid", "overdue", "partially_paid", "cancelled", "pending_approval", "approved", "rejected"] as const;
+export const INVOICE_STATUSES = ["draft", "pending", "paid", "overdue", "partially_paid", "cancelled", "pending_approval", "approved", "rejected", "sent"] as const;
 export type InvoiceStatus = typeof INVOICE_STATUSES[number];
 
 export const isValidInvoiceStatus = (status: string): status is InvoiceStatus => {
@@ -87,6 +110,15 @@ export const formatStatus = (status?: string | null) => {
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ');
 };
+
+export interface InvoiceAttachmentMeta {
+  id: number;
+  filename: string;
+  file_size: number;
+  content_type: string;
+  attachment_type: string;
+  created_at: string;
+}
 
 export interface Invoice {
   id: number;
@@ -111,14 +143,21 @@ export interface Invoice {
   discount_value?: number;
   subtotal?: number;
   custom_fields?: Record<string, any>;
-  show_discount_in_pdf?: boolean; // New property added
+  show_discount_in_pdf?: boolean;
   has_attachment?: boolean;
   attachment_filename?: string;
+  attachments?: InvoiceAttachmentMeta[];
+  attachment_count?: number;
   payer?: string;
+  labels?: string[];
   // User attribution fields
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed' | 'rejected';
+  review_result?: any;
+  reviewed_at?: string;
 }
 
 export const linkApi = {
@@ -438,6 +477,11 @@ export interface Expense {
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed' | 'rejected';
+  review_result?: any;
+  reviewed_at?: string;
+  is_inventory_consumption?: boolean;
 }
 
 export interface ExpenseAttachmentMeta {
@@ -446,6 +490,10 @@ export interface ExpenseAttachmentMeta {
   content_type?: string;
   size_bytes?: number;
   uploaded_at?: string;
+  analysis_status?: 'not_started' | 'processing' | 'done' | 'failed';
+  analysis_error?: string;
+  analysis_result?: any;
+  extracted_amount?: number;
 }
 
 export interface BankTransactionEntry {
@@ -467,6 +515,9 @@ export interface BankStatementSummary {
   file_path: string;
   status: string;
   extracted_count: number;
+  extraction_method?: string | null;
+  analysis_error?: string | null;
+  analysis_updated_at?: string | null;
   labels?: string[] | null;
   notes?: string | null;
   created_at?: string;
@@ -474,6 +525,10 @@ export interface BankStatementSummary {
   created_by_user_id?: number;
   created_by_username?: string;
   created_by_email?: string;
+  // Review fields
+  review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed' | 'rejected';
+  review_result?: any;
+  reviewed_at?: string;
 }
 
 export interface BankStatementDetail extends BankStatementSummary {
@@ -506,12 +561,18 @@ export const bankStatementApi = {
     return JSON.parse(text);
   },
 
-  list: async (): Promise<BankStatementSummary[]> => {
-    const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[] }>(
-      '/statements',
+  list: async (skip: number = 0, limit: number = 100, label?: string, search?: string, status?: string): Promise<{ statements: BankStatementSummary[], total: number }> => {
+    const params = new URLSearchParams();
+    params.set('skip', skip.toString());
+    params.set('limit', limit.toString());
+    if (label) params.set('label', label);
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    const data = await apiRequest<{ success: boolean; statements: BankStatementSummary[]; total: number }>(
+      `/statements?${params.toString()}`,
       { method: 'GET' }
     );
-    return data.statements;
+    return { statements: data.statements, total: data.total };
   },
 
   get: async (statementId: number): Promise<BankStatementDetail> => {
@@ -548,6 +609,10 @@ export const bankStatementApi = {
       { method: 'POST' }
     );
   },
+  acceptReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/accept-review`, { method: 'POST' }),
+  rejectReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/reject-review`, { method: 'POST' }),
+  reReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/review`, { method: 'POST' }),
+  cancelReview: (statementId: number) => apiRequest<{ success: boolean; statement: BankStatementSummary }>(`/statements/${statementId}/cancel-review`, { method: 'POST' }),
 
   // Build URLs for preview/download (relative if API_BASE_URL is relative)
   fileUrl: (statementId: number, inline = true): string => {
@@ -606,6 +671,16 @@ export const bankStatementApi = {
     apiRequest(`/statements/${id}/permanent`, { method: 'DELETE' }),
   emptyRecycleBin: () =>
     apiRequest('/statements/recycle-bin/empty', { method: 'POST' }),
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/statements/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
+  merge: (ids: number[]) =>
+    apiRequest<{ success: boolean; message: string; id: number }>('/statements/merge', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 };
 
 // Add settings types
@@ -632,6 +707,7 @@ export interface Settings {
   invoice_settings: InvoiceSettings;
   enable_ai_assistant?: boolean;
   timezone?: string;
+  email_settings?: any;
 }
 
 // AI Configuration types
@@ -807,7 +883,6 @@ export async function apiRequest<T>(
       const selectedTenantId = localStorage.getItem('selected_tenant_id');
       if (selectedTenantId) {
         tenantId = selectedTenantId;
-        console.log(`🔍 API Request: Using selected tenant ID: ${tenantId} for ${url}`);
       } else {
         // Fallback to user's default tenant
         const userStr = localStorage.getItem('user');
@@ -815,7 +890,6 @@ export async function apiRequest<T>(
           const user = JSON.parse(userStr);
           if (user && user.tenant_id) {
             tenantId = String(user.tenant_id);
-            console.log(`🔍 API Request: Using user's default tenant ID: ${tenantId} for ${url}`);
           }
         }
       }
@@ -850,65 +924,55 @@ export async function apiRequest<T>(
       const numericTenantId = parseInt(tenantId, 10);
       if (!isNaN(numericTenantId)) {
         headers['X-Tenant-ID'] = numericTenantId.toString();
-        console.log(`🔄 API Request: ${requestUrl} with X-Tenant-ID: ${numericTenantId}`);
       } else {
         console.warn(`⚠️ Invalid tenant ID: ${tenantId}`);
       }
     } else if (!config.skipTenant) {
       console.warn(`⚠️ No tenant ID available for request to ${requestUrl}`);
-      console.log('Debug info:', {
-        selectedTenantId: localStorage.getItem('selected_tenant_id'),
-        userTenantId: (() => {
-          try {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            return user.tenant_id;
-          } catch { return 'parse error'; }
-        })()
-      });
     }
     const response = await fetch(requestUrl, {
       ...options,
       headers,
     });
 
-    console.log('API Response status:', response.status);
-    console.log('API Response headers:', Object.fromEntries(response.headers.entries()));
-
     // Log the raw response text for debugging
     const responseText = await response.text();
-    // console.log('API Raw response text:', responseText);
 
     if (!response.ok) {
       // Try to parse error response
       let errorData;
       try {
         errorData = JSON.parse(responseText);
-        console.log('API Error response:', errorData);
       } catch (e) {
         // If JSON parsing fails, use status text
-        console.log('API Error - could not parse JSON:', e);
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
 
       // Handle authentication errors
       if (!config.isLogin && response.status === 401) {
-        // Only log out on 401 (unauthorized) - token is invalid/expired
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('selected_tenant_id');
-        // Show toast and redirect to login only if not already on login page
-        if (!window.location.pathname.includes('/login')) {
-          toast.error('Session expired. Please log in again.');
-          // Use window.location.replace for reliability
-          setTimeout(() => window.location.replace('/login'), 100);
+        // Don't log out for super-admin endpoints - they might fail for other reasons
+        if (!requestUrl.includes('/super-admin/')) {
+          // Only log out on 401 (unauthorized) - token is invalid/expired
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('selected_tenant_id');
+          // Show toast and redirect to login only if not already on login page
+          if (!window.location.pathname.includes('/login')) {
+            toast.error('Session expired. Please log in again.');
+            // Use window.location.replace for reliability
+            setTimeout(() => window.location.replace('/login'), 100);
+          }
+          throw new Error('Authentication failed. Please log in again.');
+        } else {
+          // For super-admin endpoints, just throw the error without logging out
+          throw new Error(errorData.detail || 'Authentication failed');
         }
-        throw new Error('Authentication failed. Please log in again.');
       }
 
       // Handle 403 (forbidden) errors - could be permission or tenant context issues
       if (response.status === 403) {
-        // Check if it's a tenant context error
-        if (errorData.detail && errorData.detail.includes('Tenant context required')) {
+        // Check if it's a tenant context error (but not for super-admin endpoints)
+        if (!requestUrl.includes('/super-admin/') && errorData.detail && errorData.detail.includes('Tenant context required')) {
           // This is a session/tenant context issue - log out the user
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -918,20 +982,24 @@ export async function apiRequest<T>(
           throw new Error('Session expired. Please log in again.');
         } else {
           // User is authenticated but lacks permissions - don't log out
-          console.log('403 Forbidden - User lacks permissions for this resource');
           throw new Error(errorData.detail || 'Access denied. You do not have permission to access this resource.');
         }
       }
 
       // Handle 400 errors that might be tenant context issues
       if (response.status === 400 && errorData.detail && typeof errorData.detail === 'string' && errorData.detail.includes('Tenant context required')) {
-        // This is a session/tenant context issue - log out the user
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('selected_tenant_id');
-        toast.error('Session expired. Please log in again.');
-        window.location.replace('/login');
-        throw new Error('Session expired. Please log in again.');
+        // This is a session/tenant context issue - log out the user (but not for super-admin endpoints)
+        if (!requestUrl.includes('/super-admin/')) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('selected_tenant_id');
+          toast.error('Session expired. Please log in again.');
+          window.location.replace('/login');
+          throw new Error('Session expired. Please log in again.');
+        } else {
+          // For super-admin endpoints, just throw the error
+          throw new Error(errorData.detail || 'Request failed');
+        }
       }
 
       // Better handle validation errors (422)
@@ -963,6 +1031,17 @@ export async function apiRequest<T>(
         let errorMessage: string;
         if (typeof errorData.detail === 'string') {
           errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          // Handle FastAPI validation errors format
+          const validationError = errorData.detail[0];
+          if (validationError?.msg) {
+            // Extract the actual error message from "Value error, Organization name must be at least 2 characters long"
+            errorMessage = validationError.msg.replace('Value error, ', '');
+          } else if (validationError?.ctx?.error) {
+            errorMessage = validationError.ctx.error;
+          } else {
+            errorMessage = JSON.stringify(validationError);
+          }
         } else if (typeof errorData.detail === 'object' && errorData.detail !== null) {
           // Handle object error details (e.g., {error: "CODE", message: "text"})
           errorMessage = errorData.detail.message || errorData.detail.error || JSON.stringify(errorData.detail);
@@ -986,7 +1065,6 @@ export async function apiRequest<T>(
     try {
       responseData = JSON.parse(responseText) as T;
     } catch (e) {
-      console.log('API Success response is not valid JSON:', e);
       throw new Error('Invalid JSON response from server');
     }
 
@@ -1367,7 +1445,20 @@ export const approvalApi = {
 
 // Client API methods
 export const clientApi = {
-  getClients: () => apiRequest<Client[]>("/clients/"),
+  getClients: async (skip: number = 0, limit: number = 100, label?: string): Promise<{ items: Client[], total: number }> => {
+    // Ensure skip and limit are valid numbers
+    const skipNum = typeof skip === 'number' ? skip : parseInt(String(skip), 10) || 0;
+    const limitNum = typeof limit === 'number' ? limit : parseInt(String(limit), 10) || 100;
+    
+    let url = `/clients/?skip=${skipNum}&limit=${limitNum}`;
+    if (label) url += `&label_filter=${encodeURIComponent(label)}`;
+    return apiRequest<{ items: Client[], total: number }>(url);
+  },
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/clients/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
   getClient: (id: number) => apiRequest<Client>(`/clients/${id}`),
   createClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) =>
     apiRequest<Client>("/clients/", {
@@ -1481,13 +1572,24 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, new_password: newPassword }),
     }),
+  changePassword: (data: any) =>
+    apiRequest<{ message: string; success: boolean }>(`/auth/change-password`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateCurrentUser: (data: any) =>
+    apiRequest<any>(`/auth/me`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   activateUser: (inviteId: number, activationData: { password?: string; first_name?: string; last_name?: string }) =>
     apiRequest<any>(`/auth/invites/${inviteId}/activate`, {
       method: 'POST',
       body: JSON.stringify(activationData),
     }),
-  getCurrentUser: () => apiRequest<any>('/auth/me'),
+  getCurrentUser: () => apiRequest<any>('/auth/me', {}, { skipTenant: true }),
   getSSOStatus: () => apiRequest<{ google: boolean; microsoft: boolean; has_sso: boolean }>('/auth/sso-status', {}, { skipTenant: true }),
+  getPasswordRequirements: () => apiRequest<{ min_length: number; complexity: any; requirements: string[] }>('/auth/password-requirements', {}, { skipTenant: true }),
 };
 
 // User API methods
@@ -1513,8 +1615,8 @@ export const invoiceApi = {
       if (opts.status) params.set('status_filter', opts.status);
       if (typeof opts.skip === 'number') params.set('skip', String(opts.skip));
       if (typeof opts.limit === 'number') params.set('limit', String(opts.limit));
-      const response = await apiRequest<any[]>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
-      const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
+      const response = await apiRequest<{ items: any[] }>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
+      const mappedInvoices: Invoice[] = response.items.map(apiInvoice => ({
         id: apiInvoice.id,
         number: apiInvoice.number || '',
         client_id: apiInvoice.client_id,
@@ -1534,6 +1636,10 @@ export const invoiceApi = {
         recurring_frequency: apiInvoice.recurring_frequency,
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
+        // Review fields
+        review_status: apiInvoice.review_status,
+        review_result: apiInvoice.review_result,
+        reviewed_at: apiInvoice.reviewed_at,
       }));
       return mappedInvoices;
     } catch (error) {
@@ -1541,12 +1647,17 @@ export const invoiceApi = {
       throw error;
     }
   },
-  getInvoices: async (status?: string): Promise<Invoice[]> => {
+  getInvoices: async (status?: string, label?: string, skip: number = 0, limit: number = 100): Promise<{ items: Invoice[], total: number }> => {
     try {
-      const response = await apiRequest<any[]>(`/invoices/${status ? `?status_filter=${status}` : ''}`);
+      const params = new URLSearchParams();
+      if (status) params.set('status_filter', status);
+      if (label) params.set('label', label);
+      params.set('skip', skip.toString());
+      params.set('limit', limit.toString());
+      const response = await apiRequest<{ items: any[], total: number }>(`/invoices/${params.toString() ? `?${params.toString()}` : ''}`);
 
       // Map API response to frontend Invoice interface
-      const mappedInvoices: Invoice[] = response.map(apiInvoice => ({
+      const mappedInvoices: Invoice[] = response.items.map(apiInvoice => ({
         id: apiInvoice.id,
         number: apiInvoice.number || '',
         client_id: apiInvoice.client_id,
@@ -1567,18 +1678,28 @@ export const invoiceApi = {
         has_attachment: apiInvoice.has_attachment || false,
         attachment_filename: apiInvoice.attachment_filename || undefined,
         payer: apiInvoice.payer || 'Client',
+        labels: apiInvoice.labels || [],
         // User attribution fields
         created_by_user_id: apiInvoice.created_by_user_id,
         created_by_username: apiInvoice.created_by_username,
         created_by_email: apiInvoice.created_by_email,
+        // Review fields
+        review_status: apiInvoice.review_status,
+        review_result: apiInvoice.review_result,
+        reviewed_at: apiInvoice.reviewed_at
       }));
 
-      return mappedInvoices;
+      return { items: mappedInvoices, total: response.total };
     } catch (error) {
       console.error('Failed to fetch invoices:', error);
       throw error;
     }
   },
+  bulkLabels: (ids: number[], action: 'add' | 'remove', label: string) =>
+    apiRequest<{ success: boolean; count: number }>('/invoices/bulk-labels', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action, label }),
+    }),
   getInvoice: async (id: number) => {
     try {
       // Get invoice data from API
@@ -1619,11 +1740,17 @@ export const invoiceApi = {
         show_discount_in_pdf: apiResponse.show_discount_in_pdf || false, // Map show_discount_in_pdf from API response
         has_attachment: apiResponse.has_attachment || false,
         attachment_filename: apiResponse.attachment_filename || undefined,
+        attachments: apiResponse.attachments || [],
+        attachment_count: apiResponse.attachment_count || 0,
         payer: apiResponse.payer || 'Client',
         // User attribution fields
         created_by_user_id: apiResponse.created_by_user_id,
         created_by_username: apiResponse.created_by_username,
         created_by_email: apiResponse.created_by_email,
+        // Review fields
+        review_status: apiResponse.review_status,
+        review_result: apiResponse.review_result,
+        reviewed_at: apiResponse.reviewed_at
       };
 
       return invoice;
@@ -1733,7 +1860,7 @@ export const invoiceApi = {
       throw new Error('Invalid response from server');
     }
   },
-  downloadAttachment: (invoiceId: number) => {
+  downloadAttachment: (invoiceId: number, attachmentId?: number) => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') ||
       (() => {
@@ -1755,6 +1882,9 @@ export const invoiceApi = {
     if (tenantId) {
       url.searchParams.set('tenant_id', tenantId);
     }
+    if (attachmentId) {
+      url.searchParams.set('attachment_id', attachmentId.toString());
+    }
     form.action = url.toString();
 
     document.body.appendChild(form);
@@ -1763,7 +1893,7 @@ export const invoiceApi = {
   },
   getAttachmentInfo: (invoiceId: number) =>
     apiRequest<{ has_attachment: boolean; filename?: string; content_type?: string; size_bytes?: number }>(`/invoices/${invoiceId}/attachment-info`),
-  previewAttachmentBlob: async (invoiceId: number): Promise<Blob> => {
+  previewAttachmentBlob: async (invoiceId: number, attachmentId?: number): Promise<Blob> => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
@@ -1776,7 +1906,10 @@ export const invoiceApi = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const url = `${API_BASE_URL}/invoices/${invoiceId}/preview-attachment`;
+    let url = `${API_BASE_URL}/invoices/${invoiceId}/preview-attachment`;
+    if (attachmentId) {
+      url += `?attachment_id=${attachmentId}`;
+    }
     const resp = await fetch(url, { headers });
     if (!resp.ok) {
       const text = await resp.text();
@@ -1785,10 +1918,18 @@ export const invoiceApi = {
     }
     return await resp.blob();
   },
+  deleteAttachment: (invoiceId: number, attachmentId: number) =>
+    apiRequest(`/invoices/${invoiceId}/attachments/${attachmentId}`, { method: 'DELETE' }),
 
   // Invoice history methods
-  getInvoiceHistory: (invoiceId: number) =>
-    apiRequest<InvoiceHistory[]>(`/invoices/${invoiceId}/history`),
+  send: (id: number) => apiRequest(`/invoices/${id}/send`, { method: 'POST' }),
+  reminder: (id: number) => apiRequest(`/invoices/${id}/reminder`, { method: 'POST' }),
+  duplicate: (id: number) => apiRequest<Invoice>(`/invoices/${id}/duplicate`, { method: 'POST' }),
+  getHistory: (id: number) => apiRequest<InvoiceHistory[]>(`/invoices/${id}/history`),
+  acceptReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/accept-review`, { method: 'POST' }),
+  rejectReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/reject-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/review`, { method: 'POST' }),
+  cancelReview: (id: number) => apiRequest<Invoice>(`/invoices/${id}/cancel-review`, { method: 'POST' }),
 
   createInvoiceHistoryEntry: (invoiceId: number, historyEntry: InvoiceHistoryCreate) =>
     apiRequest<InvoiceHistory>(`/invoices/${invoiceId}/history`, {
@@ -1835,7 +1976,14 @@ export const expenseApi = {
     if (category && category !== 'all') params.set('category', category);
     if (label) params.set('label', label);
     const query = params.toString() ? `?${params.toString()}` : '';
-    const list = await apiRequest<Expense[]>(`/expenses/${query}`);
+    const response = await apiRequest<{ success: boolean, expenses: Expense[], total: number }>(`/expenses/${query}`);
+    // Extract the expenses array from the response
+    const list = response.expenses;
+    // Ensure list is an array before mapping
+    if (!Array.isArray(list)) {
+      console.warn('Expenses API returned non-array response:', list);
+      return [];
+    }
     // Normalize category to a known option; fallback to 'General'
     const validCategories = EXPENSE_CATEGORY_OPTIONS;
     return list.map(e => ({
@@ -1855,15 +2003,60 @@ export const expenseApi = {
     if (opts.search) params.set('search', opts.search);
     const qs = params.toString();
     const url = `/expenses/${qs ? `?${qs}` : ''}`;
-    return apiRequest<Expense[]>(url);
+    const response = await apiRequest<{ success: boolean; expenses: Expense[]; total: number }>(url);
+    return response.expenses;
+  },
+  getExpensesPaginated: async (opts: { category?: string; label?: string; invoiceId?: number; unlinkedOnly?: boolean; skip?: number; limit?: number; excludeStatus?: string; search?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+    if (opts.label) params.set('label', opts.label);
+    if (typeof opts.invoiceId === 'number') params.set('invoice_id', String(opts.invoiceId));
+    if (opts.unlinkedOnly) params.set('unlinked_only', 'true');
+    if (typeof opts.skip === 'number') params.set('skip', String(opts.skip));
+    if (typeof opts.limit === 'number') params.set('limit', String(opts.limit));
+    if (opts.excludeStatus) params.set('exclude_status', opts.excludeStatus);
+    if (opts.search) params.set('search', opts.search);
+    params.set('include_total', 'true'); // Add flag to get total count
+    const qs = params.toString();
+    const data = await apiRequest<{ success: boolean; expenses: Expense[]; total: number }>(
+      `/expenses/?${qs}`,
+      { method: 'GET' }
+    );
+    return { expenses: data.expenses, total: data.total };
   },
   getExpense: async (id: number) => {
-    const e = await apiRequest<Expense>(`/expenses/${id}`);
-    const validCategories = EXPENSE_CATEGORY_OPTIONS;
-    return {
-      ...e,
-      category: validCategories.includes(e.category) ? e.category : 'General'
-    };
+    const maxRetries = 5;
+    let lastError: any;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const e = await apiRequest<Expense>(`/expenses/${id}`);
+        const validCategories = EXPENSE_CATEGORY_OPTIONS;
+        return {
+          ...e,
+          category: validCategories.includes(e.category) ? e.category : 'General'
+        };
+      } catch (error) {
+        lastError = error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // Check if it's a 404 error (expense not found)
+        const is404 = errorMessage.includes('404') || errorMessage.includes('not found');
+
+        // If it's a 404 and we haven't exhausted retries, wait and try again
+        if (is404 && attempt < maxRetries - 1) {
+          // Exponential backoff: 500ms, 1000ms, 1500ms, 2000ms, 2500ms
+          const delayMs = 500 * (attempt + 1);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        } else if (!is404) {
+          // If it's not a 404, don't retry - throw immediately
+          throw error;
+        }
+      }
+    }
+
+    // If all retries failed, throw the last error
+    throw lastError;
   },
   createExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'receipt_filename'>) =>
     apiRequest<Expense>(`/expenses/`, {
@@ -1885,7 +2078,8 @@ export const expenseApi = {
       method: 'DELETE',
       body: JSON.stringify({ expense_ids: expenseIds }),
     }),
-  deleteExpense: (id: number) => apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
+  deleteExpense: async (id: number) =>
+    apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
   uploadReceipt: async (expenseId: number, file: File) => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
@@ -1912,6 +2106,10 @@ export const expenseApi = {
     }
     return response.json();
   },
+  acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
+  rejectReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/reject-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),
+  cancelReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/cancel-review`, { method: 'POST' }),
   listAttachments: async (expenseId: number) => {
     return apiRequest<ExpenseAttachmentMeta[]>(`/expenses/${expenseId}/attachments`);
   },
@@ -1931,7 +2129,7 @@ export const expenseApi = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
+    let url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
     const resp = await fetch(url, { headers });
     if (!resp.ok) {
       const text = await resp.text();
@@ -1949,7 +2147,7 @@ export const expenseApi = {
   bulkCreateExpenses: (expenses: Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'receipt_filename'>[]) =>
     apiRequest<Expense[]>(`/expenses/bulk-create`, {
       method: 'POST',
-      body: JSON.stringify({ expenses }),
+      body: JSON.stringify(expenses),
     }),
 
   // Basic Expense Analytics (for Expenses page summary)
@@ -2021,37 +2219,35 @@ export const expenseApi = {
 
 // Dashboard API
 export const dashboardApi = {
-  getStats: async () => {
+  getStats: async (): Promise<DashboardStats> => {
     try {
-      const [clients, invoices, payments] = await Promise.all([
-        clientApi.getClients(),
-        invoiceApi.getInvoices(),
+      const [clientsData, invoicesData, payments] = await Promise.all([
+        clientApi.getClients(0, 1000), // get more for dashboard
+        invoiceApi.getInvoices(undefined, undefined, 0, 1000),
         paymentApi.getPayments(),
       ]);
 
-      const totalClients = clients.length;
+      const clients = clientsData.items;
+      const invoices = invoicesData.items;
+
+      const totalClients = clientsData.total;
       // Group totals by currency
       const totalIncome: Record<string, number> = {};
       const pendingInvoices: Record<string, number> = {};
       const totalExpenses: Record<string, number> = {};
 
-      console.log('Dashboard API - Processing invoices:', invoices.length);
       invoices.forEach(invoice => {
         const currency = invoice.currency || 'USD';
-        console.log(`Invoice ${invoice.number}: status=${invoice.status}, amount=${invoice.amount}, paid_amount=${invoice.paid_amount}, currency=${currency}, payer=${invoice.payer}`);
 
         // Only count income from invoices where the payer is 'Client'
         if ((invoice.status === 'paid' || invoice.status === 'partially_paid') && invoice.payer === 'Client') {
           totalIncome[currency] = (totalIncome[currency] || 0) + invoice.paid_amount;
-          console.log(`Added to totalIncome[${currency}]: ${invoice.paid_amount} (payer: ${invoice.payer})`);
         }
         // Calculate pending amounts for invoices that are not fully paid
         if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {
           const outstandingAmount = invoice.amount - (invoice.paid_amount || 0);
-          console.log(`Outstanding amount for ${invoice.number}: ${outstandingAmount}`);
           if (outstandingAmount > 0) {
             pendingInvoices[currency] = (pendingInvoices[currency] || 0) + outstandingAmount;
-            console.log(`Added to pendingInvoices[${currency}]: ${outstandingAmount}`);
           }
         }
       });
@@ -2059,20 +2255,20 @@ export const dashboardApi = {
       // Fetch and calculate total expenses
       try {
         const expenses = await expenseApi.getExpenses();
-        console.log('Dashboard API - Processing expenses:', expenses.length);
-        expenses.forEach(expense => {
-          const currency = expense.currency || 'USD';
-          const amount = expense.total_amount || expense.amount || 0;
-          console.log(`Expense ${expense.id}: amount=${amount}, currency=${currency}`);
+        // Ensure expenses is an array before iterating
+        if (Array.isArray(expenses)) {
+          expenses.forEach(expense => {
+            const currency = expense.currency || 'USD';
+            const amount = expense.total_amount || expense.amount || 0;
 
-          totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
-          console.log(`Added to totalExpenses[${currency}]: ${amount}`);
-        });
+            totalExpenses[currency] = (totalExpenses[currency] || 0) + amount;
+          });
+        } else {
+          console.warn('Expenses API returned non-array response:', expenses);
+        }
       } catch (error) {
         console.error('Failed to fetch expenses for dashboard:', error);
       }
-
-      console.log('Final dashboard stats:', { totalIncome, pendingInvoices, totalExpenses });
 
       const invoicesPaid = (invoices || []).filter(invoice => invoice.status === 'paid').length;
       const invoicesPending = (invoices || []).filter(invoice => invoice.status === 'pending').length;
@@ -2157,19 +2353,46 @@ export const dashboardApi = {
       const clientsTrend = calculatePercentageChange(currentMonthClients, previousMonthClients);
       const overdueTrend = calculatePercentageChange(currentMonthOverdue, previousMonthOverdue);
 
-      console.log('Trend calculations:', {
-        currentMonthIncome,
-        previousMonthIncome,
-        incomeTrend,
-        currentMonthPending,
-        previousMonthPending,
-        pendingTrend,
-        currentMonthClients,
-        previousMonthClients,
-        clientsTrend,
-        currentMonthOverdue,
-        previousMonthOverdue,
-        overdueTrend
+      // Calculate real payment trends metrics
+      let onTimePaymentRate = 0;
+      let averagePaymentTime = 0;
+      let overdueRate = 0;
+
+      if (invoices && invoices.length > 0) {
+        const paidInvoices = invoices.filter(inv => inv.status === 'paid' || inv.status === 'partially_paid');
+        const overdueInvoices = invoices.filter(inv => inv.status === 'overdue');
+        
+        // Calculate on-time payment rate
+        if (paidInvoices.length > 0) {
+          const onTimePayments = paidInvoices.filter(invoice => {
+            if (!invoice.due_date || !invoice.updated_at) return false;
+            const dueDate = new Date(invoice.due_date);
+            const paidDate = new Date(invoice.updated_at);
+            return paidDate <= dueDate;
+          });
+          onTimePaymentRate = Math.round((onTimePayments.length / paidInvoices.length) * 100);
+        }
+
+        // Calculate average payment time (in days)
+        if (paidInvoices.length > 0) {
+          const totalPaymentDays = paidInvoices.reduce((sum, invoice) => {
+            if (!invoice.date || !invoice.updated_at) return sum;
+            const createdDate = new Date(invoice.date);
+            const paidDate = new Date(invoice.updated_at);
+            const daysDiff = Math.ceil((paidDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+            return sum + daysDiff;
+          }, 0);
+          averagePaymentTime = Math.round(totalPaymentDays / paidInvoices.length);
+        }
+
+        // Calculate overdue rate
+        overdueRate = Math.round((overdueInvoices.length / invoices.length) * 100);
+      }
+
+      console.log('Payment trends calculations:', {
+        onTimePaymentRate,
+        averagePaymentTime,
+        overdueRate
       });
 
       return {
@@ -2180,6 +2403,11 @@ export const dashboardApi = {
         invoicesPaid,
         invoicesPending,
         invoicesOverdue,
+        paymentTrends: {
+          onTimePaymentRate,
+          averagePaymentTime,
+          overdueRate
+        },
         trends: {
           income: { value: Math.round(incomeTrend * 10) / 10, isPositive: incomeTrend >= 0 },
           pending: { value: Math.round(pendingTrend * 10) / 10, isPositive: pendingTrend >= 0 },
@@ -2197,6 +2425,11 @@ export const dashboardApi = {
         invoicesPaid: 0,
         invoicesPending: 0,
         invoicesOverdue: 0,
+        paymentTrends: {
+          onTimePaymentRate: 0,
+          averagePaymentTime: 0,
+          overdueRate: 0
+        },
         trends: {
           income: { value: 0, isPositive: true },
           pending: { value: 0, isPositive: true },
@@ -2216,6 +2449,20 @@ export const settingsApi = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+  getSetting: (key: string) => apiRequest<{ key: string; value: any }>(`/settings/value/${key}`),
+  updateSetting: (key: string, value: any) =>
+    apiRequest<{ key: string; value: any }>(`/settings/value/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
+  getNotificationSettings: () => apiRequest<any>("/notifications/settings"),
+  updateNotificationSettings: (settings: any) =>
+    apiRequest<any>("/notifications/settings", {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+  testNotification: () => apiRequest<any>("/notifications/test", { method: 'POST' }),
+  testEmailConfiguration: () => apiRequest<any>("/email/test", { method: 'POST' }),
   exportData: async () => {
     const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/settings/export-data`, {
@@ -2342,6 +2589,21 @@ export const aiConfigApi = {
     apiRequest<{ message: string }>(`/ai-config/mark-tested/${id}`, {
       method: 'POST',
     }),
+  triggerFullReview: () => apiRequest<{
+    success: boolean;
+    message: string;
+    counts: { invoices: number; expenses: number; statements: number }
+  }>(`/ai-config/trigger-full-review`, { method: 'POST' }),
+  getReviewProgress: () => apiRequest<{
+    invoices: { stats: Record<string, number>; total: number; completed: number; progress_percent: number };
+    expenses: { stats: Record<string, number>; total: number; completed: number; progress_percent: number };
+    statements: { stats: Record<string, number>; total: number; completed: number; progress_percent: number };
+    overall_progress_percent: number;
+  }>(`/ai-config/review-progress`, { method: 'GET' }),
+  cancelFullReview: () => apiRequest<{
+    success: boolean;
+    message: string;
+  }>(`/ai-config/cancel-full-review`, { method: 'POST' }),
 };
 
 // AI Assistant API methods
@@ -2892,6 +3154,16 @@ export const inventoryApi = {
     }),
 
   // Import/Export
+  uploadReceipt: async (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<Expense>(`/expenses/${id}/receipt`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
+  reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),
   importInventoryCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -3004,6 +3276,13 @@ export const reminderApi = {
     });
   },
 
+  bulkDeleteReminders: async (reminderIds: number[]) => {
+    return apiRequest<any>('/reminders/bulk-delete', {
+      method: 'DELETE',
+      body: JSON.stringify(reminderIds),
+    });
+  },
+
   getDueToday: async () => {
     return apiRequest<any>('/reminders/due/today');
   },
@@ -3075,7 +3354,8 @@ export const activityApi = {
 
       // Fetch recent invoices
       try {
-        const invoices = await invoiceApi.getInvoices();
+        const data = await invoiceApi.getInvoices();
+        const invoices = data.items;
         const recentInvoices = invoices
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 3)
@@ -3097,9 +3377,14 @@ export const activityApi = {
 
       // Fetch recent clients
       try {
-        const clients = await clientApi.getClients();
+        const data = await clientApi.getClients(0, 10);
+        const clients = data.items;
         const recentClients = clients
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+          })
           .slice(0, 2)
           .map(client => ({
             id: `client-${client.id}`,

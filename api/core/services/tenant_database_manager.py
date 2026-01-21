@@ -149,7 +149,7 @@ class TenantDatabaseManager:
             
             # Create prompt templates tables (uses a different Base class)
             # Import here to avoid circular imports
-            from core.models.prompt_templates import PromptTemplate, PromptUsageLog
+            from commercial.prompt_management.models.prompt_templates import PromptTemplate, PromptUsageLog
             from core.models.database import Base as DatabaseBase
             DatabaseBase.metadata.create_all(bind=tenant_engine, tables=[
                 PromptTemplate.__table__,
@@ -204,7 +204,7 @@ class TenantDatabaseManager:
     def _seed_prompt_templates(self, db_session):
         """Seed default prompt templates for a new tenant database"""
         import json
-        from core.models.prompt_templates import PromptTemplate
+        from commercial.prompt_management.models.prompt_templates import PromptTemplate
         from core.constants.default_prompts import DEFAULT_PROMPT_TEMPLATES
 
         # Check if templates already exist

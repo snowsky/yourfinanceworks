@@ -10,11 +10,12 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy.orm import Session
 
-from api.services.report_service import ReportService, ReportValidationError
-from api.services.report_data_aggregator import (
+from core.services.report_service import ReportService
+from core.exceptions.report_exceptions import ReportValidationError
+from core.services.report_data_aggregator import (
     ClientData, InvoiceMetrics, PaymentFlows, ExpenseBreakdown, TransactionData
 )
-from api.schemas.report import (
+from core.schemas.report import (
     ReportType, ExportFormat, ClientReportFilters, InvoiceReportFilters,
     PaymentReportFilters, ExpenseReportFilters, StatementReportFilters
 )
@@ -551,7 +552,7 @@ class TestReportExportIntegration:
     @pytest.fixture
     def sample_report_data(self):
         """Sample report data for export testing"""
-        from api.schemas.report import ReportData, ReportSummary, ReportMetadata
+        from core.schemas.report import ReportData, ReportSummary, ReportMetadata
         
         return ReportData(
             report_type=ReportType.INVOICE,
@@ -631,7 +632,7 @@ class TestReportExportIntegration:
     
     def test_validate_export_format_invalid(self, report_service_with_company):
         """Test export format validation with invalid format"""
-        from api.services.report_exporter import ExportError
+        from core.services.report_exporter import ExportError
         
         with pytest.raises(ExportError, match="Invalid export format"):
             report_service_with_company.validate_export_format("invalid")
@@ -655,6 +656,6 @@ class TestReportExportIntegration:
         assert report_service_with_company.validate_export_format("excel") == ExportFormat.EXCEL
         
         # Test invalid format
-        from api.services.report_exporter import ExportError
+        from core.services.report_exporter import ExportError
         with pytest.raises(ExportError):
             report_service_with_company.validate_export_format("invalid")

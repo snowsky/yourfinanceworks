@@ -6,18 +6,21 @@ interface FeatureFlags {
   ai_expense: boolean;
   ai_bank_statement: boolean;
   ai_chat: boolean;
-  tax_integration: boolean;
+  // tax_integration: boolean;
   slack_integration: boolean;
   cloud_storage: boolean;
   sso: boolean;
-  api_keys: boolean;
+  external_api: boolean;
+  external_transactions: boolean;
+  advanced_export: boolean;
+  approval_analytics: boolean;
   batch_processing: boolean;
   reporting: boolean;
-  inventory: boolean;
   approvals: boolean;
   advanced_search: boolean;
   email_integration: boolean;
-  crm: boolean;
+  prompt_management: boolean;
+  anomaly_detection: boolean;
   [key: string]: boolean;
 }
 
@@ -48,8 +51,9 @@ const FeatureContext = createContext<FeatureContextType | undefined>(undefined);
 export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [features, setFeatures] = useState<FeatureFlags>({} as FeatureFlags);
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
   const fetchFeatures = async () => {
     try {
@@ -65,21 +69,27 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ai_expense: false,
           ai_bank_statement: false,
           ai_chat: false,
-          tax_integration: false,
+          // tax_integration: false,
           slack_integration: false,
           cloud_storage: false,
           sso: false,
-          api_keys: false,
+          external_api: false,
+          external_transactions: false,
+          advanced_export: false,
+          approval_analytics: false,
           batch_processing: false,
           reporting: false,
-          inventory: false,
           approvals: false,
           advanced_search: false,
           email_integration: false,
-          crm: false,
+          prompt_management: false,
+          anomaly_detection: false,
+          inventory: true,
+          crm: true,
         });
         setLicenseStatus(null);
         setLoading(false);
+        setHasAttemptedFetch(true);
         return;
       }
 
@@ -107,18 +117,25 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ai_expense: hasAllFeatures || enabledFeatures.includes('ai_expense'),
         ai_bank_statement: hasAllFeatures || enabledFeatures.includes('ai_bank_statement'),
         ai_chat: hasAllFeatures || enabledFeatures.includes('ai_chat'),
-        tax_integration: hasAllFeatures || enabledFeatures.includes('tax_integration'),
+        // tax_integration: hasAllFeatures || enabledFeatures.includes('tax_integration'),
         slack_integration: hasAllFeatures || enabledFeatures.includes('slack_integration'),
         cloud_storage: hasAllFeatures || enabledFeatures.includes('cloud_storage'),
         sso: hasAllFeatures || enabledFeatures.includes('sso'),
-        api_keys: hasAllFeatures || enabledFeatures.includes('api_keys'),
+        external_api: hasAllFeatures || enabledFeatures.includes('external_api'),
+        external_transactions: hasAllFeatures || enabledFeatures.includes('external_transactions'),
+        advanced_export: hasAllFeatures || enabledFeatures.includes('advanced_export'),
+        approval_analytics: hasAllFeatures || enabledFeatures.includes('approval_analytics'),
         batch_processing: hasAllFeatures || enabledFeatures.includes('batch_processing'),
         reporting: hasAllFeatures || enabledFeatures.includes('reporting'),
-        inventory: hasAllFeatures || enabledFeatures.includes('inventory'),
         approvals: hasAllFeatures || enabledFeatures.includes('approvals'),
         advanced_search: hasAllFeatures || enabledFeatures.includes('advanced_search'),
         email_integration: hasAllFeatures || enabledFeatures.includes('email_integration'),
-        crm: false, // CRM removed from licensing
+        prompt_management: hasAllFeatures || enabledFeatures.includes('prompt_management'),
+        anomaly_detection: hasAllFeatures || enabledFeatures.includes('anomaly_detection'),
+        
+        // Core features (client-side only for now)
+        inventory: true,
+        crm: true,
       };
 
       setFeatures(featureFlags);
@@ -157,6 +174,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       setLicenseStatus(licenseStatusData);
+      setHasAttemptedFetch(true);
     } catch (err) {
       console.error('Failed to fetch feature flags:', err);
 
@@ -172,27 +190,36 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ai_expense: false,
         ai_bank_statement: false,
         ai_chat: false,
-        tax_integration: false,
+        // tax_integration: false,
         slack_integration: false,
         cloud_storage: false,
         sso: false,
-        api_keys: false,
+        external_api: false,
+        external_transactions: false,
+        advanced_export: false,
+        approval_analytics: false,
         batch_processing: false,
         reporting: false,
-        inventory: false,
+        inventory: true,
         approvals: false,
         advanced_search: false,
         email_integration: false,
-        crm: false,
+        prompt_management: false,
+        anomaly_detection: false,
+        crm: true,
       });
       setLicenseStatus(null);
+      setHasAttemptedFetch(true);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFeatures();
+    // Only fetch on initial mount if not already loaded
+    if (!hasAttemptedFetch) {
+      fetchFeatures();
+    }
 
     // Listen for storage events (e.g., when token is set in another tab or after login)
     const handleStorageChange = (e: StorageEvent) => {
@@ -214,7 +241,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-changed', handleAuthChange);
     };
-  }, []);
+  }, [hasAttemptedFetch]);
 
   const isFeatureEnabled = (featureId: string): boolean => {
     return features[featureId] === true;

@@ -22,6 +22,8 @@ class AuditLogCreate(AuditLogBase):
 class AuditLog(AuditLogBase):
     id: int
     created_at: datetime
+    tenant_name: Optional[str] = None  # Added for all organizations view
+    tenant_id: Optional[int] = None    # Added for all organizations view
 
     model_config = ConfigDict(from_attributes=True)
     

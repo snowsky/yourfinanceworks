@@ -54,6 +54,12 @@ class InvoiceBase(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
     show_discount_in_pdf: Optional[bool] = True
     payer: str = Field("You", description="Who is paying the invoice: 'You' or 'Client'")
+    labels: Optional[List[str]] = Field(None, description="Invoice labels")
+
+    # Review Worker fields
+    review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")
+    review_result: Optional[Dict[str, Any]] = Field(None, description="Data extracted by reviewer")
+    reviewed_at: Optional[datetime] = Field(None, description="When the review was performed")
 
 class InvoiceCreate(InvoiceBase):
     number: Optional[str] = Field(None, description="Invoice number (optional - will be auto-generated if not provided)")
@@ -79,6 +85,7 @@ class InvoiceUpdate(BaseModel):
     show_discount_in_pdf: Optional[bool] = None
     attachment_filename: Optional[str] = Field(None, description="Attachment filename; set to null to delete attachment")
     payer: Optional[str] = Field(None, description="Who is paying the invoice: 'You' or 'Client'")
+    labels: Optional[List[str]] = Field(None, description="Invoice labels")
 
 class Invoice(InvoiceBase):
     id: int
@@ -91,6 +98,16 @@ class Invoice(InvoiceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class InvoiceAttachmentSchema(BaseModel):
+    id: int
+    filename: str
+    file_size: int
+    content_type: Optional[str] = None
+    attachment_type: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class InvoiceWithClient(Invoice):
     client_name: str
     client_company: Optional[str] = None
@@ -99,6 +116,8 @@ class InvoiceWithClient(Invoice):
     custom_fields: Optional[Dict[str, Any]] = Field(default=None, description="Custom fields for the invoice")
     has_attachment: Optional[bool] = False
     attachment_filename: Optional[str] = None
+    attachments: Optional[List[InvoiceAttachmentSchema]] = []
+    attachment_count: Optional[int] = 0
     description: Optional[str] = None
     # User attribution fields
     created_by_user_id: Optional[int] = None
@@ -143,3 +162,6 @@ class RecycleBinResponse(BaseModel):
 class RestoreInvoiceRequest(BaseModel):
     """Request schema for restoring an invoice"""
     new_status: Optional[str] = "draft"  # Status to set when restoring 
+class PaginatedInvoices(BaseModel):
+    items: List[InvoiceWithClient]
+    total: int

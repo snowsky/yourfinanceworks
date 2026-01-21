@@ -40,6 +40,11 @@ class ExpenseBase(BaseModel):
     receipt_timestamp: Optional[datetime] = Field(None, description="Exact timestamp extracted from receipt")
     receipt_time_extracted: Optional[bool] = Field(False, description="Whether timestamp was successfully extracted from receipt")
 
+    # Review Worker fields
+    review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")
+    review_result: Optional[dict] = Field(None, description="Data extracted by reviewer")
+    reviewed_at: Optional[datetime] = Field(None, description="When the review was performed")
+
     @field_validator('amount')
     @classmethod
     def validate_amount(cls, v):
@@ -343,5 +348,14 @@ class RecycleBinExpenseResponse(BaseModel):
 class RestoreExpenseRequest(BaseModel):
     """Request schema for restoring an expense"""
     new_status: Optional[str] = "recorded"  # Status to set when restoring
+
+
+class ExpenseListResponse(BaseModel):
+    """Response schema for paginated expense list"""
+    success: bool = True
+    expenses: List[Expense]
+    total: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 

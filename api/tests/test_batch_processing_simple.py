@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from main import app
-from core.routers import batch_processing
+from commercial.batch_processing import router as batch_processing
 
 
 def test_router_exists():

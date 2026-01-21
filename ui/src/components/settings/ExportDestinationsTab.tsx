@@ -1,31 +1,103 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { FeatureGate } from '@/components/FeatureGate';
+import {
+  ProfessionalCard,
+  ProfessionalCardContent,
+  ProfessionalCardHeader,
+  ProfessionalCardTitle,
+  ProfessionalCardDescription
+} from '@/components/ui/professional-card';
+import { ProfessionalInput } from '@/components/ui/professional-input';
+import { ProfessionalButton } from '@/components/ui/professional-button';
+import { ProfessionalTextarea } from '@/components/ui/professional-textarea'; // Ensure this exists or use Textarea with class
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Save, Globe, Database, Folder, HardDrive, FileText, Cloud, Shield, ExternalLink } from 'lucide-react';
 import { exportDestinationApi, ExportDestination, ExportDestinationCreate, ExportDestinationUpdate } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea'; // Keep for now as fallback if ProfessionalTextarea implies specific styling not matching
 
 interface ExportDestinationsTabProps {
   isAdmin: boolean;
 }
 
-const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
+export const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
+  return (
+    <FeatureGate
+      feature="advanced_export"
+      fallback={
+        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+          <ProfessionalCardContent className="p-12 text-center">
+            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <ExternalLink className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
+              Export destinations allow you to automatically send invoices and data to external storage services and cloud platforms.
+              Upgrade to a business license to configure automated exports and streamline your data management workflow.
+            </p>
+            <div className="bg-background/80 backdrop-blur-sm rounded-xl p-6 mb-8 max-w-lg mx-auto shadow-sm border border-border/50">
+              <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                With Business License, you get:
+              </h4>
+              <ul className="text-left space-y-3 text-sm text-foreground/80">
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Connect to AWS S3, Azure Blob, and Google Cloud Storage</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Automated batch export and scheduled transfers</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Secure credential management and connection testing</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <span>Integration with Google Drive and local file systems</span>
+                </li>
+              </ul>
+            </div>
+            <div className="flex justify-center gap-4">
+              <ProfessionalButton
+                variant="gradient"
+                onClick={() => window.location.href = '/settings?tab=license'}
+                size="lg"
+              >
+                Activate Business License
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="outline"
+                onClick={() => window.open('https://docs.example.com/export-destinations', '_blank')}
+                size="lg"
+              >
+                Learn More
+              </ProfessionalButton>
+            </div>
+          </ProfessionalCardContent>
+        </ProfessionalCard>
+      }
+    >
+      <ExportDestinationsContent isAdmin={isAdmin} />
+    </FeatureGate>
+  );
+};
+
+const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdmin }) => {
   const { t } = useTranslation();
-  const [destinations, setDestinations] = useState<ExportDestination[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [editingDestination, setEditingDestination] = useState<ExportDestination | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
-  
+
   // Form state
   const [formData, setFormData] = useState<ExportDestinationCreate>({
     name: '',
@@ -70,28 +142,68 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
 
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
-  // Fetch destinations on mount
-  useEffect(() => {
-    if (isAdmin) {
-      fetchDestinations();
-    }
-  }, [isAdmin]);
-
-  const fetchDestinations = async () => {
-    setLoading(true);
-    try {
+  // Queries
+  const { data: destinationsData, isLoading: loading } = useQuery<ExportDestination[]>({
+    queryKey: ['export-destinations'],
+    queryFn: async () => {
       const data = await exportDestinationApi.getDestinations();
-      console.log('Fetched export destinations:', data);
-      // API returns { destinations: [...], total: N }
-      const destinationsList = Array.isArray(data) ? data : (data as any).destinations || [];
-      setDestinations(destinationsList);
-    } catch (error) {
-      console.error('Failed to fetch export destinations:', error);
+      return Array.isArray(data) ? data : (data as any).destinations || [];
+    },
+    enabled: isAdmin,
+  });
+
+  const destinations = destinationsData || [];
+
+  // Mutations
+  const saveMutation = useMutation({
+    mutationFn: async (vars: { id?: number, data: ExportDestinationCreate | ExportDestinationUpdate }) => {
+      if (vars.id) {
+        return exportDestinationApi.updateDestination(vars.id, vars.data as ExportDestinationUpdate);
+      } else {
+        return exportDestinationApi.createDestination(vars.data as ExportDestinationCreate);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['export-destinations'] });
+      toast.success(editingDestination ? t('settings.export_destination_updated') : t('settings.export_destination_created'));
+      setShowDialog(false);
+    },
+    onError: (error) => {
+      console.error('Failed to save export destination:', error);
       toast.error(getErrorMessage(error, t));
-    } finally {
-      setLoading(false);
     }
-  };
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => exportDestinationApi.deleteDestination(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['export-destinations'] });
+      toast.success(t('settings.export_destination_deleted'));
+    },
+    onError: (error) => {
+      console.error('Failed to delete export destination:', error);
+      toast.error(getErrorMessage(error, t));
+    }
+  });
+
+  const testConnectionMutation = useMutation({
+    mutationFn: (id: number) => exportDestinationApi.testConnection(id),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+      queryClient.invalidateQueries({ queryKey: ['export-destinations'] });
+    },
+    onSettled: () => {
+      setTestingId(null);
+    },
+    onError: (error) => {
+      console.error('Failed to test connection:', error);
+      toast.error(getErrorMessage(error, t));
+    }
+  });
 
   const handleCreate = () => {
     setEditingDestination(null);
@@ -115,15 +227,15 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
       config: destination.config || {},
       is_default: destination.is_default,
     });
-    
-    // Populate form fields with masked credentials (non-sensitive fields shown, secrets masked)
+
+    // Populate form fields with masked credentials
     if (destination.masked_credentials) {
       const masked = destination.masked_credentials;
-      
+
       if (destination.destination_type === 's3') {
         setS3Credentials({
           access_key_id: masked.access_key_id || '',
-          secret_access_key: masked.secret_access_key || '',  // Will show ****XXXX
+          secret_access_key: masked.secret_access_key || '',
           region: masked.region || 'us-east-1',
           bucket_name: masked.bucket_name || '',
           path_prefix: masked.path_prefix || '',
@@ -156,7 +268,7 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
     } else {
       resetCredentialForms();
     }
-    
+
     setShowDialog(true);
   };
 
@@ -194,124 +306,88 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
   const handleSave = async () => {
     if (!isAdmin) return;
 
-    try {
-      // Build credentials based on destination type
-      let credentials: Record<string, any> = {};
-      
-      switch (formData.destination_type) {
-        case 's3':
-          credentials = {
-            access_key_id: s3Credentials.access_key_id.trim(),
-            secret_access_key: s3Credentials.secret_access_key.trim(),
-            region: s3Credentials.region.trim(),
-            bucket_name: s3Credentials.bucket_name.trim(),
-            path_prefix: s3Credentials.path_prefix?.trim() || undefined,
-          };
-          break;
-        case 'azure':
-          if (azureCredentials.auth_type === 'connection_string') {
-            credentials = {
-              connection_string: azureCredentials.connection_string.trim(),
-              container_name: azureCredentials.container_name.trim(),
-              path_prefix: azureCredentials.path_prefix?.trim() || undefined,
-            };
-          } else {
-            credentials = {
-              account_name: azureCredentials.account_name.trim(),
-              account_key: azureCredentials.account_key.trim(),
-              container_name: azureCredentials.container_name.trim(),
-              path_prefix: azureCredentials.path_prefix?.trim() || undefined,
-            };
-          }
-          break;
-        case 'gcs':
-          if (gcsCredentials.auth_type === 'service_account') {
-            credentials = {
-              service_account_json: gcsCredentials.service_account_json.trim(),
-              bucket_name: gcsCredentials.bucket_name.trim(),
-              path_prefix: gcsCredentials.path_prefix?.trim() || undefined,
-            };
-          } else {
-            credentials = {
-              project_id: gcsCredentials.project_id.trim(),
-              credentials: gcsCredentials.credentials.trim(),
-              bucket_name: gcsCredentials.bucket_name.trim(),
-              path_prefix: gcsCredentials.path_prefix?.trim() || undefined,
-            };
-          }
-          break;
-        case 'google_drive':
-          credentials = {
-            oauth_token: googleDriveCredentials.oauth_token.trim(),
-            refresh_token: googleDriveCredentials.refresh_token?.trim() || undefined,
-            folder_id: googleDriveCredentials.folder_id.trim(),
-          };
-          break;
-      }
+    // Build credentials based on destination type
+    let credentials: Record<string, any> = {};
 
-      if (editingDestination) {
-        // Update existing destination
-        const updateData: ExportDestinationUpdate = {
-          name: formData.name,
-          config: formData.config,
-          is_default: formData.is_default,
+    switch (formData.destination_type) {
+      case 's3':
+        credentials = {
+          access_key_id: s3Credentials.access_key_id.trim(),
+          secret_access_key: s3Credentials.secret_access_key.trim(),
+          region: s3Credentials.region.trim(),
+          bucket_name: s3Credentials.bucket_name.trim(),
+          path_prefix: s3Credentials.path_prefix?.trim() || undefined,
         };
-        // Only include credentials if they were changed
-        if (Object.values(credentials).some(v => v)) {
-          updateData.credentials = credentials;
+        break;
+      case 'azure':
+        if (azureCredentials.auth_type === 'connection_string') {
+          credentials = {
+            connection_string: azureCredentials.connection_string.trim(),
+            container_name: azureCredentials.container_name.trim(),
+            path_prefix: azureCredentials.path_prefix?.trim() || undefined,
+          };
+        } else {
+          credentials = {
+            account_name: azureCredentials.account_name.trim(),
+            account_key: azureCredentials.account_key.trim(),
+            container_name: azureCredentials.container_name.trim(),
+            path_prefix: azureCredentials.path_prefix?.trim() || undefined,
+          };
         }
-        await exportDestinationApi.updateDestination(editingDestination.id, updateData);
-        toast.success(t('settings.export_destination_updated'));
-      } else {
-        // Create new destination
-        const result = await exportDestinationApi.createDestination({
-          ...formData,
-          credentials,
-        });
-        console.log('Created destination:', result);
-        toast.success(t('settings.export_destination_created'));
-      }
+        break;
+      case 'gcs':
+        if (gcsCredentials.auth_type === 'service_account') {
+          credentials = {
+            service_account_json: gcsCredentials.service_account_json.trim(),
+            bucket_name: gcsCredentials.bucket_name.trim(),
+            path_prefix: gcsCredentials.path_prefix?.trim() || undefined,
+          };
+        } else {
+          credentials = {
+            project_id: gcsCredentials.project_id.trim(),
+            credentials: gcsCredentials.credentials.trim(),
+            bucket_name: gcsCredentials.bucket_name.trim(),
+            path_prefix: gcsCredentials.path_prefix?.trim() || undefined,
+          };
+        }
+        break;
+      case 'google_drive':
+        credentials = {
+          oauth_token: googleDriveCredentials.oauth_token.trim(),
+          refresh_token: googleDriveCredentials.refresh_token?.trim() || undefined,
+          folder_id: googleDriveCredentials.folder_id.trim(),
+        };
+        break;
+      case 'local':
+        // Local might not need credentials or handled differently
+        break;
+    }
 
-      setShowDialog(false);
-      await fetchDestinations();
-    } catch (error) {
-      console.error('Failed to save export destination:', error);
-      toast.error(getErrorMessage(error, t));
+    if (editingDestination) {
+      const updateData: ExportDestinationUpdate = {
+        name: formData.name,
+        config: formData.config,
+        is_default: formData.is_default,
+      };
+      if (Object.values(credentials).some(v => v)) {
+        updateData.credentials = credentials;
+      }
+      saveMutation.mutate({ id: editingDestination.id, data: updateData });
+    } else {
+      saveMutation.mutate({ data: { ...formData, credentials } });
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     if (!isAdmin) return;
     if (!confirm(t('settings.confirm_delete_export_destination'))) return;
-
-    try {
-      await exportDestinationApi.deleteDestination(id);
-      toast.success(t('settings.export_destination_deleted'));
-      fetchDestinations();
-    } catch (error) {
-      console.error('Failed to delete export destination:', error);
-      toast.error(getErrorMessage(error, t));
-    }
+    deleteMutation.mutate(id);
   };
 
-  const handleTestConnection = async (id: number) => {
+  const handleTestConnection = (id: number) => {
     if (!isAdmin) return;
     setTestingId(id);
-
-    try {
-      const result = await exportDestinationApi.testConnection(id);
-      if (result.success) {
-        toast.success(result.message);
-      } else {
-        toast.error(result.message);
-      }
-      fetchDestinations(); // Refresh to show updated test status
-    } catch (error) {
-      console.error('Failed to test connection:', error);
-      toast.error(getErrorMessage(error, t));
-    } finally {
-      setTestingId(null);
-    }
+    testConnectionMutation.mutate(id);
   };
 
   const getDestinationTypeLabel = (type: string) => {
@@ -325,113 +401,158 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
     }
   };
 
+  const getDestinationIcon = (type: string) => {
+    switch (type) {
+      case 's3': return <Cloud className="h-5 w-5 text-orange-500" />;
+      case 'azure': return <Database className="h-5 w-5 text-blue-500" />;
+      case 'gcs': return <Globe className="h-5 w-5 text-green-500" />;
+      case 'google_drive': return <HardDrive className="h-5 w-5 text-yellow-500" />;
+      case 'local': return <Folder className="h-5 w-5 text-gray-500" />;
+      default: return <Database className="h-5 w-5" />;
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin mr-2" />
-        <span>{t('common.loading')}</span>
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <ProfessionalCard variant="elevated">
+      <ProfessionalCardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>{t('settings.export_destinations')}</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
+          <div className="space-y-1">
+            <ProfessionalCardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-primary" />
+              {t('settings.export_destinations')}
+            </ProfessionalCardTitle>
+            <p className="text-sm text-muted-foreground">
               {t('settings.export_destinations_description')}
             </p>
           </div>
-          <Button onClick={handleCreate} size="sm">
+          <ProfessionalButton onClick={handleCreate} size="sm" variant="gradient">
             <Plus className="h-4 w-4 mr-2" />
             {t('settings.add_destination')}
-          </Button>
+          </ProfessionalButton>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-6">
         {/* Destinations list */}
         {destinations.length > 0 ? (
-          <div className="space-y-3">
+          <div className="grid gap-4">
             {destinations.map((destination) => (
-              <div key={destination.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-medium">{destination.name}</h4>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      ID: {destination.id}
-                    </Badge>
-                    <Badge variant={destination.is_active ? 'default' : 'secondary'}>
+              <div key={destination.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 border border-border/50 rounded-xl bg-card/50 hover:bg-card hover:shadow-md transition-all duration-200 gap-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-muted/30 rounded-lg">
+                      {getDestinationIcon(destination.destination_type)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-base">{destination.name}</h4>
+                        {destination.is_default && (
+                          <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-[10px] uppercase tracking-wider">
+                            {t('settings.default')}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
+                        <span className="font-medium">{getDestinationTypeLabel(destination.destination_type)}</span>
+                        {destination.last_test_at && (
+                          <>
+                            <span className="text-muted-foreground/30">•</span>
+                            <span>{new Date(destination.last_test_at).toLocaleDateString()}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pl-[52px]">
+                    <Badge variant={destination.is_active ? 'default' : 'secondary'} className={destination.is_active ? "bg-green-100 text-green-700 hover:bg-green-200 border-transparent shadow-none" : ""}>
                       {destination.is_active ? t('settings.active') : t('settings.inactive')}
                     </Badge>
-                    {destination.is_default && (
-                      <Badge variant="outline">{t('settings.default')}</Badge>
-                    )}
+
                     {destination.last_test_success !== null && (
-                      <Badge 
-                        variant={destination.last_test_success ? 'default' : 'destructive'}
-                        className={destination.last_test_success ? 'bg-green-100 text-green-800' : ''}
-                      >
+                      <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${destination.last_test_success
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-red-50 text-red-700'
+                        }`}>
                         {destination.last_test_success ? (
-                          <><CheckCircle className="h-3 w-3 mr-1" /> {t('settings.test_passed')}</>
+                          <CheckCircle className="h-3 w-3" />
                         ) : (
-                          <><XCircle className="h-3 w-3 mr-1" /> {t('settings.test_failed')}</>
+                          <XCircle className="h-3 w-3" />
                         )}
-                      </Badge>
+                        {destination.last_test_success ? t('settings.test_passed') : t('settings.test_failed')}
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.type')}: {getDestinationTypeLabel(destination.destination_type)}
-                    {destination.last_test_at && (
-                      <> | {t('settings.last_tested')}: {new Date(destination.last_test_at).toLocaleString()}</>
-                    )}
-                  </p>
+
                   {destination.last_test_error && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {t('settings.error')}: {destination.last_test_error}
-                    </p>
+                    <div className="ml-[52px] mt-2 p-2 bg-red-50 border border-red-100 rounded-md text-xs text-red-700">
+                      <span className="font-medium">{t('settings.error')}:</span> {destination.last_test_error}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 w-full md:w-auto pl-[52px] md:pl-0">
                   {destination.testable && (
-                    <Button
+                    <ProfessionalButton
                       variant="outline"
                       size="sm"
                       onClick={() => handleTestConnection(destination.id)}
                       disabled={testingId === destination.id}
+                      className="flex-1 md:flex-none"
                     >
                       {testingId === destination.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         t('settings.test')
                       )}
-                    </Button>
+                    </ProfessionalButton>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <ProfessionalButton
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleEdit(destination)}
+                    className="shrink-0"
                   >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                    <Edit className="h-4 w-4 text-muted-foreground" />
+                  </ProfessionalButton>
+                  <ProfessionalButton
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleDelete(destination.id)}
+                    className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </ProfessionalButton>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Environment variable fallback notice */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+          <div className="bg-muted/30 border border-dashed border-muted-foreground/30 rounded-xl p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-muted/50 rounded-full">
+                <Database className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+            </div>
+            <h3 className="text-lg font-medium mb-1">{t('settings.no_export_destinations_configured')}</h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+              {t('settings.add_destination_to_get_started')}
+            </p>
+            <ProfessionalButton onClick={handleCreate} variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              {t('settings.add_destination')}
+            </ProfessionalButton>
+
+            <div className="mt-8 pt-6 border-t border-border/50 text-left">
+              <div className="flex gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                 <div>
                   <h4 className="font-medium text-blue-900 mb-1">
                     {t('settings.no_destinations_configured')}
@@ -439,37 +560,28 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                   <p className="text-sm text-blue-800">
                     {t('settings.environment_variables_will_be_used')}
                   </p>
-                  <p className="text-sm text-blue-700 mt-2">
+                  <p className="text-sm text-blue-700 mt-2 font-medium">
                     {t('settings.supported_env_vars')}:
                   </p>
-                  <ul className="text-sm text-blue-700 mt-1 ml-4 list-disc">
-                    <li>AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_S3_BUCKET</li>
-                    <li>AZURE_STORAGE_CONNECTION_STRING, AZURE_STORAGE_CONTAINER</li>
-                    <li>GOOGLE_APPLICATION_CREDENTIALS, GCS_BUCKET_NAME</li>
+                  <ul className="text-sm text-blue-700 mt-1 list-disc list-inside space-y-0.5">
+                    <li>AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY...</li>
+                    <li>AZURE_STORAGE_CONNECTION_STRING...</li>
+                    <li>GOOGLE_APPLICATION_CREDENTIALS...</li>
                   </ul>
                 </div>
               </div>
             </div>
-            
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                {t('settings.no_export_destinations_configured')}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {t('settings.add_destination_to_get_started')}
-              </p>
-            </div>
           </div>
         )}
-      </CardContent>
+      </ProfessionalCardContent>
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingDestination 
-                ? t('settings.edit_export_destination') 
+              {editingDestination
+                ? t('settings.edit_export_destination')
                 : t('settings.add_export_destination')}
             </DialogTitle>
             <DialogDescription>
@@ -477,17 +589,15 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-6 py-4">
             {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="destination-name">{t('settings.destination_name')}</Label>
-              <Input
-                id="destination-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={t('settings.destination_name_placeholder')}
-              />
-            </div>
+            <ProfessionalInput
+              id="destination-name"
+              label={t('settings.destination_name')}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder={t('settings.destination_name_placeholder')}
+            />
 
             {/* Destination Type */}
             <div className="space-y-2">
@@ -497,7 +607,7 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                 onValueChange={(value: any) => setFormData({ ...formData, destination_type: value })}
                 disabled={!!editingDestination}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -517,51 +627,55 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
 
             {/* S3 Credentials */}
             {formData.destination_type === 's3' && (
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h4 className="font-medium">AWS S3 {t('settings.credentials')}</h4>
+              <div className="space-y-4 p-5 border border-border/50 rounded-xl bg-muted/20">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Cloud className="h-4 w-4" />
+                  AWS S3 {t('settings.credentials')}
+                </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                    <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
                 )}
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  <ProfessionalInput
+                    id="s3-access-key"
+                    label={`${t('settings.access_key_id')} (optional)`}
+                    value={s3Credentials.access_key_id}
+                    onChange={(e) => setS3Credentials({ ...s3Credentials, access_key_id: e.target.value })}
+                    placeholder="Leave empty to use AWS_S3_ACCESS_KEY_ID"
+                  />
+
                   <div>
-                    <Label htmlFor="s3-access-key">{t('settings.access_key_id')} <span className="text-muted-foreground text-xs">(optional - uses env var if empty)</span></Label>
-                    <Input
-                      id="s3-access-key"
-                      value={s3Credentials.access_key_id}
-                      onChange={(e) => setS3Credentials({ ...s3Credentials, access_key_id: e.target.value })}
-                      placeholder="Leave empty to use AWS_S3_ACCESS_KEY_ID from environment"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="s3-secret-key">{t('settings.secret_access_key')} <span className="text-muted-foreground text-xs">(optional - uses env var if empty)</span></Label>
+                    <Label htmlFor="s3-secret-key" className="mb-2 block">{t('settings.secret_access_key')} <span className="text-muted-foreground text-xs">(optional)</span></Label>
                     <div className="relative">
-                      <Input
+                      <ProfessionalInput
                         id="s3-secret-key"
                         type={showPassword['s3-secret'] ? 'text' : 'password'}
                         value={s3Credentials.secret_access_key}
                         onChange={(e) => setS3Credentials({ ...s3Credentials, secret_access_key: e.target.value })}
                         placeholder="Leave empty to use AWS_S3_SECRET_ACCESS_KEY"
+                        rightIcon={
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword({ ...showPassword, 's3-secret': !showPassword['s3-secret'] })}
+                            className="text-muted-foreground hover:text-foreground transition-colors outline-none"
+                          >
+                            {showPassword['s3-secret'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        }
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowPassword({ ...showPassword, 's3-secret': !showPassword['s3-secret'] })}
-                      >
-                        {showPassword['s3-secret'] ? t('common.hide') : t('common.show')}
-                      </Button>
                     </div>
                   </div>
+
                   <div>
-                    <Label htmlFor="s3-region">{t('settings.region')}</Label>
+                    <Label htmlFor="s3-region" className="mb-2 block">{t('settings.region')}</Label>
                     <Select
                       value={s3Credentials.region}
                       onValueChange={(value) => setS3Credentials({ ...s3Credentials, region: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -576,48 +690,48 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="s3-bucket">{t('settings.bucket_name')} <span className="text-muted-foreground text-xs">(optional - uses env var if empty)</span></Label>
-                    <Input
-                      id="s3-bucket"
-                      value={s3Credentials.bucket_name}
-                      onChange={(e) => setS3Credentials({ ...s3Credentials, bucket_name: e.target.value })}
-                      placeholder="Leave empty to use AWS_S3_BUCKET_NAME"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="s3-prefix">{t('settings.path_prefix')} <span className="text-primary font-medium">(recommended)</span></Label>
-                    <Input
-                      id="s3-prefix"
-                      value={s3Credentials.path_prefix}
-                      onChange={(e) => setS3Credentials({ ...s3Credentials, path_prefix: e.target.value })}
-                      placeholder="exported"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Path prefix for organizing batch files in S3 (e.g., "exported" or a UUID)
-                    </p>
-                  </div>
+
+                  <ProfessionalInput
+                    id="s3-bucket"
+                    label={`${t('settings.bucket_name')} (optional)`}
+                    value={s3Credentials.bucket_name}
+                    onChange={(e) => setS3Credentials({ ...s3Credentials, bucket_name: e.target.value })}
+                    placeholder="Leave empty to use AWS_S3_BUCKET_NAME"
+                  />
+
+                  <ProfessionalInput
+                    id="s3-prefix"
+                    label={t('settings.path_prefix')}
+                    value={s3Credentials.path_prefix}
+                    onChange={(e) => setS3Credentials({ ...s3Credentials, path_prefix: e.target.value })}
+                    placeholder="exported"
+                    helperText='Path prefix for organizing batch files in S3 (e.g., "exported" or a UUID)'
+                  />
                 </div>
               </div>
             )}
 
             {/* Azure Credentials */}
             {formData.destination_type === 'azure' && (
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h4 className="font-medium">Azure Blob Storage {t('settings.credentials')}</h4>
+              <div className="space-y-4 p-5 border border-border/50 rounded-xl bg-muted/20">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Azure Blob Storage {t('settings.credentials')}
+                </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                    <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
                 )}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
-                    <Label>{t('settings.authentication_method')}</Label>
+                    <Label className="mb-2 block">{t('settings.authentication_method')}</Label>
                     <Select
                       value={azureCredentials.auth_type}
                       onValueChange={(value: any) => setAzureCredentials({ ...azureCredentials, auth_type: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -629,8 +743,8 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
 
                   {azureCredentials.auth_type === 'connection_string' ? (
                     <div>
-                      <Label htmlFor="azure-connection-string">{t('settings.connection_string')}</Label>
-                      <Textarea
+                      <Label htmlFor="azure-connection-string" className="mb-2 block">{t('settings.connection_string')}</Label>
+                      <ProfessionalTextarea
                         id="azure-connection-string"
                         value={azureCredentials.connection_string}
                         onChange={(e) => setAzureCredentials({ ...azureCredentials, connection_string: e.target.value })}
@@ -640,78 +754,76 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                     </div>
                   ) : (
                     <>
+                      <ProfessionalInput
+                        id="azure-account-name"
+                        label={t('settings.account_name')}
+                        value={azureCredentials.account_name}
+                        onChange={(e) => setAzureCredentials({ ...azureCredentials, account_name: e.target.value })}
+                        placeholder="mystorageaccount"
+                      />
+
                       <div>
-                        <Label htmlFor="azure-account-name">{t('settings.account_name')}</Label>
-                        <Input
-                          id="azure-account-name"
-                          value={azureCredentials.account_name}
-                          onChange={(e) => setAzureCredentials({ ...azureCredentials, account_name: e.target.value })}
-                          placeholder="mystorageaccount"
+                        <Label htmlFor="azure-account-key" className="mb-2 block">{t('settings.account_key')}</Label>
+                        <ProfessionalInput
+                          id="azure-account-key"
+                          type={showPassword['azure-key'] ? 'text' : 'password'}
+                          value={azureCredentials.account_key}
+                          onChange={(e) => setAzureCredentials({ ...azureCredentials, account_key: e.target.value })}
+                          placeholder="••••••••"
+                          rightIcon={
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword({ ...showPassword, 'azure-key': !showPassword['azure-key'] })}
+                              className="text-muted-foreground hover:text-foreground transition-colors outline-none"
+                            >
+                              {showPassword['azure-key'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          }
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor="azure-account-key">{t('settings.account_key')}</Label>
-                        <div className="relative">
-                          <Input
-                            id="azure-account-key"
-                            type={showPassword['azure-key'] ? 'text' : 'password'}
-                            value={azureCredentials.account_key}
-                            onChange={(e) => setAzureCredentials({ ...azureCredentials, account_key: e.target.value })}
-                            placeholder="••••••••"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3"
-                            onClick={() => setShowPassword({ ...showPassword, 'azure-key': !showPassword['azure-key'] })}
-                          >
-                            {showPassword['azure-key'] ? t('common.hide') : t('common.show')}
-                          </Button>
-                        </div>
                       </div>
                     </>
                   )}
 
-                  <div>
-                    <Label htmlFor="azure-container">{t('settings.container_name')}</Label>
-                    <Input
-                      id="azure-container"
-                      value={azureCredentials.container_name}
-                      onChange={(e) => setAzureCredentials({ ...azureCredentials, container_name: e.target.value })}
-                      placeholder="exports"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="azure-prefix">{t('settings.path_prefix')} ({t('common.optional')})</Label>
-                    <Input
-                      id="azure-prefix"
-                      value={azureCredentials.path_prefix}
-                      onChange={(e) => setAzureCredentials({ ...azureCredentials, path_prefix: e.target.value })}
-                      placeholder="batch-results/"
-                    />
-                  </div>
+                  <ProfessionalInput
+                    id="azure-container"
+                    label={t('settings.container_name')}
+                    value={azureCredentials.container_name}
+                    onChange={(e) => setAzureCredentials({ ...azureCredentials, container_name: e.target.value })}
+                    placeholder="exports"
+                  />
+
+                  <ProfessionalInput
+                    id="azure-prefix"
+                    label={`${t('settings.path_prefix')} (${t('common.optional')})`}
+                    value={azureCredentials.path_prefix}
+                    onChange={(e) => setAzureCredentials({ ...azureCredentials, path_prefix: e.target.value })}
+                    placeholder="batch-results/"
+                  />
                 </div>
               </div>
             )}
 
             {/* GCS Credentials */}
             {formData.destination_type === 'gcs' && (
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h4 className="font-medium">Google Cloud Storage {t('settings.credentials')}</h4>
+              <div className="space-y-4 p-5 border border-border/50 rounded-xl bg-muted/20">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Google Cloud Storage {t('settings.credentials')}
+                </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                    <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
                 )}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
-                    <Label>{t('settings.authentication_method')}</Label>
+                    <Label className="mb-2 block">{t('settings.authentication_method')}</Label>
                     <Select
                       value={gcsCredentials.auth_type}
                       onValueChange={(value: any) => setGcsCredentials({ ...gcsCredentials, auth_type: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -723,8 +835,8 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
 
                   {gcsCredentials.auth_type === 'service_account' ? (
                     <div>
-                      <Label htmlFor="gcs-service-account">{t('settings.service_account_json')}</Label>
-                      <Textarea
+                      <Label htmlFor="gcs-service-account" className="mb-2 block">{t('settings.service_account_json')}</Label>
+                      <ProfessionalTextarea
                         id="gcs-service-account"
                         value={gcsCredentials.service_account_json}
                         onChange={(e) => setGcsCredentials({ ...gcsCredentials, service_account_json: e.target.value })}
@@ -737,18 +849,16 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                     </div>
                   ) : (
                     <>
+                      <ProfessionalInput
+                        id="gcs-project-id"
+                        label={t('settings.project_id')}
+                        value={gcsCredentials.project_id}
+                        onChange={(e) => setGcsCredentials({ ...gcsCredentials, project_id: e.target.value })}
+                        placeholder="my-project-id"
+                      />
                       <div>
-                        <Label htmlFor="gcs-project-id">{t('settings.project_id')}</Label>
-                        <Input
-                          id="gcs-project-id"
-                          value={gcsCredentials.project_id}
-                          onChange={(e) => setGcsCredentials({ ...gcsCredentials, project_id: e.target.value })}
-                          placeholder="my-project-id"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="gcs-credentials">{t('settings.credentials_json')}</Label>
-                        <Textarea
+                        <Label htmlFor="gcs-credentials" className="mb-2 block">{t('settings.credentials_json')}</Label>
+                        <ProfessionalTextarea
                           id="gcs-credentials"
                           value={gcsCredentials.credentials}
                           onChange={(e) => setGcsCredentials({ ...gcsCredentials, credentials: e.target.value })}
@@ -759,102 +869,117 @@ const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ isAdmin }
                     </>
                   )}
 
-                  <div>
-                    <Label htmlFor="gcs-bucket">{t('settings.bucket_name')}</Label>
-                    <Input
-                      id="gcs-bucket"
-                      value={gcsCredentials.bucket_name}
-                      onChange={(e) => setGcsCredentials({ ...gcsCredentials, bucket_name: e.target.value })}
-                      placeholder="my-export-bucket"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="gcs-prefix">{t('settings.path_prefix')} ({t('common.optional')})</Label>
-                    <Input
-                      id="gcs-prefix"
-                      value={gcsCredentials.path_prefix}
-                      onChange={(e) => setGcsCredentials({ ...gcsCredentials, path_prefix: e.target.value })}
-                      placeholder="exports/"
-                    />
-                  </div>
+                  <ProfessionalInput
+                    id="gcs-bucket"
+                    label={t('settings.bucket_name')}
+                    value={gcsCredentials.bucket_name}
+                    onChange={(e) => setGcsCredentials({ ...gcsCredentials, bucket_name: e.target.value })}
+                    placeholder="my-export-bucket"
+                  />
+
+                  <ProfessionalInput
+                    id="gcs-prefix"
+                    label={`${t('settings.path_prefix')} (${t('common.optional')})`}
+                    value={gcsCredentials.path_prefix}
+                    onChange={(e) => setGcsCredentials({ ...gcsCredentials, path_prefix: e.target.value })}
+                    placeholder="exports/"
+                  />
                 </div>
               </div>
             )}
 
             {/* Google Drive Credentials */}
             {formData.destination_type === 'google_drive' && (
-              <div className="space-y-4 p-4 border rounded-lg">
-                <h4 className="font-medium">Google Drive {t('settings.credentials')}</h4>
+              <div className="space-y-4 p-5 border border-border/50 rounded-xl bg-muted/20">
+                <h4 className="font-medium flex items-center gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  Google Drive {t('settings.credentials')}
+                </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                    <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
                 )}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800">
                       {t('settings.google_drive_oauth_note')}
                     </p>
                   </div>
-                  <div>
-                    <Label htmlFor="gdrive-oauth-token">{t('settings.oauth_access_token')}</Label>
-                    <Input
-                      id="gdrive-oauth-token"
-                      type={showPassword['gdrive-oauth'] ? 'text' : 'password'}
-                      value={googleDriveCredentials.oauth_token}
-                      onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, oauth_token: e.target.value })}
-                      placeholder="ya29...."
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="gdrive-refresh-token">{t('settings.oauth_refresh_token')}</Label>
-                    <Input
-                      id="gdrive-refresh-token"
-                      type={showPassword['gdrive-refresh'] ? 'text' : 'password'}
-                      value={googleDriveCredentials.refresh_token}
-                      onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, refresh_token: e.target.value })}
-                      placeholder="1//..."
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="gdrive-folder-id">{t('settings.folder_id')}</Label>
-                    <Input
-                      id="gdrive-folder-id"
-                      value={googleDriveCredentials.folder_id}
-                      onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, folder_id: e.target.value })}
-                      placeholder="1a2b3c4d5e6f7g8h9i0j"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {t('settings.folder_id_from_url')}
-                    </p>
-                  </div>
+
+                  <ProfessionalInput
+                    id="gdrive-oauth-token"
+                    label={t('settings.oauth_access_token')}
+                    type={showPassword['gdrive-oauth'] ? 'text' : 'password'}
+                    value={googleDriveCredentials.oauth_token}
+                    onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, oauth_token: e.target.value })}
+                    placeholder="ya29...."
+                    rightIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword({ ...showPassword, 'gdrive-oauth': !showPassword['gdrive-oauth'] })}
+                        className="text-muted-foreground hover:text-foreground transition-colors outline-none"
+                      >
+                        {showPassword['gdrive-oauth'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    }
+                  />
+
+                  <ProfessionalInput
+                    id="gdrive-refresh-token"
+                    label={t('settings.oauth_refresh_token')}
+                    type={showPassword['gdrive-refresh'] ? 'text' : 'password'}
+                    value={googleDriveCredentials.refresh_token}
+                    onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, refresh_token: e.target.value })}
+                    placeholder="1//..."
+                    rightIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword({ ...showPassword, 'gdrive-refresh': !showPassword['gdrive-refresh'] })}
+                        className="text-muted-foreground hover:text-foreground transition-colors outline-none"
+                      >
+                        {showPassword['gdrive-refresh'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    }
+                  />
+
+                  <ProfessionalInput
+                    id="gdrive-folder-id"
+                    label={t('settings.folder_id')}
+                    value={googleDriveCredentials.folder_id}
+                    onChange={(e) => setGoogleDriveCredentials({ ...googleDriveCredentials, folder_id: e.target.value })}
+                    placeholder="1a2b3c4d5e6f7g8h9i0j"
+                    helperText={t('settings.folder_id_from_url')}
+                  />
                 </div>
               </div>
             )}
 
             {/* Default toggle */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between p-4 border border-border/50 rounded-xl bg-muted/10">
+              <Label htmlFor="is-default" className="flex-1 cursor-pointer font-medium">{t('settings.set_as_default_destination')}</Label>
               <Switch
                 id="is-default"
                 checked={formData.is_default}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_default: checked })}
               />
-              <Label htmlFor="is-default">{t('settings.set_as_default_destination')}</Label>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <DialogFooter className="gap-2">
+            <ProfessionalButton variant="outline" onClick={() => setShowDialog(false)}>
               {t('common.cancel')}
-            </Button>
-            <Button onClick={handleSave}>
+            </ProfessionalButton>
+            <ProfessionalButton onClick={handleSave} variant="gradient">
               {editingDestination ? t('common.update') : t('common.create')}
-            </Button>
+            </ProfessionalButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </ProfessionalCard>
   );
 };
 
 export default ExportDestinationsTab;
+

@@ -5,6 +5,7 @@ from core.services.email_service import EmailService, EmailMessage
 from jinja2 import Template
 import logging
 from datetime import datetime, timezone
+from config import APP_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class NotificationService:
         resource_id: str,
         resource_name: str,
         details: Dict[str, Any],
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> bool:
         """Send notification for a user operation"""
         try:
@@ -481,7 +482,7 @@ class NotificationService:
         self,
         user_id: int,
         digest_data: Dict[str, Any],
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> bool:
         """Send daily digest of approval notifications"""
         try:
@@ -554,7 +555,7 @@ class NotificationService:
         self,
         approver_id: int,
         pending_approvals: List[Dict[str, Any]],
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> bool:
         """Send reminder notification for pending approvals"""
         try:
@@ -619,7 +620,7 @@ class NotificationService:
         approver_id: int,
         overdue_approvals: List[Dict[str, Any]],
         escalation_recipient_id: int,
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> bool:
         """Send escalation notification for overdue approvals"""
         try:

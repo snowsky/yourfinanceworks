@@ -20,11 +20,11 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from api.services.encryption_service import EncryptionService
-from api.services.key_management_service import KeyManagementService
-from api.utils.column_encryptor import EncryptedColumn, EncryptedJSON
-from api.models.database import set_tenant_context, clear_tenant_context
-from api.exceptions.encryption_exceptions import (
+from core.services.encryption_service import EncryptionService
+from core.services.key_management_service import KeyManagementService
+from core.utils.column_encryptor import EncryptedColumn, EncryptedJSON
+from core.models.database import set_tenant_context, clear_tenant_context
+from core.exceptions.encryption_exceptions import (
     EncryptionError,
     DecryptionError,
     KeyNotFoundError
@@ -37,7 +37,7 @@ class TestKeyProtectionSecurity:
     @pytest.fixture
     def encryption_service(self):
         """Create encryption service for security testing."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "security-test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -97,8 +97,8 @@ class TestKeyProtectionSecurity:
         # Test key entropy (derived key should appear random)
         # Simple entropy test: check that not all bytes are the same
         unique_bytes = len(set(key1))
-        assert unique_bytes > 10, f"Derived key has low entropy: {unique_bytes} unique bytes"    def
- test_nonce_security_properties(self, encryption_service):
+        assert unique_bytes > 10, f"Derived key has low entropy: {unique_bytes} unique bytes"
+    def test_nonce_security_properties(self, encryption_service):
         """Test security properties of encryption nonces."""
         service, mock_kms = encryption_service
         set_tenant_context(1)
@@ -193,7 +193,7 @@ class TestDataLeakagePrevention:
     @pytest.fixture
     def encryption_service(self):
         """Create encryption service for data leakage testing."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "leakage-test-key"
             mock_kms.return_value = mock_kms_instance
@@ -280,7 +280,7 @@ class TestEncryptionStrengthValidation:
     @pytest.fixture
     def encryption_service(self):
         """Create encryption service for strength testing."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "strength-test-key-material"
             mock_kms.return_value = mock_kms_instance
@@ -399,7 +399,7 @@ class TestComplianceValidation:
         assert PBKDF2HMAC is not None, "PBKDF2 should be available"
         
         # Test key sizes
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "fips-test-key"
             mock_kms.return_value = mock_kms_instance
@@ -416,7 +416,7 @@ class TestComplianceValidation:
 
     def test_gdpr_compliance_features(self):
         """Test GDPR compliance features."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "gdpr-test-key"
             mock_kms.return_value = mock_kms_instance
@@ -440,7 +440,7 @@ class TestComplianceValidation:
 
     def test_audit_trail_completeness(self, caplog):
         """Test completeness of audit trails for compliance."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "audit-test-key"
             mock_kms.return_value = mock_kms_instance
@@ -473,7 +473,7 @@ class TestPenetrationTestingScenarios:
 
     def test_brute_force_resistance(self):
         """Test resistance to brute force attacks."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "brute-force-test-key"
             mock_kms.return_value = mock_kms_instance
@@ -514,7 +514,7 @@ class TestPenetrationTestingScenarios:
 
     def test_injection_attack_resistance(self):
         """Test resistance to injection attacks through encrypted data."""
-        with patch('api.services.key_management_service.KeyManagementService') as mock_kms:
+        with patch('core.services.key_management_service.KeyManagementService') as mock_kms:
             mock_kms_instance = Mock()
             mock_kms_instance.retrieve_tenant_key.return_value = "injection-test-key"
             mock_kms.return_value = mock_kms_instance

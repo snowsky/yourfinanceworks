@@ -2,6 +2,9 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
+from core.constants.password import MIN_PASSWORD_LENGTH
+from core.utils.password_validation import validate_password_strength
+
 class OrganizationJoinRequestBase(BaseModel):
     email: EmailStr
     first_name: Optional[str] = None
@@ -24,8 +27,9 @@ class OrganizationJoinRequestCreate(OrganizationJoinRequestBase):
     @field_validator('password')
     @classmethod
     def validate_password(cls, v):
-        if len(v) < 6:
-            raise ValueError('Password must be at least 6 characters long')
+        is_valid, errors = validate_password_strength(v)
+        if not is_valid:
+            raise ValueError('; '.join(errors))
         return v
 
 class OrganizationJoinRequestRead(OrganizationJoinRequestBase):

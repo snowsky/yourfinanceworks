@@ -18,7 +18,7 @@ export function InvoiceChart() {
       try {
         const data = await invoiceApi.getInvoices();
         console.log('Fetched invoices for chart:', data);
-        prepareChartData(data);
+        prepareChartData(data.items);
       } catch (error) {
         console.error("Failed to fetch invoices for chart:", error);
         toast.error("Failed to load invoice data for chart");

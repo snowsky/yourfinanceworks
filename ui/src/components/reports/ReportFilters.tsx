@@ -37,7 +37,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   // Fetch clients for client selector
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
-    queryFn: clientApi.getClients,
+    queryFn: () => clientApi.getClients().then(response => response.items),
   });
 
   // Fetch currencies with proper caching

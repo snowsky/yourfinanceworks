@@ -10,13 +10,13 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from api.services.report_template_service import (
-    ReportTemplateService, TemplateValidationError, TemplateAccessError
-)
-from api.schemas.report import (
+from core.services.report_template_service import ReportTemplateService
+
+from core.exceptions.report_exceptions import TemplateValidationError, TemplateAccessError
+from core.schemas.report import (
     ReportTemplateCreate, ReportTemplateUpdate, ReportType, ExportFormat
 )
-from api.models.models_per_tenant import ReportTemplate, User, ReportHistory
+from core.models.models_per_tenant import ReportTemplate, User, ReportHistory
 
 
 class TestReportTemplateService:
@@ -358,7 +358,7 @@ class TestReportTemplateService:
         
         assert "don't have permission" in str(exc_info.value)
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_generate_report_from_template_success(self, mock_report_service_class, template_service, mock_db, sample_template):
         """Test successful report generation from template"""
         # Mock template retrieval
@@ -381,7 +381,7 @@ class TestReportTemplateService:
         assert result.success == True
         mock_report_service.generate_report.assert_called_once()
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_generate_report_from_template_with_overrides(self, mock_report_service_class, template_service, mock_db, sample_template):
         """Test report generation from template with filter overrides"""
         # Mock template retrieval
@@ -412,7 +412,7 @@ class TestReportTemplateService:
         assert "date_from" in called_filters  # From template
         assert called_filters["status"] == ["paid"]  # Override
     
-    @patch('api.services.report_template_service.ReportService')
+    @patch('core.services.report_template_service.ReportService')
     def test_validate_template_filters_success(self, mock_report_service_class, template_service, mock_db):
         """Test successful template filter validation"""
         # Mock report service

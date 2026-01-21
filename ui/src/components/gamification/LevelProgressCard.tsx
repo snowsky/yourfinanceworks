@@ -1,5 +1,10 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ProfessionalCard,
+  ProfessionalCardContent,
+  ProfessionalCardHeader,
+  ProfessionalCardTitle
+} from '@/components/ui/professional-card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Star, Zap, TrendingUp } from 'lucide-react';
@@ -18,14 +23,14 @@ export function LevelProgressCard({ profile, levelProgress }: LevelProgressCardP
   const xpProgress = levelProgress.xp_progress || 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
+    <ProfessionalCard>
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center space-x-2">
           <Star className="h-5 w-5 text-yellow-500" />
           <span>{t('settings.gamification.level_progress.title')}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-4">
         {/* Current Level Display */}
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full text-white text-2xl font-bold mb-2">
@@ -80,7 +85,7 @@ export function LevelProgressCard({ profile, levelProgress }: LevelProgressCardP
             </Badge>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
   );
 }

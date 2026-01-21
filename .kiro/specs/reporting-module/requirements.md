@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The reporting module will provide comprehensive reporting capabilities for the invoice management system, allowing users to generate detailed reports across multiple data types including clients, invoices, payments, expenses, and bank statements. This module will enable users to analyze their business data through customizable reports with various filtering options, date ranges, and export formats.
+The reporting module will provide comprehensive reporting capabilities for the {APP_NAME}, allowing users to generate detailed reports across multiple data types including clients, invoices, payments, expenses, and bank statements. This module will enable users to analyze their business data through customizable reports with various filtering options, date ranges, and export formats.
 
 ## Requirements
 

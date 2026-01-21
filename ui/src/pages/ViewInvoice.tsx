@@ -10,16 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, ArrowLeft, Edit } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CalendarIcon, ArrowLeft, Edit, Eye, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES } from '@/lib/api';
+import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES, settingsApi, Settings } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { ApprovalHistoryEntry } from '@/types';
 import { canEditInvoice, canEditInvoicePayment } from '@/utils/auth';
+import { InvoicePDF } from '@/components/invoices/InvoicePDF';
+import { pdf } from '@react-pdf/renderer';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 
 export default function ViewInvoice() {
   const { t } = useTranslation();
@@ -28,6 +32,10 @@ export default function ViewInvoice() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [approval, setApproval] = useState<ApprovalHistoryEntry | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
+  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [livePreviewLoading, setLivePreviewLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +44,14 @@ export default function ViewInvoice() {
         if (!id) return;
         const inv = await invoiceApi.getInvoice(Number(id));
         setInvoice(inv);
+
+        // Fetch settings for company information
+        try {
+          const settingsData = await settingsApi.getSettings();
+          setSettings(settingsData);
+        } catch (error) {
+          console.error('Error fetching settings:', error);
+        }
 
         // Try to fetch approval data for this invoice
         try {
@@ -92,6 +108,36 @@ export default function ViewInvoice() {
     }
   };
 
+  // Handle live preview functionality
+  const handleLivePreview = async () => {
+    if (!invoice || !settings) return;
+    
+    setLivePreviewLoading(true);
+    setShowLivePreviewModal(true);
+
+    try {
+      // Generate PDF blob using InvoicePDF component
+      const blob = await pdf(
+        <InvoicePDF
+          invoice={invoice}
+          companyName={settings.company_info?.name || 'Your Company'}
+          clientCompany={invoice.client_name}
+          showDiscount={true}
+          template="modern"
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      setLivePreviewUrl(url);
+    } catch (error) {
+      console.error("Failed to generate live preview:", error);
+      toast.error("Failed to generate live preview");
+      setShowLivePreviewModal(false);
+    } finally {
+      setLivePreviewLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -131,6 +177,15 @@ export default function ViewInvoice() {
           ]}
           actions={
             <div className="flex gap-2">
+              <ProfessionalButton
+                variant="outline"
+                onClick={handleLivePreview}
+                leftIcon={<Eye className="h-4 w-4" />}
+                loading={livePreviewLoading}
+                disabled={!invoice || !settings}
+              >
+                {t('viewInvoice.livePreview', { defaultValue: 'Live Preview' })}
+              </ProfessionalButton>
               {invoice.status === 'pending_approval' && approval && (
                 <ApprovalActionButtons
                   approval={approval as any}
@@ -380,6 +435,59 @@ export default function ViewInvoice() {
             </CardContent>
           </ProfessionalCard>
         )}
+
+        {/* Live Preview Modal */}
+        <Dialog
+          open={showLivePreviewModal}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowLivePreviewModal(false);
+              if (livePreviewUrl) {
+                URL.revokeObjectURL(livePreviewUrl);
+                setLivePreviewUrl(null);
+              }
+              setLivePreviewLoading(false);
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>{t('viewInvoice.livePreviewTitle', { defaultValue: 'Live Invoice Preview' })}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-auto">
+              {livePreviewLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                  <p>{t('viewInvoice.generatingPreview', { defaultValue: 'Generating live preview...' })}</p>
+                </div>
+              ) : livePreviewUrl ? (
+                <iframe
+                  src={livePreviewUrl}
+                  className="w-full h-[70vh]"
+                  title="Live Invoice Preview"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-64">
+                  <p className="text-muted-foreground">{t('viewInvoice.previewError', { defaultValue: 'Failed to load preview' })}</p>
+                </div>
+              )}
+            </div>
+            {livePreviewUrl && (
+              <div className="flex gap-2">
+                <ProfessionalButton variant="outline" onClick={() => {
+                  const a = document.createElement('a');
+                  a.href = livePreviewUrl;
+                  a.download = `invoice-${invoice.number || 'preview'}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}>
+                  {t('viewInvoice.downloadPDF', { defaultValue: 'Download PDF' })}
+                </ProfessionalButton>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );

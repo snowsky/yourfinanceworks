@@ -9,7 +9,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -132,7 +132,7 @@ class BatchProcessingService:
         # 1. First tries to get config from database (settings)
         # 2. Falls back to environment variables if database config not available
         # 3. Handles errors gracefully
-        from core.services.ai_config_service import AIConfigService
+        from commercial.ai.services.ai_config_service import AIConfigService
         ai_config = AIConfigService.get_ai_config(self.db, component="ocr", require_ocr=False)
         
         if not ai_config:
@@ -794,15 +794,20 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                 url = await export_service.upload_to_google_drive(
                     file_content, destination_config, cloud_filename, tenant_id
                 )
+            elif destination_type == 'local':
+                # For local destinations, save to local filesystem
+                url = await export_service.upload_to_local(
+                    file_content, destination_config, cloud_filename, tenant_id
+                )
             else:
                 logger.warning(f"Unknown destination type: {destination_type}")
                 return None
 
-            logger.info(f"Uploaded file to cloud: {original_filename} -> {url}")
+            logger.info(f"Uploaded file: {original_filename} -> {url}")
             return url
 
         except Exception as e:
-            logger.error(f"Failed to upload file to cloud: {e}")
+            logger.error(f"Failed to upload file: {e}")
             return None
 
     def _cleanup_stored_files(self, batch_files: List[BatchFileProcessing]) -> None:
@@ -887,7 +892,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                         file_size=batch_file.file_size,
                         tenant_id=batch_job.tenant_id,
                         user_id=batch_job.user_id,
-                        document_type=batch_file.document_type
+                        document_type=batch_file.document_type,
+                        api_client_id=batch_job.api_client_id
                     )
 
                     # Update batch file with Kafka info
@@ -984,7 +990,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
         file_size: int,
         tenant_id: int,
         user_id: int,
-        document_type: str
+        document_type: str,
+        api_client_id: Optional[str] = None
     ) -> str:
         """
         Publish a message to Kafka with retry logic.
@@ -999,6 +1006,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             tenant_id: Tenant identifier
             user_id: User identifier (owner of the batch job)
             document_type: Document type
+            api_client_id: API client identifier for attribution
 
         Returns:
             Message ID (UUID)
@@ -1021,6 +1029,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             "tenant_id": tenant_id,
             "user_id": user_id,
             "document_type": document_type,
+            "api_client_id": api_client_id,
             "message_id": message_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "attempt": 0
@@ -1028,7 +1037,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
 
         # Try to get Kafka producer
         try:
-            from core.services.ocr_service import _get_kafka_producer_for
+            from commercial.ai.services.ocr_service import _get_kafka_producer_for
 
             producer, _ = _get_kafka_producer_for(
                 f"KAFKA_{document_type.upper()}_TOPIC",
@@ -1127,6 +1136,20 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
 
             if not batch_job:
                 raise ValueError(f"Batch job {batch_file.job_id} not found")
+
+            # If job is already cancelled or failed, don't update progress
+            # This prevents zombie files from reviving a cancelled job
+            if batch_job.status in ["cancelled", "failed"]:
+                logger.info(
+                    f"Skipping completion update for file {file_id} "
+                    f"as job {batch_job.job_id} is already '{batch_job.status}'"
+                )
+                return {
+                    "job_id": batch_job.job_id,
+                    "status": batch_job.status,
+                    "processed_files": batch_job.processed_files,
+                    "completed": True
+                }
 
             # Check if this file was already counted (to avoid double-counting retries)
             was_already_processed = batch_file.status in ["completed", "failed"]
@@ -1252,6 +1275,11 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
 
             # Generate and export results
             export_result = await export_service.generate_and_export_results(batch_job)
+
+            # Update job status to completed
+            batch_job.status = "completed"
+            batch_job.completed_at = datetime.now(timezone.utc)
+            self.db.commit()
 
             logger.info(
                 f"Export completed for job {batch_job.job_id}: "
@@ -1452,7 +1480,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                     file_size=batch_file.file_size,
                     tenant_id=batch_job.tenant_id,
                     user_id=batch_job.user_id,
-                    document_type=batch_file.document_type
+                    document_type=batch_file.document_type,
+                    api_client_id=batch_job.api_client_id
                 )
                 
                 # Update batch file with new Kafka info
@@ -1622,3 +1651,172 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
         # retry_count=1 -> 1s, retry_count=2 -> 2s, retry_count=3 -> 4s
         delay = 2 ** (retry_count - 1)
         return float(delay)
+
+    def cancel_job(self, job_id: str, tenant_id: int) -> Tuple[bool, str]:
+        """
+        Cancel a batch processing job.
+        
+        Marks the job and all its pending/processing files as 'cancelled'.
+        This effectively stops further processing and frees up concurrent job slots.
+        
+        Args:
+            job_id: Batch job ID (UUID)
+            tenant_id: Tenant identifier (for isolation)
+            
+        Returns:
+            Tuple of (success, message)
+            - success: True if cancelled successfully (or already cancelled)
+            - message: Descriptive status message
+        """
+        try:
+            # Get job with tenant isolation
+            job = self.db.query(BatchProcessingJob).filter(
+                and_(
+                    BatchProcessingJob.job_id == job_id,
+                    BatchProcessingJob.tenant_id == tenant_id
+                )
+            ).first()
+            
+            if not job:
+                logger.warning(f"Cancel failed: Job {job_id} not found for tenant {tenant_id}")
+                return False, "Job not found"
+            
+            # If already cancelled, return success (idempotent)
+            if job.status == "cancelled":
+                logger.info(f"Job {job_id} is already cancelled")
+                return True, "Job is already cancelled"
+            
+            # If already completed or failed, cannot cancel
+            if job.status in ["completed", "failed", "partial_failure"]:
+                logger.warning(f"Cancel failed: Job {job_id} is already in final status '{job.status}'")
+                return False, f"Cannot cancel job in '{job.status}' status"
+            
+            # Mark job as cancelled
+            old_status = job.status
+            job.status = "cancelled"
+            job.completed_at = datetime.now(timezone.utc)
+            
+            # Also mark all non-completed files as cancelled
+            pending_files = self.db.query(BatchFileProcessing).filter(
+                and_(
+                    BatchFileProcessing.job_id == job_id,
+                    BatchFileProcessing.status.in_(["pending", "processing"])
+                )
+            ).all()
+            
+            for file in pending_files:
+                file.status = "cancelled"
+                file.error_message = f"Job cancelled by user (previous status: {old_status})"
+            
+            self.db.commit()
+            
+            logger.info(f"Successfully cancelled batch job {job_id} (tenant {tenant_id})")
+            
+            # Get user email for audit log
+            from core.models.models_per_tenant import User
+            user = self.db.query(User).filter(User.id == job.user_id).first()
+            user_email = user.email if user else "unknown@example.com"
+            
+            # Set tenant context for audit logging
+            from core.models.database import set_tenant_context
+            set_tenant_context(tenant_id)
+            
+            # Log audit event
+            log_audit_event(
+                db=self.db,
+                user_id=job.user_id,
+                user_email=user_email,
+                action="UPDATE",
+                resource_type="batch_processing_job",
+                resource_id=job.job_id,
+                resource_name=f"Batch Job {job.job_id}",
+                details={
+                    "previous_status": old_status,
+                    "new_status": "cancelled",
+                    "cancelled_file_count": len(pending_files)
+                },
+                status="success"
+            )
+            
+            return True, "Batch job cancelled successfully"
+            
+        except Exception as e:
+            logger.error(f"Error cancelling job {job_id}: {e}")
+            self.db.rollback()
+            return False, f"Internal error during cancellation: {str(e)}"
+
+    def cancel_all_jobs(self, tenant_id: int, api_client_id: str) -> Tuple[bool, str]:
+        """
+        Cancel all active batch jobs for an API client.
+        
+        Args:
+            tenant_id: Tenant identifier
+            api_client_id: API client identifier
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            # Find all pending or processing jobs for this client
+            active_jobs = self.db.query(BatchProcessingJob).filter(
+                BatchProcessingJob.tenant_id == tenant_id,
+                BatchProcessingJob.api_client_id == api_client_id,
+                BatchProcessingJob.status.in_(["pending", "processing"])
+            ).all()
+            
+            if not active_jobs:
+                return True, "No active batch jobs found to cancel"
+            
+            job_ids = [job.job_id for job in active_jobs]
+            count = len(job_ids)
+            
+            # Cancel each job
+            for job in active_jobs:
+                job.status = "cancelled"
+                job.completed_at = datetime.now(timezone.utc)
+                
+                # Also cancel its files
+                pending_files = self.db.query(BatchFileProcessing).filter(
+                    BatchFileProcessing.job_id == job.job_id,
+                    BatchFileProcessing.status.in_(["pending", "processing"])
+                ).all()
+                
+                for file in pending_files:
+                    file.status = "cancelled"
+                    file.error_message = "Batch job cancelled by user (Cancel All)"
+            
+            self.db.commit()
+            
+            logger.info(f"Cancelled {count} jobs for client {api_client_id} (tenant {tenant_id})")
+            
+            # Get user email for audit log
+            from core.models.models_per_tenant import User
+            user = self.db.query(User).filter(User.id == active_jobs[0].user_id).first()
+            user_email = user.email if user else "unknown@example.com"
+            
+            # Set tenant context for audit logging
+            from core.models.database import set_tenant_context
+            set_tenant_context(tenant_id)
+            
+            # Log one audit event for the bulk action
+            log_audit_event(
+                db=self.db,
+                user_id=active_jobs[0].user_id,
+                user_email=user_email,
+                action="UPDATE",
+                resource_type="batch_processing_job",
+                resource_id="multiple",
+                resource_name=f"Bulk Cancel {count} Jobs",
+                details={
+                    "cancelled_job_ids": job_ids,
+                    "count": count
+                },
+                status="success"
+            )
+            
+            return True, f"Successfully cancelled all {count} active batch jobs"
+            
+        except Exception as e:
+            logger.error(f"Error in cancel_all_jobs for {api_client_id}: {e}")
+            self.db.rollback()
+            return False, f"Internal error during bulk cancellation: {str(e)}"

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
-from core.models.database import get_master_db
+from core.models.database import get_master_db, get_db
 from core.models.models import MasterUser, Tenant
 from core.models.api_models import APIClient
 from core.schemas.api_schemas import (
@@ -20,7 +20,7 @@ from core.schemas.api_schemas import (
 from core.services.external_api_auth_service import ExternalAPIAuthService, Permission
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
-from core.utils.feature_gate import require_business_license
+from core.utils.feature_gate import require_feature
 
 
 router = APIRouter(prefix="/external-auth", tags=["external-api-auth"])
@@ -56,11 +56,12 @@ def _get_api_key_prefix(api_key: str) -> str:
 
 
 @router.post("/api-keys", response_model=APIKeyResponse)
-@require_business_license
+@require_feature("external_api")
 async def create_api_key(
     request_data: APIKeyCreateRequest,
     current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_master_db)
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db)  # Use tenant DB for feature checking
 ):
     """
     Create a new API key for external system integration.
@@ -157,10 +158,11 @@ async def create_api_key(
 
 
 @router.get("/api-keys", response_model=List[APIClientResponse])
-@require_business_license
+@require_feature("external_api")
 async def list_api_keys(
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db),  # Use tenant DB for feature checking
     include_inactive: bool = False
 ):
     """List API keys owned by the current user."""
@@ -201,11 +203,12 @@ async def list_api_keys(
 
 
 @router.get("/api-keys/{client_id}", response_model=APIClientResponse)
-@require_business_license
+@require_feature("external_api")
 async def get_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_master_db)
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db)  # Use tenant DB for feature checking
 ):
     """Get details of a specific API key."""
     
@@ -244,12 +247,13 @@ async def get_api_key(
 
 
 @router.put("/api-keys/{client_id}", response_model=APIClientResponse)
-@require_business_license
+@require_feature("external_api")
 async def update_api_key(
     client_id: str,
     request_data: APIClientUpdateRequest,
     current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_master_db)
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db)  # Use tenant DB for feature checking
 ):
     """Update an existing API key configuration."""
     
@@ -308,11 +312,12 @@ async def update_api_key(
 
 
 @router.delete("/api-keys/{client_id}")
-@require_business_license
+@require_feature("external_api")
 async def revoke_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_master_db)
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db)  # Use tenant DB for feature checking
 ):
     """Revoke (deactivate) an API key."""
     
@@ -337,11 +342,12 @@ async def revoke_api_key(
 
 
 @router.post("/api-keys/{client_id}/regenerate", response_model=APIKeyResponse)
-@require_business_license
+@require_feature("external_api")
 async def regenerate_api_key(
     client_id: str,
     current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_master_db)
+    db: Session = Depends(get_master_db),
+    tenant_db: Session = Depends(get_db)  # Use tenant DB for feature checking
 ):
     """Regenerate an API key (creates new key, invalidates old one)."""
     

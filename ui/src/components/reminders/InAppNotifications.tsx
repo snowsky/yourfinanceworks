@@ -44,17 +44,16 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
   useEffect(() => {
     if (open) {
       loadNotifications();
-    }
-    
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(() => {
+      // Load initial unread count when popover opens
       loadUnreadCount();
-    }, 30000);
 
-    // Load initial unread count
-    loadUnreadCount();
+      // Poll for new notifications every 30 seconds only when popover is open
+      const interval = setInterval(() => {
+        loadUnreadCount();
+      }, 30000);
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   }, [open]);
 
   const loadNotifications = async () => {

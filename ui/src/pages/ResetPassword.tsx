@@ -20,6 +20,7 @@ const ResetPassword: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [passwordRequirements, setPasswordRequirements] = useState<any>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -30,6 +31,29 @@ const ResetPassword: React.FC = () => {
     } else {
       setError(t('resetPassword.noToken'));
     }
+
+    // Fetch password requirements
+    const fetchPasswordRequirements = async () => {
+      try {
+        const requirements = await authApi.getPasswordRequirements();
+        setPasswordRequirements(requirements);
+      } catch (error) {
+        console.error('Failed to fetch password requirements:', error);
+        // Fallback to default requirements
+        setPasswordRequirements({
+          min_length: 8,
+          complexity: {
+            require_uppercase: true,
+            require_lowercase: true,
+            require_numbers: true,
+            require_special_chars: true,
+            special_chars: "!@#$%^&*()_+-=[]{}|;:,.<>?"
+          }
+        });
+      }
+    };
+
+    fetchPasswordRequirements();
   }, [searchParams, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,8 +69,38 @@ const ResetPassword: React.FC = () => {
     }
 
     // Validate password strength
-    if (password.length < 6) {
-      setError(t('resetPassword.passwordMinLength'));
+    if (!passwordRequirements) {
+      setError('Password requirements not loaded. Please try again.');
+      setIsLoading(false);
+      return;
+    }
+
+    const passwordValidation = {
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumbers: /\d/.test(password),
+      hasSpecialChars: new RegExp(`[${passwordRequirements.complexity.special_chars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`).test(password)
+    };
+
+    const passwordErrors = [];
+    if (password.length < passwordRequirements.min_length) {
+      passwordErrors.push(t('resetPassword.passwordMinLength', { min_length: passwordRequirements.min_length }));
+    }
+    if (passwordRequirements.complexity.require_uppercase && !passwordValidation.hasUppercase) {
+      passwordErrors.push('Password must contain at least one uppercase letter');
+    }
+    if (passwordRequirements.complexity.require_lowercase && !passwordValidation.hasLowercase) {
+      passwordErrors.push('Password must contain at least one lowercase letter');
+    }
+    if (passwordRequirements.complexity.require_numbers && !passwordValidation.hasNumbers) {
+      passwordErrors.push('Password must contain at least one number');
+    }
+    if (passwordRequirements.complexity.require_special_chars && !passwordValidation.hasSpecialChars) {
+      passwordErrors.push('Password must contain at least one special character');
+    }
+
+    if (passwordErrors.length > 0) {
+      setError(passwordErrors.join('. '));
       setIsLoading(false);
       return;
     }

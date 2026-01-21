@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 from core.models.database import get_database_url, create_engine
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from config import APP_NAME
 from commercial.workflows.approvals.services.approval_notification_scheduler import ApprovalNotificationScheduler
 
 # Configure logging
@@ -96,7 +97,7 @@ def main():
                    f"escalation={escalation_threshold}h, frequency={reminder_frequency}h")
         
         # Get company name from environment or use default
-        company_name = os.getenv('COMPANY_NAME', 'Invoice Management System')
+        company_name = os.getenv('COMPANY_NAME', APP_NAME)
         
         # Process all approval notifications
         results = scheduler.process_all_approval_notifications(company_name)

@@ -17,6 +17,7 @@ from core.models.models_per_tenant import (
 )
 from core.services.notification_service import NotificationService
 from core.utils.notifications import get_notification_service
+from config import APP_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +30,18 @@ class ReminderSchedulerError(Exception):
 class ReminderScheduler:
     """
     Service for managing scheduled reminders and automated reminder processing.
-    
+
     Features:
     - Check for due and overdue reminders
     - Send email and in-app notifications
     - Create recurring reminder instances
     - Handle reminder state transitions
     """
-    
+
     def __init__(self, db: Session):
         self.db = db
         self.notification_service = get_notification_service(db)
-        
+
     def calculate_next_due_date(
         self, 
         due_date: datetime, 
@@ -50,7 +51,7 @@ class ReminderScheduler:
         """Calculate the next due date for a recurring reminder"""
         if pattern == RecurrencePattern.NONE:
             return None
-        
+
         if pattern == RecurrencePattern.DAILY:
             return due_date + timedelta(days=interval)
         elif pattern == RecurrencePattern.WEEKLY:
@@ -72,19 +73,19 @@ class ReminderScheduler:
             except ValueError:
                 # Handle leap year edge case
                 return due_date + timedelta(days=365 * interval)
-        
+
         return None
-    
-    def process_due_reminders(self, company_name: str = "Invoice Management System") -> Dict[str, Any]:
+
+    def process_due_reminders(self, company_name: str = APP_NAME) -> Dict[str, Any]:
         """
         Process all due reminders and send notifications.
-        
+
         Returns:
             Dict with processing statistics
         """
         try:
             now = datetime.now(timezone.utc)
-            
+
             # Find due reminders (including snoozed ones that are no longer snoozed)
             due_reminders = self.db.query(Reminder).options(
                 joinedload(Reminder.assigned_to),
@@ -98,14 +99,14 @@ class ReminderScheduler:
                 ),
                 Reminder.is_deleted == False
             ).all()
-            
+
             stats = {
                 "total_due": len(due_reminders),
                 "notifications_sent": 0,
                 "recurring_created": 0,
                 "errors": []
             }
-            
+
             for reminder in due_reminders:
                 try:
                     # Send notification if not already sent today
@@ -116,19 +117,19 @@ class ReminderScheduler:
                             company_name
                         )
                         stats["notifications_sent"] += 1
-                    
+
                     # Reset snooze status if snoozed_until has passed
                     if (reminder.status == ReminderStatus.SNOOZED and 
                         reminder.snoozed_until and 
                         reminder.snoozed_until <= now):
                         reminder.status = ReminderStatus.PENDING
                         reminder.snoozed_until = None
-                    
+
                 except Exception as e:
                     error_msg = f"Error processing reminder {reminder.id}: {str(e)}"
                     logger.error(error_msg)
                     stats["errors"].append(error_msg)
-            
+
             # Process completed recurring reminders
             completed_recurring = self.db.query(Reminder).filter(
                 Reminder.status == ReminderStatus.COMPLETED,
@@ -140,7 +141,7 @@ class ReminderScheduler:
                 ),
                 Reminder.is_deleted == False
             ).all()
-            
+
             for reminder in completed_recurring:
                 try:
                     # Create next recurring instance
@@ -150,34 +151,34 @@ class ReminderScheduler:
                     error_msg = f"Error creating recurring instance for reminder {reminder.id}: {str(e)}"
                     logger.error(error_msg)
                     stats["errors"].append(error_msg)
-            
+
             self.db.commit()
             return stats
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Error in process_due_reminders: {str(e)}")
             raise ReminderSchedulerError(f"Failed to process due reminders: {str(e)}")
-    
+
     def send_upcoming_reminders(
         self, 
         advance_days: int = 1,
-        company_name: str = "Invoice Management System"
+        company_name: str = APP_NAME
     ) -> Dict[str, Any]:
         """
         Send notifications for reminders that are due in the near future.
-        
+
         Args:
             advance_days: How many days in advance to send notifications
             company_name: Company name for notifications
-            
+
         Returns:
             Dict with processing statistics
         """
         try:
             now = datetime.now(timezone.utc)
             future_date = now + timedelta(days=advance_days)
-            
+
             # Find upcoming reminders
             upcoming_reminders = self.db.query(Reminder).options(
                 joinedload(Reminder.assigned_to),
@@ -188,13 +189,13 @@ class ReminderScheduler:
                 Reminder.due_date <= future_date,
                 Reminder.is_deleted == False
             ).all()
-            
+
             stats = {
                 "total_upcoming": len(upcoming_reminders),
                 "notifications_sent": 0,
                 "errors": []
             }
-            
+
             for reminder in upcoming_reminders:
                 try:
                     # Check if we already sent an upcoming notification
@@ -206,20 +207,20 @@ class ReminderScheduler:
                     error_msg = f"Error sending upcoming notification for reminder {reminder.id}: {str(e)}"
                     logger.error(error_msg)
                     stats["errors"].append(error_msg)
-            
+
             self.db.commit()
             return stats
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Error in send_upcoming_reminders: {str(e)}")
             raise ReminderSchedulerError(f"Failed to send upcoming reminders: {str(e)}")
-    
+
     def _should_send_notification(self, reminder: Reminder, now: datetime) -> bool:
         """Check if we should send a notification for this reminder"""
         # Don't send more than once per day for the same reminder
         return not self._has_recent_notification(reminder, "due", hours=24)
-    
+
     def _has_recent_notification(
         self, 
         reminder: Reminder, 
@@ -228,7 +229,7 @@ class ReminderScheduler:
     ) -> bool:
         """Check if a notification was sent recently"""
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
-        
+
         recent_notification = self.db.query(ReminderNotification).filter(
             ReminderNotification.reminder_id == reminder.id,
             ReminderNotification.user_id == reminder.assigned_to_id,
@@ -236,9 +237,9 @@ class ReminderScheduler:
             ReminderNotification.sent_at > cutoff_time,
             ReminderNotification.is_sent == True
         ).first()
-        
+
         return recent_notification is not None
-    
+
     def _send_reminder_notification(
         self, 
         reminder: Reminder, 
@@ -249,7 +250,7 @@ class ReminderScheduler:
         try:
             # Create notification record
             now = datetime.now(timezone.utc)
-            
+
             # Determine notification subject and message
             if notification_type == "due":
                 subject = f"Reminder Due: {reminder.title}"
@@ -265,10 +266,10 @@ class ReminderScheduler:
             else:
                 subject = f"Reminder: {reminder.title}"
                 message = f"You have a reminder: {reminder.title}"
-            
+
             if reminder.description:
                 message += f"\n\nDescription: {reminder.description}"
-            
+
             # Create notification record
             notification = ReminderNotification(
                 reminder_id=reminder.id,
@@ -279,10 +280,10 @@ class ReminderScheduler:
                 subject=subject,
                 message=message
             )
-            
+
             self.db.add(notification)
             self.db.flush()  # Get the ID
-            
+
             # Send via notification service if available
             if self.notification_service:
                 details = {
@@ -292,7 +293,7 @@ class ReminderScheduler:
                     "description": reminder.description or "",
                     "created_by": reminder.created_by.email if reminder.created_by else "",
                 }
-                
+
                 success = self.notification_service.send_operation_notification(
                     event_type=f"reminder_{notification_type}",
                     user_id=reminder.assigned_to_id,
@@ -302,7 +303,7 @@ class ReminderScheduler:
                     details=details,
                     company_name=company_name
                 )
-                
+
                 if success:
                     notification.is_sent = True
                     notification.sent_at = now
@@ -315,32 +316,32 @@ class ReminderScheduler:
                 notification.is_sent = True
                 notification.sent_at = now
                 logger.info(f"No notification service available, marking as sent")
-            
+
             return notification.is_sent
-            
+
         except Exception as e:
             logger.error(f"Failed to send reminder notification: {str(e)}")
             return False
-    
+
     def _create_recurring_instance(self, completed_reminder: Reminder) -> Optional[Reminder]:
         """Create the next instance of a recurring reminder"""
         try:
             if (not completed_reminder.next_due_date or 
                 completed_reminder.recurrence_pattern == RecurrencePattern.NONE):
                 return None
-            
+
             # Check if we should stop recurring (end date reached)
             if (completed_reminder.recurrence_end_date and 
                 completed_reminder.next_due_date > completed_reminder.recurrence_end_date):
                 return None
-            
+
             # Calculate the next due date after this instance
             next_next_due = self.calculate_next_due_date(
                 completed_reminder.next_due_date,
                 completed_reminder.recurrence_pattern,
                 completed_reminder.recurrence_interval
             )
-            
+
             # Create new reminder instance
             new_reminder = Reminder(
                 title=completed_reminder.title,
@@ -357,51 +358,51 @@ class ReminderScheduler:
                 tags=completed_reminder.tags,
                 extra_metadata=completed_reminder.extra_metadata
             )
-            
+
             self.db.add(new_reminder)
             self.db.flush()
-            
+
             logger.info(f"Created recurring instance {new_reminder.id} from reminder {completed_reminder.id}")
             return new_reminder
-            
+
         except Exception as e:
             logger.error(f"Failed to create recurring instance: {str(e)}")
             return None
-    
+
     def cleanup_old_notifications(self, days_old: int = 30) -> int:
         """Clean up old notification records"""
         try:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
-            
+
             deleted_count = self.db.query(ReminderNotification).filter(
                 ReminderNotification.created_at < cutoff_date,
                 ReminderNotification.is_sent == True
             ).delete()
-            
+
             self.db.commit()
             logger.info(f"Cleaned up {deleted_count} old reminder notifications")
             return deleted_count
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Failed to cleanup old notifications: {str(e)}")
             return 0
-    
+
     def get_reminder_statistics(self) -> Dict[str, Any]:
         """Get statistics about reminders"""
         try:
             now = datetime.now(timezone.utc)
-            
+
             # Count reminders by status
             total_active = self.db.query(Reminder).filter(
                 Reminder.is_deleted == False
             ).count()
-            
+
             pending = self.db.query(Reminder).filter(
                 Reminder.status == ReminderStatus.PENDING,
                 Reminder.is_deleted == False
             ).count()
-            
+
             overdue = self.db.query(Reminder).filter(
                 Reminder.status.in_([ReminderStatus.PENDING, ReminderStatus.SNOOZED]),
                 Reminder.due_date < now,
@@ -411,20 +412,20 @@ class ReminderScheduler:
                 ),
                 Reminder.is_deleted == False
             ).count()
-            
+
             due_today = self.db.query(Reminder).filter(
                 Reminder.status == ReminderStatus.PENDING,
                 Reminder.due_date >= now.replace(hour=0, minute=0, second=0, microsecond=0),
                 Reminder.due_date < now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1),
                 Reminder.is_deleted == False
             ).count()
-            
+
             completed_today = self.db.query(Reminder).filter(
                 Reminder.status == ReminderStatus.COMPLETED,
                 Reminder.completed_at >= now.replace(hour=0, minute=0, second=0, microsecond=0),
                 Reminder.is_deleted == False
             ).count()
-            
+
             return {
                 "total_active": total_active,
                 "pending": pending,
@@ -433,7 +434,7 @@ class ReminderScheduler:
                 "completed_today": completed_today,
                 "last_updated": now.isoformat()
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to get reminder statistics: {str(e)}")
             return {

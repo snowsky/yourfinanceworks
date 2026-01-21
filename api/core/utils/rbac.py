@@ -12,12 +12,12 @@ def require_roles(
 ) -> None:
     """
     Check if a user has one of the required roles.
-    
+
     Args:
         user: The current user (User or MasterUser)
         required_roles: List of roles that are allowed to perform the action
         action: Description of the action being performed (for error message)
-    
+
     Raises:
         HTTPException: 403 Forbidden if user doesn't have required role
     """
@@ -31,11 +31,11 @@ def require_roles(
 def require_non_viewer(user, action: str = "perform this action") -> None:
     """
     Check if a user is not a viewer (shortcut for common case).
-    
+
     Args:
         user: The current user (User or MasterUser)
         action: Description of the action being performed (for error message)
-    
+
     Raises:
         HTTPException: 403 Forbidden if user is a viewer
     """
@@ -45,25 +45,43 @@ def require_non_viewer(user, action: str = "perform this action") -> None:
 def require_admin(user, action: str = "perform this action") -> None:
     """
     Check if a user is an admin (shortcut for admin-only actions).
-    
+
     Args:
         user: The current user (User or MasterUser)
         action: Description of the action being performed (for error message)
-    
+
     Raises:
         HTTPException: 403 Forbidden if user is not an admin
     """
     require_roles(user, ["admin"], action)
 
 
-def require_superuser(user, action: str = "perform this action") -> None:
+def require_admin_or_superuser(user, action: str = "perform this action") -> None:
     """
-    Check if a user is a superuser (for cross-tenant operations).
-    
+    Check if a user is an admin or a superuser.
+
     Args:
         user: The current user (User or MasterUser)
         action: Description of the action being performed (for error message)
-    
+
+    Raises:
+        HTTPException: 403 Forbidden if user is neither an admin nor a superuser
+    """
+    if user.role != "admin" and not user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ROLE_NOT_ALLOWED
+        )
+
+
+def require_superuser(user, action: str = "perform this action") -> None:
+    """
+    Check if a user is a superuser (for cross-tenant operations).
+
+    Args:
+        user: The current user (User or MasterUser)
+        action: Description of the action being performed (for error message)
+
     Raises:
         HTTPException: 403 Forbidden if user is not a superuser
     """
@@ -77,11 +95,11 @@ def require_superuser(user, action: str = "perform this action") -> None:
 def can_user_perform_action(user, required_roles: List[str]) -> bool:
     """
     Check if a user can perform an action without raising an exception.
-    
+
     Args:
         user: The current user (User or MasterUser)
         required_roles: List of roles that are allowed to perform the action
-    
+
     Returns:
         bool: True if user has required role, False otherwise
     """
@@ -136,11 +154,11 @@ def can_access_all_reports(user: Union[User, MasterUser]) -> bool:
 def require_report_access(user: Union[User, MasterUser], action: str = "access reports") -> None:
     """
     Check if a user can access reporting features.
-    
+
     Args:
         user: The current user (User or MasterUser)
         action: Description of the action being performed (for error message)
-    
+
     Raises:
         HTTPException: 403 Forbidden if user doesn't have report access
     """
@@ -150,11 +168,11 @@ def require_report_access(user: Union[User, MasterUser], action: str = "access r
 def require_report_management(user: Union[User, MasterUser], action: str = "manage reports") -> None:
     """
     Check if a user can manage reports (create templates, schedule, etc.).
-    
+
     Args:
         user: The current user (User or MasterUser)
         action: Description of the action being performed (for error message)
-    
+
     Raises:
         HTTPException: 403 Forbidden if user doesn't have report management access
     """
@@ -176,12 +194,12 @@ def can_approve_amount(user: Union[User, MasterUser], amount: float, currency: s
     """
     Check if a user can approve expenses up to a specific amount.
     This is a basic implementation - actual limits should be checked against ApprovalRule.
-    
+
     Args:
         user: The current user
         amount: The expense amount to approve
         currency: The currency of the expense
-    
+
     Returns:
         bool: True if user can approve this amount (basic role check)
     """
@@ -217,11 +235,11 @@ def can_view_all_approvals(user: Union[User, MasterUser]) -> bool:
 def require_approval_submission(user: Union[User, MasterUser], action: str = "submit expenses for approval") -> None:
     """
     Check if a user can submit expenses for approval.
-    
+
     Args:
         user: The current user
         action: Description of the action being performed
-    
+
     Raises:
         HTTPException: 403 Forbidden if user cannot submit for approval
     """
@@ -231,11 +249,11 @@ def require_approval_submission(user: Union[User, MasterUser], action: str = "su
 def require_approval_permission(user: Union[User, MasterUser], action: str = "approve expenses") -> None:
     """
     Check if a user has basic approval permissions.
-    
+
     Args:
         user: The current user
         action: Description of the action being performed
-    
+
     Raises:
         HTTPException: 403 Forbidden if user cannot approve expenses
     """
@@ -245,11 +263,11 @@ def require_approval_permission(user: Union[User, MasterUser], action: str = "ap
 def require_approval_rule_management(user: Union[User, MasterUser], action: str = "manage approval rules") -> None:
     """
     Check if a user can manage approval rules.
-    
+
     Args:
         user: The current user
         action: Description of the action being performed
-    
+
     Raises:
         HTTPException: 403 Forbidden if user cannot manage approval rules
     """
@@ -259,11 +277,11 @@ def require_approval_rule_management(user: Union[User, MasterUser], action: str 
 def require_delegation_permission(user: Union[User, MasterUser], action: str = "manage approval delegations") -> None:
     """
     Check if a user can set up approval delegations.
-    
+
     Args:
         user: The current user
         action: Description of the action being performed
-    
+
     Raises:
         HTTPException: 403 Forbidden if user cannot manage delegations
     """
@@ -273,11 +291,11 @@ def require_delegation_permission(user: Union[User, MasterUser], action: str = "
 def require_permission(user: Union[User, MasterUser], permission: str) -> None:
     """
     Generic permission checker that maps permission strings to appropriate role checks.
-    
+
     Args:
         user: The current user (User or MasterUser)
         permission: The permission string to check
-    
+
     Raises:
         HTTPException: 403 Forbidden if user doesn't have the required permission
     """

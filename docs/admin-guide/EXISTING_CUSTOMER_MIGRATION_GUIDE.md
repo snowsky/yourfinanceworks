@@ -331,7 +331,7 @@ grep "license" /var/log/invoice-api/app.log | tail -20
 ```
 Dear [Customer Name],
 
-We're excited to announce that we've upgraded our Invoice Management System 
+We're excited to announce that we've upgraded our {APP_NAME} 
 with a new licensing system!
 
 As a valued existing customer, we've automatically activated a license for 

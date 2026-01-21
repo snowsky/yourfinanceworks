@@ -264,15 +264,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const renderCompanyInfo = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.sectionTitle}>{t('settings.company_info')}</Text>
+      <Text style={styles.sectionTitle}>{t('settings.company_info.title')}</Text>
       
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>{t('settings.company_name')}</Text>
+        <Text style={styles.label}>{t('settings.company_info.company_name')}</Text>
         <TextInput
           style={styles.input}
           value={companyInfo.name}
           onChangeText={(text) => setCompanyInfo(prev => ({ ...prev, name: text }))}
-          placeholder={t('settings.company_name')}
+          placeholder={t('settings.company_info.company_name')}
         />
       </View>
 
@@ -400,7 +400,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const renderDiscountRules = () => (
     <View style={styles.tabContent}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('settings.discount_rules')}</Text>
+        <Text style={styles.sectionTitle}>{t('settings.discount_rules.title')}</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
@@ -409,7 +409,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           }}
         >
           <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>{t('settings.tabs.add_rule')}</Text>
+          <Text style={styles.addButtonText}>{t('settings.discount_rules.add_rule')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -446,7 +446,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.emptyState}>
           <Ionicons name="pricetag-outline" size={48} color="#9CA3AF" />
           <Text style={styles.emptyStateText}>{t('settings.no_discount_rules_configured')}</Text>
-          <Text style={styles.emptyStateSubtext}>{t('settings.create_discount_rules_to_apply_discounts')}</Text>
+          <Text style={styles.emptyStateSubtext}>{t('settings.discount_rules.create_rules_to_apply_discounts')}</Text>
         </View>
       )}
     </View>

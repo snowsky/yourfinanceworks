@@ -9,21 +9,21 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from api.exceptions.report_exceptions import (
+from core.exceptions.report_exceptions import (
     ReportValidationException, ReportGenerationException, ReportTemplateException,
     ReportScheduleException, ReportExportException, ReportDataException,
     ReportErrorCode, validation_error, date_range_error, client_not_found_error,
     amount_range_error, template_not_found_error, schedule_not_found_error,
     export_format_error
 )
-from api.services.report_validation_service import ReportValidationService
-from api.services.report_retry_service import (
+from core.services.report_validation_service import ReportValidationService
+from core.services.report_retry_service import (
     ReportRetryService, RetryConfig, CircuitBreakerConfig, RetryStrategy,
     CircuitBreaker, CircuitBreakerState, retry_on_failure
 )
-from api.services.report_service import ReportService
-from api.schemas.report import ReportType, ExportFormat, ReportResult
-from api.models.models_per_tenant import Client
+from core.services.report_service import ReportService
+from core.schemas.report import ReportType, ExportFormat, ReportResult
+from core.models.models_per_tenant import Client
 
 
 class TestReportExceptions:
@@ -458,10 +458,10 @@ class TestReportServiceErrorHandling:
     @pytest.fixture
     def report_service(self, mock_db):
         """Create report service with mocked dependencies"""
-        with patch('api.services.report_service.ReportDataAggregator'), \
-             patch('api.services.report_service.ReportExportService'), \
-             patch('api.services.report_service.ReportValidationService'), \
-             patch('api.services.report_service.ReportRetryService'):
+        with patch('core.services.report_service.ReportDataAggregator'), \
+             patch('core.services.report_service.ReportExportService'), \
+             patch('core.services.report_service.ReportValidationService'), \
+             patch('core.services.report_service.ReportRetryService'):
             return ReportService(mock_db)
     
     def test_validation_error_handling(self, report_service):
@@ -541,8 +541,8 @@ class TestErrorHandlingIntegration:
     
     def test_end_to_end_validation_error(self, mock_db):
         """Test end-to-end validation error flow"""
-        with patch('api.services.report_service.ReportDataAggregator'), \
-             patch('api.services.report_service.ReportExportService'):
+        with patch('core.services.report_service.ReportDataAggregator'), \
+             patch('core.services.report_service.ReportExportService'):
             
             service = ReportService(mock_db)
             
@@ -556,8 +556,8 @@ class TestErrorHandlingIntegration:
     
     def test_end_to_end_client_not_found_error(self, mock_db):
         """Test end-to-end client not found error flow"""
-        with patch('api.services.report_service.ReportDataAggregator'), \
-             patch('api.services.report_service.ReportExportService'):
+        with patch('core.services.report_service.ReportDataAggregator'), \
+             patch('core.services.report_service.ReportExportService'):
             
             service = ReportService(mock_db)
             

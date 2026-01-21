@@ -306,9 +306,6 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({
                       {selectedItem.track_stock && ` | ${t('inventory.stock_label', 'Stock')}: ${selectedItem.current_stock}`}
                     </p>
                   </div>
-                  <Button onClick={handleConfirmSelection}>
-                    {t('inventory.use_this_item', 'Use This Item')}
-                  </Button>
                 </div>
               </div>
             )}

@@ -53,7 +53,7 @@ async def populate_attachment_urls(
     Returns:
         AttachmentResponse with populated URLs
     """
-    response = AttachmentResponse.from_orm(attachment)
+    response = AttachmentResponse.model_validate(attachment)
     
     # Add uploader information
     if attachment.uploader:
@@ -537,7 +537,8 @@ async def download_attachment(
     - **item_id**: Inventory item ID
     - **attachment_id**: Attachment ID
     
-    Returns either a redirect to cloud storage URL or serves the file directly for local storage.
+    Returns the file content directly or a URL for cloud storage.
+    For cloud storage URLs, returns them in response body so frontend can fetch with auth headers.
     """
     try:
         attachment = attachment_service.get_attachment_by_id(attachment_id)
@@ -556,18 +557,43 @@ async def download_attachment(
         )
         
         if file_url:
-            # For cloud storage, redirect to the temporary URL
+            # For cloud storage URLs, return them in response body instead of redirecting
+            # This allows frontend to fetch with proper auth headers if needed
             if file_url.startswith('http'):
-                from fastapi.responses import RedirectResponse
-                logger.info(f"User {current_user.id} redirected to cloud URL for attachment {attachment_id}")
-                return RedirectResponse(url=file_url, status_code=302)
+                logger.info(f"User {current_user.id} received cloud URL for attachment {attachment_id}")
+                return {
+                    "url": file_url,
+                    "type": "cloud_url",
+                    "filename": attachment.filename
+                }
             
-            # For local storage, redirect to the local file serving endpoint
-            elif file_url.startswith('/api/'):
-                from fastapi.responses import RedirectResponse
-                logger.info(f"User {current_user.id} redirected to local URL for attachment {attachment_id}")
-                return RedirectResponse(url=file_url, status_code=302)
-        
+            # For local storage, serve the file directly instead of redirecting
+            elif file_url.startswith('/'):
+                try:
+                    # Validate file path before reading
+                    from core.utils.file_validation import validate_file_path
+                    validated_path = validate_file_path(file_url)
+
+                    # Read file and return
+                    with open(validated_path, 'rb') as f:
+                        file_content = f.read()
+
+                    # Return file with appropriate headers
+                    response = Response(
+                        content=file_content,
+                        media_type=attachment.content_type or 'application/octet-stream'
+                    )
+
+                    # Set download headers
+                    filename = attachment.filename or f"attachment_{attachment.id}"
+                    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+                    logger.info(f"User {current_user.id} downloaded attachment {attachment_id} directly")
+                    return response
+
+                except Exception as e:
+                    logger.error(f"Failed to serve local file from URL: {e}")
+
         # Fallback: try to serve file directly if it's local
         if attachment.file_path and attachment.file_path.startswith('/'):
             try:
@@ -591,10 +617,10 @@ async def download_attachment(
 
                 logger.info(f"User {current_user.id} downloaded attachment {attachment_id} directly")
                 return response
-                
+
             except Exception as e:
                 logger.error(f"Failed to serve local file: {e}")
-        
+
         # File not accessible
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

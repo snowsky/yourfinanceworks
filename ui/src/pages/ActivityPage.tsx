@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Loader2, 
   FileText, 
@@ -61,13 +59,13 @@ export function ActivityPage() {
         case 'paid':
         case 'approved':
         case 'completed':
-          return <Badge className="bg-green-100 text-green-800 border-green-200">Completed</Badge>;
+          return <Badge className="bg-green-100 text-green-800 border-green-200">{t('dashboard.activity.badges.completed')}</Badge>;
         case 'pending':
         case 'draft':
-          return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
+          return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">{t('dashboard.activity.badges.pending')}</Badge>;
         case 'overdue':
         case 'rejected':
-          return <Badge className="bg-red-100 text-red-800 border-red-200">Attention</Badge>;
+          return <Badge className="bg-red-100 text-red-800 border-red-200">{t('dashboard.activity.badges.attention')}</Badge>;
         default:
           return <Badge className="bg-gray-100 text-gray-800 border-gray-200">{status}</Badge>;
       }
@@ -75,21 +73,21 @@ export function ActivityPage() {
 
     switch (type) {
       case 'invoice':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Invoice</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">{t('dashboard.activity.badges.invoice')}</Badge>;
       case 'client':
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Client</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-200">{t('dashboard.activity.badges.client')}</Badge>;
       case 'inventory':
-        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Inventory</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">{t('dashboard.activity.badges.inventory')}</Badge>;
       case 'approval':
-        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Approval</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">{t('dashboard.activity.badges.approval')}</Badge>;
       case 'reminder':
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Reminder</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-200">{t('dashboard.activity.badges.reminder')}</Badge>;
       case 'expense':
-        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">Expense</Badge>;
+        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">{t('dashboard.activity.badges.expense')}</Badge>;
       case 'report':
-        return <Badge className="bg-teal-100 text-teal-800 border-teal-200">Report</Badge>;
+        return <Badge className="bg-teal-100 text-teal-800 border-teal-200">{t('dashboard.activity.badges.report')}</Badge>;
       default:
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Activity</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">{t('dashboard.activity.badges.activity')}</Badge>;
     }
   };
 
@@ -178,24 +176,24 @@ export function ActivityPage() {
   };
 
   const activityTypes = [
-    { value: 'all', label: 'All Activities', count: allActivities.length },
-    { value: 'invoice', label: 'Invoices', count: allActivities.filter(a => a.type === 'invoice').length },
-    { value: 'client', label: 'Clients', count: allActivities.filter(a => a.type === 'client').length },
-    { value: 'expense', label: 'Expenses', count: allActivities.filter(a => a.type === 'expense').length },
-    { value: 'approval', label: 'Approvals', count: allActivities.filter(a => a.type === 'approval').length },
-    { value: 'reminder', label: 'Reminders', count: allActivities.filter(a => a.type === 'reminder').length },
-    { value: 'report', label: 'Reports', count: allActivities.filter(a => a.type === 'report').length },
+    { value: 'all', label: t('dashboard.activity.all_activities'), count: allActivities.length },
+    { value: 'invoice', label: t('dashboard.activity.badges.invoice'), count: allActivities.filter(a => a.type === 'invoice').length },
+    { value: 'client', label: t('dashboard.activity.badges.client'), count: allActivities.filter(a => a.type === 'client').length },
+    { value: 'expense', label: t('dashboard.activity.badges.expense'), count: allActivities.filter(a => a.type === 'expense').length },
+    { value: 'approval', label: t('dashboard.activity.badges.approval'), count: allActivities.filter(a => a.type === 'approval').length },
+    { value: 'reminder', label: t('dashboard.activity.badges.reminder'), count: allActivities.filter(a => a.type === 'reminder').length },
+    { value: 'report', label: t('dashboard.activity.badges.report'), count: allActivities.filter(a => a.type === 'report').length },
   ];
 
   return (
     <div className="space-y-8">
       {/* Page Header */}
       <PageHeader
-        title={t('activity.timeline_title')}
-        description={t('activity.timeline_description')}
+        title={t('dashboard.activity.timeline_title')}
+        description={t('dashboard.activity.timeline_description')}
         breadcrumbs={[
-          { label: 'Dashboard', href: '/' },
-          { label: 'Activity Timeline' }
+          { label: t('common.dashboard'), href: '/' },
+          { label: t('dashboard.activity.timeline_title') }
         ]}
         actions={
           <div className="flex items-center gap-3">
@@ -205,7 +203,7 @@ export function ActivityPage() {
               onClick={() => navigate('/')}
             >
               <ArrowLeft className="h-4 w-4" />
-              {t('activity.back_to_dashboard')}
+              {t('dashboard.activity.back_to_dashboard')}
             </ProfessionalButton>
             <ProfessionalButton 
               variant="outline" 
@@ -214,7 +212,7 @@ export function ActivityPage() {
               disabled={loading}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {t('activity.refresh')}
+              {t('dashboard.activity.refresh')}
             </ProfessionalButton>
           </div>
         }
@@ -228,15 +226,15 @@ export function ActivityPage() {
               <ProfessionalCard className="p-6">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
-                  {t('activity.activity_summary')}
+                  {t('dashboard.activity.activity_summary')}
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{t('activity.total_activities')}</span>
+                    <span className="text-sm text-muted-foreground">{t('dashboard.activity.total_activities')}</span>
                     <span className="font-semibold">{allActivities.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{t('activity.this_week')}</span>
+                    <span className="text-sm text-muted-foreground">{t('dashboard.activity.this_week')}</span>
                     <span className="font-semibold text-green-600">
                       {allActivities.filter(a => {
                         const activityDate = new Date(a.timestamp);
@@ -246,7 +244,7 @@ export function ActivityPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{t('activity.today')}</span>
+                    <span className="text-sm text-muted-foreground">{t('dashboard.activity.today')}</span>
                     <span className="font-semibold text-blue-600">
                       {allActivities.filter(a => {
                         const activityDate = new Date(a.timestamp);
@@ -264,12 +262,12 @@ export function ActivityPage() {
                   <div>
                     <h3 className="font-semibold mb-4 flex items-center gap-2">
                       <Filter className="h-4 w-4" />
-                      {t('activity.filters')}
+                      {t('dashboard.activity.filters')}
                     </h3>
                     
                     {/* Activity Type Filter */}
                     <div className="space-y-3">
-                      <label className="text-sm font-medium text-muted-foreground">Activity Type</label>
+                      <label className="text-sm font-medium text-muted-foreground">{t('dashboard.activity.activity_type')}</label>
                       <div className="space-y-1">
                         {activityTypes.map((type) => (
                           <button
@@ -305,13 +303,13 @@ export function ActivityPage() {
 
                     {/* Date Range Filter */}
                     <div className="space-y-3 mt-6">
-                      <label className="text-sm font-medium text-muted-foreground">Time Period</label>
+                      <label className="text-sm font-medium text-muted-foreground">{t('dashboard.activity.time_period')}</label>
                       <div className="space-y-1">
                         {[
-                          { value: 'all', label: 'All Time', icon: Calendar },
-                          { value: 'today', label: 'Today', icon: Clock },
-                          { value: 'week', label: 'This Week', icon: Calendar },
-                          { value: 'month', label: 'This Month', icon: Calendar }
+                          { value: 'all', label: t('dashboard.activity.all_activities'), icon: Calendar },
+                          { value: 'today', label: t('dashboard.activity.today'), icon: Clock },
+                          { value: 'week', label: t('dashboard.activity.this_week'), icon: Calendar },
+                          { value: 'month', label: t('dashboard.activity.this_month'), icon: Calendar }
                         ].map((period) => {
                           const Icon = period.icon;
                           return (
@@ -344,7 +342,7 @@ export function ActivityPage() {
                           }}
                           className="w-full"
                         >
-                          Clear All Filters
+                          {t('dashboard.activity.clear_all_filters')}
                         </ProfessionalButton>
                       </div>
                     )}
@@ -357,8 +355,8 @@ export function ActivityPage() {
           {/* Activity Timeline */}
           <div className="lg:col-span-3">
             <ContentSection 
-              title={`Activity Timeline (${activities.length})`}
-              description="Chronological view of all business activities"
+              title={`${t('dashboard.activity.timeline_title')} (${activities.length})`}
+              description={t('dashboard.activity.chronological_view')}
             >
               {loading ? (
                 <div className="flex justify-center items-center h-64">
@@ -421,11 +419,11 @@ export function ActivityPage() {
               ) : (
                 <div className="text-center py-16">
                   <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
-                  <h3 className="text-xl font-semibold mb-2">No Activities Found</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t('dashboard.activity.no_activities_found')}</h3>
                   <p className="text-muted-foreground mb-6">
                     {filter === 'all' 
-                      ? "No activities have been recorded yet." 
-                      : `No ${filter} activities found for the selected time period.`
+                      ? t('dashboard.activity.no_activities_recorded')
+                      : t('dashboard.activity.no_filtered_activities', { type: filter })
                     }
                   </p>
                   <div className="flex justify-center gap-3">
@@ -436,10 +434,10 @@ export function ActivityPage() {
                         setDateRange('all');
                       }}
                     >
-                      Clear Filters
+                      {t('dashboard.activity.clear_filters')}
                     </ProfessionalButton>
                     <ProfessionalButton onClick={() => navigate('/')}>
-                      Back to Dashboard
+                      {t('dashboard.activity.back_to_dashboard')}
                     </ProfessionalButton>
                   </div>
                 </div>

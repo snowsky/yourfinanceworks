@@ -21,7 +21,7 @@ import statistics
 
 from core.services.report_service import ReportService
 from core.services.report_data_aggregator import ReportDataAggregator
-from core.services.report_exporter import ReportExporter
+from core.services.report_exporter import ReportExportService
 from core.services.report_cache_service import ReportCacheService
 from core.schemas.report import ReportType, ExportFormat
 from tests.test_comprehensive_reporting_suite import TestDataFactory
@@ -269,7 +269,7 @@ class TestExportPerformance:
             }
         }
         
-        exporter = ReportExporter()
+        exporter = ReportExportService()
         
         # Test different export formats
         formats_to_test = [
@@ -306,7 +306,7 @@ class TestExportPerformance:
         }
         
         def concurrent_export_worker(worker_id: int, export_format: ExportFormat) -> Dict[str, Any]:
-            exporter = ReportExporter()
+            exporter = ReportExportService()
             
             start_time = time.time()
             

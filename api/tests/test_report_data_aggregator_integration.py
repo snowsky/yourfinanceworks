@@ -9,8 +9,8 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
-from api.services.report_data_aggregator import ReportDataAggregator, DateRange
-from api.schemas.report import (
+from core.services.report_data_aggregator import ReportDataAggregator, DateRange
+from core.schemas.report import (
     ClientReportFilters, InvoiceReportFilters, PaymentReportFilters,
     ExpenseReportFilters, StatementReportFilters
 )
@@ -125,7 +125,7 @@ class TestReportDataAggregatorIntegration:
              patch.object(aggregator, 'aggregate_expense_categories') as mock_expense:
             
             # Set up consistent mock data
-            from api.services.report_data_aggregator import ClientData, InvoiceMetrics, PaymentFlows, ExpenseBreakdown
+            from core.services.report_data_aggregator import ClientData, InvoiceMetrics, PaymentFlows, ExpenseBreakdown
             
             client_data = ClientData()
             client_data.total_clients = 5
@@ -200,7 +200,7 @@ class TestReportDataAggregatorIntegration:
         
         # Test with None filters
         result = aggregator.aggregate_client_data(filters=None)
-        from api.services.report_data_aggregator import ClientData
+        from core.services.report_data_aggregator import ClientData
         assert isinstance(result, ClientData)
         
         # Test with empty client_ids list

@@ -6,14 +6,15 @@
 export interface User {
   id: number;
   email: string;
-  role: 'admin' | 'user' | 'viewer';
+  role: 'admin' | 'user' | 'viewer' | 'super_admin';
   first_name?: string;
   last_name?: string;
   tenant_id?: number;
   is_superuser?: boolean;
+  show_analytics?: boolean;
 }
 
-export type UserRole = 'admin' | 'user' | 'viewer';
+export type UserRole = 'admin' | 'user' | 'viewer' | 'super_admin';
 
 /**
  * Get current user data from localStorage
@@ -41,15 +42,9 @@ export const getCurrentUserRole = (): UserRole => {
     const user = getCurrentUser();
     const role = user?.role || 'user';
 
-    console.log('getCurrentUserRole:', {
-      user,
-      role,
-      userRole: user?.role
-    });
-
     return role;
   } catch (error) {
-    console.error('Error getting user role:', error);
+    console.error('Error getting current user role:', error);
     return 'user';
   }
 };
@@ -78,6 +73,15 @@ export const isAuthenticated = (): boolean => {
  */
 export const isAdmin = (): boolean => {
   return getCurrentUserRole() === 'admin';
+};
+
+/**
+ * Check if current user has super admin role
+ * @returns boolean
+ */
+export const isSuperAdmin = (): boolean => {
+  const user = getCurrentUser();
+  return user?.role === 'super_admin' || user?.is_superuser === true;
 };
 
 /**
@@ -221,6 +225,25 @@ export const canDeleteExpense = (expense: { status: string }): boolean => {
   }
 
   return true;
+};
+
+/**
+ * Update current user data in localStorage
+ * @param userData Partial user data to update
+ */
+export const updateCurrentUser = (userData: Partial<User>): void => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+
+    const updatedUser = { ...currentUser, ...userData };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    // Dispatch custom event to notify components of user data change
+    window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedUser }));
+  } catch (error) {
+    console.error('Error updating user data in localStorage:', error);
+  }
 };
 
 /**

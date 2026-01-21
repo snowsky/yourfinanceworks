@@ -26,7 +26,7 @@ class BatchFileUploader:
     
     def __init__(
         self,
-        api_url: str = "http://localhost:8000",
+        api_url: str = "http://localhost:8080",
         api_key: str = None
     ):
         """
@@ -211,6 +211,16 @@ class BatchFileUploader:
                 except:
                     # Fallback to simple text response
                     print(f"   Response: {e.response.text[:200]}")
+
+            # Additional hint for common port conflicts
+            if e.response is not None and e.response.status_code == 404:
+                import urllib.parse
+                parsed_url = urllib.parse.urlparse(url)
+                if parsed_url.port == 8000:
+                    print("\n💡 Port Conflict Detected?")
+                    print("   It seems you're hitting port 8000, but another service might be running there.")
+                    print("   In this project, the API is often accessible via Nginx on port 8080.")
+                    print("   Try adding --api-url http://localhost:8080 to your command.")
             sys.exit(1)
         finally:
             # Ensure all files are closed
@@ -219,7 +229,7 @@ class BatchFileUploader:
                     file_tuple[1].close()
                 except:
                     pass
-    
+
     def get_job_status(self, job_id: str) -> dict:
         """
         Get the status of a batch processing job.
@@ -252,6 +262,85 @@ class BatchFileUploader:
                 print("   - Job has been deleted")
                 sys.exit(1)
             raise
+
+    def list_jobs(self, status: Optional[str] = None, limit: int = 20) -> dict:
+        """
+        List batch processing jobs.
+        
+        Args:
+            status: Optional status filter
+            limit: Maximum number of jobs to return
+            
+        Returns:
+            Dictionary with list of jobs
+        """
+        url = f"{self.api_url}/api/v1/external-transactions/batch-processing/jobs"
+        params = {"limit": limit}
+        if status:
+            params["status_filter"] = status
+            
+        try:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            print(f"\n❌ Failed to list jobs: {e}")
+            if e.response is not None:
+                print(f"   Response: {e.response.text[:200]}")
+            sys.exit(1)
+
+    def cancel_job(self, job_id: str) -> bool:
+        """
+        Cancel a batch processing job.
+        
+        Args:
+            job_id: Batch job ID
+            
+        Returns:
+            True if cancelled successfully
+        """
+        url = f"{self.api_url}/api/v1/external-transactions/batch-processing/jobs/{job_id}"
+        
+        try:
+            response = self.session.delete(url)
+            response.raise_for_status()
+            result = response.json()
+            print(f"\n✅ {result.get('message', 'Job cancelled successfully')}")
+            return True
+        except requests.HTTPError as e:
+            print(f"\n❌ Failed to cancel job {job_id}: {e}")
+            if e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    print(f"   Error: {error_detail.get('detail', 'Unknown error')}")
+                except:
+                    print(f"   Response: {e.response.text[:200]}")
+            return False
+
+    def cancel_all_jobs(self) -> bool:
+        """
+        Cancel all active batch processing jobs.
+        
+        Returns:
+            True if cancelled successfully
+        """
+        url = f"{self.api_url}/api/v1/external-transactions/batch-processing/jobs"
+        
+        try:
+            response = self.session.delete(url)
+            response.raise_for_status()
+            result = response.json()
+            print(f"\n✅ {result.get('message', 'All active jobs cancelled successfully')}")
+            return True
+        except requests.HTTPError as e:
+            print(f"\n❌ Failed to cancel all jobs: {e}")
+            if e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    print(f"   Error: {error_detail.get('detail', 'Unknown error')}")
+                except:
+                    print(f"   Response: {e.response.text[:200]}")
+            return False
     
     def monitor_job(self, job_id: str, poll_interval: int = 5):
         """
@@ -350,8 +439,8 @@ Examples:
     # API configuration
     parser.add_argument(
         '--api-url',
-        default=os.getenv('API_URL', 'http://localhost:8000'),
-        help='API base URL (default: http://localhost:8000)'
+        default=os.getenv('API_URL', 'http://localhost:8080'),
+        help='API base URL (default: http://localhost:8080)'
     )
     parser.add_argument(
         '--api-key',
@@ -386,7 +475,7 @@ Examples:
         help='Custom fields to include in export (e.g., vendor amount date)'
     )
     
-    # Monitoring options
+    # Monitoring and management options
     parser.add_argument(
         '--monitor',
         action='store_true',
@@ -394,13 +483,33 @@ Examples:
     )
     parser.add_argument(
         '--job-id',
-        help='Job ID to monitor (use with --monitor to monitor existing job)'
+        help='Job ID to monitor or cancel'
     )
     parser.add_argument(
         '--poll-interval',
         type=int,
         default=5,
         help='Seconds between status checks when monitoring (default: 5)'
+    )
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List recent batch jobs'
+    )
+    parser.add_argument(
+        '--list-status',
+        choices=['pending', 'processing', 'completed', 'failed', 'partial_failure', 'cancelled'],
+        help='Filter listed jobs by status'
+    )
+    parser.add_argument(
+        '--cancel',
+        action='store_true',
+        help='Cancel the job specified by --job-id'
+    )
+    parser.add_argument(
+        '--cancel-all',
+        action='store_true',
+        help='Cancel all active batch jobs'
     )
     
     args = parser.parse_args()
@@ -433,6 +542,51 @@ Examples:
         
         # Monitor the existing job
         uploader.monitor_job(args.job_id, poll_interval=args.poll_interval)
+        sys.exit(0)
+    
+    # Handle job listing
+    if args.list:
+        if not args.api_key:
+            print("❌ Error: API key required for authentication")
+            sys.exit(1)
+        
+        uploader = BatchFileUploader(api_url=args.api_url, api_key=args.api_key)
+        result = uploader.list_jobs(status=args.list_status)
+        
+        jobs = result.get('jobs', [])
+        if not jobs:
+            print("\n📭 No batch jobs found.")
+        else:
+            print(f"\n📋 Recent Batch Jobs (Total: {result.get('total', 0)}):")
+            print(f"{'Job ID':<38} {'Status':<15} {'Progress':<15} {'Created At'}")
+            print("-" * 85)
+            for job in jobs:
+                progress = f"{job.get('processed_files', 0)}/{job.get('total_files', 0)}"
+                created_at = job.get('created_at', 'Unknown').split('.')[0].replace('T', ' ')
+                print(f"{job.get('job_id'):<38} {job.get('status'):<15} {progress:<15} {created_at}")
+        sys.exit(0)
+
+    # Handle job cancellation
+    if args.cancel:
+        if not args.job_id:
+            print("❌ Error: --job-id is required for cancellation")
+            sys.exit(1)
+        if not args.api_key:
+            print("❌ Error: API key required for authentication")
+            sys.exit(1)
+            
+        uploader = BatchFileUploader(api_url=args.api_url, api_key=args.api_key)
+        uploader.cancel_job(args.job_id)
+        sys.exit(0)
+
+    # Handle "cancel all"
+    if args.cancel_all:
+        if not args.api_key:
+            print("❌ Error: API key required for authentication")
+            sys.exit(1)
+            
+        uploader = BatchFileUploader(api_url=args.api_url, api_key=args.api_key)
+        uploader.cancel_all_jobs()
         sys.exit(0)
     
     # Collect files (required unless monitoring existing job)

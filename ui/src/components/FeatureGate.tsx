@@ -44,14 +44,14 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
       <>
         <Alert className="border-amber-300 bg-amber-50 mb-4">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-900">{t('license.expired')}</AlertTitle>
+          <AlertTitle className="text-amber-900">{t('settings.license.expired')}</AlertTitle>
           <AlertDescription className="text-amber-800">
             <p className="mb-3">
-              {t('license.expired_message')}
+              {t('settings.license.expired_message')}
             </p>
             <div className="flex gap-2">
               <Button asChild size="sm" variant="default">
-                <Link to="/settings?tab=license">{t('license.renew')}</Link>
+                <Link to="/settings?tab=license">{t('settings.license.renew')}</Link>
               </Button>
             </div>
           </AlertDescription>
@@ -70,18 +70,18 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
       return (
         <Alert className="border-amber-200 bg-amber-50">
           <Lock className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-900">{t('license.feature_locked')}</AlertTitle>
+          <AlertTitle className="text-amber-900">{t('settings.license.feature_locked')}</AlertTitle>
           <AlertDescription className="text-amber-800">
             <p className="mb-3">{defaultMessage}</p>
             {isTrialExpired && (
-              <p className="mb-3 text-sm">{t('license.trial_ended')}</p>
+              <p className="mb-3 text-sm">{t('settings.license.trial_ended')}</p>
             )}
             {isLicenseExpired && (
-              <p className="mb-3 text-sm">{t('license.license_expired_feature')}</p>
+              <p className="mb-3 text-sm">{t('settings.license.license_expired_feature')}</p>
             )}
             <div className="flex gap-2">
               <Button asChild size="sm" variant="default">
-                <Link to="/settings?tab=license">{t('license.manage')}</Link>
+                <Link to="/settings?tab=license">{t('settings.license.manage')}</Link>
               </Button>
             </div>
           </AlertDescription>
@@ -121,14 +121,14 @@ export const FeatureAlert: React.FC<FeatureAlertProps> = ({
       <AlertDescription className="text-blue-800">
         <p className="mb-3">{defaultMessage}</p>
         {isTrialExpired && (
-          <p className="mb-3 text-sm">{t('license.trial_ended_access')}</p>
+          <p className="mb-3 text-sm">{t('settings.license.trial_ended_access')}</p>
         )}
         {isLicenseExpired && (
-          <p className="mb-3 text-sm">{t('license.license_expired_access')}</p>
+          <p className="mb-3 text-sm">{t('settings.license.license_expired_access')}</p>
         )}
         <div className="flex gap-2">
           <Button asChild size="sm" variant="default">
-            <Link to="/settings?tab=license">{t('license.manage')}</Link>
+            <Link to="/settings?tab=license">{t('settings.license.manage')}</Link>
           </Button>
         </div>
       </AlertDescription>

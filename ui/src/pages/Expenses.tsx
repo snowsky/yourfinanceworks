@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,17 @@ import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X, Eye, AlertCircle } from 'lucide-react';
+import {
+  CalendarIcon, X, Eye, AlertCircle, Loader2, Plus, Minus, Tag, Search, Trash2, Upload,
+  ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt,
+  Clock, Filter, FilterX, FileText, Download, Wand, ChevronLeft, ChevronRight, Check
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { useGamificationContextOptional } from '@/contexts/GamificationContext';
 import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
+import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import ExpenseSummary from '@/components/expenses/ExpenseSummary';
 import ExpenseCharts from '@/components/expenses/ExpenseCharts';
 import { format, parseISO, isValid } from 'date-fns';
@@ -36,16 +39,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
-import { Loader2, Plus, Search, Trash2, Upload, ChevronDown, ChevronUp, MoreHorizontal, Edit, Package, RotateCcw, BarChart3, Receipt } from 'lucide-react';
+// removed duplicate icons
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, api, linkApi, settingsApi, DeletedExpense } from '@/lib/api';
+import { expenseApi, Expense, ExpenseAttachmentMeta, api, linkApi, settingsApi, DeletedExpense } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Label } from '@/components/ui/label';
-import { Users } from 'lucide-react';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canPerformActions, canEditExpense, canDeleteExpense, getCurrentUser } from '@/utils/auth';
 import { formatDate } from '@/lib/utils';
@@ -75,19 +77,26 @@ const safeParseDateString = (dateString?: string): Date => {
   }
 };
 
-const defaultNewExpense: Partial<Expense> = {
-  amount: 0,
-  currency: 'USD',
-  expense_date: formatDateToISO(new Date()),
-  category: 'General',
-  status: 'recorded',
-};
 
 const Expenses = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
-  const gamificationContext = useGamificationContextOptional();
   const hasAIExpenseFeature = isFeatureEnabled('ai_expense');
+
+  // Helper function to get locale for date formatting
+  const getLocale = () => {
+    const language = i18n.language;
+    switch (language) {
+      case 'es':
+        return 'es-ES';
+      case 'fr':
+        return 'fr-FR';
+      case 'de':
+        return 'de-DE';
+      default:
+        return 'en-US';
+    }
+  };
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
   const [loading, setLoading] = useState(true);
@@ -98,35 +107,26 @@ const Expenses = () => {
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkLabel, setBulkLabel] = useState('');
   const [newLabelValueById, setNewLabelValueById] = useState<Record<number, string>>({});
   const [searchParams, setSearchParams] = useSearchParams();
   const [hasNextPage, setHasNextPage] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newExpense, setNewExpense] = useState<Partial<Expense>>(defaultNewExpense);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<Partial<Expense> & { id?: number }>({});
-  const [newReceiptFile, setNewReceiptFile] = useState<File | null>(null);
   const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState<{ expenseId: number | null }>({ expenseId: null });
   const [attachments, setAttachments] = useState<Record<number, ExpenseAttachmentMeta[]>>({});
 
-  // Approval workflow state for new expense modal
-  const [submitNewForApproval, setSubmitNewForApproval] = useState(false);
-  const [selectedNewApproverId, setSelectedNewApproverId] = useState<string>('');
-  const [availableNewApprovers, setAvailableNewApprovers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [approvalsNotLicensed, setApprovalsNotLicensed] = useState(false);
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
   const [previewLoading, setPreviewLoading] = useState<{ expenseId: number; attachmentId: number } | null>(null);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
 
-  // Inventory consumption state for new expense
-  const [isNewInventoryConsumption, setIsNewInventoryConsumption] = useState(false);
-  const [newConsumptionItems, setNewConsumptionItems] = useState<any[]>([]);
 
   // Inventory consumption state for edit expense
   const [isEditInventoryConsumption, setIsEditInventoryConsumption] = useState(false);
@@ -135,15 +135,109 @@ const Expenses = () => {
   // Processing lock state for expenses
   const [processingLocks, setProcessingLocks] = useState<Set<number>>(new Set());
 
-  // Creating state for new expense modal
-  const [creating, setCreating] = useState(false);
 
   // Recycle bin state
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [deletedExpenses, setDeletedExpenses] = useState<DeletedExpense[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+  const prevDeletedCount = useRef<number>(0);
   const [expenseToPermanentlyDelete, setExpenseToPermanentlyDelete] = useState<number | null>(null);
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
+
+  // Review state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewExpense, setSelectedReviewExpense] = useState<Expense | null>(null);
+  const [isAcceptingReview, setIsAcceptingReview] = useState(false);
+  const [isRejectingReview, setIsRejectingReview] = useState(false);
+  const [isRetriggeringReview, setIsRetriggeringReview] = useState(false);
+
+  const handleReviewClick = (expense: Expense) => {
+    setSelectedReviewExpense(expense);
+    setReviewModalOpen(true);
+  };
+
+  const handleAcceptReview = async () => {
+    if (!selectedReviewExpense) return;
+    setIsAcceptingReview(true);
+    try {
+      await expenseApi.acceptReview(selectedReviewExpense.id);
+      toast.success('Review accepted');
+      setReviewModalOpen(false);
+      fetchExpenses();
+    } catch (error) {
+      toast.error('Failed to accept review');
+    } finally {
+      setIsAcceptingReview(false);
+    }
+  };
+
+  const handleRejectReview = async () => {
+    if (!selectedReviewExpense) return;
+    setIsRejectingReview(true);
+    try {
+      await expenseApi.rejectReview(selectedReviewExpense.id);
+      toast.success('Review dismissed');
+      setReviewModalOpen(false);
+      fetchExpenses();
+    } catch (error) {
+      toast.error('Failed to dismiss review');
+    } finally {
+      setIsRejectingReview(false);
+    }
+  };
+
+  const handleRetriggerReview = async () => {
+    if (!selectedReviewExpense) return;
+    setIsRetriggeringReview(true);
+    try {
+      await expenseApi.reReview(selectedReviewExpense.id);
+      toast.success('Review re-triggered');
+      setReviewModalOpen(false);
+      fetchExpenses();
+    } catch (error) {
+      toast.error('Failed to re-trigger review');
+    } finally {
+      setIsRetriggeringReview(false);
+    }
+  };
+
+  const handleRunReview = async (expenseId: number) => {
+    try {
+      await expenseApi.reReview(expenseId);
+      toast.success('Review triggered. The agent will process it shortly.');
+      // Refresh list
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger review');
+    }
+  };
+
+  const handleCancelReview = async (expenseId: number) => {
+    try {
+      await expenseApi.cancelReview(expenseId);
+      toast.success('Review cancelled.');
+      // Refresh list
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to cancel review');
+    }
+  };
+
+  const handleBulkRunReview = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map(id => expenseApi.reReview(id)));
+      toast.success(`Review triggered for ${selectedIds.length} expenses.`);
+      setSelectedIds([]);
+      fetchExpenses();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to trigger bulk review');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch settings to get timezone
   const { data: settings } = useQuery({
@@ -168,13 +262,6 @@ const Expenses = () => {
     })();
   }, []);
 
-  // Calculate amount from consumption items for new expense
-  useEffect(() => {
-    if (isNewInventoryConsumption && newConsumptionItems.length > 0) {
-      const total = newConsumptionItems.reduce((sum, item) => sum + (item.quantity * (item.unit_cost || 0)), 0);
-      setNewExpense(prev => ({ ...prev, amount: total }));
-    }
-  }, [newConsumptionItems, isNewInventoryConsumption]);
 
   // Calculate amount from consumption items for edit expense
   useEffect(() => {
@@ -216,31 +303,18 @@ const Expenses = () => {
   }, [currentTenantId]);
 
   useEffect(() => {
-    const fetchApprovers = async () => {
-      try {
-        const response = await approvalApi.getApprovers();
-        setAvailableNewApprovers(response);
-        setApprovalsNotLicensed(false);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        // Check if it's a license error (402 Payment Required)
-        if (errorMessage.includes('not included in your current license') || errorMessage.includes('requires a valid license')) {
-          setApprovalsNotLicensed(true);
-          setAvailableNewApprovers([]);
-        } else {
-          console.error('Failed to fetch approvers:', error);
-          setAvailableNewApprovers([]);
-        }
-      }
-    };
-    fetchApprovers();
-  }, []);
+    if (!recycleBinLoading && deletedExpenses.length === 0 && showRecycleBin && prevDeletedCount.current > 0) {
+      setShowRecycleBin(false);
+    }
+    prevDeletedCount.current = deletedExpenses.length;
+  }, [deletedExpenses.length, recycleBinLoading, showRecycleBin]);
 
-  const fetchExpenses = async () => {
+
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     try {
       const skip = (page - 1) * pageSize;
-      const data = await expenseApi.getExpensesFiltered({
+      const result = await expenseApi.getExpensesPaginated({
         category: categoryFilter,
         label: labelFilter || undefined,
         unlinkedOnly,
@@ -251,51 +325,27 @@ const Expenses = () => {
       });
 
       // Reset to page 1 if current page has no results but we're not on page 1
-      if (data.length === 0 && page > 1) {
+      if (result.expenses.length === 0 && page > 1) {
         setPage(1);
         return;
       }
 
-      setExpenses(data);
+      setExpenses(result.expenses);
+      setTotalExpenses(result.total);
 
-      // Determine if there's a next page based on the current page and total results
-      // If we got exactly pageSize results, there might be more, so probe the next page
-      if (data.length === pageSize) {
-        // Probe next page existence precisely
-        try {
-          const probe = await expenseApi.getExpensesFiltered({
-            category: categoryFilter,
-            label: labelFilter || undefined,
-            unlinkedOnly,
-            skip: skip + pageSize,
-            limit: 1,
-            search: searchQuery || undefined,
-          });
-          const hasMore = Array.isArray(probe) && probe.length > 0;
-          setHasNextPage(hasMore);
-          console.log(`Pagination check: page=${page}, pageSize=${pageSize}, currentResults=${data.length}, probeResults=${probe.length}, hasMore=${hasMore}`);
-          if (hasMore) {
-            console.log('Probe found additional expenses:', probe);
-          }
-        } catch (error) {
-          console.error('Error probing next page:', error);
-          setHasNextPage(false);
-        }
-      } else {
-        // If we got fewer results than pageSize, there's definitely no next page
-        setHasNextPage(false);
-        console.log(`Pagination: page=${page}, pageSize=${pageSize}, currentResults=${data.length}, hasNextPage=false (fewer than pageSize)`);
-      }
+      // Determine if there's a next page based on total count
+      const hasMore = skip + pageSize < result.total;
+      setHasNextPage(hasMore);
     } catch (e) {
       toast.error('Failed to load expenses');
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryFilter, labelFilter, unlinkedOnly, page, pageSize, searchQuery]);
 
   useEffect(() => {
     fetchExpenses();
-  }, [categoryFilter, labelFilter, unlinkedOnly, page, pageSize, currentTenantId, searchQuery]);
+  }, [fetchExpenses]);
 
   // Initialize from URL on first render
   useEffect(() => {
@@ -334,116 +384,7 @@ const Expenses = () => {
     return expenses || [];
   }, [expenses]);
 
-  const openCreate = () => {
-    setNewExpense(defaultNewExpense);
-    setNewReceiptFile(null);
-    setIsNewInventoryConsumption(false);
-    setNewConsumptionItems([]);
-    setSubmitNewForApproval(false);
-    setSelectedNewApproverId('');
-    setIsCreateOpen(true);
-  };
 
-  const handleCreate = async () => {
-    // Prevent multiple submissions
-    if (creating) return;
-
-    setCreating(true);
-    try {
-      if ((!newExpense.amount || Number(newExpense.amount) === 0) && !newReceiptFile) {
-        toast.error('Amount is required unless importing from a file');
-        setCreating(false);
-        return;
-      }
-      if (!newExpense.category) {
-        toast.error('Category is required');
-        setCreating(false);
-        return;
-      }
-      if (isNewInventoryConsumption && (!newConsumptionItems || newConsumptionItems.length === 0)) {
-        toast.error('Inventory consumption must include at least one item');
-        setCreating(false);
-        return;
-      }
-      const payload = {
-        amount: Number(newExpense.amount),
-        currency: newExpense.currency || 'USD',
-        expense_date: newExpense.expense_date,
-        category: newExpense.category,
-        vendor: newExpense.vendor,
-        tax_rate: newExpense.tax_rate,
-        tax_amount: newExpense.tax_amount,
-        total_amount: newExpense.total_amount,
-        payment_method: newExpense.payment_method,
-        reference_number: newExpense.reference_number,
-        status: newExpense.status || 'recorded',
-        notes: newExpense.notes,
-        invoice_id: newExpense.invoice_id ?? null,
-        is_inventory_consumption: isNewInventoryConsumption,
-        consumption_items: isNewInventoryConsumption ? newConsumptionItems : null,
-      } as any;
-      const created = await expenseApi.createExpense({ ...payload, imported_from_attachment: !!newReceiptFile, analysis_status: newReceiptFile ? 'queued' : 'not_started' } as any);
-      // Upload receipt if provided
-      let createdWithReceipt = created;
-      if (newReceiptFile) {
-        const addNotification = (window as any).addAINotification;
-        addNotification?.('processing', 'Processing Expense Receipt', `Analyzing receipt file with AI...`);
-
-        try {
-          setUploadingId(created.id);
-          const uploadResp = await expenseApi.uploadReceipt(created.id, newReceiptFile);
-          createdWithReceipt = { ...created, receipt_filename: uploadResp?.receipt_filename || created.receipt_filename } as Expense;
-
-          addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-          (window as any).startExpensePolling?.(created.id);
-        } catch (e) {
-          console.error('Receipt upload failed on create:', e);
-          addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
-          toast.error('Receipt upload failed');
-        } finally {
-          setUploadingId(null);
-          setNewReceiptFile(null);
-        }
-      }
-      // Submit for approval if requested
-      if (submitNewForApproval && selectedNewApproverId) {
-        try {
-          await approvalApi.submitForApproval(createdWithReceipt.id, parseInt(selectedNewApproverId), undefined);
-          toast.success('Expense created and submitted for approval');
-        } catch (approvalError) {
-          console.error('Approval submission failed:', approvalError);
-          toast.error('Expense created but failed to submit for approval');
-        }
-      } else {
-        toast.success('Expense created');
-      }
-
-      // Reset approval workflow state
-      setSubmitNewForApproval(false);
-      setSelectedNewApproverId('');
-      setExpenses(prev => [createdWithReceipt, ...prev]);
-      setIsCreateOpen(false);
-
-      // Track expense in gamification system
-      if (gamificationContext) {
-        try {
-          await gamificationContext.trackExpense({
-            amount: createdWithReceipt.amount,
-            category: createdWithReceipt.category,
-            receipt: !!newReceiptFile,
-            description: createdWithReceipt.notes
-          });
-        } catch (err) {
-          console.error('Failed to track expense in gamification:', err);
-          // Don't fail the expense creation if gamification tracking fails
-        }
-      }
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to create expense');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleDelete = async (id: number) => {
     try {
@@ -471,7 +412,12 @@ const Expenses = () => {
       setExpenses(data);
 
       addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-      (window as any).startExpensePolling?.(id);
+      const startPolling = (window as any).startExpensePolling;
+      if (typeof startPolling === 'function') {
+        startPolling(id);
+      } else {
+        console.warn('startExpensePolling is not available globally');
+      }
       toast.success('Receipt uploaded');
     } catch (e: any) {
       addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e?.message || 'Unknown error'}`);
@@ -598,7 +544,12 @@ const Expenses = () => {
           finalUpdated = { ...updated, receipt_filename: uploadResp?.receipt_filename || updated.receipt_filename } as Expense;
 
           addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
-          (window as any).startExpensePolling?.(updated.id);
+          const startPolling = (window as any).startExpensePolling;
+          if (typeof startPolling === 'function') {
+            startPolling(updated.id);
+          } else {
+            console.warn('startExpensePolling is not available globally');
+          }
         } catch (e) {
           console.error('Receipt upload failed on update:', e);
           addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
@@ -692,6 +643,16 @@ const Expenses = () => {
                 <ProfessionalButton
                   variant="outline"
                   size="default"
+                  onClick={fetchExpenses}
+                  className="whitespace-nowrap"
+                  disabled={loading}
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                </ProfessionalButton>
+                <ProfessionalButton
+                  variant="outline"
+                  size="default"
                   onClick={handleToggleRecycleBin}
                   className="whitespace-nowrap"
                 >
@@ -710,9 +671,11 @@ const Expenses = () => {
                   {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
                 <div className="flex gap-1">
-                  <ProfessionalButton onClick={openCreate} variant="default" size="default" className="shadow-lg">
-                    <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
-                  </ProfessionalButton>
+                  <Link to="/expenses/new">
+                    <ProfessionalButton variant="default" size="default" className="shadow-lg">
+                      <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
+                    </ProfessionalButton>
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <ProfessionalButton variant="default" size="icon" className="shadow-lg">
@@ -724,7 +687,7 @@ const Expenses = () => {
                         <Plus className="mr-2 h-4 w-4" />
                         <div className="flex flex-col">
                           <span>{t('expenses.create_multiple', 'Create Multiple Expenses')}</span>
-                          <span className="text-xs text-muted-foreground">Batch create expenses</span>
+                          <span className="text-xs text-muted-foreground">{t('expenses.batch_create_description')}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -732,7 +695,7 @@ const Expenses = () => {
                           <Upload className="mr-2 h-4 w-4" />
                           <div className="flex flex-col">
                             <span>{t('expenses.import_from_pdf_images')}</span>
-                            <span className="text-xs text-muted-foreground">Upload and extract</span>
+                            <span className="text-xs text-muted-foreground">{t('expenses.upload_and_extract_description')}</span>
                           </div>
                         </Link>
                       </DropdownMenuItem>
@@ -861,160 +824,236 @@ const Expenses = () => {
         )}
 
         <ProfessionalCard id="expense-list" className="slide-in" variant="default">
-          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-            <h2 className="text-xl font-semibold tracking-tight">{t('expenses.list_title')}</h2>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('expenses.search_placeholder')}
-                  className="pl-8 w-full sm:w-[260px]"
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                />
+          <div className="space-y-6">
+            {/* Header with filters */}
+            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('expenses.list_title')}</h2>
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder={t('expenses.filter_by_category')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
-                  {categoryOptions.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <Input
-                  placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
-                  className="pl-8 w-full sm:w-[180px] pr-8"
-                  value={labelFilter}
-                  onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
-                />
-                {labelFilter && (
-                  <button
-                    aria-label="Clear label filter"
-                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => { setLabelFilter(''); setPage(1); }}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
-                {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t('expenses.page_size')}</span>
-                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[10, 20, 50, 100].map(n => (
-                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {/* Search */}
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('expenses.search_placeholder')}
+                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                  />
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue placeholder={t('expenses.filter_by_category')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('expenses.all_categories')}</SelectItem>
+                      {categoryOptions.map((c) => (
+                        <SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Label Filter */}
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
+                    className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={labelFilter}
+                    onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
+                  />
+                  {labelFilter && (
+                    <button
+                      aria-label="Clear label filter"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setLabelFilter(''); setPage(1); }}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Unlinked Only Checkbox */}
+                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
+                  {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
+                </label>
+
+                {/* Page Size */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                    <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 20, 50, 100].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
+
           </div>
 
-          <CardContent>
-            <div className="flex flex-col md:flex-row md:items-center gap-2 mb-3 md:justify-between">
-              <div className="text-sm text-muted-foreground">
-                {selectedIds.length > 0 ? `${selectedIds.length} selected` : `${expenses.length} ${t('expenses.results', { defaultValue: 'results' })}`}
-              </div>
-              <div className="flex items-center gap-2 md:ml-auto">
-
-                <Input
-                  placeholder={t('expenses.bulk_label_placeholder', { defaultValue: 'Label' })}
-                  value={bulkLabel}
-                  onChange={(e) => setBulkLabel(e.target.value)}
-                  className="w-full sm:w-[220px]"
-                />
-                <Button
-                  variant="outline"
-                  disabled={!canPerformActions() || selectedIds.length === 0 || !bulkLabel.trim()}
-                  onClick={async () => {
-                    try {
-                      const skip = (page - 1) * pageSize;
-                      await expenseApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
-                      const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
-                      setExpenses(data);
-                      setSelectedIds([]);
-                      setBulkLabel('');
-                      toast.success('Labels added');
-                    } catch (e: any) {
-                      toast.error(e?.message || 'Failed to add label');
-                    }
-                  }}
-                >
-                  {t('expenses.add')}
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={!canPerformActions() || selectedIds.length === 0 || !bulkLabel.trim()}
-                  onClick={async () => {
-                    try {
-                      const skip = (page - 1) * pageSize;
-                      await expenseApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
-                      const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
-                      setExpenses(data);
-                      setSelectedIds([]);
-                      setBulkLabel('');
-                      toast.success('Labels removed');
-                    } catch (e: any) {
-                      toast.error(e?.message || 'Failed to remove label');
-                    }
-                  }}
-                >
-                  {t('expenses.remove')}
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+          <CardContent className="px-0">
+            {/* Results Count and Selection Toolbar */}
+            <div className="space-y-4 mb-6">
+              {selectedIds.length > 0 && (
+                <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl shadow-sm gap-4 slide-in">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                    <span className="text-sm font-bold text-foreground">
+                      {selectedIds.length} {t('expenses.selected', { defaultValue: 'selected' })}
+                    </span>
                     <Button
-                      variant="destructive"
-                      disabled={!canPerformActions() || selectedIds.length === 0}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds([])}
+                      className="h-8 text-xs hover:bg-primary/10 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {t('expenses.delete_selected', { defaultValue: 'Delete Selected' })}
+                      {t('common.clear', { defaultValue: 'Clear' })}
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{selectedIds.length === 1 ? t('expenses.delete_single_title', { defaultValue: 'Delete 1 Expense' }) : t('expenses.delete_multiple_title', { count: selectedIds.length, defaultValue: `Delete ${selectedIds.length} Expenses` })}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {selectedIds.length === 1 ? t('expenses.delete_single_description', { defaultValue: 'Are you sure you want to delete 1 expense? This will move the selected expense to the recycle bin where it can be restored or permanently deleted later.' }) : t('expenses.delete_multiple_description', { count: selectedIds.length, defaultValue: `Are you sure you want to delete ${selectedIds.length} expenses? This will move the selected expenses to the recycle bin where they can be restored or permanently deleted later.` })}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                    <div className="relative group flex-1 md:flex-initial min-w-[200px]">
+                      <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder={t('expenses.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                        value={bulkLabel}
+                        onChange={(e) => setBulkLabel(e.target.value)}
+                        className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        disabled={!canPerformActions() || !bulkLabel.trim()}
                         onClick={async () => {
                           try {
-                            await expenseApi.bulkDelete(selectedIds);
-                            const data = await expenseApi.getExpensesFiltered({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: (page - 1) * pageSize, limit: pageSize, excludeStatus: 'pending_approval' });
-                            setExpenses(data);
+                            const skip = (page - 1) * pageSize;
+                            await expenseApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
+                            const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
+                            setExpenses(result.expenses);
+                            setTotalExpenses(result.total);
                             setSelectedIds([]);
-                            toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
+                            setBulkLabel('');
+                            toast.success('Labels added');
                           } catch (e: any) {
-                            toast.error(e?.message || 'Failed to delete expenses');
+                            toast.error(e?.message || 'Failed to add label');
                           }
                         }}
+                        className="h-9 px-3 gap-1.5"
                       >
-                        {t('common.delete', { defaultValue: 'Delete' })}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                        <Plus className="h-3.5 w-3.5" />
+                        {t('expenses.add')}
+                      </ProfessionalButton>
+
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        disabled={!canPerformActions() || !bulkLabel.trim()}
+                        onClick={async () => {
+                          try {
+                            const skip = (page - 1) * pageSize;
+                            await expenseApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
+                            const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip, limit: pageSize, excludeStatus: 'pending_approval' });
+                            setExpenses(result.expenses);
+                            setTotalExpenses(result.total);
+                            setSelectedIds([]);
+                            setBulkLabel('');
+                            toast.success('Labels removed');
+                          } catch (e: any) {
+                            toast.error(e?.message || 'Failed to remove label');
+                          }
+                        }}
+                        className="h-9 px-3 gap-1.5"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                        {t('expenses.remove')}
+                      </ProfessionalButton>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 ml-2">
+                       <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkRunReview}
+                        disabled={!canPerformActions() || loading}
+                        className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary whitespace-nowrap"
+                      >
+                        <Wand className="w-3.5 h-3.5" />
+                        Run Review
+                      </ProfessionalButton>
+                    </div>
+
+                    <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <ProfessionalButton
+                          variant="destructive"
+                          size="sm"
+                          disabled={!canPerformActions()}
+                          className="h-9 px-3 gap-1.5 shadow-sm"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t('expenses.delete_selected', { defaultValue: 'Delete' })}
+                        </ProfessionalButton>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {selectedIds.length === 1
+                              ? t('expenses.delete_single_title', 'Delete 1 Expense')
+                              : t('expenses.delete_multiple_title', 'Delete {{count}} Expenses', { count: selectedIds.length })}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {selectedIds.length === 1
+                              ? t('expenses.delete_single_description', 'Are you sure you want to delete 1 expense? This will move it to the recycle bin.')
+                              : t('expenses.delete_multiple_description', 'Are you sure you want to delete {{count}} expenses? They will be moved to the recycle bin.', { count: selectedIds.length })}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={async () => {
+                              try {
+                                await expenseApi.bulkDelete(selectedIds);
+                                const result = await expenseApi.getExpensesPaginated({ category: categoryFilter, label: labelFilter || undefined, unlinkedOnly, skip: (page - 1) * pageSize, limit: pageSize, excludeStatus: 'pending_approval' });
+                                setExpenses(result.expenses);
+                                setTotalExpenses(result.total);
+                                setSelectedIds([]);
+                                toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Failed to delete expenses');
+                              }
+                            }}
+                          >
+                            {t('common.delete', { defaultValue: 'Delete' })}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="rounded-md border">
+            <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                     <TableHead className="w-[40px]">
                       <Checkbox
                         checked={selectedIds.length > 0 && selectedIds.length === filteredExpenses.length}
@@ -1025,19 +1064,20 @@ const Expenses = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead>{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
-                    <TableHead>{t('expenses.table.date')}</TableHead>
-                    <TableHead>{t('expenses.table.category')}</TableHead>
-                    <TableHead>{t('expenses.table.vendor')}</TableHead>
-                    <TableHead>{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
-                    <TableHead>{t('expenses.table.amount')}</TableHead>
-                    <TableHead>{t('expenses.table.total')}</TableHead>
-                    <TableHead>{t('expenses.table.invoice')}</TableHead>
-                    <TableHead>{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
-                    <TableHead className="hidden xl:table-cell">{t('common.created_by')}</TableHead>
-                    <TableHead>{t('expenses.table.analyzed')}</TableHead>
-                    <TableHead>{t('expenses.table.receipt')}</TableHead>
-                    <TableHead>{t('expenses.table.actions')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.date')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.category')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.vendor')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.amount')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
+                    <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
+                    <TableHead className="font-bold text-foreground">Review</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
+                    <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1066,10 +1106,12 @@ const Expenses = () => {
                         <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { timeZone: timezone }) : 'N/A'}</span>
+                            <div className="font-medium text-sm">
+                              {e.expense_date ? new Date(e.expense_date).toLocaleDateString(getLocale(), { timeZone: timezone }) : 'N/A'}
+                            </div>
                             {e.receipt_timestamp && e.receipt_time_extracted && (
                               <span className="text-xs text-muted-foreground">
-                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}
+                                🕐 {new Date(e.receipt_timestamp).toLocaleTimeString(getLocale(), { timeZone: timezone, hour: '2-digit', minute: '2-digit' })}
                               </span>
                             )}
                           </div>
@@ -1079,11 +1121,15 @@ const Expenses = () => {
                         <TableCell>
                           <div className="flex flex-wrap items-center gap-2">
                             {(e.labels || []).slice(0, 10).map((lab, idx) => (
-                              <Badge key={`${e.id}-lab-${idx}`} variant="secondary" className="text-xs">
+                              <Badge
+                                key={`${e.id}-lab-${idx}`}
+                                variant="secondary"
+                                className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 flex items-center gap-1 group/badge"
+                              >
                                 {lab}
                                 {canPerformActions() && (
                                   <button
-                                    className="ml-1 text-muted-foreground hover:text-foreground"
+                                    className="hover:text-destructive transition-colors"
                                     aria-label={t('expenses.remove')}
                                     onClick={async () => {
                                       try {
@@ -1095,16 +1141,16 @@ const Expenses = () => {
                                       }
                                     }}
                                   >
-                                    <X className="w-3 h-3" />
+                                    <X className="h-2.5 w-2.5" />
                                   </button>
                                 )}
                               </Badge>
                             ))}
                             {canPerformActions() && (
                               <Input
-                                placeholder={t('expenses.label_placeholder', { defaultValue: 'Add label' })}
+                                placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
                                 value={newLabelValueById[e.id] || ''}
-                                className="w-[140px] h-8"
+                                className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                                 onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [e.id]: ev.target.value }))}
                                 onKeyDown={async (ev) => {
                                   if (ev.key === 'Enter') {
@@ -1147,136 +1193,190 @@ const Expenses = () => {
                             approvals={[]} // TODO: Fetch approvals data
                           />
                         </TableCell>
-                        <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
-                          {e.created_by_username || e.created_by_email || t('common.unknown')}
+                        <TableCell className="hidden xl:table-cell">
+                          <div className="text-sm">
+                            <div className="text-muted-foreground">
+                              {e.created_at ? new Date(e.created_at).toLocaleString(getLocale(), { 
+                                timeZone: timezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {e.created_by_username || e.created_by_email || t('common.unknown')}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
-                          {e.analysis_status === 'done' ? (
-                            <Badge variant="success">{t('expenses.status_done')}</Badge>
-                          ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                            <Badge variant="warning" className="capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</Badge>
-                          ) : e.analysis_status === 'failed' ? (
-                            <Badge variant="destructive">Failed</Badge>
-                          ) : e.analysis_status === 'cancelled' ? (
-                            <Badge variant="secondary">Cancelled</Badge>
-                          ) : e.imported_from_attachment ? (
-                            <Badge variant="info">Not Started</Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                          {e.analysis_status && e.analysis_status !== 'done' && canPerformActions() && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="ml-2"
-                              onClick={() => handleRequeue(e.id)}
-                              disabled={
-                                !e.imported_from_attachment &&
-                                (!e.attachments_count || e.attachments_count === 0) ||
-                                processingLocks.has(e.id) ||
-                                uploadingId === e.id
-                              }
-                            >
-                              {processingLocks.has(e.id) ? (
-                                <div className="flex items-center gap-1">
-                                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                  Processing...
-                                </div>
-                              ) : uploadingId === e.id ? (
-                                'Uploading...'
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              {e.analysis_status === 'done' ? (
+                                <div className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded">{t('expenses.status_done')}</div>
+                              ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
+                                <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</div>
+                              ) : e.analysis_status === 'failed' ? (
+                                <div className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">Failed</div>
+                              ) : e.analysis_status === 'cancelled' ? (
+                                <div className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 rounded">Cancelled</div>
+                              ) : e.imported_from_attachment ? (
+                                <div className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Not Started</div>
                               ) : (
-                                t('expenses.process_again', { defaultValue: 'Process Again' })
+                                <span className="text-muted-foreground text-xs">—</span>
                               )}
+                            </div>
+                            {e.analysis_status && canPerformActions() && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-fit"
+                                onClick={() => handleRequeue(e.id)}
+                                disabled={
+                                  !e.imported_from_attachment &&
+                                  (!e.attachments_count || e.attachments_count === 0) ||
+                                  processingLocks.has(e.id) ||
+                                  uploadingId === e.id
+                                }
+                                title="Process Again"
+                              >
+                                {processingLocks.has(e.id) ? (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    <span className="animate-pulse">...</span>
+                                  </div>
+                                ) : uploadingId === e.id ? (
+                                  'Uploading...'
+                                ) : (
+                                  <RotateCcw className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {/* Review Status Column */}
+                          {e.review_status === 'diff_found' ? (
+                            <Button size="sm" variant="outline" className="border-amber-500 text-amber-600 hover:bg-amber-50" onClick={() => handleReviewClick(e)}>
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Review Diff
                             </Button>
+                          ) : e.review_status === 'reviewed' ? (
+                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Reviewed</Badge>
+                          ) : e.review_status === 'no_diff' ? (
+                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Verified</Badge>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className={
+                                e.review_status === 'pending'
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : e.review_status === 'rejected'
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-muted/50 text-muted-foreground border-transparent"
+                              }>
+                                {e.review_status === 'pending' ? 'Review Pending' : e.review_status === 'rejected' ? 'Review Dismissed' : t('common.not_started', { defaultValue: 'Not Started' })}
+                              </Badge>
+                              {(!e.review_status || e.review_status === 'not_started' || e.review_status === 'failed' || e.review_status === 'rejected') && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
+                                  onClick={() => handleRunReview(e.id)}
+                                >
+                                  <RotateCcw className="h-2.5 w-2.5 mr-1" />
+                                  Trigger Review
+                                </Button>
+                              )}
+                              {(e.review_status === 'pending' || e.review_status === 'rejected') && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
+                                  onClick={() => handleCancelReview(e.id)}
+                                >
+                                  <X className="h-2.5 w-2.5 mr-1" />
+                                  {e.review_status === 'rejected' ? 'Clear Status' : 'Cancel Review'}
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell className="space-x-2">
-                          <label className="inline-flex items-center gap-2 cursor-pointer">
-                            <Upload className="w-4 h-4" />
-                            <input
-                              type="file"
-                              accept="application/pdf,image/jpeg,image/png"
-                              className="hidden"
-                              onChange={async (ev) => {
-                                const file = ev.target.files?.[0];
-                                if (file) await handleUpload(e.id, file);
-                                // refresh attachment list and auto-open preview
-                                const list = await expenseApi.listAttachments(e.id);
-                                setAttachments(prev => ({ ...prev, [e.id]: list }));
-                                setAttachmentPreviewOpen({ expenseId: e.id });
-                              }}
-                            />
-                            {uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}
-                          </label>
-                          <Button variant="ghost" size="sm" onClick={async () => {
-                            const list = await expenseApi.listAttachments(e.id);
-                            setAttachments(prev => ({ ...prev, [e.id]: list }));
-                            setAttachmentPreviewOpen({ expenseId: e.id });
-                          }}>
-                            {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
-                              `${Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} ${t('expenses.attachments_count', { defaultValue: 'attachments' })}`
-                            ) : (
-                              <>
-                                <Eye className="w-4 h-4 mr-2" />
-                              </>
-                            )}
-                          </Button>
+                        <TableCell>
+                          <div className="flex flex-col gap-2">
+                            <label className="inline-flex items-center gap-2 cursor-pointer w-fit">
+                              <Upload className="w-4 h-4" />
+                              <input
+                                type="file"
+                                accept="application/pdf,image/jpeg,image/png"
+                                className="hidden"
+                                onChange={async (ev) => {
+                                  const file = ev.target.files?.[0];
+                                  if (file) await handleUpload(e.id, file);
+                                  // refresh attachment list and auto-open preview
+                                  const list = await expenseApi.listAttachments(e.id);
+                                  setAttachments(prev => ({ ...prev, [e.id]: list }));
+                                  setAttachmentPreviewOpen({ expenseId: e.id });
+                                }}
+                              />
+                              <span className="text-sm">{uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}</span>
+                            </label>
+                            <Button variant="ghost" size="sm" className="w-fit justify-start px-0" onClick={async () => {
+                              const list = await expenseApi.listAttachments(e.id);
+                              setAttachments(prev => ({ ...prev, [e.id]: list }));
+                              setAttachmentPreviewOpen({ expenseId: e.id });
+                            }}>
+                              {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
+                                <span className="text-sm">{Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} {t('expenses.file_count', { defaultValue: 'file(s)', count: Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count })}</span>
+                              ) : (
+                                <>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  <span className="text-sm">{t('common.view')}</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {canPerformActions() && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
+                            <div className="text-right flex gap-2 justify-end">
+                              <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/view/${e.id}`}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {canEditExpense(e) && (
+                                <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
+                                  <Edit className="w-4 h-4" />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/expenses/view/${e.id}`} className="flex items-center w-full">
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    {t('common.view', { defaultValue: 'View' })}
-                                  </Link>
-                                </DropdownMenuItem>
-                                {canEditExpense(e) && (
-                                  <DropdownMenuItem asChild>
-                                    <Link to={`/expenses/edit/${e.id}`} className="flex items-center w-full">
-                                      <Edit className="w-4 h-4 mr-2" />
-                                      {t('expenses.edit')}
-                                    </Link>
-                                  </DropdownMenuItem>
-                                )}
-                                {canDeleteExpense(e) && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                        <Trash2 className="w-4 h-4 mr-2" />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          {t('expenses.delete_confirm_description')}
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              )}
+                              {canDeleteExpense(e) && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('expenses.delete_confirm_description')}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={14} className="h-auto p-0 border-none">
+                      <TableCell colSpan={15} className="h-auto p-0 border-none">
                         <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                           <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Receipt className="h-8 w-8 text-primary" />
@@ -1292,298 +1392,52 @@ const Expenses = () => {
                 </TableBody>
               </Table>
             </div>
-            <div className="mt-3">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href="#"
-                      className={page <= 1 ? 'opacity-50 pointer-events-none' : ''}
-                      onClick={(e) => { e.preventDefault(); if (page > 1 && !loading) setPage(p => Math.max(1, p - 1)); }}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      href="#"
-                      className={!hasNextPage ? 'opacity-50 pointer-events-none' : ''}
-                      onClick={(e) => { e.preventDefault(); if (hasNextPage && !loading) setPage(p => p + 1); }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
+              <div className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{expenses.length}</span> of <span className="font-medium text-foreground">{totalExpenses}</span> {t('expenses.results', 'results')}
+              </div>
+              <div className="flex items-center gap-2">
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                  className="h-9 px-4"
+                >
+                  {t('common.previous', 'Previous')}
+                </ProfessionalButton>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(totalExpenses / pageSize) }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === Math.ceil(totalExpenses / pageSize) || Math.abs(p - page) <= 1)
+                    .map((p, i, arr) => (
+                      <div key={p} className="flex items-center">
+                        {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                        <ProfessionalButton
+                          variant={page === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPage(p)}
+                          className={`h-9 w-9 p-0 ${page === p ? 'shadow-md shadow-primary/20' : ''}`}
+                        >
+                          {p}
+                        </ProfessionalButton>
+                      </div>
+                    ))}
+                </div>
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(prev => Math.min(Math.ceil(totalExpenses / pageSize), prev + 1))}
+                  disabled={page >= Math.ceil(totalExpenses / pageSize)}
+                  className="h-9 px-4"
+                >
+                  {t('common.next', 'Next')}
+                </ProfessionalButton>
+              </div>
             </div>
           </CardContent>
         </ProfessionalCard>
 
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('expenses.new_title')}</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
-              <div>
-                <label className="text-sm">{t('expenses.labels.amount')}</label>
-                <Input
-                  type="number"
-                  value={Number(newExpense.amount || 0)}
-                  onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
-                  disabled={isNewInventoryConsumption}
-                  placeholder={isNewInventoryConsumption ? t('expenses.calculated_from_items') : ""}
-                />
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.currency')}</label>
-                <CurrencySelector
-                  value={newExpense.currency || 'USD'}
-                  onValueChange={(v) => setNewExpense({ ...newExpense, currency: v })}
-                  placeholder={t('expenses.select_currency')}
-                />
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.date')}</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newExpense.expense_date ? format(safeParseDateString(newExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={newExpense.expense_date ? safeParseDateString(newExpense.expense_date as string) : undefined}
-                      onSelect={(d) => {
-                        if (d) {
-                          const iso = formatDateToISO(d);
-                          setNewExpense({ ...newExpense, expense_date: iso });
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.receipt_time', { defaultValue: 'Receipt Time (HH:MM)' })}</label>
-                <Input
-                  type="time"
-                  value={newExpense.receipt_timestamp ? new Date(newExpense.receipt_timestamp as string).toISOString().substring(11, 16) : ''}
-                  onChange={(e) => {
-                    if (e.target.value && newExpense.expense_date) {
-                      // Combine date with time
-                      const timestamp = `${newExpense.expense_date}T${e.target.value}:00Z`;
-                      setNewExpense({
-                        ...newExpense,
-                        receipt_timestamp: timestamp,
-                        receipt_time_extracted: true
-                      });
-                    } else {
-                      setNewExpense({
-                        ...newExpense,
-                        receipt_timestamp: null,
-                        receipt_time_extracted: false
-                      });
-                    }
-                  }}
-                  placeholder="14:30"
-                />
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.link_to_invoice')}</label>
-                <Select value={newExpense.invoice_id ? String(newExpense.invoice_id) : undefined} onValueChange={v => setNewExpense({ ...newExpense, invoice_id: v === 'none' ? undefined : Number(v) })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('expenses.select_invoice')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t('expenses.none')}</SelectItem>
-                    {invoiceOptions.map(inv => (
-                      <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.category')}</label>
-                <Select
-                  value={(newExpense.category as string) || 'General'}
-                  onValueChange={(v) => setNewExpense({ ...newExpense, category: v })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('expenses.select_category') as string} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.vendor')}</label>
-                <Input value={newExpense.vendor || ''} onChange={e => setNewExpense({ ...newExpense, vendor: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.payment_method')}</label>
-                <Input value={newExpense.payment_method || ''} onChange={e => setNewExpense({ ...newExpense, payment_method: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm">{t('expenses.labels.reference_number')}</label>
-                <Input value={newExpense.reference_number || ''} onChange={e => setNewExpense({ ...newExpense, reference_number: e.target.value })} />
-              </div>
-
-              {/* Inventory Consumption Section */}
-              <div className="sm:col-span-2">
-                <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="is-new-inventory-consumption"
-                      checked={isNewInventoryConsumption}
-                      onCheckedChange={(checked) => setIsNewInventoryConsumption(checked as boolean)}
-                    />
-                    <label
-                      htmlFor="is-new-inventory-consumption"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {t('expenses.this_expense_is_for_consuming_inventory_items')}
-                    </label>
-                  </div>
-
-                  {isNewInventoryConsumption && (
-                    <div className="space-y-4">
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-orange-800 mb-3">
-                          <Package className="h-4 w-4" />
-                          <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
-                        </div>
-                        <p className="text-sm text-orange-700 mb-4">
-                          {t('expenses.select_the_inventory_items_you_consumed')}
-                        </p>
-
-                        <InventoryConsumptionForm
-                          onConsumptionItemsChange={setNewConsumptionItems}
-                          currency={newExpense.currency || 'USD'}
-                        />
-                      </div>
-
-                      {newConsumptionItems.length > 0 && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-green-800">
-                            <Package className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              {t('expenses.ready_to_process', { count: newConsumptionItems.length })}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-sm">{t('expenses.labels.notes')}</label>
-                <Input value={newExpense.notes || ''} onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm">{t('expenses.labels.receipt')}</label>
-                {!hasAIExpenseFeature && (
-                  <Alert className="mb-3 border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-amber-800 text-sm">
-                      <strong>Note:</strong> AI-powered receipt analysis is not available.
-                      Files will be uploaded as attachments only, without automatic data extraction.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <input
-                  type="file"
-                  accept="application/pdf,image/jpeg,image/png"
-                  onChange={(ev) => setNewReceiptFile(ev.target.files?.[0] || null)}
-                />
-              </div>
-
-              {/* Approval Workflow Section */}
-              <div className="sm:col-span-2 border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-3">{t('expenses.approval_workflow')}</h4>
-                <div className="flex items-center space-x-2 mb-2">
-                  <Checkbox
-                    id="submit-new-for-approval"
-                    checked={submitNewForApproval}
-                    onCheckedChange={(checked) => setSubmitNewForApproval(checked as boolean)}
-                  />
-                  <label
-                    htmlFor="submit-new-for-approval"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {t('expenses.submit_this_expense_for_approval_after_creation')}
-                  </label>
-                </div>
-                {submitNewForApproval && (
-                  <div className="mt-3 space-y-3">
-                    {approvalsNotLicensed ? (
-                      <Alert className="border-amber-200 bg-amber-50">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-800">
-                          {t('common.feature_not_licensed', {
-                            defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
-                          })}
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <>
-                        <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
-                          <p className="text-sm text-blue-700 dark:text-blue-200">
-                            {t('expenses.this_expense_will_be_submitted_for_approval')}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="new-approver-select" className="flex items-center gap-2 text-sm font-medium">
-                            <Users className="h-4 w-4" />
-                            {t('expenses.select_approver')} *
-                          </Label>
-                          <Select value={selectedNewApproverId} onValueChange={setSelectedNewApproverId}>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t('expenses.choose_an_approver')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableNewApprovers.map((approver) => (
-                                <SelectItem key={approver.id} value={approver.id.toString()}>
-                                  {approver.name} ({approver.email})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="p-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateOpen(false)}
-                disabled={creating}
-              >
-                {t('expenses.cancel')}
-              </Button>
-              <Button
-                onClick={handleCreate}
-                disabled={creating || (submitNewForApproval && !selectedNewApproverId)}
-                className={creating ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
-              >
-                {creating ? t('common.saving') : (submitNewForApproval ? t('expenses.create_and_submit_for_approval') : t('expenses.buttons.create'))}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1673,7 +1527,7 @@ const Expenses = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                      <SelectItem key={c} value={c}>{t(`expenses.categories.${c}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1890,6 +1744,21 @@ const Expenses = () => {
         />
 
       </div>
+      {selectedReviewExpense && (
+        <ReviewDiffModal
+          isOpen={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          originalData={selectedReviewExpense}
+          reviewResult={selectedReviewExpense.review_result}
+          onAccept={handleAcceptReview}
+          onReject={handleRejectReview}
+          onRetrigger={handleRetriggerReview}
+          isAccepting={isAcceptingReview}
+          isRejecting={isRejectingReview}
+          isRetriggering={isRetriggeringReview}
+          type="expense"
+        />
+      )}
     </>
   );
 };

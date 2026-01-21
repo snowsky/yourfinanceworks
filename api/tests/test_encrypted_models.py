@@ -14,8 +14,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.exc import StatementError
 
-from api.models.database import Base, set_tenant_context, clear_tenant_context, get_tenant_context
-from api.utils.column_encryptor import (
+from core.models.database import Base, set_tenant_context, clear_tenant_context, get_tenant_context
+from core.utils.column_encryptor import (
     EncryptedColumn, 
     EncryptedJSON, 
     create_encrypted_string_column,
@@ -23,8 +23,8 @@ from api.utils.column_encryptor import (
     is_encrypted_data,
     get_encryption_metadata
 )
-from api.services.encryption_service import EncryptionService
-from api.exceptions.encryption_exceptions import EncryptionError, DecryptionError
+from core.services.encryption_service import EncryptionService
+from core.exceptions.encryption_exceptions import EncryptionError, DecryptionError
 
 
 # Test model with encrypted fields

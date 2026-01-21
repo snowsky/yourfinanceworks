@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { ProfessionalCard, ProfessionalCardContent } from '@/components/ui/professional-card';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  AlertTriangle, 
-  Flame, 
-  Heart, 
-  Target, 
-  TrendingUp, 
+import {
+  AlertTriangle,
+  Flame,
+  Heart,
+  Target,
+  TrendingUp,
   Calendar,
   CheckCircle,
   X,
@@ -56,7 +56,7 @@ export function GamificationNotifications() {
 
     // Check for streak risks
     dashboard.active_streaks.forEach((streak) => {
-      const daysSinceActivity = streak.last_activity_date 
+      const daysSinceActivity = streak.last_activity_date
         ? Math.floor((new Date().getTime() - new Date(streak.last_activity_date).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
@@ -69,7 +69,7 @@ export function GamificationNotifications() {
       if (isAtRisk && streak.is_active) {
         const IconComponent = habitTypeIcons[streak.habit_type as keyof typeof habitTypeIcons] || Target;
         const habitLabel = habitTypeLabels[streak.habit_type as keyof typeof habitTypeLabels] || streak.habit_type;
-        
+
         newNotifications.push({
           id: `streak_risk_${streak.id}`,
           type: 'streak_risk',
@@ -135,7 +135,7 @@ export function GamificationNotifications() {
 
     const today = new Date().toDateString();
     const tipIndex = new Date().getDate() % dailyTips.length;
-    
+
     newNotifications.push({
       id: `daily_tip_${today}`,
       type: 'daily_tip',
@@ -156,7 +156,7 @@ export function GamificationNotifications() {
 
   const dismissNotification = (id: string) => {
     setDismissedNotifications(prev => new Set([...prev, id]));
-    
+
     // Store dismissed notifications in localStorage
     const dismissed = Array.from(dismissedNotifications);
     dismissed.push(id);
@@ -183,51 +183,51 @@ export function GamificationNotifications() {
   return (
     <div className="space-y-3">
       {notifications.map((notification) => (
-        <Card key={notification.id} className={`border-2 ${notification.color}`}>
-          <CardContent className="p-4">
+        <ProfessionalCard key={notification.id} className={`border-2 ${notification.color}`}>
+          <ProfessionalCardContent className="p-4">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-0.5">
                 {notification.icon}
               </div>
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-gray-900">
+                    <h4 className="text-sm font-medium text-foreground">
                       {notification.title}
                     </h4>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {notification.message}
                     </p>
                   </div>
-                  
+
                   {notification.dismissible && (
-                    <Button
+                    <ProfessionalButton
                       variant="ghost"
                       size="sm"
                       onClick={() => dismissNotification(notification.id)}
                       className="h-6 w-6 p-0 ml-2"
                     >
                       <X className="h-4 w-4" />
-                    </Button>
+                    </ProfessionalButton>
                   )}
                 </div>
-                
+
                 {notification.action && (
                   <div className="mt-3">
-                    <Button
+                    <ProfessionalButton
                       size="sm"
                       onClick={notification.action.onClick}
                       className="text-xs"
                     >
                       {notification.action.label}
-                    </Button>
+                    </ProfessionalButton>
                   </div>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </ProfessionalCardContent>
+        </ProfessionalCard>
       ))}
     </div>
   );
