@@ -1114,7 +1114,7 @@ export default function Statements() {
                         variant="outline"
                         size="sm"
                         onClick={() => setBulkMergeModalOpen(true)}
-                        disabled={selectedIds.length < 2}
+                        disabled={selectedIds.length < 2 || statements.some(s => selectedIds.includes(s.id) && s.status === 'merged')}
                         className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 hover:bg-primary/10 transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />

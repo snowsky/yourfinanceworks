@@ -454,6 +454,14 @@ async def merge_statements(
                 detail="One or more statements not found or already deleted",
             )
 
+        # Ensure no merged statements are being merged again
+        for s in statements:
+            if s.status == "merged":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Statement #{s.id} is already a merged statement and cannot be merged again",
+                )
+
         now = datetime.now(timezone.utc)
 
         # Create new merged statement
