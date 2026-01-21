@@ -357,16 +357,16 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
         # Now check license from the tenant's database
         from core.services.license_service import LicenseService
         from core.models.database import set_tenant_context
-        
+
         set_tenant_context(tenant_id)
         tenant_session = tenant_db_manager.get_tenant_session(tenant_id)
         tenant_db_for_license = tenant_session()
-        
+
         try:
             license_service = LicenseService(tenant_db_for_license)
             max_tenants = license_service.get_max_tenants()
             current_tenants_count = db.query(Tenant).count()
-            
+
             if current_tenants_count > max_tenants:
                 logger.error(f"Tenant limit reached: {current_tenants_count} >= {max_tenants}")
                 raise HTTPException(
@@ -1860,6 +1860,10 @@ async def remove_user_from_organization(
         except Exception:
             pass  # Continue even if tenant deletion fails
 
+        # Capture user details for audit logging before deletion
+        user_name = f"{user.first_name} {user.last_name}" if user.first_name or user.last_name else user.email
+        user_email = user.email
+
         # Delete from master database
         db.delete(user)
         db.commit()
@@ -1867,7 +1871,12 @@ async def remove_user_from_organization(
         # Also log to tenant database for organization audit visibility
         try:
             from core.utils.audit import log_audit_event
+            from core.services.tenant_database_manager import tenant_db_manager
+
+            # Get tenant session and set as current context for audit logging
             tenant_session = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+
+            # Use the tenant session directly for audit logging
             log_audit_event(
                 db=tenant_session,
                 user_id=current_user.id,
@@ -1875,18 +1884,20 @@ async def remove_user_from_organization(
                 action="DELETE_USER",
                 resource_type="user",
                 resource_id=str(user_id),
-                resource_name=f"{user.first_name} {user.last_name}",
+                resource_name=user_name,
                 details={
-                    "deleted_user_email": user.email,
+                    "deleted_user_email": user_email,
+                    "deleted_user_name": user_name,
                     "deletion_type": "organization_deletion"
                 },
                 status="success"
             )
             tenant_session.close()
-        except Exception:
-            pass  # Continue even if tenant audit logging fails
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to log tenant audit event: {e}")
 
-        return {"message": f"User {user.email} has been deleted from the organization"}
+        return {"message": f"User {user_email} has been deleted from the organization"}
 
     # Get user details for logging
     user = db.query(MasterUser).filter(MasterUser.id == user_id).first()
@@ -1909,7 +1920,13 @@ async def remove_user_from_organization(
     # Also log to tenant database for organization audit visibility
     try:
         from core.utils.audit import log_audit_event
+        from core.services.tenant_database_manager import tenant_db_manager
+
+        # Get tenant session and set as current context for audit logging
         tenant_session = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
+        user_name = f"{user.first_name} {user.last_name}" if user.first_name or user.last_name else user.email
+
+        # Use the tenant session directly for audit logging
         log_audit_event(
             db=tenant_session,
             user_id=current_user.id,
@@ -1917,16 +1934,19 @@ async def remove_user_from_organization(
             action="REMOVE_USER_FROM_ORGANIZATION",
             resource_type="user",
             resource_id=str(user_id),
-            resource_name=f"{user.first_name} {user.last_name}",
+            resource_name=user_name,
             details={
                 "removed_user_email": user.email,
+                "removed_user_name": user_name,
                 "removal_type": "organization_removal"
             },
             status="success"
         )
         tenant_session.close()
-    except Exception:
-        pass  # Continue even if tenant audit logging fails
+    except Exception as e:
+        # Log the error for debugging
+        logger.error(f"Failed to log tenant audit event: {e}")
+        pass  # Continue even if audit logging fails
 
     return {"message": f"User {user.email} has been removed from the organization"}
 
