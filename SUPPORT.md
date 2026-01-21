@@ -12,8 +12,8 @@ Before reaching out, please check our comprehensive documentation:
 
 ## Community Support
 
-- **GitHub Issues**: For bug reports and feature requests, please use our [GitHub Issues](https://github.com/snowsky/finance-works/issues) page.
-- **Discussions**: For general questions and "How-to" help, visit our [GitHub Discussions](https://github.com/snowsky/finance-works/discussions).
+- **GitHub Issues**: For bug reports and feature requests, please use our [GitHub Issues](https://github.com/snowsky/yourfinanceworks/issues) page.
+- **Discussions**: For general questions and "How-to" help, visit our [GitHub Discussions](https://github.com/snowsky/yourfinanceworks/discussions).
 
 ## Professional Support
 

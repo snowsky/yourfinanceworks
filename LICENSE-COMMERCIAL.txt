@@ -1,6 +1,6 @@
 COMMERCIAL LICENSE AGREEMENT
 
-This Commercial License Agreement (the "Agreement") is entered into as of [DATE] (the "Effective Date"), by and between [YOUR COMPANY NAME], a [LEGAL ENTITY TYPE] organized and existing under the laws of [JURISDICTION], with its principal place of business at [ADDRESS] ("Licensor"), and [LICENSEE COMPANY NAME], a [LEGAL ENTITY TYPE] organized and existing under the laws of [JURISDICTION], with its principal place of business at [ADDRESS] ("Licensee").
+This Commercial License Agreement (the "Agreement") is entered into as of [DATE] (the "Effective Date"), by and between YourFinanceWorks, LLC, a Limited Liability Company organized and existing under the laws of Delaware, with its principal place of business at [ADDRESS] ("Licensor"), and [LICENSEE COMPANY NAME], a [LEGAL ENTITY TYPE] organized and existing under the laws of [JURISDICTION], with its principal place of business at [ADDRESS] ("Licensee").
 
 WHEREAS, Licensor owns certain proprietary software known as "Invoice Management Application" (the "Software"); and
 
@@ -47,9 +47,8 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 3. FEES AND PAYMENT
 
 3.1 Licensee shall pay Licensor the following fees:
-   - One-time license fee: $[AMOUNT] USD
-   - Annual maintenance and support fee: $[AMOUNT] USD (due annually on the anniversary of the Effective Date)
-   - SaaS usage fee (if applicable): $[AMOUNT] per active user per month for any SaaS deployment
+   - One-time license fee: Contact us for pricing
+   - SaaS usage fee (if applicable): Contact us for pricing per active user per month for any SaaS deployment
 
 3.2 All fees are non-refundable and exclude applicable taxes.
 
@@ -57,7 +56,7 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 
 4. SUPPORT AND MAINTENANCE
 
-4.1 Licensor shall provide technical support for the Software for a period of [NUMBER] year(s) from the Effective Date.
+4.1 Licensor shall provide technical support for the Software for a period of 1 year from the Effective Date.
 
 4.2 Support includes:
    - Email-based technical support during business hours
@@ -84,7 +83,7 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 
 7. TERM AND TERMINATION
 
-7.1 This Agreement shall commence on the Effective Date and continue for a period of [NUMBER] year(s), unless terminated earlier as provided herein.
+7.1 This Agreement shall commence on the Effective Date and continue for a period of 1 year(s), unless terminated earlier as provided herein.
 
 7.2 Either party may terminate this Agreement upon thirty (30) days written notice if the other party materially breaches this Agreement and fails to cure such breach within the notice period.
 
@@ -96,7 +95,7 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 
 9. GOVERNING LAW
 
-9.1 This Agreement shall be governed by and construed in accordance with the laws of [JURISDICTION], without regard to its conflict of laws principles.
+9.1 This Agreement shall be governed by and construed in accordance with the laws of Delaware, without regard to its conflict of laws principles.
 
 10. GENERAL PROVISIONS
 
@@ -111,9 +110,9 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date.
 
 LICENSOR: _______________________________    LICENSEE: _______________________________
-[YOUR COMPANY NAME]                        [LICENSEE COMPANY NAME]
+YourFinanceWorks, LLC                        [LICENSEE COMPANY NAME]
 
-By: _____________________________________    By: _____________________________________
-Name: ___________________________________    Name: ___________________________________
+By: _____________________________________     By: _____________________________________
+Name: ___________________________________     Name: ___________________________________
 Title: ___________________________________    Title: ___________________________________
 Date: ____________________________________    Date: ____________________________________

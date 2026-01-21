@@ -16,12 +16,14 @@ Get up and running in minutes using Docker:
 
 ```bash
 # 1. Clone and enter
-git clone <repository-url>
-cd invoice-app
+git clone git@github.com:snowsky/yourfinanceworks.git
+cd yourfinanceworks
 
 # 2. Spin up the entire stack
 docker-compose up -d
 
+# The first user to sign up in a fresh system is automatically granted super user (system admin) privileges and assigned the 'admin' role.
+# If you have already created a super user, you can skip this step.
 # 3. Create your first Super User
 docker-compose exec api python scripts/create_super_user.py
 ```
@@ -436,7 +438,7 @@ This project is dual-licensed under two options:
 2. **Commercial License**:
    - Available for proprietary use, allowing integration into closed-source software without GPLv3 obligations.
    - Suitable for businesses or commercial applications.
-   - To obtain a commercial license, contact us at [YOUR EMAIL ADDRESS] or visit [YOUR WEBSITE].
+   - To obtain a commercial license, contact us at licensing@yourfinanceworks.com or visit https://github.com/snowsky/yourfinanceworks/blob/main/LICENSE-COMMERCIAL.txt.
    - See [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt) for more information.
 
 ## 🆘 Support

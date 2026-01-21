@@ -10,7 +10,7 @@ By participating in this project, you are expected to uphold our [Code of Conduc
 
 ### Reporting Bugs
 
-- Check the [Issues](https://github.com/snowsky/finance-works/issues) to see if the bug has already been reported.
+- Check the [Issues](https://github.com/snowsky/yourfinanceworks/issues) to see if the bug has already been reported.
 - If not, open a new issue. Include a clear title, a detailed description, steps to reproduce, and any relevant logs or screenshots.
 
 ### Suggesting Enhancements
