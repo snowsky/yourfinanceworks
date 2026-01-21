@@ -523,8 +523,17 @@ async def trigger_full_system_review(
     require_admin(current_user, "trigger full system review")
 
     try:
-        logger.info(f"Triggering full system review for tenant context")
         from core.models.models_per_tenant import Invoice, Expense, BankStatement
+        from commercial.ai.services.ai_config_service import AIConfigService
+        
+        # Check if review worker is enabled
+        if not AIConfigService.is_review_worker_enabled(db):
+            raise HTTPException(
+                status_code=400,
+                detail="Review worker is currently disabled. Please enable it in Settings > AI Configuration before triggering a review."
+            )
+
+        logger.info(f"Triggering full system review for tenant context")
         from core.models.database import get_tenant_context
 
         tenant_id = get_tenant_context()
@@ -575,6 +584,8 @@ async def trigger_full_system_review(
                 "statements": statement_count
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

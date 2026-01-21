@@ -27,6 +27,7 @@ ui/*.tsbuildinfo
 ui/next-env.d.ts
 
 
+api/reports
 api/.coverage
 api/.hypothesis
 api/venv

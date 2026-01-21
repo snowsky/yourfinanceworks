@@ -282,6 +282,13 @@ class ReviewProcessorWorker:
                 logger.warning(f"Received review event without tenant_id, entity_type, or entity_id: {event}")
                 return
 
+            # Check if review worker is enabled for this tenant
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+            with SessionLocal_tenant() as session:
+                if not AIConfigService.is_review_worker_enabled(session):
+                    logger.info(f"Skipping review event for tenant {tenant_id} as review worker is disabled")
+                    return
+
             logger.info(f"Processing event-driven review for {entity_type} {entity_id} for tenant {tenant_id}")
             if model_override:
                 logger.info(f"Using model override: {model_override}")
@@ -390,9 +397,8 @@ class ReviewProcessorWorker:
 
         try:
             # Check if review worker is enabled
-            setting = session.query(Settings).filter(Settings.key == "review_worker_enabled").first()
-            if not setting or not setting.value:
-                logger.debug(f"Review integration disabled for tenant {tenant.id}")
+            if not AIConfigService.is_review_worker_enabled(session):
+                logger.debug(f"Review integration disabled for tenant {tenant_id}")
                 return False
 
             logger.info(f"Starting review processing for tenant {tenant.id} with batch_size={self.batch_size}")
@@ -417,6 +423,12 @@ class ReviewProcessorWorker:
 
     async def process_single_invoice(self, tenant_id: int, invoice_id: int, model_override: Optional[str] = None, prompt_override: Optional[str] = None):
         """Processes a single invoice for review, typically triggered by an event."""
+        # Double check if review worker is enabled
+        SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+        with SessionLocal_tenant() as session:
+            if not AIConfigService.is_review_worker_enabled(session):
+                return
+
         logger.info(f"Processing single invoice {invoice_id} for tenant {tenant_id} (event-driven)")
 
         set_tenant_context(tenant_id)
@@ -467,6 +479,12 @@ class ReviewProcessorWorker:
 
     async def process_single_expense(self, tenant_id: int, expense_id: int, model_override: Optional[str] = None, prompt_override: Optional[str] = None):
         """Processes a single expense for review, typically triggered by an event."""
+        # Double check if review worker is enabled
+        SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+        with SessionLocal_tenant() as session:
+            if not AIConfigService.is_review_worker_enabled(session):
+                return
+
         logger.info(f"Processing single expense {expense_id} for tenant {tenant_id} (event-driven)")
 
         set_tenant_context(tenant_id)
@@ -517,6 +535,12 @@ class ReviewProcessorWorker:
 
     async def process_single_bank_statement(self, tenant_id: int, statement_id: int, model_override: Optional[str] = None, prompt_override: Optional[str] = None):
         """Processes a single bank statement for review, typically triggered by an event."""
+        # Double check if review worker is enabled
+        SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+        with SessionLocal_tenant() as session:
+            if not AIConfigService.is_review_worker_enabled(session):
+                return
+
         logger.info(f"Processing single bank statement {statement_id} for tenant {tenant_id} (event-driven)")
 
         set_tenant_context(tenant_id)

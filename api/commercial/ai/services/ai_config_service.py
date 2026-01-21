@@ -332,6 +332,16 @@ class AIConfigService:
 
         return validation
 
+    @classmethod
+    def is_review_worker_enabled(cls, db: Session) -> bool:
+        """Check if the review worker is enabled for the current tenant."""
+        try:
+            setting = db.query(Settings).filter(Settings.key == "review_worker_enabled").first()
+            return setting.value if setting else False
+        except Exception as e:
+            logger.error(f"Error checking review_worker_enabled: {e}")
+            return False
+
 
 # Convenience functions for backward compatibility
 def get_ai_config_from_env() -> Optional[Dict[str, Any]]:

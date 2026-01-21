@@ -3457,6 +3457,14 @@ async def run_review(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
+    # Check if review worker is enabled
+    from commercial.ai.services.ai_config_service import AIConfigService
+    if not AIConfigService.is_review_worker_enabled(db):
+        raise HTTPException(
+            status_code=400,
+            detail="Review worker is currently disabled. Please enable it in Settings > AI Configuration before triggering a review."
+        )
+
     # Reset review status to pending so it shows immediately in UI
     # The worker will pick it up and process it
     invoice.review_status = "pending"
