@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -1272,6 +1272,7 @@ async def get_deleted_expenses(
 
 @router.post("/recycle-bin/empty", response_model=dict)
 async def empty_expense_recycle_bin(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -1284,59 +1285,99 @@ async def empty_expense_recycle_bin(
                 detail="Only admins can empty the recycle bin"
             )
 
-        # Get all deleted expenses
-        deleted_expenses = db.query(Expense).filter(Expense.is_deleted == True).all()
-        count = len(deleted_expenses)
+        # Get count of deleted expenses
+        count = db.query(Expense).filter(Expense.is_deleted == True).count()
 
         if count == 0:
             return {"message": "Recycle bin is already empty", "deleted_count": 0}
 
-        # Delete all attachment files from storage before deleting expenses
-        try:
-            for expense in deleted_expenses:
-                # Delete legacy receipt file if exists
-                if expense.receipt_path:
-                    try:
-                        await delete_file_from_storage(expense.receipt_path, current_user.tenant_id, current_user.id, db)
-                    except Exception as e:
-                        logger.warning(f"Failed to delete receipt file {expense.receipt_path}: {e}")
+        # Define the background task function
+        def delete_expenses_background(tenant_id: int, user_id: int, user_email: str, count: int):
+            """Background task to delete all expenses in recycle bin"""
+            from core.models.database import set_tenant_context
+            from core.services.tenant_database_manager import tenant_db_manager
 
-                # Delete modern attachments
-                attachments = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense.id).all()
-                for att in attachments:
-                    if att.file_path:
-                        try:
-                            await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
-                        except Exception as e:
-                            logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
+            # Set tenant context for this background task
+            set_tenant_context(tenant_id)
 
-            if deleted_expenses:
-                logger.info(f"Deleted attachment files for {len(deleted_expenses)} expense(s) during recycle bin empty")
-        except Exception as e:
-            logger.warning(f"Failed to delete attachment files during expense recycle bin empty: {e}")
+            # Get tenant-specific session
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+            db_task = SessionLocal_tenant()
+            try:
+                # Get all deleted expenses
+                deleted_expenses = db_task.query(Expense).filter(Expense.is_deleted == True).all()
 
-        # Delete all expenses in recycle bin
-        for expense in deleted_expenses:
-            db.delete(expense)
+                # Delete all attachment files from storage before deleting expenses
+                try:
+                    import asyncio
 
-        db.commit()
+                    async def delete_files():
+                        for expense in deleted_expenses:
+                            # Delete legacy receipt file if exists
+                            if expense.receipt_path:
+                                try:
+                                    await delete_file_from_storage(expense.receipt_path, tenant_id, user_id, db_task)
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete receipt file {expense.receipt_path}: {e}")
 
-        # Audit log for empty recycle bin
-        log_audit_event(
-            db=db,
-            user_id=current_user.id,
-            user_email=current_user.email,
-            action="Empty Expense Recycle Bin",
-            resource_type="expense",
-            resource_id=None,
-            resource_name=None,
-            details={"message": f"Expense recycle bin emptied, {count} expenses permanently deleted."},
-            status="success"
+                            # Delete modern attachments
+                            attachments = db_task.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == expense.id).all()
+                            for att in attachments:
+                                if att.file_path:
+                                    try:
+                                        await delete_file_from_storage(att.file_path, tenant_id, user_id, db_task)
+                                    except Exception as e:
+                                        logger.warning(f"Failed to delete attachment file {att.file_path}: {e}")
+
+                        if deleted_expenses:
+                            logger.info(f"Deleted attachment files for {len(deleted_expenses)} expense(s) during recycle bin empty")
+
+                    # Run async file deletion
+                    asyncio.run(delete_files())
+
+                except Exception as e:
+                    logger.warning(f"Failed to delete attachment files during expense recycle bin empty: {e}")
+
+                # Delete all expenses in recycle bin
+                for expense in deleted_expenses:
+                    db_task.delete(expense)
+
+                db_task.commit()
+
+                # Audit log for empty recycle bin
+                log_audit_event(
+                    db=db_task,
+                    user_id=user_id,
+                    user_email=user_email,
+                    action="Empty Expense Recycle Bin",
+                    resource_type="expense",
+                    resource_id=None,
+                    resource_name=None,
+                    details={"message": f"Expense recycle bin emptied, {count} expenses permanently deleted."},
+                    status="success"
+                )
+
+                logger.info(f"Successfully emptied expense recycle bin: {count} expenses deleted")
+
+            except Exception as e:
+                db_task.rollback()
+                logger.error(f"Error in background task emptying expense recycle bin: {str(e)}")
+            finally:
+                db_task.close()
+
+        # Add the deletion task to background tasks
+        background_tasks.add_task(
+            delete_expenses_background,
+            current_user.tenant_id,
+            current_user.id,
+            current_user.email,
+            count
         )
 
         return {
-            "message": f"Expense recycle bin emptied successfully. {count} expenses permanently deleted.",
-            "deleted_count": count
+            "message": f"Deletion of {count} expense(s) has been initiated. You will be notified when complete.",
+            "deleted_count": count,
+            "status": "processing"
         }
     except HTTPException:
         raise

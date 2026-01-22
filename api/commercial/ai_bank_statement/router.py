@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import os
@@ -109,6 +109,9 @@ async def upload_statements(
                     cloud_storage_service = CloudStorageService(db, cloud_config)
 
                     # Upload file to cloud storage
+                    cloud_file_key = f"tenant_{tenant_id}/bank_statements/{stored_filename}"
+
+                    # Upload file to cloud storage
                     storage_result = await cloud_storage_service.store_file(
                         file_content=contents,
                         tenant_id=str(tenant_id),
@@ -124,6 +127,7 @@ async def upload_statements(
                             "document_type": "bank_statement",
                             "upload_method": "internal_api",
                         },
+                        file_key=cloud_file_key
                     )
 
                     if storage_result.success:
@@ -133,7 +137,7 @@ async def upload_statements(
                         )
                     else:
                         logger.warning(
-                            f"Cloud storage upload failed, using local file: {storage_result.error}"
+                            f"Cloud storage upload failed, using local file: {storage_result.error_message}"
                         )
                 except ImportError:
                     logger.info(
@@ -148,6 +152,7 @@ async def upload_statements(
                 original_filename=name,
                 stored_filename=stored_filename,
                 file_path=str(out_path),
+                cloud_file_url=cloud_file_url,
                 status="processing",
                 extracted_count=0,
                 created_by_user_id=current_user.id,  # User attribution
@@ -634,7 +639,9 @@ async def get_deleted_statements(
 
 @router.post("/recycle-bin/empty", response_model=dict)
 async def empty_statement_recycle_bin(
-    db: Session = Depends(get_db), current_user: MasterUser = Depends(get_current_user)
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db), 
+    current_user: MasterUser = Depends(get_current_user)
 ):
     """Empty the entire statement recycle bin (admin only)"""
     try:
@@ -652,84 +659,161 @@ async def empty_statement_recycle_bin(
     if tenant_id is None:
         raise HTTPException(status_code=401, detail="Tenant context required")
 
-    # Get all deleted statements
-    deleted_statements = (
+    # Get count of deleted statements
+    count = (
         db.query(BankStatement)
         .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == True)
-        .all()
+        .count()
     )
-    count = len(deleted_statements)
 
     if count == 0:
         return {"message": "Recycle bin is already empty", "deleted_count": 0}
 
-    # Delete all attachment files from storage before deleting statements
-    try:
-        from core.models.models_per_tenant import BankStatementAttachment
+    # Define the background task function
+    def delete_statements_background(tenant_id: int, user_id: int, user_email: str, count: int):
+        """Background task to delete all statements in recycle bin"""
+        from core.models.database import set_tenant_context
+        from core.services.tenant_database_manager import tenant_db_manager
 
-        for statement in deleted_statements:
-            # Delete main statement file if exists
-            if statement.file_path:
-                try:
-                    await delete_file_from_storage(
-                        statement.file_path, tenant_id, current_user.id, db
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to delete statement file {statement.file_path}: {e}"
-                    )
+        # Set tenant context for this background task
+        set_tenant_context(tenant_id)
 
-            # Delete attachments
-            attachments = (
-                db.query(BankStatementAttachment)
-                .filter(BankStatementAttachment.statement_id == statement.id)
+        # Get tenant-specific session
+        SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+        db_task = SessionLocal_tenant()
+
+        try:
+            # Get all deleted statements
+            deleted_statements = (
+                db_task.query(BankStatement)
+                .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == True)
                 .all()
             )
-            for att in attachments:
-                if att.file_path:
+
+            # Delete all attachment files from storage before deleting statements
+            try:
+                from core.models.models_per_tenant import BankStatementAttachment
+                import asyncio
+
+                async def delete_files():
+                    # Import CloudStorageService locally to avoid circular imports or if missing
+                    cloud_storage_service = None
                     try:
-                        await delete_file_from_storage(
-                            att.file_path, tenant_id, current_user.id, db
-                        )
+                        from commercial.cloud_storage.service import CloudStorageService
+                        from commercial.cloud_storage.config import get_cloud_storage_config
+                        cloud_config = get_cloud_storage_config()
+                        cloud_storage_service = CloudStorageService(db_task, cloud_config)
+                    except ImportError:
+                        pass
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to delete attachment file {att.file_path}: {e}"
+                        logger.warning(f"Failed to initialize CloudStorageService for deletion: {e}")
+
+                    for statement in deleted_statements:
+                        # 1. Try to delete local file (using existing utility)
+                        if statement.file_path:
+                            try:
+                                await delete_file_from_storage(
+                                    statement.file_path, tenant_id, user_id, db_task
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to delete local statement file {statement.file_path}: {e}"
+                                )
+
+                        # 2. Try to delete from Cloud Storage if configured
+                        # Use the deterministic key strategy: tenant_{id}/bank_statements/{stored_filename}
+                        if cloud_storage_service and statement.stored_filename:
+                            try:
+                                from core.interfaces.storage_provider import StorageProvider
+                                cloud_key = f"tenant_{tenant_id}/bank_statements/{statement.stored_filename}"
+                                # Only attempt deletion on cloud providers to avoid "File not found" warnings from local provider
+                                # because local provider expects "attachments/..." prefix while cloud key is "tenant_..."
+                                await cloud_storage_service.delete_file(
+                                    cloud_key, 
+                                    str(tenant_id), 
+                                    user_id,
+                                    files_providers=[
+                                        StorageProvider.AWS_S3, 
+                                        StorageProvider.AZURE_BLOB, 
+                                        StorageProvider.GCP_STORAGE
+                                    ]
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to delete cloud file {cloud_key}: {e}")
+
+                        # Delete attachments
+                        attachments = (
+                            db_task.query(BankStatementAttachment)
+                            .filter(BankStatementAttachment.statement_id == statement.id)
+                            .all()
                         )
+                        for att in attachments:
+                            if att.file_path:
+                                try:
+                                    await delete_file_from_storage(
+                                        att.file_path, tenant_id, user_id, db_task
+                                    )
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to delete attachment file {att.file_path}: {e}"
+                                    )
 
-        if deleted_statements:
-            logger.info(
-                f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty"
+                # Run async file deletion
+                asyncio.run(delete_files())
+
+                if deleted_statements:
+                    logger.info(
+                        f"Deleted attachment files for {len(deleted_statements)} statement(s) during recycle bin empty"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete attachment files during statement recycle bin empty: {e}"
+                )
+
+            # Delete all statements in recycle bin
+            for statement in deleted_statements:
+                db_task.delete(statement)
+
+            db_task.commit()
+
+            # Audit log for empty recycle bin
+            log_audit_event(
+                db=db_task,
+                user_id=user_id,
+                user_email=user_email,
+                action="Empty Statement Recycle Bin",
+                resource_type="statement",
+                resource_id=None,
+                resource_name=None,
+                details={
+                    "message": f"Statement recycle bin emptied, {count} statements permanently deleted."
+                },
+                status="success",
             )
-    except Exception as e:
-        logger.warning(
-            f"Failed to delete attachment files during statement recycle bin empty: {e}"
-        )
 
-    # Delete all statements in recycle bin
-    for statement in deleted_statements:
-        db.delete(statement)
+            logger.info(f"Successfully emptied statement recycle bin: {count} statements deleted")
 
-    db.commit()
+        except Exception as e:
+            db_task.rollback()
+            logger.error(f"Error in background task emptying statement recycle bin: {str(e)}")
+        finally:
+            db_task.close()
 
-    # Audit log for empty recycle bin
-    log_audit_event(
-        db=db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="Empty Statement Recycle Bin",
-        resource_type="statement",
-        resource_id=None,
-        resource_name=None,
-        details={
-            "message": f"Statement recycle bin emptied, {count} statements permanently deleted."
-        },
-        status="success",
+    # Add the deletion task to background tasks
+    background_tasks.add_task(
+        delete_statements_background,
+        tenant_id,
+        current_user.id,
+        current_user.email,
+        count
     )
 
     return {
-        "message": f"Statement recycle bin emptied successfully. {count} statements permanently deleted.",
+        "message": f"Deletion of {count} statement(s) has been initiated. You will be notified when complete.",
         "deleted_count": count,
+        "status": "processing"
     }
+
 
 
 @router.get("/{statement_id}", response_model=Dict[str, Any])

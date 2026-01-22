@@ -2129,7 +2129,12 @@
     "empty_recycle_bin_confirm_title": "Empty Recycle Bin",
     "empty_recycle_bin_confirm_description": "Are you sure you want to permanently delete all invoices in the recycle bin? This action cannot be undone and all deleted invoices will be completely removed from the system.",
     "recycle_bin_emptied_successfully": "Recycle bin emptied successfully",
-    "failed_to_empty_recycle_bin": "Failed to empty recycle bin"
+    "failed_to_empty_recycle_bin": "Failed to empty recycle bin",
+    "deletion_initiated": "Deletion of {{count}} invoice(s) initiated. This may take a moment...",
+    "deletion_processing": "Deleting {{count}} invoice(s). You will be notified when complete.",
+    "deletion_completed": "Successfully deleted {{count}} invoice(s) from the recycle bin.",
+    "deletion_title": "Recycle Bin Deletion",
+    "deletion_completed_title": "Recycle Bin Emptied"
   },
   "expenseRecycleBin": {
     "title": "Recycle Bin",
@@ -2162,7 +2167,12 @@
     "empty_recycle_bin_confirm_description": "Are you sure you want to permanently delete all expenses in the recycle bin? This action cannot be undone and all deleted expenses will be completely removed from the system.",
     "recycle_bin_emptied_successfully": "Expense recycle bin emptied successfully",
     "failed_to_empty_recycle_bin": "Failed to empty expense recycle bin",
-    "permanent_delete": "Permanently Delete"
+    "permanent_delete": "Permanently Delete",
+    "deletion_initiated": "Deletion of {{count}} expense(s) initiated. This may take a moment...",
+    "deletion_processing": "Deleting {{count}} expense(s). You will be notified when complete.",
+    "deletion_completed": "Successfully deleted {{count}} expense(s) from the recycle bin.",
+    "deletion_title": "Expense Recycle Bin Deletion",
+    "deletion_completed_title": "Expense Recycle Bin Emptied"
   },
   "statementRecycleBin": {
     "title": "Recycle Bin",
@@ -2192,7 +2202,12 @@
     "empty_recycle_bin_confirm_description": "Are you sure you want to permanently delete all statements in the recycle bin? This action cannot be undone and all deleted statements will be completely removed from the system.",
     "recycle_bin_emptied_successfully": "Statement recycle bin emptied successfully",
     "failed_to_empty_recycle_bin": "Failed to empty statement recycle bin",
-    "permanent_delete": "Permanently Delete"
+    "permanent_delete": "Permanently Delete",
+    "deletion_initiated": "Deletion of {{count}} statement(s) initiated. This may take a moment...",
+    "deletion_processing": "Deleting {{count}} statement(s). You will be notified when complete.",
+    "deletion_completed": "Successfully deleted {{count}} statement(s) from the recycle bin.",
+    "deletion_title": "Statement Recycle Bin Deletion",
+    "deletion_completed_title": "Statement Recycle Bin Emptied"
   },
   "expenses": {
     "title": "Expenses",

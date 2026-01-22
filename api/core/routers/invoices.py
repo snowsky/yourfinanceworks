@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, cast, String
 import sqlalchemy as sa
@@ -918,6 +918,7 @@ async def get_deleted_invoices(
 
 @router.post("/recycle-bin/empty", response_model=dict)
 async def empty_recycle_bin(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
@@ -926,70 +927,107 @@ async def empty_recycle_bin(
         # Only admins can empty the recycle bin
         require_admin(current_user, "empty the recycle bin")
 
-        # Get all deleted invoices
-        deleted_invoices = db.query(Invoice).filter(Invoice.is_deleted == True).all()
-        count = len(deleted_invoices)
+        # Get count of deleted invoices
+        count = db.query(Invoice).filter(Invoice.is_deleted == True).count()
 
         if count == 0:
             return {"message": "Recycle bin is already empty", "deleted_count": 0}
 
-        # Delete all attachments from storage before deleting invoices
-        try:
-            from core.models.models_per_tenant import InvoiceAttachment
+        # Define the background task function
+        def delete_invoices_background(tenant_id: int, user_id: int, user_email: str, count: int):
+            """Background task to delete all invoices in recycle bin"""
+            from core.models.database import set_tenant_context
+            from core.services.tenant_database_manager import tenant_db_manager
 
-            # Get all invoice IDs
-            invoice_ids = [inv.id for inv in deleted_invoices]
+            # Set tenant context for this background task
+            set_tenant_context(tenant_id)
 
-            # Get all attachments for these invoices
-            attachments = db.query(InvoiceAttachment).filter(
-                InvoiceAttachment.invoice_id.in_(invoice_ids)
-            ).all()
+            # Get tenant-specific session
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+            db_task = SessionLocal_tenant()
+            try:
+                # Get all deleted invoices
+                deleted_invoices = db_task.query(Invoice).filter(Invoice.is_deleted == True).all()
 
-            # Delete attachments individually (still needed for proper cleanup)
-            for att in attachments:
-                if att.file_path:
-                    try:
-                        await delete_file_from_storage(att.file_path, current_user.tenant_id, current_user.id, db)
-                    except Exception as e:
-                        logger.warning(f"Failed to delete attachment {att.file_path}: {e}")
+                # Delete all attachments from storage before deleting invoices
+                try:
+                    from core.models.models_per_tenant import InvoiceAttachment
+                    import asyncio
 
-            # Also delete legacy attachment paths
-            for invoice in deleted_invoices:
-                if invoice.attachment_path:
-                    try:
-                        await delete_file_from_storage(invoice.attachment_path, current_user.tenant_id, current_user.id, db)
-                    except Exception as e:
-                        logger.warning(f"Failed to delete legacy attachment {invoice.attachment_path}: {e}")
+                    async def delete_files():
+                        # Get all invoice IDs
+                        invoice_ids = [inv.id for inv in deleted_invoices]
 
-            if attachments:
-                logger.info(f"Deleted {len(attachments)} attachment(s) from storage during recycle bin empty")
-        except Exception as e:
-            logger.warning(f"Failed to delete attachments during recycle bin empty: {e}")
+                        # Get all attachments for these invoices
+                        attachments = db_task.query(InvoiceAttachment).filter(
+                            InvoiceAttachment.invoice_id.in_(invoice_ids)
+                        ).all()
 
-        # Delete all invoices in recycle bin
-        # Note: We don't create InvoiceHistory entries here because invoice_id is required
-        # and we're deleting multiple invoices. The audit log below captures this action.
-        for invoice in deleted_invoices:
-            db.delete(invoice)
+                        # Delete attachments individually (still needed for proper cleanup)
+                        for att in attachments:
+                            if att.file_path:
+                                try:
+                                    await delete_file_from_storage(att.file_path, tenant_id, user_id, db_task)
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete attachment {att.file_path}: {e}")
 
-        db.commit()
+                        # Also delete legacy attachment paths
+                        for invoice in deleted_invoices:
+                            if invoice.attachment_path:
+                                try:
+                                    await delete_file_from_storage(invoice.attachment_path, tenant_id, user_id, db_task)
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete legacy attachment {invoice.attachment_path}: {e}")
 
-        # Audit log for empty recycle bin
-        log_audit_event(
-            db=db,
-            user_id=current_user.id,
-            user_email=current_user.email,
-            action="Empty Recycle Bin",
-            resource_type="invoice",
-            resource_id=None,
-            resource_name=None,
-            details={"message": f"Recycle bin emptied, {count} invoices permanently deleted."},
-            status="success"
+                        if attachments:
+                            logger.info(f"Deleted {len(attachments)} attachment(s) from storage during recycle bin empty")
+
+                    # Run async file deletion
+                    asyncio.run(delete_files())
+
+                except Exception as e:
+                    logger.warning(f"Failed to delete attachments during recycle bin empty: {e}")
+
+                # Delete all invoices in recycle bin
+                for invoice in deleted_invoices:
+                    db_task.delete(invoice)
+
+                db_task.commit()
+
+                # Audit log for empty recycle bin
+                log_audit_event(
+                    db=db_task,
+                    user_id=user_id,
+                    user_email=user_email,
+                    action="Empty Recycle Bin",
+                    resource_type="invoice",
+                    resource_id=None,
+                    resource_name=None,
+                    details={"message": f"Recycle bin emptied, {count} invoices permanently deleted."},
+                    status="success"
+                )
+
+                logger.info(f"Successfully emptied invoice recycle bin: {count} invoices deleted")
+
+            except Exception as e:
+                db_task.rollback()
+                logger.error(f"Error in background task emptying invoice recycle bin: {str(e)}")
+            finally:
+                db_task.close()
+
+        # Add the deletion task to background tasks
+        background_tasks.add_task(
+            delete_invoices_background,
+            current_user.tenant_id,
+            current_user.id,
+            current_user.email,
+            count
         )
 
         return {
-            "message": f"Recycle bin emptied successfully. {count} invoices permanently deleted.",
-            "deleted_count": count
+            "message": f"Deletion of {count} invoice(s) has been initiated. You will be notified when complete.",
+            "deleted_count": count,
+            "status": "processing"
         }
 
     except HTTPException:

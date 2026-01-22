@@ -245,7 +245,8 @@ class CloudStorageService:
         attachment_type: str,
         original_filename: str,
         user_id: int,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        file_key: Optional[str] = None
     ) -> StorageResult:
         """
         Store file using configured provider with automatic fallback.
@@ -258,11 +259,13 @@ class CloudStorageService:
             original_filename: Original filename
             user_id: User performing the operation
             metadata: Optional metadata
+            file_key: Optional custom file key (if None, one is generated)
             
         Returns:
             StorageResult with operation details
         """
-        file_key = self._generate_file_key(tenant_id, item_id, attachment_type, original_filename)
+        if file_key is None:
+            file_key = self._generate_file_key(tenant_id, item_id, attachment_type, original_filename)
         
         logger.info(f"Storing file {original_filename} for tenant {tenant_id}, item {item_id}")
         
@@ -508,7 +511,8 @@ class CloudStorageService:
         self,
         file_key: str,
         tenant_id: str,
-        user_id: int
+        user_id: int,
+        files_providers: Optional[List[StorageProvider]] = None
     ) -> bool:
         """
         Delete file from all storage providers.
@@ -517,6 +521,7 @@ class CloudStorageService:
             file_key: Unique file key
             tenant_id: Tenant identifier for logging
             user_id: User performing the operation
+            files_providers: Optional list of providers to delete from (default: all)
             
         Returns:
             True if file was deleted from at least one provider
@@ -525,8 +530,11 @@ class CloudStorageService:
         
         deletion_success = False
         
-        # Try to delete from all providers
-        for provider_type in StorageProvider:
+        # Determine target providers
+        target_providers = files_providers if files_providers else list(StorageProvider)
+
+        # Try to delete from target providers
+        for provider_type in target_providers:
             provider = self.provider_factory.get_provider(provider_type)
             if not provider:
                 continue

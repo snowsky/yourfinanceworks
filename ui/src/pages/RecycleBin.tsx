@@ -117,10 +117,35 @@ const RecycleBin = () => {
   };
 
   const confirmEmptyRecycleBin = async () => {
+    const addNotification = (window as any).addAINotification;
     try {
-      await invoiceApi.emptyRecycleBin();
-      toast.success(t('recycleBin.recycle_bin_emptied_successfully'));
-      fetchDeletedInvoices();
+      const response = await invoiceApi.emptyRecycleBin() as { message: string; deleted_count: number; status?: string };
+
+      // Show immediate notification
+      toast.success(response.message || t('recycleBin.deletion_initiated', { count: response.deleted_count }));
+
+      // Add bell notification for completion
+      if (addNotification && response.status === 'processing') {
+        addNotification(
+          'info', 
+          t('recycleBin.deletion_title'), 
+          t('recycleBin.deletion_processing', { count: response.deleted_count })
+        );
+
+        // Show completion notification and refresh after background task completes
+        setTimeout(() => {
+          addNotification(
+            'success', 
+            t('recycleBin.deletion_completed_title'), 
+            t('recycleBin.deletion_completed', { count: response.deleted_count })
+          );
+          // Refresh the list after deletion completes
+          fetchDeletedInvoices();
+        }, 2000);
+      } else {
+        // If not async, refresh immediately
+        fetchDeletedInvoices();
+      }
     } catch (error) {
       console.error('Failed to empty recycle bin:', error);
       toast.error(t('recycleBin.failed_to_empty_recycle_bin'));

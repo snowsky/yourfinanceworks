@@ -108,10 +108,35 @@ const StatementRecycleBin = () => {
   };
 
   const confirmEmptyRecycleBin = async () => {
+    const addNotification = (window as any).addAINotification;
     try {
-      await bankStatementApi.emptyRecycleBin();
-      toast.success(t('statementRecycleBin.recycle_bin_emptied_successfully'));
-      fetchDeletedStatements();
+      const response = await bankStatementApi.emptyRecycleBin() as { message: string; deleted_count: number; status?: string };
+
+      // Show immediate notification
+      toast.success(response.message || t('statementRecycleBin.deletion_initiated', { count: response.deleted_count }));
+
+      // Add bell notification for completion
+      if (addNotification && response.status === 'processing') {
+        addNotification(
+          'info', 
+          t('statementRecycleBin.deletion_title'), 
+          t('statementRecycleBin.deletion_processing', { count: response.deleted_count })
+        );
+
+        // Show completion notification and refresh after background task completes
+        setTimeout(() => {
+          addNotification(
+            'success', 
+            t('statementRecycleBin.deletion_completed_title'), 
+            t('statementRecycleBin.deletion_completed', { count: response.deleted_count })
+          );
+          // Refresh the list after deletion completes
+          fetchDeletedStatements();
+        }, 2000);
+      } else {
+        // If not async (empty bin already or other reason), refresh immediately
+        fetchDeletedStatements();
+      }
     } catch (error) {
       console.error('Failed to empty recycle bin:', error);
       toast.error(t('statementRecycleBin.failed_to_empty_recycle_bin'));
