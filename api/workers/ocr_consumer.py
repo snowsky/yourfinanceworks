@@ -1183,23 +1183,27 @@ class InvoiceMessageHandler(BaseMessageHandler):
 
                     client_id = batch_job.client_id if batch_job else None
 
-                    # Validate client_id exists before processing
-                    if client_id is not None:
-                        client = db.query(Client).filter(Client.id == client_id).first()
-                        if not client:
-                            error_msg = f"Client ID {client_id} does not exist. Cannot create invoice."
-                            self.logger.error(f"Batch invoice processing aborted: {error_msg}")
+                    # Use default client if no client_id is specified
+                    if client_id is None:
+                        client_id = await self._get_or_create_default_client(db)
+                        self.logger.info(f"Using default client ID {client_id} for batch invoice processing")
 
-                            # Mark file as failed without processing
-                            from commercial.batch_processing.service import BatchProcessingService
-                            batch_service = BatchProcessingService(db)
-                            await batch_service.process_file_completion(
-                                file_id=int(batch_file_id),
-                                extracted_data={},
-                                status="failed",
-                                error_message=error_msg
-                            )
-                            return ProcessingResult(success=False, error_message=error_msg, committed=True)
+                    # Validate client_id exists before processing
+                    client = db.query(Client).filter(Client.id == client_id).first()
+                    if not client:
+                        error_msg = f"Client ID {client_id} does not exist. Cannot create invoice."
+                        self.logger.error(f"Batch invoice processing aborted: {error_msg}")
+
+                        # Mark file as failed without processing
+                        from commercial.batch_processing.service import BatchProcessingService
+                        batch_service = BatchProcessingService(db)
+                        await batch_service.process_file_completion(
+                            file_id=int(batch_file_id),
+                            extracted_data={},
+                            status="failed",
+                            error_message=error_msg
+                        )
+                        return ProcessingResult(success=False, error_message=error_msg, committed=True)
 
                     # Get AI config
                     ai_conf = await self._get_ai_config(db)
@@ -1467,6 +1471,28 @@ class InvoiceMessageHandler(BaseMessageHandler):
 
         db.commit()
         return task
+
+    async def _get_or_create_default_client(self, db) -> int:
+        """Get existing default client or create a new one"""
+        from core.models.models_per_tenant import Client
+
+        # Look for existing default client
+        default_client = db.query(Client).filter(Client.name == "Default Client").first()
+        
+        if default_client:
+            return default_client.id
+        
+        # Create new default client
+        default_client = Client(
+            name="Default Client",
+            email="default@example.com",
+            address="Default address for auto-created invoices",
+            phone="",
+            is_active=True
+        )
+        db.add(default_client)
+        db.flush()  # Get the ID without committing
+        return default_client.id
 
     async def _process_client_info(self, db, extracted_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process client information from extracted data"""
