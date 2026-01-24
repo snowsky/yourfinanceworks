@@ -69,6 +69,7 @@ def ensure_required_columns(database_url):
                 required_columns = {
                     "must_reset_password": "BOOLEAN NOT NULL DEFAULT FALSE",
                     "show_analytics": "BOOLEAN NOT NULL DEFAULT FALSE",
+                    "count_against_license": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "azure_ad_id": "VARCHAR(255)",
                     "azure_tenant_id": "VARCHAR(255)",
                 }
@@ -120,6 +121,8 @@ def ensure_required_columns(database_url):
                     "allow_password_signup": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "allow_sso_signup": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "license_scope": "VARCHAR(20)",
+                    "max_tenants": "INTEGER",
+                    "max_users": "INTEGER",
                 }
 
                 for col_name, col_definition in required_columns_global.items():

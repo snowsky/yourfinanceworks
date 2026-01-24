@@ -2677,6 +2677,17 @@ export const superAdminApi = {
       method: "GET"
     }, { skipTenant: true });
   },
+  getUserLicenseMonitoring: async () => {
+    return apiRequest<any[]>("/license/monitoring/users", {
+      method: "GET"
+    }, { skipTenant: true });
+  },
+  updateUserCapacityControl: async (userId: number, counts: boolean) => {
+    return apiRequest<{ success: boolean }>(`/license/monitoring/users/${userId}/update-capacity-control`, {
+      method: "POST",
+      body: JSON.stringify({ counts })
+    }, { skipTenant: true });
+  },
   updateTenantCapacityControl: async (tenantId: number, counts: boolean) => {
     return apiRequest<{ success: boolean }>(`/license/tenants/${tenantId}/update-capacity-control`, {
       method: "POST",

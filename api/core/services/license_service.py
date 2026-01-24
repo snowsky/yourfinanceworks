@@ -1264,6 +1264,13 @@ class LicenseService:
             except:
                 pass
 
+        max_users = payload.get("max_users") or payload.get("metadata", {}).get("max_users")
+        if max_users:
+            try:
+                global_info.max_users = int(max_users)
+            except:
+                pass
+
         self.master_db.commit()
 
         # Log success
@@ -1338,7 +1345,18 @@ class LicenseService:
 
         # 2. Local license missing or expired - Fallback to Global license
         global_info = self._get_or_create_global_installation()
-        if global_info.license_status in ["active", "commercial"]:
+
+        # Check if this tenant is exempted from global license before allowing fallback
+        from core.models.database import get_tenant_context
+        curr_tenant_id = get_tenant_context()
+        tenant_is_exempted = False
+        if curr_tenant_id and self.master_db:
+            from core.models.models import Tenant
+            tenant_obj = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
+            if tenant_obj and not tenant_obj.count_against_license:
+                tenant_is_exempted = True
+
+        if not tenant_is_exempted and global_info.license_status in ["active", "commercial"]:
             # Verify global license isn't expired
             global_exp = global_info.license_expires_at
             if global_exp and global_exp.tzinfo is None:
@@ -1499,6 +1517,15 @@ class LicenseService:
         global_exp = self._ensure_utc(global_info.license_expires_at)
         global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
 
+        # Check if this tenant is exempted from global license
+        from core.models.database import get_tenant_context
+        curr_tenant_id = get_tenant_context()
+        if curr_tenant_id and self.master_db:
+            from core.models.models import Tenant
+            tenant_obj = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
+            if tenant_obj and not tenant_obj.count_against_license:
+                global_active = False
+
         if local_active or global_active:
             return False
 
@@ -1528,6 +1555,16 @@ class LicenseService:
 
         local_active = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
         global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+
+        # If we are in a tenant context, check if the tenant is exempted from global license
+        from core.models.database import get_tenant_context
+        curr_tenant_id = get_tenant_context()
+        if curr_tenant_id and self.master_db:
+            from core.models.models import Tenant
+            tenant = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
+            if tenant and not tenant.count_against_license:
+                logger.info(f"Tenant {curr_tenant_id} is exempted from global license. Disabling global coverage.")
+                global_active = False
 
         effective_source = "local" if local_active else "global" if global_active else "none"
 
@@ -1577,7 +1614,27 @@ class LicenseService:
             "has_all_features": "all" in enabled_features,
             "allow_password_signup": global_info.allow_password_signup,
             "allow_sso_signup": global_info.allow_sso_signup,
+            "user_licensing_info": {
+                "max_users": global_info.max_users,
+                "current_users_count": self.get_current_user_count(),
+            } if global_info.is_licensed else None,
         }
+
+    def get_current_user_count(self) -> int:
+        """
+        Get the number of users that count against the global license.
+        A user counts if both they and their tenant are NOT exempted.
+        """
+        if not self.master_db:
+            return 0
+        from core.models.models import MasterUser, Tenant
+        return (
+            self.master_db.query(MasterUser)
+            .join(Tenant, MasterUser.tenant_id == Tenant.id)
+            .filter(MasterUser.count_against_license == True)
+            .filter(Tenant.count_against_license == True)
+            .count()
+        )
 
     def get_all_tenants_license_info(self) -> List[Dict[str, Any]]:
         """
@@ -1620,9 +1677,49 @@ class LicenseService:
         self.master_db.commit()
         return True
 
-    def update_global_signup_settings(self, allow_password: Optional[bool] = None, allow_sso: Optional[bool] = None) -> bool:
+    def get_all_users_license_info(self) -> List[Dict[str, Any]]:
         """
-        Update global signup controls.
+        Super Admin Monitoring: Get license usage across all users.
+        """
+        if not self.master_db:
+            return []
+        from core.models.models import MasterUser, Tenant
+
+        # Use a join to get tenant information in one query
+        users_with_tenants = self.master_db.query(MasterUser, Tenant).join(Tenant, MasterUser.tenant_id == Tenant.id).all()
+
+        results = []
+        for user, tenant in users_with_tenants:
+            results.append({
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_active": user.is_active,
+                "count_against_license": user.count_against_license,
+                "tenant_name": tenant.name,
+                "tenant_count_against_license": tenant.count_against_license,
+                "effectively_exempt": not (user.count_against_license and tenant.count_against_license)
+            })
+        return results
+
+    def update_user_capacity_control(self, user_id: int, counts: bool) -> bool:
+        """
+        Update whether a user counts against the global license capacity.
+        """
+        if not self.master_db:
+            return False
+        from core.models.models import MasterUser
+        user = self.master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+        if not user:
+            return False
+        user.count_against_license = counts
+        self.master_db.commit()
+        return True
+
+    def update_global_signup_settings(self, allow_password: Optional[bool] = None, allow_sso: Optional[bool] = None, max_tenants: Optional[int] = None, max_users: Optional[int] = None) -> bool:
+        """
+        Update global signup controls and capacity limits.
         """
         global_info = self._get_or_create_global_installation()
 
@@ -1633,8 +1730,14 @@ class LicenseService:
         if allow_sso is not None:
             global_info.allow_sso_signup = allow_sso
             updated = True
+        if max_tenants is not None:
+            global_info.max_tenants = max_tenants
+            updated = True
+        if max_users is not None:
+            global_info.max_users = max_users
+            updated = True
 
         if updated:
-            self.db.commit()
+            self.master_db.commit()
             return True
         return False

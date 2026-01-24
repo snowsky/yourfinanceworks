@@ -100,6 +100,7 @@ class LicenseStatusResponse(BaseModel):
     has_all_features: bool
     allow_password_signup: bool = True
     allow_sso_signup: bool = True
+    user_licensing_info: Optional[dict] = None
 
 
 class LicenseValidationResponse(BaseModel):
@@ -127,6 +128,16 @@ class TenantLicenseInfo(BaseModel):
     """Model for tenant license monitoring info"""
     id: int
     name: str
+    is_active: bool
+    count_against_license: bool
+
+
+class UserLicenseInfo(BaseModel):
+    """Model for user license monitoring info"""
+    id: int
+    email: str
+    first_name: Optional[str]
+    last_name: Optional[str]
     is_active: bool
     count_against_license: bool
 
@@ -648,7 +659,7 @@ async def deactivate_global_license(
             ip_address=ip_address,
             user_agent=user_agent
         )
-        
+
         # Log audit event in master database
         log_audit_event_master(
             db=master_db,
@@ -660,7 +671,7 @@ async def deactivate_global_license(
             ip_address=ip_address,
             user_agent=user_agent
         )
-        
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -698,7 +709,7 @@ async def update_tenant_capacity_control(
         success = license_service.update_tenant_capacity_control(tenant_id, request_data.counts)
         if not success:
             raise HTTPException(status_code=404, detail="Tenant not found")
-            
+
         # Log audit event in master database
         log_audit_event_master(
             db=master_db,
@@ -709,7 +720,56 @@ async def update_tenant_capacity_control(
             resource_id=str(tenant_id),
             details={"counts_against_license": request_data.counts}
         )
-        
+
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/monitoring/users", response_model=list[UserLicenseInfo])
+async def get_users_license_info(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Get license monitoring info for all users (Super Admin only)."""
+    require_superuser(current_user, "view user license info")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+        return license_service.get_all_users_license_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/monitoring/users/{user_id}/update-capacity-control")
+async def update_user_capacity_control(
+    user_id: int,
+    request_data: TenantCapacityControlRequest,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Update whether a user counts against the global limit (Super Admin only)."""
+    require_superuser(current_user, "update user capacity control")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+        success = license_service.update_user_capacity_control(user_id, request_data.counts)
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Log audit event in master database
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_USER_CAPACITY_CONTROL",
+            resource_type="USER",
+            resource_id=str(user_id),
+            details={"counts_against_license": request_data.counts}
+        )
+
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

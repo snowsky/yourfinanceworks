@@ -36,6 +36,18 @@ interface TenantLicenseInfo {
   count_against_license: boolean;
 }
 
+interface UserLicenseInfo {
+  id: number;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  is_active: boolean;
+  count_against_license: boolean;
+  tenant_name?: string;
+  tenant_count_against_license?: boolean;
+  effectively_exempt?: boolean;
+}
+
 interface GlobalLicenseStatus {
   is_licensed: boolean;
   license_status: string;
@@ -47,11 +59,16 @@ interface GlobalLicenseStatus {
     license_scope?: string;
   };
   enabled_features: string[];
+  user_licensing_info?: {
+    max_users: number | null;
+    current_users_count: number;
+  };
 }
 
 export const TenantLicenseMonitoring: React.FC = () => {
   const { t } = useTranslation();
   const [tenants, setTenants] = useState<TenantLicenseInfo[]>([]);
+  const [users, setUsers] = useState<UserLicenseInfo[]>([]);
   const [status, setStatus] = useState<GlobalLicenseStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [globalKey, setGlobalKey] = useState('');
@@ -62,20 +79,26 @@ export const TenantLicenseMonitoring: React.FC = () => {
   // Signup control states
   const [allowPasswordSignup, setAllowPasswordSignup] = useState(true);
   const [allowSsoSignup, setAllowSsoSignup] = useState(true);
+  const [maxTenantsManual, setMaxTenantsManual] = useState<number>(0);
+  const [maxUsersManual, setMaxUsersManual] = useState<number>(0);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tenantsData, statusData, signupSettings] = await Promise.all([
+      const [tenantsData, usersData, statusData, signupSettings] = await Promise.all([
         superAdminApi.getTenantLicenseMonitoring(),
+        superAdminApi.getUserLicenseMonitoring(),
         api.get<GlobalLicenseStatus>('/license/status'),
         superAdminApi.getGlobalSignupSettings()
       ]);
       setTenants(tenantsData);
+      setUsers(usersData);
       setStatus(statusData);
       setAllowPasswordSignup(signupSettings.allow_password_signup);
       setAllowSsoSignup(signupSettings.allow_sso_signup);
+      setMaxTenantsManual(signupSettings.max_tenants || 0);
+      setMaxUsersManual(statusData.user_licensing_info?.max_users || 0);
     } catch (err) {
       toast.error(t('superAdmin.license_capacity_monitoring.load_error', 'Failed to load license monitoring data'));
     } finally {
@@ -87,13 +110,26 @@ export const TenantLicenseMonitoring: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleUpdateExemption = async (tenantId: number, counts: boolean) => {
+  const handleUpdateTenantExemption = async (tenantId: number, counts: boolean) => {
     try {
       await superAdminApi.updateTenantCapacityControl(tenantId, counts);
       toast.success(counts ? t('superAdmin.license_capacity_monitoring.tenant_counts_license', 'Tenant now counts against license') : t('superAdmin.license_capacity_monitoring.tenant_exempt_license', 'Tenant now exempt from license'));
       setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, count_against_license: counts } : t));
     } catch (err) {
       toast.error(t('superAdmin.license_capacity_monitoring.update_exemption_error', 'Failed to update tenant exemption'));
+    }
+  };
+
+  const handleUpdateUserExemption = async (userId: number, counts: boolean) => {
+    try {
+      await superAdminApi.updateUserCapacityControl(userId, counts);
+      toast.success(counts ? t('superAdmin.license_capacity_monitoring.user_counts_license', 'User now counts against license') : t('superAdmin.license_capacity_monitoring.user_exempt_license', 'User now exempt from license'));
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, count_against_license: counts } : u));
+      // Refresh status to update totals
+      const statusData = await api.get<GlobalLicenseStatus>('/license/status');
+      setStatus(statusData);
+    } catch (err) {
+      toast.error(t('superAdmin.license_capacity_monitoring.update_user_exemption_error', 'Failed to update user exemption'));
     }
   };
 
@@ -134,21 +170,31 @@ export const TenantLicenseMonitoring: React.FC = () => {
     }
   };
 
-  const handleUpdateSignupSettings = async (type: 'password' | 'sso', value: boolean) => {
+  const handleUpdateSignupSettings = async (type: 'password' | 'sso' | 'max_tenants' | 'max_users', value: any) => {
     setSavingSettings(true);
     try {
-      const settings = type === 'password' 
-        ? { allow_password_signup: value } 
-        : { allow_sso_signup: value };
+      let settings = {};
+      if (type === 'password') settings = { allow_password_signup: value };
+      else if (type === 'sso') settings = { allow_sso_signup: value };
+      else if (type === 'max_tenants') settings = { max_tenants: parseInt(value) };
+      else if (type === 'max_users') settings = { max_users: parseInt(value) };
       
       await superAdminApi.updateGlobalSignupSettings(settings);
       
       if (type === 'password') setAllowPasswordSignup(value);
-      else setAllowSsoSignup(value);
+      else if (type === 'sso') setAllowSsoSignup(value);
+      else if (type === 'max_tenants') {
+        setMaxTenantsManual(parseInt(value));
+        fetchData(); // Refresh to update overview
+      }
+      else if (type === 'max_users') {
+        setMaxUsersManual(parseInt(value));
+        fetchData(); // Refresh to update overview
+      }
       
-      toast.success(t('superAdmin.license_capacity_monitoring.signup_settings_updated', 'Global signup settings updated'));
+      toast.success(t('superAdmin.license_capacity_monitoring.settings_updated', 'Global settings updated'));
     } catch (err) {
-      toast.error(t('superAdmin.license_capacity_monitoring.update_signup_error', 'Failed to update signup settings'));
+      toast.error(t('superAdmin.license_capacity_monitoring.update_settings_error', 'Failed to update global settings'));
     } finally {
       setSavingSettings(false);
     }
@@ -223,6 +269,18 @@ export const TenantLicenseMonitoring: React.FC = () => {
                   <span className="text-sm text-muted-foreground"> / {maxTenants || 'Unlimited'} {t('superAdmin.license_capacity_monitoring.organizations')}</span>
                 </div>
               </div>
+
+              {status?.user_licensing_info && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{t('superAdmin.license_capacity_monitoring.user_capacity_usage', 'User Capacity Usage')}</span>
+                  <div className="text-right">
+                    <span className={`text-lg font-bold ${status.user_licensing_info.max_users && status.user_licensing_info.current_users_count > status.user_licensing_info.max_users ? 'text-destructive' : 'text-primary'}`}>
+                      {status.user_licensing_info.current_users_count}
+                    </span>
+                    <span className="text-sm text-muted-foreground"> / {status.user_licensing_info.max_users || 'Unlimited'} {t('superAdmin.license_capacity_monitoring.users', 'Users')}</span>
+                  </div>
+                </div>
+              )}
 
               {isOverLimit && (
                 <div className="p-3 bg-destructive/10 text-destructive rounded-lg flex items-start gap-2 text-sm">
@@ -349,7 +407,59 @@ export const TenantLicenseMonitoring: React.FC = () => {
             </div>
           </div>
           
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 border-t pt-8">
+            <div className="space-y-2">
+              <Label htmlFor="max-tenants-manual" className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                {t('superAdmin.license_capacity_monitoring.max_organizations_limit', 'Max Organizations Limit')}
+              </Label>
+              <div className="flex gap-2">
+                <input
+                  id="max-tenants-manual"
+                  type="number"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={maxTenantsManual}
+                  onChange={(e) => setMaxTenantsManual(parseInt(e.target.value) || 0)}
+                  disabled={savingSettings}
+                />
+                <ProfessionalButton
+                  size="sm"
+                  onClick={() => handleUpdateSignupSettings('max_tenants', maxTenantsManual)}
+                  disabled={savingSettings}
+                >
+                  {t('common.save', 'Save')}
+                </ProfessionalButton>
+              </div>
+              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_tenants_description', 'Manually override the system-wide organization limit.')}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max-users-manual" className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                {t('superAdmin.license_capacity_monitoring.max_users_limit', 'Max Users Limit')}
+              </Label>
+              <div className="flex gap-2">
+                <input
+                  id="max-users-manual"
+                  type="number"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={maxUsersManual}
+                  onChange={(e) => setMaxUsersManual(parseInt(e.target.value) || 0)}
+                  disabled={savingSettings}
+                />
+                <ProfessionalButton
+                  size="sm"
+                  onClick={() => handleUpdateSignupSettings('max_users', maxUsersManual)}
+                  disabled={savingSettings}
+                >
+                  {t('common.save', 'Save')}
+                </ProfessionalButton>
+              </div>
+              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_users_description', 'Manually override the system-wide user limit.')}</p>
+            </div>
+          </div>
+
+          <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-800 space-y-1">
               <p className="font-bold uppercase tracking-tight">{t('superAdmin.license_capacity_monitoring.important_security_note')}</p>
@@ -360,68 +470,146 @@ export const TenantLicenseMonitoring: React.FC = () => {
         </ProfessionalCardContent>
       </ProfessionalCard>
 
-      {/* Tenant List */}
+      {/* User Capacity Control Section */}
+      <ProfessionalCard>
+        <ProfessionalCardHeader>
+          <ProfessionalCardTitle className="flex items-center">
+            <Users className="h-5 w-5 mr-2 text-primary" />
+            {t('superAdmin.license_capacity_monitoring.user_capacity_control', 'User Capacity Control')}
+          </ProfessionalCardTitle>
+        </ProfessionalCardHeader>
+        <ProfessionalCardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.user', 'User')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.email', 'Email')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization', 'Organization')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.status', 'Status')}</TableHead>
+                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control', 'Capacity Control')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.first_name} {user.last_name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm">{user.tenant_name || '-'}</span>
+                        {user.tenant_count_against_license === false && (
+                          <span className="text-[10px] text-amber-600 font-medium leading-none mt-1">
+                            {t('superAdmin.license_capacity_monitoring.org_exempted', 'Org Exempted')}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                        </Badge>
+                        {user.effectively_exempt && user.count_against_license && (
+                          <Badge variant="outline" className="text-[9px] h-4 bg-amber-50 text-amber-700 border-amber-200">
+                             {t('superAdmin.license_capacity_monitoring.inherited_exempt', 'Inherited Exempt')}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <RadioGroup
+                        value={user.count_against_license ? "counts" : "exempt"}
+                        onValueChange={(val) => handleUpdateUserExemption(user.id, val === "counts")}
+                        className="flex items-center gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="counts" id={`user-counts-${user.id}`} />
+                          <Label htmlFor={`user-counts-${user.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts', 'Counts')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="exempt" id={`user-exempt-${user.id}`} />
+                          <Label htmlFor={`user-exempt-${user.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</Label>
+                        </div>
+                      </RadioGroup>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                      {t('superAdmin.license_capacity_monitoring.no_users_found', 'No users found')}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </ProfessionalCardContent>
+      </ProfessionalCard>
+
+      {/* Organization Capacity Control Section */}
       <ProfessionalCard>
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center">
             <Building className="h-5 w-5 mr-2 text-primary" />
-            {t('superAdmin.license_capacity_monitoring.organization_capacity_control')}
+            {t('superAdmin.license_capacity_monitoring.organization_capacity_control', 'Organization Capacity Control')}
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
         <ProfessionalCardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('superAdmin.license_capacity_monitoring.organization')}</TableHead>
-                <TableHead>{t('superAdmin.license_capacity_monitoring.status')}</TableHead>
-                <TableHead>{t('superAdmin.license_capacity_monitoring.license_type')}</TableHead>
-                <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tenants.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={tenant.is_active ? "default" : "secondary"}>
-                      {tenant.is_active ? t('superAdmin.license_capacity_monitoring.active') : t('common.inactive')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 text-sm">
-                      {/* Note: In a full impl we'd fetch local status too, 
-                          but for now we show if they count against global */}
-                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>{tenant.count_against_license ? t('superAdmin.license_capacity_monitoring.counts_against_limit') : t('superAdmin.license_capacity_monitoring.exempt')}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <RadioGroup
-                      value={tenant.count_against_license ? "counts" : "exempt"}
-                      onValueChange={(val) => handleUpdateExemption(tenant.id, val === "counts")}
-                      className="flex items-center gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="counts" id={`counts-${tenant.id}`} />
-                        <Label htmlFor={`counts-${tenant.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="exempt" id={`exempt-${tenant.id}`} />
-                        <Label htmlFor={`exempt-${tenant.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt')}</Label>
-                      </div>
-                    </RadioGroup>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {tenants.length === 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                    {t('superAdmin.license_capacity_monitoring.no_organizations_found')}
-                  </TableCell>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization', 'Organization')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.status', 'Status')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.capacity_status', 'Capacity Status')}</TableHead>
+                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control', 'Capacity Control')}</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {tenants.map((tenant) => (
+                  <TableRow key={tenant.id}>
+                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={tenant.is_active ? "default" : "secondary"}>
+                        {tenant.is_active ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{tenant.count_against_license ? t('superAdmin.license_capacity_monitoring.counts_against_limit', 'Counts against limit') : t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <RadioGroup
+                        value={tenant.count_against_license ? "counts" : "exempt"}
+                        onValueChange={(val) => handleUpdateTenantExemption(tenant.id, val === "counts")}
+                        className="flex items-center gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="counts" id={`counts-${tenant.id}`} />
+                          <Label htmlFor={`counts-${tenant.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts', 'Counts')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="exempt" id={`exempt-${tenant.id}`} />
+                          <Label htmlFor={`exempt-${tenant.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</Label>
+                        </div>
+                      </RadioGroup>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {tenants.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                      {t('superAdmin.license_capacity_monitoring.no_organizations_found', 'No organizations found')}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </ProfessionalCardContent>
       </ProfessionalCard>
     </div>

@@ -30,6 +30,7 @@ class MasterUser(Base):
     must_reset_password = Column(Boolean, default=False, nullable=False)
     theme = Column(String, default="system")
     show_analytics = Column(Boolean, default=False, nullable=False)  # Show/hide analytics menu
+    count_against_license = Column(Boolean, default=True, nullable=False)  # Whether this user counts against global license limits
 
     # Tenant relationship (keeping for backward compatibility)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
@@ -508,6 +509,7 @@ class GlobalInstallationInfo(Base):
     is_licensed = Column(Boolean, default=False, nullable=False)
 
     max_tenants = Column(Integer, nullable=True)
+    max_users = Column(Integer, nullable=True)
     licensed_features = Column(JSON, nullable=True)
 
     customer_email = Column(String, nullable=True)

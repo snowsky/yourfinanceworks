@@ -46,6 +46,8 @@ class TenantSelectionRequest(BaseModel):
 class GlobalSignupSettingsUpdate(BaseModel):
     allow_password_signup: Optional[bool] = None
     allow_sso_signup: Optional[bool] = None
+    max_tenants: Optional[int] = None
+    max_users: Optional[int] = None
 
 def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
     """Require that the current user is a superuser in their primary tenant"""
@@ -770,6 +772,23 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User already exists"
         )
+
+    # Check global user limit
+    primary_tenant = next((t for t in tenants if t.id == primary_tenant_id), None)
+    should_count = primary_tenant.count_against_license if primary_tenant else True
+
+    from core.services.license_service import LicenseService
+    license_service = LicenseService(master_db, master_db=master_db)
+    license_status = license_service.get_license_status()
+    user_licensing_info = license_status.get("user_licensing_info")
+    if should_count and user_licensing_info and user_licensing_info.get("max_users"):
+        max_users = user_licensing_info["max_users"]
+        current_users = user_licensing_info["current_users_count"]
+        if current_users >= max_users:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User limit reached ({max_users}). Please upgrade global license or exempt a tenant/user to add more capacity."
+            )
 
     # Create user in master database
     # For SSO users, generate a random password that they won't use
@@ -1975,7 +1994,9 @@ async def update_global_signup_settings(
     license_service = LicenseService(master_db, master_db=master_db)
     success = license_service.update_global_signup_settings(
         allow_password=settings.allow_password_signup,
-        allow_sso=settings.allow_sso_signup
+        allow_sso=settings.allow_sso_signup,
+        max_tenants=settings.max_tenants,
+        max_users=settings.max_users
     )
 
     if success:

@@ -315,6 +315,28 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     else:
         logger.info(f"New user registration: {user.email}")
 
+        # Check global user limit for new users
+        user_licensing_info = license_status.get("user_licensing_info")
+        if user_licensing_info and user_licensing_info.get("max_users"):
+            # If user already specified a tenant_id, check if that tenant is exempted
+            should_count = True
+            if user.tenant_id:
+                target_tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+                if target_tenant and not target_tenant.count_against_license:
+                    should_count = False
+
+            if should_count:
+                max_users = user_licensing_info["max_users"]
+                current_users = user_licensing_info["current_users_count"]
+                # Always allow the first user (Super Admin)
+                user_total_count = db.query(MasterUser).count()
+                if user_total_count > 0 and current_users >= max_users:
+                    logger.error(f"User limit reached: {current_users} >= {max_users}")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"User limit reached ({max_users}). Please contact an administrator to upgrade your license or exempt a tenant."
+                    )
+
     # If no tenant_id provided, create a new tenant for this user
     if not user.tenant_id:
         # Use organization_name from request or create default name
