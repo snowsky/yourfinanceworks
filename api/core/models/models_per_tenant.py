@@ -1514,41 +1514,43 @@ class InstallationInfo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     installation_id = Column(String(36), unique=True, nullable=False, index=True)
-    
+    custom_installation_id = Column(String(36), unique=True, nullable=True) # User-generated custom ID (max 1 per tenant)
+    original_installation_id = Column(String(36), nullable=True) # Original global ID for switching back
+
     # License status: invalid, personal, trial, active, expired, suspended
     license_status = Column(String(20), default="invalid", nullable=False)
     is_licensed = Column(Boolean, default=False, nullable=False)
-    
+
     # Usage type selection: personal (free) or business (trial/paid)
     usage_type = Column(String(20), nullable=True)  # personal or business
     usage_type_selected_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Trial management
     trial_start_date = Column(DateTime(timezone=True), nullable=True)
     trial_end_date = Column(DateTime(timezone=True), nullable=True)
     trial_extended_until = Column(DateTime(timezone=True), nullable=True)  # For grace period extensions
-    
+
     # License key storage
     license_key = Column(Text, nullable=True)  # Encrypted in practice
     license_activated_at = Column(DateTime(timezone=True), nullable=True)
     license_expires_at = Column(DateTime(timezone=True), nullable=True)
     license_scope = Column(String(20), nullable=True)  # 'local' or 'global'
-    
+
     # Feature tracking
     max_tenants = Column(Integer, nullable=True)  # From license
     features = Column(JSON, nullable=True)  # List of enabled features from license
     licensed_features = Column(JSON, nullable=True)  # List of licensed features (from activated license)
-    
+
     # Customer information from license
     customer_email = Column(String, nullable=True)  # Email from license
     customer_name = Column(String, nullable=True)  # Name from license
     organization_name = Column(String, nullable=True)  # Organization name from license
-    
+
     # Validation cache for performance
     last_validation_at = Column(DateTime(timezone=True), nullable=True)  # When license was last validated
     last_validation_result = Column(Boolean, nullable=True)  # Result of last validation (True/False)
     validation_cache_expires_at = Column(DateTime(timezone=True), nullable=True)  # When cache expires
-    
+
     # Audit fields
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -1563,28 +1565,28 @@ class LicenseValidationLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     installation_id = Column(Integer, ForeignKey("installation_info.id", ondelete="CASCADE"), nullable=False, index=True)
-    
+
     # Validation details
     validation_type = Column(String(50), nullable=False, index=True)  # activation, trial_start, usage_type_selected, etc.
     validation_result = Column(String(20), nullable=False)  # success, failed
-    
+
     # License information
     license_key_hash = Column(String(64), nullable=True)  # SHA-256 hash for privacy
     features_validated = Column(JSON, nullable=True)  # Features that were validated
     expiration_date = Column(DateTime(timezone=True), nullable=True)
     max_tenants_validated = Column(Integer, nullable=True)
-    
+
     # Error tracking
     error_code = Column(String(50), nullable=True)
     error_message = Column(Text, nullable=True)
-    
+
     # Request context
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(500), nullable=True)
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
-    
+
     # Relationships
     installation = relationship("InstallationInfo")

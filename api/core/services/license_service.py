@@ -502,6 +502,7 @@ class LicenseService:
         user_id: Optional[int] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        **kwargs # Accept extra arguments like 'details' without crashing
     ):
         """Log license validation attempt"""
         try:
@@ -749,6 +750,7 @@ class LicenseService:
             # Auto-create local installation record synced with global ID
             installation = InstallationInfo(
                 installation_id=global_id,
+                original_installation_id=global_id, # Store original global ID
                 license_status="invalid",
                 usage_type=None,
                 trial_start_date=None,
@@ -764,12 +766,10 @@ class LicenseService:
                 validation_type="installation_created",
                 validation_result="success",
             )
-        elif installation.installation_id != global_id:
-            # Sync installation ID if it differs (e.g. migration or re-sync)
-            logger.info(f"Syncing local installation_id from {installation.installation_id} to {global_id}")
-            installation.installation_id = global_id
-            self.db.commit()
-            self.db.refresh(installation)
+        # REMOVED: Auto-sync logic to allow for custom installation IDs
+        # elif installation.installation_id != global_id:
+        #    ...
+
 
         return installation
 
@@ -1346,17 +1346,13 @@ class LicenseService:
         # 2. Local license missing or expired - Fallback to Global license
         global_info = self._get_or_create_global_installation()
 
-        # Check if this tenant is exempted from global license before allowing fallback
-        from core.models.database import get_tenant_context
-        curr_tenant_id = get_tenant_context()
-        tenant_is_exempted = False
-        if curr_tenant_id and self.master_db:
-            from core.models.models import Tenant
-            tenant_obj = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
-            if tenant_obj and not tenant_obj.count_against_license:
-                tenant_is_exempted = True
+        # Only allow global fallback if the installation IDs match (i.e., tenant hasn't broken away)
+        # and if the tenant isn't explicitly exempted (optional, but requested behavior is linking exemption to custom ID)
 
-        if not tenant_is_exempted and global_info.license_status in ["active", "commercial"]:
+        # We rely on ID match: if tenant generated a custom ID, they are effectively decoupled.
+        ids_match = installation.installation_id == global_info.installation_id
+
+        if ids_match and global_info.license_status in ["active", "commercial"]:
             # Verify global license isn't expired
             global_exp = global_info.license_expires_at
             if global_exp and global_exp.tzinfo is None:
@@ -1459,6 +1455,132 @@ class LicenseService:
 
         return limit
 
+    def _is_tenant_exempted(self) -> bool:
+        """Check if current tenant is exempted from global license counting"""
+        from core.models.database import get_tenant_context
+        curr_tenant_id = get_tenant_context()
+        if curr_tenant_id and self.master_db:
+            from core.models.models import Tenant
+            tenant = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
+            if tenant and not tenant.count_against_license:
+                return True
+        return False
+
+
+    # ==================== Installation ID Management ====================
+
+    def regenerate_installation_id(self, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+        """
+        Regenerate the installation ID for a tenant.
+        This enables extracting a tenant from the global license system.
+        allowed only ONCE per tenant.
+        """
+        installation = self._get_or_create_installation()
+
+        # Check if already regenerated
+        if installation.custom_installation_id:
+             return {
+                "success": False,
+                "message": "Installation ID has already been regenerated. This action can only be performed once.",
+                "error": "ALREADY_REGENERATED"
+            }
+
+        # Check if tenant is exempted (technically enforced by checking if global applies, but explicit check here)
+        # We allow regeneration even if not strictly exempted in DB settings, as this action essentially exempts them
+        # However, to be safe, we should ensure they know what they are doing.
+
+        new_id = str(uuid.uuid4())
+
+        # Save current ID as original if not already saved
+        if not installation.original_installation_id:
+            from core.models.models import GlobalInstallationInfo
+            global_info = self.master_db.query(GlobalInstallationInfo).first()
+            installation.original_installation_id = global_info.installation_id if global_info else installation.installation_id
+
+        # Update IDs
+        old_id = installation.installation_id
+        installation.custom_installation_id = new_id
+        installation.installation_id = new_id
+
+        # Reset license status as the old license is no longer valid for this new ID
+        installation.license_status = "trial" # Reset to trial
+        installation.is_licensed = False
+        installation.license_key = None
+        installation.license_activated_at = None
+        installation.license_expires_at = None
+        installation.licensed_features = None
+
+        self.db.commit()
+        self.db.refresh(installation)
+
+        # Log change
+        self._log_validation(
+            installation=installation,
+            validation_type="regenerate_id",
+            validation_result="success",
+            details={"old_id": old_id, "new_id": new_id},
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        return {
+            "success": True,
+            "message": "Transportation ID regenerated successfully. Please active a new license.",
+            "installation_id": new_id
+        }
+
+    def switch_license_mode(self, mode: str, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+        """
+        Switch between 'global' and 'local' license modes.
+        global: uses the system-wide installation ID
+        local: uses the custom designated installation ID (if exists)
+        """
+        if mode not in ["global", "local"]:
+             return {"success": False, "message": "Invalid mode. Must be 'global' or 'local'."}
+
+        installation = self._get_or_create_installation()
+        global_info = self._get_or_create_global_installation()
+
+        target_id = None
+        if mode == "global":
+            target_id = global_info.installation_id
+        else: # local
+            if not installation.custom_installation_id:
+                return {
+                    "success": False,
+                    "message": "No custom installation ID found. Please regenerate ID first.",
+                    "error": "NO_CUSTOM_ID"
+                }
+            target_id = installation.custom_installation_id
+
+        if installation.installation_id == target_id:
+             return {"success": True, "message": f"Already in {mode} mode"}
+
+        # Perform switch
+        old_id = installation.installation_id
+        installation.installation_id = target_id
+
+        # Reset license status on switch to ensure validity check happens against new ID
+        installation.license_status = "trial"
+        installation.is_licensed = False
+        installation.license_key = None
+        installation.licensed_features = None
+
+        self.db.commit()
+
+        self._log_validation(
+            installation=installation,
+            validation_type="switch_mode",
+            validation_result="success",
+            details={"mode": mode, "old_id": old_id, "new_id": target_id},
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        return {"success": True, "message": f"Switched to {mode} license mode"}
+
     # ==================== Status Information ====================
 
     def get_expired_features(self) -> List[str]:
@@ -1513,18 +1635,15 @@ class LicenseService:
         local_exp = self._ensure_utc(installation.license_expires_at)
         local_active = (installation.license_status in ["active", "commercial"]) and (not local_exp or local_exp > now)
 
-        # Global active check
-        global_exp = self._ensure_utc(global_info.license_expires_at)
-        global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+        # Global active check - ONLY if IDs match
+        ids_match = installation.installation_id == global_info.installation_id
 
-        # Check if this tenant is exempted from global license
-        from core.models.database import get_tenant_context
-        curr_tenant_id = get_tenant_context()
-        if curr_tenant_id and self.master_db:
-            from core.models.models import Tenant
-            tenant_obj = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
-            if tenant_obj and not tenant_obj.count_against_license:
-                global_active = False
+        global_exp = self._ensure_utc(global_info.license_expires_at)
+        global_active = (
+            ids_match
+            and global_info.license_status in ["active", "commercial"]
+            and (not global_exp or global_exp > now)
+        )
 
         if local_active or global_active:
             return False
@@ -1532,7 +1651,9 @@ class LicenseService:
         # 2. Check if any was previously active but now expired
         if local_exp and now > local_exp:
             return True
-        if global_exp and now > global_exp:
+
+        # Global expired check - only if we are still attached to global
+        if ids_match and global_exp and now > global_exp:
             return True
 
         return False
@@ -1554,17 +1675,14 @@ class LicenseService:
         now = datetime.now(timezone.utc)
 
         local_active = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
-        global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
 
-        # If we are in a tenant context, check if the tenant is exempted from global license
-        from core.models.database import get_tenant_context
-        curr_tenant_id = get_tenant_context()
-        if curr_tenant_id and self.master_db:
-            from core.models.models import Tenant
-            tenant = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
-            if tenant and not tenant.count_against_license:
-                logger.info(f"Tenant {curr_tenant_id} is exempted from global license. Disabling global coverage.")
-                global_active = False
+        # Global active only if IDs match
+        ids_match = installation.installation_id == global_info.installation_id
+        global_active = (
+            ids_match
+            and global_info.license_status in ["active", "commercial"] 
+            and (not global_exp or global_exp > now)
+        )
 
         effective_source = "local" if local_active else "global" if global_active else "none"
 
@@ -1575,7 +1693,7 @@ class LicenseService:
         elif effective_source == "none":
             if local_exp and now > local_exp:
                 effective_status = "expired"
-            elif global_exp and now > global_exp:
+            elif ids_match and global_exp and now > global_exp:
                 effective_status = "expired"
 
         return {
@@ -1590,6 +1708,9 @@ class LicenseService:
             "is_license_expired": is_expired,
             "effective_source": effective_source,
             "license_scope": installation.license_scope if effective_source == "local" else global_info.license_scope if effective_source == "global" else None,
+            "is_exempt_from_global_license": self._is_tenant_exempted(),
+            "custom_installation_id": installation.custom_installation_id,
+            "original_installation_id": installation.original_installation_id,
             "trial_info": trial_status,
             "license_info": {
                 "activated_at": installation.license_activated_at,

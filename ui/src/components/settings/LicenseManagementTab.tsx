@@ -22,7 +22,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2, Globe } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2, Globe, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -66,6 +73,9 @@ interface LicenseInfo {
   effective_source: 'local' | 'global' | 'none';
   enabled_features: string[];
   has_all_features: boolean;
+  is_exempt_from_global_license: boolean;
+  custom_installation_id: string | null;
+  original_installation_id: string | null;
 }
 
 interface FeatureInfo {
@@ -81,6 +91,7 @@ export const LicenseManagementTab: React.FC = () => {
   const queryClient = useQueryClient();
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
   const [showCreateConfirmDialog, setShowCreateConfirmDialog] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [licenseKey, setLicenseKey] = useState('');
   const { refetch: refetchFeaturesContext } = useFeatures();
 
@@ -146,6 +157,39 @@ export const LicenseManagementTab: React.FC = () => {
     }
   });
 
+  const regenerateIdMutation = useMutation({
+    mutationFn: () => api.post<{ success: boolean; message: string; installation_id: string }>('/license/regenerate-id'),
+    onSuccess: (response) => {
+      if (response.success) {
+        toast.success("Installation ID regenerated successfully. Please activate a new license.");
+        queryClient.invalidateQueries({ queryKey: ['license-status'] });
+        setShowRegenerateDialog(false);
+      } else {
+        toast.error(response.message || "Failed to regenerate ID");
+      }
+    },
+    onError: (error: any) => {
+      console.error('Failed to regenerate ID:', error);
+      toast.error(error.message || "Failed to regenerate ID");
+    }
+  });
+
+  const switchModeMutation = useMutation({
+    mutationFn: (mode: string) => api.post<{ success: boolean; message: string }>('/license/switch-mode', { mode }),
+    onSuccess: (response) => {
+      if (response.success) {
+        toast.success(response.message);
+        queryClient.invalidateQueries({ queryKey: ['license-status'] });
+      } else {
+        toast.error(response.message || "Failed to switch mode");
+      }
+    },
+    onError: (error: any) => {
+      console.error('Failed to switch mode:', error);
+      toast.error(error.message || "Failed to switch mode");
+    }
+  });
+
   const handleActivateLicense = () => {
     if (!licenseKey.trim()) {
       toast.error(t('settings.license.activate.enterKey'));
@@ -198,7 +242,17 @@ export const LicenseManagementTab: React.FC = () => {
   const loading = loadingStatus || loadingFeatures;
   const activating = activateMutation.isPending;
   const deactivating = deactivateMutation.isPending;
+  const regenerating = regenerateIdMutation.isPending;
+  const switchModePending = switchModeMutation.isPending;
   const licenseInfo = licenseStatus;
+
+  const handleModeChange = (value: string) => {
+    switchModeMutation.mutate(value);
+  };
+
+  const handleRegenerateId = () => {
+    regenerateIdMutation.mutate();
+  };
 
   const getLicenseStatusBadge = () => {
     if (!licenseInfo) return null;
@@ -447,6 +501,64 @@ export const LicenseManagementTab: React.FC = () => {
                 <code className="text-sm font-mono bg-background border border-border px-3 py-1.5 rounded-md shadow-sm select-all">
                   {licenseInfo?.installation_id || 'N/A'}
                 </code>
+                {licenseInfo?.is_exempt_from_global_license && (
+                    <div className="flex items-center gap-2">
+                        {/* Only show Dropdown if we have a Custom ID created */}
+                        {licenseInfo?.custom_installation_id ? (
+                            <Select
+                                value={(licenseInfo as any)?.effective_source === 'global' ? 'global' : 'local'}
+                                onValueChange={handleModeChange}
+                                disabled={switchModePending}
+                            >
+                                <SelectTrigger className="w-[180px] h-8 text-xs">
+                                    <SelectValue placeholder="License Mode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="global">System (Global)</SelectItem>
+                                    <SelectItem value="local">Dedicated (Local)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        ) : null}
+
+                        {/* Regenerate ID Button - Show if no custom ID exists yet */}
+                        {!licenseInfo?.custom_installation_id && (
+                             <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+                             <AlertDialogTrigger asChild>
+                               <ProfessionalButton variant="outline" size="sm" className="h-8 shadow-sm border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
+                                 <RefreshCcw className="h-3.5 w-3.5 mr-2" />
+                                 Regenerate ID
+                               </ProfessionalButton>
+                             </AlertDialogTrigger>
+                             <AlertDialogContent>
+                               <AlertDialogHeader>
+                                 <AlertDialogTitle>Regenerate Installation ID</AlertDialogTitle>
+                                 <AlertDialogDescription className="space-y-2">
+                                   <p>You are exempted from the global license. To use a dedicated license, you must first generate a unique Installation ID.</p>
+                                   <p className="font-medium text-destructive">Warning: This can only be done ONCE.</p>
+                                   <p>This will immediately switch you to a local Trial license until you activate your new key.</p>
+                                 </AlertDialogDescription>
+                               </AlertDialogHeader>
+                               <AlertDialogFooter>
+                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                 <AlertDialogAction onClick={handleRegenerateId} disabled={regenerating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                   {regenerating ? (
+                                     <>
+                                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                       Generating...
+                                     </>
+                                   ) : (
+                                     "Generate ID & Switch"
+                                   )}
+                                 </AlertDialogAction>
+                               </AlertDialogFooter>
+                             </AlertDialogContent>
+                           </AlertDialog>
+                        )}
+                        {(licenseInfo as any)?.effective_source === 'local' && licenseInfo?.custom_installation_id && (
+                           <span className="text-xs text-muted-foreground italic ml-1">(Custom ID)</span>
+                        )}
+                    </div>
+                )}
               </div>
             </div>
 
