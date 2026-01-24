@@ -8,7 +8,6 @@ import {
   ProfessionalCardTitle,
 } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
-import { ProfessionalInput } from '@/components/ui/professional-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -38,6 +37,7 @@ interface LicenseInfo {
   is_personal: boolean;
   is_trial: boolean;
   license_type: string | null;
+  license_scope: string | null;
   trial_info: {
     is_trial: boolean;
     trial_active: boolean;
@@ -54,7 +54,16 @@ interface LicenseInfo {
     customer_name: string | null;
     organization_name: string | null;
     max_tenants: number | null;
-  };
+  } | null;
+  global_license_info: {
+    activated_at: string | null;
+    expires_at: string | null;
+    customer_email: string | null;
+    customer_name: string | null;
+    organization_name: string | null;
+    max_tenants: number | null;
+  } | null;
+  effective_source: 'local' | 'global' | 'none';
   enabled_features: string[];
   has_all_features: boolean;
 }
@@ -194,10 +203,11 @@ export const LicenseManagementTab: React.FC = () => {
   const getLicenseStatusBadge = () => {
     if (!licenseInfo) return null;
 
+    if (licenseInfo.license_status === 'expired') {
+      return <Badge variant="destructive" className="ml-2 shadow-sm">{t('settings.license.badges.expired')}</Badge>;
+    }
+
     if (licenseInfo.is_licensed) {
-      if (licenseInfo.trial_info.in_grace_period) {
-        return <Badge variant="destructive" className="ml-2 shadow-sm">{t('settings.license.badges.expiredGrace')}</Badge>;
-      }
       const daysRemaining = getLicenseDaysRemaining();
       if (daysRemaining <= 0) {
         return <Badge variant="destructive" className="ml-2 shadow-sm">{t('settings.license.badges.expired')}</Badge>;
@@ -236,10 +246,19 @@ export const LicenseManagementTab: React.FC = () => {
   };
 
   const getLicenseDaysRemaining = (): number => {
-    if (!licenseInfo?.is_licensed || !licenseInfo.license_info?.expires_at) {
+    if (!licenseInfo?.is_licensed) {
       return 0;
     }
-    const expiresAt = new Date(licenseInfo.license_info.expires_at);
+
+    // Use effective source for expiration date
+    const activeInfo = (licenseInfo as any).effective_source === 'global'
+      ? licenseInfo.global_license_info
+      : licenseInfo.license_info;
+
+    if (!activeInfo || !activeInfo.expires_at) {
+      return 9999;
+    }
+    const expiresAt = new Date(activeInfo.expires_at);
     const now = new Date();
     const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, daysRemaining);
@@ -317,7 +336,8 @@ export const LicenseManagementTab: React.FC = () => {
             </div>
             {licenseInfo?.is_licensed && (
               <div className="flex gap-2">
-                <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+                {licenseInfo.effective_source === 'local' && (
+                  <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
                   <AlertDialogTrigger asChild>
                     <ProfessionalButton variant="outline" size="sm" onClick={handleDeactivateLicense}>
                       <Lock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -357,7 +377,7 @@ export const LicenseManagementTab: React.FC = () => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-
+                )}
                 <AlertDialog open={showCreateConfirmDialog} onOpenChange={setShowCreateConfirmDialog}>
                   <AlertDialogTrigger asChild>
                     <ProfessionalButton
@@ -445,6 +465,27 @@ export const LicenseManagementTab: React.FC = () => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5" />
+                License Source
+              </Label>
+              <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm inline-block">
+                {(licenseInfo as any)?.effective_source === 'global' ? (
+                  <span className="flex items-center text-primary">
+                    <Building2 className="h-3 w-3 mr-1.5" />
+                    System-wide (Global)
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Globe className="h-3 w-3 mr-1.5" />
+                    {licenseInfo?.license_scope === 'global' ? 'System-wide (Global)' : 'Local Organization (Local)'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+
             {licenseInfo?.trial_info.trial_active && (
               <>
                 <div className="space-y-2">
@@ -468,40 +509,53 @@ export const LicenseManagementTab: React.FC = () => {
               </>
             )}
 
-            {licenseInfo?.is_licensed && licenseInfo.license_info.expires_at && (
+            {licenseInfo?.is_licensed && (
               <>
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {t('settings.license.status.expiration')}
-                  </Label>
-                  <div className="text-sm font-medium flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
-                    {formatDate(licenseInfo.license_info.expires_at)}
-                  </div>
-                </div>
-                {licenseInfo.license_info.customer_name && (
-                  <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" />
-                      {t('settings.license.status.licensedTo')}
-                    </Label>
-                    <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm text-ellipsis overflow-hidden whitespace-nowrap">
-                      {licenseInfo.license_info.customer_name}
-                      {licenseInfo.license_info.organization_name && ` (${licenseInfo.license_info.organization_name})`}
-                    </div>
-                  </div>
-                )}
-                {licenseInfo.license_info.max_tenants !== undefined && (
-                  <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                      <Building2 className="h-3.5 w-3.5" />
-                      {t('settings.license.status.maxTenants', 'Maximum Organizations')}
-                    </Label>
-                    <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
-                      {licenseInfo.license_info.max_tenants === 1 ? '1 Organization' : (licenseInfo.license_info.max_tenants || 'Unlimited')}
-                    </div>
-                  </div>
-                )}
+                {/* Dynamically get license data based on effective source */}
+                {(() => {
+                  const activeInfo = (licenseInfo as any).effective_source === 'global'
+                    ? licenseInfo.global_license_info
+                    : licenseInfo.license_info;
+
+                  if (!activeInfo || !activeInfo.expires_at) return null;
+
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {t('settings.license.status.expiration')}
+                        </Label>
+                        <div className="text-sm font-medium flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
+                          {formatDate(activeInfo.expires_at)}
+                        </div>
+                      </div>
+                      {activeInfo.customer_name && (
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5" />
+                            {t('settings.license.status.licensedTo')}
+                          </Label>
+                          <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm text-ellipsis overflow-hidden whitespace-nowrap">
+                            {activeInfo.customer_name}
+                            {activeInfo.organization_name && ` (${activeInfo.organization_name})`}
+                          </div>
+                        </div>
+                      )}
+                      {activeInfo.max_tenants !== undefined && (
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5" />
+                            {t('settings.license.status.maxTenants', 'Maximum Organizations')}
+                          </Label>
+                          <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
+                            {activeInfo.max_tenants === 1 ? '1 Organization' : (activeInfo.max_tenants || 'Unlimited')}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -509,7 +563,8 @@ export const LicenseManagementTab: React.FC = () => {
       </ProfessionalCard>
 
       {/* License Activation Card */}
-      {(!licenseInfo?.is_licensed || licenseInfo.trial_info.in_grace_period || (licenseInfo.is_licensed && licenseInfo.license_info?.expires_at && new Date(licenseInfo.license_info.expires_at) < new Date())) && (
+      {/* License Activation Card - Show if no local license, even if global is active */}
+      {(!licenseInfo?.license_info || licenseInfo?.trial_info?.in_grace_period || (licenseInfo?.license_info?.expires_at && new Date(licenseInfo.license_info.expires_at) < new Date())) && (
         <ProfessionalCard variant="elevated" className="border-primary/20 shadow-lg shadow-primary/5">
           <ProfessionalCardHeader>
             <ProfessionalCardTitle className="flex items-center text-xl text-primary">

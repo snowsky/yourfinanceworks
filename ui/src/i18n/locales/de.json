@@ -198,6 +198,8 @@
     "passwords_not_match": "Passwörter stimmen nicht überein",
     "login_description": "Geben Sie Ihre E-Mail und Ihr Passwort ein, um auf Ihr Konto zuzugreifen",
     "sso_license_required_recovery": "Ihre SSO-Lizenz ist abgelaufen oder ungültig. Um den Zugriff wiederherzustellen, verwenden Sie bitte den 'Passwort vergessen'-Ablauf unten, um ein lokales Passwort für Ihr Konto festzulegen.",
+    "sso_registration_disabled": "Die SSO-Registrierung ist für dieses System derzeit deaktiviert. Nur bestehende Benutzer oder eingeladene Mitglieder können sich über SSO anmelden.",
+    "tenant_limit_reached": "Das System hat die maximale Anzahl von Organisationen erreicht, die durch seine Lizenz zulässig sind. Neue Organisationen können derzeit nicht erstellt werden.",
     "email_placeholder": "Geben Sie Ihre E-Mail ein",
     "password_placeholder": "Geben Sie Ihr Passwort ein",
     "signing_in": "Anmeldung läuft...",

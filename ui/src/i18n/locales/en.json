@@ -207,6 +207,8 @@
     "passwords_not_match": "Passwords do not match",
     "login_description": "Enter your email and password to access your account",
     "sso_license_required_recovery": "Your SSO license has expired or is invalid. To regain access, please use the 'Forgot Password' flow below to set a local password for your account.",
+    "sso_registration_disabled": "Single Sign-On registration is currently disabled for this system. Only existing users or invited members can log in via SSO.",
+    "tenant_limit_reached": "The system has reached the maximum number of organizations allowed by its license. New organizations cannot be created at this time.",
     "email_placeholder": "Enter your email",
     "password_placeholder": "Enter your password",
     "signing_in": "Signing in...",

@@ -112,6 +112,10 @@ const Login = () => {
     const errorParam = params.get('error');
     if (errorParam === 'sso_license_required') {
       setError(t('auth.sso_license_required_recovery'));
+    } else if (errorParam === 'sso_registration_disabled') {
+      setError(t('auth.sso_registration_disabled'));
+    } else if (errorParam === 'tenant_limit_reached') {
+      setError(t('auth.tenant_limit_reached'));
     }
   }, [t]);
 

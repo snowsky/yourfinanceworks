@@ -18,6 +18,7 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { FeatureGate } from '@/components/FeatureGate';
+import { TenantLicenseMonitoring } from './TenantLicenseMonitoring';
 
 interface Tenant {
   id: number;
@@ -645,6 +646,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="licensing" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">Licensing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tenants" className="space-y-4">
@@ -1332,6 +1334,10 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
               </div>
             </div>
             </FeatureGate>
+          </TabsContent>
+
+          <TabsContent value="licensing" className="space-y-4">
+            <TenantLicenseMonitoring />
           </TabsContent>
         </Tabs>
       </div>

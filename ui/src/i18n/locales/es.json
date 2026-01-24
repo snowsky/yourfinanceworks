@@ -206,6 +206,8 @@
     "passwords_not_match": "Las contraseñas no coinciden",
     "login_description": "Ingresa tu correo y contraseña para acceder a tu cuenta",
     "sso_license_required_recovery": "Su licencia de SSO ha expirado o no es válida. Para recuperar el acceso, utilice el flujo 'Olvidé mi contraseña' a continuación para establecer una contraseña local para su cuenta.",
+    "sso_registration_disabled": "El registro mediante SSO está actualmente desactivado para este sistema. Solo los usuarios existentes o los miembros invitados pueden iniciar sesión a través de SSO.",
+    "tenant_limit_reached": "El sistema ha alcanzado el número máximo de organizaciones permitidas por su licencia. No se pueden crear nuevas organizaciones en este momento.",
     "email_placeholder": "Ingresa tu correo",
     "password_placeholder": "Ingresa tu contraseña",
     "signing_in": "Iniciando sesión...",

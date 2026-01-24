@@ -20,7 +20,7 @@ user_tenant_association = Table(
 # User model for master database (tenant management)
 class MasterUser(Base):
     __tablename__ = "master_users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
@@ -30,23 +30,23 @@ class MasterUser(Base):
     must_reset_password = Column(Boolean, default=False, nullable=False)
     theme = Column(String, default="system")
     show_analytics = Column(Boolean, default=False, nullable=False)  # Show/hide analytics menu
-    
+
     # Tenant relationship (keeping for backward compatibility)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     # User role within tenant
     role = Column(String, default="user")  # admin, user, viewer
-    
+
     # Additional user fields
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
     azure_ad_id = Column(String, unique=True, nullable=True)  # For Azure AD SSO (Object ID)
     azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant")
     tenants = relationship("Tenant", secondary=user_tenant_association, back_populates="members")
@@ -54,7 +54,7 @@ class MasterUser(Base):
 
 class Invite(Base):
     __tablename__ = "invites"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, index=True)
     first_name = Column(String, nullable=True)
@@ -64,43 +64,44 @@ class Invite(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_accepted = Column(Boolean, default=False, nullable=False)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     # Tenant relationship
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     invited_by_id = Column(Integer, ForeignKey("master_users.id"), nullable=False)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant")
     invited_by = relationship("MasterUser")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String, unique=True, nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("master_users.id"), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False, nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     user = relationship("MasterUser", back_populates="password_reset_tokens")
 
 class Tenant(Base):
     __tablename__ = "tenants"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     subdomain = Column(String, unique=True, nullable=True, index=True)  # Optional subdomain
     is_active = Column(Boolean, default=True, nullable=False)
     is_enabled = Column(Boolean, default=True, nullable=False)  # License-based tenant control
-    
+    count_against_license = Column(Boolean, default=True, nullable=False)  # Whether this tenant counts against global capacity
+
     # Company details
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
@@ -110,13 +111,13 @@ class Tenant(Base):
     enable_ai_assistant = Column(Boolean, default=False)
     allow_join_lookup = Column(Boolean, default=True, nullable=False)
     join_lookup_exact_match = Column(Boolean, default=False, nullable=False)
-    
+
     # Currency settings
     default_currency = Column(String, default="USD", nullable=False)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     users = relationship("User", back_populates="tenant")
     members = relationship("MasterUser", secondary=user_tenant_association, back_populates="tenants")
@@ -131,7 +132,7 @@ class Tenant(Base):
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
@@ -139,23 +140,23 @@ class User(Base):
     is_superuser = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     theme = Column(String, default="system")
-    
+
     # Tenant relationship
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     # User role within tenant
     role = Column(String, default="user")  # admin, user, viewer
-    
+
     # Additional user fields
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
     azure_ad_id = Column(String, unique=True, nullable=True)  # For Azure AD SSO (Object ID)
     azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
     notes = relationship("ClientNote", back_populates="user")
@@ -165,7 +166,7 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     name = Column(String, index=True)
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
@@ -234,7 +235,7 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     invoice_id = Column(Integer, ForeignKey("invoices.id"))
     amount = Column(Float, nullable=False)
     currency = Column(String, default="USD", nullable=False)
@@ -254,14 +255,14 @@ class Settings(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     key = Column(String, nullable=False)  # Removed unique constraint for multi-tenancy
     value = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     # Add retention days for AI chat history (default 7, max 30)
     ai_chat_history_retention_days = Column(Integer, default=7)
-    
+
     # Relationships
     tenant = relationship("Tenant", back_populates="settings")
 
@@ -270,7 +271,7 @@ class DiscountRule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    
+
     name = Column(String, nullable=False)  # e.g., "High Value Discount", "Bulk Order Discount"
     min_amount = Column(Float, nullable=False)  # Minimum amount to trigger the rule
     discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
@@ -278,10 +279,10 @@ class DiscountRule(Base):
     currency = Column(String, default="USD", nullable=False)  # New field for currency
     is_active = Column(Boolean, default=True, nullable=False)
     priority = Column(Integer, default=0, nullable=False)  # Higher priority rules are applied first
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant", back_populates="discount_rules")
 
@@ -334,14 +335,14 @@ class InvoiceHistory(Base):
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     action = Column(String, nullable=False)  # 'creation', 'update', 'payment', 'currency_change', 'discount_change'
     details = Column(String, nullable=True)
     previous_values = Column(JSON, nullable=True)  # Store previous values for comparison
     current_values = Column(JSON, nullable=True)   # Store current values
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     invoice = relationship("Invoice")
     tenant = relationship("Tenant")
@@ -349,7 +350,7 @@ class InvoiceHistory(Base):
 
 class AIConfig(Base):
     __tablename__ = "ai_configs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     provider_name = Column(String, nullable=False)  # e.g., "openai", "ollama"
@@ -361,7 +362,7 @@ class AIConfig(Base):
     tested = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant", back_populates="ai_configs") 
 
@@ -467,23 +468,84 @@ class CloudStorageConfiguration(Base):
     provider = Column(String(50), nullable=False, index=True)  # aws_s3, azure_blob, gcp_storage, local
     is_enabled = Column(Boolean, default=True, nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
-    
+
     # Encrypted configuration JSON containing provider-specific settings
     encrypted_configuration = Column(Text, nullable=False)
-    
+
     # Configuration metadata
     configuration_version = Column(Integer, default=1, nullable=False)
     last_tested_at = Column(DateTime(timezone=True), nullable=True)
     test_status = Column(String(20), nullable=True)  # success, failed, pending
     test_error_message = Column(Text, nullable=True)
-    
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+
     # Relationships
     tenant = relationship("Tenant", foreign_keys=[tenant_id])
 
     def __repr__(self):
         return f"<CloudStorageConfiguration(id={self.id}, tenant_id={self.tenant_id}, provider='{self.provider}', enabled={self.is_enabled})>"
+
+
+class GlobalInstallationInfo(Base):
+    """
+    System-wide license and installation information.
+    There should only ever be one record in this table.
+    """
+    __tablename__ = "global_installation_info"
+
+    id = Column(Integer, primary_key=True, index=True)
+    installation_id = Column(String(36), unique=True, nullable=False, index=True)
+
+    # Global License Info
+    license_key = Column(Text, nullable=True)
+    license_activated_at = Column(DateTime(timezone=True), nullable=True)
+    license_expires_at = Column(DateTime(timezone=True), nullable=True)
+    license_scope = Column(String(20), nullable=True)  # 'local' or 'global'
+    license_status = Column(String(20), default="invalid", nullable=False)
+    is_licensed = Column(Boolean, default=False, nullable=False)
+
+    max_tenants = Column(Integer, nullable=True)
+    licensed_features = Column(JSON, nullable=True)
+
+    customer_email = Column(String, nullable=True)
+    customer_name = Column(String, nullable=True)
+    organization_name = Column(String, nullable=True)
+
+    # Signup Controls
+    allow_password_signup = Column(Boolean, default=True, nullable=False)
+    allow_sso_signup = Column(Boolean, default=True, nullable=False)
+
+    # Trial Info
+    trial_start_date = Column(DateTime(timezone=True), nullable=True)
+    trial_end_date = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class GlobalLicenseValidationLog(Base):
+    """
+    Centralized log for all license-related actions (activation, verification, etc.)
+    across all installations/tenants.
+    """
+    __tablename__ = "global_license_validation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False)  # 'activation', 'verification', 'deactivation'
+    status = Column(String, nullable=False)  # 'success', 'failed'
+
+    installation_id = Column(String(36), nullable=False)
+    tenant_id = Column(Integer, nullable=True) # Which tenant triggered the action
+    user_id = Column(Integer, nullable=True)
+
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+
+    details = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

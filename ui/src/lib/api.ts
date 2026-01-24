@@ -2670,6 +2670,46 @@ export const superAdminApi = {
       }),
     }, { skipTenant: true });
   },
+
+  // Licensing & Capacity Control
+  getTenantLicenseMonitoring: async () => {
+    return apiRequest<any[]>("/license/tenants", {
+      method: "GET"
+    }, { skipTenant: true });
+  },
+  updateTenantCapacityControl: async (tenantId: number, counts: boolean) => {
+    return apiRequest<{ success: boolean }>(`/license/tenants/${tenantId}/update-capacity-control`, {
+      method: "POST",
+      body: JSON.stringify({ counts })
+    }, { skipTenant: true });
+  },
+  activateGlobalLicense: async (licenseKey: string) => {
+    return apiRequest<any>("/license/activate-global", {
+      method: "POST",
+      body: JSON.stringify({ license_key: licenseKey })
+    }, { skipTenant: true });
+  },
+  deactivateGlobalLicense: async () => {
+    return apiRequest<any>("/license/deactivate-global", {
+      method: "POST"
+    }, { skipTenant: true });
+  },
+  getGlobalSignupSettings: async () => {
+    return apiRequest<{
+      allow_password_signup: boolean;
+      allow_sso_signup: boolean;
+      max_tenants: number;
+      current_tenants_count: number;
+    }>("/super-admin/global-signup-settings", {
+      method: "GET"
+    }, { skipTenant: true });
+  },
+  updateGlobalSignupSettings: async (settings: { allow_password_signup?: boolean; allow_sso_signup?: boolean }) => {
+    return apiRequest<{ message: string }>("/super-admin/global-signup-settings", {
+      method: "PATCH",
+      body: JSON.stringify(settings)
+    }, { skipTenant: true });
+  },
 };
 
 // Report error handling utilities

@@ -278,6 +278,20 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     logger = logging.getLogger("registration")
     logger.info(f"Starting registration for {user.email}")
 
+    # Check global signup controls
+    from core.services.license_service import LicenseService
+    license_service = LicenseService(db, master_db=db)
+    license_status = license_service.get_license_status()
+
+    if not license_status.get("allow_password_signup", True):
+        # We also want to check if it's the first global user, they should always be allowed
+        user_total_count = db.query(MasterUser).count()
+        if user_total_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Public registration is currently disabled. Please contact an administrator."
+            )
+
     # Check if user already exists
     existing_user = db.query(MasterUser).filter(MasterUser.email == user.email).first()
     is_existing_user = existing_user is not None
@@ -363,15 +377,16 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
         tenant_db_for_license = tenant_session()
 
         try:
-            license_service = LicenseService(tenant_db_for_license)
+            license_service = LicenseService(tenant_db_for_license, master_db=db)
             max_tenants = license_service.get_max_tenants()
-            current_tenants_count = db.query(Tenant).count()
+            # Count tenants that count against the license
+            current_tenants_count = db.query(Tenant).filter(Tenant.count_against_license == True).count()
 
-            if current_tenants_count > max_tenants:
+            if current_tenants_count >= max_tenants:
                 logger.error(f"Tenant limit reached: {current_tenants_count} >= {max_tenants}")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Tenant limit reached ({max_tenants}). Please upgrade your license to add more organizations."
+                    detail=f"Organization limit reached ({max_tenants}). Please upgrade your license to add more organizations."
                 )
             logger.info(f"License check passed: {current_tenants_count} < {max_tenants}")
         finally:

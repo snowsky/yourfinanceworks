@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from core.models.models_per_tenant import InstallationInfo, LicenseValidationLog
+from core.models.models import GlobalInstallationInfo, GlobalLicenseValidationLog, Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -333,8 +334,9 @@ VALIDATION_CACHE_TTL_HOURS = 1
 class LicenseService:
     """Service for managing license verification and trial functionality"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, master_db: Optional[Session] = None):
         self.db = db
+        self.master_db = master_db
 
     # ==================== License Verification ====================
 
@@ -526,6 +528,40 @@ class LicenseService:
             logger.error(f"Failed to log promotion to tenant audit log: {e}")
             self.db.rollback()
 
+    def _log_global_validation(
+        self,
+        action: str,
+        status: str,
+        installation_id: str,
+        tenant_id: Optional[int] = None,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+    ):
+        """Log system-wide license validation attempt"""
+        if not self.master_db:
+            return
+
+        try:
+            log_entry = GlobalLicenseValidationLog(
+                action=action,
+                status=status,
+                installation_id=installation_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details=details,
+                error_message=error_message,
+            )
+            self.master_db.add(log_entry)
+            self.master_db.commit()
+        except Exception as e:
+            logger.error(f"Failed to log global license action: {e}")
+            self.master_db.rollback()
+
     # ==================== Usage Type Selection ====================
 
     def select_usage_type(
@@ -645,15 +681,74 @@ class LicenseService:
 
     # ==================== Trial Management ====================
 
+    def _get_or_create_global_installation(self) -> GlobalInstallationInfo:
+        """Get or create the global installation info in the master database"""
+        if not self.master_db:
+            # Fallback for when master_db is not provided (should be rare)
+            from core.models.database import get_master_db
+            try:
+                self.master_db = next(get_master_db())
+            except Exception as e:
+                logger.error(f"Failed to get master_db for global installation: {e}")
+                raise RuntimeError("Master database session is required for global licensing operations")
+
+        global_info = self.master_db.query(GlobalInstallationInfo).first()
+
+        if not global_info:
+            # Auto-create global installation record
+            global_info = GlobalInstallationInfo(
+                installation_id=str(uuid.uuid4()),
+                license_status="invalid",
+            )
+            self.master_db.add(global_info)
+            self.master_db.commit()
+            self.master_db.refresh(global_info)
+
+            # Log system-wide installation creation
+            self._log_global_validation(
+                action="installation_created",
+                status="success",
+                installation_id=global_info.installation_id
+            )
+
+        return global_info
+
     def _get_or_create_installation(self) -> InstallationInfo:
-        """Get existing installation or create new one with invalid status"""
+        """Get existing installation or create new one synced with global ID"""
+        from sqlalchemy.exc import ProgrammingError
+
+        from sqlalchemy import inspect
+        inspector = inspect(self.db.get_bind())
+
+        # Get the global installation ID to ensure consistency across all tenants
+        global_info = self._get_or_create_global_installation()
+        global_id = global_info.installation_id
+
+        # Handle case where table doesn't exist (e.g. Master DB check or uninitialized tenant)
+        try:
+            if not inspector.has_table(InstallationInfo.__tablename__):
+                logger.debug("Using master/missing context for license check (installation_info table missing)")
+                # Return a virtual installation object for master-only context
+                return InstallationInfo(
+                    installation_id=global_id,
+                    license_status="invalid",
+                    usage_type=None,
+                    trial_start_date=None,
+                    trial_end_date=None,
+                )
+        except Exception as e:
+            logger.warning(f"Error checking for installation_info table: {e}")
+            return InstallationInfo(
+                installation_id=global_id,
+                license_status="invalid",
+            )
+
         installation = self.db.query(InstallationInfo).first()
 
         if not installation:
-            # Auto-create installation record on first startup with invalid status
-            # User must choose personal or business use
+            # Auto-create local installation record synced with global ID
             installation = InstallationInfo(
-                installation_id=str(uuid.uuid4()),
+                installation_id=global_id,
                 license_status="invalid",
                 usage_type=None,
                 trial_start_date=None,
@@ -663,12 +758,18 @@ class LicenseService:
             self.db.commit()
             self.db.refresh(installation)
 
-            # Log installation creation
+            # Log local installation creation
             self._log_validation(
                 installation=installation,
                 validation_type="installation_created",
                 validation_result="success",
             )
+        elif installation.installation_id != global_id:
+            # Sync installation ID if it differs (e.g. migration or re-sync)
+            logger.info(f"Syncing local installation_id from {installation.installation_id} to {global_id}")
+            installation.installation_id = global_id
+            self.db.commit()
+            self.db.refresh(installation)
 
         return installation
 
@@ -680,28 +781,30 @@ class LicenseService:
             True if trial is active, False otherwise
         """
         installation = self._get_or_create_installation()
+        now = datetime.now(timezone.utc)
 
         # If licensed or personal use, trial is not active
-        if installation.license_status in ["active", "personal"]:
+        local_exp = self._ensure_utc(installation.license_expires_at)
+        if installation.license_status in ["active", "personal", "commercial"] and (not local_exp or local_exp > now):
+            return False
+
+        # If global license is active, trial is not active
+        global_info = self._get_or_create_global_installation()
+        global_exp = self._ensure_utc(global_info.license_expires_at)
+        if global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now):
             return False
 
         # If no trial dates set, trial is not active
         if not installation.trial_end_date:
             return False
 
-        now = datetime.now(timezone.utc)
-
         # Check if trial extension exists
         if installation.trial_extended_until:
-            trial_extended = installation.trial_extended_until
-            if trial_extended.tzinfo is None:
-                trial_extended = trial_extended.replace(tzinfo=timezone.utc)
+            trial_extended = self._ensure_utc(installation.trial_extended_until)
             return now <= trial_extended
 
         # Check standard trial period
-        trial_end = installation.trial_end_date
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=timezone.utc)
+        trial_end = self._ensure_utc(installation.trial_end_date)
         return now <= trial_end
 
     def get_trial_status(self) -> Dict[str, Any]:
@@ -736,11 +839,7 @@ class LicenseService:
             }
 
         # Determine effective trial end date
-        trial_end = installation.trial_extended_until or installation.trial_end_date
-
-        # Ensure trial_end is timezone-aware
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=timezone.utc)
+        trial_end = self._ensure_utc(installation.trial_extended_until or installation.trial_end_date)
 
         # Calculate days remaining
         days_remaining = (trial_end - now).days if now <= trial_end else 0
@@ -749,14 +848,25 @@ class LicenseService:
         grace_period_end = trial_end + timedelta(days=GRACE_PERIOD_DAYS)
         in_grace_period = trial_end < now <= grace_period_end
 
+        # Trial is only "active" if no better license is in place
+        global_info = self._get_or_create_global_installation()
+        local_exp = self._ensure_utc(installation.license_expires_at)
+        global_exp = self._ensure_utc(global_info.license_expires_at)
+
+        has_local = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
+        has_global = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+        is_personal = installation.license_status == "personal"
+
+        trial_suppressed = has_local or has_global or is_personal
+
         return {
-            "is_trial": installation.license_status == "trial",
-            "trial_active": now <= trial_end,
+            "is_trial": installation.license_status == "trial" and not trial_suppressed,
+            "trial_active": (now <= trial_end) and not trial_suppressed,
             "trial_start_date": installation.trial_start_date,
             "trial_end_date": trial_end,
-            "days_remaining": max(0, days_remaining),
-            "in_grace_period": in_grace_period,
-            "grace_period_end": grace_period_end if in_grace_period else None,
+            "days_remaining": max(0, days_remaining) if not trial_suppressed else 0,
+            "in_grace_period": in_grace_period and not trial_suppressed,
+            "grace_period_end": grace_period_end if (in_grace_period and not trial_suppressed) else None,
         }
 
     def is_in_grace_period(self) -> bool:
@@ -834,6 +944,28 @@ class LicenseService:
             else None
         )
 
+        # BLOCK GLOBAL LICENSE AS LOCAL
+        license_scope = payload.get("license_scope") or payload.get("metadata", {}).get("license_scope")
+        if license_scope == "global":
+            self._log_validation(
+                installation=installation,
+                validation_type="activation",
+                validation_result="failed",
+                license_key=license_key,
+                error_code="SCOPE_MISMATCH",
+                error_message="A global system license cannot be activated as a local organization license.",
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+            return {
+                "success": False,
+                "message": "Global system licenses cannot be used locally. Please use a tenant-specific license.",
+                "features": None,
+                "expires_at": None,
+                "error": "SCOPE_MISMATCH",
+            }
+
         # Extract max_tenants if available
         max_tenants = payload.get("max_tenants")
         if max_tenants is None:
@@ -905,11 +1037,12 @@ class LicenseService:
         installation.license_activated_at = now
         installation.license_expires_at = expires_at
         installation.license_status = "active"
+        installation.is_licensed = True
         installation.licensed_features = features
-        installation.customer_email = payload.get("customer_email")
         installation.customer_name = payload.get("customer_name")
         installation.organization_name = payload.get("organization_name")
         installation.max_tenants = max_tenants
+        installation.license_scope = license_scope
 
         # If usage type not set, set it to business (since they're activating a paid license)
         if not installation.usage_type:
@@ -1019,6 +1152,7 @@ class LicenseService:
         installation.license_activated_at = None
         installation.license_expires_at = None
         installation.license_status = "trial"
+        installation.is_licensed = False
         installation.licensed_features = None
         installation.customer_email = None
         installation.customer_name = None
@@ -1044,6 +1178,136 @@ class LicenseService:
 
         return {"success": True, "message": "License deactivated successfully"}
 
+    def activate_global_license(
+        self,
+        license_key: str,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Activate a license key system-wide (stored in master database).
+        This makes the license available to all current and future tenants.
+        """
+        verification = self.verify_license(license_key)
+        global_info = self._get_or_create_global_installation()
+
+        if not verification["valid"]:
+            self._log_global_validation(
+                action="activate_global",
+                status="failed",
+                installation_id=global_info.installation_id,
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message=verification["error"],
+                details={"error_code": verification["error_code"]}
+            )
+            return {
+                "success": False,
+                "message": verification["error"],
+                "error": verification["error_code"]
+            }
+
+        payload = verification["payload"]
+
+        # REQUIRE GLOBAL SCOPE FOR GLOBAL ACTIVATION
+        license_scope = payload.get("license_scope") or payload.get("metadata", {}).get("license_scope")
+        if license_scope != "global":
+            self._log_global_validation(
+                action="activate_global",
+                status="failed",
+                installation_id=global_info.installation_id,
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                error_message="Only global licenses can be activated system-wide.",
+                details={"error_code": "SCOPE_MISMATCH"}
+            )
+            return {
+                "success": False,
+                "message": "Only global system licenses can be activated globally.",
+                "error": "SCOPE_MISMATCH"
+            }
+
+        license_installation_id = payload.get("installation_id") or payload.get("metadata", {}).get("installation_id")
+
+        if not license_installation_id:
+             return {"success": False, "message": "License missing installation ID", "error": "MISSING_ID"}
+
+        if license_installation_id != global_info.installation_id:
+            return {
+                "success": False,
+                "message": "License not valid for this system installation",
+                "error": "ID_MISMATCH"
+            }
+
+        # Update global record
+        now = datetime.now(timezone.utc)
+        global_info.license_key = license_key
+        global_info.license_activated_at = now
+        global_info.license_status = payload.get("license_type", "active")
+        global_info.is_licensed = True
+        global_info.licensed_features = payload.get("features", [])
+        global_info.customer_name = payload.get("customer_name")
+        global_info.organization_name = payload.get("organization_name")
+        global_info.license_scope = license_scope
+
+        expires_at = payload.get("exp")
+        if expires_at:
+            global_info.license_expires_at = datetime.fromtimestamp(expires_at, tz=timezone.utc)
+
+        max_tenants = payload.get("max_tenants") or payload.get("metadata", {}).get("max_tenants")
+        if max_tenants:
+            try:
+                global_info.max_tenants = int(max_tenants)
+            except:
+                pass
+
+        self.master_db.commit()
+
+        # Log success
+        self._log_global_validation(
+            action="activate_global",
+            status="success",
+            installation_id=global_info.installation_id,
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        return {
+            "success": True,
+            "message": "Global license activated successfully",
+            "expires_at": global_info.license_expires_at
+        }
+
+    def deactivate_global_license(self, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+        """Remove the global license from the master database."""
+        global_info = self._get_or_create_global_installation()
+        old_key = global_info.license_key
+
+        global_info.license_key = None
+        global_info.license_activated_at = None
+        global_info.license_status = "invalid"
+        global_info.is_licensed = False
+        global_info.license_expires_at = None
+        global_info.licensed_features = None
+
+        self.master_db.commit()
+
+        self._log_global_validation(
+            action="deactivate_global",
+            status="success",
+            installation_id=global_info.installation_id,
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details={"old_key_hash": self._get_license_key_hash(old_key) if old_key else None}
+        )
+
+        return {"success": True, "message": "Global license deactivated"}
+
     # ==================== Feature Checks ====================
 
     def get_enabled_features(self) -> List[str]:
@@ -1055,88 +1319,35 @@ class LicenseService:
         """
         installation = self._get_or_create_installation()
 
-        # If personal use, only core features are enabled
+        # 1. Check local license status first
         if installation.license_status == "personal":
             return ["core"]
 
-        # If in trial or grace period, all features are enabled
+        # If local trial is active or in grace period
         if self.is_trial_active() or self.is_in_grace_period():
-            return ["all"]  # Special value indicating all features available
+            return ["all"]
 
-        # If licensed, return licensed features plus core
-        if installation.license_status == "active" and installation.licensed_features:
-            # Check if license is expired
-            is_expired = False
-            if installation.license_expires_at:
-                expires_at = installation.license_expires_at
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                if datetime.now(timezone.utc) > expires_at:
-                    is_expired = True
-
-                    # Check if we should allow expired licenses for testing
-                    allow_expired = (
-                        os.getenv("ALLOW_EXPIRED_LICENSES", "false").lower() == "true"
-                    )
-
-                    if not allow_expired:
-                        # License expired, update status
-                        installation.license_status = "expired"
-                        self.db.commit()
-                        return ["core"]  # Fallback to core on expiration
-
-            # If license is expired, only return core features (even for testing)
-            if is_expired:
-                return ["core"]
-
-            # Check validation cache
-            now = datetime.now(timezone.utc)
-            cache_valid = False
-
-            if installation.validation_cache_expires_at:
-                cache_expires = installation.validation_cache_expires_at
-                if cache_expires.tzinfo is None:
-                    cache_expires = cache_expires.replace(tzinfo=timezone.utc)
-                cache_valid = (
-                    now < cache_expires and installation.last_validation_result
-                )
-
-            # If cache is valid, return cached result
-            if cache_valid:
+        # If local license is active
+        if installation.license_status in ["active", "commercial"]:
+            # Verify local license isn't expired
+            exp_date = installation.license_expires_at
+            if exp_date and exp_date.tzinfo is None:
+                exp_date = exp_date.replace(tzinfo=timezone.utc)
+            if not exp_date or datetime.now(timezone.utc) <= exp_date:
                 return (installation.licensed_features or []) + ["core"]
 
-            # Cache expired or missing - re-verify license if we have a key
-            if installation.license_key:
-                verification = self.verify_license(installation.license_key)
+        # 2. Local license missing or expired - Fallback to Global license
+        global_info = self._get_or_create_global_installation()
+        if global_info.license_status in ["active", "commercial"]:
+            # Verify global license isn't expired
+            global_exp = global_info.license_expires_at
+            if global_exp and global_exp.tzinfo is None:
+                global_exp = global_exp.replace(tzinfo=timezone.utc)
+            if not global_exp or datetime.now(timezone.utc) <= global_exp:
+                return (global_info.licensed_features or []) + ["core"]
 
-                # Update cache
-                installation.last_validation_at = now
-                installation.last_validation_result = verification["valid"]
-                installation.validation_cache_expires_at = now + timedelta(
-                    hours=VALIDATION_CACHE_TTL_HOURS
-                )
-                self.db.commit()
-
-                if verification["valid"]:
-                    return (installation.licensed_features or []) + ["core"]
-                else:
-                    # License verification failed
-                    self._log_validation(
-                        installation=installation,
-                        validation_type="periodic_check",
-                        validation_result="failed",
-                        license_key=installation.license_key,
-                        error_code=verification["error_code"],
-                        error_message=verification["error"],
-                    )
-                    return ["core"]  # Fallback to core if verification fails
-
-            # No license key but has licensed_features (shouldn't happen in production)
-            # Trust the licensed_features since license hasn't expired
-            return (installation.licensed_features or []) + ["core"]
-
-        # No active license or trial
-        return []
+        # 3. No active license found
+        return ["core"]
 
     def has_feature(self, feature_id: str, tier: str = "commercial") -> bool:
         """
@@ -1166,90 +1377,48 @@ class LicenseService:
         """
         Check if a specific feature is enabled for API gating purposes.
         This method ignores ALLOW_EXPIRED_LICENSES and checks actual expiration status.
-
-        Args:
-            feature_id: Feature ID to check (e.g., "ai_invoice", "tax_integration")
-            tier: License tier of the feature ("core" or "commercial")
-
-        Returns:
-            True if feature is enabled, False otherwise
         """
-        installation = self._get_or_create_installation()
+        enabled_features = self.get_enabled_features()
 
-        # If personal use, only core features are enabled
-        if installation.license_status == "personal":
-            return tier == "core"
+        # If no features enabled, definitely False
+        if not enabled_features:
+            return False
 
-        # If in trial or grace period, all features are enabled
-        if self.is_trial_active() or self.is_in_grace_period():
+        # "all" means all features are enabled (trial/grace period)
+        if "all" in enabled_features:
             return True
 
-        # If licensed, check if actually expired (ignore ALLOW_EXPIRED_LICENSES)
-        if installation.license_status == "active" and installation.licensed_features:
-            # Always check actual expiration for gating
-            if installation.license_expires_at:
-                expires_at = installation.license_expires_at
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                if datetime.now(timezone.utc) > expires_at:
-                    return False  # Expired licenses cannot access features for gating
+        if tier == "core":
+            return "core" in enabled_features
 
-            # License is active (not expired), check features
-            licensed_features = installation.licensed_features or []
-            if tier == "core":
-                return True  # Core features always available with active license
-            if "all" in licensed_features:
-                return True
-            return feature_id in licensed_features
-
-        # No active license or trial
-        return False
+        return feature_id in enabled_features
 
     def has_feature_read_only(self, feature_id: str, tier: str = "commercial") -> bool:
         """
         Check if a specific feature is enabled for read-only access.
-        This allows users to view existing resources even with expired licenses,
-        but blocks write operations.
-
-        Args:
-            feature_id: Feature ID to check (e.g., "cloud_storage", "ai_invoice")
-            tier: License tier of the feature ("core" or "commercial")
-
-        Returns:
-            True if feature is available for read-only access, False otherwise
         """
-        installation = self._get_or_create_installation()
-
-        # If personal use, only core features are enabled
-        if installation.license_status == "personal":
-            return tier == "core"
-
-        # If in trial or grace period, all features are enabled
-        if self.is_trial_active() or self.is_in_grace_period():
+        # Read-only allows access to features that were previously licensed
+        # even if they are now expired.
+        enabled_features = self.get_enabled_features()
+        if feature_id in enabled_features or "all" in enabled_features:
             return True
 
-        # If licensed (including expired), allow read access to previously licensed features
-        if (
-            installation.license_status in ["active", "expired"]
-            and installation.licensed_features
-        ):
-            licensed_features = installation.licensed_features or []
-            if tier == "core":
-                return True  # Core features always available for read access
-            return feature_id in licensed_features
+        expired_features = self.get_expired_features()
+        if feature_id in expired_features:
+            return True
 
-        # No active license or trial
+        if tier == "core":
+            return "core" in enabled_features or "core" in expired_features
+
         return False
 
     def get_max_tenants(self) -> int:
         """
         Get maximum number of tenants allowed by current license.
-
-        Returns:
-            Max tenants count. Returns a very large number for trials/personal use.
-            Returns 1 as default for business installations without explicit limit.
+        Uses the highest limit between global and local licenses.
         """
         installation = self._get_or_create_installation()
+        global_info = self._get_or_create_global_installation()
 
         # personal or trial: no limit
         if (
@@ -1259,134 +1428,213 @@ class LicenseService:
         ):
             return 999999
 
-        # commercial: check for max_tenants limit
-        if (
-            installation.license_status == "active"
-            or installation.license_status == "expired"
-        ):
-            if installation.max_tenants:
-                return installation.max_tenants
+        # commercial: check local first, then global
+        local_limit = installation.max_tenants if installation.license_status in ["active", "commercial"] else 0
+        global_limit = global_info.max_tenants if global_info.license_status in ["active", "commercial"] else 0
 
-            # Default to 1 if not specified in license but it's a commercial installation
-            return 1
+        # Take the maximum allowed across all active licenses
+        limit = max(local_limit or 1, global_limit or 1)
 
-        # Default fallback
-        return 1
+        # If no active license, return 1 as base limit
+        if installation.license_status not in ["active", "commercial"] and global_info.license_status not in ["active", "commercial"]:
+             return 1
+
+        return limit
 
     # ==================== Status Information ====================
 
     def get_expired_features(self) -> List[str]:
         """
-        Get list of features that were previously licensed but now expired.
-
-        This allows the frontend to show content for expired features with a
-        renewal reminder, instead of completely hiding them.
-
-        Returns:
-            List of feature IDs that were licensed but now expired, empty list otherwise
+        Get list of features that were previously licensed but now expired, 
+        UNLESS they are currently covered by another active license (e.g., Global).
         """
         installation = self._get_or_create_installation()
+        global_info = self._get_or_create_global_installation()
 
-        # Only return expired features if we had licensed features
-        if not installation.licensed_features:
-            return []
+        now = datetime.now(timezone.utc)
+        enabled = set(self.get_enabled_features())
+        expired = set()
 
-        # Check if license is actually expired (ignore ALLOW_EXPIRED_LICENSES for this check)
+        # Check local
         if installation.license_expires_at:
-            expires_at = installation.license_expires_at
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at:
-                return installation.licensed_features
+            local_exp = installation.license_expires_at.replace(tzinfo=timezone.utc)
+            if now > local_exp:
+                for f in (installation.licensed_features or []):
+                    if f not in enabled:
+                        expired.add(f)
 
-        # Also check if license status is explicitly set to expired
-        if installation.license_status == "expired":
-            return installation.licensed_features
+        # Check global
+        if global_info.license_expires_at:
+            global_exp = global_info.license_expires_at.replace(tzinfo=timezone.utc)
+            if now > global_exp:
+                for f in (global_info.licensed_features or []):
+                    if f not in enabled:
+                        expired.add(f)
 
-        return []
+        return list(expired)
+
+    def _ensure_utc(self, dt: datetime) -> datetime:
+        """Helper to ensure a datetime is timezone-aware and in UTC"""
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     def is_license_expired(self) -> bool:
         """
-        Check if the commercial license has expired.
-
-        Returns:
-            True if there was a license that is now expired, False otherwise
+        Check if any previously active license (local or global) has expired,
+        and no license is currently active.
         """
         installation = self._get_or_create_installation()
+        global_info = self._get_or_create_global_installation()
+        now = datetime.now(timezone.utc)
 
-        # Explicitly expired status
-        if installation.license_status == "expired":
+        # 1. Determine if any license is CURRENTLY active
+        # Local active check
+        local_exp = self._ensure_utc(installation.license_expires_at)
+        local_active = (installation.license_status in ["active", "commercial"]) and (not local_exp or local_exp > now)
+
+        # Global active check
+        global_exp = self._ensure_utc(global_info.license_expires_at)
+        global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+
+        if local_active or global_active:
+            return False
+
+        # 2. Check if any was previously active but now expired
+        if local_exp and now > local_exp:
             return True
-
-        # Check if license is marked active but actually expired
-        if installation.license_status == "active" and installation.license_expires_at:
-            expires_at = installation.license_expires_at
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at:
-                return True
+        if global_exp and now > global_exp:
+            return True
 
         return False
 
     def get_license_status(self) -> Dict[str, Any]:
         """
-        Get comprehensive license status information.
-
-        Returns:
-            Dict with complete license status
+        Get comprehensive license status information including global fallback.
         """
         installation = self._get_or_create_installation()
+        global_info = self._get_or_create_global_installation()
         trial_status = self.get_trial_status()
         enabled_features = self.get_enabled_features()
 
-        # Get license_type from JWT payload if available
-        license_type = None
-        if installation.license_key:
-            try:
-                # First try to decode without verification to get the license_type
-                # This is safer than full verification for display purposes
-                unverified_payload = jwt.decode(
-                    installation.license_key, options={"verify_signature": False}
-                )
-                license_type = unverified_payload.get("license_type")
-
-                # Also try full verification to ensure the license is valid
-                verification = self.verify_license(installation.license_key)
-                if not verification["valid"]:
-                    # License is invalid, don't trust the unverified payload
-                    license_type = None
-            except Exception as e:
-                # If anything fails, we can't extract license_type
-                license_type = None
-
-        # Get expired features for showing data with renewal banners
-        expired_features = self.get_expired_features()
         is_expired = self.is_license_expired()
+
+        # Determine effective source and status
+        local_exp = self._ensure_utc(installation.license_expires_at)
+        global_exp = self._ensure_utc(global_info.license_expires_at)
+        now = datetime.now(timezone.utc)
+
+        local_active = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
+        global_active = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+
+        effective_source = "local" if local_active else "global" if global_active else "none"
+
+        # Determine effective status string
+        effective_status = installation.license_status
+        if effective_source == "global":
+            effective_status = global_info.license_status
+        elif effective_source == "none":
+            if local_exp and now > local_exp:
+                effective_status = "expired"
+            elif global_exp and now > global_exp:
+                effective_status = "expired"
 
         return {
             "installation_id": installation.installation_id,
-            "license_status": installation.license_status,
+            "license_status": effective_status,
             "usage_type": installation.usage_type,
             "usage_type_selected": installation.usage_type is not None,
-            "is_licensed": installation.license_status == "active",
-            "is_personal": installation.license_status == "personal",
-            "is_trial": installation.license_status == "trial",
-            "is_license_expired": is_expired,  # True if license was active but now expired
-            "license_type": license_type,  # Add the raw license_type from JWT
+            "is_licensed": effective_source != "none",
+            "is_personal": effective_status == "personal",
+            "is_trial": effective_status == "trial",
+            "license_type": effective_status,
+            "is_license_expired": is_expired,
+            "effective_source": effective_source,
+            "license_scope": installation.license_scope if effective_source == "local" else global_info.license_scope if effective_source == "global" else None,
             "trial_info": trial_status,
-            "license_info": (
-                {
-                    "activated_at": installation.license_activated_at,
-                    "expires_at": installation.license_expires_at,
-                    "customer_email": installation.customer_email,
-                    "customer_name": installation.customer_name,
-                    "organization_name": installation.organization_name,
-                    "max_tenants": installation.max_tenants or 1,
-                }
-                if installation.license_status in ["active", "expired"]
-                else None
-            ),
+            "license_info": {
+                "activated_at": installation.license_activated_at,
+                "expires_at": installation.license_expires_at,
+                "customer_email": installation.customer_email,
+                "customer_name": installation.customer_name,
+                "organization_name": installation.organization_name,
+                "max_tenants": installation.max_tenants or 1,
+                "license_scope": installation.license_scope,
+            } if local_active else None,
+            "global_license_info": {
+                "activated_at": global_info.license_activated_at,
+                "expires_at": global_info.license_expires_at,
+                "customer_email": global_info.customer_email,
+                "customer_name": global_info.customer_name,
+                "organization_name": global_info.organization_name,
+                "max_tenants": global_info.max_tenants or 1,
+                "license_scope": global_info.license_scope,
+            } if global_info.license_status in ["active", "commercial"] else None,
             "enabled_features": enabled_features,
-            "expired_features": expired_features,  # Features that were licensed but now expired
+            "expired_features": self.get_expired_features(),
             "has_all_features": "all" in enabled_features,
+            "allow_password_signup": global_info.allow_password_signup,
+            "allow_sso_signup": global_info.allow_sso_signup,
         }
+
+    def get_all_tenants_license_info(self) -> List[Dict[str, Any]]:
+        """
+        Super Admin Monitoring: Get license usage across all tenants.
+        """
+        if not self.master_db:
+            return []
+
+        tenants = self.master_db.query(Tenant).all()
+        global_info = self._get_or_create_global_installation()
+
+        results = []
+        for tenant in tenants:
+            # Note: We can't easily query the tenant's local InstallationInfo from here
+            # without switching DB sessions for EVERY tenant, which is slow.
+            # For monitoring, we'll mostly rely on the Tenant model flags.
+            results.append({
+                "id": tenant.id,
+                "name": tenant.name,
+                "is_active": tenant.is_active,
+                "count_against_license": tenant.count_against_license,
+                # In a real impl, we'd cache the 'effective_source' in the Tenant model
+                # for faster monitoring access.
+            })
+
+        return results
+
+    def update_tenant_capacity_control(self, tenant_id: int, counts: bool) -> bool:
+        """
+        Update whether a tenant counts against the global license capacity.
+        """
+        if not self.master_db:
+            return False
+
+        tenant = self.master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if not tenant:
+            return False
+
+        tenant.count_against_license = counts
+        self.master_db.commit()
+        return True
+
+    def update_global_signup_settings(self, allow_password: Optional[bool] = None, allow_sso: Optional[bool] = None) -> bool:
+        """
+        Update global signup controls.
+        """
+        global_info = self._get_or_create_global_installation()
+
+        updated = False
+        if allow_password is not None:
+            global_info.allow_password_signup = allow_password
+            updated = True
+        if allow_sso is not None:
+            global_info.allow_sso_signup = allow_sso
+            updated = True
+
+        if updated:
+            self.db.commit()
+            return True
+        return False

@@ -27,11 +27,12 @@ import os
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from core.models.database import get_db
+from core.models.database import get_db, get_master_db
 from core.routers.auth import get_current_user
 from core.services.license_service import LicenseService
 from core.services.feature_config_service import FeatureConfigService
-from core.utils.rbac import require_admin_or_superuser
+from core.utils.rbac import require_admin_or_superuser, require_superuser
+from core.utils.audit import log_audit_event, log_audit_event_master
 from pathlib import Path
 
 
@@ -88,12 +89,17 @@ class LicenseStatusResponse(BaseModel):
     is_personal: bool
     is_trial: bool
     is_license_expired: bool  # True if license was active but now expired
+    effective_source: str     # 'local', 'global', or 'none'
+    license_scope: Optional[str] = None # 'local' or 'global'
     license_type: Optional[str] = None
     trial_info: dict
     license_info: Optional[dict] = None
+    global_license_info: Optional[dict] = None
     enabled_features: list
     expired_features: list  # Features that were licensed but now expired
     has_all_features: bool
+    allow_password_signup: bool = True
+    allow_sso_signup: bool = True
 
 
 class LicenseValidationResponse(BaseModel):
@@ -112,6 +118,19 @@ class FeatureAvailabilityResponse(BaseModel):
     license_status: str
 
 
+class TenantCapacityControlRequest(BaseModel):
+    """Request model for updating tenant capacity control (counts vs exempt)"""
+    counts: bool
+
+
+class TenantLicenseInfo(BaseModel):
+    """Model for tenant license monitoring info"""
+    id: int
+    name: str
+    is_active: bool
+    count_against_license: bool
+
+
 # ==================== Endpoints ====================
 
 @router.post("/select-usage-type", response_model=UsageTypeSelectionResponse)
@@ -119,7 +138,8 @@ async def select_usage_type(
     request_data: UsageTypeSelectionRequest,
     request: Request,
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Select usage type: personal (free) or business (30-day trial).
@@ -131,7 +151,7 @@ async def select_usage_type(
     Can only be called once per installation.
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         
         # Extract request metadata
         user_id = current_user.id if hasattr(current_user, 'id') else None
@@ -155,6 +175,21 @@ async def select_usage_type(
                 }
             )
         
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="SELECT_USAGE_TYPE",
+            resource_type="LICENSE",
+            details={
+                "usage_type": request_data.usage_type,
+                "message": result["message"]
+            },
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         return result
     except HTTPException:
         raise
@@ -168,7 +203,8 @@ async def select_usage_type(
 @router.get("/usage-type-status", response_model=UsageTypeStatusResponse)
 async def get_usage_type_status(
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Get current usage type selection status.
@@ -176,7 +212,7 @@ async def get_usage_type_status(
     Returns whether the user has selected a usage type and what type was selected.
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         status = license_service.get_usage_type_status()
         return status
     except Exception as e:
@@ -189,7 +225,8 @@ async def get_usage_type_status(
 @router.get("/status", response_model=LicenseStatusResponse)
 async def get_license_status(
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Get current license and trial status.
@@ -203,7 +240,7 @@ async def get_license_status(
     **Requirements: 1.7**
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         status = license_service.get_license_status()
         
         # Convert datetime objects to ISO format strings for JSON serialization
@@ -257,7 +294,8 @@ async def activate_license(
     request_data: LicenseActivationRequest,
     request: Request,
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Activate a license key.
@@ -268,7 +306,7 @@ async def activate_license(
     **Requirements: 1.7**
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         
         # Extract request metadata
         user_id = current_user.id if hasattr(current_user, 'id') else None
@@ -297,6 +335,23 @@ async def activate_license(
                 }
             )
         
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="ACTIVATE_LICENSE",
+            resource_type="LICENSE",
+            resource_name=result.get("customer_name"),
+            details={
+                "features": result.get("features"),
+                "expires_at": result.get("expires_at"),
+                "message": result["message"]
+            },
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
         return result
     except HTTPException:
         raise
@@ -311,7 +366,8 @@ async def activate_license(
 async def validate_license(
     request_data: LicenseActivationRequest,
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Manually validate a license key without activating it.
@@ -322,7 +378,7 @@ async def validate_license(
     **Requirements: 1.7**
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         
         # Verify license
         verification = license_service.verify_license(request_data.license_key)
@@ -409,7 +465,8 @@ async def get_feature_availability():
 async def deactivate_license(
     request: Request,
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Deactivate the current license and revert to trial mode.
@@ -418,7 +475,7 @@ async def deactivate_license(
     Useful for testing or switching licenses.
     """
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         
         # Extract request metadata
         user_id = current_user.id if hasattr(current_user, 'id') else None
@@ -428,6 +485,18 @@ async def deactivate_license(
         # Deactivate license
         result = license_service.deactivate_license(
             user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DEACTIVATE_LICENSE",
+            resource_type="LICENSE",
+            details={"message": result["message"]},
             ip_address=ip_address,
             user_agent=user_agent
         )
@@ -443,7 +512,8 @@ async def deactivate_license(
 @router.get("/license-request-data")
 async def get_license_request_data(
     current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
 ):
     """
     Get the license request data including private key, installation ID, and license request URL.
@@ -453,7 +523,7 @@ async def get_license_request_data(
 
     try:
         # Get installation ID from license service
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         status = license_service.get_license_status()
         installation_id = status.get("installation_id")
 
@@ -482,6 +552,19 @@ async def get_license_request_data(
         with open(private_key_path, "r") as f:
             content = f.read()
 
+        # Log sensitive data access
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="GET_LICENSE_REQUEST_DATA",
+            resource_type="LICENSE_KEY",
+            details={
+                "installation_id": installation_id,
+                "note": "User accessed private key for license activation"
+            }
+        )
+
         return {
             "private_key": content,
             "installation_id": installation_id,
@@ -490,3 +573,143 @@ async def get_license_request_data(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get license request data: {str(e)}")
+
+
+@router.post("/activate-global", response_model=LicenseActivationResponse)
+async def activate_global_license(
+    request_data: LicenseActivationRequest,
+    request: Request,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Activate a system-wide license (Super Admin only)."""
+    require_superuser(current_user, "activate global license")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+
+        user_id = current_user.id if hasattr(current_user, 'id') else None
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+
+        result = license_service.activate_global_license(
+            license_key=request_data.license_key,
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        if result.get("expires_at"):
+            result["expires_at"] = result["expires_at"].isoformat()
+
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result)
+
+        # Log audit event in master database
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="ACTIVATE_GLOBAL_LICENSE",
+            resource_type="GLOBAL_LICENSE",
+            details={
+                "expires_at": result.get("expires_at"),
+                "message": result.get("message")
+            },
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/deactivate-global")
+async def deactivate_global_license(
+    request: Request,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Deactivate the system-wide license (Super Admin only)."""
+    require_superuser(current_user, "deactivate global license")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+
+        user_id = current_user.id if hasattr(current_user, 'id') else None
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+
+        result = license_service.deactivate_global_license(
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Log audit event in master database
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DEACTIVATE_GLOBAL_LICENSE",
+            resource_type="GLOBAL_LICENSE",
+            details={"message": result.get("message")},
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tenants", response_model=list[TenantLicenseInfo])
+async def get_tenants_license_info(
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Get license monitoring info for all tenants (Super Admin only)."""
+    require_superuser(current_user, "view tenant license info")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+        return license_service.get_all_tenants_license_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/tenants/{tenant_id}/update-capacity-control")
+async def update_tenant_capacity_control(
+    tenant_id: int,
+    request_data: TenantCapacityControlRequest,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """Update whether a tenant counts against the global limit (Super Admin only)."""
+    require_superuser(current_user, "update tenant capacity control")
+
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+        success = license_service.update_tenant_capacity_control(tenant_id, request_data.counts)
+        if not success:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+            
+        # Log audit event in master database
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_TENANT_CAPACITY_CONTROL",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            details={"counts_against_license": request_data.counts}
+        )
+        
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

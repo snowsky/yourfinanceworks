@@ -97,6 +97,7 @@ def ensure_required_columns(database_url):
                     "is_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "allow_join_lookup": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "join_lookup_exact_match": "BOOLEAN NOT NULL DEFAULT FALSE",
+                    "count_against_license": "BOOLEAN NOT NULL DEFAULT TRUE",
                 }
 
                 for col_name, col_definition in required_columns_tenants.items():
@@ -109,6 +110,48 @@ def ensure_required_columns(database_url):
                         )
                         conn.commit()
                         logger.info(f"Successfully added column to tenants: {col_name}")
+
+            # Check and add missing columns to global_installation_info table
+            if "global_installation_info" in inspector.get_table_names():
+                columns = inspector.get_columns("global_installation_info")
+                existing_columns = {col["name"] for col in columns}
+
+                required_columns_global = {
+                    "allow_password_signup": "BOOLEAN NOT NULL DEFAULT TRUE",
+                    "allow_sso_signup": "BOOLEAN NOT NULL DEFAULT TRUE",
+                    "license_scope": "VARCHAR(20)",
+                }
+
+                for col_name, col_definition in required_columns_global.items():
+                    if col_name not in existing_columns:
+                        logger.info(f"Adding missing column to global_installation_info: {col_name}")
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE global_installation_info ADD COLUMN {col_name} {col_definition}"
+                            )
+                        )
+                        conn.commit()
+                        logger.info(f"Successfully added column to global_installation_info: {col_name}")
+
+            # Check and add missing columns to installation_info table (per-tenant)
+            if "installation_info" in inspector.get_table_names():
+                columns = inspector.get_columns("installation_info")
+                existing_columns = {col["name"] for col in columns}
+
+                required_columns_install = {
+                    "license_scope": "VARCHAR(20)",
+                }
+
+                for col_name, col_definition in required_columns_install.items():
+                    if col_name not in existing_columns:
+                        logger.info(f"Adding missing column to installation_info: {col_name}")
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE installation_info ADD COLUMN {col_name} {col_definition}"
+                            )
+                        )
+                        conn.commit()
+                        logger.info(f"Successfully added column to installation_info: {col_name}")
 
         return True
 

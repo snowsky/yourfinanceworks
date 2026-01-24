@@ -43,6 +43,10 @@ class SuperAdminResetPasswordRequest(BaseModel):
 class TenantSelectionRequest(BaseModel):
     tenant_ids: List[int]
 
+class GlobalSignupSettingsUpdate(BaseModel):
+    allow_password_signup: Optional[bool] = None
+    allow_sso_signup: Optional[bool] = None
+
 def require_super_admin(current_user: MasterUser = Depends(get_current_user)):
     """Require that the current user is a superuser in their primary tenant"""
     from core.models.database import get_tenant_context
@@ -1700,6 +1704,21 @@ async def trigger_full_audit(
             logger.error(f"Failed to trigger audit for tenant {tenant.id}: {e}")
             continue
 
+    # Log audit event
+    from core.utils.audit import log_audit_event_master
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="TRIGGER_FULL_ANOMALY_AUDIT",
+        resource_type="ANOMALY_DETECTION",
+        details={
+            "days": days,
+            "entities_triggered": total_triggered,
+            "tenants_scanned": len(tenants)
+        }
+    )
+
     return {
         "message": f"Successfully queued {total_triggered} entities for forensic audit across {len(tenants)} active tenants.",
         "entities_queued": total_triggered,
@@ -1783,6 +1802,21 @@ async def trigger_reprocess_all(
         except Exception as e:
             logger.error(f"Failed to trigger reprocess for tenant {tenant.id}: {e}")
             continue
+
+    # Log audit event
+    from core.utils.audit import log_audit_event_master
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="TRIGGER_ANOMALY_REPROCESS_ALL",
+        resource_type="ANOMALY_DETECTION",
+        details={
+            "days": days,
+            "entities_triggered": total_triggered,
+            "tenants_scanned": len(tenants)
+        }
+    )
 
     return {
         "message": f"Successfully queued {total_triggered} entities for reprocessing across {len(tenants)} active tenants.",
@@ -1914,3 +1948,45 @@ async def select_enabled_tenants(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to select enabled tenants: {str(e)}"
         )
+
+@router.get("/global-signup-settings")
+async def get_global_signup_settings(
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Get global signup controls"""
+    license_service = LicenseService(master_db, master_db=master_db)
+    status = license_service.get_license_status()
+
+    return {
+        "allow_password_signup": status.get("allow_password_signup", True),
+        "allow_sso_signup": status.get("allow_sso_signup", True),
+        "max_tenants": status.get("global_license_info", {}).get("max_tenants", 1) if status.get("global_license_info") else 1,
+        "current_tenants_count": master_db.query(Tenant).filter(Tenant.count_against_license == True).count()
+    }
+
+@router.patch("/global-signup-settings")
+async def update_global_signup_settings(
+    settings: GlobalSignupSettingsUpdate,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Update global signup controls"""
+    license_service = LicenseService(master_db, master_db=master_db)
+    success = license_service.update_global_signup_settings(
+        allow_password=settings.allow_password_signup,
+        allow_sso=settings.allow_sso_signup
+    )
+
+    if success:
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_GLOBAL_SIGNUP_SETTINGS",
+            resource_type="SYSTEM",
+            details=settings.model_dump(exclude_unset=True)
+        )
+        return {"message": "Global signup settings updated successfully"}
+
+    raise HTTPException(status_code=400, detail="Failed to update global signup settings")

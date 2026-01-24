@@ -22,6 +22,8 @@ from core.utils.feature_gate import require_feature, check_feature
 from core.utils.auth import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 from config import config
 from sqlalchemy import func
+from core.utils.rbac import require_admin
+from core.services.license_service import LicenseService
 
 logger = logging.getLogger(__name__)
 
@@ -193,10 +195,30 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             # resource waste (Tenant/DB creation) for unlicensed users.
             # See docs/SSO_LICENSE_GATING.md for full rationale.
             if not is_global_first_user:
-                # This is not the first user globally, so they need a license
-                # Reject without creating any resources
-                ui_base = config.UI_BASE_URL
-                return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                # Check for an active Global License before rejecting
+                license_service = LicenseService(db, master_db=db)
+                status = license_service.get_license_status()
+
+                if not status.get("is_licensed"):
+                    # This is not the first user globally, and no global license is active
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+
+                # Check global signup controls
+                if not status.get("allow_sso_signup", True):
+                    # We already checked is_global_first_user is False
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_registration_disabled")
+
+                # Check global capacity (tenant limit)
+                max_tenants = license_service.get_max_tenants()
+                # Count tenants that count against the license
+                current_tenants_count = db.query(Tenant).filter(Tenant.count_against_license == True).count()
+
+                if current_tenants_count >= max_tenants:
+                    logger.error(f"Global tenant limit reached: {current_tenants_count} >= {max_tenants}")
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=tenant_limit_reached")
 
             # Create tenant for first user
             tenant_name = f"{email.split('@')[0]}'s Organization"
@@ -339,13 +361,13 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             scopes=AZURE_OAUTH_SCOPES,
             redirect_uri=callback_url
         )
-        
+
         if "error" in result:
             raise HTTPException(status_code=400, detail=f"Azure AD error: {result.get('error_description', result['error'])}")
-        
+
         access_token = result["access_token"]
         id_token_claims = result.get("id_token_claims", {})
-        
+
     except Exception as e:
         logger.error(f"Azure AD token exchange failed: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
@@ -355,7 +377,7 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
     oid = id_token_claims.get("oid")  # Object ID (unique identifier)
     first_name = id_token_claims.get("given_name")
     last_name = id_token_claims.get("family_name")
-    
+
     if not email:
         raise HTTPException(status_code=400, detail="Azure account has no email")
 
@@ -366,7 +388,7 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
     # Or ideally, add an azure_id field. For now, matching by email is the safest best-effort.
     # Note: We should probably add azure_id to the User model, but for minimal changes we'll stick to email matching for now.
     user = db.query(MasterUser).filter(MasterUser.email == email).first()
-    
+
     if not user:
         # Determine if this is the first user in the entire system (Global Super Admin)
         is_global_first_user = db.query(MasterUser).count() == 0
@@ -384,16 +406,36 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
         else:
             # No invitation, create a new tenant for first user of organization
             is_org_first_user = True
-            
+
             # IMPORTANT: Only the first user in the entire system can create a new organization
             # without a license. This "Global and Early" rejection strategy prevents
             # resource waste (Tenant/DB creation) for unlicensed users.
             # See docs/SSO_LICENSE_GATING.md for full rationale.
             if not is_global_first_user:
-                # This is not the first user globally, so they need a license
-                # Reject without creating any resources
-                ui_base = config.UI_BASE_URL
-                return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+                # Check for an active Global License before rejecting
+                license_service = LicenseService(db, master_db=db)
+                status = license_service.get_license_status()
+
+                if not status.get("is_licensed"):
+                    # This is not the first user globally, and no global license is active
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_license_required")
+
+                # Check global signup controls
+                if not status.get("allow_sso_signup", True):
+                    # We already checked is_global_first_user is False
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=sso_registration_disabled")
+
+                # Check global capacity (tenant limit)
+                max_tenants = license_service.get_max_tenants()
+                # Count tenants that count against the license
+                current_tenants_count = db.query(Tenant).filter(Tenant.count_against_license == True).count()
+
+                if current_tenants_count >= max_tenants:
+                    logger.error(f"Global tenant limit reached: {current_tenants_count} >= {max_tenants}")
+                    ui_base = config.UI_BASE_URL
+                    return RedirectResponse(url=f"{ui_base}/login?error=tenant_limit_reached")
 
             # Create tenant for first user
             tenant_name = f"{email.split('@')[0]}'s Organization"

@@ -206,6 +206,8 @@
     "passwords_not_match": "Les mots de passe ne correspondent pas",
     "login_description": "Entrez votre email et mot de passe pour accéder à votre compte",
     "sso_license_required_recovery": "Votre licence SSO a expiré ou n'est pas valide. Pour retrouver l'accès, veuillez utiliser le flux 'Mot de passe oublié' ci-dessous pour définir un mot de passe local pour votre compte.",
+    "sso_registration_disabled": "L'inscription par SSO est actuellement désactivée pour ce système. Seuls les utilisateurs existants ou les membres invités peuvent se connecter via SSO.",
+    "tenant_limit_reached": "Le système a atteint le nombre maximum d'organisations autorisées par sa licence. De nouvelles organisations ne peuvent pas être créées pour le moment.",
     "email_placeholder": "Entrez votre email",
     "password_placeholder": "Entrez votre mot de passe",
     "signing_in": "Connexion en cours...",

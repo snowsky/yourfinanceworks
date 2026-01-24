@@ -1517,6 +1517,7 @@ class InstallationInfo(Base):
     
     # License status: invalid, personal, trial, active, expired, suspended
     license_status = Column(String(20), default="invalid", nullable=False)
+    is_licensed = Column(Boolean, default=False, nullable=False)
     
     # Usage type selection: personal (free) or business (trial/paid)
     usage_type = Column(String(20), nullable=True)  # personal or business
@@ -1531,6 +1532,7 @@ class InstallationInfo(Base):
     license_key = Column(Text, nullable=True)  # Encrypted in practice
     license_activated_at = Column(DateTime(timezone=True), nullable=True)
     license_expires_at = Column(DateTime(timezone=True), nullable=True)
+    license_scope = Column(String(20), nullable=True)  # 'local' or 'global'
     
     # Feature tracking
     max_tenants = Column(Integer, nullable=True)  # From license

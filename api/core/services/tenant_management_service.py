@@ -26,7 +26,7 @@ class TenantManagementService:
     def __init__(self, master_db: Session, tenant_db: Session):
         self.master_db = master_db
         self.tenant_db = tenant_db
-        self.license_service = LicenseService(tenant_db)
+        self.license_service = LicenseService(tenant_db, master_db=master_db)
 
     def enforce_tenant_limits(self, super_admin_user: MasterUser) -> Dict[str, Any]:
         """
@@ -44,8 +44,11 @@ class TenantManagementService:
             max_tenants = self.license_service.get_max_tenants()
             all_tenants = self.master_db.query(Tenant).all()
 
+            # Identify tenants that count against the license limit
+            counted_tenants = [t for t in all_tenants if t.count_against_license]
+
             logger.info(
-                f"Enforcing tenant limits: max={max_tenants}, current={len(all_tenants)}"
+                f"Enforcing tenant limits: max={max_tenants}, current_total={len(all_tenants)}, current_counted={len(counted_tenants)}"
             )
 
             # Handle single tenant limitation
@@ -69,95 +72,42 @@ class TenantManagementService:
         self, super_admin_user: MasterUser, all_tenants: List[Tenant]
     ) -> Dict[str, Any]:
         """
-        Handle single tenant limitation - only super admin's tenant remains enabled.
-
-        Args:
-            super_admin_user: The super admin user
-            all_tenants: List of all tenants
-
-        Returns:
-            Dict with operation results
+        Handle single tenant limitation by leveraging the reduced limit logic.
         """
-        try:
-            # Find super admin's tenant
-            super_admin_tenant = (
-                self.master_db.query(Tenant)
-                .filter(Tenant.id == super_admin_user.tenant_id)
-                .first()
-            )
-
-            if not super_admin_tenant:
-                return {
-                    "success": False,
-                    "error": "Super admin tenant not found",
-                    "message": "Cannot determine super admin's primary tenant",
-                }
-
-            # Disable all tenants except super admin's tenant
-            disabled_tenants = []
-            for tenant in all_tenants:
-                if tenant.id != super_admin_tenant.id:
-                    tenant.is_enabled = False
-                    disabled_tenants.append(tenant.name)
-
-            # Ensure super admin's tenant is enabled
-            super_admin_tenant.is_enabled = True
-
-            self.master_db.commit()
-
-            logger.info(
-                f"Single tenant limit enforced: only '{super_admin_tenant.name}' enabled, {len(disabled_tenants)} disabled"
-            )
-
-            return {
-                "success": True,
-                "message": f"Single tenant limit enforced. Only '{super_admin_tenant.name}' is accessible.",
-                "enabled_tenants": [super_admin_tenant.name],
-                "disabled_tenants": disabled_tenants,
-                "total_tenants": len(all_tenants),
-                "max_tenants": 1,
-            }
-
-        except Exception as e:
-            self.master_db.rollback()
-            logger.error(f"Failed to handle single tenant limit: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "message": "Failed to enforce single tenant limit",
-            }
+        return self._handle_reduced_tenant_limit(super_admin_user, all_tenants, 1)
 
     def _handle_reduced_tenant_limit(
         self, super_admin_user: MasterUser, all_tenants: List[Tenant], max_tenants: int
     ) -> Dict[str, Any]:
         """
-        Handle reduced tenant limits - keep super admin's tenant + select random tenants.
-
-        Args:
-            super_admin_user: The super admin user
-            all_tenants: List of all tenants
-            max_tenants: Maximum number of tenants allowed
-
-        Returns:
-            Dict with operation results
+        Handle reduced tenant limits while respecting exemptions.
         """
         try:
-            if len(all_tenants) <= max_tenants:
-                # All tenants can be enabled
-                for tenant in all_tenants:
+            # Categorize tenants
+            exempt_tenants = [t for t in all_tenants if not t.count_against_license]
+            counted_tenants = [t for t in all_tenants if t.count_against_license]
+
+            # Exempt tenants are always enabled
+            for tenant in exempt_tenants:
+                tenant.is_enabled = True
+
+            if len(counted_tenants) <= max_tenants:
+                # All counted tenants can also be enabled
+                for tenant in counted_tenants:
                     tenant.is_enabled = True
                 self.master_db.commit()
 
                 return {
                     "success": True,
-                    "message": f"All {len(all_tenants)} tenants are within the limit of {max_tenants}.",
+                    "message": f"All tenants are within the limit ({len(counted_tenants)} counted against {max_tenants} max).",
                     "enabled_tenants": [t.name for t in all_tenants],
                     "disabled_tenants": [],
                     "total_tenants": len(all_tenants),
+                    "counted_tenants": len(counted_tenants),
                     "max_tenants": max_tenants,
                 }
 
-            # Find super admin's tenant
+            # Find super admin's tenant (which is likely a counted tenant)
             super_admin_tenant = (
                 self.master_db.query(Tenant)
                 .filter(Tenant.id == super_admin_user.tenant_id)
@@ -171,54 +121,50 @@ class TenantManagementService:
                     "message": "Cannot determine super admin's primary tenant",
                 }
 
-            # Get other tenants (excluding super admin's tenant)
-            other_tenants = [t for t in all_tenants if t.id != super_admin_tenant.id]
+            # Filter counted tenants to exclude super admin's
+            other_counted_tenants = [t for t in counted_tenants if t.id != super_admin_tenant.id]
 
-            # Calculate how many additional tenants can be enabled
-            additional_slots = (
-                max_tenants - 1
-            )  # Reserve 1 slot for super admin's tenant
+            # Calculate additional slots for other counted tenants
+            # If super admin tenant is exempt, they don't take a slot
+            reserved_slots = 1 if super_admin_tenant.count_against_license else 0
+            additional_slots = max(0, max_tenants - reserved_slots)
 
-            # If there are existing enabled tenants, try to preserve them first
-            currently_enabled_others = [t for t in other_tenants if t.is_enabled]
+            # Preserve currently enabled other counted tenants
+            currently_enabled_others = [t for t in other_counted_tenants if t.is_enabled]
 
             if len(currently_enabled_others) <= additional_slots:
-                # All currently enabled tenants can remain enabled
-                enabled_other_tenants = currently_enabled_others
-                disabled_other_tenants = []
+                enabled_other_counted = currently_enabled_others
+                disabled_other_counted = []
             else:
-                # Need to disable some tenants - select first N enabled tenants
-                enabled_other_tenants = currently_enabled_others[:additional_slots]
-                disabled_other_tenants = currently_enabled_others[additional_slots:]
+                enabled_other_counted = currently_enabled_others[:additional_slots]
+                disabled_other_counted = currently_enabled_others[additional_slots:]
 
             # Update tenant states
             super_admin_tenant.is_enabled = True
 
-            for tenant in other_tenants:
-                if tenant in enabled_other_tenants:
+            for tenant in other_counted_tenants:
+                if tenant in enabled_other_counted:
                     tenant.is_enabled = True
                 else:
                     tenant.is_enabled = False
 
             self.master_db.commit()
 
-            enabled_names = [super_admin_tenant.name] + [
-                t.name for t in enabled_other_tenants
-            ]
-            disabled_names = [t.name for t in disabled_other_tenants]
+            enabled_names = [t.name for t in all_tenants if t.is_enabled]
+            disabled_names = [t.name for t in all_tenants if not t.is_enabled]
 
             logger.info(
-                f"Reduced tenant limit enforced: {len(enabled_names)} enabled, {len(disabled_names)} disabled"
+                f"Reduced tenant limit enforced: {len(enabled_names)} enabled ({len(exempt_tenants)} exempt), {len(disabled_names)} disabled"
             )
 
             return {
                 "success": True,
-                "message": f"Tenant limit of {max_tenants} enforced. Super admin can select which tenants to enable.",
+                "message": f"Tenant limit of {max_tenants} enforced for counted organizations. Exempt organizations remain enabled.",
                 "enabled_tenants": enabled_names,
                 "disabled_tenants": disabled_names,
                 "total_tenants": len(all_tenants),
+                "counted_tenants": len(counted_tenants),
                 "max_tenants": max_tenants,
-                "super_admin_tenant": super_admin_tenant.name,
             }
 
         except Exception as e:
@@ -279,28 +225,40 @@ class TenantManagementService:
             if super_admin_tenant not in selected_tenants:
                 selected_tenants.append(super_admin_tenant)
 
+            # Find exempt tenants (always included and enabled)
+            exempt_tenants = [t for t in all_tenants if not t.count_against_license]
+
+            # Form final selection
+            final_selection = list(set(selected_tenants + exempt_tenants))
+
+            # Count only those that count against the license
+            counted_selection = [t for t in final_selection if t.count_against_license]
+
             # Check limit
-            if len(selected_tenants) > max_tenants:
+            if len(counted_selection) > max_tenants:
                 return {
                     "success": False,
-                    "error": f"Cannot enable {len(selected_tenants)} tenants. License limit is {max_tenants}.",
+                    "error": f"Cannot enable {len(counted_selection)} counted tenants. License limit is {max_tenants}.",
                     "message": "Tenant selection exceeds license limit",
                 }
 
             # Handle single tenant case
             if max_tenants == 1:
-                # Only super admin's tenant should be enabled
+                # Only super admin's tenant (if counted) and exempt tenants should be enabled
                 for tenant in all_tenants:
-                    tenant.is_enabled = tenant.id == super_admin_tenant.id
+                    if tenant.count_against_license:
+                        tenant.is_enabled = tenant.id == super_admin_tenant.id
+                    else:
+                        tenant.is_enabled = True
             else:
-                # Enable selected tenants, disable others
+                # Enable selection (contains both manually selected + all exempt)
                 for tenant in all_tenants:
-                    tenant.is_enabled = tenant in selected_tenants
+                    tenant.is_enabled = tenant in final_selection
 
             self.master_db.commit()
 
-            enabled_names = [t.name for t in selected_tenants]
-            disabled_names = [t.name for t in all_tenants if t not in selected_tenants]
+            enabled_names = [t.name for t in final_selection]
+            disabled_names = [t.name for t in all_tenants if t not in final_selection]
 
             logger.info(
                 f"Super admin {super_admin_user.email} selected {len(enabled_names)} tenants to enable"
