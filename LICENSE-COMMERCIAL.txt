@@ -4,7 +4,7 @@ This Commercial License Agreement (the "Agreement") is entered into as of [DATE]
 
 WHEREAS, Licensor owns certain proprietary software known as "Invoice Management Application" (the "Software"); and
 
-WHEREAS, Licensee desires to obtain a commercial license to use the Software for proprietary purposes without the restrictions of the GNU General Public License v3; and
+WHEREAS, Licensee desires to obtain a commercial license to use the Software for proprietary purposes without the restrictions of the GNU Affero General Public License v3.0; and
 
 WHEREAS, Licensor is willing to grant such a license to Licensee on the terms and conditions set forth herein;
 
@@ -12,7 +12,7 @@ NOW, THEREFORE, in consideration of the mutual promises and covenants contained 
 
 1. DEFINITIONS
 
-1.1 "Software" means the Invoice Management Application software, including all source code, object code, documentation, and related materials provided by Licensor.
+1.1 "Software" means the components of the Invoice Management Application located within the 'api/commercial/' directory, including all source code, object code, documentation, and related materials provided by Licensor.
 
 1.2 "Licensed Product" means any product or service that incorporates or is derived from the Software.
 

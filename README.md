@@ -1,6 +1,6 @@
 # YourFinanceWORKS
 
-![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)
 ![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)
 ![React: 18+](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6.svg?logo=typescript&logoColor=white)
@@ -426,20 +426,19 @@ For historical context and deeply technical implementation details, visit the **
 
 ## Licensing
 
-This project is dual-licensed under two options:
+This project utilizes a **Split-Licensing Model** to provide maximum transparency while protecting specialized features:
 
-1. **GNU General Public License v3 (GPLv3)**:
+1. **GNU Affero General Public License v3.0 (AGPL-3.0)**:
+   - **Applies to**: `api/core/`, `ui/`, and shared project infrastructure.
+   - Free to use, modify, and distribute under AGPL-3.0 terms.
+   - Requires sharing source code for any network-distributed versions.
+   - See [LICENSE-AGPLv3.txt](LICENSE-AGPLv3.txt) for details.
 
-   - Free to use, modify, and distribute under the terms of the GPLv3.
-   - Requires that derivative works be licensed under GPLv3 and source code be shared.
-   - Ideal for open source projects and community use.
-   - See [LICENSE-GPLv3.txt](LICENSE-GPLv3.txt) for the full license text.
-
-2. **Commercial License**:
-   - Available for proprietary use, allowing integration into closed-source software without GPLv3 obligations.
-   - Suitable for businesses or commercial applications.
-   - To obtain a commercial license, contact us at licensing@yourfinanceworks.com or visit https://github.com/snowsky/yourfinanceworks/blob/main/LICENSE-COMMERCIAL.txt.
-   - See [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt) for more information.
+2. **Commercial License (Source Available)**:
+   - **Applies to**: `api/commercial/` directory.
+   - While the source code is visible, usage is restricted to licensed customers.
+   - Ideal for businesses requiring enterprise features or proprietary integration.
+   - Contact licensing@yourfinanceworks.com for license acquisition or visit [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt).
 
 ## 🆘 Support
 

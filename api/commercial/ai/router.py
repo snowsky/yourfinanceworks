@@ -1,3 +1,9 @@
+# Copyright (c) 2026 YourFinanceWORKS
+# This file is part of the Commercial module of YourFinanceWORKS.
+# This code is NOT licensed under AGPLv3.
+# Usage requires a valid YourFinanceWORKS Commercial License.
+# See LICENSE-COMMERCIAL.txt for details.
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_

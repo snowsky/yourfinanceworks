@@ -1,3 +1,9 @@
+# Copyright (c) 2026 YourFinanceWORKS
+# This file is part of YourFinanceWORKS, which uses a split-licensing model.
+# Core components are licensed under GNU AGPLv3.
+# Commercial components are licensed under the YourFinanceWORKS Commercial License.
+# See LICENSE-AGPLv3.txt and LICENSE-COMMERCIAL.txt for details.
+
 from sqlalchemy import create_engine, event, text, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine

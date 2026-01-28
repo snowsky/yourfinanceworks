@@ -1,3 +1,8 @@
+# Copyright (c) 2026 YourFinanceWORKS
+# This file is part of the Core module of YourFinanceWORKS.
+# Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+# See LICENSE-AGPLv3.txt for details.
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials

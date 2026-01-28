@@ -1,3 +1,11 @@
+# Copyright (c) 2026 YourFinanceWORKS
+# This file is part of YourFinanceWORKS, which uses a split-licensing model.
+# Core components are licensed under GNU AGPLv3.
+# Commercial components are licensed under the YourFinanceWORKS Commercial License.
+# See LICENSE-AGPLv3.txt and LICENSE-COMMERCIAL.txt for details.
+
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
 import uvicorn
@@ -6,8 +14,6 @@ from fastapi.responses import JSONResponse
 import traceback
 import logging
 from fastapi.staticfiles import StaticFiles
-import os
-from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()

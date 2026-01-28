@@ -68,6 +68,11 @@ docker-compose up -d
 - TypeScript: Use functional components and follow the project's existing ESLint configuration.
 - CSS: Use Tailwind CSS classes.
 
-## Licensing
+## Licensing & CLA
 
-By contributing, you agree that your contributions will be licensed under the project's [GPLv3 / Commercial dual-license](README.md#licensing).
+By contributing to YourFinanceWORKS, you agree that:
+
+1. Your contributions will be licensed under the project's [AGPL-3.0 / Commercial dual-license](README.md#licensing).
+2. You agree to the terms of our [Contributor License Agreement (CLA)](CLA.md).
+
+Submitting a Pull Request constitutes your agreement to these terms.

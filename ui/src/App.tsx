@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2026 YourFinanceWORKS
+ * This file is part of the UI of YourFinanceWORKS.
+ * Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+ * See LICENSE-AGPLv3.txt for details.
+ */
+
 import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
