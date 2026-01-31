@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
-from core.models.models_per_tenant import EmailNotificationSettings, User
+from core.models import EmailNotificationSettings, User
 from core.services.email_service import EmailService, EmailMessage
 from jinja2 import Template
 import logging

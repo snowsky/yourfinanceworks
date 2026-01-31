@@ -13,9 +13,8 @@ from sqlalchemy.orm import Session
 from core.services.notification_service import NotificationService
 from commercial.workflows.approvals.services.approval_notification_scheduler import ApprovalNotificationScheduler
 from core.services.email_service import EmailService, EmailMessage
-from core.models.models_per_tenant import (
-    User, Expense, ExpenseApproval, EmailNotificationSettings
-)
+from core.models import User, Expense, EmailNotificationSettings
+from core.models.models_per_tenant import ExpenseApproval
 from core.schemas.approval import ApprovalStatus
 
 

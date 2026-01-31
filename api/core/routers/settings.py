@@ -410,7 +410,7 @@ async def import_tenant_data(
     import tempfile, os
     from sqlalchemy import create_engine, inspect
     from sqlalchemy.orm import sessionmaker
-    from core.models.models_per_tenant import (
+    from core.models import (
         User, Client, ClientNote, Invoice, Payment, Settings, DiscountRule, SupportedCurrency, CurrencyRate, InvoiceItem, InvoiceHistory, AIConfig, EmailNotificationSettings, Expense, ExpenseAttachment, BankStatement, BankStatementTransaction, AuditLog, AIChatHistory
     )
     from core.services.tenant_database_manager import tenant_db_manager

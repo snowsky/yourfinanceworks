@@ -5,7 +5,7 @@ from typing import List
 import logging
 
 from core.models.database import get_db, get_master_db
-from core.models.models_per_tenant import EmailNotificationSettings, User
+from core.models import EmailNotificationSettings, User
 from core.models.models import MasterUser
 from core.schemas.email_notifications import (
     EmailNotificationSettings as EmailNotificationSettingsSchema,

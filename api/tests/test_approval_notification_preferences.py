@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import json
 
 from main import app
-from core.models.models_per_tenant import User, EmailNotificationSettings
+from core.models import User, EmailNotificationSettings
 from tests.conftest import TestingSessionLocal, override_get_db, create_test_user
 
 

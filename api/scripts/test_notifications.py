@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.models.database import get_tenant_db_url
-from core.models.models_per_tenant import EmailNotificationSettings, User
+from core.models import EmailNotificationSettings, User
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 
