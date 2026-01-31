@@ -22,6 +22,40 @@ class AIConfigService:
     with support for multiple AI providers and use cases.
     """
 
+    @staticmethod
+    def get_model_parameters(model_name: str, **custom_params) -> Dict[str, Any]:
+        """
+        Get standardized model parameters based on the model name.
+        Handles max_completion_tokens vs max_tokens and temperature restrictions.
+        """
+        params = custom_params.copy()
+        model_lower = model_name.lower()
+
+        # 1. Handle max tokens parameter name
+        max_tokens = params.pop("max_tokens", None)
+        max_completion_tokens = params.pop("max_completion_tokens", None)
+
+        # Use whatever was provided or default to 4000
+        tokens = max_completion_tokens or max_tokens or 4000
+
+        # Newer OpenAI models prefer max_completion_tokens
+        if "gpt-4o" in model_lower or "gpt-5" in model_lower or model_lower.startswith("o1") or model_lower.startswith("o3"):
+            params["max_completion_tokens"] = tokens
+        else:
+            params["max_tokens"] = tokens
+
+        # 2. Handle temperature restrictions
+        # Reasoning models often restrict temperature to 1.0 or don't support it
+        if model_lower.startswith("o1") or model_lower.startswith("o3") or "gpt-5" in model_lower:
+            # Reasoning models usually handle their own temperature/sampling
+            if "temperature" in params:
+                del params["temperature"]
+        elif "temperature" not in params:
+            # Default temperature for non-reasoning models
+            params["temperature"] = 0.7
+
+        return params
+
     # Environment variable mappings for different components
     ENV_VAR_MAPPINGS = {
         # OCR/Expense processing
@@ -98,20 +132,36 @@ class AIConfigService:
         try:
             db_config = cls._get_database_config(db, require_ocr, component)
             if db_config:
-                # Fallback missing or local default URLs to environment variables
+                # 1. Apply provider-specific default URLs if missing from DB
+                provider_name = db_config.get("provider_name")
+                db_url = db_config.get("provider_url")
+
+                if provider_name and (not db_url or "localhost" in db_url or "127.0.0.1" in db_url):
+                    default_url = cls.DEFAULT_API_BASES.get(provider_name.lower())
+                    if default_url:
+                        db_config["provider_url"] = default_url
+                        logger.debug(f"Applied default URL for {provider_name}: {default_url}")
+
+                # 2. Only fallback missing fields to environment variables IF the provider names match
+                # This prevents Ollama env URLs from leaking into OpenAI DB configs
                 env_config = cls._get_env_config(component)
                 if env_config:
-                    # Priority 1: Provider URL / API Base
-                    # If DB has localhost/127.0.0.1 or is empty, use environment
-                    db_url = db_config.get("provider_url")
-                    env_url = env_config.get("provider_url")
-                    if env_url and (not db_url or "localhost" in db_url or "127.0.0.1" in db_url):
-                        db_config["provider_url"] = env_url
+                    env_provider = env_config.get("provider_name")
 
-                    # Priority 2: Other missing fields
-                    for key in ["model_name", "provider_name", "api_key"]:
-                        if not db_config.get(key) and env_config.get(key):
-                            db_config[key] = env_config[key]
+                    if env_provider and provider_name and env_provider.lower() == provider_name.lower():
+                        # Priority: Provider URL / API Base
+                        # If DB URL is still local or empty after default check, use environment if it matches
+                        db_url = db_config.get("provider_url")
+                        env_url = env_config.get("provider_url")
+                        if env_url and (not db_url or "localhost" in db_url or "127.0.0.1" in db_url):
+                            db_config["provider_url"] = env_url
+
+                        # Other missing fields
+                        for key in ["model_name", "api_key"]:
+                            if not db_config.get(key) and env_config.get(key):
+                                db_config[key] = env_config[key]
+                    else:
+                        logger.debug(f"Skipping environment fallback as providers do not match: DB={provider_name}, ENV={env_provider}")
 
                 logger.info(f"Using AI config from database for {component}: {db_config['provider_name']}/{db_config['model_name']} at {db_config.get('provider_url')}")
                 return db_config
@@ -146,6 +196,7 @@ class AIConfigService:
                         # Ensure basic fields exist
                         if custom_config.get("provider_name") and custom_config.get("model_name"):
                              custom_config["source"] = "database_reviewer_custom"
+                             custom_config["use_for_extraction"] = config_data.get("use_for_extraction", False)
                              # Ensure ocr_enabled is true for reviewer component to allow LLM calls
                              if "ocr_enabled" not in custom_config:
                                  custom_config["ocr_enabled"] = True

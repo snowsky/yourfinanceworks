@@ -14,7 +14,7 @@ from jinja2 import Template, TemplateError
 
 from commercial.prompt_management.models.prompt_templates import PromptTemplate, PromptUsageLog
 from core.models.database import get_tenant_context
-from core.utils.data_helpers import ensure_dict
+from core.utils.data_helpers import ensure_dict, ensure_list
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,9 @@ class PromptService:
                     template_copy.category = template.category
                     template_copy.description = template.description
                     template_copy.template_content = overrides[provider_name]
-                    template_copy.template_variables = template.template_variables
+                    template_copy.template_variables = ensure_list(
+                        template.template_variables, "template_variables"
+                    )
                     template_copy.output_format = template.output_format
                     template_copy.default_values = template.default_values
                     template_copy.version = template.version
@@ -192,7 +194,9 @@ class PromptService:
 
         # Validate required variables
         if template.template_variables:
-            required_vars = template.template_variables
+            required_vars = ensure_list(
+                template.template_variables, "template_variables"
+            )
             missing_vars = [var for var in required_vars if var not in merged]
             if missing_vars:
                 logger.warning(

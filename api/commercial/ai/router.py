@@ -20,6 +20,7 @@ from core.models.models_per_tenant import Invoice, Client, ClientNote, AIConfig,
 from core.schemas.settings import Settings as SettingsSchema
 from core.services.tenant_database_manager import tenant_db_manager
 from core.utils.feature_gate import require_feature
+from commercial.ai.services.ai_config_service import AIConfigService
 from core.constants.recommendation_codes import (
     CONSIDER_STRICTER_PAYMENT_TERMS,
     REVIEW_PAYMENT_TERMS_SLOW_CLIENTS,
@@ -264,7 +265,6 @@ async def ai_chat(
             print("No AI config found in database, checking environment variables...")
             logger.info("No AI config found in database, checking environment variables...")
 
-            from commercial.ai.services.ai_config_service import AIConfigService
             env_config = AIConfigService.get_ai_config(db, component="chat", require_ocr=False)
 
             if not env_config:
@@ -322,7 +322,15 @@ Category:"""
 
         # Get intent classification
         model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
-        kwargs = {"model": model_name, "messages": [{"role": "user", "content": intent_prompt}], "max_tokens": 50}
+
+        # Standardize model parameters
+        model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
+
+        kwargs = {
+            "model": model_name, 
+            "messages": [{"role": "user", "content": intent_prompt}],
+            **model_params
+        }
 
         if ai_config.provider_name == "ollama" and ai_config.provider_url:
             kwargs["api_base"] = ai_config.provider_url

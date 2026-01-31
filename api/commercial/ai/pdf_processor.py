@@ -14,6 +14,7 @@ from core.routers.auth import get_current_user
 from commercial.ai.services.ocr_service import track_ai_usage
 from commercial.prompt_management.services.prompt_service import get_prompt_service
 from core.utils.feature_gate import require_feature
+from commercial.ai.services.ai_config_service import AIConfigService
 
 router = APIRouter(prefix="/invoices", tags=["pdf-processing"])
 logger = logging.getLogger(__name__)
@@ -204,11 +205,12 @@ Respond with JSON only:"""
             model_name = f"anthropic/{ai_config.model_name}"
 
         # Prepare completion arguments
+        model_params = AIConfigService.get_model_parameters(model_name, max_tokens=1500, temperature=0.1)
+
         kwargs = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1500,  # Increased for better responses
-            "temperature": 0.1
+            **model_params
         }
 
         # Add provider-specific configuration
