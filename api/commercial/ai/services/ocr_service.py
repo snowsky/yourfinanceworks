@@ -992,9 +992,12 @@ async def _convert_raw_ocr_to_json(
 
                 # Create Ollama client with custom host
                 client = ollama.Client(host=base_url)
-                response = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: client.chat(model=model_name, messages=messages, stream=False)
+                response = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: client.chat(model=model_name, messages=messages, stream=False)
+                    ),
+                    timeout=90.0
                 )
                 content = response.get("message", {}).get("content", "")
             except Exception as e:
@@ -1004,6 +1007,11 @@ async def _convert_raw_ocr_to_json(
             # Use LiteLLM for other providers
             try:
                 from litellm import completion
+                # Sanitize kwargs for LiteLLM to prevent duplicate 'model' argument
+                if "model" in kwargs:
+                    del kwargs["model"]
+                # Set 90s timeout for LiteLLM requests
+                kwargs["request_timeout"] = 90.0
                 response = await asyncio.get_event_loop().run_in_executor(
                     None,
                     lambda: completion(model=f"{provider_name}/{model_name}", messages=messages, **kwargs)
@@ -1546,15 +1554,19 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
 
                 # Use format="json" if requested
                 options = {"temperature": 0.1}
-                response = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    lambda: client.chat(
-                        model=model_name, 
-                        messages=messages, 
-                        format="json" if custom_prompt is None else None, # Only force JSON for standard extraction
-                        options=options,
-                        stream=False
-                    )
+                # Wrap in wait_for to prevent indefinite hangs
+                response = await asyncio.wait_for(
+                    asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: client.chat(
+                            model=model_name,
+                            messages=messages,
+                            format="json" if custom_prompt is None else None, # Only force JSON for standard extraction
+                            options=options,
+                            stream=False
+                        )
+                    ),
+                    timeout=90.0
                 )
 
                 result = response.get("message", {}).get("content", "")
@@ -1572,10 +1584,11 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                 logger.error(f"Ollama direct OCR processing failed: {e}")
                 return {"error": str(e)}
 
-        else:
             # Use LiteLLM for other providers (OpenAI, Anthropic, Google, etc.)
             try:
                 from litellm import completion
+                import litellm
+                litellm.suppress_debug_info = True
 
                 # Format model name for LiteLLM
                 if provider_name == "openai":
@@ -1646,6 +1659,8 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
 
                 import time
                 t0 = time.time()
+                # Set 90s timeout for LiteLLM requests
+                kwargs["request_timeout"] = 90.0
                 response = await asyncio.get_event_loop().run_in_executor(
                     None,
                     lambda: completion(messages=messages, **kwargs)
@@ -1699,7 +1714,7 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
         return {"error": str(e)}
 
 
-async def process_attachment_inline(db: Session, expense_id: int, attachment_id: int, file_path: str, tenant_id: int) -> None:
+async def process_attachment_inline(db: Session, expense_id: int, attachment_id: int, file_path: str, tenant_id: int, ai_config: Optional[Dict[str, Any]] = None) -> None:
     """Fallback inline processing when Kafka is not configured."""
     logger.info(f"Processing attachment inline: expense_id={expense_id} attachment_id={attachment_id} file={file_path}")
     is_temp_file = False  # Track if we created a temporary file from cloud storage
@@ -1842,51 +1857,52 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         return
 
     # Fetch AI config from database (same pattern as bank statement service)
-    ai_config = None
-    try:
-        # First try to find an AI config with OCR enabled
-        ai_row = db.query(AIConfigModel).filter(
-            AIConfigModel.is_active == True,
-            AIConfigModel.tested == True,
-            AIConfigModel.ocr_enabled == True
-        ).order_by(AIConfigModel.is_default.desc()).first()
-
-        if ai_row:
-            ai_config = {
-                "provider_name": ai_row.provider_name,
-                "provider_url": ai_row.provider_url,
-                "api_key": ai_row.api_key,
-                "model_name": ai_row.model_name,
-                "ocr_enabled": ai_row.ocr_enabled,
-            }
-            logger.info(f"Using OCR-enabled AI config from database: provider={ai_row.provider_name}, model={ai_row.model_name}")
-        else:
-            # If no OCR-enabled config found, check if any active config exists and log the issue
-            any_active_config = db.query(AIConfigModel).filter(
+    # If ai_config is passed (e.g. from consumer), use it directly instead of DB lookup
+    if not ai_config:
+        try:
+            # First try to find an AI config with OCR enabled
+            ai_row = db.query(AIConfigModel).filter(
                 AIConfigModel.is_active == True,
-                AIConfigModel.tested == True
-            ).first()
-            if any_active_config:
-                logger.warning(f"No OCR-enabled AI config found. Active config exists for {any_active_config.provider_name} but OCR is not enabled. Falling back to environment variables.")
+                AIConfigModel.tested == True,
+                AIConfigModel.ocr_enabled == True
+            ).order_by(AIConfigModel.is_default.desc()).first()
+
+            if ai_row:
+                ai_config = {
+                    "provider_name": ai_row.provider_name,
+                    "provider_url": ai_row.provider_url,
+                    "api_key": ai_row.api_key,
+                    "model_name": ai_row.model_name,
+                    "ocr_enabled": ai_row.ocr_enabled,
+                }
+                logger.info(f"Using OCR-enabled AI config from database: provider={ai_row.provider_name}, model={ai_row.model_name}")
             else:
-                logger.info("No active AI config found in database, falling back to environment variables")
+                # If no OCR-enabled config found, check if any active config exists and log the issue
+                any_active_config = db.query(AIConfigModel).filter(
+                    AIConfigModel.is_active == True,
+                    AIConfigModel.tested == True
+                ).first()
+                if any_active_config:
+                    logger.warning(f"No OCR-enabled AI config found. Active config exists for {any_active_config.provider_name} but OCR is not enabled. Falling back to environment variables.")
+                else:
+                    logger.info("No active AI config found in database, falling back to environment variables")
+
+                # Fallback to environment variables
+                ai_config = _get_ai_config_from_env()
+                if ai_config:
+                    logger.info(f"Using AI config from environment variables: provider={ai_config.get('provider_name')}, model={ai_config.get('model_name')}")
+                else:
+                    logger.warning("No AI configuration available from database or environment variables")
+        except Exception as e:
+            logger.warning(f"Failed to fetch AI config from database: {e}, falling back to environment variables")
+            # Don't log full stack trace for encryption errors to avoid leaking sensitive data
+            if "decryption" not in str(e).lower() and "encryption" not in str(e).lower():
+                logger.debug(f"AI config fetch error details: {str(e)}", exc_info=True)
+            else:
+                logger.debug("AI config fetch failed due to encryption/decryption error (details not logged for security)")
 
             # Fallback to environment variables
             ai_config = _get_ai_config_from_env()
-            if ai_config:
-                logger.info(f"Using AI config from environment variables: provider={ai_config.get('provider_name')}, model={ai_config.get('model_name')}")
-            else:
-                logger.warning("No AI configuration available from database or environment variables")
-    except Exception as e:
-        logger.warning(f"Failed to fetch AI config from database: {e}, falling back to environment variables")
-        # Don't log full stack trace for encryption errors to avoid leaking sensitive data
-        if "decryption" not in str(e).lower() and "encryption" not in str(e).lower():
-            logger.debug(f"AI config fetch error details: {str(e)}", exc_info=True)
-        else:
-            logger.debug("AI config fetch failed due to encryption/decryption error (details not logged for security)")
-
-        # Fallback to environment variables
-        ai_config = _get_ai_config_from_env()
         if ai_config:
             logger.info(f"Using AI config from environment variables: provider={ai_config.get('provider_name')}, model={ai_config.get('model_name')}")
         else:
@@ -1940,7 +1956,7 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         ai_extraction_attempted = True
 
     # Track AI usage if ai_config was used and OCR was actually attempted
-    if ai_config and not result.get("provider_not_supported"):
+    if ai_config and result and not result.get("provider_not_supported"):
         logger.info(f"🔍 About to track AI usage for config: {ai_config}")
         # Calculate processing metadata
         text_length = len(result.get("raw", "")) if isinstance(result, dict) and "raw" in result else 0
@@ -1956,9 +1972,9 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             text_length=text_length
         )
         logger.info("✅ OCR AI usage tracking completed")
-    elif result.get("provider_not_supported"):
+    elif result and result.get("provider_not_supported"):
         logger.info(f"⚠️ Skipping AI usage tracking - OCR not supported for provider: {ai_config.get('provider_name') if ai_config else 'unknown'}")
-    elif result.get("ocr_not_enabled"):
+    elif result and result.get("ocr_not_enabled"):
         logger.info(f"⚠️ Skipping AI usage tracking - OCR not enabled for provider: {ai_config.get('provider_name') if ai_config else 'unknown'}")
 
     # Update DB with result if still not overridden
