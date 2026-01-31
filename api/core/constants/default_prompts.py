@@ -34,8 +34,8 @@ Respond with JSON only:""",
         "version": 1,
         "is_active": True,
         "provider_overrides": {
-            "openai": "Extract invoice information from this text and return ONLY valid JSON. Focus on accurate line item extraction and total calculations.",
-            "anthropic": "As an expert in invoice analysis, extract structured data from this invoice text with high precision and attention to financial details."
+            # "openai": "Extract invoice information from this text and return ONLY valid JSON. Focus on accurate line item extraction and total calculations.",
+            # "anthropic": "As an expert in invoice analysis, extract structured data from this invoice text with high precision and attention to financial details."
         }
     },
     {
@@ -53,7 +53,7 @@ OCR Output:
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are a data extraction expert. Convert this OCR output to clean, compact JSON.",
-            "anthropic": "As a data extraction specialist, analyze this OCR text and structure it into the requested JSON format."
+            # "anthropic": "As a data extraction specialist, analyze this OCR text and structure it into the requested JSON format."
         }
     },
     {
@@ -99,7 +99,7 @@ Respond with ONLY valid JSON in this exact format:
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are an AI assistant specialized in identifying expense-related emails.",
-            "anthropic": "As an expert in email analysis, determine if this email contains financial transactions or expense-related content."
+            # "anthropic": "As an expert in email analysis, determine if this email contains financial transactions or expense-related content."
         }
     },
     {
@@ -124,7 +124,7 @@ Document path: {{file_path}}""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are an invoice data extraction AI. Extract key invoice fields and respond ONLY with compact JSON.",
-            "anthropic": "As an expert in invoice analysis, extract all relevant invoice data with high precision and attention to financial details."
+            # "anthropic": "As an expert in invoice analysis, extract all relevant invoice data with high precision and attention to financial details."
         }
     },
     {
@@ -148,7 +148,7 @@ Document path: {{file_path}}""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "Analyze this invoice document and classify it. Respond ONLY with JSON.",
-            "anthropic": "As an expert in document analysis, classify this invoice document with high precision."
+            # "anthropic": "As an expert in document analysis, classify this invoice document with high precision."
         }
     },
   {
@@ -201,7 +201,7 @@ JSON:""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are a financial data extraction expert. Extract ALL bank transactions from the text. Be thorough and extract every single transaction.",
-            "anthropic": "As an expert in financial data analysis, meticulously extract ALL transactions with high precision. Do not skip any transactions."
+            # "anthropic": "As an expert in financial data analysis, meticulously extract ALL transactions with high precision. Do not skip any transactions."
         }
     },
     {
@@ -344,7 +344,7 @@ Return ONLY valid JSON:""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are a Senior Financial Auditor. Extract invoice data with absolute precision for a forensic review.",
-            "anthropic": "As an expert forensic accountant, extract every detail from this invoice text. Double-check all mathematical calculations and line item totals."
+            # "anthropic": "As an expert forensic accountant, extract every detail from this invoice text. Double-check all mathematical calculations and line item totals."
         }
     },
     {
@@ -386,7 +386,7 @@ If a field is not present in the OCR output, set it to null. Return ONLY the JSO
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are an Expense Auditor. Re-extract receipt data with meticulous attention to subtotals and taxes. NEVER hallucinate vendor names - only extract what is clearly present in the OCR data.",
-            "anthropic": "As a financial compliance specialist, re-extract data from this OCR output with absolute precision. Verify vendor names are exactly as shown - do not guess or infer brand names."
+            # "anthropic": "As a financial compliance specialist, re-extract data from this OCR output with absolute precision. Verify vendor names are exactly as shown - do not guess or infer brand names."
         }
     },
     {
@@ -432,7 +432,7 @@ Return ONLY valid JSON:""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "You are a Bank Reconciliation Specialist. Extract every transaction with high fidelity. Ensure all amounts are correctly signed based on context.",
-            "anthropic": "As an expert in banking data analysis, meticulously extract all transaction entries. Identify transaction types from context and ensure correct negative/positive signs for amounts."
+            # "anthropic": "As an expert in banking data analysis, meticulously extract all transaction entries. Identify transaction types from context and ensure correct negative/positive signs for amounts."
         }
     },
     {
@@ -450,7 +450,26 @@ Return ONLY the extracted text, no explanations.""",
         "is_active": True,
         "provider_overrides": {
             # "openai": "Extract all text from this document image accurately. Preserve layout and details.",
-            "anthropic": "As a document specialist, transcribe all text from this image with high fidelity, including fine print and peripheral data."
+            # "anthropic": "As a document specialist, transcribe all text from this image with high fidelity, including fine print and peripheral data."
         }
     },
+    {
+        "name": "expense_receipt_vision_extraction",
+        "category": "ocr",
+        "description": "Extract structured expense data from receipt images using vision models",
+        "template_content": """You are an OCR parser. Extract key expense fields and respond ONLY with compact JSON.
+Required keys: amount, currency, expense_date (YYYY-MM-DD), category, vendor, tax_rate, tax_amount, total_amount, payment_method, reference_number, notes, receipt_timestamp (YYYY-MM-DD HH:MM:SS if available).
+For receipt_timestamp, extract the exact time from the receipt if visible (not just the date). Look for timestamps like '14:32', '2:45 PM', etc.
+If a field is unknown, set it to null.
+IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations, no headers like '**Receipt Data Extraction**'.""",
+        "template_variables": [],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {
+            # "openai": "You are an OCR parser. Extract key expense fields from this receipt image into compact JSON.",
+            # "anthropic": "As a receipt processing specialist, extract all expense details from this image into the required JSON format."
+        }
+    }
 ]

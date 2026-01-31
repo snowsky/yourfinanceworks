@@ -12,6 +12,7 @@ based on document type and extraction requirements.
 import logging
 import time
 from typing import Dict, Any, Optional, List, Union
+from sqlalchemy.orm import Session
 from dataclasses import dataclass
 from pathlib import Path
 from enum import Enum
@@ -197,7 +198,7 @@ class StructuredDataEngine:
             logger.warning(f"AI vision OCR not available: {e}")
             self.ai_ocr_function = None
     
-    async def extract(self, file_path: str, document_type: DocumentType, schema: Optional[Dict[str, Any]] = None) -> ExtractionResult:
+    async def extract(self, file_path: str, document_type: DocumentType, schema: Optional[Dict[str, Any]] = None, db_session: Optional[Session] = None) -> ExtractionResult:
         """
         Extract structured data from document using AI vision models.
         
@@ -205,6 +206,7 @@ class StructuredDataEngine:
             file_path: Path to the document file
             document_type: Type of document being processed
             schema: Expected data schema (optional)
+            db_session: Database session for usage logging
             
         Returns:
             ExtractionResult with structured data and metadata
@@ -231,7 +233,8 @@ class StructuredDataEngine:
             result = await self.ai_ocr_function(
                 file_path=safe_path,
                 custom_prompt=custom_prompt,
-                ai_config=self.config.ai_config
+                ai_config=self.config.ai_config,
+                db_session=db_session
             )
             
             processing_time = time.time() - start_time
@@ -345,7 +348,8 @@ class UnifiedOCRService:
         self, 
         file_path: str, 
         document_type: Optional[DocumentType] = None,
-        schema: Optional[Dict[str, Any]] = None
+        schema: Optional[Dict[str, Any]] = None,
+        db_session: Optional[Session] = None
     ) -> ExtractionResult:
         """
         Extract structured data from document using AI vision models.
@@ -354,6 +358,7 @@ class UnifiedOCRService:
             file_path: Path to the document file
             document_type: Type of document (auto-detected if not provided)
             schema: Expected data schema (optional)
+            db_session: Database session for usage logging
             
         Returns:
             ExtractionResult with structured data
@@ -362,7 +367,7 @@ class UnifiedOCRService:
             document_type = self._detect_document_type(file_path)
         
         logger.info(f"Extracting structured data from {document_type.value}: {Path(file_path).name}")
-        return await self.structured_engine.extract(file_path, document_type, schema)
+        return await self.structured_engine.extract(file_path, document_type, schema, db_session=db_session)
     
     def _detect_document_type(self, file_path: str) -> DocumentType:
         """

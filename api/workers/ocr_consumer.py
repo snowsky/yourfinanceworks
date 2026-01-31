@@ -338,7 +338,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
                     ocr_service = UnifiedOCRService(ocr_config)
 
                     # Extract data from file using the service's extract_structured_data method
-                    result = await ocr_service.extract_structured_data(file_path, DocumentType.EXPENSE_RECEIPT)
+                    result = await ocr_service.extract_structured_data(file_path, DocumentType.EXPENSE_RECEIPT, db_session=db)
 
                     if not result.success:
                         raise Exception(result.error_message or "Failed to extract expense data")

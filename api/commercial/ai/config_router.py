@@ -138,10 +138,10 @@ async def create_ai_config(
                 action="CREATE_AI_CONFIG",
                 resource_type="ai_config",
                 resource_id=str(db_config.id),
-                resource_name=db_config.name or f"AI Config {db_config.id}",
+                resource_name=f"{db_config.provider_name}/{db_config.model_name}",
                 details={
-                    "config_name": db_config.name or f"AI Config {db_config.id}",
-                    "config_provider": db_config.provider,
+                    "config_name": f"{db_config.provider_name}/{db_config.model_name}",
+                    "config_provider": db_config.provider_name,
                     "config_id": db_config.id,
                     "is_default": db_config.is_default
                 },
@@ -206,10 +206,10 @@ async def update_ai_config(
                 action="UPDATE_AI_CONFIG",
                 resource_type="ai_config",
                 resource_id=str(config_id),
-                resource_name=db_config.name or f"AI Config {config_id}",
+                resource_name=f"{db_config.provider_name}/{db_config.model_name}",
                 details={
-                    "config_name": db_config.name or f"AI Config {config_id}",
-                    "config_provider": db_config.provider,
+                    "config_name": f"{db_config.provider_name}/{db_config.model_name}",
+                    "config_provider": db_config.provider_name,
                     "config_id": config_id,
                     "updated_fields": list(update_data.keys()),
                     "is_default": db_config.is_default
@@ -260,10 +260,10 @@ async def delete_ai_config(
                 action="DELETE_AI_CONFIG",
                 resource_type="ai_config",
                 resource_id=str(config_id),
-                resource_name=db_config.name or f"AI Config {config_id}",
+                resource_name=f"{db_config.provider_name}/{db_config.model_name}",
                 details={
-                    "config_name": db_config.name or f"AI Config {config_id}",
-                    "config_provider": db_config.provider,
+                    "config_name": f"{db_config.provider_name}/{db_config.model_name}",
+                    "config_provider": db_config.provider_name,
                     "config_id": config_id
                 },
                 status="success"

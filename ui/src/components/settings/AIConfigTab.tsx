@@ -266,6 +266,9 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                 success: result.success,
                 message: result.message || (result.success ? "Connection successful" : "Connection failed")
             });
+            if (result.success) {
+                setNewAIConfig(prev => ({ ...prev, tested: true }));
+            }
         },
         onError: (error) => {
             setTestResult({
@@ -318,11 +321,11 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
 
     const handleAIConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setNewAIConfig(prev => ({ ...prev, [name]: value }));
+        setNewAIConfig(prev => ({ ...prev, [name]: value, tested: false }));
     };
 
     const handleAIConfigToggleChange = (field: string, value: any) => {
-        setNewAIConfig(prev => ({ ...prev, [field]: value }));
+        setNewAIConfig(prev => ({ ...prev, [field]: value, tested: field === "is_active" || field === "ocr_enabled" || field === "is_default" ? prev.tested : false }));
     };
 
     const handleTestConfig = () => {
