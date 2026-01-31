@@ -4,7 +4,7 @@ from typing import Optional, Union, List, Dict, Any
 import logging
 import os
 import signal
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import tempfile
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, select, func
+from sqlalchemy import create_engine, select, func, or_, and_
 
 from core.models.database import get_db, get_master_db, set_tenant_context, clear_tenant_context
 from core.models.models import Tenant
@@ -282,6 +282,9 @@ class ReviewProcessorWorker:
                 logger.warning(f"Received review event without tenant_id, entity_type, or entity_id: {event}")
                 return
 
+            # Set tenant context for encryption and standard DB logic
+            set_tenant_context(tenant_id)
+
             # Check if review worker is enabled for this tenant
             SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
             with SessionLocal_tenant() as session:
@@ -290,10 +293,37 @@ class ReviewProcessorWorker:
                     return
 
             logger.info(f"Processing event-driven review for {entity_type} {entity_id} for tenant {tenant_id}")
-            if model_override:
-                logger.info(f"Using model override: {model_override}")
-            if prompt_override:
-                logger.info(f"Using prompt override: {prompt_override[:50]}...")
+
+            # Re-fetch entity to check freshness and status
+            SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
+            with SessionLocal_tenant() as session:
+                if entity_type == "invoice":
+                    entity = session.query(Invoice).filter(Invoice.id == entity_id).first()
+                elif entity_type == "expense":
+                    entity = session.query(Expense).filter(Expense.id == entity_id).first()
+                elif entity_type in ["bank_statement", "statement"]:
+                    entity = session.query(BankStatement).filter(BankStatement.id == entity_id).first()
+                else:
+                    entity = None
+
+                if not entity:
+                    logger.warning(f"Entity {entity_type} {entity_id} not found for review")
+                    return
+
+                # Skip if already reviewed
+                if entity.review_status == "reviewed":
+                    logger.info(f"Entity {entity_type} {entity_id} already reviewed, skipping event.")
+                    return
+
+                # Attempt to acquire tenant lock to avoid overlap with polling
+                # Using a session-level lock that will be released when the block ends
+                try:
+                    lock_acquired = session.execute(text("SELECT pg_try_advisory_xact_lock(:lock_id)"), {"lock_id": tenant_id}).scalar()
+                    if not lock_acquired:
+                        logger.info(f"Tenant {tenant_id} lock held by poller, skipping event for {entity_type} {entity_id}")
+                        return
+                except Exception as e:
+                    logger.warning(f"Failed to check advisory lock for tenant {tenant_id}: {e}")
 
             if entity_type == "invoice":
                 await self.process_single_invoice(tenant_id, entity_id, model_override, prompt_override)
@@ -308,6 +338,8 @@ class ReviewProcessorWorker:
 
         except Exception as e:
             logger.error(f"Error processing review event: {e}", exc_info=True)
+        finally:
+            clear_tenant_context()
 
     async def process_all_tenants(self):
         """Iterate through all active tenants and process their reviews.
@@ -398,7 +430,7 @@ class ReviewProcessorWorker:
         try:
             # Check if review worker is enabled
             if not AIConfigService.is_review_worker_enabled(session):
-                logger.debug(f"Review integration disabled for tenant {tenant_id}")
+                logger.debug(f"Review integration disabled for tenant {tenant.id}")
                 return False
 
             logger.info(f"Starting review processing for tenant {tenant.id} with batch_size={self.batch_size}")
@@ -599,8 +631,19 @@ class ReviewProcessorWorker:
             return
 
         # Fetch invoices needing review
+        # Filter for items that are either:
+        # 1. Not started
+        # 2. Pending but stale (updated_at > 30 mins ago), which suggests a crashed worker
+        stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=30)
+
         all_invoices = db.query(Invoice).filter(
-            Invoice.review_status.in_(["not_started", "pending"])
+            or_(
+                Invoice.review_status == "not_started",
+                and_(
+                    Invoice.review_status == "pending",
+                    Invoice.updated_at < stale_threshold
+                )
+            )
         ).limit(self.batch_size).all()
 
         if not all_invoices:
@@ -665,7 +708,11 @@ class ReviewProcessorWorker:
 
             # Fetch OCR config for Pass 1 (vision support)
             # TODO: Future updates should allow users to explicitly configure both vision (OCR) and text-based (Reviewer) models in the AI Configuration tab.
-            ocr_config = AIConfigService.get_ai_config(db, component="ocr", require_ocr=True) or config
+            if config.get("use_for_extraction"):
+                ocr_config = config
+                logger.info(f"Using reviewer model for Pass 1 extraction (Invoice) as per configuration")
+            else:
+                ocr_config = AIConfigService.get_ai_config(db, component="ocr", require_ocr=True) or config
 
             if local_path.lower().endswith('.pdf'):
                 try:
@@ -742,8 +789,19 @@ class ReviewProcessorWorker:
             logger.warning(f"Review worker enabled but no reviewer config found for tenant {tenant.id}")
             return
 
+        # Filter for items that are either:
+        # 1. Not started
+        # 2. Pending but stale (updated_at > 30 mins ago), which suggests a crashed worker
+        stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=30)
+
         all_expenses = db.query(Expense).filter(
-            Expense.review_status.in_(["not_started", "pending"])
+            or_(
+                Expense.review_status == "not_started",
+                and_(
+                    Expense.review_status == "pending",
+                    Expense.updated_at < stale_threshold
+                )
+            )
         ).limit(self.batch_size).all()
 
         if not all_expenses:
@@ -803,8 +861,12 @@ class ReviewProcessorWorker:
             raw_context = ""
 
             # Fetch OCR config for Pass 1 (vision support)
-            # TODO: Future updates should allow users to explicitly configure both vision (OCR) and text-based (Reviewer) models in the AI Configuration tab.
-            ocr_config = AIConfigService.get_ai_config(db, component="ocr", require_ocr=True) or config
+            # If reviewer is configured to be used for extraction, prioritize it
+            if config.get("use_for_extraction"):
+                ocr_config = config
+                logger.info(f"Using reviewer model for Pass 1 extraction as per configuration")
+            else:
+                ocr_config = AIConfigService.get_ai_config(db, component="ocr", require_ocr=True) or config
 
             if local_path.lower().endswith('.pdf'):
                 try:
@@ -880,8 +942,19 @@ class ReviewProcessorWorker:
             logger.warning(f"Review worker enabled but no reviewer config found for tenant {tenant.id}")
             return
 
+        # Filter for items that are either:
+        # 1. Not started
+        # 2. Pending but stale (updated_at > 10 mins ago), which suggests a crashed worker
+        stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
+
         all_stmts = db.query(BankStatement).filter(
-            BankStatement.review_status.in_(["not_started", "pending"]),
+            or_(
+                BankStatement.review_status == "not_started",
+                and_(
+                    BankStatement.review_status == "pending",
+                    BankStatement.updated_at < stale_threshold
+                )
+            ),
             BankStatement.status == ProcessingStatus.PROCESSED.value
         ).limit(max(1, self.batch_size // 2)).all()
 

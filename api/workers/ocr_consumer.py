@@ -518,8 +518,34 @@ class ExpenseMessageHandler(BaseMessageHandler):
                         db.rollback()
                         raise ProcessingError("Failed to update expense status")
 
+                    # Fetch AI config from database to ensure consistency with what user configured
+                    ai_config = None
+                    try:
+                        from core.models.models_per_tenant import AIConfig as AIConfigModel
+                        from commercial.ai.services.ai_config_service import AIConfigService
+
+                        # Use new service if possible or query directly
+                        # We want ANY valid OCR config, even if not explicitly "tested" via the UI button
+                        # This fixes the issue where valid configs are ignored because they weren't "tested"
+                        ai_row = db.query(AIConfigModel).filter(
+                            AIConfigModel.is_active == True,
+                            AIConfigModel.ocr_enabled == True
+                        ).order_by(AIConfigModel.is_default.desc()).first()
+
+                        if ai_row:
+                            ai_config = {
+                                "provider_name": ai_row.provider_name,
+                                "provider_url": ai_row.provider_url,
+                                "api_key": ai_row.api_key,
+                                "model_name": ai_row.model_name,
+                                "ocr_enabled": ai_row.ocr_enabled,
+                            }
+                            self.logger.info(f"Using OCR config from DB: {ai_row.provider_name}/{ai_row.model_name}")
+                    except Exception as config_error:
+                         self.logger.warning(f"Failed to fetch AI config in consumer: {config_error}")
+
                     # Process with OCR
-                    await process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id)
+                    await process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id, ai_config=ai_config)
 
                     # Refresh and check result
                     db.refresh(exp)
@@ -1478,10 +1504,10 @@ class InvoiceMessageHandler(BaseMessageHandler):
 
         # Look for existing default client
         default_client = db.query(Client).filter(Client.name == "Default Client").first()
-        
+
         if default_client:
             return default_client.id
-        
+
         # Create new default client
         default_client = Client(
             name="Default Client",
