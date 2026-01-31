@@ -607,6 +607,20 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                                     <Label htmlFor="use_custom_reviewer">Use Custom Reviewer AI Configuration</Label>
                                 </div>
 
+                                {reviewerConfig.use_custom_config && (
+                                    <div className="flex items-center space-x-2">
+                                        <Switch
+                                            id="use_for_extraction"
+                                            checked={reviewerConfig.use_for_extraction}
+                                            onCheckedChange={(checked) => setReviewerConfig((prev: any) => ({ ...prev, use_for_extraction: checked }))}
+                                        />
+                                        <Label htmlFor="use_for_extraction" className="flex items-center gap-1.5">
+                                            Use Reviewer model for extraction pass
+                                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">Pass 1</Badge>
+                                        </Label>
+                                    </div>
+                                )}
+
                                 {!reviewerConfig.use_custom_config ? (
                                     <div className="p-4 bg-muted/30 rounded-lg border border-border/50 text-sm text-muted-foreground italic">
                                         The reviewer will use the system default AI provider and model.

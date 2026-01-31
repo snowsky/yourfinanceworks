@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { Minus } from "lucide-react";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
@@ -1102,18 +1102,40 @@ const Invoices = () => {
                                 <Wand className="h-3 w-3 mr-1" />
                                 Review Diff
                               </Button>
-                            ) : invoice.review_status === 'reviewed' || invoice.review_status === 'no_diff' ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Reviewed</Badge>
+                            ) : (invoice.review_status === 'reviewed' || invoice.review_status === 'no_diff') ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <Badge variant="outline" className={cn(
+                                  "font-medium shadow-none",
+                                  invoice.review_status === 'reviewed' ? "bg-green-50 text-green-700 border-green-200" : "bg-blue-50 text-blue-700 border-blue-200"
+                                )}>
+                                  {invoice.review_status === 'reviewed' ? 'Reviewed' : 'Verified'}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleReviewClick(invoice)}
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  View Report
+                                </Button>
+                              </div>
                             ) : (
                                 <div className="flex flex-col gap-1 items-start">
-                                <Badge variant="outline" className={
+                                <Badge variant="outline" className={cn(
+                                  "font-medium shadow-none",
                                   invoice.review_status === 'pending'
                                     ? "bg-blue-50 text-blue-700 border-blue-200"
                                     : invoice.review_status === 'rejected'
                                     ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : invoice.review_status === 'failed'
+                                    ? "bg-red-50 text-red-700 border-red-200"
                                     : "bg-muted/50 text-muted-foreground border-transparent"
-                                }>
-                                  {invoice.review_status === 'pending' ? 'Review Pending' : invoice.review_status === 'rejected' ? 'Review Dismissed' : t('common.not_started', { defaultValue: 'Not Started' })}
+                                )}>
+                                  {invoice.review_status === 'pending' ? 'Review Pending' :
+                                   invoice.review_status === 'rejected' ? 'Review Dismissed' :
+                                   invoice.review_status === 'failed' ? 'Review Failed' :
+                                   t('common.not_started', { defaultValue: 'Not Started' })}
                                 </Badge>
                                 {(!invoice.review_status || invoice.review_status === 'not_started' || invoice.review_status === 'failed' || invoice.review_status === 'rejected') && (
                                   <Button 
@@ -1126,7 +1148,7 @@ const Invoices = () => {
                                     Trigger Review
                                   </Button>
                                 )}
-                                {(invoice.review_status === 'pending' || invoice.review_status === 'rejected') && (
+                                {(invoice.review_status === 'pending' || invoice.review_status === 'rejected' || invoice.review_status === 'failed') && (
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -1134,7 +1156,7 @@ const Invoices = () => {
                                     onClick={() => handleCancelReview(invoice.id)}
                                   >
                                     <X className="h-2.5 w-2.5 mr-1" />
-                                    {invoice.review_status === 'rejected' ? 'Clear Status' : 'Cancel Review'}
+                                    {invoice.review_status === 'pending' ? 'Cancel Review' : 'Clear Status'}
                                   </Button>
                                 )}
                                 </div>
@@ -1272,6 +1294,7 @@ const Invoices = () => {
           isRejecting={isRejectingReview}
           isRetriggering={isRetriggeringReview}
           type="invoice"
+          readOnly={selectedReviewInvoice?.review_status === 'reviewed' || selectedReviewInvoice?.review_status === 'no_diff'}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1355,20 +1356,40 @@ const Expenses = () => {
                               <AlertCircle className="w-3 h-3 mr-1" />
                               Review Diff
                             </Button>
-                          ) : e.review_status === 'reviewed' ? (
-                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Reviewed</Badge>
-                          ) : e.review_status === 'no_diff' ? (
-                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Verified</Badge>
+                          ) : (e.review_status === 'reviewed' || e.review_status === 'no_diff') ? (
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className={cn(
+                                "font-medium shadow-none",
+                                e.review_status === 'reviewed' ? "text-green-600 border-green-200 bg-green-50" : "text-blue-600 border-blue-200 bg-blue-50"
+                              )}>
+                                {e.review_status === 'reviewed' ? 'Reviewed' : 'Verified'}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleReviewClick(e)}
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View Report
+                              </Button>
+                            </div>
                           ) : (
                             <div className="flex flex-col gap-1 items-start">
-                              <Badge variant="outline" className={
+                              <Badge variant="outline" className={cn(
+                                "font-medium shadow-none",
                                 e.review_status === 'pending'
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
                                   : e.review_status === 'rejected'
                                   ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : e.review_status === 'failed'
+                                  ? "bg-red-50 text-red-700 border-red-200"
                                   : "bg-muted/50 text-muted-foreground border-transparent"
-                              }>
-                                {e.review_status === 'pending' ? 'Review Pending' : e.review_status === 'rejected' ? 'Review Dismissed' : t('common.not_started', { defaultValue: 'Not Started' })}
+                              )}>
+                                {e.review_status === 'pending' ? 'Review Pending' : 
+                                 e.review_status === 'rejected' ? 'Review Dismissed' : 
+                                 e.review_status === 'failed' ? 'Review Failed' : 
+                                 t('common.not_started', { defaultValue: 'Not Started' })}
                               </Badge>
                               {(!e.review_status || e.review_status === 'not_started' || e.review_status === 'failed' || e.review_status === 'rejected') && (
                                 <Button
@@ -1381,7 +1402,7 @@ const Expenses = () => {
                                   Trigger Review
                                 </Button>
                               )}
-                              {(e.review_status === 'pending' || e.review_status === 'rejected') && (
+                              {(e.review_status === 'pending' || e.review_status === 'rejected' || e.review_status === 'failed') && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1389,7 +1410,7 @@ const Expenses = () => {
                                   onClick={() => handleCancelReview(e.id)}
                                 >
                                   <X className="h-2.5 w-2.5 mr-1" />
-                                  {e.review_status === 'rejected' ? 'Clear Status' : 'Cancel Review'}
+                                  {e.review_status === 'pending' ? 'Cancel Review' : 'Clear Status'}
                                 </Button>
                               )}
                             </div>
@@ -1810,6 +1831,27 @@ const Expenses = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Permanent Delete Modal */}
+        <AlertDialog open={!!expenseToPermanentlyDelete} onOpenChange={(open) => !open && setExpenseToPermanentlyDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('expenseRecycleBin.permanent_delete_confirm_title', { defaultValue: 'Permanently Delete Expense?' })}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('expenseRecycleBin.permanent_delete_confirm_description', { defaultValue: 'This action cannot be undone. This will permanently delete the expense and remove it from our servers.' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => expenseToPermanentlyDelete && handlePermanentlyDeleteExpense(expenseToPermanentlyDelete)}
+              >
+                {t('expenseRecycleBin.permanent_delete', { defaultValue: 'Permanently Delete' })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Empty Recycle Bin Modal */}
         <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
           <AlertDialogContent>
@@ -1850,6 +1892,7 @@ const Expenses = () => {
           isRejecting={isRejectingReview}
           isRetriggering={isRetriggeringReview}
           type="expense"
+          readOnly={selectedReviewExpense?.review_status === 'reviewed' || selectedReviewExpense?.review_status === 'no_diff'}
         />
       )}
     </>

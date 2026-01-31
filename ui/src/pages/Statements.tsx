@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -1335,18 +1336,40 @@ export default function Statements() {
                               <Wand className="h-3 w-3 mr-1" />
                               Review Diff
                             </Button>
-                          ) : s.review_status === 'reviewed' || s.review_status === 'no_diff' ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">{t('statements.review_status.reviewed')}</Badge>
+                          ) : (s.review_status === 'reviewed' || s.review_status === 'no_diff') ? (
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className={cn(
+                                "font-medium shadow-none",
+                                s.review_status === 'reviewed' ? "bg-green-50 text-green-700 border-green-200" : "bg-blue-50 text-blue-700 border-blue-200"
+                              )}>
+                                {s.review_status === 'reviewed' ? t('statements.review_status.reviewed') : 'Verified'}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleReviewClick(s)}
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View Report
+                              </Button>
+                            </div>
                           ) : (
                             <div className="flex flex-col gap-1 items-start">
-                              <Badge variant="outline" className={
+                              <Badge variant="outline" className={cn(
+                                "font-medium shadow-none",
                                 s.review_status === 'pending'
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
                                   : s.review_status === 'rejected'
                                   ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : s.review_status === 'failed'
+                                  ? "bg-red-50 text-red-700 border-red-200"
                                   : "bg-muted/50 text-muted-foreground border-transparent"
-                              }>
-                                {s.review_status === 'pending' ? t('statements.review_status.pending', { defaultValue: 'Review Pending' }) : s.review_status === 'rejected' ? 'Review Dismissed' : t('common.not_started', { defaultValue: 'Not Started' })}
+                              )}>
+                                {s.review_status === 'pending' ? t('statements.review_status.pending', { defaultValue: 'Review Pending' }) :
+                                 s.review_status === 'rejected' ? 'Review Dismissed' :
+                                 s.review_status === 'failed' ? 'Review Failed' :
+                                 t('common.not_started', { defaultValue: 'Not Started' })}
                               </Badge>
                               {(!s.review_status || s.review_status === 'not_started' || s.review_status === 'failed' || s.review_status === 'rejected') && (
                                 <Button
@@ -1359,7 +1382,7 @@ export default function Statements() {
                                   Trigger Review
                                 </Button>
                               )}
-                              {(s.review_status === 'pending' || s.review_status === 'rejected') && (
+                              {(s.review_status === 'pending' || s.review_status === 'rejected' || s.review_status === 'failed') && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1367,7 +1390,7 @@ export default function Statements() {
                                   onClick={() => handleCancelReview(s.id)}
                                 >
                                   <X className="h-2.5 w-2.5 mr-1" />
-                                  {s.review_status === 'rejected' ? 'Clear Status' : 'Cancel Review'}
+                                  {s.review_status === 'pending' ? 'Cancel Review' : 'Clear Status'}
                                 </Button>
                               )}
                             </div>
@@ -1544,6 +1567,7 @@ export default function Statements() {
             isRejecting={isRejectingReview}
             isRetriggering={isRetriggeringReview}
             type="statement"
+            readOnly={selectedReviewStatement?.review_status === 'reviewed' || selectedReviewStatement?.review_status === 'no_diff'}
           />
         )}
 

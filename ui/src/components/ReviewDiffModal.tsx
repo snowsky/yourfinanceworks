@@ -38,8 +38,9 @@ interface ReviewDiffModalProps {
   onRetrigger: () => void;
   isAccepting: boolean;
   isRejecting: boolean;
-  isRetriggering: boolean;
+  isRetriggering?: boolean;
   type: 'expense' | 'invoice' | 'statement';
+  readOnly?: boolean;
 }
 
 interface DiffRowProps {
@@ -146,7 +147,8 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
   isAccepting,
   isRejecting,
   isRetriggering,
-  type
+  type,
+  readOnly = false
 }) => {
   const { t } = useTranslation();
 
@@ -210,14 +212,33 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
     }
   }
 
-  const differencesCount = fields.filter(f => {
+  // Filter fields to only show those that have actual differences
+  const displayFields = fields.filter(f => {
     const v1 = originalData[f.key];
     const v2 = reviewResult[f.key] !== undefined ? reviewResult[f.key] : reviewResult[f.altKey];
-    // Re-use logic from DiffRow ideally, but simplistic check here
-    if ((!v1 && !v2) || (v1 === v2)) return false;
-    // Don't count null vs empty string false positives etc, but simplistic
+
+    // Effectively empty check consistent with DiffRow
+    const isEffectivelyEmpty = (val: any) => {
+      if (val === null || val === undefined || val === '') return true;
+      if (typeof val === 'string' && (val.toLowerCase() === 'null' || val.toLowerCase() === 'none')) return true;
+      return false;
+    };
+
+    const empty1 = isEffectivelyEmpty(v1);
+    const empty2 = isEffectivelyEmpty(v2);
+
+    if (empty1 && empty2) return false;
+
+    // Special case for number 0 vs empty
+    if ((v1 === 0 || v1 === 0.0) && empty2) return false;
+    if (empty1 && (v2 === 0 || v2 === 0.0)) return false;
+
+    // Special case for transaction count: if it's missing in one but match transactions length, maybe treat as same?
+    // Actually simpler: if they matched exactly as strings/JSON, skip.
     return JSON.stringify(v1) !== JSON.stringify(v2);
-  }).length + transactionDiffs.length;
+  });
+
+  const differencesCount = displayFields.length + transactionDiffs.length;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -229,9 +250,13 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
               <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight">Review AI Analysis Differences</DialogTitle>
+              <DialogTitle className="text-xl font-bold tracking-tight">
+                {readOnly ? 'Review Analysis Report' : 'Review AI Analysis Differences'}
+              </DialogTitle>
               <DialogDescription className="text-muted-foreground mt-1">
-                A secondary AI review found {differencesCount > 0 ? <span className="text-amber-600 font-medium">{differencesCount} differences</span> : 'no significant differences'} compared to the original analysis.
+                {readOnly
+                  ? 'This report shows the details of the AI review performed on this item.'
+                  : `A secondary AI review found ${differencesCount > 0 ? differencesCount + ' differences' : 'no significant differences'} compared to the original analysis.`}
               </DialogDescription>
             </div>
           </div>
@@ -247,16 +272,23 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 gap-3">
-              {fields.map(field => (
-                <DiffRow
-                  key={field.key}
-                  label={field.label}
-                  originalValue={originalData[field.key]}
-                  newValue={reviewResult[field.key] !== undefined ? reviewResult[field.key] : reviewResult[field.altKey]}
-                  formatter={field.formatter}
-                  icon={field.icon}
-                />
-              ))}
+              {displayFields.length > 0 ? (
+                displayFields.map(field => (
+                  <DiffRow
+                    key={field.key}
+                    label={field.label}
+                    originalValue={originalData[field.key]}
+                    newValue={reviewResult[field.key] !== undefined ? reviewResult[field.key] : reviewResult[field.altKey]}
+                    formatter={field.formatter}
+                    icon={field.icon}
+                  />
+                ))
+              ) : type !== 'statement' && (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-3 opacity-60">
+                  <Check className="h-12 w-12 text-green-500/50" />
+                  <p className="text-sm font-medium">Original analysis is perfectly confirmed by the reviewer.</p>
+                </div>
+              )}
             </div>
 
             {transactionDiffs.length > 0 && (
@@ -324,44 +356,54 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
 
         <div className="p-6 pt-4 border-t bg-muted/5">
           <DialogFooter className="flex-col sm:flex-row gap-3 sm:justify-between items-center w-full">
-            <Button 
-                variant="ghost" 
-                onClick={onRetrigger} 
-                disabled={isRetriggering}
-                className="text-muted-foreground hover:text-foreground"
-            >
-              {isRetriggering ? 'Starting...' : 'Retrigger Analysis'}
-            </Button>
+            {readOnly ? (
+              <div className="flex justify-end w-full">
+                <Button variant="default" onClick={onClose} className="px-8">
+                  Close Report
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button 
+                    variant="ghost" 
+                    onClick={onRetrigger} 
+                    disabled={isRetriggering}
+                    className="text-muted-foreground hover:text-foreground"
+                >
+                  {isRetriggering ? 'Starting...' : 'Retrigger Analysis'}
+                </Button>
 
-            <div className="flex gap-3 w-full sm:w-auto">
-              <Button 
-                variant="outline" 
-                onClick={onReject} 
-                disabled={isRejecting}
-                className="flex-1 sm:flex-none border-destructive/20 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30"
-              >
-                {isRejecting ? 'Dismissing...' : (
-                  <>
-                    <X className="w-4 h-4 mr-2" />
-                    Dismiss Changes
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={onAccept} 
-                disabled={isAccepting} 
-                className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-900/10 hover:shadow-amber-900/20 transition-all"
-              >
-                {isAccepting ? (
-                  <span className="flex items-center gap-2">Applying...</span>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Accept New Values
-                  </>
-                )}
-              </Button>
-            </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <Button 
+                    variant="outline" 
+                    onClick={onReject} 
+                    disabled={isRejecting}
+                    className="flex-1 sm:flex-none border-destructive/20 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/30"
+                  >
+                    {isRejecting ? 'Dismissing...' : (
+                      <>
+                        <X className="w-4 h-4 mr-2" />
+                        Dismiss Changes
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={onAccept} 
+                    disabled={isAccepting} 
+                    className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-900/10 hover:shadow-amber-900/20 transition-all"
+                  >
+                    {isAccepting ? (
+                      <span className="flex items-center gap-2">Applying...</span>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Accept New Values
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogFooter>
         </div>
       </DialogContent>
