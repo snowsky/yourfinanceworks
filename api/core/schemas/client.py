@@ -4,7 +4,7 @@ from datetime import datetime
 
 class ClientBase(BaseModel):
     name: str = Field(..., description="Client's full name")
-    email: Optional[str] = Field(None, description="Client's email address")
+    email: str = Field(..., description="Client's email address")
     phone: Optional[str] = Field(None, description="Client's phone number")
     address: Optional[str] = Field(None, description="Client's address")
     company: Optional[str] = Field(None, description="Client's company name")

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from .api_client import InvoiceAPIClient
 from .auth_client import AuthenticationError
+from core.schemas.client import ClientBase
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,8 @@ class GetClientArgs(BaseModel):
     client_id: int = Field(description="ID of the client to retrieve")
 
 
-class CreateClientArgs(BaseModel):
-    name: str = Field(description="Client's full name")
-    email: Optional[str] = Field(default=None, description="Client's email address")
-    phone: Optional[str] = Field(default=None, description="Client's phone number")
-    address: Optional[str] = Field(default=None, description="Client's address")
+class CreateClientArgs(ClientBase):
+    pass
 
 
 class ListInvoicesArgs(BaseModel):

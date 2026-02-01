@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import logging
 import os
+import json
 
 from core.models.database import get_master_db, get_db, set_tenant_context
 from core.routers.auth import get_current_user
@@ -227,6 +228,213 @@ class ChatRequest(BaseModel):
     message: str
     config_id: int = 0  # Default to 0 if not provided
 
+# Helper class for authenticated API requests
+class AuthenticatedAPIClient:
+    def __init__(self, base_url: str, jwt_token: str):
+        self.base_url = base_url
+        self.jwt_token = jwt_token
+        self._client = httpx.AsyncClient(timeout=30.0)
+
+    async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+        """Make authenticated request using JWT token"""
+        try:
+            headers = {"Authorization": f"Bearer {self.jwt_token}"}
+            headers.update(kwargs.pop('headers', {}))
+
+            response = await self._client.request(
+                method=method,
+                url=f"{self.base_url}{endpoint}",
+                headers=headers,
+                **kwargs
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except httpx.HTTPStatusError as e:
+            # Try to parse the error response
+            try:
+                # Start by getting the response text to debug
+                error_text = e.response.text
+                print(f"DEBUG: HTTP Error Response: {error_text}")
+
+                try:
+                    error_data = e.response.json()
+                    # Handle standard FastAPI error format {"detail": ...}
+                    if "detail" in error_data:
+                        detail = error_data["detail"]
+                        if isinstance(detail, list):
+                            # Handle validation errors which are lists
+                            errors = [f"{d.get('loc', [])[-1]}: {d.get('msg')}" for d in detail]
+                            raise Exception(f"Validation error: {', '.join(errors)}")
+
+                        # Map error codes to friendly messages
+                        if detail == "CLIENT_ALREADY_EXISTS":
+                            raise Exception("A client with this email address already exists.")
+
+                        raise Exception(f"{detail}")
+                    # Handle other JSON error formats
+                    raise Exception(f"{error_data}")
+                except json.JSONDecodeError:
+                    # Fallback to text if not JSON
+                    raise Exception(f"API Error: {error_text}")
+            except Exception as inner_e:
+                # If our custom parsing fails, raise the inner exception but preserve context
+                # Check if it's the exception we just raised
+                if str(inner_e) != "Request error: " + str(e):
+                        raise inner_e
+                raise Exception(f"Request error: {e}")
+        except Exception as e:
+                print(f"DEBUG: General Request Error: {e}")
+                raise Exception(f"Request error: {e}")
+
+    # Client Management Methods
+    async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new client"""
+        return await self._make_request("POST", "/clients/", json=client_data)
+
+    async def list_clients(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        return await self._make_request(
+            "GET",
+            "/clients/",
+            params={"skip": skip, "limit": limit}
+        )
+
+    async def search_clients(self, query: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        # Get all clients and filter locally
+        clients = await self.list_clients(skip=0, limit=1000)
+        query_lower = query.lower()
+        filtered_clients = []
+
+        for client in clients:
+            searchable_fields = [
+                client.get('name', ''),
+                client.get('email', ''),
+                client.get('phone', ''),
+                client.get('address', '')
+            ]
+
+            if any(query_lower in str(field).lower() for field in searchable_fields if field):
+                filtered_clients.append(client)
+
+        end_idx = skip + limit
+        return filtered_clients[skip:end_idx]
+
+    # Invoice Management Methods
+    async def list_invoices(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        return await self._make_request(
+            "GET", 
+            "/invoices/",
+            params={"skip": skip, "limit": limit}
+        )
+
+    async def search_invoices(self, query: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        # Get all invoices and filter locally
+        invoices = await self.list_invoices(skip=0, limit=1000)
+        query_lower = query.lower()
+        filtered_invoices = []
+
+        for invoice in invoices:
+            searchable_fields = [
+                invoice.get('number', ''),
+                invoice.get('client_name', ''),
+                invoice.get('status', ''),
+                invoice.get('notes', ''),
+                str(invoice.get('amount', ''))
+            ]
+
+            if any(query_lower in str(field).lower() for field in searchable_fields if field):
+                filtered_invoices.append(invoice)
+
+        end_idx = skip + limit
+        return filtered_invoices[skip:end_idx]
+
+    # Payment Management Methods
+    async def list_payments(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        return await self._make_request(
+            "GET", 
+            "/payments/",
+            params={"skip": skip, "limit": limit}
+        )
+
+    # Currency Management Methods
+    async def list_currencies(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        return await self._make_request(
+            "GET", 
+            "/currency/supported",
+            params={"active_only": active_only}
+        )
+
+    # Analytics Methods
+    async def get_clients_with_outstanding_balance(self) -> List[Dict[str, Any]]:
+        return await self._make_request("GET", "/clients/outstanding-balance")
+
+    async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
+        return await self._make_request("GET", "/invoices/overdue")
+
+    async def get_invoice_stats(self) -> Dict[str, Any]:
+        return await self._make_request("GET", "/invoices/stats")
+
+    async def analyze_invoice_patterns(self) -> Dict[str, Any]:
+        return await self._make_request("GET", "/ai/analyze-patterns")
+
+    async def suggest_invoice_actions(self) -> Dict[str, Any]:
+        return await self._make_request("GET", "/ai/suggest-actions")
+
+    # Expense Management Methods
+    async def create_expense(self, expense_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._make_request("POST", "/expenses/", json=expense_data)
+
+    async def list_expenses(self, skip: int = 0, limit: int = 100, category: str = None, invoice_id: int = None, **kwargs) -> List[Dict[str, Any]]:
+        params = {"skip": skip, "limit": limit}
+        if category:
+            params["category"] = category
+        if invoice_id:
+            params["invoice_id"] = invoice_id
+        return await self._make_request(
+            "GET", 
+            "/expenses/",
+            params=params
+        )
+
+    async def search_expenses(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        # Get all expenses and filter locally
+        expenses = await self.list_expenses(skip=0, limit=1000)
+        query_lower = query.lower()
+        filtered_expenses = []
+
+        for expense in expenses:
+            searchable_fields = [
+                expense.get('category', ''),
+                expense.get('vendor', ''),
+                expense.get('notes', ''),
+                str(expense.get('amount', ''))
+            ]
+
+            if any(query_lower in str(field).lower() for field in searchable_fields if field):
+                filtered_expenses.append(expense)
+
+        end_idx = skip + limit
+        return {
+            "success": True,
+            "data": filtered_expenses[skip:end_idx]
+        }
+
+    # Statement Management Methods
+    async def list_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        result = await self._make_request(
+            "GET", 
+            "/statements/",
+            params={"skip": skip, "limit": limit}
+        )
+        return {
+            "success": True,
+            "data": result if isinstance(result, list) else result.get("statements", [])
+        }
+
+    async def close(self):
+        await self._client.aclose()
+
+
 @router.post("/chat")
 @require_feature("ai_chat")
 async def ai_chat(
@@ -243,12 +451,22 @@ async def ai_chat(
 
     # Manually set tenant context and get tenant database
     try:
-        # Get AI configuration
-        # No tenant_id filtering needed since we're in the tenant's database
-        ai_config = db.query(AIConfig).filter(
-            AIConfig.is_default == True,
-            AIConfig.is_active == True
-        ).first()
+        ai_config = None
+        if request.config_id and request.config_id > 0:
+            ai_config = db.query(AIConfig).filter(
+                AIConfig.id == request.config_id,
+                AIConfig.is_active == True
+            ).first()
+            if not ai_config:
+                logger.warning(f"Requested AI config ID {request.config_id} not found or inactive, falling back to default")
+
+        if not ai_config:
+            # Get default AI configuration
+            # No tenant_id filtering needed since we're in the tenant's database
+            ai_config = db.query(AIConfig).filter(
+                AIConfig.is_default == True,
+                AIConfig.is_active == True
+            ).first()
 
         # If no default config, check if there's only one active config and set it as default
         if not ai_config:
@@ -320,6 +538,304 @@ User message: "{request.message}"
 
 Category:"""
 
+        # Pre-classification check for precise intents (skip LLM for specific patterns)
+        lower_message = request.message.lower()
+
+        # Check for client creation intent specifically
+        if "create" in lower_message or "add" in lower_message or "new" in lower_message:
+            # Fix false positive: "create invoice for client" should not trigger client creation
+            # Ensure "invoice" or "expense" is not in the message when detecting client creation
+            is_client_intent = ("client" in lower_message or "customer" in lower_message)
+            if is_client_intent and "invoice" not in lower_message and "expense" not in lower_message:
+                # Initialize basic components needed for this early path
+                # Initialize MCP tools using current user's session
+                from MCP.tools import InvoiceTools
+                from MCP.api_client import InvoiceAPIClient
+
+                # Create a token for the current user
+                from core.routers.auth import create_access_token
+                from datetime import timedelta
+
+                access_token_expires = timedelta(minutes=30)
+                jwt_token = create_access_token(
+                    data={"sub": current_user.email}, expires_delta=access_token_expires
+                )
+
+                # Create a custom API client with JWT
+                # Use module-level AuthenticatedAPIClient
+
+                print(f"MCP Integration: Initializing API client with token...")
+                api_client = AuthenticatedAPIClient(
+                    base_url="http://localhost:8000/api/v1",
+                    jwt_token=jwt_token
+                )
+                tools = InvoiceTools(api_client)
+
+                print(f"MCP Integration: Detected client creation intent (Pre-LLM): '{request.message}'")
+
+                # Use LLM to extract client details for robustness
+                try:
+                    from litellm import acompletion as completion
+
+                    # Prepare extraction prompt
+                    extraction_prompt = f"""Extract the client details from the following request. Return ONLY a JSON object with keys 'name', 'email', and 'phone'. 
+If a field is not missing, set it to null.
+Do not include any explanation, markdown formatting, or code blocks. Just the raw JSON string.
+
+Request: "{request.message}"
+
+JSON:"""
+
+                    # Configure model parameters
+                    extraction_model = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+                    extraction_params = {
+                        "model": extraction_model,
+                        "messages": [{"role": "user", "content": extraction_prompt}],
+                        "temperature": 0.0, # Deterministic output
+                        "max_tokens": 150
+                    }
+
+                    if ai_config.provider_name == "ollama" and ai_config.provider_url:
+                        extraction_params["api_base"] = ai_config.provider_url
+                    elif ai_config.api_key:
+                        extraction_params["api_key"] = ai_config.api_key
+
+                    print(f"MCP Integration: Extracting client details using LLM model: {extraction_model}")
+
+                    extract_response = await completion(**extraction_params)
+                    extract_content = extract_response.choices[0].message.content.strip()
+                    # Clean up any potential markdown code blocks
+                    extract_content = extract_content.replace('```json', '').replace('```', '').strip()
+
+                    import json
+                    client_details = json.loads(extract_content)
+                    print(f"MCP Integration: Extracted details: {client_details}")
+
+                    name = client_details.get("name")
+                    email = client_details.get("email")
+                    phone = client_details.get("phone")
+
+                except Exception as e:
+                    print(f"MCP Integration: LLM extraction failed: {e}. Falling back to regex.")
+                    # Fallback to simple regex if LLM fails
+                    import re
+                    name = None
+                    name_match = re.search(r'(?:create|add|new)\s+(?:a\s+)?client\s+(?:named\s+|called\s+)?["\']?([^"\',]+)["\']?', request.message, re.IGNORECASE)
+                    if name_match:
+                        name = name_match.group(1).strip()
+                    else:
+                        simple_match = re.search(r'(?:create|add|new)\s+(?:a\s+)?client\s+([a-zA-Z0-9\s]+?)(?:\s+with|\s*$)', request.message, re.IGNORECASE)
+                        if simple_match:
+                            name = simple_match.group(1).strip()
+
+                    email = None
+                    email_match = re.search(r'email\s+["\']?([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)["\']?', request.message, re.IGNORECASE)
+                    if email_match:
+                        email = email_match.group(1)
+
+                    phone = None
+                    phone_match = re.search(r'phone\s+["\']?([0-9+\-\s()]{7,})["\']?', request.message, re.IGNORECASE)
+                    if phone_match:
+                        phone = phone_match.group(1)
+
+                if name:
+                    # Check if email is present (required by database)
+                    if not email:
+                        mcp_response = f"I see you want to create a client named '{name}', but I need their email address as it is required. Please provide the email address."
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": mcp_response,
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name, # Fallback if not available
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    print(f"MCP Integration: Creating client: name='{name}', email='{email}', phone='{phone}'")
+                    result = await tools.create_client(name=name, email=email, phone=phone)
+
+                    if result.get("success"):
+                        client = result.get("data", {})
+                        mcp_response = f"""
+✅ **Client Created Successfully**
+
+👤 **Client Details:**
+• **Name:** {client.get('name', name)}
+• **ID:** {client.get('id', 'N/A')}
+{f"• **Email:** {client.get('email')}" if client.get('email') else ""}
+{f"• **Phone:** {client.get('phone')}" if client.get('phone') else ""}
+
+You can now create invoices for this client.
+                        """.strip()
+
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": mcp_response,
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+                    else:
+                        print(f"Failed to create client: {result}")
+                        # If failed, let it fall through to LLM? Or return error?
+                        # Better to return error
+                        return {
+                            "success": True,  # Chat success, but op failed
+                            "data": {
+                                "response": f"Failed to create client: {result.get('error', 'Unknown error')}",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+            elif "expense" in lower_message:
+                # Initialize basic components needed for this early path
+                from MCP.tools import InvoiceTools
+
+                # Create a token for the current user
+                from core.routers.auth import create_access_token
+                from datetime import timedelta
+
+                access_token_expires = timedelta(minutes=30)
+                jwt_token = create_access_token(
+                    data={"sub": current_user.email}, expires_delta=access_token_expires
+                )
+
+                print(f"MCP Integration: Initializing API client with token...")
+                api_client = AuthenticatedAPIClient(
+                    base_url="http://localhost:8000/api/v1",
+                    jwt_token=jwt_token
+                )
+                tools = InvoiceTools(api_client)
+
+                print(f"MCP Integration: Detected expense creation intent (Pre-LLM): '{request.message}'")
+
+                # Use LLM to extract expense details
+                try:
+                    from litellm import acompletion as completion
+                    import json
+                    from datetime import datetime
+
+                    # Prepare extraction prompt
+                    current_date = datetime.now().strftime("%Y-%m-%d")
+                    extraction_prompt = f"""Extract the expense details from the following request. Return ONLY a JSON object.
+Required keys: 'amount' (number), 'category' (string), 'expense_date' (YYYY-MM-DD).
+Optional keys: 'vendor' (string), 'notes' (string), 'currency' (default 'USD').
+If the date is "today", use {current_date}.
+Do not include any explanation, markdown formatting, or code blocks. Just the raw JSON string.
+
+Request: "{request.message}"
+
+JSON:"""
+
+                    # Configure model parameters
+                    extraction_model = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+                    extraction_params = {
+                        "model": extraction_model,
+                        "messages": [{"role": "user", "content": extraction_prompt}],
+                        "temperature": 0.0, 
+                        "max_tokens": 150
+                    }
+
+                    if ai_config.provider_name == "ollama" and ai_config.provider_url:
+                        extraction_params["api_base"] = ai_config.provider_url
+                    elif ai_config.api_key:
+                        extraction_params["api_key"] = ai_config.api_key
+
+                    print(f"MCP Integration: Extracting expense details using LLM model: {extraction_model}")
+
+                    extract_response = await completion(**extraction_params)
+                    extract_content = extract_response.choices[0].message.content.strip()
+                    extract_content = extract_content.replace('```json', '').replace('```', '').strip()
+
+                    expense_details = json.loads(extract_content)
+                    print(f"MCP Integration: Extracted expense details: {expense_details}")
+
+                    # Validate required fields
+                    amount = expense_details.get("amount")
+                    category = expense_details.get("category")
+                    expense_date = expense_details.get("expense_date")
+
+                    if str(amount) and category and expense_date:
+                            # Set defaults
+                            if not expense_details.get("currency"):
+                                expense_details["currency"] = "USD"
+
+                            print(f"MCP Integration: Creating expense with details: {expense_details}")
+                            result = await tools.create_expense(**expense_details)
+
+                            # Check for success (API returns wrapped response or object)
+                            expense_data = None
+                            if result and isinstance(result, dict):
+                                if "id" in result:
+                                    expense_data = result
+                                elif result.get("success") and "data" in result:
+                                    expense_data = result.get("data")
+
+                            if expense_data and "id" in expense_data:
+                                expense = expense_data
+                                mcp_response = f"""
+✅ **Expense Created Successfully**
+
+💸 **Expense Details:**
+• **ID:** {expense.get('id', 'N/A')}
+• **Amount:** ${expense.get('amount', 0):,.2f} {expense.get('currency', 'USD')}
+• **Category:** {expense.get('category', 'N/A')}
+• **Date:** {expense.get('expense_date', 'N/A')}
+{f"• **Vendor:** {expense.get('vendor')}" if expense.get('vendor') else ""}
+
+Expense has been recorded.
+                                """.strip()
+
+                                return {
+                                    "success": True,
+                                    "data": {
+                                        "response": mcp_response,
+                                        "provider": ai_config.provider_name,
+                                        "model": ai_config.model_name,
+                                        "source": "mcp_tools"
+                                    }
+                                }
+                            else:
+                                error_msg = result.get('detail', 'Unknown error') if isinstance(result, dict) else str(result)
+                                print(f"Failed to create expense: {result}")
+                                return {
+                                    "success": True,
+                                    "data": {
+                                        "response": f"Failed to create expense: {error_msg}",
+                                        "provider": ai_config.provider_name,
+                                        "model": ai_config.model_name,
+                                        "source": "mcp_tools"
+                                    }
+                                }
+                    else:
+                            return {
+                                "success": True,
+                                "data": {
+                                    "response": "I understood you want to create an expense, but missing required details (Amount, Category, or Date). Please specify them.",
+                                    "provider": ai_config.provider_name,
+                                    "model": ai_config.model_name,
+                                    "source": "mcp_tools"
+                                }
+                            }
+
+                except Exception as e:
+                    print(f"MCP Integration: Expense extraction/creation failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": f"Failed to process expense creation request: {str(e)}",
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
         # Get intent classification
         model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
 
@@ -387,177 +903,7 @@ Category:"""
             data={"sub": current_user.email}, expires_delta=access_token_expires
         )
 
-        # Create a custom API client that uses the JWT token
-        class AuthenticatedAPIClient:
-            def __init__(self, base_url: str, jwt_token: str):
-                self.base_url = base_url
-                self.jwt_token = jwt_token
-                self._client = httpx.AsyncClient(timeout=30.0)
-
-            async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
-                """Make authenticated request using JWT token"""
-                try:
-                    headers = {"Authorization": f"Bearer {self.jwt_token}"}
-                    headers.update(kwargs.pop('headers', {}))
-
-                    response = await self._client.request(
-                        method=method,
-                        url=f"{self.base_url}{endpoint}",
-                        headers=headers,
-                        **kwargs
-                    )
-                    response.raise_for_status()
-                    return response.json()
-
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 401:
-                        raise Exception("Authentication failed - token may be expired")
-                    raise Exception(f"API request failed: {e.response.status_code} - {e.response.text}")
-                except Exception as e:
-                    raise Exception(f"Request error: {e}")
-
-            # Client Management Methods
-            async def list_clients(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-                return await self._make_request(
-                    "GET", 
-                    "/clients/",
-                    params={"skip": skip, "limit": limit}
-                )
-
-            async def search_clients(self, query: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-                # Get all clients and filter locally
-                clients = await self.list_clients(skip=0, limit=1000)
-                query_lower = query.lower()
-                filtered_clients = []
-
-                for client in clients:
-                    searchable_fields = [
-                        client.get('name', ''),
-                        client.get('email', ''),
-                        client.get('phone', ''),
-                        client.get('address', '')
-                    ]
-
-                    if any(query_lower in str(field).lower() for field in searchable_fields if field):
-                        filtered_clients.append(client)
-
-                end_idx = skip + limit
-                return filtered_clients[skip:end_idx]
-
-            # Invoice Management Methods
-            async def list_invoices(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-                return await self._make_request(
-                    "GET", 
-                    "/invoices/",
-                    params={"skip": skip, "limit": limit}
-                )
-
-            async def search_invoices(self, query: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-                # Get all invoices and filter locally
-                invoices = await self.list_invoices(skip=0, limit=1000)
-                query_lower = query.lower()
-                filtered_invoices = []
-
-                for invoice in invoices:
-                    searchable_fields = [
-                        invoice.get('number', ''),
-                        invoice.get('client_name', ''),
-                        invoice.get('status', ''),
-                        invoice.get('notes', ''),
-                        str(invoice.get('amount', ''))
-                    ]
-
-                    if any(query_lower in str(field).lower() for field in searchable_fields if field):
-                        filtered_invoices.append(invoice)
-
-                end_idx = skip + limit
-                return filtered_invoices[skip:end_idx]
-
-            # Payment Management Methods
-            async def list_payments(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
-                return await self._make_request(
-                    "GET", 
-                    "/payments/",
-                    params={"skip": skip, "limit": limit}
-                )
-
-            # Currency Management Methods
-            async def list_currencies(self, active_only: bool = True) -> List[Dict[str, Any]]:
-                return await self._make_request(
-                    "GET", 
-                    "/currency/supported",
-                    params={"active_only": active_only}
-                )
-
-            # Analytics Methods
-            async def get_clients_with_outstanding_balance(self) -> List[Dict[str, Any]]:
-                return await self._make_request("GET", "/clients/outstanding-balance")
-
-            async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
-                return await self._make_request("GET", "/invoices/overdue")
-
-            async def get_invoice_stats(self) -> Dict[str, Any]:
-                return await self._make_request("GET", "/invoices/stats")
-
-            async def analyze_invoice_patterns(self) -> Dict[str, Any]:
-                return await self._make_request("GET", "/ai/analyze-patterns")
-
-            async def suggest_invoice_actions(self) -> Dict[str, Any]:
-                return await self._make_request("GET", "/ai/suggest-actions")
-
-            # Expense Management Methods
-            async def list_expenses(self, skip: int = 0, limit: int = 100, category: str = None, invoice_id: int = None, **kwargs) -> List[Dict[str, Any]]:
-                params = {"skip": skip, "limit": limit}
-                if category:
-                    params["category"] = category
-                if invoice_id:
-                    params["invoice_id"] = invoice_id
-                return await self._make_request(
-                    "GET", 
-                    "/expenses/",
-                    params=params
-                )
-
-            async def search_expenses(self, query: str, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
-                # Get all expenses and filter locally
-                expenses = await self.list_expenses(skip=0, limit=1000)
-                query_lower = query.lower()
-                filtered_expenses = []
-
-                for expense in expenses:
-                    searchable_fields = [
-                        expense.get('category', ''),
-                        expense.get('vendor', ''),
-                        expense.get('notes', ''),
-                        str(expense.get('amount', ''))
-                    ]
-
-                    if any(query_lower in str(field).lower() for field in searchable_fields if field):
-                        filtered_expenses.append(expense)
-
-                end_idx = skip + limit
-                return {
-                    "success": True,
-                    "data": filtered_expenses[skip:end_idx]
-                }
-
-            # Statement Management Methods
-            async def list_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
-                result = await self._make_request(
-                    "GET", 
-                    "/statements/",
-                    params={"skip": skip, "limit": limit}
-                )
-                return {
-                    "success": True,
-                    "data": result if isinstance(result, list) else result.get("statements", [])
-                }
-
-            async def close(self):
-                await self._client.aclose()
-
-        # Initialize the authenticated API client
-        print(f"MCP Integration: Initializing API client with token: {jwt_token[:20]}...")
+        print(f"MCP Integration: Initializing API client with token...")
         api_client = AuthenticatedAPIClient(
             base_url="http://localhost:8000/api/v1",
             jwt_token=jwt_token
@@ -749,7 +1095,60 @@ This comprehensive payment information was retrieved using your actual payment d
             print(f"MCP Integration: lower_message: '{lower_message}'")
             print(f"MCP Integration: Checking patterns: {[phrase for phrase in ['client', 'customer', 'list clients', 'search client', 'find client', 'show clients', 'get clients'] if phrase in lower_message]}")
             try:
-                if "search" in lower_message or "find" in lower_message:
+                if "create" in lower_message or "add" in lower_message or "new" in lower_message:
+                    # Client creation intent
+                    print(f"MCP Integration: Detected client creation intent in message: '{request.message}'")
+
+                    # Extract client details using regex
+                    import re
+
+                    # Extract name (required)
+                    # Patterns: "create client named X", "create client X", "add client X", "new client X"
+                    name = None
+                    name_match = re.search(r'(?:create|add|new)\s+(?:a\s+)?client\s+(?:named\s+|called\s+)?["\']?([^"\',]+)["\']?', lower_message, re.IGNORECASE)
+                    if name_match:
+                        name = name_match.group(1).strip()
+                    else:
+                        # Fallback: try to find a name after "client" if no quotes
+                        simple_match = re.search(r'(?:create|add|new)\s+(?:a\s+)?client\s+([a-zA-Z0-9\s]+?)(?:\s+with|\s*$)', lower_message, re.IGNORECASE)
+                        if simple_match:
+                            name = simple_match.group(1).strip()
+
+                    # Extract email (optional)
+                    email = None
+                    email_match = re.search(r'email\s+["\']?([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)["\']?', lower_message, re.IGNORECASE)
+                    if email_match:
+                        email = email_match.group(1)
+
+                    # Extract phone (optional)
+                    phone = None
+                    phone_match = re.search(r'phone\s+["\']?([0-9+\-\s()]{7,})["\']?', lower_message, re.IGNORECASE)
+                    if phone_match:
+                        phone = phone_match.group(1)
+
+                    if name:
+                        print(f"MCP Integration: Creating client: name='{name}', email='{email}', phone='{phone}'")
+                        result = await tools.create_client(name=name, email=email, phone=phone)
+
+                        if result.get("success"):
+                            client = result.get("data", {})
+                            mcp_response = f"""
+✅ **Client Created Successfully**
+
+👤 **Client Details:**
+• **Name:** {client.get('name', name)}
+• **ID:** {client.get('id', 'N/A')}
+{f"• **Email:** {client.get('email')}" if client.get('email') else ""}
+{f"• **Phone:** {client.get('phone')}" if client.get('phone') else ""}
+
+You can now create invoices for this client.
+                            """.strip()
+                        else:
+                            mcp_response = f"Failed to create client: {result.get('error', 'Unknown error')}"
+                    else:
+                        mcp_response = "I understood you want to create a client, but I couldn't extract the client name. Please specify the name, e.g., 'Create a client named John Doe'."
+
+                elif "search" in lower_message or "find" in lower_message:
                     # Extract search query from message
                     import re
                     search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
@@ -770,20 +1169,22 @@ This comprehensive payment information was retrieved using your actual payment d
                         print(f"MCP Integration: Error calling list_clients: {e}")
                         result = {"success": False, "error": str(e)}
 
-                if result.get("success"):
-                    clients = result.get("data", [])
-                    if clients:
-                        # Calculate total outstanding balance
-                        total_balance = sum(client.get('outstanding_balance', 0) for client in clients)
+                if "create" not in lower_message and "add" not in lower_message and "new" not in lower_message:
+                    # Only process list/search results here, creation is handled above
+                    if result.get("success"):
+                        clients = result.get("data", [])
+                        if clients:
+                            # Calculate total outstanding balance
+                            total_balance = sum(client.get('outstanding_balance', 0) for client in clients)
 
-                        # Format client details for f-string
-                        client_lines = '\n'.join([f"• **{client.get('name', 'Unknown')}** (ID: {client.get('id', 'N/A')})\n" +
-                                        (f"  📧 Email: {client.get('email', 'N/A')}\n" if client.get('email') else "") +
-                                        (f"  📞 Phone: {client.get('phone', 'N/A')}\n" if client.get('phone') else "") +
-                                        (f"  💰 Outstanding Balance: ${client.get('outstanding_balance', 0):,.2f}\n" if client.get('outstanding_balance') else "") +
-                                        "  -----------------------------------------\n"
-                                        for client in clients])
-                        mcp_response = f"""
+                            # Format client details for f-string
+                            client_lines = '\n'.join([f"• **{client.get('name', 'Unknown')}** (ID: {client.get('id', 'N/A')})\n" +
+                                            (f"  📧 Email: {client.get('email', 'N/A')}\n" if client.get('email') else "") +
+                                            (f"  📞 Phone: {client.get('phone', 'N/A')}\n" if client.get('phone') else "") +
+                                            (f"  💰 Outstanding Balance: ${client.get('outstanding_balance', 0):,.2f}\n" if client.get('outstanding_balance') else "") +
+                                            "  -----------------------------------------\n"
+                                            for client in clients])
+                            mcp_response = f"""
 👥 **Client Management Dashboard**
 
 📊 **📈 Client Overview:**
@@ -796,87 +1197,12 @@ This comprehensive payment information was retrieved using your actual payment d
 
 📋 **📊 Data Source:**
 This comprehensive client information was retrieved using your actual client data through our advanced MCP tools.
-                        """.strip()
+                            """.strip()
+                        else:
+                            mcp_response = "No clients found matching your query."
                     else:
-                        mcp_response = "No clients found matching your query."
-
-                    return {
-                        "success": True,
-                        "data": {
-                            "response": mcp_response,
-                            "provider": ai_config.provider_name,
-                            "model": ai_config.model_name,
-                            "source": "mcp_tools"
-                        }
-                    }
-                else:
-                    print(f"MCP Integration: Tool execution failed: {result}")
-                    # Fallback to LLM if MCP fails
-                    pass
-            except Exception as e:
-                print(f"MCP Integration: Exception during tool execution: {e}")
-                # Fallback to LLM
-                pass
-
-        elif intent == "invoices":
-            lower_message = request.message.lower()
-            print(f"MCP Integration: Detected invoice management pattern in message: '{request.message}'")
-            try:
-                if "search" in lower_message or "find" in lower_message:
-                    # Extract search query from message
-                    import re
-                    search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
-                    if search_match:
-                        search_query = search_match.group(1)
-                        print(f"MCP Integration: Searching invoices with query: '{search_query}'")
-                        result = await tools.search_invoices(query=search_query)
-                    else:
-                        # Default search
-                        result = await tools.list_invoices(limit=10)
-                else:
-                    # List all invoices
-                    print("MCP Integration: Listing invoices...")
-                    result = await tools.list_invoices(limit=20)
-
-                if result.get("success"):
-                    invoices = result.get("data", [])
-                    if invoices:
-                        # Calculate totals
-                        total_amount = sum(inv.get('amount', 0) for inv in invoices)
-                        status_counts = {}
-                        for inv in invoices:
-                            status = inv.get('status', 'Unknown')
-                            status_counts[status] = status_counts.get(status, 0) + 1
-
-                        # Format status breakdown for f-string
-                        status_lines = '\n'.join([f"• **{status.title()}:** {count:,}" for status, count in status_counts.items()])
-                        # Format invoice details for f-string
-                        invoice_lines = '\n'.join([f"• **Invoice #{inv.get('invoice_number', inv.get('id', 'N/A'))}**\n" +
-                                        f"  👤 Client: {inv.get('client_name', 'Unknown Client')}\n" +
-                                        f"  💰 Amount: ${inv.get('amount', 0):,.2f}\n" +
-                                        f"  📊 Status: {inv.get('status', 'Unknown').title()}\n" +
-                                        f"  📅 Due: {inv.get('due_date', 'N/A')}\n" +
-                                        "  -----------------------------------------\n"
-                                        for inv in invoices])
-                        mcp_response = f"""
-📄 **Invoice Management Dashboard**
-
-📊 **📈 Invoice Overview:**
-• **Total Invoices:** {len(invoices):,}
-• **Total Amount:** ${total_amount:,.2f}
-• **Average Invoice Amount:** ${(total_amount / len(invoices)) if len(invoices) > 0 else 0:,.2f}
-
-📋 **📊 Status Breakdown:**
-{status_lines}
-
-📄 **💼 Invoice Details:**
-{invoice_lines}
-
-📋 **📊 Data Source:**
-This comprehensive invoice information was retrieved using your actual invoice data through our advanced MCP tools.
-                        """.strip()
-                    else:
-                        mcp_response = "No invoices found matching your query."
+                        # Fallback for search/list errors
+                        mcp_response = f"Error retrieving clients: {result.get('error', 'Unknown error')}"
 
                     return {
                         "success": True,
@@ -1051,6 +1377,84 @@ This comprehensive overdue invoice information was retrieved using your actual i
                     print(f"MCP Integration: Tool execution failed: {result}")
                     # Fallback to LLM if MCP fails
                     pass
+            except Exception as e:
+                print(f"MCP Integration: Exception during tool execution: {e}")
+                # Fallback to LLM
+                pass
+
+
+        elif intent == "invoices":
+            lower_message = request.message.lower()
+            print(f"MCP Integration: Detected invoice pattern in message: '{request.message}'")
+            try:
+                if "search" in lower_message or "find" in lower_message:
+                    # Extract search query from message
+                    import re
+                    search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
+                    if search_match:
+                        search_query = search_match.group(1)
+                        print(f"MCP Integration: Searching invoices with query: '{search_query}'")
+                        result = await tools.search_invoices(query=search_query)
+                    else:
+                        # Default search
+                        result = await tools.list_invoices(limit=10)
+                else:
+                    # List all invoices
+                    print("MCP Integration: Listing invoices...")
+                    result = await tools.list_invoices(limit=20)
+
+                if result.get("success"):
+                    invoices = result.get("data", [])
+                    if invoices:
+                        # Calculate totals
+                        total_amount = sum(inv.get('amount', 0) for inv in invoices)
+                        status_counts = {}
+                        for inv in invoices:
+                            status = inv.get('status', 'Unknown')
+                            status_counts[status] = status_counts.get(status, 0) + 1
+
+                        # Format status breakdown for f-string
+                        status_lines = '\n'.join([f"• **{status.title()}:** {count:,}" for status, count in status_counts.items()])
+                        # Format invoice details for f-string
+                        invoice_lines = '\n'.join([f"• **Invoice #{inv.get('invoice_number', inv.get('id', 'N/A'))}**\n" +
+                                        f"  👤 Client: {inv.get('client_name', 'Unknown Client')}\n" +
+                                        f"  💰 Amount: ${inv.get('amount', 0):,.2f}\n" +
+                                        f"  📊 Status: {inv.get('status', 'Unknown').title()}\n" +
+                                        f"  📅 Due: {inv.get('due_date', 'N/A')}\n" +
+                                        "  -----------------------------------------\n"
+                                        for inv in invoices])
+                        mcp_response = f"""
+📄 **Invoice Management Dashboard**
+
+📊 **📈 Invoice Overview:**
+• **Total Invoices:** {len(invoices):,}
+• **Total Amount:** ${total_amount:,.2f}
+• **Average Invoice Amount:** ${(total_amount / len(invoices)) if len(invoices) > 0 else 0:,.2f}
+
+📋 **📊 Status Breakdown:**
+{status_lines}
+
+📄 **💼 Invoice Details:**
+{invoice_lines}
+
+📋 **📊 Data Source:**
+This comprehensive invoice information was retrieved using your actual invoice data through our advanced MCP tools.
+                        """.strip()
+                    else:
+                        mcp_response = "No invoices found matching your query."
+                else:
+                    # Fallback for search/list errors
+                    mcp_response = f"Error retrieving invoices: {result.get('error', 'Unknown error')}"
+
+                return {
+                    "success": True,
+                    "data": {
+                        "response": mcp_response,
+                        "provider": ai_config.provider_name,
+                        "model": ai_config.model_name,
+                        "source": "mcp_tools"
+                    }
+                }
             except Exception as e:
                 print(f"MCP Integration: Exception during tool execution: {e}")
                 # Fallback to LLM
