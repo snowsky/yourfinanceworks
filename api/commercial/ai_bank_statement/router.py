@@ -1633,6 +1633,19 @@ async def accept_review(
 
     db.commit()
     db.refresh(statement)
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_ACCEPT_STATEMENT",
+        resource_type="bank_statement",
+        resource_id=str(statement.id),
+        resource_name=statement.original_filename,
+        details={"statement_id": statement.id, "review_status": statement.review_status}
+    )
+
     return statement
 
 @router.post("/{statement_id}/reject-review", response_model=BankStatementResponse)
@@ -1652,6 +1665,18 @@ async def reject_review(
 
     if not success:
         raise HTTPException(status_code=400, detail="Failed to reject review")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_REJECT_STATEMENT",
+        resource_type="bank_statement",
+        resource_id=str(statement.id),
+        resource_name=statement.original_filename,
+        details={"statement_id": statement.id, "review_status": statement.review_status}
+    )
 
     return statement
 
@@ -1699,6 +1724,18 @@ async def run_review(
         event_service.publish_single_review_trigger(tenant_id, "statement", statement_id)
     except Exception as e:
         logger.warning(f"Failed to publish review trigger event for statement {statement_id}: {e}")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_TRIGGER_STATEMENT",
+        resource_type="bank_statement",
+        resource_id=str(statement.id),
+        resource_name=statement.original_filename,
+        details={"statement_id": statement.id, "review_status": statement.review_status}
+    )
 
     return statement
 

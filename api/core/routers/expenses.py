@@ -832,6 +832,19 @@ async def accept_review(
 
     db.commit()
     db.refresh(expense)
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_ACCEPT_EXPENSE",
+        resource_type="expense",
+        resource_id=str(expense.id),
+        resource_name=getattr(expense, "vendor", None),
+        details={"expense_id": expense.id, "review_status": expense.review_status}
+    )
+
     return expense
 
 @router.post("/{expense_id:int}/reject-review", response_model=ExpenseSchema)
@@ -851,6 +864,18 @@ async def reject_review(
 
     if not success:
         raise HTTPException(status_code=400, detail="Failed to reject review")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_REJECT_EXPENSE",
+        resource_type="expense",
+        resource_id=str(expense.id),
+        resource_name=getattr(expense, "vendor", None),
+        details={"expense_id": expense.id, "review_status": expense.review_status}
+    )
 
     return expense
 
@@ -904,6 +929,18 @@ async def run_review(
             logger.info(f"Published Kafka event to trigger review for expense {expense_id}")
     except Exception as e:
         logger.warning(f"Failed to publish Kafka event for expense review trigger: {e}")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_TRIGGER_EXPENSE",
+        resource_type="expense",
+        resource_id=str(expense.id),
+        resource_name=getattr(expense, "vendor", None),
+        details={"expense_id": expense.id, "review_status": expense.review_status}
+    )
 
     return expense
 
@@ -1993,6 +2030,19 @@ async def reprocess_expense(
                     )
 
             logger.info(f"Reprocess started for expense {expense_id} with {len([a for a in attachments if getattr(a, 'file_path', None)])} attachment(s) by user {current_user.id} (request_id: {request_id})")
+
+            # Log audit event
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="REPROCESS_EXPENSE",
+                resource_type="expense",
+                resource_id=str(expense_id),
+                resource_name=getattr(expense, "vendor", None),
+                details={"expense_id": expense_id, "request_id": request_id}
+            )
+
             return {"message": "Expense reprocessing started", "status": "queued", "request_id": request_id}
 
         except Exception as e:

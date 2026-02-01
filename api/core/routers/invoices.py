@@ -3465,6 +3465,19 @@ async def accept_review(
 
     db.commit()
     db.refresh(invoice)
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_ACCEPT_INVOICE",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        resource_name=getattr(invoice, "number", None),
+        details={"invoice_id": invoice.id, "review_status": invoice.review_status}
+    )
+
     return invoice
 
 @router.post("/{invoice_id}/reject-review", response_model=InvoiceSchema)
@@ -3484,6 +3497,18 @@ async def reject_review(
 
     if not success:
         raise HTTPException(status_code=400, detail="Failed to reject review")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_REJECT_INVOICE",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        resource_name=getattr(invoice, "number", None),
+        details={"invoice_id": invoice.id, "review_status": invoice.review_status}
+    )
 
     return invoice
 
@@ -3558,6 +3583,18 @@ async def run_review(
 
     if invoice.review_status == "pending":
         logger.warning(f"Review processing timed out for invoice {invoice_id} after {max_wait_time} seconds")
+
+    # Log audit event
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="REVIEW_TRIGGER_INVOICE",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        resource_name=getattr(invoice, "number", None),
+        details={"invoice_id": invoice.id, "review_status": invoice.review_status}
+    )
 
     return invoice
 
