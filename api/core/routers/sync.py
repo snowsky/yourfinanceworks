@@ -24,7 +24,7 @@ class SyncRequest(httpx.Request):
 async def get_sync_status(
     remote_url: Optional[str] = Query(None),
     remote_api_key: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
@@ -83,7 +83,7 @@ async def push_data(
     remote_url: str = Query(...),
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
@@ -151,7 +151,7 @@ async def pull_data(
     remote_url: str = Query(...),
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
@@ -215,7 +215,7 @@ async def pull_data(
 @router.post("/export")
 async def export_sync_package(
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
@@ -237,7 +237,7 @@ async def export_sync_package(
 @router.post("/import")
 async def import_sync_package(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
