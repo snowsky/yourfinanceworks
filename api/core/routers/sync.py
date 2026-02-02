@@ -24,8 +24,8 @@ class SyncRequest(httpx.Request):
 async def get_sync_status(
     remote_url: Optional[str] = Query(None),
     remote_api_key: Optional[str] = Query(None),
-    db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_sync_auth)
+    current_user: MasterUser = Depends(get_current_sync_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Get the sync status of the current instance.
@@ -69,7 +69,15 @@ async def get_sync_status(
                         )
                     raise HTTPException(status_code=400, detail=f"Remote authentication failed: {detail}")
                 else:
-                    status["remote_status"] = f"error: {response.status_code}"
+                    remote_detail = response.text
+                    try:
+                        remote_detail = response.json().get("detail", response.text)
+                    except:
+                        pass
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Remote instance returned error ({response.status_code}): {remote_detail}"
+                    )
         except HTTPException:
             raise
         except Exception as e:
@@ -83,8 +91,8 @@ async def push_data(
     remote_url: str = Query(...),
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_sync_auth)
+    current_user: MasterUser = Depends(get_current_sync_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Push local data to a remote instance.
@@ -151,8 +159,8 @@ async def pull_data(
     remote_url: str = Query(...),
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_sync_auth)
+    current_user: MasterUser = Depends(get_current_sync_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Pull data from a remote instance to the local instance.
@@ -215,8 +223,8 @@ async def pull_data(
 @router.post("/export")
 async def export_sync_package(
     include_attachments: bool = Query(True),
-    db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_sync_auth)
+    current_user: MasterUser = Depends(get_current_sync_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Internal endpoint to export data for a pull request.
@@ -237,8 +245,8 @@ async def export_sync_package(
 @router.post("/import")
 async def import_sync_package(
     file: UploadFile = File(...),
-    db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_sync_auth)
+    current_user: MasterUser = Depends(get_current_sync_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Internal endpoint to receive and apply a sync package.

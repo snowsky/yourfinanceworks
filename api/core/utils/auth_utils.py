@@ -5,7 +5,7 @@ from jose import JWTError, jwt
 from typing import Optional
 import logging
 
-from core.models.database import get_master_db
+from core.models.database import get_master_db, set_tenant_context
 from core.models.models import MasterUser
 from core.routers.auth import SECRET_KEY, ALGORITHM, security as jwt_security, get_current_user
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthenticationMethod
@@ -34,7 +34,10 @@ async def get_current_sync_auth(
     
     # 1. Try treating as JWT first by delegating to get_current_user
     try:
-        return get_current_user(credentials, db)
+        user = get_current_user(credentials, db)
+        if user and user.tenant_id:
+            set_tenant_context(user.tenant_id)
+        return user
     except HTTPException as e:
         # If it failed but it looks like an API key, we try the fallback
         if not token.startswith("ak_"):
@@ -49,6 +52,8 @@ async def get_current_sync_auth(
             # Load the user who owns this key
             user = db.query(MasterUser).filter(MasterUser.id == int(auth_context.user_id)).first()
             if user and user.is_active:
+                if user.tenant_id:
+                    set_tenant_context(user.tenant_id)
                 return user
 
     raise HTTPException(
