@@ -216,8 +216,7 @@ class SyncService:
                 InvoiceProcessingTask, ExpenseApproval, InvoiceApproval,
                 ApprovalRule, ApprovalDelegate, Reminder, ReminderNotification,
                 CloudStorageConfiguration, StorageOperationLog, BatchProcessingJob,
-                BatchFileProcessing, ExportDestinationConfig, Anomaly,
-                InstallationInfo, LicenseValidationLog
+                BatchFileProcessing, ExportDestinationConfig, Anomaly
             ]
 
             for model in models:
@@ -245,7 +244,7 @@ class SyncService:
         try:
             # 1. Clear existing data (in reverse order of FK dependencies)
             models_to_clear = [
-                LicenseValidationLog, InstallationInfo, Anomaly,
+                Anomaly,
                 ExportDestinationConfig, BatchFileProcessing, BatchProcessingJob,
                 StorageOperationLog, CloudStorageConfiguration,
                 ReminderNotification, Reminder, ApprovalDelegate,
@@ -456,9 +455,7 @@ class SyncService:
                 (StorageOperationLog, {}),
                 (BatchFileProcessing, {'job_id': job_map}),
                 (ExportDestinationConfig, {}),
-                (Anomaly, {}),
-                (InstallationInfo, {}),
-                (LicenseValidationLog, {})
+                (Anomaly, {})
             ]
 
             for model, mapping in simple_models:
