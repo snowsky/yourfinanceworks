@@ -11,6 +11,7 @@ from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
 from core.services.sync_service import SyncService
+from core.utils.auth_utils import get_current_sync_auth
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ async def get_sync_status(
     remote_url: Optional[str] = Query(None),
     remote_api_key: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
     Get the sync status of the current instance.
@@ -73,7 +74,7 @@ async def push_data(
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
     Push local data to a remote instance.
@@ -117,10 +118,18 @@ async def push_data(
 
             if response.status_code == 200:
                 return {"message": "Data pushed successfully", "remote_response": response.json()}
+            elif response.status_code == 401:
+                detail = response.json().get("detail", "")
+                if "Invalid or expired token" in str(detail):
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Remote instance rejected the API key. Please ensure the remote instance is updated to the latest version supporting flexible sync authentication."
+                    )
+                raise HTTPException(status_code=401, detail=f"Remote authentication failed: {detail}")
             else:
                 raise HTTPException(
                     status_code=response.status_code, 
-                    detail=f"Remote instance returned error: {response.text}"
+                    detail=f"Remote instance returned error ({response.status_code}): {response.text}"
                 )
 
     except Exception as e:
@@ -133,7 +142,7 @@ async def pull_data(
     remote_api_key: str = Query(...),
     include_attachments: bool = Query(True),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
     Pull data from a remote instance to the local instance.
@@ -175,10 +184,18 @@ async def pull_data(
                 # 3. Apply locally
                 SyncService.apply_package(package_bytes, current_user.tenant_id)
                 return {"message": "Data pulled and applied successfully"}
+            elif response.status_code == 401:
+                detail = response.json().get("detail", "")
+                if "Invalid or expired token" in str(detail):
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Remote instance rejected the API key. Please ensure the remote instance is updated to the latest version supporting flexible sync authentication."
+                    )
+                raise HTTPException(status_code=401, detail=f"Remote authentication failed: {detail}")
             else:
                 raise HTTPException(
                     status_code=response.status_code, 
-                    detail=f"Remote instance returned error: {response.text}"
+                    detail=f"Remote instance returned error ({response.status_code}): {response.text}"
                 )
 
     except Exception as e:
@@ -189,7 +206,7 @@ async def pull_data(
 async def export_sync_package(
     include_attachments: bool = Query(True),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
     Internal endpoint to export data for a pull request.
@@ -211,7 +228,7 @@ async def export_sync_package(
 async def import_sync_package(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_sync_auth)
 ):
     """
     Internal endpoint to receive and apply a sync package.

@@ -144,7 +144,7 @@ class ExternalAPIAuthService:
             api_key_id=api_client.client_id,
             authentication_method=AuthenticationMethod.API_KEY,
             is_authenticated=True,
-            is_admin=False,
+            is_admin=user.role == "admin" or user.is_superuser,
             tenant_id=user.tenant_id,
             is_sandbox=api_client.is_sandbox,
         )
