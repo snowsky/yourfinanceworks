@@ -262,12 +262,13 @@ class SyncService:
             # Users
             source_users = source_db.query(TenantUser).all()
             for u in source_users:
-                if u.is_superuser: continue
                 # check if exists by email
                 existing = target_db.query(TenantUser).filter(TenantUser.email == u.email).first()
                 if existing:
                     user_map[u.id] = existing.id
                 else:
+                    # Only create new users if they are not superusers (superusers are usually system-managed)
+                    # or if they don't exist yet.
                     new_u = TenantUser(**{c.name: getattr(u, c.name) for c in TenantUser.__table__.columns if c.name != 'id'})
                     target_db.add(new_u)
                     target_db.flush()

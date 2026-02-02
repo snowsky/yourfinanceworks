@@ -61,16 +61,6 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
         }
     });
 
-    const pullMutation = useMutation({
-        mutationFn: () => syncApi.pull(remoteUrl, remoteApiKey, includeAttachments),
-        onSuccess: () => {
-            toast.success(t('settings.data_management.data_pulled_successfully'));
-            window.location.reload(); // Refresh to show new data
-        },
-        onError: (error) => {
-            toast.error(getErrorMessage(error, t));
-        }
-    });
 
     const handleCheckStatus = () => {
         if (!remoteUrl || !remoteApiKey) return;
@@ -236,50 +226,25 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-2">
-                                <Button
-                                    onClick={() => pushMutation.mutate()}
-                                    disabled={pushMutation.isPending || pullMutation.isPending || !status}
-                                    className="w-full"
-                                >
-                                    {pushMutation.isPending ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Upload className="mr-2 h-4 w-4" />
-                                    )}
-                                    {t('settings.data_management.push_to_remote')}
-                                </Button>
-                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground px-1">
-                                    <span className="font-semibold">{t('settings.data_management.source')}:</span>
-                                    <span>{t('settings.data_management.local_instance')}</span>
-                                    <span className="mx-1">→</span>
-                                    <span className="font-semibold">{t('settings.data_management.destination')}:</span>
-                                    <span>{t('settings.data_management.remote_instance')}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <Button
-                                    onClick={() => pullMutation.mutate()}
-                                    disabled={pullMutation.isPending || pushMutation.isPending || !status}
-                                    variant="outline"
-                                    className="w-full"
-                                >
-                                    {pullMutation.isPending ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="mr-2 h-4 w-4" />
-                                    )}
-                                    {t('settings.data_management.pull_from_remote')}
-                                </Button>
-                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground px-1">
-                                    <span className="font-semibold">{t('settings.data_management.source')}:</span>
-                                    <span>{t('settings.data_management.remote_instance')}</span>
-                                    <span className="mx-1">→</span>
-                                    <span className="font-semibold">{t('settings.data_management.destination')}:</span>
-                                    <span>{t('settings.data_management.local_instance')}</span>
-                                </div>
+                        <div className="flex flex-col gap-2">
+                            <Button
+                                onClick={() => pushMutation.mutate()}
+                                disabled={pushMutation.isPending || !status}
+                                className="w-full"
+                            >
+                                {pushMutation.isPending ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Upload className="mr-2 h-4 w-4" />
+                                )}
+                                {t('settings.data_management.push_to_remote')}
+                            </Button>
+                            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground px-1">
+                                <span className="font-semibold">{t('settings.data_management.source')}:</span>
+                                <span>{t('settings.data_management.local_instance')}</span>
+                                <span className="mx-1">→</span>
+                                <span className="font-semibold">{t('settings.data_management.destination')}:</span>
+                                <span>{t('settings.data_management.remote_instance')}</span>
                             </div>
                         </div>
 

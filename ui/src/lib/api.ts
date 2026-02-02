@@ -2566,16 +2566,6 @@ export const syncApi = {
       method: 'POST',
     });
   },
-  pull: (url: string, apiKey: string, includeAttachments: boolean = true) => {
-    const params = new URLSearchParams({
-      remote_url: url,
-      remote_api_key: apiKey,
-      include_attachments: includeAttachments.toString(),
-    });
-    return apiRequest<{ message: string }>(`/sync/pull?${params.toString()}`, {
-      method: 'POST',
-    });
-  },
 };
 
 // Discount Rules API methods
