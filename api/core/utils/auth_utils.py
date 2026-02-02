@@ -7,7 +7,7 @@ import logging
 
 from core.models.database import get_master_db
 from core.models.models import MasterUser
-from core.routers.auth import SECRET_KEY, ALGORITHM, security as jwt_security
+from core.routers.auth import SECRET_KEY, ALGORITHM, security as jwt_security, get_current_user
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthenticationMethod
 
 logger = logging.getLogger(__name__)
@@ -20,34 +20,27 @@ async def get_current_sync_auth(
 ) -> MasterUser:
     """
     Dependency that supports both JWT (Bearer) and Static API Key (Bearer) for sync.
-    If the token looks like a JWT, it validates it normally.
+    If the token looks like a JWT, it validates it normally via get_current_user.
     If it looks like an API key (e.g. starts with ak_), it validates via API client.
     """
-    token = credentials.credentials if credentials else None
-    
-    if not token:
+    if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication credentials were not provided",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 1. Try treating as JWT first
+    token = credentials.credentials
+    
+    # 1. Try treating as JWT first by delegating to get_current_user
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email:
-            user = db.query(MasterUser).filter(MasterUser.email == email).first()
-            if user and user.is_active:
-                return user
-    except JWTError:
-        # Not a valid JWT, or expired. 
-        # If it looks like a JWT (3 parts), we might want to fail fast, 
-        # but for sync specifically, we'll try the static key fallback.
-        pass
+        return get_current_user(credentials, db)
+    except HTTPException as e:
+        # If it failed but it looks like an API key, we try the fallback
+        if not token.startswith("ak_"):
+            raise e
 
     # 2. Try treating as Static API Key
-    # Sync usually expects API keys starting with 'ak_'
     if token.startswith("ak_"):
         client_ip = request.client.host if request.client else "unknown"
         auth_context = await external_auth_service.authenticate_api_key(db, token, client_ip)
@@ -56,7 +49,6 @@ async def get_current_sync_auth(
             # Load the user who owns this key
             user = db.query(MasterUser).filter(MasterUser.id == int(auth_context.user_id)).first()
             if user and user.is_active:
-                # We return the user object so require_admin works
                 return user
 
     raise HTTPException(

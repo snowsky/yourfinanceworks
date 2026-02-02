@@ -60,8 +60,18 @@ async def get_sync_status(
                     status["remote_status"] = "reachable"
                     # Auto-suggest skipping attachments if storage identities match
                     status["suggest_skip_attachments"] = (storage_identity == status["remote_storage_identity"])
+                elif response.status_code == 401:
+                    detail = response.json().get("detail", "")
+                    if "Invalid or expired token" in str(detail):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Remote instance rejected the API key. Please ensure the remote instance is updated to the latest version supporting flexible sync authentication and the key is active."
+                        )
+                    raise HTTPException(status_code=400, detail=f"Remote authentication failed: {detail}")
                 else:
                     status["remote_status"] = f"error: {response.status_code}"
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to check remote sync status: {e}")
             status["remote_status"] = f"unreachable: {str(e)}"
@@ -122,10 +132,10 @@ async def push_data(
                 detail = response.json().get("detail", "")
                 if "Invalid or expired token" in str(detail):
                     raise HTTPException(
-                        status_code=401,
+                        status_code=400,
                         detail="Remote instance rejected the API key. Please ensure the remote instance is updated to the latest version supporting flexible sync authentication."
                     )
-                raise HTTPException(status_code=401, detail=f"Remote authentication failed: {detail}")
+                raise HTTPException(status_code=400, detail=f"Remote authentication failed: {detail}")
             else:
                 raise HTTPException(
                     status_code=response.status_code, 
@@ -188,10 +198,10 @@ async def pull_data(
                 detail = response.json().get("detail", "")
                 if "Invalid or expired token" in str(detail):
                     raise HTTPException(
-                        status_code=401,
+                        status_code=400,
                         detail="Remote instance rejected the API key. Please ensure the remote instance is updated to the latest version supporting flexible sync authentication."
                     )
-                raise HTTPException(status_code=401, detail=f"Remote authentication failed: {detail}")
+                raise HTTPException(status_code=400, detail=f"Remote authentication failed: {detail}")
             else:
                 raise HTTPException(
                     status_code=response.status_code, 
