@@ -43,7 +43,8 @@ from core.routers import (
     notifications,  # Add the notifications router
     gamification,  # Add the gamification router
     social_features,  # Add the social features router
-    user_preference_controls  # Add the user preference controls router
+    user_preference_controls,  # Add the user preference controls router
+    sync  # Add the synchronization router
 )
 
 # Configure logging early so we can use it in imports
@@ -507,6 +508,7 @@ app.include_router(gamification.router, prefix="/api/v1")  # Add the gamificatio
 app.include_router(social_features.router, prefix="/api/v1")  # Add the social features router
 app.include_router(analytics.router, prefix="/api/v1")       # Add the new analytics router
 app.include_router(audit_log.router, prefix="/api/v1")       # Add the new audit log router
+app.include_router(sync.router, prefix="/api/v1")            # Add the sync router
 
 
 # ------------------------------------------------------------------------------

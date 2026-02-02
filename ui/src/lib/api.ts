@@ -2536,6 +2536,47 @@ export const settingsApi = {
     return await response.json();
   },
 };
+ 
+export interface SyncStatus {
+  local_fingerprint: string;
+  storage_identity: any;
+  is_in_sync: boolean | null;
+  remote_status: string;
+  timestamp: string;
+  remote_fingerprint?: string;
+  remote_storage_identity?: any;
+  suggest_skip_attachments?: string;
+}
+
+export const syncApi = {
+  getStatus: (url?: string, apiKey?: string) => {
+    const params = new URLSearchParams();
+    if (url) params.set('remote_url', url);
+    if (apiKey) params.set('remote_api_key', apiKey);
+    const queryString = params.toString();
+    return apiRequest<SyncStatus>(`/sync/status${queryString ? `?${queryString}` : ''}`);
+  },
+  push: (url: string, apiKey: string, includeAttachments: boolean = true) => {
+    const params = new URLSearchParams({
+      remote_url: url,
+      remote_api_key: apiKey,
+      include_attachments: includeAttachments.toString(),
+    });
+    return apiRequest<{ message: string; remote_response: any }>(`/sync/push?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+  pull: (url: string, apiKey: string, includeAttachments: boolean = true) => {
+    const params = new URLSearchParams({
+      remote_url: url,
+      remote_api_key: apiKey,
+      include_attachments: includeAttachments.toString(),
+    });
+    return apiRequest<{ message: string }>(`/sync/pull?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+};
 
 // Discount Rules API methods
 export const discountRulesApi = {
