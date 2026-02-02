@@ -356,9 +356,9 @@ class AzureBlobProvider(CloudStorageProvider):
                 file_key=file_key,
                 file_size=file_size,
                 content_type=content_type,
+                file_content=file_content,  # Store in dedicated field for sync
                 provider=self.provider_type.value,
-                operation_duration_ms=duration_ms,
-                metadata={'content': file_content}
+                operation_duration_ms=duration_ms
             )
             
         except ResourceNotFoundError as e:

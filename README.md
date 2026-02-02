@@ -341,6 +341,9 @@ POST /api/v1/email/send-invoice
 ### Docker Deployment
 
 ```bash
+# Copy the full env file and update with your values
+cp api/.env.example.full api/.env
+
 # Start all services (PostgreSQL, Redis, API, UI)
 docker-compose up -d
 

@@ -29,6 +29,7 @@ class StorageResult:
     file_key: Optional[str] = None
     file_size: Optional[int] = None
     content_type: Optional[str] = None
+    file_content: Optional[bytes] = None  # For downloads when generate_url=False
     error_message: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     provider: Optional[str] = None
