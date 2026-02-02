@@ -425,5 +425,47 @@ class TenantDatabaseManager:
         except Exception as e:
             logger.warning(f"Failed to terminate connections for {db_name}: {e}")
 
+    def sync_postgres_sequences(self, db_session):
+        """Sync all Postgres sequences with current table max IDs to avoid UniqueViolation on next inserts"""
+        try:
+            # Only relevant for Postgres
+            if not str(db_session.bind.url).startswith("postgresql"):
+                return True
+
+            # Query to get all sequences and their tables/columns
+            # This is a bit complex in Postgres but can be automated
+            query = text("""
+                SELECT
+                    t.relname AS table_name,
+                    a.attname AS column_name,
+                    s.relname AS sequence_name
+                FROM
+                    pg_class s
+                    JOIN pg_depend d ON d.objid = s.oid
+                    JOIN pg_class t ON d.refobjid = t.oid
+                    JOIN pg_attribute a ON (d.refobjid = a.attrelid AND d.refobjsubid = a.attnum)
+                WHERE
+                    s.relkind = 'S'
+                    AND d.deptype = 'a'
+                    AND t.relname NOT LIKE 'pg_%'
+            """)
+            
+            sequences = db_session.execute(query).fetchall()
+            
+            for table_name, column_name, sequence_name in sequences:
+                # Update sequence to max(id) + 1
+                sync_query = text(f"""
+                    SELECT setval('{sequence_name}', (SELECT COALESCE(MAX({column_name}), 0) + 1 FROM {table_name}), false)
+                """)
+                db_session.execute(sync_query)
+            
+            db_session.commit()
+            logger.info("Successfully synchronized Postgres sequences")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to synchronize Postgres sequences: {e}")
+            db_session.rollback()
+            return False
+
 # Global instance
 tenant_db_manager = TenantDatabaseManager()

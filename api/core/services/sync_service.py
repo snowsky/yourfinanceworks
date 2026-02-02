@@ -19,7 +19,14 @@ from core.models.models_per_tenant import (
     Base as TenantBase, User, Client, ClientNote, Invoice, Payment, 
     Settings, DiscountRule, SupportedCurrency, CurrencyRate, 
     InvoiceItem, InvoiceHistory, AIConfig, Expense, ExpenseAttachment, 
-    BankStatement, BankStatementTransaction, AuditLog, AIChatHistory
+    BankStatement, BankStatementTransaction, AuditLog, AIChatHistory,
+    BankStatementAttachment, RawEmail, ReportTemplate, ScheduledReport,
+    ReportHistory, InventoryCategory, InventoryItem, StockMovement,
+    Warehouse, InventoryLevel, ItemAttachment, InvoiceAttachment,
+    InvoiceProcessingTask, ExpenseApproval, InvoiceApproval, ApprovalRule,
+    ApprovalDelegate, Reminder, ReminderNotification, CloudStorageConfiguration,
+    StorageOperationLog, BatchProcessingJob, BatchFileProcessing,
+    ExportDestinationConfig, Anomaly, InstallationInfo, LicenseValidationLog
 )
 
 logger = logging.getLogger(__name__)
@@ -156,12 +163,13 @@ class SyncService:
                 raise Exception("Invalid sync package: missing database.sqlite")
 
             # 1. Apply database changes
-            # We use the existing import logic pattern
             from core.services.tenant_database_manager import tenant_db_manager
             SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
             db = SessionLocal_tenant()
             try:
                 SyncService._import_from_sqlite(sqlite_file, db, tenant_id)
+                # Ensure users exist in master database so they can log in
+                SyncService._align_master_users(db, tenant_id)
             finally:
                 db.close()
 
@@ -201,7 +209,15 @@ class SyncService:
                 DiscountRule, SupportedCurrency, CurrencyRate, 
                 InvoiceItem, InvoiceHistory, AIConfig, Expense, 
                 ExpenseAttachment, BankStatement, BankStatementTransaction, 
-                AuditLog, AIChatHistory
+                AuditLog, AIChatHistory, BankStatementAttachment, RawEmail,
+                ReportTemplate, ScheduledReport, ReportHistory,
+                InventoryCategory, InventoryItem, StockMovement, Warehouse,
+                InventoryLevel, ItemAttachment, InvoiceAttachment,
+                InvoiceProcessingTask, ExpenseApproval, InvoiceApproval,
+                ApprovalRule, ApprovalDelegate, Reminder, ReminderNotification,
+                CloudStorageConfiguration, StorageOperationLog, BatchProcessingJob,
+                BatchFileProcessing, ExportDestinationConfig, Anomaly,
+                InstallationInfo, LicenseValidationLog
             ]
 
             for model in models:
@@ -228,8 +244,16 @@ class SyncService:
 
         try:
             # 1. Clear existing data (in reverse order of FK dependencies)
-            # This is a bit risky but requested. We try to be careful.
             models_to_clear = [
+                LicenseValidationLog, InstallationInfo, Anomaly,
+                ExportDestinationConfig, BatchFileProcessing, BatchProcessingJob,
+                StorageOperationLog, CloudStorageConfiguration,
+                ReminderNotification, Reminder, ApprovalDelegate,
+                ApprovalRule, InvoiceApproval, ExpenseApproval,
+                InvoiceProcessingTask, InvoiceAttachment, ItemAttachment,
+                InventoryLevel, Warehouse, StockMovement, InventoryItem,
+                InventoryCategory, ReportHistory, ScheduledReport,
+                ReportTemplate, RawEmail, BankStatementAttachment,
                 AIChatHistory, AuditLog, BankStatementTransaction, BankStatement,
                 ExpenseAttachment, Expense, InvoiceItem, InvoiceHistory, 
                 Payment, Invoice, ClientNote, Client, Settings, DiscountRule,
@@ -258,76 +282,153 @@ class SyncService:
             invoice_map = {}
             expense_map = {}
             statement_map = {}
+            category_map = {}
+            item_map = {}
+            warehouse_map = {}
+            template_map = {}
+            rule_map = {}
+            job_map = {}
 
-            # Users
+            # 2. Users - Smart mapping
+            # First, map superusers by role if they exist, then others by email
             source_users = source_db.query(TenantUser).all()
-            for u in source_users:
+            target_users = target_db.query(TenantUser).all()
+            
+            # Map superusers first (assume the primary admin is the same person)
+            source_superusers = [u for u in source_users if u.is_superuser]
+            target_superusers = [u for u in target_users if u.is_superuser]
+            
+            if source_superusers and target_superusers:
+                # Map first source superuser to first target superuser
+                user_map[source_superusers[0].id] = target_superusers[0].id
+                # Remove them from further direct matching if we have multiples
+                remaining_source = [u for u in source_users if u.id != source_superusers[0].id]
+            else:
+                remaining_source = source_users
+
+            for u in remaining_source:
                 # check if exists by email
                 existing = target_db.query(TenantUser).filter(TenantUser.email == u.email).first()
                 if existing:
                     user_map[u.id] = existing.id
                 else:
-                    # Only create new users if they are not superusers (superusers are usually system-managed)
-                    # or if they don't exist yet.
                     new_u = TenantUser(**{c.name: getattr(u, c.name) for c in TenantUser.__table__.columns if c.name != 'id'})
                     target_db.add(new_u)
                     target_db.flush()
                     user_map[u.id] = new_u.id
 
-            # Clients
+            # 3. Clients
             for c in source_db.query(Client).all():
                 new_c = Client(**{col.name: getattr(c, col.name) for col in Client.__table__.columns if col.name != 'id'})
                 target_db.add(new_c)
                 target_db.flush()
                 client_map[c.id] = new_c.id
 
-            # Invoices
+            # 4. Invoices
             for i in source_db.query(Invoice).all():
                 data = {col.name: getattr(i, col.name) for col in Invoice.__table__.columns if col.name != 'id'}
                 data['client_id'] = client_map.get(i.client_id)
+                data['created_by_user_id'] = user_map.get(i.created_by_user_id)
+                data['deleted_by'] = user_map.get(i.deleted_by)
                 new_i = Invoice(**data)
                 target_db.add(new_i)
                 target_db.flush()
                 invoice_map[i.id] = new_i.id
 
-            # Payments
+            # 5. Payments
             for p in source_db.query(Payment).all():
                 data = {col.name: getattr(p, col.name) for col in Payment.__table__.columns if col.name != 'id'}
                 data['invoice_id'] = invoice_map.get(p.invoice_id)
-                data['user_id'] = user_map.get(p.user_id) if hasattr(p, 'user_id') else None
+                data['user_id'] = user_map.get(p.user_id)
                 target_db.add(Payment(**data))
 
-            # Expenses
+            # 6. Expenses
             for e in source_db.query(Expense).all():
                 data = {col.name: getattr(e, col.name) for col in Expense.__table__.columns if col.name != 'id'}
                 data['user_id'] = user_map.get(e.user_id)
                 data['invoice_id'] = invoice_map.get(e.invoice_id)
+                data['created_by_user_id'] = user_map.get(e.created_by_user_id)
+                data['deleted_by'] = user_map.get(e.deleted_by)
                 new_e = Expense(**data)
                 target_db.add(new_e)
                 target_db.flush()
                 expense_map[e.id] = new_e.id
 
-            # Expense Attachments
+            # 7. Expense Attachments
             for ea in source_db.query(ExpenseAttachment).all():
                 data = {col.name: getattr(ea, col.name) for col in ExpenseAttachment.__table__.columns if col.name != 'id'}
                 data['expense_id'] = expense_map.get(ea.expense_id)
+                data['uploaded_by'] = user_map.get(ea.uploaded_by)
                 target_db.add(ExpenseAttachment(**data))
 
-            # Bank Statements
+            # 8. Bank Statements
             for bs in source_db.query(BankStatement).all():
                 data = {col.name: getattr(bs, col.name) for col in BankStatement.__table__.columns if col.name != 'id'}
+                data['created_by_user_id'] = user_map.get(bs.created_by_user_id)
+                data['deleted_by'] = user_map.get(bs.deleted_by)
                 new_bs = BankStatement(**data)
                 target_db.add(new_bs)
                 target_db.flush()
                 statement_map[bs.id] = new_bs.id
 
-            # Bank Transactions
+            # 9. Bank Transactions
             for bt in source_db.query(BankStatementTransaction).all():
                 data = {col.name: getattr(bt, col.name) for col in BankStatementTransaction.__table__.columns if col.name != 'id'}
                 data['statement_id'] = statement_map.get(bt.statement_id)
+                data['invoice_id'] = invoice_map.get(bt.invoice_id)
+                data['expense_id'] = expense_map.get(bt.expense_id)
                 target_db.add(BankStatementTransaction(**data))
 
-            # Remaining simple tables
+            # 10. Inventory Parents
+            for ic in source_db.query(InventoryCategory).all():
+                new_ic = InventoryCategory(**{col.name: getattr(ic, col.name) for col in InventoryCategory.__table__.columns if col.name != 'id'})
+                target_db.add(new_ic)
+                target_db.flush()
+                category_map[ic.id] = new_ic.id
+            
+            for ii in source_db.query(InventoryItem).all():
+                data = {col.name: getattr(ii, col.name) for col in InventoryItem.__table__.columns if col.name != 'id'}
+                data['category_id'] = category_map.get(ii.category_id)
+                new_ii = InventoryItem(**data)
+                target_db.add(new_ii)
+                target_db.flush()
+                item_map[ii.id] = new_ii.id
+
+            for wh in source_db.query(Warehouse).all():
+                data = {col.name: getattr(wh, col.name) for col in Warehouse.__table__.columns if col.name != 'id'}
+                data['manager_id'] = user_map.get(wh.manager_id)
+                new_wh = Warehouse(**data)
+                target_db.add(new_wh)
+                target_db.flush()
+                warehouse_map[wh.id] = new_wh.id
+
+            # 11. Report/Approval/Batch Parents
+            for rt in source_db.query(ReportTemplate).all():
+                data = {col.name: getattr(rt, col.name) for col in ReportTemplate.__table__.columns if col.name != 'id'}
+                data['user_id'] = user_map.get(rt.user_id)
+                new_rt = ReportTemplate(**data)
+                target_db.add(new_rt)
+                target_db.flush()
+                template_map[rt.id] = new_rt.id
+            
+            for ar in source_db.query(ApprovalRule).all():
+                data = {col.name: getattr(ar, col.name) for col in ApprovalRule.__table__.columns if col.name != 'id'}
+                data['created_by'] = user_map.get(ar.created_by)
+                new_ar = ApprovalRule(**data)
+                target_db.add(new_ar)
+                target_db.flush()
+                rule_map[ar.id] = new_ar.id
+
+            for bpj in source_db.query(BatchProcessingJob).all():
+                data = {col.name: getattr(bpj, col.name) for col in BatchProcessingJob.__table__.columns if col.name != 'id'}
+                data['user_id'] = user_map.get(bpj.user_id)
+                new_bpj = BatchProcessingJob(**data)
+                target_db.add(new_bpj)
+                target_db.flush()
+                job_map[bpj.id] = new_bpj.id
+
+            # 12. Remaining models with various FKs
+            # (Model, attribute_mapping_dict)
             simple_models = [
                 (Settings, {}),
                 (DiscountRule, {}),
@@ -336,8 +437,28 @@ class SyncService:
                 (InvoiceItem, {'invoice_id': invoice_map}),
                 (InvoiceHistory, {'invoice_id': invoice_map, 'user_id': user_map}),
                 (AIConfig, {}),
-                (AuditLog, {}),
-                (AIChatHistory, {'user_id': user_map})
+                (AuditLog, {'user_id': user_map}),
+                (AIChatHistory, {'user_id': user_map}),
+                (ReportHistory, {'generated_by': user_map, 'template_id': template_map}),
+                (StockMovement, {'user_id': user_map, 'item_id': item_map, 'warehouse_id': warehouse_map}),
+                (BankStatementAttachment, {'statement_id': statement_map}),
+                (ScheduledReport, {'template_id': template_map}),
+                (InventoryLevel, {'item_id': item_map, 'warehouse_id': warehouse_map}),
+                (ItemAttachment, {'item_id': item_map}),
+                (InvoiceAttachment, {'invoice_id': invoice_map}),
+                (InvoiceProcessingTask, {'invoice_id': invoice_map}),
+                (ExpenseApproval, {'expense_id': expense_map, 'approver_id': user_map}),
+                (InvoiceApproval, {'invoice_id': invoice_map, 'approver_id': user_map}),
+                (ApprovalDelegate, {'delegate_id': user_map, 'original_approver_id': user_map}),
+                (Reminder, {'user_id': user_map}),
+                (ReminderNotification, {}),
+                (CloudStorageConfiguration, {}),
+                (StorageOperationLog, {}),
+                (BatchFileProcessing, {'job_id': job_map}),
+                (ExportDestinationConfig, {}),
+                (Anomaly, {}),
+                (InstallationInfo, {}),
+                (LicenseValidationLog, {})
             ]
 
             for model, mapping in simple_models:
@@ -349,10 +470,81 @@ class SyncService:
                     target_db.add(model(**data))
 
             target_db.commit()
-
+            
+            # 11. Final Step: Sync Postgres sequences
+            from core.services.tenant_database_manager import tenant_db_manager
+            tenant_db_manager.sync_postgres_sequences(target_db)
+            
         except Exception as e:
             target_db.rollback()
             logger.error(f"Failed to import synchronization data: {e}")
             raise e
+
+    @staticmethod
+    def _align_master_users(tenant_db: Session, tenant_id: int):
+        """
+        Ensures all users in the tenant database exist in the master database 
+        and have appropriate permissions to log in.
+        """
+        from core.models.database import SessionLocal as MasterSessionLocal
+        from core.models.models import MasterUser, user_tenant_association
+        from core.models.models_per_tenant import User as TenantUser
+        
+        master_db = MasterSessionLocal()
+        try:
+            tenant_users = tenant_db.query(TenantUser).all()
+            for tu in tenant_users:
+                # Check if user exists in master
+                mu = master_db.query(MasterUser).filter(MasterUser.email == tu.email).first()
+                
+                if not mu:
+                    # Create missing master user
+                    logger.info(f"Sync: Creating missing MasterUser for {tu.email}")
+                    mu = MasterUser(
+                        email=tu.email,
+                        hashed_password=tu.hashed_password,
+                        tenant_id=tenant_id,
+                        role=tu.role,
+                        is_active=tu.is_active,
+                        is_superuser=tu.is_superuser,
+                        is_verified=tu.is_verified,
+                        first_name=tu.first_name,
+                        last_name=tu.last_name,
+                        theme=tu.theme
+                    )
+                    master_db.add(mu)
+                    master_db.flush() # Get ID
+                else:
+                    # User exists, ensure they have membership record for this tenant
+                    # and update password if it changed (mirror behavior)
+                    mu.hashed_password = tu.hashed_password
+                    mu.role = tu.role
+                    mu.is_active = tu.is_active
+                    
+                # Ensure membership association exists
+                membership = master_db.execute(
+                    sqlalchemy.text("SELECT 1 FROM user_tenant_memberships WHERE user_id = :u_id AND tenant_id = :t_id"),
+                    {"u_id": mu.id, "t_id": tenant_id}
+                ).fetchone()
+                
+                if not membership:
+                    logger.info(f"Sync: Adding tenant membership for {tu.email} to tenant {tenant_id}")
+                    master_db.execute(
+                        user_tenant_association.insert().values(
+                            user_id=mu.id,
+                            tenant_id=tenant_id,
+                            role=tu.role,
+                            is_active=tu.is_active
+                        )
+                    )
+            
+            master_db.commit()
+            logger.info(f"Successfully aligned {len(tenant_users)} master users for tenant {tenant_id}")
+        except Exception as e:
+            master_db.rollback()
+            logger.error(f"Failed to align master users: {e}")
+            # We don't raise here to avoid failing the whole sync just because of auth mirroring,
+            # though it's important. Actually, let's keep it failing for now to be safe.
+            raise e
         finally:
-            source_db.close()
+            master_db.close()
