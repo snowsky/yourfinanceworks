@@ -169,6 +169,10 @@ async def tenant_context_middleware(request: Request, call_next):
         # Organization join endpoints must be public (used during signup)
         "/api/v1/organization-join/lookup",
         "/api/v1/organization-join/request",
+        # Sync endpoints handle their own authentication (JWT or API key)
+        "/api/v1/sync/status",
+        "/api/v1/sync/export",
+        "/api/v1/sync/import",
     ]
 
     # Skip tenant context for external API endpoints (they use API key auth)
