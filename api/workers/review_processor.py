@@ -110,7 +110,7 @@ class ReviewProcessorWorker:
             )
 
             # If not found, try with 'attachments/' prefix which is common for some types
-            if (not result.success or not result.metadata) and not s3_key.startswith("attachments/"):
+            if (not result.success or not result.file_content) and not s3_key.startswith("attachments/"):
                 logger.debug(f"Retrying cloud download with attachments/ prefix for {s3_key}")
                 result = await cloud_storage_service.retrieve_file(
                     file_key=f"attachments/{s3_key}",
@@ -119,10 +119,10 @@ class ReviewProcessorWorker:
                     generate_url=False
                 )
 
-            if result.success and result.metadata and 'content' in result.metadata:
+            if result.success and result.file_content:
                 ext = Path(file_path).suffix
                 with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-                    tmp.write(result.metadata['content'])
+                    tmp.write(result.file_content)
                     temp_path = tmp.name
 
                 logger.info(f"Successfully downloaded cloud file to temporary path: {temp_path}")

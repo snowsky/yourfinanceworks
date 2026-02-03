@@ -13,10 +13,6 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from core.models.database import set_tenant_context
 from core.services.tenant_database_manager import tenant_db_manager
 from commercial.anomaly_detection.service import AnomalyDetectionService

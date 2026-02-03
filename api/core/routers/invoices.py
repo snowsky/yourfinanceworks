@@ -2840,7 +2840,7 @@ async def download_invoice_attachment(
                                 expiry_seconds=3600
                             )
 
-                            if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                            if storage_result.success and storage_result.file_content:
                                 # Return file content as streaming response with attachment disposition
                                 headers = {
                                     "Content-Disposition": f"attachment; filename={new_attachment.filename or 'attachment'}",
@@ -2851,7 +2851,7 @@ async def download_invoice_attachment(
                                 }
 
                                 return StreamingResponse(
-                                    io.BytesIO(storage_result.metadata['content']),
+                                    io.BytesIO(storage_result.file_content),
                                     media_type=new_attachment.content_type or 'application/octet-stream',
                                     headers=headers
                                 )
@@ -2902,7 +2902,7 @@ async def download_invoice_attachment(
                                 expiry_seconds=3600
                             )
 
-                            if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                            if storage_result.success and storage_result.file_content:
                                 # Return file content as streaming response with attachment disposition
                                 headers = {
                                     "Content-Disposition": f"attachment; filename={invoice.attachment_filename or 'attachment'}",
@@ -2913,7 +2913,7 @@ async def download_invoice_attachment(
                                 }
 
                                 return StreamingResponse(
-                                    io.BytesIO(storage_result.metadata['content']),
+                                    io.BytesIO(storage_result.file_content),
                                     media_type='application/octet-stream',
                                     headers=headers
                                 )
@@ -3035,7 +3035,7 @@ async def preview_invoice_attachment(
                                 expiry_seconds=3600
                             )
 
-                            if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                            if storage_result.success and storage_result.file_content:
                                 media_type = new_attachment.content_type or mimetypes.guess_type(new_attachment.filename)[0] or "application/octet-stream"
                                 headers = {
                                     "Content-Disposition": f"inline; filename={new_attachment.filename}",
@@ -3043,7 +3043,7 @@ async def preview_invoice_attachment(
                                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                                     "Access-Control-Allow-Headers": "*"
                                 }
-                                return StreamingResponse(io.BytesIO(storage_result.metadata['content']), media_type=media_type, headers=headers)
+                                return StreamingResponse(io.BytesIO(storage_result.file_content), media_type=media_type, headers=headers)
                     except ImportError: pass
                 except Exception as e: logger.warning(f"Cloud preview failed: {e}")
 
@@ -3073,10 +3073,10 @@ async def preview_invoice_attachment(
                         cloud_config = get_cloud_storage_config()
                         cloud_storage_service = CloudStorageService(db, cloud_config)
                         storage_result = await cloud_storage_service.retrieve_file(file_key=invoice.attachment_path, tenant_id=str(tenant_id), user_id=current_user.id, generate_url=False, expiry_seconds=3600)
-                        if storage_result.success and hasattr(storage_result, 'metadata') and storage_result.metadata and 'content' in storage_result.metadata:
+                        if storage_result.success and storage_result.file_content:
                             media_type, _ = mimetypes.guess_type(invoice.attachment_filename or "")
                             media_type = media_type or "application/octet-stream"
-                            return StreamingResponse(io.BytesIO(storage_result.metadata['content']), media_type=media_type, headers={"Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS"})
+                            return StreamingResponse(io.BytesIO(storage_result.file_content), media_type=media_type, headers={"Content-Disposition": f"inline; filename={invoice.attachment_filename or 'attachment'}", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS"})
                 except: pass
 
             try:

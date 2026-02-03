@@ -26,10 +26,6 @@ from enum import Enum
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
-
 # Service imports
 from commercial.ai.services.ocr_service import (
     apply_ocr_extraction_to_expense,
@@ -1032,11 +1028,11 @@ class BankStatementMessageHandler(BaseMessageHandler):
                 generate_url=False
             )
 
-            if retrieve_result.success and retrieve_result.metadata and 'content' in retrieve_result.metadata:
+            if retrieve_result.success and retrieve_result.file_content:
                 # Save to temp file
                 suffix = f"_{stmt.id}_{os.path.basename(file_path)}"
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-                    temp_file.write(retrieve_result.metadata['content'])
+                    temp_file.write(retrieve_result.file_content)
                     temp_path = temp_file.name
 
                 # Cache the local path

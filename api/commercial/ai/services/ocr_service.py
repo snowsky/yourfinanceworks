@@ -1002,7 +1002,7 @@ async def _convert_raw_ocr_to_json(
                 )
                 content = response.get("message", {}).get("content", "")
             except Exception as e:
-                logger.warning(f"Ollama conversion failed: {e}")
+                logger.warning(f"Ollama conversion failed: {type(e).__name__}: {e!r} - {str(e)}")
                 return None
         else:
             # Use LiteLLM for other providers
@@ -1618,7 +1618,7 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                 return {}
 
             except Exception as e:
-                logger.error(f"Ollama direct OCR processing failed: {e}")
+                logger.error(f"Ollama direct OCR processing failed: {type(e).__name__}: {e!r} - {str(e)}")
 
                 # Log failure
                 if prompt_service and not custom_prompt:
@@ -1629,10 +1629,10 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                         success=False,
                         processing_time_ms=0,
                         token_count=0,
-                        error_message=str(e)
+                        error_message=f"{type(e).__name__}: {str(e) or repr(e)}"
                     )
 
-                return {"error": str(e)}
+                return {"error": f"{type(e).__name__}: {str(e)}"}
 
 
         # Use LiteLLM for other providers (OpenAI, Anthropic, Google, etc.)
@@ -1875,10 +1875,10 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
                 from core.models.database import get_tenant_context
                 import tempfile
 
-                if retrieve_result.success and retrieve_result.metadata and 'content' in retrieve_result.metadata:
+                if retrieve_result.success and retrieve_result.file_content:
                     # Create temporary file with the downloaded content
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{attachment_id}_{os.path.basename(file_path)}") as temp_file:
-                        temp_file.write(retrieve_result.metadata['content'])
+                        temp_file.write(retrieve_result.file_content)
                         temp_path = temp_file.name
 
                     # Verify the file was created

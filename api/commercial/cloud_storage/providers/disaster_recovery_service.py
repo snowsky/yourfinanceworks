@@ -316,7 +316,7 @@ class DisasterRecoveryService:
                         # Verify integrity by downloading and checking checksum
                         download_result = await regional_provider.download_file(file_key)
                         if download_result.success:
-                            downloaded_content = download_result.metadata.get('content', b'')
+                            downloaded_content = download_result.file_content or b''
                             backup_checksum = self._calculate_file_checksum(downloaded_content)
 
                             if backup_checksum == primary_checksum:
@@ -484,7 +484,7 @@ class DisasterRecoveryService:
             if not primary_result.success:
                 return True, f"Failed to download from primary: {primary_result.error_message}"
 
-            primary_content = primary_result.metadata.get('content', b'')
+            primary_content = primary_result.file_content or b''
             current_checksum = self._calculate_file_checksum(primary_content)
 
             # Compare with stored checksum
@@ -511,7 +511,7 @@ class DisasterRecoveryService:
                         corruption_details.append(f"Failed to download from region {region}")
                         continue
 
-                    backup_content = backup_result.metadata.get('content', b'')
+                    backup_content = backup_result.file_content or b''
                     backup_checksum = self._calculate_file_checksum(backup_content)
                     
                     if backup_checksum != expected_checksum:
@@ -584,7 +584,7 @@ class DisasterRecoveryService:
                         logger.warning(f"Failed to download from backup region {region}: {backup_result.error_message}")
                         continue
 
-                    backup_content = backup_result.metadata.get('content', b'')
+                    backup_content = backup_result.file_content or b''
                     backup_checksum = self._calculate_file_checksum(backup_content)
 
                     # Verify integrity
@@ -687,7 +687,7 @@ class DisasterRecoveryService:
                     if not backup_result.success:
                         continue
 
-                    backup_content = backup_result.metadata.get('content', b'')
+                    backup_content = backup_result.file_content or b''
 
                     # Restore to original location
                     content_type = backup_result.content_type or 'application/octet-stream'

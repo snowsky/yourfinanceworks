@@ -5,7 +5,6 @@
 # See LICENSE-AGPLv3.txt and LICENSE-COMMERCIAL.txt for details.
 
 import os
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
 import uvicorn
@@ -14,9 +13,6 @@ from fastapi.responses import JSONResponse
 import traceback
 import logging
 from fastapi.staticfiles import StaticFiles
-
-# Load environment variables from .env file
-load_dotenv()
 
 from core.routers import (
     auth,
@@ -480,7 +476,7 @@ app.add_middleware(ExternalAPIAuthMiddleware)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 1. Core Routers (GPLv3)
+# 1. Core Routers (AGPLv3)
 # These features are available in all versions of the application.
 # ------------------------------------------------------------------------------
 app.include_router(auth.router, prefix="/api/v1")

@@ -30,123 +30,43 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - ALLOW_EXPIRED_LICENSES=${ALLOW_EXPIRED_LICENSES:-false}
-      # Master database for tenant management
+      # ============================================================================
+      # Docker-Specific Overrides
+      # All other variables are loaded from ./api/.env
+      # Only container-specific hostnames and settings are defined here
+      # ============================================================================
+      # Master database for tenant management (Docker-specific hostname)
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
-      # JWT settings
-      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-here-change-this-in-production}
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      # Google OAuth (optional)
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_SSO_ENABLED=${GOOGLE_SSO_ENABLED:-false}
-      # Azure AD OAuth (optional)
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-common}
-      - AZURE_SSO_ENABLED=${AZURE_SSO_ENABLED:-false}
-      - UI_BASE_URL=${UI_BASE_URL:-http://localhost:8080}
-      # Multi-tenant configuration
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
       - MASTER_DATABASE_PASSWORD=password
-      # Slack Integration
-      - SLACK_VERIFICATION_TOKEN=${SLACK_VERIFICATION_TOKEN:-}
-      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
-      - SLACK_CLIENT_ID=${SLACK_CLIENT_ID:-}
-      - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET:-}
-      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
-      # Other settings
-      - DEBUG=${DEBUG:-False}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # License configuration (auto-activation)
-      - LICENSE_KEY=${LICENSE_KEY:-}
-      - INSTALLATION_ID=${INSTALLATION_ID:-inst-8c01b1afecff8981}
-      - DEPLOYMENT_PRIVATE_KEY=${DEPLOYMENT_PRIVATE_KEY:-}
-      - AUTO_ACTIVATE_LICENSE=${AUTO_ACTIVATE_LICENSE:-true}
-      # Kafka (optional)
+      # Kafka (Docker-specific hostname)
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_OCR_TOPIC=expenses_ocr
       - KAFKA_OCR_GROUP=invoice-app-ocr
       - KAFKA_BANK_TOPIC=bank_statements_ocr
       - KAFKA_REVIEW_TOPIC=review_trigger
-      - KAFKA_OCR_TOPIC_PARTITIONS=${KAFKA_OCR_TOPIC_PARTITIONS:-}
-      # LLM Configuration - Unified AI Fallback
-      # General configuration (fallback for all components)
+      # LLM Configuration (Docker-specific - points to host machine)
       - LLM_API_BASE=http://host.docker.internal:11434
       - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
       - LLM_API_KEY=
       - LLM_MODEL_EXPENSES=llama3.2-vision:11b
-      # Component-specific configuration (takes priority)
       - LLM_MODEL_INVOICES=gpt-oss:latest
       - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
-      # AI Chat configuration
+      # AI Chat configuration (Docker-specific)
       - AI_PROVIDER=ollama
       - AI_MODEL=llama3.2-vision:11b
       - AI_API_URL=http://host.docker.internal:11434
-      # OCR Configuration
+      # OCR Configuration (Docker-specific)
       - OLLAMA_OCR_ENDPOINT=http://host.docker.internal:11434/api/generate
       - OLLAMA_OCR_MODEL=llama3.2-vision:11b
-      # ============================================================================
-      # Tax Service Integration Configuration
-      # ============================================================================
-      # Enable/disable tax service integration
-      - TAX_SERVICE_ENABLED=false
-      # Base URL for tax service API endpoint
-      - TAX_SERVICE_BASE_URL=${TAX_SERVICE_BASE_URL}
-      # API key for authenticating with tax service
-      - TAX_SERVICE_API_KEY=${TAX_SERVICE_API_KEY}
-      # Timeout for tax service requests (in seconds)
-      - TAX_SERVICE_TIMEOUT=${TAX_SERVICE_TIMEOUT:-30}
-      # Number of retry attempts for failed requests
-      - TAX_SERVICE_RETRY_ATTEMPTS=${TAX_SERVICE_RETRY_ATTEMPTS:-3}
-      # ============================================================================
-      # OpenSearch Configuration
-      # ============================================================================
+      # OpenSearch Configuration (Docker-specific hostname)
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
-      # ============================================================================
-      # Database Encryption Configuration
-      # ============================================================================
-      # Enable/disable database encryption
-      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
-      # Encryption algorithm (AES-256-GCM)
-      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
-      # Key derivation iterations
-      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
-      # Key vault provider (local, aws_kms, azure_kv, hashicorp_vault)
-      - KEY_VAULT_PROVIDER=${KEY_VAULT_PROVIDER:-local}
-      # Master key configuration
-      - MASTER_KEY_ID=${MASTER_KEY_ID:-default-master-key}
-      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
-      # Key rotation settings
-      - KEY_ROTATION_INTERVAL_DAYS=${KEY_ROTATION_INTERVAL_DAYS:-90}
-      - KEY_ROTATION_ENABLED=${KEY_ROTATION_ENABLED:-false}
-      # AWS KMS configuration (if using aws_kms provider)
-      - AWS_KMS_KEY_ID=${AWS_KMS_KEY_ID:-}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      # Azure Key Vault configuration (if using azure_kv provider)
-      - AZURE_KEY_VAULT_URL=${AZURE_KEY_VAULT_URL:-}
-      - AZURE_KEY_VAULT_KEY_NAME=${AZURE_KEY_VAULT_KEY_NAME:-}
-      - AZURE_CLIENT_ID_KV=${AZURE_CLIENT_ID_KV:-}
-      - AZURE_CLIENT_SECRET_KV=${AZURE_CLIENT_SECRET_KV:-}
-      - AZURE_TENANT_ID_KV=${AZURE_TENANT_ID_KV:-}
-      # HashiCorp Vault configuration (if using hashicorp_vault provider)
-      - VAULT_URL=${VAULT_URL:-}
-      - VAULT_TOKEN=${VAULT_TOKEN:-}
-      - VAULT_MOUNT_PATH=${VAULT_MOUNT_PATH:-secret}
-      - VAULT_KEY_PATH=${VAULT_KEY_PATH:-encryption-keys}
-      # Encryption monitoring and alerting
-      - ENCRYPTION_MONITORING_ENABLED=${ENCRYPTION_MONITORING_ENABLED:-true}
-      - ENCRYPTION_ALERT_WEBHOOK_URL=${ENCRYPTION_ALERT_WEBHOOK_URL:-}
-      - ENCRYPTION_METRICS_ENDPOINT=${ENCRYPTION_METRICS_ENDPOINT:-/metrics}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -276,6 +196,8 @@ services:
       replicas: 2 #variable is not supported ${KAFKA_OCR_TOPIC_PARTITIONS:2}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
     environment:
       # Master database for tenant management
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
@@ -331,6 +253,8 @@ services:
       replicas: 1
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
@@ -378,6 +302,8 @@ services:
       replicas: 2 # ${EMAIL_WORKER_REPLICAS:2}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
@@ -427,6 +353,8 @@ services:
       replicas: 1
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
