@@ -473,14 +473,14 @@ services:
 
   # OpenSearch for search indexing
   opensearch:
-    image: opensearchproject/opensearch:2.11.1
+    image: opensearchproject/opensearch:3.4.0
     container_name: invoice_app_opensearch
     environment:
       - cluster.name=invoice-search-cluster
       - node.name=invoice-search-node
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
       - "DISABLE_SECURITY_PLUGIN=true"
     ulimits:
@@ -504,7 +504,7 @@ services:
 
   # OpenSearch Dashboards (optional)
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.11.1
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: invoice_app_opensearch_dashboards
     ports:
       - "5601:5601"
