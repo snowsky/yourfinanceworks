@@ -6,17 +6,17 @@ python-dotenv==1.1.1
 sqlalchemy==2.0.42
 alembic==1.13.0
 python-jose[cryptography]==3.5.0
-PyJWT==2.10.1  # JWT encoding/decoding for license keys
+PyJWT==2.11.0  # JWT encoding/decoding for license keys
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.3
 python-dateutil==2.8.2
-fastapi-users[sqlalchemy]==15.0.3
-fastapi-users[oauth]==15.0.3
+fastapi-users[sqlalchemy]==15.0.4
+fastapi-users[oauth]==15.0.4
 httpx-oauth>=0.16.1
 httpx==0.28.1
 msal==1.34.0  # Microsoft Authentication Library for Azure AD SSO
 setuptools==80.9.0
-python-multipart==0.0.21
+python-multipart>=0.0.22
 
 # PostgreSQL driver
 psycopg2-binary==2.9.10
@@ -40,7 +40,7 @@ ollama==0.5.1  # Ollama client
 ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
 
 # OCR dependencies for bank statement fallback
-unstructured[pdf]==0.18.15  # UnstructuredLoader with PDF support
+unstructured[pdf]>=0.18.18  # UnstructuredLoader with PDF support
 pytesseract==0.3.13  # Python wrapper for Tesseract OCR
 tesseract==0.1.3  # Tesseract OCR engine Python bindings
 
