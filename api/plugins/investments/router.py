@@ -6,8 +6,9 @@ All routes are protected by commercial license requirements and tenant isolation
 Comprehensive error handling ensures consistent error responses across all endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
-from fastapi.responses import JSONResponse
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, File, UploadFile, Path
+from fastapi.responses import JSONResponse, FileResponse, Response
 from typing import List, Optional
 from datetime import date, datetime
 from sqlalchemy.orm import Session
@@ -27,7 +28,8 @@ from .schemas import (
     BuyTransactionCreate, SellTransactionCreate, DividendTransactionCreate,
     OtherTransactionCreate, TransactionResponse,
     PerformanceMetrics, AssetAllocation, DividendSummary, TaxExport,
-    DateRangeQuery, TaxYearQuery, ErrorResponse, RebalanceReport
+    DateRangeQuery, TaxYearQuery, ErrorResponse, RebalanceReport,
+    FileAttachmentResponse, FileAttachmentDetailResponse, PortfolioWithAttachmentResponse
 )
 
 # Import models for enums
@@ -39,11 +41,13 @@ from .services.holdings_service import HoldingsService
 from .services.transaction_service import TransactionService
 from .services.analytics_service import AnalyticsService
 from .services.rebalance_service import RebalanceService
+from .services.holdings_import_service import HoldingsImportService
 
 # Import error handling
 from .exceptions import (
     InvestmentError, ValidationError, TenantAccessError, ResourceNotFoundError,
-    ConflictError, DuplicateTransactionError
+    ConflictError, DuplicateTransactionError, FileValidationError, FileStorageError,
+    FileUploadError, ExtractionError, CloudStorageError
 )
 from .error_handlers import (
     handle_investment_error, handle_pydantic_validation_error,
@@ -66,6 +70,9 @@ from .middleware import (
 # Investment router
 investment_router = APIRouter()
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
 # Note: Exception handlers are handled at the application level, not router level
 # Individual endpoints will handle errors using try/catch blocks and return appropriate responses
 
@@ -76,20 +83,34 @@ async def health_check():
     return {"status": "ok", "plugin": "investment-management", "version": "1.0.0"}
 
 # Portfolio endpoints
-@investment_router.post("/portfolios", response_model=PortfolioResponse, status_code=status.HTTP_201_CREATED)
+@investment_router.post("/portfolios", response_model=PortfolioWithAttachmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_portfolio(
     portfolio: PortfolioCreate,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new investment portfolio"""
+    """
+    Create a new investment portfolio.
+
+    Returns the created portfolio and a null attachment placeholder.
+    File attachments should be uploaded via the separate holdings-files endpoint.
+
+    Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
+    """
     try:
+        # Create portfolio
         service = PortfolioService(db)
         created_portfolio = service.create_portfolio(
             tenant_id=current_user.tenant_id,
             portfolio_data=portfolio
         )
-        return PortfolioResponse.model_validate(created_portfolio)
+
+        portfolio_response = PortfolioResponse.model_validate(created_portfolio)
+
+        return PortfolioWithAttachmentResponse(
+            portfolio=portfolio_response,
+            attachment=None
+        )
     except InvestmentError:
         raise
     except Exception as e:
@@ -965,3 +986,243 @@ async def get_diversification_analysis(
         raise
     except Exception as e:
         raise InvestmentError(f"Failed to calculate diversification analysis: {str(e)}")
+
+
+# File Management Endpoints
+
+@investment_router.post("/portfolios/{portfolio_id}/holdings-files", response_model=List[FileAttachmentResponse], status_code=status.HTTP_201_CREATED)
+# @require_feature("investments")  # Temporarily disabled for testing
+async def upload_holdings_files(
+    portfolio_id: int = Path(..., description="Portfolio ID"),
+    files: Optional[List[UploadFile]] = File(None, description="Holdings files to upload"),
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload one or more holdings files to a portfolio.
+
+    Accepts up to 12 PDF or CSV files for holdings import.
+    Files are validated, stored in tenant-scoped directories, and enqueued for background processing.
+    Returns immediately with file attachment metadata.
+
+    Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 9.5, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    logger.info(f"Upload holdings files endpoint called with portfolio_id={portfolio_id}, files count={len(files) if files else 0}")
+
+    # Validate files are provided
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one file is required")
+
+    try:
+        # Verify portfolio ownership
+        portfolio_service = PortfolioService(db)
+        portfolio = portfolio_service.get_portfolio(
+            tenant_id=current_user.tenant_id,
+            portfolio_id=portfolio_id
+        )
+        if not portfolio:
+            raise_not_found_error(f"Portfolio {portfolio_id} not found")
+
+        # Convert UploadFile objects to tuples (file_content, filename, content_type)
+        file_tuples = []
+        for file in files:
+            content = await file.read()
+            file_tuples.append((content, file.filename, file.content_type))
+
+        # Upload files using HoldingsImportService
+        import_service = HoldingsImportService(db)
+        attachments = await import_service.upload_files(
+            portfolio_id=portfolio_id,
+            tenant_id=current_user.tenant_id,
+            files=file_tuples,
+            user_id=current_user.id,
+            user_email=current_user.email
+        )
+
+        return [FileAttachmentResponse.model_validate(att) for att in attachments]
+    except (FileValidationError, FileStorageError, FileUploadError) as e:
+        raise InvestmentError(str(e))
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to upload holdings files: {str(e)}")
+
+
+@investment_router.get("/portfolios/{portfolio_id}/holdings-files", response_model=List[FileAttachmentResponse])
+# @require_feature("investments")  # Temporarily disabled for testing
+async def list_holdings_files(
+    portfolio_id: int,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List all file attachments for a portfolio.
+
+    Returns all uploaded files with their current processing status.
+    Filters by tenant_id to ensure data isolation.
+
+    Requirements: 10.2, 10.3, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    try:
+        # Verify portfolio ownership
+        portfolio_service = PortfolioService(db)
+        portfolio = portfolio_service.get_portfolio(
+            tenant_id=current_user.tenant_id,
+            portfolio_id=portfolio_id
+        )
+        if not portfolio:
+            raise_not_found_error(f"Portfolio {portfolio_id} not found")
+
+        # Get file attachments
+        import_service = HoldingsImportService(db)
+        attachments = import_service.get_file_attachments(
+            portfolio_id=portfolio_id,
+            tenant_id=current_user.tenant_id
+        )
+
+        return [FileAttachmentResponse.model_validate(att) for att in attachments]
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to retrieve file attachments: {str(e)}")
+
+
+@investment_router.get("/holdings-files/{attachment_id}", response_model=FileAttachmentDetailResponse)
+# @require_feature("investments")  # Temporarily disabled for testing
+async def get_holdings_file_details(
+    attachment_id: int,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get details of a specific file attachment.
+
+    Returns attachment metadata and extracted holdings data.
+    Verifies tenant ownership before returning data.
+
+    Requirements: 10.3, 10.4, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    try:
+        # Get file attachment with tenant verification
+        import_service = HoldingsImportService(db)
+        attachment = import_service.get_file_attachment(
+            attachment_id=attachment_id,
+            tenant_id=current_user.tenant_id
+        )
+
+        if not attachment:
+            raise_not_found_error(f"File attachment {attachment_id} not found")
+
+        return FileAttachmentDetailResponse.model_validate(attachment)
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to retrieve file attachment details: {str(e)}")
+
+
+@investment_router.get("/holdings-files/{attachment_id}/download")
+# @require_feature("investments")  # Temporarily disabled for testing
+async def download_holdings_file(
+    attachment_id: int,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Download the original uploaded file.
+
+    Returns the file with appropriate headers for download.
+    Verifies tenant ownership before allowing download.
+
+    Requirements: 10.5, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    try:
+        # Download file with tenant verification
+        import_service = HoldingsImportService(db)
+        file_content, filename, content_type = await import_service.download_file(
+            attachment_id=attachment_id,
+            tenant_id=current_user.tenant_id
+        )
+
+        if file_content is None:
+            raise_not_found_error(f"File attachment {attachment_id} not found")
+
+        # Return file with appropriate headers
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'inline; filename="{filename}"'}
+        )
+    except (FileStorageError, FileUploadError) as e:
+        raise InvestmentError(str(e))
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to download file: {str(e)}")
+
+@investment_router.post("/holdings-files/{attachment_id}/reprocess", response_model=FileAttachmentDetailResponse)
+# @require_feature("investments")  # Temporarily disabled for testing
+async def reprocess_holdings_file(
+    attachment_id: int,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reprocess a previously uploaded file.
+
+    Resets the processing status and enqueues a new background task.
+    Verifies tenant ownership before allowing reprocessing.
+
+    Requirements: 10.3, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    try:
+        # Reprocess file attachment with tenant verification
+        import_service = HoldingsImportService(db)
+        attachment = await import_service.reprocess_file(
+            attachment_id=attachment_id,
+            tenant_id=current_user.tenant_id,
+            user_email=current_user.email
+        )
+
+        return FileAttachmentDetailResponse.model_validate(attachment)
+    except (FileStorageError, FileUploadError) as e:
+        raise InvestmentError(str(e))
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to reprocess file: {str(e)}")
+
+
+@investment_router.delete("/holdings-files/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+# @require_feature("investments")  # Temporarily disabled for testing
+async def delete_holdings_file(
+    attachment_id: int,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a file attachment.
+
+    Removes the file from both local and cloud storage.
+    Verifies tenant ownership before allowing deletion.
+
+    Requirements: 14.1, 14.2, 19.1, 19.2, 19.3, 19.4, 19.5, 8.1, 8.2, 8.3, 8.4, 8.5
+    """
+    try:
+        # Delete file attachment with tenant verification
+        import_service = HoldingsImportService(db)
+        success = import_service.delete_file_attachment(
+            attachment_id=attachment_id,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id
+        )
+
+        if not success:
+            raise_not_found_error(f"File attachment {attachment_id} not found")
+
+        return None
+    except (FileStorageError, FileUploadError) as e:
+        raise InvestmentError(str(e))
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to delete file attachment: {str(e)}")

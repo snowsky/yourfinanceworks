@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { investmentApi, InvestmentPortfolio } from '@/lib/api';
 import { toast } from 'sonner';
+import FileUploadDialog from '@/components/investments/FileUploadDialog';
+import FileAttachmentsList from '@/components/investments/FileAttachmentsList';
 
 const CreatePortfolio: React.FC = () => {
   const navigate = useNavigate();
@@ -22,13 +24,16 @@ const CreatePortfolio: React.FC = () => {
     portfolio_type: 'taxable' as 'taxable' | 'retirement' | 'business',
     currency: 'USD'
   });
+  const [createdPortfolioId, setCreatedPortfolioId] = useState<number | null>(null);
+  const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
 
   const createPortfolioMutation = useMutation<InvestmentPortfolio, unknown, typeof formData>({
     mutationFn: (data: typeof formData) => investmentApi.create(data),
-    onSuccess: async () => {
+    onSuccess: async (portfolio) => {
       toast.success(t('Portfolio created successfully'));
+      setCreatedPortfolioId(portfolio.id);
+      setShowFileUploadDialog(true);
       await queryClient.invalidateQueries({ queryKey: ['portfolios'] });
-      navigate('/investments');
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.detail || t('Failed to create portfolio');
@@ -43,6 +48,11 @@ const CreatePortfolio: React.FC = () => {
       return;
     }
     createPortfolioMutation.mutate(formData);
+  };
+
+  const handleFileUploadComplete = () => {
+    setShowFileUploadDialog(false);
+    navigate('/investments');
   };
 
   return (
@@ -209,6 +219,25 @@ const CreatePortfolio: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* File Upload Dialog */}
+      {createdPortfolioId && (
+        <>
+          <FileUploadDialog
+            portfolioId={createdPortfolioId}
+            open={showFileUploadDialog}
+            onOpenChange={setShowFileUploadDialog}
+            onUploadSuccess={handleFileUploadComplete}
+          />
+
+          {/* Show file attachments list after portfolio creation */}
+          {!showFileUploadDialog && (
+            <ContentSection>
+              <FileAttachmentsList portfolioId={createdPortfolioId} />
+            </ContentSection>
+          )}
+        </>
+      )}
     </div>
   );
 };

@@ -4,10 +4,14 @@ from .portfolio_service import PortfolioService
 from .holdings_service import HoldingsService
 from .transaction_service import TransactionService
 from .analytics_service import AnalyticsService
+from .file_storage_service import FileStorageService
+from .file_cleanup_service import FileCleanupService
 
 __all__ = [
     'PortfolioService',
     'HoldingsService',
     'TransactionService',
-    'AnalyticsService'
+    'AnalyticsService',
+    'FileStorageService',
+    'FileCleanupService'
 ]

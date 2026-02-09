@@ -1759,7 +1759,8 @@
         "ocr": "Conversion OCR",
         "email_processing": "Traitement des Emails",
         "bank_processing": "Traitement Bancaire",
-        "fraud_detection": "Détection de Fraude"
+        "fraud_detection": "Détection de Fraude",
+        "investments": "Investissements"
       },
       "messages": {
         "failedToLoadPrompts": "Échec du chargement des prompts",

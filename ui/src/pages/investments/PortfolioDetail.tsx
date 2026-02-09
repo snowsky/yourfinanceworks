@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Wallet, TrendingUp, Activity, Target,
-  Edit, BarChart3, PieChart, History, Trash2
+  Edit, BarChart3, PieChart, History, Trash2, Upload
 } from 'lucide-react';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -25,6 +25,8 @@ import { investmentApi, InvestmentPortfolio } from '@/lib/api';
 import HoldingsList from '@/components/investments/HoldingsList';
 import EditPortfolioDialog from '@/components/investments/EditPortfolioDialog';
 import PortfolioAnalytics from '@/components/investments/PortfolioAnalytics';
+import FileAttachmentsList from '@/components/investments/FileAttachmentsList';
+import FileUploadArea from '@/components/investments/FileUploadArea';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -208,6 +210,10 @@ const PortfolioDetail: React.FC = () => {
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Analytics
                 </TabsTrigger>
+                <TabsTrigger value="imports" className="rounded-lg px-6 font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Imports
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -222,6 +228,11 @@ const PortfolioDetail: React.FC = () => {
 
             <TabsContent value="analytics" className="mt-0 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <PortfolioAnalytics portfolioId={portfolio.id} />
+            </TabsContent>
+
+            <TabsContent value="imports" className="mt-0 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <FileUploadArea portfolioId={portfolio.id} />
+              <FileAttachmentsList portfolioId={portfolio.id} />
             </TabsContent>
           </Tabs>
         </div>

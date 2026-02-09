@@ -387,6 +387,54 @@ services:
       - license_keys:/app/core/keys
     command: ["python", "-m", "workers.review_processor"]
 
+  # Holdings Import Worker for portfolio holdings file processing
+  holdings-import-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONPATH=/app
+      # Kafka for holdings import tasks
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_HOLDINGS_IMPORT_TOPIC=holdings_import_tasks
+      - KAFKA_HOLDINGS_IMPORT_GROUP=holdings-import-worker
+      # LLM Configuration for extraction
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+      # Encryption settings
+      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
+      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
+      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
+      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+      - encryption_keys:/app/keys
+      - license_keys:/app/core/keys
+    command: ["python", "-m", "workers.holdings_import_worker"]
+
   # # Ollama AI service
   # ollama:
   #   image: ollama/ollama

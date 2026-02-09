@@ -26,7 +26,12 @@ from .exceptions import (
     NegativeValueError,
     InvalidEnumValueError,
     DatabaseError,
-    CalculationError
+    CalculationError,
+    FileUploadError,
+    FileValidationError,
+    FileStorageError,
+    ExtractionError,
+    CloudStorageError
 )
 
 # Set up logger
@@ -83,6 +88,8 @@ def handle_investment_error(error: InvestmentError) -> JSONResponse:
         FutureDateError: 400,
         NegativeValueError: 400,
         InvalidEnumValueError: 400,
+        FileUploadError: 400,
+        FileValidationError: 400,
         TenantAccessError: 403,
         ResourceNotFoundError: 404,
         ConflictError: 409,
@@ -90,6 +97,9 @@ def handle_investment_error(error: InvestmentError) -> JSONResponse:
         PortfolioHasHoldingsError: 409,
         DatabaseError: 500,
         CalculationError: 500,
+        FileStorageError: 500,
+        ExtractionError: 500,
+        CloudStorageError: 500,
         InvestmentError: 500  # Default for base class
     }
 
@@ -293,3 +303,28 @@ def raise_conflict_error(message: str) -> None:
 def raise_duplicate_transaction_error() -> None:
     """Raise a duplicate transaction error."""
     raise DuplicateTransactionError("Duplicate transaction detected within 60-second window")
+
+
+def raise_file_validation_error(message: str) -> None:
+    """Raise a file validation error."""
+    raise FileValidationError(message)
+
+
+def raise_file_upload_error(message: str) -> None:
+    """Raise a file upload error."""
+    raise FileUploadError(message)
+
+
+def raise_file_storage_error(message: str) -> None:
+    """Raise a file storage error."""
+    raise FileStorageError(message)
+
+
+def raise_extraction_error(message: str) -> None:
+    """Raise an extraction error."""
+    raise ExtractionError(message)
+
+
+def raise_cloud_storage_error(message: str) -> None:
+    """Raise a cloud storage error."""
+    raise CloudStorageError(message)

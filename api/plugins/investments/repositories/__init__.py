@@ -6,7 +6,9 @@ All repositories follow the repository pattern and enforce tenant isolation.
 """
 
 from .portfolio_repository import PortfolioRepository
+from .file_attachment_repository import FileAttachmentRepository
 
 __all__ = [
     'PortfolioRepository',
+    'FileAttachmentRepository',
 ]

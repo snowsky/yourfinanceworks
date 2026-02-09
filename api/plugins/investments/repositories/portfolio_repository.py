@@ -35,7 +35,7 @@ class PortfolioRepository:
             raise ValueError("Database session is required")
         self.db = db_session
 
-    def create(self, tenant_id: int, name: str, portfolio_type: PortfolioType) -> InvestmentPortfolio:
+    def create(self, tenant_id: int, name: str, portfolio_type: PortfolioType, currency: str = "USD") -> InvestmentPortfolio:
         """
         Create a new portfolio for a specific tenant.
 
@@ -43,6 +43,7 @@ class PortfolioRepository:
             tenant_id: Tenant ID (for explicit tenant isolation)
             name: Portfolio name
             portfolio_type: Type of portfolio (TAXABLE, RETIREMENT, BUSINESS)
+            currency: ISO 4217 currency code (default: USD)
 
         Returns:
             Created portfolio instance
@@ -54,6 +55,7 @@ class PortfolioRepository:
             tenant_id=tenant_id,
             name=name,
             portfolio_type=portfolio_type,
+            currency=currency,
             is_archived=False,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)

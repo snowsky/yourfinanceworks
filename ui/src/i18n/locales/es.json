@@ -1850,7 +1850,8 @@
         "ocr": "Conversión OCR",
         "email_processing": "Procesamiento de Correos",
         "bank_processing": "Procesamiento Bancario",
-        "fraud_detection": "Detección de Fraude"
+        "fraud_detection": "Detección de Fraude",
+        "investments": "Inversiones"
       },
       "messages": {
         "failedToLoadPrompts": "Error al cargar los prompts",

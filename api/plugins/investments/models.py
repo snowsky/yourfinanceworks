@@ -62,6 +62,21 @@ class DividendType(str, PyEnum):
     ORDINARY = "ordinary"  # MVP uses single type
 
 
+class AttachmentStatus(str, PyEnum):
+    """Status of file attachment processing"""
+    PENDING = "pending"           # File uploaded, awaiting processing
+    PROCESSING = "processing"     # LLM extraction in progress
+    COMPLETED = "completed"       # Extraction successful, holdings created
+    FAILED = "failed"             # Extraction or holding creation failed
+    PARTIAL = "partial"           # Some holdings created, some failed
+
+
+class FileType(str, PyEnum):
+    """Supported file types for holdings import"""
+    PDF = "pdf"
+    CSV = "csv"
+
+
 class InvestmentPortfolio(Base):
     """
     Investment portfolio model - represents a collection of investment holdings
@@ -78,6 +93,7 @@ class InvestmentPortfolio(Base):
     # Portfolio identification
     name = Column(EncryptedColumn(), nullable=False, index=True)  # Encrypted for privacy
     portfolio_type = Column(SQLEnum(PortfolioType), nullable=False, index=True)
+    currency = Column(String(3), default="USD", nullable=False)  # ISO 4217 currency code
 
     # Audit fields
     is_archived = Column(Boolean, default=False, nullable=False)  # Soft delete
@@ -216,3 +232,49 @@ class InvestmentTransaction(Base):
 # - investment_portfolios: portfolio_type, created_at
 # - investment_holdings: portfolio_id, security_symbol, asset_class, is_closed
 # - investment_transactions: portfolio_id, transaction_date, transaction_type, holding_id
+
+
+class FileAttachment(Base):
+    """
+    File attachment model - represents uploaded holdings files (PDF or CSV)
+    for portfolio import. Files are stored in tenant-scoped directories
+    and processed asynchronously to extract holdings data.
+    """
+    __tablename__ = "investment_file_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Portfolio and tenant relationship
+    portfolio_id = Column(Integer, ForeignKey("investment_portfolios.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id = Column(Integer, nullable=False, index=True)  # For explicit tenant isolation
+
+    # File information
+    original_filename = Column(String, nullable=False)  # Original filename for display
+    stored_filename = Column(String, nullable=False)  # Unique stored filename
+    file_size = Column(Integer, nullable=False)  # File size in bytes
+    file_type = Column(SQLEnum(FileType), nullable=False, index=True)  # PDF or CSV
+
+    # File storage paths
+    local_path = Column(String, nullable=False)  # Local storage path
+    cloud_url = Column(String, nullable=True)  # Cloud storage URL (S3, etc.)
+
+    # Processing status
+    status = Column(SQLEnum(AttachmentStatus), default=AttachmentStatus.PENDING, nullable=False, index=True)
+    extraction_error = Column(Text, nullable=True)  # Error message if extraction failed
+
+    # Extraction results
+    extracted_holdings_count = Column(Integer, default=0, nullable=False)  # Number of successfully created holdings
+    failed_holdings_count = Column(Integer, default=0, nullable=False)  # Number of holdings that failed to create
+    extracted_data = Column(Text, nullable=True)  # JSON with extracted holdings data
+
+    # Audit fields
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    processed_at = Column(DateTime(timezone=True), nullable=True)  # When processing completed
+    created_by = Column(Integer, nullable=False)  # User ID who uploaded the file
+
+    # Relationships
+    portfolio = relationship("InvestmentPortfolio", foreign_keys=[portfolio_id])
+
+    def __repr__(self):
+        return f"<FileAttachment(id={self.id}, filename='{self.original_filename}', status='{self.status}')>"

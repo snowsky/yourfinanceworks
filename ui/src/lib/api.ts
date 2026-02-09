@@ -848,6 +848,44 @@ export const investmentApi = {
 
   getDiversificationAnalysis: (portfolioId: number) =>
     apiRequest<any>(`/investments/portfolios/${portfolioId}/diversification`),
+
+  downloadHoldingsFileBlob: async (
+    attachmentId: number
+  ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
+    const token = localStorage.getItem('token');
+    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
+    })();
+    const base = API_BASE_URL.replace(/\/$/, '');
+    const url = `${base}/investments/holdings-files/${attachmentId}/download`;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+    const resp = await fetch(url, { method: 'GET', headers });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(text || `Failed to fetch file (${resp.status})`);
+    }
+
+    const cd = resp.headers.get('content-disposition') || '';
+    const ct = resp.headers.get('content-type') || '';
+    let filename = `holdings-${attachmentId}.pdf`;
+
+    try {
+      const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+      const raw = decodeURIComponent((m?.[1] || m?.[2] || '').trim());
+      if (raw) filename = raw;
+    } catch { /* noop */ }
+
+    const blob = await resp.blob();
+    const type = ct || blob.type || 'application/pdf';
+    // Ensure blob type matches if missing
+    const normalizedBlob = blob.type === type ? blob : new Blob([blob], { type });
+
+    return { blob: normalizedBlob, filename, contentType: type };
+  },
 };
 
 // Add settings types
@@ -1171,6 +1209,9 @@ export async function apiRequest<T>(
         }
       }
 
+      // Determine error message
+      let errorMessage = `Error: ${response.status} ${response.statusText}`;
+
       // Better handle validation errors (422)
       if (response.status === 422 && errorData.detail) {
         // Format validation errors nicely
@@ -1182,22 +1223,20 @@ export async function apiRequest<T>(
           }).join('; ');
 
           console.error('Validation error:', errorMessages);
-          throw new Error(`Validation error: ${errorMessages}`);
+          errorMessage = `Validation error: ${errorMessages}`;
         } else if (typeof errorData.detail === 'object' && errorData.detail !== null) {
           // Handle object error details (e.g., {error: "CODE", message: "text"})
           const message = errorData.detail.message || errorData.detail.error || JSON.stringify(errorData.detail);
           console.error('API error:', errorData.detail);
-          throw new Error(message);
+          errorMessage = message;
         } else {
           // Handle string error details
           console.error('API error:', errorData.detail);
-          throw new Error(String(errorData.detail));
+          errorMessage = String(errorData.detail);
         }
       }
-
       // Handle other errors with object details
-      if (errorData.detail) {
-        let errorMessage: string;
+      else if (errorData.detail) {
         if (typeof errorData.detail === 'string') {
           errorMessage = errorData.detail;
         } else if (Array.isArray(errorData.detail)) {
@@ -1217,11 +1256,13 @@ export async function apiRequest<T>(
         } else {
           errorMessage = String(errorData.detail);
         }
-        throw new Error(errorMessage);
       }
 
-      // Fallback error message
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
+      // Throw error with status and response properties
+      const error = new Error(errorMessage) as any;
+      error.status = response.status;
+      error.response = { status: response.status, data: errorData };
+      throw error;
     }
 
     // For DELETE requests with 204 No Content

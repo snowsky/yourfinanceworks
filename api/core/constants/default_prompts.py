@@ -471,5 +471,61 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations,
             # "openai": "You are an OCR parser. Extract key expense fields from this receipt image into compact JSON.",
             # "anthropic": "As a receipt processing specialist, extract all expense details from this image into the required JSON format."
         }
+    },
+    {
+        "name": "holdings_extraction",
+        "category": "investments",
+        "description": "Extract investment holdings from document text",
+        "template_content": """You are a financial data extraction specialist. Extract investment holdings information from the provided document.
+
+IMPORTANT: Your response MUST be ONLY a valid raw JSON object.
+DO NOT include any markdown formatting (like ```json).
+DO NOT include any explanations, introduction, or concluding prose.
+ONLY return the JSON.
+
+For each holding found, extract:
+- security_symbol: The ticker symbol or identifier (e.g., AAPL, VTSAX)
+- security_name: The full name of the security
+- quantity: The number of shares or units held
+- cost_basis: The total cost basis for all shares
+- purchase_date: The date of purchase (if available)
+- security_type: The type of security (STOCK, BOND, ETF, MUTUAL_FUND, CASH)
+- asset_class: The asset class (STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES)
+
+The JSON structure must be:
+{
+  "holdings": [
+    {
+      "security_symbol": "AAPL",
+      "security_name": "Apple Inc.",
+      "quantity": 100,
+      "cost_basis": 15000,
+      "purchase_date": "2023-01-15",
+      "security_type": "STOCK",
+      "asset_class": "STOCKS"
+    }
+  ],
+  "extraction_confidence": 0.95,
+  "notes": "Any relevant notes about the extraction"
+}
+
+If extraction fails, return:
+{
+  "error": "Description of why extraction failed",
+  "extraction_confidence": 0
+}
+
+Document content:
+{{ document_content }}
+
+Document type: {{ document_type }}
+
+JSON ONLY:""",
+        "template_variables": ["document_content", "document_type"],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {}
     }
 ]

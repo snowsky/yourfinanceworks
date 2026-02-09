@@ -12,13 +12,17 @@ providing a clean interface for portfolio management operations.
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from decimal import Decimal
+import logging
 
 from ..models import InvestmentPortfolio, PortfolioType
 from ..exceptions import PortfolioHasHoldingsError
 from ..repositories.portfolio_repository import PortfolioRepository
 from ..repositories.holdings_repository import HoldingsRepository
+from ..repositories.file_attachment_repository import FileAttachmentRepository
 from ..schemas import PortfolioCreate, PortfolioUpdate, PortfolioResponse
 from core.models.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 class PortfolioService:
@@ -39,6 +43,7 @@ class PortfolioService:
         self.db = db_session or SessionLocal()
         self.portfolio_repo = PortfolioRepository(self.db)
         self.holdings_repo = HoldingsRepository(self.db)
+        self.file_attachment_repo = FileAttachmentRepository(self.db)
 
     def create_portfolio(
         self,
@@ -79,7 +84,8 @@ class PortfolioService:
         portfolio = self.portfolio_repo.create(
             tenant_id=tenant_id,
             name=portfolio_data.name.strip(),
-            portfolio_type=portfolio_data.portfolio_type
+            portfolio_type=portfolio_data.portfolio_type,
+            currency=portfolio_data.currency
         )
 
         return portfolio
@@ -206,6 +212,8 @@ class PortfolioService:
         ensuring the portfolio has no active holdings. The portfolio must
         be owned by the requesting tenant.
 
+        Also handles cascade deletion of associated file attachments.
+
         Args:
             portfolio_id: Portfolio ID to delete
             tenant_id: Tenant ID for ownership and isolation
@@ -217,7 +225,7 @@ class PortfolioService:
             ValueError: If portfolio has active holdings
             SQLAlchemyError: If database operation fails
 
-        Requirements: 1.6
+        Requirements: 1.6, 4.5, 14.1, 14.2, 14.3, 14.4, 14.5
         """
         # Validate tenant access first
         if not self.validate_tenant_access(portfolio_id, tenant_id):
@@ -234,6 +242,16 @@ class PortfolioService:
                 f"Cannot delete portfolio with {holdings_count} active holdings. "
                 "Please close or transfer all holdings before deleting the portfolio."
             )
+
+        # Delete associated file attachments (cascade delete)
+        try:
+            deleted_count = self.file_attachment_repo.delete_by_portfolio(portfolio_id, tenant_id)
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} file attachments for portfolio {portfolio_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete file attachments for portfolio {portfolio_id}: {e}")
+            # Continue with portfolio deletion even if file attachment deletion fails
+            # The database cascade constraint will handle orphaned attachments
 
         # Perform the deletion (soft delete by archiving)
         return self.portfolio_repo.delete(portfolio_id, tenant_id)

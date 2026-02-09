@@ -8,7 +8,7 @@ by administrators and users.
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.models.database import Base
+from core.models.models_per_tenant import Base
 
 
 class PromptTemplate(Base):

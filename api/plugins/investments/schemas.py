@@ -34,6 +34,7 @@ class PortfolioBase(BaseModel):
     """Base portfolio schema with common fields"""
     name: str = Field(..., min_length=1, max_length=100, description="Portfolio name")
     portfolio_type: PortfolioType = Field(..., description="Portfolio type")
+    currency: str = Field(default="USD", description="Portfolio currency code")
 
 class PortfolioCreate(PortfolioBase):
     """Schema for creating a new portfolio"""
@@ -60,6 +61,7 @@ class PortfolioResponse(PortfolioBase, TimestampMixin):
     """Schema for portfolio responses"""
     id: int
     is_archived: bool
+    currency: str = Field(default="USD", description="Portfolio currency code")
     holdings_count: Optional[int] = Field(None, description="Number of holdings in portfolio")
     total_value: Optional[Decimal] = Field(None, description="Total portfolio value")
     target_allocations: Optional[Dict[AssetClass, Decimal]] = Field(None, description="Target allocation weights")
@@ -357,3 +359,71 @@ class ErrorResponse(BaseModel):
     error: str
     details: Optional[List[ErrorDetail]] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Import FileAttachment enums
+from .models import AttachmentStatus, FileType
+
+
+# File Attachment schemas
+class FileAttachmentBase(BaseModel):
+    """Base file attachment schema with common fields"""
+    original_filename: str = Field(..., min_length=1, max_length=255, description="Original filename")
+    file_type: FileType = Field(..., description="File type (PDF or CSV)")
+
+
+class FileAttachmentCreate(FileAttachmentBase):
+    """Schema for creating a file attachment (used internally)"""
+    file_size: int = Field(..., gt=0, description="File size in bytes")
+    stored_filename: str = Field(..., description="Stored filename")
+    local_path: str = Field(..., description="Local storage path")
+    created_by: int = Field(..., description="User ID who uploaded the file")
+
+
+class FileAttachmentResponse(TimestampMixin):
+    """Schema for file attachment response"""
+    id: int = Field(..., description="Attachment ID")
+    portfolio_id: int = Field(..., description="Portfolio ID")
+    original_filename: str = Field(..., description="Original filename")
+    file_size: int = Field(..., description="File size in bytes")
+    file_type: FileType = Field(..., description="File type")
+    status: AttachmentStatus = Field(..., description="Processing status")
+    extraction_error: Optional[str] = Field(None, description="Error message if extraction failed")
+    extracted_holdings_count: int = Field(default=0, description="Number of successfully created holdings")
+    failed_holdings_count: int = Field(default=0, description="Number of holdings that failed to create")
+    processed_at: Optional[datetime] = Field(None, description="When processing completed")
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            Decimal: lambda v: float(v)
+        }
+
+
+class FileAttachmentDetailResponse(FileAttachmentResponse):
+    """Schema for detailed file attachment response with extracted data"""
+    extracted_data: Optional[Dict[str, Any]] = Field(None, description="Extracted holdings data")
+
+    @validator('extracted_data', pre=True)
+    def parse_extracted_data(cls, v):
+        """Parse JSON string to dictionary if needed"""
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return v
+
+
+class PortfolioWithAttachmentResponse(BaseModel):
+    """Schema for portfolio creation response with optional file attachment"""
+    portfolio: PortfolioResponse = Field(..., description="Created portfolio")
+    attachment: Optional[FileAttachmentResponse] = Field(None, description="File attachment if file was uploaded")
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            Decimal: lambda v: float(v)
+        }

@@ -76,3 +76,28 @@ class DatabaseError(InvestmentError):
 class CalculationError(InvestmentError):
     """Raised when a financial calculation fails (HTTP 500)"""
     pass
+
+
+class FileUploadError(ValidationError):
+    """Raised when file upload fails (HTTP 400)"""
+    pass
+
+
+class FileValidationError(ValidationError):
+    """Raised when file validation fails (HTTP 400)"""
+    pass
+
+
+class FileStorageError(InvestmentError):
+    """Raised when file storage operation fails (HTTP 500)"""
+    pass
+
+
+class ExtractionError(InvestmentError):
+    """Raised when LLM extraction fails (HTTP 500)"""
+    pass
+
+
+class CloudStorageError(InvestmentError):
+    """Raised when cloud storage operation fails (HTTP 500)"""
+    pass
