@@ -42,11 +42,11 @@ def test_langchain_imports():
         from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
         logger.info("✅ langchain_core imports successful")
         
-        # Test langchain_community LLM imports
-        logger.info("✓ Testing langchain_community LLMs...")
-        from langchain_community.llms import Ollama
-        from langchain_community.chat_models import ChatOllama
-        logger.info("✅ langchain_community LLMs imported successfully")
+        # Test langchain_ollama LLM imports
+        logger.info("✓ Testing langchain_ollama LLMs...")
+        from langchain_ollama import OllamaLLM
+        from langchain_ollama import ChatOllama
+        logger.info("✅ langchain_ollama LLMs imported successfully")
         
         logger.info("🎉 All LangChain imports successful!")
         return True

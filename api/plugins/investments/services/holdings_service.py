@@ -69,10 +69,10 @@ class HoldingsService:
         # Validate holding data
         self._validate_holding_data(holding_data)
 
-        # Check for duplicate holdings (same symbol in same portfolio)
-        existing_holding = self.holdings_repo.get_by_symbol(portfolio_id, holding_data.security_symbol)
+        # Check for duplicate holdings (same symbol and currency in same portfolio)
+        existing_holding = self.holdings_repo.get_by_symbol_and_currency(portfolio_id, holding_data.security_symbol, holding_data.currency)
         if existing_holding and not existing_holding.is_closed:
-            raise ValidationError(f"Active holding for {holding_data.security_symbol} already exists in this portfolio")
+            raise ValidationError(f"Active holding for {holding_data.security_symbol} ({holding_data.currency}) already exists in this portfolio")
 
         # Create the holding
         holding = self.holdings_repo.create(
@@ -83,7 +83,8 @@ class HoldingsService:
             asset_class=holding_data.asset_class,
             quantity=holding_data.quantity,
             cost_basis=holding_data.cost_basis,
-            purchase_date=holding_data.purchase_date
+            purchase_date=holding_data.purchase_date,
+            currency=holding_data.currency
         )
 
         return HoldingResponse.from_orm(holding)

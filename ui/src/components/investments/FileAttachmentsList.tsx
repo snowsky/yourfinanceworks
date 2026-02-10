@@ -294,7 +294,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                 </div>
 
                 <div className="flex gap-2 flex-shrink-0">
-                  {attachment.status === 'completed' || attachment.status === 'partial' ? (
+                  {attachment.status === 'completed' || attachment.status === 'partial' || attachment.status === 'failed' ? (
                     <ProfessionalButton
                       variant="ghost"
                       size="sm"

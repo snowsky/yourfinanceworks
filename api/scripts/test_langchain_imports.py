@@ -50,11 +50,11 @@ def test_langchain_imports():
         logger.info("✓ Skipping deprecated langchain.chains.llm.LLMChain (using direct LLM calls)")
         logger.info("✅ LangChain chains handling updated for v1.0+")
         
-        # Test langchain_community LLM imports
-        logger.info("✓ Testing langchain_community LLMs...")
-        from langchain_community.llms import Ollama
-        from langchain_community.chat_models import ChatOllama
-        logger.info("✅ langchain_community LLMs imported successfully")
+        # Test langchain_ollama LLM imports
+        logger.info("✓ Testing langchain_ollama LLMs...")
+        from langchain_ollama import OllamaLLM
+        from langchain_ollama import ChatOllama
+        logger.info("✅ langchain_ollama LLMs imported successfully")
         
         logger.info("🎉 All LangChain imports successful!")
         return True

@@ -107,6 +107,7 @@ class HoldingBase(BaseModel):
     quantity: Decimal = Field(..., gt=0, description="Quantity of shares")
     cost_basis: Decimal = Field(..., gt=0, description="Total cost basis")
     purchase_date: date = Field(..., description="Initial purchase date")
+    currency: str = Field(default="USD", min_length=3, max_length=3, description="ISO 4217 currency code")
 
     @validator('quantity', 'cost_basis')
     def validate_positive_numbers(cls, v):
@@ -131,6 +132,7 @@ class HoldingUpdate(BaseModel):
     asset_class: Optional[AssetClass] = Field(None, description="Asset class")
     quantity: Optional[Decimal] = Field(None, gt=0, description="Quantity of shares")
     cost_basis: Optional[Decimal] = Field(None, gt=0, description="Total cost basis")
+    currency: Optional[str] = Field(None, min_length=3, max_length=3, description="ISO 4217 currency code")
 
     @validator('quantity', 'cost_basis')
     def validate_positive_numbers(cls, v):
@@ -158,6 +160,7 @@ class HoldingResponse(HoldingBase, TimestampMixin):
     average_cost_per_share: Decimal = Field(..., description="Average cost per share")
     current_value: Decimal = Field(..., description="Current market value")
     unrealized_gain_loss: Decimal = Field(..., description="Unrealized gain/loss")
+    currency: str = Field(..., description="ISO 4217 currency code")
 
     class Config:
         from_attributes = True

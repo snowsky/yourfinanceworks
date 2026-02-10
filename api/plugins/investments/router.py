@@ -7,12 +7,10 @@ Comprehensive error handling ensures consistent error responses across all endpo
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, File, UploadFile, Path
-from fastapi.responses import JSONResponse, FileResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile, Path
+from fastapi.responses import JSONResponse, Response
 from typing import List, Optional
-from datetime import date, datetime
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
 from pydantic import ValidationError as PydanticValidationError
 
 # Import core dependencies
@@ -201,14 +199,19 @@ async def get_portfolio(
         if not service.validate_tenant_access(portfolio_id, current_user.tenant_id):
             raise_not_found_error("Portfolio", portfolio_id)
 
-        portfolio = service.get_portfolio(
+        portfolio, summary = service.get_portfolio_with_summary(
             portfolio_id=portfolio_id,
             tenant_id=current_user.tenant_id
         )
         if not portfolio:
             raise_not_found_error("Portfolio", portfolio_id)
 
-        return PortfolioResponse.model_validate(portfolio)
+        # Add summary fields to portfolio response
+        portfolio_response = PortfolioResponse.model_validate(portfolio)
+        portfolio_response.total_value = summary.get('total_value', 0)
+        portfolio_response.holdings_count = summary.get('holdings_count', 0)
+
+        return portfolio_response
     except InvestmentError:
         raise
     except Exception as e:

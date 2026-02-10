@@ -152,36 +152,38 @@ class HoldingsValidator:
     def detect_duplicate(
         self,
         portfolio_id: int,
-        security_symbol: str
+        security_symbol: str,
+        currency: str
     ) -> Optional[InvestmentHolding]:
         """
-        Detect if a holding with the same security symbol already exists.
+        Detect if a holding with the same security symbol and currency already exists.
 
-        Checks for existing active holdings with the same symbol in the portfolio.
+        Checks for existing active holdings with the same symbol and currency in the portfolio.
         Returns the existing holding if found, None otherwise.
 
         Args:
             portfolio_id: Portfolio ID
             security_symbol: Security symbol to check
+            currency: Currency code to check
 
         Returns:
             Existing InvestmentHolding if found, None otherwise
 
         Requirements: 12.1, 12.2
         """
-        logger.debug(f"Detecting duplicate for {security_symbol} in portfolio {portfolio_id}")
+        logger.debug(f"Detecting duplicate for {security_symbol} ({currency}) in portfolio {portfolio_id}")
 
-        # Query for existing holdings with same symbol (returns list)
-        existing_holdings = self.holdings_repo.get_by_symbol(portfolio_id, security_symbol)
+        # Query for existing holdings with same symbol and currency (returns list)
+        existing_holdings = self.holdings_repo.get_by_symbol_and_currency(portfolio_id, security_symbol, currency)
 
         # Return the first active holding if any exist
         if existing_holdings:
             for holding in existing_holdings:
                 if not holding.is_closed:
-                    logger.info(f"Duplicate detected: {security_symbol} already exists in portfolio")
+                    logger.info(f"Duplicate detected: {security_symbol} ({currency}) already exists in portfolio")
                     return holding
 
-        logger.debug(f"No duplicate found for {security_symbol}")
+        logger.debug(f"No duplicate found for {security_symbol} ({currency})")
         return None
 
     def merge_holdings(
@@ -276,6 +278,7 @@ class HoldingsValidator:
         self,
         portfolio_id: int,
         security_symbol: str,
+        currency: str,
         new_quantity: Decimal,
         new_cost_basis: Decimal
     ) -> Tuple[bool, Dict[str, Any]]:
@@ -288,6 +291,7 @@ class HoldingsValidator:
         Args:
             portfolio_id: Portfolio ID
             security_symbol: Security symbol
+            currency: Currency code
             new_quantity: Quantity from new holding
             new_cost_basis: Cost basis from new holding
 
@@ -301,21 +305,21 @@ class HoldingsValidator:
 
         Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
         """
-        logger.debug(f"Handling duplicate for {security_symbol} in portfolio {portfolio_id}")
+        logger.debug(f"Handling duplicate for {security_symbol} ({currency}) in portfolio {portfolio_id}")
 
         # Detect duplicate
-        existing_holding = self.detect_duplicate(portfolio_id, security_symbol)
+        existing_holding = self.detect_duplicate(portfolio_id, security_symbol, currency)
 
         if not existing_holding:
-            logger.debug(f"No duplicate found for {security_symbol}")
+            logger.debug(f"No duplicate found for {security_symbol} ({currency})")
             return False, {}
 
         # Apply handling strategy
         if self.duplicate_mode == DuplicateHandlingMode.MERGE:
-            logger.info(f"Applying MERGE strategy for {security_symbol}")
+            logger.info(f"Applying MERGE strategy for {security_symbol} ({currency})")
             action_data = self.merge_holdings(existing_holding, new_quantity, new_cost_basis)
         elif self.duplicate_mode == DuplicateHandlingMode.CREATE_SEPARATE:
-            logger.info(f"Applying CREATE_SEPARATE strategy for {security_symbol}")
+            logger.info(f"Applying CREATE_SEPARATE strategy for {security_symbol} ({currency})")
             action_data = self.create_separate_holding(existing_holding, new_quantity, new_cost_basis)
         else:
             logger.warning(f"Unknown duplicate handling mode: {self.duplicate_mode}")

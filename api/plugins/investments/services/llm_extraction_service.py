@@ -90,8 +90,8 @@ class LLMExtractionService:
                 logger.info(f"✓ Anthropic LLM initialized: {self.ai_config.get('model_name')}")
 
             elif provider == "ollama":
-                from langchain_community.llms import Ollama
-                self.llm = Ollama(
+                from langchain_ollama import OllamaLLM
+                self.llm = OllamaLLM(
                     base_url=self.ai_config.get("provider_url", "http://localhost:11434"),
                     model=self.ai_config.get("model_name"),
                     temperature=0.1,

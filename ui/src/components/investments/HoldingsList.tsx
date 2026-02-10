@@ -42,6 +42,7 @@ interface Holding {
   quantity: number;
   cost_basis: number;
   purchase_date: string;
+  currency?: string;
   current_price?: number;
   price_updated_at?: string;
   is_closed: boolean;
@@ -186,6 +187,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                   <TableHead className="font-bold py-4 pl-6 uppercase tracking-wider text-[10px] text-muted-foreground">{t('Security')}</TableHead>
                   <TableHead className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Type')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Position')}</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Currency')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Market Price')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Market Value')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Total G/L')}</TableHead>
@@ -214,6 +216,11 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
                         {holding.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="px-2 py-0 rounded-md font-bold text-[9px] uppercase tracking-tighter border shadow-sm bg-muted/50">
+                          {holding.currency || 'USD'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
@@ -287,6 +294,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                 <TableRow className="hover:bg-transparent border-border/50">
                   <TableHead className="font-bold py-3 pl-6 uppercase tracking-wider text-[10px] text-muted-foreground">{t('Security')}</TableHead>
                   <TableHead className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Asset Class')}</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Currency')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Closed G/L')}</TableHead>
                   <TableHead className="text-right pr-6 font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('Exit Date')}</TableHead>
                 </TableRow>
@@ -303,6 +311,11 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                     <TableCell>
                       <Badge variant="outline" className={cn("px-2 py-0 rounded-md font-bold text-[9px] uppercase tracking-tighter border opacity-60", getAssetClassColor(holding.asset_class))}>
                         {holding.asset_class.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="outline" className="px-2 py-0 rounded-md font-bold text-[9px] uppercase tracking-tighter border opacity-60 bg-muted/50">
+                        {holding.currency || 'USD'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">

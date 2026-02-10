@@ -1,6 +1,6 @@
 fastapi==0.116.1
 uvicorn==0.35.0
-pydantic==2.11.7
+pydantic>=2.11.0,<3.0.0
 pydantic-settings==2.10.1
 python-dotenv==1.1.1
 sqlalchemy==2.0.42
@@ -36,11 +36,12 @@ langchain-community==0.4.1  # LangChain community components
 langchain-core>=1.0.7  # LangChain core components
 langchain-text-splitters==1.0.0  # LangChain text splitters
 pypdf>=6.1.3  # Modern PDF processing (successor to PyPDF2)
-ollama==0.5.1  # Ollama client
+ollama>=0.6.1  # Ollama client
 ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
+langchain-ollama>=1.0.1  # LangChain Ollama integration
 
 # OCR dependencies for bank statement fallback
-unstructured[pdf]>=0.18.18  # UnstructuredLoader with PDF support
+unstructured[pdf]>=0.18.31  # UnstructuredLoader with PDF support
 pytesseract==0.3.13  # Python wrapper for Tesseract OCR
 tesseract==0.1.3  # Tesseract OCR engine Python bindings
 

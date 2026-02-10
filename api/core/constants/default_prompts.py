@@ -485,10 +485,11 @@ ONLY return the JSON.
 
 For each holding found, extract:
 - security_symbol: The ticker symbol or identifier (e.g., AAPL, VTSAX)
-- security_name: The full name of the security
+- security_name: The full name of security
 - quantity: The number of shares or units held
 - cost_basis: The total cost basis for all shares
 - purchase_date: The date of purchase (if available)
+- currency: The 3-letter ISO 4217 currency code (e.g., USD, CAD, EUR). Default to USD if not specified.
 - security_type: The type of security (STOCK, BOND, ETF, MUTUAL_FUND, CASH)
 - asset_class: The asset class (STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES)
 
@@ -501,12 +502,13 @@ The JSON structure must be:
       "quantity": 100,
       "cost_basis": 15000,
       "purchase_date": "2023-01-15",
+      "currency": "USD",
       "security_type": "STOCK",
       "asset_class": "STOCKS"
     }
   ],
   "extraction_confidence": 0.95,
-  "notes": "Any relevant notes about the extraction"
+  "notes": "Any relevant notes about extraction"
 }
 
 If extraction fails, return:

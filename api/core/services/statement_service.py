@@ -42,8 +42,8 @@ try:
     from langchain_core.output_parsers import PydanticOutputParser
     # LLMChain is deprecated in LangChain v1.0+, we'll use direct LLM calls instead
     from langchain_core.callbacks import BaseCallbackHandler
-    from langchain_community.llms import Ollama
-    from langchain_community.chat_models import ChatOllama
+    from langchain_ollama import OllamaLLM
+    from langchain_ollama import ChatOllama
     from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -1190,7 +1190,7 @@ class BankTransactionExtractor:
             )
 
             # For simpler prompts, use the basic Ollama LLM
-            self.simple_llm = Ollama(
+            self.simple_llm = OllamaLLM(
                 model=model_name,
                 base_url=ollama_base_url,
                 temperature=temperature,

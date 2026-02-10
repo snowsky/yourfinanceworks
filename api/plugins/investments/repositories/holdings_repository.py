@@ -47,7 +47,8 @@ class HoldingsRepository:
         asset_class: AssetClass,
         quantity: Decimal,
         cost_basis: Decimal,
-        purchase_date
+        purchase_date,
+        currency: str = "USD"
     ) -> InvestmentHolding:
         """
         Create a new holding.
@@ -77,6 +78,7 @@ class HoldingsRepository:
             quantity=quantity,
             cost_basis=cost_basis,
             purchase_date=purchase_date,
+            currency=currency,
             is_closed=False,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
@@ -315,12 +317,45 @@ class HoldingsRepository:
             include_closed: Whether to include closed holdings
 
         Returns:
-            List of holdings matching the symbol
+            List of holdings matching symbol
         """
         query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
                 InvestmentHolding.security_symbol == security_symbol,
+                InvestmentPortfolio.is_archived == False
+            )
+        )
+
+        if not include_closed:
+            query = query.filter(InvestmentHolding.is_closed == False)
+
+        return query.order_by(InvestmentHolding.purchase_date).all()
+
+    def get_by_symbol_and_currency(
+        self,
+        portfolio_id: int,
+        security_symbol: str,
+        currency: str,
+        include_closed: bool = False
+    ) -> List[InvestmentHolding]:
+        """
+        Get holdings by security symbol and currency within a portfolio.
+
+        Args:
+            portfolio_id: Portfolio ID
+            security_symbol: Security symbol to search for
+            currency: Currency code to filter by
+            include_closed: Whether to include closed holdings
+
+        Returns:
+            List of holdings matching symbol and currency
+        """
+        query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
+            and_(
+                InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentHolding.security_symbol == security_symbol,
+                InvestmentHolding.currency == currency,
                 InvestmentPortfolio.is_archived == False
             )
         )

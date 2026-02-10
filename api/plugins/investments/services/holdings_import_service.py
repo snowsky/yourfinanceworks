@@ -21,7 +21,7 @@ import json
 import logging
 from typing import List, Optional, Tuple, Dict, Any
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import date
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -530,9 +530,13 @@ class HoldingsImportService:
 
                 # Check for duplicate and handle based on configuration
                 try:
+                    # Extract currency from holding data, default to portfolio currency if not specified
+                    holding_currency = holding_data.get("currency", "USD")
+
                     is_duplicate, duplicate_action = self.holdings_validator.handle_duplicate(
                         portfolio_id,
                         holding_data.get("security_symbol"),
+                        holding_currency,
                         Decimal(str(holding_data.get("quantity"))),
                         Decimal(str(holding_data.get("cost_basis")))
                     )
@@ -550,6 +554,13 @@ class HoldingsImportService:
 
                 # Create holding
                 try:
+                    # Validate and handle purchase_date
+                    purchase_date = holding_data.get("purchase_date")
+                    if purchase_date is None:
+                        # Use today's date as default when LLM doesn't extract purchase date
+                        purchase_date = date.today()
+                        logger.warning(f"No purchase date found for {holding_data.get('security_symbol')}, using today's date")
+
                     # Normalize enum values to lowercase
                     security_type_str = str(holding_data.get("security_type", "")).lower()
                     asset_class_str = str(holding_data.get("asset_class", "")).lower()
@@ -573,7 +584,8 @@ class HoldingsImportService:
                         asset_class=AssetClass(asset_class_str),
                         quantity=Decimal(str(holding_data.get("quantity"))),
                         cost_basis=Decimal(str(holding_data.get("cost_basis"))),
-                        purchase_date=holding_data.get("purchase_date")
+                        purchase_date=purchase_date,
+                        currency=holding_currency
                     )
 
                     # Create holding via holdings service

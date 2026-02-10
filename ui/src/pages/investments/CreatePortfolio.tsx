@@ -25,15 +25,21 @@ const CreatePortfolio: React.FC = () => {
     currency: 'USD'
   });
   const [createdPortfolioId, setCreatedPortfolioId] = useState<number | null>(null);
-  const [showFileUploadDialog, setShowFileUploadDialog] = useState(false);
 
   const createPortfolioMutation = useMutation<InvestmentPortfolio, unknown, typeof formData>({
     mutationFn: (data: typeof formData) => investmentApi.create(data),
     onSuccess: async (portfolio) => {
       toast.success(t('Portfolio created successfully'));
       setCreatedPortfolioId(portfolio.id);
-      setShowFileUploadDialog(true);
+
+      // Invalidate portfolios list to refresh
       await queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+
+      // Navigate to portfolios page immediately
+      navigate('/investments');
+
+      // Optionally show file upload dialog for new portfolio
+      // setShowFileUploadDialog(true);
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.detail || t('Failed to create portfolio');
@@ -48,11 +54,6 @@ const CreatePortfolio: React.FC = () => {
       return;
     }
     createPortfolioMutation.mutate(formData);
-  };
-
-  const handleFileUploadComplete = () => {
-    setShowFileUploadDialog(false);
-    navigate('/investments');
   };
 
   return (
@@ -220,7 +221,8 @@ const CreatePortfolio: React.FC = () => {
         </div>
       </div>
 
-      {/* File Upload Dialog */}
+      {/* File Upload Dialog - commented out since we navigate immediately */}
+      {/*
       {createdPortfolioId && (
         <>
           <FileUploadDialog
@@ -230,14 +232,12 @@ const CreatePortfolio: React.FC = () => {
             onUploadSuccess={handleFileUploadComplete}
           />
 
-          {/* Show file attachments list after portfolio creation */}
-          {!showFileUploadDialog && (
-            <ContentSection>
+          <ContentSection>
               <FileAttachmentsList portfolioId={createdPortfolioId} />
             </ContentSection>
-          )}
-        </>
-      )}
+          </>
+        )}
+      */}
     </div>
   );
 };
