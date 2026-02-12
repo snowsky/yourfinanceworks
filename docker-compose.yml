@@ -454,7 +454,8 @@ services:
       retries: 5
     command: >
       sh -c "
-        ollama serve &
+        # Start Ollama server with optimized settings
+        OLLAMA_CONTEXT_LENGTH=64000 OLLAMA_HOST=0.0.0.0 OLLAMA_NUM_PARALLEL=2 ollama serve &
         sleep 15
         ollama pull llama3.2-vision:11b
         ollama pull gpt-oss:latest
