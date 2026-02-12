@@ -34,52 +34,86 @@ docker-compose exec api python scripts/create_super_user.py
 
 ## 🚀 Features
 
-### Core Financial Management
+### 💰 Revenue & Billing
 
-- **Client Management** - Manage client profiles, contact information, and interaction history
-- **Invoice Creation** - Generate professional invoices with automatic numbering, item management, and tax calculations
-- **Payment Tracking** - Monitor payment status, record partial payments, and automated payment reminders
-- **Expense Management** - Track business expenses with categorization, receipt attachments, and approval workflows
-- **Financial Dashboard** - Real-time overview of revenue, expenses, outstanding payments, and cash flow
+- **Client Management** - Comprehensive client profiles with contact details, billing history, and communication tracking ([Guide](docs/features/REVENUE_CYCLE_OPTIMIZATION.md))
+- **Professional Invoicing** - AI-powered invoice creation with customizable templates, automatic numbering, and tax compliance
+- **Email Delivery** - Multi-provider email delivery (AWS SES, Azure, Mailgun) with professional PDF attachments
+- **Payment Tracking** - Real-time payment status monitoring, partial payment support, and automated reminders
+- **Revenue Cycle Optimization** - Strategic insights into billing efficiency and collection cycles ([Guide](docs/features/REVENUE_CYCLE_OPTIMIZATION.md))
 
-### 📊 Advanced Financial Features
+### 📊 Expense Intelligence & Automation
 
-- **Bank Statement Processing** - Upload and automatically extract transactions from bank statement PDFs
-- **Financial Reporting** - Generate comprehensive reports including profit/loss statements and cash flow analysis
+- **AI-Powered OCR** - Upload receipts and invoices for automatic data extraction with high accuracy ([Guide](docs/features/EXPENSE_INTELLIGENCE.md))
+- **Smart Categorization** - Automatic expense categorization based on vendor patterns and historical data
+- **Batch Processing** - Process multiple receipts simultaneously with background worker efficiency
+- **Spend Analytics** - Visual expense breakdowns, trend detection, and category-based reporting
+- **Expense Workflows** - Multi-level approval system with configurable rules and audit trails ([Guide](docs/features/GOVERNANCE_WORKFLOWS.md))
+
+### 🏦 Banking & Financial Health
+
+- **Bank Statement Processing** - Automated transaction extraction from PDF bank statements ([Guide](docs/features/BANKING_RECONCILIATION.md))
+- **Smart Transaction Matching** - AI-powered matching between bank transactions and invoices/expenses
 - **Multi-Currency Support** - Handle international transactions with automatic currency conversion
-- **Tax Management** - Configure tax rates and generate tax-compliant invoices
-- **Budget Tracking** - Set budgets and monitor spending against financial goals
+- **Financial Health Monitoring** - Real-time cash flow analysis and financial metrics dashboard ([Guide](docs/features/FINANCIAL_HEALTH.md))
+- **Tax Management** - Configurable tax rates and tax-compliant financial reporting
 
-### 🤖 AI-Powered Business Intelligence
+### 🕵️ Forensic Auditing & Insights
 
-- **Smart Invoice Analysis** - AI analyzes invoice patterns and provides business insights
-- **Automated Expense Categorization** - AI automatically categorizes expenses based on descriptions
-- **Business Recommendations** - Get actionable suggestions based on your financial data
-- **MCP-Powered AI Chat** - Natural language queries using Model Context Protocol to access real business data ([Guide](docs/developer/MCP_SERVER_GUIDE.md))
+- **FinanceWorks Insights** - AI-powered "Senior Auditor" that monitors transactions for anomalies and fraud ([Guide](docs/features/FINANCEWORKS_INSIGHTS.md))
+- **Risk Scoring** - Automated risk assessment (Low, Medium, High) for every financial document
+- **Fraud Detection** - Protection against patterns like phantom vendors and threshold splitting
+- **Audit Trails** - Permanent, defensible logs of all audit decisions and reasoning
+- **Attachment Integrity** - AI analysis of receipts for signs of digital tampering
+
+### 📈 Growth Analytics & Reporting
+
+- **Strategic Growth Analytics** - Turn financial data into actionable business intelligence ([Guide](docs/features/GROWTH_ANALYTICS.md))
+- **Interactive Dashboards** - Real-time visibility into net income, cash on hand, and receivables
+- **Trend Visualization** - Dynamic charts showing revenue growth and expense patterns
+- **Actionable Recommendations** - Data-driven suggestions for improving cash flow and profitability
+- **Custom Reporting** - Generate P&L, Cash Flow, and Tax Summary reports in multiple formats
+
+### 🤖 AI Services & Prompt Management
+
+- **AI Assistant (MCP-Powered)** - Natural language queries for business insights using Model Context Protocol ([Guide](docs/features/AI_SERVICES.md))
 - **Intelligent Business Queries** - Ask questions like "Who owes me money?" or "Show me overdue invoices"
+- **AI Prompt Management** - Centralized control and customization of AI "instructions" ([Guide](docs/features/PROMPT_MANAGEMENT.md))
+- **Template Versioning** - Version control and rollbacks for all AI prompt templates
+- **Provider-Specific Overrides** - Optimize prompts for specific models (OpenAI, Ollama, etc.)
 
-### 🏢 Enterprise Features
+### 📦 Inventory & Product Management
 
-- **Multi-Tenant Architecture** - Separate, secure databases for each organization
-- **Role-Based Access Control** - Granular permissions for admin, user, and viewer roles
-- **Audit Trail** - Complete tracking of all financial activities and changes
-- **Data Export & Import** - Backup and migrate your financial data with ease
-- **API Access** - Integrate with other business systems via RESTful API
+- **Product Catalog** - Centralized database of items with SKUs, pricing, and cost tracking ([Guide](docs/features/INVENTORY_MANAGEMENT.md))
+- **Stock Monitoring** - Real-time inventory tracking with automatic deductions on invoicing
+- **Financial Integration** - Seamless inventory-to-invoice workflow with margin analysis
+- **Asset Valuation** - Track total value of on-hand stock for balance sheet reporting
+- **Bulk Operations** - Import/export functionality for efficient inventory management
+
+### 🏢 Enterprise & Governance
+
+- **Multi-Tenant Architecture** - Secure database-per-tenant isolation for organizations
+- **Governance Workflows** - Advanced approval systems for invoices and expenses ([Guide](docs/features/GOVERNANCE_WORKFLOWS.md))
+- **Role-Based Access Control** - Granular permissions (Admin, Editor, Viewer) with governance
+- **Audit Ready** - Comprehensive logging of all financial activities and approval decisions
+- **Data Export & Import** - Enterprise-grade backup and migration capabilities
 
 ### 🔒 Security & Compliance
 
 - **Bank-Grade Security** - End-to-end encryption and secure data storage
-- **SSO Integration** - Support for Google OAuth and enterprise SSO solutions
-- **Data Privacy** - GDPR-compliant data handling and privacy controls
-- **Regular Backups** - Automated backups with disaster recovery options
-- **Compliance Reporting** - Generate reports for tax and regulatory compliance
+- **SSO Integration** - Google OAuth and enterprise SSO support ([Guide](docs/features/SSO_AUTHENTICATION.md))
+- **Data Privacy** - GDPR-compliant data handling with tenant isolation
+- **Regular Backups** - Automated backup system with disaster recovery
+- **Compliance Reporting** - Generate reports for tax and regulatory requirements
 
-### 🛠️ System Administration
+### 🛠️ Advanced Infrastructure
 
-- **Database Management** - Automated health monitoring, backup, and recovery for all tenant databases
-- **System Diagnostics** - Built-in tools for troubleshooting and maintaining system health
-- **Multi-Tenant Administration** - Centralized management of multiple organizations from a single interface
-- **Performance Monitoring** - Real-time monitoring of system performance and resource usage
+- **Plugin Management** - Extensible system architecture for custom functionality ([Guide](docs/features/PLUGIN_MANAGEMENT.md))
+- **Cloud Storage Integration** - Secure file storage with multiple provider support ([Guide](docs/features/CLOUD_STORAGE.md))
+- **Batch Processing & API Access** - RESTful API for system integration ([Guide](docs/features/BATCH_PROCESSING_API_ACCESS.md))
+- **External Transactions API** - Programmatically manage third-party financial data ([Guide](docs/features/EXTERNAL_TRANSACTIONS.md))
+- **Slack Integration** - Notifications and basic operations via Slack ([Guide](docs/features/SLACK_INTEGRATION.md))
+- **Advanced Export** - Comprehensive data export in multiple formats ([Guide](docs/features/ADVANCED_EXPORT.md))
 
 ## 🏗️ Architecture
 
