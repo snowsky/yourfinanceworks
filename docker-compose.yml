@@ -436,17 +436,30 @@ services:
     command: ["python", "-m", "workers.portfolio_import_worker"]
 
 
-  # # Ollama AI service
-  # ollama:
-  #   image: ollama/ollama
-  #   container_name: invoice_app_ollama
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - ollama_data:/root/.ollama
-  #   networks:
-  #     - invoice_app_network
-  #   restart: unless-stopped
+  # Ollama AI service
+  ollama:
+    image: ollama/ollama
+    container_name: invoice_app_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    command: >
+      sh -c "
+        ollama serve &
+        sleep 15
+        ollama pull llama3.2-vision:11b
+        ollama pull gpt-oss:latest
+        wait
+      "
 
   # OpenSearch for search indexing
   opensearch:
