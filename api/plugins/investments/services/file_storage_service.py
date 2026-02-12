@@ -33,8 +33,8 @@ class FileStorageService:
     Service for managing local and cloud file storage for portfolio holdings import.
 
     Implements dual storage pattern:
-    - Local storage: attachments/tenant_{tenant_id}/holdings_files/
-    - Cloud storage: tenant_{tenant_id}/holdings_files/ (with fallback to local on failure)
+    - Local storage: attachments/tenant_{tenant_id}/portfolio_files/
+    - Cloud storage: tenant_{tenant_id}/portfolio_files/ (with fallback to local on failure)
 
     Files are stored in tenant-scoped directories to ensure proper isolation.
     The service validates file types and sizes before storage.
@@ -43,12 +43,12 @@ class FileStorageService:
         Local:
             attachments/
                 tenant_{tenant_id}/
-                    holdings_files/
+                    portfolio_files/
                         hf_{portfolio_id}_{unique_id}.pdf
                         hf_{portfolio_id}_{unique_id}.csv
 
         Cloud:
-            tenant_{tenant_id}/holdings_files/{stored_filename}
+            tenant_{tenant_id}/portfolio_files/{stored_filename}
     """
 
     # Configuration constants
@@ -61,8 +61,8 @@ class FileStorageService:
     }
     ALLOWED_EXTENSIONS = {".pdf", ".csv"}
     BASE_STORAGE_DIR = Path("attachments")
-    HOLDINGS_FILES_SUBDIR = "holdings_files"
-    ATTACHMENT_TYPE = "holdings_files"
+    PORTFOLIO_FILES_SUBDIR = "portfolio_files"
+    ATTACHMENT_TYPE = "portfolio_files"
 
     def __init__(self, db: Optional[Session] = None):
         """
@@ -98,8 +98,8 @@ class FileStorageService:
 
         Generates a unique filename in the format: hf_{portfolio_id}_{unique_id}.{ext}
         and stores it in:
-        - Local: attachments/tenant_{tenant_id}/holdings_files/
-        - Cloud: tenant_{tenant_id}/holdings_files/ (with fallback to local on failure)
+        - Local: attachments/tenant_{tenant_id}/portfolio_files/
+        - Cloud: tenant_{tenant_id}/portfolio_files/ (with fallback to local on failure)
 
         Args:
             file_content: The file content as bytes
@@ -127,7 +127,7 @@ class FileStorageService:
 
         # Create tenant-scoped directory
         tenant_folder = f"tenant_{tenant_id}"
-        storage_dir = self.base_dir / tenant_folder / self.HOLDINGS_FILES_SUBDIR
+        storage_dir = self.base_dir / tenant_folder / self.PORTFOLIO_FILES_SUBDIR
 
         try:
             storage_dir.mkdir(parents=True, exist_ok=True)
@@ -158,7 +158,7 @@ class FileStorageService:
         if self.cloud_storage_service:
             try:
                 # Generate cloud storage key
-                cloud_file_key = f"tenant_{tenant_id}/{self.HOLDINGS_FILES_SUBDIR}/{stored_filename}"
+                cloud_file_key = f"tenant_{tenant_id}/{self.PORTFOLIO_FILES_SUBDIR}/{stored_filename}"
 
                 # Prepare metadata
                 metadata = {
@@ -169,7 +169,7 @@ class FileStorageService:
                     "tenant_id": str(tenant_id),
                     "uploaded_at": str(Path(file_path).stat().st_mtime),
                     "file_size": len(file_content),
-                    "document_type": "holdings_file",
+                    "document_type": "portfolio_file",
                     "upload_method": "internal_api",
                 }
 
@@ -222,7 +222,7 @@ class FileStorageService:
         """
         # Construct the local file path
         tenant_folder = f"tenant_{tenant_id}"
-        file_path = self.base_dir / tenant_folder / self.HOLDINGS_FILES_SUBDIR / stored_filename
+        file_path = self.base_dir / tenant_folder / self.PORTFOLIO_FILES_SUBDIR / stored_filename
 
         # Try local storage first
         if file_path.exists():
@@ -239,7 +239,7 @@ class FileStorageService:
         if self.cloud_storage_service:
             try:
                 # Generate cloud storage key
-                cloud_file_key = f"tenant_{tenant_id}/{self.HOLDINGS_FILES_SUBDIR}/{stored_filename}"
+                cloud_file_key = f"tenant_{tenant_id}/{self.PORTFOLIO_FILES_SUBDIR}/{stored_filename}"
 
                 # Retrieve from cloud storage
                 content = await self.cloud_storage_service.retrieve_file(
@@ -283,7 +283,7 @@ class FileStorageService:
         """
         # Construct the local file path
         tenant_folder = f"tenant_{tenant_id}"
-        file_path = self.base_dir / tenant_folder / self.HOLDINGS_FILES_SUBDIR / stored_filename
+        file_path = self.base_dir / tenant_folder / self.PORTFOLIO_FILES_SUBDIR / stored_filename
 
         # Check if local file exists
         local_deleted = False
@@ -302,7 +302,7 @@ class FileStorageService:
         if self.cloud_storage_service:
             try:
                 # Generate cloud storage key
-                cloud_file_key = f"tenant_{tenant_id}/{self.HOLDINGS_FILES_SUBDIR}/{stored_filename}"
+                cloud_file_key = f"tenant_{tenant_id}/{self.PORTFOLIO_FILES_SUBDIR}/{stored_filename}"
 
                 # Delete from cloud storage
                 cloud_deleted = await self.cloud_storage_service.delete_file(
@@ -413,7 +413,7 @@ class FileStorageService:
         Requirements: 4.1, 4.2
         """
         tenant_folder = f"tenant_{tenant_id}"
-        file_path = self.base_dir / tenant_folder / self.HOLDINGS_FILES_SUBDIR / stored_filename
+        file_path = self.base_dir / tenant_folder / self.PORTFOLIO_FILES_SUBDIR / stored_filename
         return str(file_path)
 
     def file_exists(
@@ -457,7 +457,7 @@ class FileStorageService:
         Requirements: 14.1, 14.2, 14.3, 18.1, 18.2, 18.3, 18.4, 18.5
         """
         tenant_folder = f"tenant_{tenant_id}"
-        tenant_dir = self.base_dir / tenant_folder / self.HOLDINGS_FILES_SUBDIR
+        tenant_dir = self.base_dir / tenant_folder / self.PORTFOLIO_FILES_SUBDIR
 
         # Delete local directory
         local_deleted = True
@@ -473,7 +473,7 @@ class FileStorageService:
         if self.cloud_storage_service:
             try:
                 # Generate cloud storage folder key
-                cloud_folder_key = f"tenant_{tenant_id}/{self.HOLDINGS_FILES_SUBDIR}"
+                cloud_folder_key = f"tenant_{tenant_id}/{self.PORTFOLIO_FILES_SUBDIR}"
 
                 # Delete folder from cloud storage
                 await self.cloud_storage_service.delete_folder(

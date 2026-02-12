@@ -25,7 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { investmentApi, InvestmentPortfolio } from '@/lib/api';
 import HoldingsList from '@/components/investments/HoldingsList';
+import TransactionsList from '@/components/investments/TransactionsList';
 import EditPortfolioDialog from '@/components/investments/EditPortfolioDialog';
+
 import PortfolioAnalytics from '@/components/investments/PortfolioAnalytics';
 import FileAttachmentsList from '@/components/investments/FileAttachmentsList';
 import FileUploadArea from '@/components/investments/FileUploadArea';
@@ -242,10 +244,10 @@ const PortfolioDetail: React.FC = () => {
               <HoldingsList portfolioId={portfolio.id} />
             </TabsContent>
 
-            <TabsContent value="transactions" className="mt-0 pt-4 text-center py-20 bg-muted/20 rounded-3xl border-2 border-dashed border-border/50">
-              <History className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
-              <p className="text-muted-foreground font-medium">Transaction list coming soon...</p>
+            <TabsContent value="transactions" className="mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <TransactionsList portfolioId={portfolio.id} />
             </TabsContent>
+
 
             <TabsContent value="analytics" className="mt-0 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <PortfolioAnalytics portfolioId={portfolio.id} />

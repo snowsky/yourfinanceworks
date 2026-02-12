@@ -5,13 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings } from 'lucide-react';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ProfessionalCard, ProfessionalCardContent } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { toast } from 'sonner';
+import { PluginSettingsModal } from './PluginSettingsModal';
+
 
 interface PluginCardProps {
   plugin: Plugin;
@@ -23,7 +25,9 @@ interface PluginCardProps {
 
 const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, licenseMessage, isAdmin }) => {
   const [isToggling, setIsToggling] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const { t } = useTranslation();
+
 
   const handleToggle = async (enabled: boolean) => {
     if (!canToggle) {
@@ -284,6 +288,21 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
               )}
             </div>
           )}
+
+          {/* Configure button for plugins with settings */}
+          {plugin.enabled && plugin.id === 'investments' && isAdmin && (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setShowSettingsModal(true)}
+              >
+                <Settings className="w-3 h-3 mr-1" />
+                {t('plugins.configure', 'Configure')}
+              </Button>
+            </div>
+          )}
         </div>
 
         {(!canToggle || !isAdmin) && (
@@ -295,46 +314,28 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
                   <strong>{t('plugins.administrator_access_required')}:</strong> {t('plugins.admin_only_message')}
                 </span>
               ) : (
-                <div>
-                  {licenseMessage}
-                  <div className="mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Navigate to license management
-                        window.location.href = '/settings?tab=license';
-                      }}
-                      className="text-xs"
-                    >
-                      {t('plugins.manage_license')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {plugin.initializationError && (
-          <Alert className="mt-3 border-red-200 bg-red-50">
-            <XCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800 text-sm">
-              <strong>{t('plugins.initialization_error')}:</strong> {plugin.initializationError}
-              {plugin.lastInitAttempt && (
-                <div className="text-xs mt-1 text-red-600">
-                  {t('plugins.last_attempt')}: {plugin.lastInitAttempt.toLocaleString()}
-                </div>
+                <span>
+                  <strong>{t('plugins.license_required')}:</strong> {licenseMessage || t('plugins.license_upgrade_message')}
+                </span>
               )}
             </AlertDescription>
           </Alert>
         )}
       </CardContent>
+
+      {/* Plugin Settings Modal */}
+      <PluginSettingsModal
+        open={showSettingsModal}
+        onOpenChange={setShowSettingsModal}
+        pluginId={plugin.id}
+        pluginName={plugin.name}
+      />
     </Card>
   );
 };
 
 interface PluginsTabProps {
+
   isAdmin: boolean;
 }
 

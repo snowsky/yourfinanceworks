@@ -565,6 +565,9 @@ class TenantPluginSettings(Base):
     # JSON array of enabled plugin IDs: ["investments", "reports", ...]
     enabled_plugins = Column(JSON, default=list, nullable=False)
 
+    # Plugin configuration: {"investments": {"enable_ai_import": true}, ...}
+    plugin_config = Column(JSON, default=dict, nullable=True)
+
     # Metadata
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

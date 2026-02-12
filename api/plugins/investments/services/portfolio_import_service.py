@@ -20,17 +20,23 @@ the import pipeline.
 import json
 import logging
 from typing import List, Optional, Tuple, Dict, Any
+import decimal
 from decimal import Decimal
-from datetime import date
+
+from datetime import date, datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from ..models import (
     FileAttachment, AttachmentStatus, FileType, InvestmentHolding,
-    SecurityType, AssetClass
+    SecurityType, AssetClass, InvestmentTransaction, TransactionType
 )
+
 from ..repositories.file_attachment_repository import FileAttachmentRepository
 from ..repositories.portfolio_repository import PortfolioRepository
 from ..repositories.holdings_repository import HoldingsRepository
+from ..repositories.transaction_repository import TransactionRepository
+
 from ..schemas import FileAttachmentResponse, FileAttachmentDetailResponse, HoldingCreate
 from ..services.file_storage_service import FileStorageService
 from ..services.llm_extraction_service import LLMExtractionService
@@ -47,7 +53,8 @@ from core.utils.audit import log_audit_event
 logger = logging.getLogger(__name__)
 
 
-class HoldingsImportService:
+class PortfolioImportService:
+
     """
     Main orchestrator service for portfolio holdings import.
 
@@ -68,10 +75,25 @@ class HoldingsImportService:
         self.file_attachment_repo = FileAttachmentRepository(db)
         self.portfolio_repo = PortfolioRepository(db)
         self.holdings_repo = HoldingsRepository(db)
+        self.transaction_repo = TransactionRepository(db)
         self.file_storage_service = FileStorageService(db)
         self.llm_extraction_service = LLMExtractionService(db)
         self.holdings_service = HoldingsService(db)
         self.holdings_validator = HoldingsValidator(self.holdings_repo, DuplicateHandlingMode.MERGE)
+
+    def _calculate_file_hash(self, file_content: bytes) -> str:
+        """
+        Calculate SHA-256 hash of file content for deduplication.
+
+        Args:
+            file_content: File content as bytes
+
+        Returns:
+            SHA-256 hash as hexadecimal string
+        """
+        import hashlib
+        return hashlib.sha256(file_content).hexdigest()
+
 
     async def upload_files(
         self,
@@ -131,6 +153,24 @@ class HoldingsImportService:
                         logger.warning(f"File validation failed for {original_filename}: {error_msg}")
                         raise FileValidationError(error_msg)
 
+                    # Calculate file hash for deduplication
+                    file_hash = self._calculate_file_hash(file_content)
+                    logger.debug(f"Calculated file hash: {file_hash[:16]}...")
+
+                    # Check for duplicate file
+                    existing_attachment = self.file_attachment_repo.get_by_hash(
+                        portfolio_id, file_hash, tenant_id
+                    )
+
+                    if existing_attachment:
+                        logger.info(
+                            f"Duplicate file detected: {original_filename} "
+                            f"(matches existing attachment {existing_attachment.id})"
+                        )
+                        # Return existing attachment instead of creating new one
+                        attachments.append(FileAttachmentResponse.from_orm(existing_attachment))
+                        continue
+
                     # Store file
                     try:
                         stored_filename, local_path, cloud_url = await self.file_storage_service.save_file(
@@ -147,7 +187,7 @@ class HoldingsImportService:
 
                     logger.info(f"File stored: {stored_filename}")
 
-                    # Create attachment record
+                    # Create attachment record with file hash
                     try:
                         attachment = self.file_attachment_repo.create(
                             portfolio_id=portfolio_id,
@@ -158,7 +198,8 @@ class HoldingsImportService:
                             file_type=file_type,
                             local_path=local_path,
                             created_by=user_id,
-                            cloud_url=cloud_url
+                            cloud_url=cloud_url,
+                            file_hash=file_hash
                         )
                     except Exception as e:
                         logger.error(f"Failed to create attachment record: {e}")
@@ -174,7 +215,7 @@ class HoldingsImportService:
                                 user_id=user_id,
                                 user_email=user_email,
                                 action="UPLOAD",
-                                resource_type="holdings_file",
+                                resource_type="portfolio_file",
                                 resource_id=str(attachment.id),
                                 resource_name=original_filename,
                                 details={
@@ -223,18 +264,20 @@ class HoldingsImportService:
         self,
         attachment_id: int,
         tenant_id: int,
-        user_email: Optional[str] = None
+        user_email: Optional[str] = None,
+        use_ai_extraction: bool = False
     ) -> FileAttachmentDetailResponse:
         """
         Process a file attachment (background task entry point).
 
-        Extracts holdings from the file and creates holding records in the portfolio.
+        Extracts holdings (and optionally transactions) from the file and creates records in the portfolio.
         Updates attachment status as processing progresses.
 
         Args:
             attachment_id: Attachment ID
             tenant_id: Tenant ID for isolation
             user_email: User email for audit logging
+            use_ai_extraction: If True, use AI to extract both holdings and transactions
 
         Returns:
             Updated FileAttachmentDetailResponse
@@ -271,7 +314,7 @@ class HoldingsImportService:
                         user_id=attachment.created_by,
                         user_email=user_email,
                         action="EXTRACTION_START",
-                        resource_type="holdings_file",
+                        resource_type="portfolio_file",
                         resource_id=str(attachment_id),
                         resource_name=attachment.original_filename,
                         details={
@@ -285,12 +328,15 @@ class HoldingsImportService:
                     logger.warning(f"Failed to log extraction start event: {e}")
                     # Continue - audit logging failure shouldn't block processing
 
-            # Extract holdings from file
+            # Extract portfolio data from file
             try:
-                extracted_holdings = await self.extract_holdings_from_file(
+                portfolio_data = await self.extract_portfolio_data_from_file(
                     attachment.local_path,
-                    attachment.file_type
+                    attachment.file_type,
+                    use_ai_extraction
                 )
+                extracted_holdings = portfolio_data["holdings"]
+                extracted_transactions = portfolio_data.get("transactions", [])
             except Exception as e:
                 logger.error(f"Extraction failed: {e}")
                 # Update attachment with error and return
@@ -311,7 +357,7 @@ class HoldingsImportService:
                             user_id=attachment.created_by,
                             user_email=user_email,
                             action="EXTRACTION_FAILED",
-                            resource_type="holdings_file",
+                            resource_type="portfolio_file",
                             resource_id=str(attachment_id),
                             resource_name=attachment.original_filename,
                             details={
@@ -326,18 +372,23 @@ class HoldingsImportService:
 
                 return FileAttachmentDetailResponse.from_orm(attachment)
 
-            logger.info(f"Extracted {len(extracted_holdings)} holdings from file")
+            logger.info(
+                f"Extracted {len(extracted_holdings)} holdings and "
+                f"{len(extracted_transactions)} transactions from file"
+            )
 
-            # Create holdings from extracted data
+            # Create holdings and transactions from extracted data
             try:
                 created_count, failed_count = await self.create_holdings_from_extracted_data(
                     attachment.portfolio_id,
                     extracted_holdings,
+                    extracted_transactions,
                     attachment_id,
                     tenant_id,
                     user_email,
                     attachment.created_by
                 )
+
             except Exception as e:
                 logger.error(f"Failed to create holdings: {e}")
                 # Update attachment with error
@@ -358,7 +409,7 @@ class HoldingsImportService:
                             user_id=attachment.created_by,
                             user_email=user_email,
                             action="EXTRACTION_FAILED",
-                            resource_type="holdings_file",
+                            resource_type="portfolio_file",
                             resource_id=str(attachment_id),
                             resource_name=attachment.original_filename,
                             details={
@@ -408,7 +459,7 @@ class HoldingsImportService:
                         user_id=attachment.created_by,
                         user_email=user_email,
                         action="EXTRACTION_COMPLETED",
-                        resource_type="holdings_file",
+                        resource_type="portfolio_file",
                         resource_id=str(attachment_id),
                         resource_name=attachment.original_filename,
                         details={
@@ -480,24 +531,98 @@ class HoldingsImportService:
             logger.error(f"Extraction failed: {e}")
             raise ExtractionError(f"Failed to extract holdings from file: {str(e)}")
 
+    async def extract_portfolio_data_from_file(
+        self,
+        file_path: str,
+        file_type: FileType,
+        use_ai_extraction: bool = False
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Extract portfolio data (holdings and optionally transactions) from a file using LLM.
+
+        Delegates to LLMExtractionService based on file type.
+
+        Args:
+            file_path: Path to the file
+            file_type: Type of file (PDF or CSV)
+            use_ai_extraction: If True, use AI to extract both holdings and transactions
+
+        Returns:
+            Dictionary with "holdings" and "transactions" keys
+
+        Raises:
+            ExtractionError: If extraction fails
+
+        Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 8.1, 8.2, 8.3, 8.4, 8.5
+        """
+        logger.info(
+            f"Extracting portfolio data from {file_type.value} file: {file_path} "
+            f"(AI extraction={use_ai_extraction})"
+        )
+
+        try:
+            if file_type == FileType.PDF:
+                data = await self.llm_extraction_service.extract_portfolio_data_from_pdf(
+                    file_path, use_ai_extraction
+                )
+            elif file_type == FileType.CSV:
+                data = await self.llm_extraction_service.extract_portfolio_data_from_csv(
+                    file_path, use_ai_extraction
+                )
+
+            else:
+                logger.error(f"Unsupported file type: {file_type}")
+                raise ExtractionError(f"Unsupported file type: {file_type}")
+
+            holdings = data.get("holdings", [])
+            transactions = data.get("transactions", [])
+
+            if not holdings:
+                logger.warning(f"No holdings extracted from file")
+                raise ExtractionError("No holdings data found in file")
+
+            logger.info(f"Extracted {len(holdings)} holdings and {len(transactions)} transactions")
+            return data
+
+        except ExtractionError:
+            raise
+        except Exception as e:
+            logger.error(f"Extraction failed: {e}")
+            raise ExtractionError(f"Failed to extract portfolio data: {str(e)}")
+
+
+    def _serialize_for_json(self, obj: Any) -> Any:
+        """Convert objects to JSON-serializable format."""
+        if isinstance(obj, Decimal):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: self._serialize_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._serialize_for_json(item) for item in obj]
+        elif isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return obj
+
     async def create_holdings_from_extracted_data(
         self,
         portfolio_id: int,
         extracted_holdings: List[Dict[str, Any]],
+        extracted_transactions: List[Dict[str, Any]],
         attachment_id: int,
         tenant_id: int,
         user_email: Optional[str] = None,
         user_id: Optional[int] = None
     ) -> Tuple[int, int]:
         """
-        Create holdings from extracted data.
+        Create holdings and transactions from extracted data.
 
-        Validates each holding, detects duplicates, and creates holding records.
+        Validates each holding/transaction, detects duplicates, and creates records.
         Handles partial failures gracefully.
 
         Args:
             portfolio_id: Portfolio ID
             extracted_holdings: List of extracted holdings dictionaries
+            extracted_transactions: List of extracted transactions dictionaries
             attachment_id: Attachment ID (for error tracking)
             tenant_id: Tenant ID for isolation
             user_email: User email for audit logging
@@ -508,9 +633,27 @@ class HoldingsImportService:
 
         Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 11.1, 11.2, 11.3, 11.4, 11.5, 12.1, 12.2, 12.3, 12.4, 12.5, 20.5, 8.1, 8.2, 8.3, 8.4, 8.5
         """
+
         logger.info(f"Creating holdings from {len(extracted_holdings)} extracted records")
 
+        # Initialize process log for detailed tracking
+        process_log = {
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "holdings": {
+                "total_extracted": len(extracted_holdings),
+                "created": [],
+                "duplicates_merged": [],
+                "failed": []
+            },
+            "transactions": {
+                "total_extracted": len(extracted_transactions),
+                "created": [],
+                "failed": []
+            }
+        }
+
         created_count = 0
+
         failed_count = 0
         failed_holdings = []
 
@@ -521,12 +664,19 @@ class HoldingsImportService:
                     self._validate_extracted_holding(holding_data)
                 except ValidationError as e:
                     failed_count += 1
+                    error_msg = str(e)
                     failed_holdings.append({
                         "security_symbol": holding_data.get("security_symbol"),
-                        "error": str(e)
+                        "error": error_msg
+                    })
+                    process_log["holdings"]["failed"].append({
+                        "security_symbol": holding_data.get("security_symbol"),
+                        "error": error_msg,
+                        "error_type": "validation_error"
                     })
                     logger.warning(f"Validation failed for holding: {e}")
                     continue
+
 
                 # Check for duplicate and handle based on configuration
                 try:
@@ -542,18 +692,38 @@ class HoldingsImportService:
                     )
 
                     if is_duplicate:
-                        logger.info(f"Duplicate holding detected for {holding_data.get('security_symbol')}")
+                        logger.info(f"Duplicate holding detected for {holding_data.get('security_symbol')}, handled by validator")
+                        # Log the duplicate merge (convert Decimals to strings for JSON)
+                        process_log["holdings"]["duplicates_merged"].append({
+                            "security_symbol": holding_data.get("security_symbol"),
+                            "action": "merged",
+                            "details": self._serialize_for_json(duplicate_action)
+                        })
+                        # Duplicate was already handled (merged or created separately) by the validator
+                        # Skip the normal creation logic
+                        created_count += 1  # Count as created since it was processed
+                        continue
+
+
                 except Exception as e:
                     failed_count += 1
+                    error_msg = f"Duplicate detection failed: {str(e)}"
                     failed_holdings.append({
                         "security_symbol": holding_data.get("security_symbol"),
-                        "error": f"Duplicate detection failed: {str(e)}"
+                        "error": error_msg
+                    })
+                    process_log["holdings"]["failed"].append({
+                        "security_symbol": holding_data.get("security_symbol"),
+                        "error": error_msg,
+                        "error_type": "duplicate_detection_error"
                     })
                     logger.warning(f"Duplicate detection failed: {e}")
                     continue
 
+
                 # Create holding
                 try:
+
                     # Validate and handle purchase_date
                     purchase_date = holding_data.get("purchase_date")
                     if purchase_date is None:
@@ -592,24 +762,43 @@ class HoldingsImportService:
                     self.holdings_service.create_holding(tenant_id, portfolio_id, holding_create)
 
                     created_count += 1
+                    process_log["holdings"]["created"].append({
+                        "security_symbol": holding_data.get("security_symbol"),
+                        "quantity": str(holding_data.get("quantity")),
+                        "cost_basis": str(holding_data.get("cost_basis"))
+                    })
                     logger.info(f"Created holding: {holding_data.get('security_symbol')}")
+
 
                 except ValidationError as e:
                     failed_count += 1
+                    error_msg = str(e)
                     failed_holdings.append({
                         "security_symbol": holding_data.get("security_symbol"),
-                        "error": str(e)
+                        "error": error_msg
+                    })
+                    process_log["holdings"]["failed"].append({
+                        "security_symbol": holding_data.get("security_symbol"),
+                        "error": error_msg,
+                        "error_type": "validation_error"
                     })
                     logger.warning(f"Failed to create holding: {e}")
 
                 except Exception as e:
                     failed_count += 1
+                    error_msg = str(e)
                     failed_holdings.append({
                         "security_symbol": holding_data.get("security_symbol"),
-                        "error": str(e)
+                        "error": error_msg
+                    })
+                    process_log["holdings"]["failed"].append({
+                        "security_symbol": holding_data.get("security_symbol"),
+                        "error": error_msg,
+                        "error_type": "creation_error"
                     })
                     logger.error(f"Error creating holding: {e}")
                     continue
+
 
                 # Log holdings creation event (Requirement 20.5)
                 if user_email and user_id:
@@ -647,7 +836,184 @@ class HoldingsImportService:
 
         logger.info(f"Holdings creation completed: {created_count} created, {failed_count} failed")
 
-        return created_count, failed_count
+        # Create transactions if provided
+        transactions_created = 0
+        transactions_failed = 0
+
+        if extracted_transactions:
+            logger.info(f"Creating transactions from {len(extracted_transactions)} extracted records")
+
+            for transaction_data in extracted_transactions:
+                try:
+                    # Parse transaction date
+                    transaction_date_str = transaction_data.get("transaction_date")
+                    if isinstance(transaction_date_str, str):
+                        from dateutil import parser
+                        transaction_date = parser.parse(transaction_date_str).date()
+                    elif isinstance(transaction_date_str, date):
+                        transaction_date = transaction_date_str
+                    else:
+                        transaction_date = date.today()
+                        logger.warning(f"Invalid transaction date, using today: {transaction_date_str}")
+
+                    # Parse transaction type with mapping for common variations
+                    transaction_type_str = str(transaction_data.get("transaction_type", "")).upper().strip()
+
+                    # Map common variations to our TransactionType enum
+                    type_mapping = {
+                        # Direct matches
+                        "BUY": TransactionType.BUY,
+                        "SELL": TransactionType.SELL,
+                        "DIVIDEND": TransactionType.DIVIDEND,
+                        "INTEREST": TransactionType.INTEREST,
+                        "FEE": TransactionType.FEE,
+                        "TRANSFER": TransactionType.TRANSFER,
+                        "CONTRIBUTION": TransactionType.CONTRIBUTION,
+
+                        # Common abbreviations
+                        "DIV": TransactionType.DIVIDEND,
+                        "INT": TransactionType.INTEREST,
+
+                        # Brokerage-specific terms
+                        "LOAN": TransactionType.TRANSFER,  # Stock loans are transfers
+                        "RECALL": TransactionType.TRANSFER,  # Stock recalls are transfers
+                        "FPLINT": TransactionType.INTEREST,  # Free credit interest
+
+                        # Deposit/Withdrawal
+                        "DEPOSIT": TransactionType.CONTRIBUTION,
+                        "WITHDRAWAL": TransactionType.TRANSFER,
+                        "TRANSFER_IN": TransactionType.TRANSFER,
+                        "TRANSFER_OUT": TransactionType.TRANSFER,
+                    }
+
+                    transaction_type = type_mapping.get(transaction_type_str)
+                    if not transaction_type:
+                        logger.warning(f"Unknown transaction type: {transaction_type_str}, skipping")
+                        transactions_failed += 1
+                        process_log["transactions"]["failed"].append({
+                            "transaction_type": transaction_type_str,
+                            "error": f"Unknown transaction type: {transaction_type_str}",
+                            "error_type": "validation_error"
+                        })
+                        continue
+
+
+
+                    # Find or create holding for this transaction (if it references a security)
+                    holding_id = None
+                    security_symbol = transaction_data.get("security_symbol")
+                    if security_symbol and transaction_type not in [TransactionType.DIVIDEND]:
+                        # Try to find existing holding
+                        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+                        for holding in holdings:
+                            if holding.security_symbol.upper() == security_symbol.upper():
+                                holding_id = holding.id
+                                break
+
+
+                    # Helper function to safely convert to Decimal
+                    def safe_decimal(value, default=None):
+                        """Safely convert value to Decimal, return default if invalid."""
+                        if value is None or value == "" or value == "N/A":
+                            return default
+                        try:
+                            return Decimal(str(value))
+                        except (ValueError, TypeError, decimal.InvalidOperation):
+                            return default
+
+                    # Create transaction with safe decimal conversions
+                    quantity = safe_decimal(transaction_data.get("quantity"))
+                    price = safe_decimal(transaction_data.get("price"))
+                    amount = safe_decimal(transaction_data.get("amount"), Decimal("0"))
+                    fees = safe_decimal(transaction_data.get("fees"), Decimal("0"))
+
+                    transaction = InvestmentTransaction(
+                        portfolio_id=portfolio_id,
+                        holding_id=holding_id,
+                        transaction_type=transaction_type,
+                        transaction_date=transaction_date,
+                        quantity=quantity,
+                        price_per_share=price,
+                        total_amount=amount,
+                        fees=fees
+                    )
+
+
+                    self.db.add(transaction)
+                    self.db.flush()  # Flush to get the ID
+
+                    transactions_created += 1
+                    process_log["transactions"]["created"].append({
+                        "transaction_type": transaction_type.value,
+                        "transaction_date": str(transaction_date),
+                        "security_symbol": security_symbol or "N/A",
+                        "amount": str(transaction_data.get("amount", 0))
+                    })
+                    logger.info(f"Created transaction: {transaction_type.value} on {transaction_date}")
+
+
+                except Exception as e:
+                    transactions_failed += 1
+                    error_msg = str(e)
+                    process_log["transactions"]["failed"].append({
+                        "transaction_data": str(transaction_data.get("transaction_type", "unknown")),
+                        "error": error_msg,
+                        "error_type": "creation_error"
+                    })
+                    logger.error(f"Failed to create transaction: {e}")
+                    continue
+
+
+            # Commit all transactions
+            try:
+                self.db.commit()
+                logger.info(f"Transactions creation completed: {transactions_created} created, {transactions_failed} failed")
+            except Exception as e:
+                logger.error(f"Failed to commit transactions: {e}")
+                self.db.rollback()
+                transactions_failed += len(extracted_transactions)
+                transactions_created = 0
+
+        # Return total counts (holdings + transactions)
+        total_created = created_count + transactions_created
+        total_failed = failed_count + transactions_failed
+
+        # Complete the process log
+        process_log["completed_at"] = datetime.now(timezone.utc).isoformat()
+        process_log["summary"] = {
+            "total_created": total_created,
+            "total_failed": total_failed,
+            "holdings_created": created_count,
+            "holdings_failed": failed_count,
+            "holdings_duplicates_merged": len(process_log["holdings"]["duplicates_merged"]),
+            "transactions_created": transactions_created,
+            "transactions_failed": transactions_failed
+        }
+
+        # Save process log to attachment
+        try:
+            attachment = self.file_attachment_repo.get_by_id(attachment_id, tenant_id)
+            if attachment:
+                self.file_attachment_repo.update(
+                    attachment_id,
+                    tenant_id,
+                    process_log=process_log
+                )
+                logger.info(f"Saved process log to attachment {attachment_id}")
+        except Exception as e:
+            logger.warning(f"Failed to save process log: {e}")
+
+        # Return separate counts for holdings and transactions
+        return {
+            "holdings_created": created_count,
+            "holdings_failed": failed_count,
+            "transactions_created": transactions_created,
+            "transactions_failed": transactions_failed,
+            "total_created": total_created,
+            "total_failed": total_failed
+        }
+
+
 
     def get_file_attachments(
         self,
@@ -894,7 +1260,7 @@ class HoldingsImportService:
                     user_id=attachment.created_by,
                     user_email=user_email,
                     action="REPROCESS",
-                    resource_type="holdings_file",
+                    resource_type="portfolio_file",
                     resource_id=str(attachment_id),
                     resource_name=attachment.original_filename,
                     details={

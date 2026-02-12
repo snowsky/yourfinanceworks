@@ -1,7 +1,7 @@
 """
 Unit tests for Holdings Import Service
 
-This module tests the HoldingsImportService class to ensure proper file upload,
+This module tests the PortfolioImportService class to ensure proper file upload,
 extraction, holdings creation, and error handling for portfolio holdings import.
 """
 
@@ -26,13 +26,13 @@ from plugins.investments.models import (
     AssetClass,
     Base as InvestmentBase
 )
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from plugins.investments.schemas import HoldingCreate
 from core.exceptions.base import ValidationError, NotFoundError
 
 
-class TestHoldingsImportService:
-    """Test suite for HoldingsImportService"""
+class TestPortfolioImportService:
+    """Test suite for PortfolioImportService"""
 
     @pytest.fixture
     def investment_db_session(self):
@@ -56,9 +56,9 @@ class TestHoldingsImportService:
             session.close()
 
     @pytest.fixture
-    def holdings_import_service(self, investment_db_session):
-        """Create a HoldingsImportService instance with mocked dependencies"""
-        service = HoldingsImportService(investment_db_session)
+    def portfolio_import_service(self, investment_db_session):
+        """Create a PortfolioImportService instance with mocked dependencies"""
+        service = PortfolioImportService(investment_db_session)
 
         # Mock the file storage service
         service.file_storage_service = Mock()
@@ -107,15 +107,15 @@ class TestHoldingsImportService:
         investment_db_session.refresh(portfolio)
         return portfolio
 
-    def test_service_initialization(self, holdings_import_service):
+    def test_service_initialization(self, portfolio_import_service):
         """Test that service initializes with required repositories"""
-        assert holdings_import_service.db is not None
-        assert holdings_import_service.file_attachment_repo is not None
-        assert holdings_import_service.portfolio_repo is not None
-        assert holdings_import_service.holdings_repo is not None
+        assert portfolio_import_service.db is not None
+        assert portfolio_import_service.file_attachment_repo is not None
+        assert portfolio_import_service.portfolio_repo is not None
+        assert portfolio_import_service.holdings_repo is not None
 
     @pytest.mark.asyncio
-    async def test_upload_files_success(self, holdings_import_service, sample_portfolio):
+    async def test_upload_files_success(self, portfolio_import_service, sample_portfolio):
         """Test successful file upload"""
         # Arrange
         files = [
@@ -123,7 +123,7 @@ class TestHoldingsImportService:
         ]
 
         # Act
-        attachments = await holdings_import_service.upload_files(
+        attachments = await portfolio_import_service.upload_files(
             portfolio_id=sample_portfolio.id,
             tenant_id=1,
             files=files,
@@ -137,7 +137,7 @@ class TestHoldingsImportService:
         assert attachments[0].portfolio_id == sample_portfolio.id
 
     @pytest.mark.asyncio
-    async def test_upload_files_multiple(self, holdings_import_service, sample_portfolio):
+    async def test_upload_files_multiple(self, portfolio_import_service, sample_portfolio):
         """Test uploading multiple files"""
         # Arrange
         files = [
@@ -146,7 +146,7 @@ class TestHoldingsImportService:
         ]
 
         # Act
-        attachments = await holdings_import_service.upload_files(
+        attachments = await portfolio_import_service.upload_files(
             portfolio_id=sample_portfolio.id,
             tenant_id=1,
             files=files,
@@ -159,7 +159,7 @@ class TestHoldingsImportService:
         assert attachments[1].original_filename == "holdings.csv"
 
     @pytest.mark.asyncio
-    async def test_upload_files_exceeds_limit(self, holdings_import_service, sample_portfolio):
+    async def test_upload_files_exceeds_limit(self, portfolio_import_service, sample_portfolio):
         """Test that uploading more than 12 files is rejected"""
         # Arrange
         from plugins.investments.exceptions import FileValidationError
@@ -167,7 +167,7 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(FileValidationError, match="Maximum 12 files"):
-            await holdings_import_service.upload_files(
+            await portfolio_import_service.upload_files(
                 portfolio_id=sample_portfolio.id,
                 tenant_id=1,
                 files=files,
@@ -175,14 +175,14 @@ class TestHoldingsImportService:
             )
 
     @pytest.mark.asyncio
-    async def test_upload_files_portfolio_not_found(self, holdings_import_service):
+    async def test_upload_files_portfolio_not_found(self, portfolio_import_service):
         """Test that uploading to nonexistent portfolio raises error"""
         # Arrange
         files = [(b"content", "holdings.pdf", "application/pdf")]
 
         # Act & Assert
         with pytest.raises(NotFoundError, match="Portfolio"):
-            await holdings_import_service.upload_files(
+            await portfolio_import_service.upload_files(
                 portfolio_id=999,
                 tenant_id=1,
                 files=files,
@@ -190,25 +190,25 @@ class TestHoldingsImportService:
             )
 
     @pytest.mark.asyncio
-    async def test_upload_files_invalid_file(self, holdings_import_service, sample_portfolio):
+    async def test_upload_files_invalid_file(self, portfolio_import_service, sample_portfolio):
         """Test that invalid file is rejected"""
         # Arrange
         from plugins.investments.exceptions import FileValidationError
-        holdings_import_service.file_storage_service.validate_file = Mock(
+        portfolio_import_service.file_storage_service.validate_file = Mock(
             return_value=(False, "Unsupported file format", None)
         )
         files = [(b"content", "holdings.txt", "text/plain")]
 
         # Act & Assert
         with pytest.raises(FileValidationError, match="Unsupported file format"):
-            await holdings_import_service.upload_files(
+            await portfolio_import_service.upload_files(
                 portfolio_id=sample_portfolio.id,
                 tenant_id=1,
                 files=files,
                 user_id=100
             )
 
-    def test_get_file_attachments_success(self, holdings_import_service, investment_db_session, sample_portfolio):
+    def test_get_file_attachments_success(self, portfolio_import_service, investment_db_session, sample_portfolio):
         """Test retrieving file attachments for a portfolio"""
         # Arrange
         attachment = FileAttachment(
@@ -230,19 +230,19 @@ class TestHoldingsImportService:
         investment_db_session.commit()
 
         # Act
-        attachments = holdings_import_service.get_file_attachments(sample_portfolio.id, 1)
+        attachments = portfolio_import_service.get_file_attachments(sample_portfolio.id, 1)
 
         # Assert
         assert len(attachments) == 1
         assert attachments[0].original_filename == "holdings.pdf"
 
-    def test_get_file_attachments_portfolio_not_found(self, holdings_import_service):
+    def test_get_file_attachments_portfolio_not_found(self, portfolio_import_service):
         """Test that getting attachments for nonexistent portfolio raises error"""
         # Act & Assert
         with pytest.raises(NotFoundError, match="Portfolio"):
-            holdings_import_service.get_file_attachments(999, 1)
+            portfolio_import_service.get_file_attachments(999, 1)
 
-    def test_get_file_attachment_success(self, holdings_import_service, investment_db_session, sample_portfolio):
+    def test_get_file_attachment_success(self, portfolio_import_service, investment_db_session, sample_portfolio):
         """Test retrieving a specific file attachment"""
         # Arrange
         attachment = FileAttachment(
@@ -266,21 +266,21 @@ class TestHoldingsImportService:
         investment_db_session.refresh(attachment)
 
         # Act
-        result = holdings_import_service.get_file_attachment(attachment.id, 1)
+        result = portfolio_import_service.get_file_attachment(attachment.id, 1)
 
         # Assert
         assert result.id == attachment.id
         assert result.original_filename == "holdings.pdf"
         assert result.status == AttachmentStatus.COMPLETED
 
-    def test_get_file_attachment_not_found(self, holdings_import_service):
+    def test_get_file_attachment_not_found(self, portfolio_import_service):
         """Test that getting nonexistent attachment raises error"""
         # Act & Assert
         with pytest.raises(NotFoundError, match="Attachment"):
-            holdings_import_service.get_file_attachment(999, 1)
+            portfolio_import_service.get_file_attachment(999, 1)
 
     @pytest.mark.asyncio
-    async def test_download_file_success(self, holdings_import_service, investment_db_session, sample_portfolio):
+    async def test_download_file_success(self, portfolio_import_service, investment_db_session, sample_portfolio):
         """Test downloading a file"""
         # Arrange
         attachment = FileAttachment(
@@ -303,7 +303,7 @@ class TestHoldingsImportService:
         investment_db_session.refresh(attachment)
 
         # Act
-        content, filename, content_type = await holdings_import_service.download_file(attachment.id, 1)
+        content, filename, content_type = await portfolio_import_service.download_file(attachment.id, 1)
 
         # Assert
         assert content == b"PDF content"
@@ -311,7 +311,7 @@ class TestHoldingsImportService:
         assert content_type == "application/pdf"
 
     @pytest.mark.asyncio
-    async def test_download_file_fixes_extension(self, holdings_import_service, investment_db_session, sample_portfolio):
+    async def test_download_file_fixes_extension(self, portfolio_import_service, investment_db_session, sample_portfolio):
         """Test that downloading file adds missing extension"""
         # Arrange
         attachment = FileAttachment(
@@ -334,20 +334,20 @@ class TestHoldingsImportService:
         investment_db_session.refresh(attachment)
 
         # Act
-        content, filename, content_type = await holdings_import_service.download_file(attachment.id, 1)
+        content, filename, content_type = await portfolio_import_service.download_file(attachment.id, 1)
 
         # Assert
         assert filename == "holdings.pdf"
         assert content_type == "application/pdf"
 
     @pytest.mark.asyncio
-    async def test_download_file_not_found(self, holdings_import_service):
+    async def test_download_file_not_found(self, portfolio_import_service):
         """Test that downloading nonexistent file raises error"""
         # Act & Assert
         with pytest.raises(NotFoundError, match="Attachment"):
-            await holdings_import_service.download_file(999, 1)
+            await portfolio_import_service.download_file(999, 1)
 
-    def test_delete_file_attachment_success(self, holdings_import_service, investment_db_session, sample_portfolio):
+    def test_delete_file_attachment_success(self, portfolio_import_service, investment_db_session, sample_portfolio):
         """Test deleting a file attachment"""
         # Arrange
         attachment = FileAttachment(
@@ -370,19 +370,19 @@ class TestHoldingsImportService:
         investment_db_session.refresh(attachment)
 
         # Act
-        result = holdings_import_service.delete_file_attachment(attachment.id, 1, 100)
+        result = portfolio_import_service.delete_file_attachment(attachment.id, 1, 100)
 
         # Assert
         assert result is True
-        holdings_import_service.file_storage_service.delete_file.assert_called_once()
+        portfolio_import_service.file_storage_service.delete_file.assert_called_once()
 
-    def test_delete_file_attachment_not_found(self, holdings_import_service):
+    def test_delete_file_attachment_not_found(self, portfolio_import_service):
         """Test that deleting nonexistent attachment raises error"""
         # Act & Assert
         with pytest.raises(NotFoundError, match="Attachment"):
-            holdings_import_service.delete_file_attachment(999, 1, 100)
+            portfolio_import_service.delete_file_attachment(999, 1, 100)
 
-    def test_validate_extracted_holding_success(self, holdings_import_service):
+    def test_validate_extracted_holding_success(self, portfolio_import_service):
         """Test validation of valid extracted holding"""
         # Arrange
         holding_data = {
@@ -396,9 +396,9 @@ class TestHoldingsImportService:
         }
 
         # Act & Assert - should not raise
-        holdings_import_service._validate_extracted_holding(holding_data)
+        portfolio_import_service._validate_extracted_holding(holding_data)
 
-    def test_validate_extracted_holding_missing_field(self, holdings_import_service):
+    def test_validate_extracted_holding_missing_field(self, portfolio_import_service):
         """Test validation fails for missing required field"""
         # Arrange
         holding_data = {
@@ -411,9 +411,9 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Missing required fields"):
-            holdings_import_service._validate_extracted_holding(holding_data)
+            portfolio_import_service._validate_extracted_holding(holding_data)
 
-    def test_validate_extracted_holding_negative_quantity(self, holdings_import_service):
+    def test_validate_extracted_holding_negative_quantity(self, portfolio_import_service):
         """Test validation fails for negative quantity"""
         # Arrange
         holding_data = {
@@ -428,9 +428,9 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Quantity must be positive"):
-            holdings_import_service._validate_extracted_holding(holding_data)
+            portfolio_import_service._validate_extracted_holding(holding_data)
 
-    def test_validate_extracted_holding_negative_cost_basis(self, holdings_import_service):
+    def test_validate_extracted_holding_negative_cost_basis(self, portfolio_import_service):
         """Test validation fails for negative cost basis"""
         # Arrange
         holding_data = {
@@ -445,9 +445,9 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Cost basis must be positive"):
-            holdings_import_service._validate_extracted_holding(holding_data)
+            portfolio_import_service._validate_extracted_holding(holding_data)
 
-    def test_validate_extracted_holding_invalid_security_type(self, holdings_import_service):
+    def test_validate_extracted_holding_invalid_security_type(self, portfolio_import_service):
         """Test validation fails for invalid security type"""
         # Arrange
         holding_data = {
@@ -462,9 +462,9 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Invalid security type"):
-            holdings_import_service._validate_extracted_holding(holding_data)
+            portfolio_import_service._validate_extracted_holding(holding_data)
 
-    def test_validate_extracted_holding_invalid_asset_class(self, holdings_import_service):
+    def test_validate_extracted_holding_invalid_asset_class(self, portfolio_import_service):
         """Test validation fails for invalid asset class"""
         # Arrange
         holding_data = {
@@ -479,4 +479,4 @@ class TestHoldingsImportService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Invalid asset class"):
-            holdings_import_service._validate_extracted_holding(holding_data)
+            portfolio_import_service._validate_extracted_holding(holding_data)

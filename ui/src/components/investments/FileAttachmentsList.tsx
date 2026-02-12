@@ -35,6 +35,8 @@ interface FileAttachment {
   extraction_error?: string;
   extracted_holdings_count: number;
   failed_holdings_count: number;
+  extracted_transactions_count: number;
+  failed_transactions_count: number;
   created_at: string;
   processed_at?: string;
   extracted_data?: any;
@@ -269,7 +271,9 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     {attachment.status === 'completed' && (
                       <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                         <p className="text-sm text-emerald-700">
-                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings created')}
+                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings')}{attachment.extracted_transactions_count > 0 && (
+                            <>, <span className="font-medium">{attachment.extracted_transactions_count}</span> {t('transactions')}</>
+                          )} {t('created')}
                         </p>
                       </div>
                     )}
@@ -277,8 +281,20 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     {attachment.status === 'partial' && (
                       <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
                         <p className="text-sm text-amber-700">
-                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings created')},{' '}
-                          <span className="font-medium">{attachment.failed_holdings_count}</span> {t('failed')}
+                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings')}{attachment.extracted_transactions_count > 0 && (
+                            <>, <span className="font-medium">{attachment.extracted_transactions_count}</span> {t('transactions')}</>
+                          )} {t('created')}
+                          {(attachment.failed_holdings_count > 0 || attachment.failed_transactions_count > 0) && (
+                            <>, <span className="font-medium">{attachment.failed_holdings_count + attachment.failed_transactions_count}</span> {t('failed')}</>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {attachment.status === 'pending' && attachment.extraction_error && (
+                      <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                        <p className="text-sm text-blue-700">
+                          <span className="font-medium">{t('Info')}:</span> {attachment.extraction_error}
                         </p>
                       </div>
                     )}
@@ -323,7 +339,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     disabled={
                       reprocessAttachmentMutation.isPending ||
                       attachment.status === 'processing' ||
-                      attachment.status === 'pending'
+                      (attachment.status === 'pending' && !attachment.extraction_error)
                     }
                     className="rounded-lg text-blue-500 hover:text-blue-600 hover:bg-blue-50"
                     title={t('Reprocess file')}

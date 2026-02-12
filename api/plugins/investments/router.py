@@ -39,7 +39,8 @@ from .services.holdings_service import HoldingsService
 from .services.transaction_service import TransactionService
 from .services.analytics_service import AnalyticsService
 from .services.rebalance_service import RebalanceService
-from .services.holdings_import_service import HoldingsImportService
+from .services.portfolio_import_service import PortfolioImportService
+
 
 # Import error handling
 from .exceptions import (
@@ -525,10 +526,12 @@ async def get_transactions(
 
         transaction_service = TransactionService(db)
         transactions = transaction_service.get_transactions(
+            tenant_id=current_user.tenant_id,
             portfolio_id=portfolio_id,
             start_date=start_date,
             end_date=end_date
         )
+
         return [TransactionResponse.model_validate(t) for t in transactions]
     except InvestmentError:
         raise
@@ -995,7 +998,7 @@ async def get_diversification_analysis(
 
 @investment_router.post("/portfolios/{portfolio_id}/holdings-files", response_model=List[FileAttachmentResponse], status_code=status.HTTP_201_CREATED)
 # @require_feature("investments")  # Temporarily disabled for testing
-async def upload_holdings_files(
+async def upload_portfolio_files(
     portfolio_id: int = Path(..., description="Portfolio ID"),
     files: Optional[List[UploadFile]] = File(None, description="Holdings files to upload"),
     current_user: MasterUser = Depends(get_current_user),
@@ -1032,8 +1035,8 @@ async def upload_holdings_files(
             content = await file.read()
             file_tuples.append((content, file.filename, file.content_type))
 
-        # Upload files using HoldingsImportService
-        import_service = HoldingsImportService(db)
+        # Upload files using PortfolioImportService
+        import_service = PortfolioImportService(db)
         attachments = await import_service.upload_files(
             portfolio_id=portfolio_id,
             tenant_id=current_user.tenant_id,
@@ -1053,7 +1056,7 @@ async def upload_holdings_files(
 
 @investment_router.get("/portfolios/{portfolio_id}/holdings-files", response_model=List[FileAttachmentResponse])
 # @require_feature("investments")  # Temporarily disabled for testing
-async def list_holdings_files(
+async def list_portfolio_files(
     portfolio_id: int,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1077,7 +1080,7 @@ async def list_holdings_files(
             raise_not_found_error(f"Portfolio {portfolio_id} not found")
 
         # Get file attachments
-        import_service = HoldingsImportService(db)
+        import_service = PortfolioImportService(db)
         attachments = import_service.get_file_attachments(
             portfolio_id=portfolio_id,
             tenant_id=current_user.tenant_id
@@ -1092,7 +1095,7 @@ async def list_holdings_files(
 
 @investment_router.get("/holdings-files/{attachment_id}", response_model=FileAttachmentDetailResponse)
 # @require_feature("investments")  # Temporarily disabled for testing
-async def get_holdings_file_details(
+async def get_portfolio_file_details(
     attachment_id: int,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1107,7 +1110,7 @@ async def get_holdings_file_details(
     """
     try:
         # Get file attachment with tenant verification
-        import_service = HoldingsImportService(db)
+        import_service = PortfolioImportService(db)
         attachment = import_service.get_file_attachment(
             attachment_id=attachment_id,
             tenant_id=current_user.tenant_id
@@ -1125,7 +1128,7 @@ async def get_holdings_file_details(
 
 @investment_router.get("/holdings-files/{attachment_id}/download")
 # @require_feature("investments")  # Temporarily disabled for testing
-async def download_holdings_file(
+async def download_portfolio_file(
     attachment_id: int,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1140,7 +1143,7 @@ async def download_holdings_file(
     """
     try:
         # Download file with tenant verification
-        import_service = HoldingsImportService(db)
+        import_service = PortfolioImportService(db)
         file_content, filename, content_type = await import_service.download_file(
             attachment_id=attachment_id,
             tenant_id=current_user.tenant_id
@@ -1164,7 +1167,7 @@ async def download_holdings_file(
 
 @investment_router.post("/holdings-files/{attachment_id}/reprocess", response_model=FileAttachmentDetailResponse)
 # @require_feature("investments")  # Temporarily disabled for testing
-async def reprocess_holdings_file(
+async def reprocess_portfolio_file(
     attachment_id: int,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1179,7 +1182,7 @@ async def reprocess_holdings_file(
     """
     try:
         # Reprocess file attachment with tenant verification
-        import_service = HoldingsImportService(db)
+        import_service = PortfolioImportService(db)
         attachment = await import_service.reprocess_file(
             attachment_id=attachment_id,
             tenant_id=current_user.tenant_id,
@@ -1197,7 +1200,7 @@ async def reprocess_holdings_file(
 
 @investment_router.delete("/holdings-files/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 # @require_feature("investments")  # Temporarily disabled for testing
-async def delete_holdings_file(
+async def delete_portfolio_file(
     attachment_id: int,
     current_user: MasterUser = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -1212,7 +1215,7 @@ async def delete_holdings_file(
     """
     try:
         # Delete file attachment with tenant verification
-        import_service = HoldingsImportService(db)
+        import_service = PortfolioImportService(db)
         success = import_service.delete_file_attachment(
             attachment_id=attachment_id,
             tenant_id=current_user.tenant_id,

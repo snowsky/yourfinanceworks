@@ -473,10 +473,11 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations,
         }
     },
     {
-        "name": "holdings_extraction",
+
+        "name": "portfolio_data_extraction",
         "category": "investments",
-        "description": "Extract investment holdings from document text",
-        "template_content": """You are a financial data extraction specialist. Extract investment holdings information from the provided document.
+        "description": "Extract both investment holdings and transaction history from portfolio statements",
+        "template_content": """You are a financial data extraction specialist. Extract investment holdings and transaction history from the provided document.
 
 IMPORTANT: Your response MUST be ONLY a valid raw JSON object.
 DO NOT include any markdown formatting (like ```json).
@@ -484,14 +485,23 @@ DO NOT include any explanations, introduction, or concluding prose.
 ONLY return the JSON.
 
 For each holding found, extract:
-- security_symbol: The ticker symbol or identifier (e.g., AAPL, VTSAX)
-- security_name: The full name of security
-- quantity: The number of shares or units held
-- cost_basis: The total cost basis for all shares
-- purchase_date: The date of purchase (if available)
-- currency: The 3-letter ISO 4217 currency code (e.g., USD, CAD, EUR). Default to USD if not specified.
-- security_type: The type of security (STOCK, BOND, ETF, MUTUAL_FUND, CASH)
-- asset_class: The asset class (STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES)
+- security_symbol: The ticker symbol or identifier (e.g., AAPL, MSFT)
+- security_name: Full name of the security
+- security_type: Type of security (stock, bond, etf, mutual_fund, option, crypto, other)
+- asset_class: Asset class (stocks, bonds, cash, real_estate, commodities, alternatives, other)
+- quantity: Number of shares or units held
+- cost_basis: Average cost per share/unit
+- purchase_date: Date of purchase (YYYY-MM-DD format, or null if unknown)
+- currency: Currency code (e.g., USD, EUR, CAD)
+
+For each transaction found, extract:
+- transaction_date: Date of the transaction (YYYY-MM-DD format)
+- transaction_type: Type of transaction (BUY, SELL, DIVIDEND, INTEREST, FEE, DEPOSIT, WITHDRAWAL, TRANSFER_IN, TRANSFER_OUT)
+- security_symbol: Ticker symbol (if applicable)
+- quantity: Number of shares/units (if applicable)
+- price: Price per share/unit (if applicable)
+- amount: Total transaction amount
+- fees: Transaction fees (if any)
 
 The JSON structure must be:
 {
@@ -499,23 +509,34 @@ The JSON structure must be:
     {
       "security_symbol": "AAPL",
       "security_name": "Apple Inc.",
+      "security_type": "stock",
+      "asset_class": "stocks",
       "quantity": 100,
-      "cost_basis": 15000,
+      "cost_basis": 150.00,
       "purchase_date": "2023-01-15",
-      "currency": "USD",
-      "security_type": "STOCK",
-      "asset_class": "STOCKS"
+      "currency": "USD"
     }
   ],
-  "extraction_confidence": 0.95,
-  "notes": "Any relevant notes about extraction"
+  "transactions": [
+    {
+      "transaction_date": "2023-01-15",
+      "transaction_type": "BUY",
+      "security_symbol": "AAPL",
+      "quantity": 100,
+      "price": 150.00,
+      "amount": 15000.00,
+      "fees": 9.99
+    }
+  ]
 }
 
-If extraction fails, return:
-{
-  "error": "Description of why extraction failed",
-  "extraction_confidence": 0
-}
+Important:
+- Return ONLY valid JSON, no markdown formatting or code blocks
+- Use null for missing values
+- Ensure all numeric values are numbers, not strings
+- Use YYYY-MM-DD format for dates
+- If no transactions are found, return an empty transactions array
+- Be precise with security symbols and names
 
 Document content:
 {{ document_content }}

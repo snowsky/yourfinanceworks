@@ -4,6 +4,7 @@ Commercial feature - requires plugin_management license.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
 from typing import List
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from datetime import datetime, timezone
 from core.models.models import TenantPluginSettings, Tenant, MasterUser
 from core.models.database import get_master_db
 from core.routers.auth import get_current_user
+
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
@@ -207,4 +209,118 @@ async def disable_plugin(
         "tenant_id": tenant_id,
         "enabled_plugins": settings.enabled_plugins,
         "message": f"Plugin '{plugin_id}' disabled successfully"
+    }
+
+
+@router.get("/settings/{plugin_id}/config")
+async def get_plugin_config(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """
+    Get configuration for a specific plugin.
+    Returns the plugin-specific configuration object.
+    """
+    tenant_id = current_user.tenant_id
+
+    # Validate plugin ID
+    valid_plugins = {"investments"}
+    if plugin_id not in valid_plugins:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid plugin ID: {plugin_id}"
+        )
+
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == tenant_id
+    ).first()
+
+    if not settings:
+        # Return empty config if settings don't exist
+        return {
+            "plugin_id": plugin_id,
+            "config": {}
+        }
+
+    plugin_config = settings.plugin_config or {}
+    return {
+        "plugin_id": plugin_id,
+        "config": plugin_config.get(plugin_id, {})
+    }
+
+
+@router.put("/settings/{plugin_id}/config")
+async def update_plugin_config(
+    plugin_id: str,
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """
+    Update configuration for a specific plugin.
+    Requires admin role.
+
+    Payload:
+    {
+        "config": {
+            "enable_ai_import": true,  // Enable AI-powered import of holdings + transactions
+            ...
+        }
+    }
+    """
+
+    tenant_id = current_user.tenant_id
+
+    # Check if user is admin
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can manage plugin settings"
+        )
+
+    # Validate plugin ID
+    valid_plugins = {"investments"}
+    if plugin_id not in valid_plugins:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid plugin ID: {plugin_id}"
+        )
+
+    config = payload.get("config", {})
+    if not isinstance(config, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="config must be a dictionary"
+        )
+
+    # Get or create settings
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == tenant_id
+    ).first()
+
+    if not settings:
+        settings = TenantPluginSettings(
+            tenant_id=tenant_id,
+            enabled_plugins=[],
+            plugin_config={plugin_id: config}
+        )
+        db.add(settings)
+    else:
+        # Update plugin_config
+        current_config = settings.plugin_config or {}
+        current_config[plugin_id] = config
+        settings.plugin_config = current_config
+        # Mark the column as modified so SQLAlchemy detects the change
+        flag_modified(settings, 'plugin_config')
+        settings.updated_at = datetime.now(timezone.utc)
+
+
+    db.commit()
+    db.refresh(settings)
+
+    return {
+        "plugin_id": plugin_id,
+        "config": config,
+        "message": f"Configuration for plugin '{plugin_id}' updated successfully"
     }

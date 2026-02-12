@@ -21,6 +21,8 @@ export interface FileAttachment {
   extraction_error?: string;
   extracted_holdings_count: number;
   failed_holdings_count: number;
+  extracted_transactions_count: number;
+  failed_transactions_count: number;
   created_at: string;
   processed_at?: string;
   extracted_data?: any;
@@ -175,6 +177,13 @@ const FileAttachmentDetail: React.FC<FileAttachmentDetailProps> = ({
               </div>
             )}
 
+            {attachment.status === 'pending' && attachment.extraction_error && (
+              <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                <p className="text-sm font-medium text-blue-700 mb-2">{t('Information')}:</p>
+                <p className="text-sm text-blue-600 font-mono bg-blue-100/50 p-2 rounded">{attachment.extraction_error}</p>
+              </div>
+            )}
+
             {attachment.status === 'failed' && attachment.extraction_error && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-200">
                 <p className="text-sm font-medium text-red-700 mb-2">{t('Error Details')}:</p>
@@ -248,11 +257,7 @@ const FileAttachmentDetail: React.FC<FileAttachmentDetailProps> = ({
                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                           <FileText className="w-8 h-8 text-muted-foreground/50" />
                        </div>
-                       <p className="text-muted-foreground mb-4">{t('Preview not loaded')}</p>
-                       <ProfessionalButton onClick={handleLoadPreview} disabled={previewLoading}>
-                          {previewLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                          {t('Load Preview')}
-                       </ProfessionalButton>
+                       <p className="text-muted-foreground">{t('Click "Load Preview" above to view the file')}</p>
                     </div>
                 ) : (
                     <div className="w-full h-full bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col">

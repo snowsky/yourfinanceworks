@@ -35,7 +35,7 @@ from plugins.investments.schemas import (
     PortfolioWithAttachmentResponse
 )
 from plugins.investments.services.portfolio_service import PortfolioService
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from core.models.models import MasterUser
 from core.models.models_per_tenant import Base as TenantBase
 
@@ -89,9 +89,9 @@ class TestPortfolioCreationWithFile:
         return PortfolioService(investment_db_session)
 
     @pytest.fixture
-    def holdings_import_service(self, investment_db_session):
-        """Create a HoldingsImportService instance"""
-        return HoldingsImportService(investment_db_session)
+    def portfolio_import_service(self, investment_db_session):
+        """Create a PortfolioImportService instance"""
+        return PortfolioImportService(investment_db_session)
 
     def test_portfolio_creation_without_file(self, portfolio_service, sample_tenant):
         """Test creating a portfolio without a file attachment"""
@@ -118,7 +118,7 @@ class TestPortfolioCreationWithFile:
         self,
         investment_db_session,
         portfolio_service,
-        holdings_import_service,
+        portfolio_import_service,
         sample_tenant,
         sample_user
     ):
@@ -142,22 +142,22 @@ MSFT,50,12000"""
 
         # Mock the file storage service to avoid actual file I/O
         with patch.object(
-            holdings_import_service.file_storage_service,
+            portfolio_import_service.file_storage_service,
             'validate_file',
             return_value=(True, None, FileType.CSV)
         ):
             with patch.object(
-                holdings_import_service.file_storage_service,
+                portfolio_import_service.file_storage_service,
                 'save_file',
                 new_callable=AsyncMock,
                 return_value=("test_file.csv", "/tmp/test_file.csv", None)
             ):
                 with patch(
-                    'plugins.investments.services.holdings_import_service.publish_holdings_import_task',
+                    'plugins.investments.services.portfolio_import_service.publish_holdings_import_task',
                     return_value=True
                 ):
                     # Act
-                    attachments = await holdings_import_service.upload_files(
+                    attachments = await portfolio_import_service.upload_files(
                         portfolio_id=portfolio.id,
                         tenant_id=sample_tenant.id,
                         files=[(csv_content, "test_file.csv", "text/csv")],
@@ -176,7 +176,7 @@ MSFT,50,12000"""
         self,
         investment_db_session,
         portfolio_service,
-        holdings_import_service,
+        portfolio_import_service,
         sample_tenant,
         sample_user
     ):
@@ -199,12 +199,12 @@ MSFT,50,12000"""
 
         # Mock file storage
         with patch.object(
-            holdings_import_service.file_storage_service,
+            portfolio_import_service.file_storage_service,
             'validate_file',
             return_value=(True, None, FileType.CSV)
         ):
             with patch.object(
-                holdings_import_service.file_storage_service,
+                portfolio_import_service.file_storage_service,
                 'save_file',
                 new_callable=AsyncMock,
                 side_effect=[
@@ -213,11 +213,11 @@ MSFT,50,12000"""
                 ]
             ):
                 with patch(
-                    'plugins.investments.services.holdings_import_service.publish_holdings_import_task',
+                    'plugins.investments.services.portfolio_import_service.publish_holdings_import_task',
                     return_value=True
                 ):
                     # Act
-                    attachments = await holdings_import_service.upload_files(
+                    attachments = await portfolio_import_service.upload_files(
                         portfolio_id=portfolio.id,
                         tenant_id=sample_tenant.id,
                         files=[
@@ -237,7 +237,7 @@ MSFT,50,12000"""
         self,
         investment_db_session,
         portfolio_service,
-        holdings_import_service,
+        portfolio_import_service,
         sample_tenant,
         sample_user
     ):
@@ -263,7 +263,7 @@ MSFT,50,12000"""
         # Act & Assert
         from plugins.investments.exceptions import FileValidationError
         with pytest.raises(FileValidationError, match="Maximum 12 files"):
-            await holdings_import_service.upload_files(
+            await portfolio_import_service.upload_files(
                 portfolio_id=portfolio.id,
                 tenant_id=sample_tenant.id,
                 files=files,
@@ -275,7 +275,7 @@ MSFT,50,12000"""
         self,
         investment_db_session,
         portfolio_service,
-        holdings_import_service,
+        portfolio_import_service,
         sample_tenant,
         sample_user
     ):
@@ -294,14 +294,14 @@ MSFT,50,12000"""
 
         # Mock file validation to return invalid
         with patch.object(
-            holdings_import_service.file_storage_service,
+            portfolio_import_service.file_storage_service,
             'validate_file',
             return_value=(False, "Unsupported file format", None)
         ):
             # Act & Assert
             from plugins.investments.exceptions import FileValidationError
             with pytest.raises(FileValidationError, match="Unsupported file format"):
-                await holdings_import_service.upload_files(
+                await portfolio_import_service.upload_files(
                     portfolio_id=portfolio.id,
                     tenant_id=sample_tenant.id,
                     files=[(b"invalid", "test.txt", "text/plain")],
@@ -313,7 +313,7 @@ MSFT,50,12000"""
         self,
         investment_db_session,
         portfolio_service,
-        holdings_import_service,
+        portfolio_import_service,
         sample_tenant,
         sample_user
     ):
@@ -334,22 +334,22 @@ MSFT,50,12000"""
 
         # Mock file storage
         with patch.object(
-            holdings_import_service.file_storage_service,
+            portfolio_import_service.file_storage_service,
             'validate_file',
             return_value=(True, None, FileType.CSV)
         ):
             with patch.object(
-                holdings_import_service.file_storage_service,
+                portfolio_import_service.file_storage_service,
                 'save_file',
                 new_callable=AsyncMock,
                 return_value=("test_file.csv", "/tmp/test_file.csv", None)
             ):
                 with patch(
-                    'plugins.investments.services.holdings_import_service.publish_holdings_import_task',
+                    'plugins.investments.services.portfolio_import_service.publish_holdings_import_task',
                     return_value=True
                 ):
                     # Act
-                    attachments = await holdings_import_service.upload_files(
+                    attachments = await portfolio_import_service.upload_files(
                         portfolio_id=portfolio.id,
                         tenant_id=sample_tenant.id,
                         files=[(csv_content, "test_file.csv", "text/csv")],

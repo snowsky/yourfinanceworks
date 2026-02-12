@@ -121,7 +121,28 @@ class LLMExtractionService:
         Raises:
             ValueError: If extraction fails or file is invalid
         """
-        logger.info(f"Extracting holdings from PDF: {file_path}")
+        result = await self.extract_portfolio_data_from_pdf(file_path, use_ai_extraction=False)
+        return result["holdings"]
+
+    async def extract_portfolio_data_from_pdf(
+        self, file_path: str, use_ai_extraction: bool = False
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Extract portfolio data (holdings and optionally transactions) from a PDF file.
+
+        Uses OCR to extract text, then sends to LLM for structured extraction.
+
+        Args:
+            file_path: Path to the PDF file
+            use_ai_extraction: If True, use AI to extract both holdings and transaction history
+
+        Returns:
+            Dictionary with "holdings" and "transactions" keys
+
+        Raises:
+            ValueError: If extraction fails or file is invalid
+        """
+        logger.info(f"Extracting portfolio data from PDF: {file_path} (AI extraction={use_ai_extraction})")
 
         if not self.ocr_service:
             raise ValueError("OCR service not available for PDF extraction")
@@ -136,14 +157,15 @@ class LLMExtractionService:
             extracted_text = result.text
             logger.info(f"✓ Extracted {len(extracted_text)} characters from PDF")
 
-            # Send to LLM for holdings extraction
-            holdings = await self._extract_with_llm(extracted_text, "pdf")
+            # Send to LLM for extraction
+            data = await self._extract_with_llm(extracted_text, "pdf", use_ai_extraction)
 
-            return holdings
+            return data
 
         except Exception as e:
             logger.error(f"PDF extraction failed: {e}")
-            raise ValueError(f"Failed to extract holdings from PDF: {str(e)}")
+            raise ValueError(f"Failed to extract portfolio data from PDF: {str(e)}")
+
 
     async def extract_holdings_from_csv(self, file_path: str) -> List[Dict[str, Any]]:
         """
@@ -160,7 +182,28 @@ class LLMExtractionService:
         Raises:
             ValueError: If extraction fails or file is invalid
         """
-        logger.info(f"Extracting holdings from CSV: {file_path}")
+        result = await self.extract_portfolio_data_from_csv(file_path, use_ai_extraction=False)
+        return result["holdings"]
+
+    async def extract_portfolio_data_from_csv(
+        self, file_path: str, use_ai_extraction: bool = False
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Extract portfolio data (holdings and optionally transactions) from a CSV file.
+
+        Parses CSV and sends to LLM for validation and enrichment.
+
+        Args:
+            file_path: Path to the CSV file
+            use_ai_extraction: If True, use AI to extract both holdings and transaction history
+
+        Returns:
+            Dictionary with "holdings" and "transactions" keys
+
+        Raises:
+            ValueError: If extraction fails or file is invalid
+        """
+        logger.info(f"Extracting portfolio data from CSV: {file_path} (AI extraction={use_ai_extraction})")
 
         try:
             # Read CSV file
@@ -169,25 +212,29 @@ class LLMExtractionService:
 
             logger.info(f"✓ Read CSV file: {len(csv_content)} characters")
 
-            # Send to LLM for holdings extraction
-            holdings = await self._extract_with_llm(csv_content, "csv")
+            # Send to LLM for extraction
+            data = await self._extract_with_llm(csv_content, "csv", use_ai_extraction)
 
-            return holdings
+            return data
 
         except Exception as e:
             logger.error(f"CSV extraction failed: {e}")
-            raise ValueError(f"Failed to extract holdings from CSV: {str(e)}")
+            raise ValueError(f"Failed to extract portfolio data from CSV: {str(e)}")
 
-    async def _extract_with_llm(self, content: str, file_type: str) -> List[Dict[str, Any]]:
+
+    async def _extract_with_llm(
+        self, content: str, file_type: str, use_ai_extraction: bool = False
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Send content to LLM for holdings extraction.
+        Send content to LLM for portfolio data extraction.
 
         Args:
             content: File content (text or CSV)
             file_type: Type of file ("pdf" or "csv")
+            use_ai_extraction: If True, use AI to extract both holdings and transaction history
 
         Returns:
-            List of extracted holdings dictionaries
+            Dictionary with "holdings" and "transactions" keys
 
         Raises:
             ValueError: If LLM extraction fails
@@ -197,8 +244,9 @@ class LLMExtractionService:
 
         try:
             # Get extraction prompt from prompt management system
+            # Always extract both holdings and transactions when using AI
             prompt_text = self.prompt_service.get_prompt(
-                name="holdings_extraction",
+                name="portfolio_data_extraction",
                 variables={
                     "document_content": content,
                     "document_type": file_type
@@ -206,7 +254,9 @@ class LLMExtractionService:
                 fallback_prompt=self._get_default_extraction_prompt()
             )
 
-            logger.info(f"Sending {len(content)} characters to LLM for extraction")
+
+
+            logger.info(f"Sending {len(content)} characters to LLM for extraction (AI extraction={use_ai_extraction})")
 
             # Call LLM
             response = self.llm.invoke(prompt_text)
@@ -219,16 +269,20 @@ class LLMExtractionService:
 
             logger.info(f"✓ LLM response received: {len(response_text)} characters")
 
-            # Parse extracted holdings
-            holdings = self.parse_extracted_holdings(response_text)
+            # Parse extracted data
+            data = self.parse_extracted_portfolio_data(response_text, use_ai_extraction)
 
-            logger.info(f"✓ Extracted {len(holdings)} holdings from LLM response")
+            logger.info(
+                f"✓ Extracted {len(data['holdings'])} holdings and "
+                f"{len(data.get('transactions', []))} transactions from LLM response"
+            )
 
-            return holdings
+            return data
 
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")
-            raise ValueError(f"Failed to extract holdings with LLM: {str(e)}")
+            raise ValueError(f"Failed to extract portfolio data with LLM: {str(e)}")
+
 
     def parse_extracted_holdings(self, raw_response: str) -> List[Dict[str, Any]]:
         """
@@ -289,9 +343,87 @@ class LLMExtractionService:
             logger.error(f"Failed to parse holdings: {e}")
             raise ValueError(f"Failed to parse extracted holdings: {str(e)}")
 
+            raise ValueError(f"Failed to parse extracted holdings: {str(e)}")
+
+    def parse_extracted_portfolio_data(
+        self, raw_response: str, use_ai_extraction: bool = False
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Parse LLM response to extract structured portfolio data.
+
+        Validates JSON response and extracts holdings and optionally transactions.
+
+        Args:
+            raw_response: Raw LLM response text
+            use_ai_extraction: If True, expect both holdings and transactions in response
+
+        Returns:
+            Dictionary with "holdings" and "transactions" keys
+
+        Raises:
+            ValueError: If response cannot be parsed
+        """
+        logger.info(f"Parsing LLM response for portfolio data (AI extraction={use_ai_extraction})")
+
+        try:
+            # Parse JSON
+            response = raw_response.strip()
+            try:
+                data = json.loads(response)
+            except json.JSONDecodeError:
+                # Fallback: if LLM still returned markdown code blocks despite instructions,
+                # attempt one-time cleanup. But we prefer LLM to follow instructions.
+                if "```json" in response:
+                    response = response.split("```json")[-1].split("```")[0].strip()
+                elif "```" in response:
+                    response = response.split("```")[-1].split("```")[0].strip()
+                data = json.loads(response)
+
+            # Check for error in response
+            if isinstance(data, dict) and "error" in data:
+                raise ValueError(f"LLM returned error: {data['error']}")
+
+            # Extract holdings array
+            if isinstance(data, dict) and "holdings" in data:
+                holdings = data["holdings"]
+            elif isinstance(data, list):
+                # Backward compatibility: if just a list, treat as holdings
+                holdings = data
+            else:
+                raise ValueError("Response does not contain holdings array")
+
+            if not isinstance(holdings, list):
+                raise ValueError("Holdings data is not a list")
+
+            # Extract transactions if requested
+            transactions = []
+            if use_ai_extraction:
+                if isinstance(data, dict) and "transactions" in data:
+                    transactions = data["transactions"]
+                    if not isinstance(transactions, list):
+                        raise ValueError("Transactions data is not a list")
+                else:
+                    logger.warning("Transactions requested but not found in response")
+
+            logger.info(f"✓ Parsed {len(holdings)} holdings and {len(transactions)} transactions from response")
+
+            return {
+                "holdings": holdings,
+                "transactions": transactions
+            }
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            logger.debug(f"Response content: {raw_response[:500]}")
+            raise ValueError(f"Invalid JSON in LLM response: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Failed to parse portfolio data: {e}")
+            raise ValueError(f"Failed to parse extracted portfolio data: {str(e)}")
+
     def _get_default_extraction_prompt(self) -> str:
-        """Fallback prompt if prompt management system is unavailable."""
-        return """You are a financial data extraction specialist. Extract investment holdings information from the provided document.
+        """Fallback prompt if prompt management system is unavailable. Always extracts both holdings and transactions."""
+        return """You are a financial data extraction specialist. Extract investment holdings and transaction history from the provided document.
 
 IMPORTANT: Your response MUST be ONLY a valid raw JSON object.
 DO NOT include any markdown formatting (like ```json).
@@ -307,6 +439,16 @@ For each holding found, extract:
 - security_type: STOCK, BOND, ETF, MUTUAL_FUND, CASH
 - asset_class: STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES
 
+For each transaction found, extract:
+- transaction_date: Date of the transaction
+- transaction_type: BUY, SELL, DIVIDEND, SPLIT, TRANSFER
+- security_symbol: The ticker symbol
+- security_name: The full name
+- quantity: Number of shares (positive for buy, negative for sell)
+- price: Price per share
+- amount: Total transaction amount
+- fees: Transaction fees (if any)
+
 The JSON structure must be:
 {
   "holdings": [
@@ -318,6 +460,18 @@ The JSON structure must be:
       "purchase_date": "...",
       "security_type": "...",
       "asset_class": "..."
+    }
+  ],
+  "transactions": [
+    {
+      "transaction_date": "...",
+      "transaction_type": "...",
+      "security_symbol": "...",
+      "security_name": "...",
+      "quantity": 0,
+      "price": 0,
+      "amount": 0,
+      "fees": 0
     }
   ]
 }

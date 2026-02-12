@@ -29,7 +29,7 @@ from plugins.investments.models import (
     Base as InvestmentBase
 )
 from plugins.investments.schemas import FileAttachmentResponse, FileAttachmentDetailResponse
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from core.models.models import MasterUser
 from core.models.models_per_tenant import Base as TenantBase
 
@@ -116,8 +116,8 @@ class TestHoldingsImportAPIEndpoints:
         # Create mock file
         file_content = b"PDF content"
 
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -143,8 +143,8 @@ class TestHoldingsImportAPIEndpoints:
 
     def test_list_holdings_files_success(self, investment_db_session, sample_portfolio, sample_user, sample_file_attachment):
         """Test listing file attachments for a portfolio"""
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -162,8 +162,8 @@ class TestHoldingsImportAPIEndpoints:
 
     def test_get_holdings_file_details_success(self, investment_db_session, sample_user, sample_file_attachment):
         """Test getting details of a specific file attachment"""
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -183,8 +183,8 @@ class TestHoldingsImportAPIEndpoints:
         """Test downloading a file attachment"""
         file_content = b"PDF content"
 
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -203,8 +203,8 @@ class TestHoldingsImportAPIEndpoints:
 
     def test_delete_holdings_file_success(self, investment_db_session, sample_user, sample_file_attachment):
         """Test deleting a file attachment"""
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -221,8 +221,8 @@ class TestHoldingsImportAPIEndpoints:
 
     def test_upload_files_exceeds_limit(self, investment_db_session, sample_portfolio, sample_user):
         """Test that uploading more than 12 files is rejected"""
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -244,8 +244,8 @@ class TestHoldingsImportAPIEndpoints:
 
     def test_get_file_attachment_not_found(self, investment_db_session, sample_user):
         """Test getting a non-existent file attachment"""
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -268,8 +268,8 @@ class TestHoldingsImportAPIEndpoints:
             name = "Other Tenant"
         other_tenant = MockTenant()
 
-        # Mock the HoldingsImportService
-        with patch('plugins.investments.router.HoldingsImportService') as mock_service_class:
+        # Mock the PortfolioImportService
+        with patch('plugins.investments.router.PortfolioImportService') as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 

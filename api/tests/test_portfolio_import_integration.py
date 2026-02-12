@@ -34,7 +34,7 @@ from plugins.investments.models import (
 from plugins.investments.schemas import HoldingCreate, HoldingResponse
 from plugins.investments.services.holdings_service import HoldingsService
 from plugins.investments.services.portfolio_service import PortfolioService
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from core.exceptions.base import ValidationError
 
 
@@ -90,9 +90,9 @@ def portfolio_service(investment_db_session):
 
 
 @pytest.fixture
-def holdings_import_service(investment_db_session):
+def portfolio_import_service(investment_db_session):
     """Create a holdings import service instance."""
-    service = HoldingsImportService(investment_db_session)
+    service = PortfolioImportService(investment_db_session)
 
     # Mock the file storage service
     service.file_storage_service = Mock()

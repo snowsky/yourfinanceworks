@@ -27,13 +27,16 @@ from sqlalchemy import text
 
 from core.models.database import set_tenant_context
 from core.services.tenant_database_manager import tenant_db_manager
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from core.models.models import TenantPluginSettings
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from plugins.investments.repositories.file_attachment_repository import FileAttachmentRepository
 from plugins.investments.models import FileAttachment, AttachmentStatus
 
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("holdings_import_worker")
+logger = logging.getLogger("portfolio_import_worker")
+
 
 
 class HoldingsImportWorkerConfig:
@@ -162,7 +165,7 @@ class HoldingsImportWorker:
 
                 try:
                     # Process the file
-                    await self._process_holdings_file(
+                    await self._process_portfolio_file(
                         session, attachment_id, tenant_id
                     )
 
@@ -188,7 +191,7 @@ class HoldingsImportWorker:
             logger.error(f"Unexpected error processing message: {e}", exc_info=True)
             self.consumer.commit(asynchronous=False)
 
-    async def _process_holdings_file(
+    async def _process_portfolio_file(
         self, session: Session, attachment_id: int, tenant_id: int
     ):
         """Process a single holdings file"""
@@ -236,43 +239,92 @@ class HoldingsImportWorker:
                 f"Updated attachment {attachment_id} status to PROCESSING"
             )
 
-            # Process the file using HoldingsImportService
-            import_service = HoldingsImportService(session)
+            # Process the file using PortfolioImportService
+            import_service = PortfolioImportService(session)
+
+            # Check plugin settings for transaction import
+            use_ai_extraction = False
+            try:
+                from core.models.database import get_master_db
+                master_db = next(get_master_db())
+                plugin_settings = master_db.query(TenantPluginSettings).filter(
+                    TenantPluginSettings.tenant_id == tenant_id
+                ).first()
+
+                if plugin_settings and plugin_settings.plugin_config:
+                    investments_config = plugin_settings.plugin_config.get("investments", {})
+                    # The setting controls AI-powered extraction of both holdings AND transactions
+                    use_ai_extraction = investments_config.get("enable_ai_import", False)
+                    logger.info(f"AI-powered holdings/transactions import enabled: {use_ai_extraction}")
+
+            except Exception as e:
+                logger.warning(f"Failed to check plugin settings, defaulting to holdings only: {e}")
+
+            # If AI import is not enabled, skip processing
+            # The system requires LLM for extraction, so we can't process without it
+            if not use_ai_extraction:
+                logger.info(
+                    f"Skipping processing for attachment {attachment_id}: "
+                    f"AI import is disabled. Enable 'Holdings/Transactions Import with AI' "
+                    f"in plugin settings to process files."
+                )
+                # Update attachment status to indicate it's waiting for AI to be enabled
+                attachment_repo.update(
+                    attachment_id,
+                    tenant_id,
+                    status=AttachmentStatus.PENDING,
+                    extraction_error="AI import is disabled. Enable 'Holdings/Transactions Import with AI' in plugin settings to process this file."
+                )
+                session.commit()
+                return
+
 
             try:
-                # Extract holdings from file
-                extracted_holdings = await import_service.extract_holdings_from_file(
+                # Extract portfolio data from file
+                portfolio_data = await import_service.extract_portfolio_data_from_file(
                     attachment.local_path,
-                    attachment.file_type
+                    attachment.file_type,
+                    use_ai_extraction
+                )
+                extracted_holdings = portfolio_data["holdings"]
+                extracted_transactions = portfolio_data.get("transactions", [])
+
+                # Create holdings and transactions from extracted data
+                result = await import_service.create_holdings_from_extracted_data(
+                    attachment.portfolio_id,
+                    extracted_holdings,
+                    extracted_transactions,
+                    attachment_id,
+                    tenant_id,
+                    user_email,
+                    attachment.created_by
                 )
 
-                # Create holdings from extracted data
-                created_count, failed_count = (
-                    await import_service.create_holdings_from_extracted_data(
-                        attachment.portfolio_id,
-                        extracted_holdings,
-                        attachment_id,
-                        tenant_id,
-                        user_email,
-                        attachment.created_by
-                    )
-                )
+                # Extract counts from result dictionary
+                holdings_created = result["holdings_created"]
+                holdings_failed = result["holdings_failed"]
+                transactions_created = result["transactions_created"]
+                transactions_failed = result["transactions_failed"]
+                total_created = result["total_created"]
+                total_failed = result["total_failed"]
 
                 # Determine final status
-                if failed_count == 0:
+                if total_failed == 0:
                     final_status = AttachmentStatus.COMPLETED
-                elif created_count > 0:
+                elif total_created > 0:
                     final_status = AttachmentStatus.PARTIAL
                 else:
                     final_status = AttachmentStatus.FAILED
 
-                # Update attachment with results
+                # Update attachment with results including transaction counts
                 attachment_repo.update(
                     attachment_id,
                     tenant_id,
                     status=final_status,
-                    extracted_holdings_count=created_count,
-                    failed_holdings_count=failed_count,
+                    extracted_holdings_count=holdings_created,
+                    failed_holdings_count=holdings_failed,
+                    extracted_transactions_count=transactions_created,
+                    failed_transactions_count=transactions_failed,
                     processed_at=datetime.now(timezone.utc),
                     extraction_error=None
                 )
@@ -280,9 +332,10 @@ class HoldingsImportWorker:
 
                 logger.info(
                     f"Successfully processed attachment {attachment_id}: "
-                    f"status={final_status}, created={created_count}, "
-                    f"failed={failed_count}"
+                    f"status={final_status}, holdings={holdings_created}/{holdings_failed}, "
+                    f"transactions={transactions_created}/{transactions_failed}"
                 )
+
 
             except Exception as e:
                 # Update attachment with error

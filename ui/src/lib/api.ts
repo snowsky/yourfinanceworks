@@ -517,6 +517,27 @@ export interface DividendSummary {
   period_end: string;
 }
 
+export interface InvestmentTransaction {
+  id: number;
+  portfolio_id: number;
+  holding_id?: number | null;
+  transaction_type: 'BUY' | 'SELL' | 'DIVIDEND' | 'INTEREST' | 'FEE' | 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER_IN' | 'TRANSFER_OUT';
+  transaction_date: string;
+  quantity?: number | null;
+  price_per_share?: number | null;
+  total_amount: number;
+  fees: number;
+  realized_gain?: number | null;
+  dividend_type?: string | null;
+  payment_date?: string | null;
+  ex_dividend_date?: string | null;
+  notes?: string | null;
+  created_at: string;
+  security_symbol?: string;
+  security_name?: string;
+}
+
+
 export interface AggregatedAnalytics {
   portfolio_type_filter: string;
   portfolio_count: number;
@@ -848,6 +869,14 @@ export const investmentApi = {
 
   getDiversificationAnalysis: (portfolioId: number) =>
     apiRequest<any>(`/investments/portfolios/${portfolioId}/diversification`),
+
+  getTransactions: (portfolioId: number, params: { start_date?: string; end_date?: string } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.start_date) searchParams.set('start_date', params.start_date);
+    if (params.end_date) searchParams.set('end_date', params.end_date);
+    return apiRequest<InvestmentTransaction[]>(`/investments/portfolios/${portfolioId}/transactions?${searchParams.toString()}`);
+  },
+
 
   downloadHoldingsFileBlob: async (
     attachmentId: number
@@ -4063,4 +4092,16 @@ export const gamificationApi = {
   // Validation
   validate: () =>
     apiRequest<any>('/gamification/validate'),
+};
+
+// Plugin Management API
+export const pluginApi = {
+  getPluginConfig: (pluginId: string) =>
+    apiRequest<{ plugin_id: string; config: Record<string, any> }>(`/plugins/settings/${pluginId}/config`),
+
+  updatePluginConfig: (pluginId: string, config: Record<string, any>) =>
+    apiRequest<{ plugin_id: string; config: Record<string, any>; message: string }>(`/plugins/settings/${pluginId}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
 };

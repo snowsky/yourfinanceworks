@@ -89,8 +89,10 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             <Upload className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-bold text-lg">{t('Import Holdings from File')}</h3>
-            <p className="text-sm text-muted-foreground">{t('Upload PDF or CSV files to automatically extract and create holdings.')}</p>
+            <h3 className="font-bold text-lg">{t('Import Portfolio Data')}</h3>
+
+            <p className="text-sm text-muted-foreground">{t('Upload PDF or CSV files to automatically extract holdings and transaction history.')}</p>
+
           </div>
         </div>
       </div>
@@ -108,7 +110,8 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             onFilesSelected={handleFilesSelected}
             maxFiles={12}
             allowedTypes={['application/pdf', 'text/csv']}
-            title={t('Select Holdings Files')}
+            title={t('Select Portfolio Files')}
+
             maxFileSize={20}
             selectedFiles={selectedFiles}
             onRemoveFile={handleRemoveFile}

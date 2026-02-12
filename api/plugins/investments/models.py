@@ -12,7 +12,8 @@ The models follow the existing YourFinanceWORKS patterns:
 - Audit fields for tracking
 """
 
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, Text, Numeric, UniqueConstraint, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, Text, Numeric, UniqueConstraint, Enum as SQLEnum, JSON
+
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone, date
 from decimal import Decimal
@@ -260,6 +261,8 @@ class FileAttachment(Base):
     # File storage paths
     local_path = Column(String, nullable=False)  # Local storage path
     cloud_url = Column(String, nullable=True)  # Cloud storage URL (S3, etc.)
+    file_hash = Column(String(64), nullable=True, index=True)  # SHA-256 hash for deduplication
+
 
     # Processing status
     status = Column(SQLEnum(AttachmentStatus), default=AttachmentStatus.PENDING, nullable=False, index=True)
@@ -268,7 +271,11 @@ class FileAttachment(Base):
     # Extraction results
     extracted_holdings_count = Column(Integer, default=0, nullable=False)  # Number of successfully created holdings
     failed_holdings_count = Column(Integer, default=0, nullable=False)  # Number of holdings that failed to create
+    extracted_transactions_count = Column(Integer, default=0, nullable=False)  # Number of successfully created transactions
+    failed_transactions_count = Column(Integer, default=0, nullable=False)  # Number of transactions that failed to create
     extracted_data = Column(Text, nullable=True)  # JSON with extracted holdings data
+    process_log = Column(JSON, nullable=True)  # Detailed process log with duplicates, errors, warnings
+
 
     # Audit fields
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)

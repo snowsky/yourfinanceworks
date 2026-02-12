@@ -387,8 +387,8 @@ services:
       - license_keys:/app/core/keys
     command: ["python", "-m", "workers.review_processor"]
 
-  # Holdings Import Worker for portfolio holdings file processing
-  holdings-import-worker:
+  # Portfolio Import Worker for portfolio holdings/transactions file processing
+  portfolio-import-worker:
     build:
       context: ./api
       dockerfile: Dockerfile
@@ -433,7 +433,8 @@ services:
       - ./api:/app
       - encryption_keys:/app/keys
       - license_keys:/app/core/keys
-    command: ["python", "-m", "workers.holdings_import_worker"]
+    command: ["python", "-m", "workers.portfolio_import_worker"]
+
 
   # # Ollama AI service
   # ollama:

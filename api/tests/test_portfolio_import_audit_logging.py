@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from plugins.investments.models import (
     InvestmentPortfolio, FileAttachment, AttachmentStatus, FileType
 )
@@ -42,9 +42,9 @@ class TestHoldingsImportAuditLogging:
         session.close()
 
     @pytest.fixture
-    def holdings_import_service(self, investment_db_session):
-        """Create a HoldingsImportService instance"""
-        return HoldingsImportService(investment_db_session)
+    def portfolio_import_service(self, investment_db_session):
+        """Create a PortfolioImportService instance"""
+        return PortfolioImportService(investment_db_session)
 
     @pytest.fixture
     def sample_portfolio(self, investment_db_session):
@@ -61,7 +61,7 @@ class TestHoldingsImportAuditLogging:
 
     @pytest.mark.asyncio
     async def test_upload_files_creates_audit_log(
-        self, holdings_import_service, investment_db_session, sample_portfolio
+        self, portfolio_import_service, investment_db_session, sample_portfolio
     ):
         """Test that file upload creates an audit log entry"""
         # Arrange
@@ -70,22 +70,22 @@ class TestHoldingsImportAuditLogging:
 
         # Mock file storage
         with patch.object(
-            holdings_import_service.file_storage_service,
+            portfolio_import_service.file_storage_service,
             "validate_file",
             return_value=(True, None, FileType.PDF)
         ):
             with patch.object(
-                holdings_import_service.file_storage_service,
+                portfolio_import_service.file_storage_service,
                 "save_file",
                 new_callable=AsyncMock,
                 return_value=("stored_file.pdf", "/path/to/file", None)
             ):
                 with patch(
-                    "plugins.investments.services.holdings_import_service.publish_holdings_import_task",
+                    "plugins.investments.services.portfolio_import_service.publish_holdings_import_task",
                     return_value=True
                 ):
                     # Act
-                    attachments = await holdings_import_service.upload_files(
+                    attachments = await portfolio_import_service.upload_files(
                         portfolio_id=sample_portfolio.id,
                         tenant_id=1,
                         files=files,
@@ -113,7 +113,7 @@ class TestHoldingsImportAuditLogging:
 
     @pytest.mark.asyncio
     async def test_process_file_creates_extraction_start_audit_log(
-        self, holdings_import_service, investment_db_session, sample_portfolio
+        self, portfolio_import_service, investment_db_session, sample_portfolio
     ):
         """Test that file processing creates extraction start audit log"""
         # Arrange
@@ -136,19 +136,19 @@ class TestHoldingsImportAuditLogging:
 
         # Mock extraction and holdings creation
         with patch.object(
-            holdings_import_service,
+            portfolio_import_service,
             "extract_holdings_from_file",
             new_callable=AsyncMock,
             return_value={"holdings": []}
         ):
             with patch.object(
-                holdings_import_service,
+                portfolio_import_service,
                 "create_holdings_from_extracted_data",
                 new_callable=AsyncMock,
                 return_value=(0, 0)
             ):
                 # Act
-                result = await holdings_import_service.process_file(
+                result = await portfolio_import_service.process_file(
                     attachment_id=attachment.id,
                     tenant_id=1,
                     user_email=user_email
@@ -168,7 +168,7 @@ class TestHoldingsImportAuditLogging:
 
     @pytest.mark.asyncio
     async def test_process_file_creates_extraction_completed_audit_log(
-        self, holdings_import_service, investment_db_session, sample_portfolio
+        self, portfolio_import_service, investment_db_session, sample_portfolio
     ):
         """Test that successful file processing creates extraction completed audit log"""
         # Arrange
@@ -191,19 +191,19 @@ class TestHoldingsImportAuditLogging:
 
         # Mock extraction and holdings creation
         with patch.object(
-            holdings_import_service,
+            portfolio_import_service,
             "extract_holdings_from_file",
             new_callable=AsyncMock,
             return_value={"holdings": []}
         ):
             with patch.object(
-                holdings_import_service,
+                portfolio_import_service,
                 "create_holdings_from_extracted_data",
                 new_callable=AsyncMock,
                 return_value=(0, 0)
             ):
                 # Act
-                result = await holdings_import_service.process_file(
+                result = await portfolio_import_service.process_file(
                     attachment_id=attachment.id,
                     tenant_id=1,
                     user_email=user_email
@@ -226,7 +226,7 @@ class TestHoldingsImportAuditLogging:
 
     @pytest.mark.asyncio
     async def test_process_file_creates_extraction_failed_audit_log(
-        self, holdings_import_service, investment_db_session, sample_portfolio
+        self, portfolio_import_service, investment_db_session, sample_portfolio
     ):
         """Test that failed file processing creates extraction failed audit log"""
         # Arrange
@@ -250,13 +250,13 @@ class TestHoldingsImportAuditLogging:
 
         # Mock extraction to fail
         with patch.object(
-            holdings_import_service,
+            portfolio_import_service,
             "extract_holdings_from_file",
             new_callable=AsyncMock,
             side_effect=Exception(error_message)
         ):
             # Act
-            result = await holdings_import_service.process_file(
+            result = await portfolio_import_service.process_file(
                 attachment_id=attachment.id,
                 tenant_id=1,
                 user_email=user_email

@@ -26,7 +26,7 @@ from plugins.investments.models import (
     AssetClass,
     Base as InvestmentBase
 )
-from plugins.investments.services.holdings_import_service import HoldingsImportService
+from plugins.investments.services.portfolio_import_service import PortfolioImportService
 from plugins.investments.repositories.file_attachment_repository import FileAttachmentRepository
 from core.exceptions.base import ValidationError, NotFoundError
 

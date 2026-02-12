@@ -49,7 +49,8 @@ class FileAttachmentRepository:
         file_type: FileType,
         local_path: str,
         created_by: int,
-        cloud_url: Optional[str] = None
+        cloud_url: Optional[str] = None,
+        file_hash: Optional[str] = None
     ) -> FileAttachment:
         """
         Create a new file attachment record.
@@ -64,6 +65,7 @@ class FileAttachmentRepository:
             local_path: Local storage path
             created_by: User ID who uploaded the file
             cloud_url: Optional cloud storage URL
+            file_hash: Optional SHA-256 hash for deduplication
 
         Returns:
             Created FileAttachment instance
@@ -80,6 +82,7 @@ class FileAttachmentRepository:
             file_type=file_type,
             local_path=local_path,
             cloud_url=cloud_url,
+            file_hash=file_hash,
             status=AttachmentStatus.PENDING,
             extracted_holdings_count=0,
             failed_holdings_count=0,
@@ -129,6 +132,33 @@ class FileAttachmentRepository:
                 FileAttachment.tenant_id == tenant_id
             )
         ).order_by(FileAttachment.created_at.desc()).all()
+
+    def get_by_hash(
+        self,
+        portfolio_id: int,
+        file_hash: str,
+        tenant_id: int
+    ) -> Optional[FileAttachment]:
+        """
+        Find a file attachment by its content hash in a specific portfolio.
+
+        Used for duplicate file detection during upload.
+
+        Args:
+            portfolio_id: Portfolio ID
+            file_hash: SHA-256 hash of file content
+            tenant_id: Tenant ID (for explicit tenant isolation)
+
+        Returns:
+            FileAttachment instance if found, None otherwise
+        """
+        return self.db.query(FileAttachment).filter(
+            and_(
+                FileAttachment.portfolio_id == portfolio_id,
+                FileAttachment.file_hash == file_hash,
+                FileAttachment.tenant_id == tenant_id
+            )
+        ).first()
 
     def get_by_tenant(self, tenant_id: int) -> List[FileAttachment]:
         """
