@@ -45,7 +45,7 @@ def test_export_destination_creation():
         "destination_type": "s3",
         "credentials": {
             "access_key_id": "AKIA2NNGMX4J4544RKVJ",
-            "secret_access_key": "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",
+            "secret_access_key": "[ENCRYPTION_KEY]",
             "region": "us-east-1",
             "bucket_name": "test-lambda-hao"
         },

@@ -57,6 +57,7 @@ api/core/keys/*.pem
 !api/core/keys/.gitkeep
 # Exception: keep master_public_key.pem
 !api/core/keys/master_public_key.pem
+api/keys/master.key
 
 license_server/
 .env
