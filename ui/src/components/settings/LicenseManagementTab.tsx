@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2, Globe, RefreshCcw } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Key, Calendar, Shield, ExternalLink, Activity, Info, Lock, User, List, Clock, Plus, Building2, Globe, RefreshCcw, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -239,6 +239,29 @@ export const LicenseManagementTab: React.FC = () => {
     }
   };
 
+  const handleCopyPrivateKey = async () => {
+    try {
+      const licenseRequestData = await api.get<{
+        private_key: string;
+      }>('/license/license-request-data');
+
+      const privateKey = licenseRequestData.private_key;
+
+      if (!privateKey) {
+        toast.error(t('settings.license.private_key_not_found', 'Private key not found.'));
+        return;
+      }
+
+      await navigator.clipboard.writeText(privateKey);
+      toast.success(t('settings.license.private_key_copied', 'Private key copied to clipboard!'));
+    } catch (error: any) {
+      console.error('Failed to copy private key:', error);
+      const errorMessage = error.response?.data?.detail || error.message ||
+        t('settings.license.private_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
+      toast.error(errorMessage);
+    }
+  };
+
   const loading = loadingStatus || loadingFeatures;
   const activating = activateMutation.isPending;
   const deactivating = deactivateMutation.isPending;
@@ -392,56 +415,66 @@ export const LicenseManagementTab: React.FC = () => {
               <div className="flex gap-2">
                 {licenseInfo.effective_source === 'local' && (
                   <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
-                  <AlertDialogTrigger asChild>
-                    <ProfessionalButton variant="outline" size="sm" onClick={handleDeactivateLicense}>
-                      <Lock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      {t('settings.license.status.deactivate')}
-                    </ProfessionalButton>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('settings.license.deactivateDialog.title')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('settings.license.deactivateDialog.description')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="bg-muted p-4 rounded-md my-3 border border-border/50">
-                      <ul className="list-disc space-y-1 ml-4 text-sm">
-                        <li>{t('settings.license.deactivateDialog.featureList.promptManagement')}</li>
-                        <li>{t('settings.license.deactivateDialog.featureList.aiInvoiceProcessing')}</li>
-                        <li>{t('settings.license.deactivateDialog.featureList.aiExpenseProcessing')}</li>
-                        <li>{t('settings.license.deactivateDialog.featureList.advancedReporting')}</li>
-                        <li>{t('settings.license.deactivateDialog.featureList.approvalWorkflows')}</li>
-                        <li>{t('settings.license.deactivateDialog.featureList.allPremiumFeatures')}</li>
-                      </ul>
-                    </div>
-                    <p className="font-medium text-foreground">{t('settings.license.deactivateDialog.reactivateNote')}</p>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('settings.license.deactivateDialog.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={confirmDeactivateLicense} disabled={deactivating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {deactivating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('settings.license.deactivateDialog.deactivating')}
-                          </>
-                        ) : (
-                          t('settings.license.deactivateDialog.confirmButton')
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <ProfessionalButton variant="outline" size="sm" onClick={handleDeactivateLicense}>
+                        <Lock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                        {t('settings.license.status.deactivate')}
+                      </ProfessionalButton>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t('settings.license.deactivateDialog.title')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('settings.license.deactivateDialog.description')}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="bg-muted p-4 rounded-md my-3 border border-border/50">
+                        <ul className="list-disc space-y-1 ml-4 text-sm">
+                          <li>{t('settings.license.deactivateDialog.featureList.promptManagement')}</li>
+                          <li>{t('settings.license.deactivateDialog.featureList.aiInvoiceProcessing')}</li>
+                          <li>{t('settings.license.deactivateDialog.featureList.aiExpenseProcessing')}</li>
+                          <li>{t('settings.license.deactivateDialog.featureList.advancedReporting')}</li>
+                          <li>{t('settings.license.deactivateDialog.featureList.approvalWorkflows')}</li>
+                          <li>{t('settings.license.deactivateDialog.featureList.allPremiumFeatures')}</li>
+                        </ul>
+                      </div>
+                      <p className="font-medium text-foreground">{t('settings.license.deactivateDialog.reactivateNote')}</p>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('settings.license.deactivateDialog.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeactivateLicense} disabled={deactivating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          {deactivating ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {t('settings.license.deactivateDialog.deactivating')}
+                            </>
+                          ) : (
+                            t('settings.license.deactivateDialog.confirmButton')
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
                 <AlertDialog open={showCreateConfirmDialog} onOpenChange={setShowCreateConfirmDialog}>
-                  <AlertDialogTrigger asChild>
+                  <div className="flex gap-2">
                     <ProfessionalButton
-                      variant="gradient"
+                      variant="outline"
                       size="sm"
+                      onClick={handleCopyPrivateKey}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {t('settings.license.create_new')}
+                      <Copy className="h-4 w-4 mr-2" />
+                      {t('settings.license.copy_private_key', 'Copy Private Key')}
                     </ProfessionalButton>
-                  </AlertDialogTrigger>
+                    <AlertDialogTrigger asChild>
+                      <ProfessionalButton
+                        variant="gradient"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('settings.license.create_new')}
+                      </ProfessionalButton>
+                    </AlertDialogTrigger>
+                  </div>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t('settings.license.confirm_title')}</AlertDialogTitle>
@@ -460,7 +493,15 @@ export const LicenseManagementTab: React.FC = () => {
               </div>
             )}
             {!licenseInfo?.is_licensed && (
-              <div className="flex items-center">
+              <div className="flex items-center gap-2">
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyPrivateKey}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  {t('settings.license.copy_private_key', 'Copy Private Key')}
+                </ProfessionalButton>
                 <AlertDialog open={showCreateConfirmDialog} onOpenChange={setShowCreateConfirmDialog}>
                   <AlertDialogTrigger asChild>
                     <ProfessionalButton
@@ -502,62 +543,62 @@ export const LicenseManagementTab: React.FC = () => {
                   {licenseInfo?.installation_id || 'N/A'}
                 </code>
                 {licenseInfo?.is_exempt_from_global_license && (
-                    <div className="flex items-center gap-2">
-                        {/* Only show Dropdown if we have a Custom ID created */}
-                        {licenseInfo?.custom_installation_id ? (
-                            <Select
-                                value={(licenseInfo as any)?.effective_source === 'global' ? 'global' : 'local'}
-                                onValueChange={handleModeChange}
-                                disabled={switchModePending}
-                            >
-                                <SelectTrigger className="w-[180px] h-8 text-xs">
-                                    <SelectValue placeholder="License Mode" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="global">System (Global)</SelectItem>
-                                    <SelectItem value="local">Dedicated (Local)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        ) : null}
+                  <div className="flex items-center gap-2">
+                    {/* Only show Dropdown if we have a Custom ID created */}
+                    {licenseInfo?.custom_installation_id ? (
+                      <Select
+                        value={(licenseInfo as any)?.effective_source === 'global' ? 'global' : 'local'}
+                        onValueChange={handleModeChange}
+                        disabled={switchModePending}
+                      >
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                          <SelectValue placeholder="License Mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">System (Global)</SelectItem>
+                          <SelectItem value="local">Dedicated (Local)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : null}
 
-                        {/* Regenerate ID Button - Show if no custom ID exists yet */}
-                        {!licenseInfo?.custom_installation_id && (
-                             <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
-                             <AlertDialogTrigger asChild>
-                               <ProfessionalButton variant="outline" size="sm" className="h-8 shadow-sm border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
-                                 <RefreshCcw className="h-3.5 w-3.5 mr-2" />
-                                 Regenerate ID
-                               </ProfessionalButton>
-                             </AlertDialogTrigger>
-                             <AlertDialogContent>
-                               <AlertDialogHeader>
-                                 <AlertDialogTitle>Regenerate Installation ID</AlertDialogTitle>
-                                 <AlertDialogDescription className="space-y-2">
-                                   <p>You are exempted from the global license. To use a dedicated license, you must first generate a unique Installation ID.</p>
-                                   <p className="font-medium text-destructive">Warning: This can only be done ONCE.</p>
-                                   <p>This will immediately switch you to a local Trial license until you activate your new key.</p>
-                                 </AlertDialogDescription>
-                               </AlertDialogHeader>
-                               <AlertDialogFooter>
-                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                 <AlertDialogAction onClick={handleRegenerateId} disabled={regenerating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                   {regenerating ? (
-                                     <>
-                                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                       Generating...
-                                     </>
-                                   ) : (
-                                     "Generate ID & Switch"
-                                   )}
-                                 </AlertDialogAction>
-                               </AlertDialogFooter>
-                             </AlertDialogContent>
-                           </AlertDialog>
-                        )}
-                        {(licenseInfo as any)?.effective_source === 'local' && licenseInfo?.custom_installation_id && (
-                           <span className="text-xs text-muted-foreground italic ml-1">(Custom ID)</span>
-                        )}
-                    </div>
+                    {/* Regenerate ID Button - Show if no custom ID exists yet */}
+                    {!licenseInfo?.custom_installation_id && (
+                      <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+                        <AlertDialogTrigger asChild>
+                          <ProfessionalButton variant="outline" size="sm" className="h-8 shadow-sm border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
+                            <RefreshCcw className="h-3.5 w-3.5 mr-2" />
+                            Regenerate ID
+                          </ProfessionalButton>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Regenerate Installation ID</AlertDialogTitle>
+                            <AlertDialogDescription className="space-y-2">
+                              <p>You are exempted from the global license. To use a dedicated license, you must first generate a unique Installation ID.</p>
+                              <p className="font-medium text-destructive">Warning: This can only be done ONCE.</p>
+                              <p>This will immediately switch you to a local Trial license until you activate your new key.</p>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRegenerateId} disabled={regenerating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              {regenerating ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                "Generate ID & Switch"
+                              )}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {(licenseInfo as any)?.effective_source === 'local' && licenseInfo?.custom_installation_id && (
+                      <span className="text-xs text-muted-foreground italic ml-1">(Custom ID)</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -688,25 +729,25 @@ export const LicenseManagementTab: React.FC = () => {
             </p>
           </ProfessionalCardHeader>
           <ProfessionalCardContent className="space-y-6">
-             <div className="flex gap-3 items-start max-w-xl ml-9">
-               <textarea
-                 id="license-key"
-                 placeholder={t('settings.license.activate.keyPlaceholder')}
-                 value={licenseKey}
-                 onChange={(e) => setLicenseKey(e.target.value)}
-                 disabled={activating}
-                 className="font-mono flex-1 min-h-[80px] px-3 py-2 text-sm border border-input bg-background rounded-md shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:opacity-50"
-               />
+            <div className="flex gap-3 items-start max-w-xl ml-9">
+              <textarea
+                id="license-key"
+                placeholder={t('settings.license.activate.keyPlaceholder')}
+                value={licenseKey}
+                onChange={(e) => setLicenseKey(e.target.value)}
+                disabled={activating}
+                className="font-mono flex-1 min-h-[80px] px-3 py-2 text-sm border border-input bg-background rounded-md shadow-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
 
-               <ProfessionalButton
-                 onClick={() => handleActivateLicense()}
-                 disabled={activating || !licenseKey.trim()}
-                 loading={activating}
-                 className="flex-none"
-               >
-                 {t('settings.license.activate.button')}
-               </ProfessionalButton>
-             </div>
+              <ProfessionalButton
+                onClick={() => handleActivateLicense()}
+                disabled={activating || !licenseKey.trim()}
+                loading={activating}
+                className="flex-none"
+              >
+                {t('settings.license.activate.button')}
+              </ProfessionalButton>
+            </div>
           </ProfessionalCardContent>
         </ProfessionalCard>
       )}

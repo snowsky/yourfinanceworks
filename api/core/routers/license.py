@@ -698,8 +698,8 @@ async def get_license_request_data(
         keys_dir = Path(__file__).parent.parent / "keys"
         private_key_path = keys_dir / "private_key.pem"
 
-        if not private_key_path.exists():
-            # If symlink doesn't exist, try to find the latest versioned key
+        if not private_key_path.exists() or private_key_path.stat().st_size < 100:
+            # If symlink doesn't exist or is a placeholder, try to find the latest versioned key
             versioned_keys = list(keys_dir.glob("private_key_v*.pem"))
             if versioned_keys:
                 # Sort by version number (e.g., v2, v3)
@@ -710,7 +710,9 @@ async def get_license_request_data(
                         return 0
                 private_key_path = sorted(versioned_keys, key=version_key)[-1]
             else:
-                raise HTTPException(status_code=404, detail="Private key file not found")
+                if not private_key_path.exists():
+                    raise HTTPException(status_code=404, detail="Private key file not found")
+                # If it exists but is too small and no versioned keys found, we use it (it will likely fail validation)
 
         # Read the private key content
         with open(private_key_path, "r") as f:

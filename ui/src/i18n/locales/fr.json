@@ -1534,6 +1534,7 @@
     "license": {
       "title": "Gestion des Licences",
       "create_new": "Créer une nouvelle clé de licence",
+      "copy_private_key": "Copier la clé privée",
       "confirm_title": "Transférer la clé privée",
       "confirm_description": "Vous allez être redirigé vers notre site de destination pour créer une nouvelle clé de licence. Votre clé privée sera transférée en toute sécurité via postMessage une fois la nouvelle page chargée.",
       "confirm_action": "Rediriger et transférer",

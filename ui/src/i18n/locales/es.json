@@ -1618,6 +1618,7 @@
     "license": {
       "title": "Gestión de Licencias",
       "create_new": "Crear Nueva Clave de Licencia",
+      "copy_private_key": "Copiar clave privada",
       "confirm_title": "Transferir Clave Privada",
       "confirm_description": "Está a punto de ser redirigido a nuestro sitio de destino para crear una nueva clave de licencia. Su clave privada se transferirá de forma segura a través de postMessage una vez que se cargue la nueva página.",
       "confirm_action": "Redirigir y Transferir",

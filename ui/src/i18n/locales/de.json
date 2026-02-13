@@ -1492,6 +1492,7 @@
     "license": {
       "title": "Lizenzverwaltung",
       "create_new": "Neuen Lizenzschlüssel erstellen",
+      "copy_private_key": "Privaten Schlüssel kopieren",
       "confirm_title": "Privaten Schlüssel übertragen",
       "confirm_description": "Sie werden zu unserer Landingpage weitergeleitet, um einen neuen Lizenzschlüssel zu erstellen. Ihr privater Schlüssel wird sicher per postMessage übertragen, sobald die neue Seite geladen ist.",
       "confirm_action": "Weiterleiten und übertragen",
