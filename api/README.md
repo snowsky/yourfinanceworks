@@ -28,8 +28,8 @@ The API will be available at `http://localhost:8000`.
 
 For detailed guides and architecture, please refer to the centralized documentation hub:
 
-- **[Main Project README](../README.md)**
-- **[Developer Guide](../docs/developer/API_REFERENCE.md)**
+- **[Documentation Hub](../docs/README.md)**
+- **[Invoice API Guide](../docs/instructions/invoice-api-guide.md)**
 - **[MCP Server Guide](../docs/developer/MCP_SERVER_GUIDE.md)**
 - **Interactive Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs) (when running)
 

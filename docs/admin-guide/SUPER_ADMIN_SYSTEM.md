@@ -6,6 +6,26 @@ The Super Admin system provides comprehensive management capabilities for multi-
 
 The Super Admin interface is a protected system available only to users with the `super_user` flag. It allows for the management of all organizations (tenants), system-wide user oversight, and database health monitoring.
 
+## Automatic Super User Creation
+
+The first user to sign up in a fresh system is automatically granted Super User privileges and assigned the `admin` role. This ensures there is always at least one system administrator.
+
+## Creating a Super User
+
+If you prefer to create a Super User explicitly, use the script below after services are running.
+
+```bash
+# Run in the API container
+docker-compose exec api python scripts/create_super_user.py
+```
+
+Or run it manually from your host:
+
+```bash
+cd api
+python scripts/create_super_user.py
+```
+
 ## 1. Tenant Management
 
 Manage the lifecycle of organizations in your system.
@@ -42,6 +62,24 @@ Get a "Bird's Eye" view of your platform's usage.
 ### Accessing the Dashboard
 
 The Super Admin dashboard is available at the `/super-admin` route. You must be logged in as a user with Super User privileges to access this area.
+
+### Database Management Tools
+
+Fix missing or corrupted tenant databases using the built-in scripts:
+
+```bash
+# Check for missing databases
+docker-compose exec api python scripts/fix_missing_tenant_databases.py check
+
+# List all databases
+docker-compose exec api python scripts/fix_missing_tenant_databases.py list
+
+# Recreate missing databases
+docker-compose exec api python scripts/fix_missing_tenant_databases.py recreate
+
+# Or use the shell script
+./api/scripts/run_fix_missing_databases.sh
+```
 
 ### Emergency Procedures
 

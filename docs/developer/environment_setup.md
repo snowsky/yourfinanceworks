@@ -247,29 +247,6 @@ export $(cat api/.env | xargs)
 
 Or use direnv for automatic loading.
 
-## Migration from load_dotenv()
-
-If you have custom scripts or code that still uses `load_dotenv()`:
-
-1. **Remove the import:**
-
-   ```python
-   # Remove this:
-   from dotenv import load_dotenv
-   load_dotenv()
-   ```
-
-2. **Use os.getenv() directly:**
-
-   ```python
-   import os
-
-   DATABASE_URL = os.getenv("DATABASE_URL")
-   SECRET_KEY = os.getenv("SECRET_KEY", "default-value")
-   ```
-
-3. **For local development**, export variables as shown above.
-
 ## Best Practices
 
 1. **Never commit `.env` files** - they contain secrets

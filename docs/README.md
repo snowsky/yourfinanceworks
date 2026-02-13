@@ -5,13 +5,25 @@ Welcome to the YourFinanceWORKS documentation hub. This page links all available
 ## 🏁 Getting Started
 
 - **[Installation Guide](../README.md#quick-start)**: Get the app running with Docker in minutes.
-- **[Onboarding Tour](user-guide/ONBOARDING.md)**: A walk-through of the main dashboard and features.
+- **[Getting Started Guide](user-guide/GETTING_STARTED_GUIDE.md)**: First steps with the app.
+- **[Pages Directory](user-guide/PAGES_DIRECTORY.md)**: A map of every page in the UI.
+- **[License Activation Guide](user-guide/LICENSE_ACTIVATION_GUIDE.md)**: Activate and verify licenses.
+
+## 👤 User Guides
+
+- **[User Guide Index](user-guide/README.md)**: Entry point for user workflows and onboarding docs.
+- **[Approval Workflow User Guide](user-guide/approval-workflow.md)**: Expense submission and approvals.
+- **[Batch Processing UI Guide](user-guide/BATCH_PROCESSING_UI_USER_GUIDE.md)**: Bulk document processing in the UI.
+- **[AI Assistant Usage](user-guide/AI_ASSISTANT_USAGE.md)**: Sample queries and configuration.
+- **[Achievement Rules Guide](user-guide/ACHIEVEMENT_RULES_GUIDE.md)**: Gamification and badges.
 
 ## 📖 Feature Guides (How it Works)
 
 Deep dives into the system's core capabilities:
 
+- **[Features Overview](features/README.md)**: High-level map of the platform.
 - **[Revenue Cycle Optimization](features/REVENUE_CYCLE_OPTIMIZATION.md)**: Invoicing, payments, and client management.
+- **[Email Invoice Delivery](features/EMAIL_INVOICE_DELIVERY.md)**: Provider setup and sending invoices.
 - **[Expense Intelligence](features/EXPENSE_INTELLIGENCE.md)**: OCR receipt processing and approval workflows.
 - **[Financial Health Fundamentals](features/FINANCIAL_HEALTH.md)**: Budgeting, cash flow tracking, and core metrics.
 - **[Banking & Reconciliation](features/BANKING_RECONCILIATION.md)**: Bank statement processing and matching.
@@ -32,24 +44,32 @@ Deep dives into the system's core capabilities:
 
 Technical documentation for contributors and system integrators:
 
-- **[API Reference](developer/API_REFERENCE.md)**: REST API endpoints and data models.
+- **[Developer Guide Index](developer/README.md)**: Entry point for setup and integration docs.
+- **[Integration Instructions Index](instructions/README.md)**: Entry point for API and migration instructions.
 - **[MCP Server Guide](developer/MCP_SERVER_GUIDE.md)**: AI integration and FastMCP tool details.
-- **[Frontend Architecture](developer/FRONTEND_ARCHITECTURE.md)**: UI design system, state management, and React patterns.
-- **[Security & Authentication](developer/SECURITY.md)**: JWT implementation and RBAC details.
+- **[Environment Setup](developer/environment_setup.md)**: Local development prerequisites.
+- **[Invoice API Guide](instructions/invoice-api-guide.md)**: Invoice lifecycle endpoints and usage.
+- **[Receipt PDF Upload API Guide](instructions/receipt-pdf-upload-api.md)**: Upload receipts via API.
+- **[Invoice Attachment Migration Guide](instructions/invoice-attachment-migration-guide.md)**: Move from legacy attachment endpoints.
+- **[Cross-Storage Attachment Sync](instructions/cross_storage_sync.md)**: Sync attachments across storage providers.
 
 ## ⚙️ Administration & Operations
 
 Guides for managing the application in production:
 
-- **[Deployment Guide](admin-guide/DEPLOYMENT.md)**: Production infrastructure setup (Docker, RDS, S3).
-- **[Multi-Tenancy Guide](admin-guide/MULTI_TENANCY.md)**: Managing organizations and isolated databases.
-- **[License Management](admin-guide/LICENSE_MANAGEMENT.md)**: Issuing and verifying license keys.
-- **[Monitoring & Logs](admin-guide/MONITORING.md)**: Health checks and anomaly detection.
+- **[Administration Guide Index](admin-guide/README.md)**: Entry point for operations and licensing docs.
+- **[Super Admin System Guide](admin-guide/SUPER_ADMIN_SYSTEM.md)**: Platform oversight and tenant management.
+- **[Licensing Deployment Guide](admin-guide/LICENSING_DEPLOYMENT_GUIDE.md)**: Deployment and license operations.
+- **[License Administration Guide](admin-guide/LICENSE_ADMINISTRATION_GUIDE.md)**: Issuing and verifying license keys.
+- **[License Key Rotation Guide](admin-guide/LICENSE_KEY_ROTATION_GUIDE.md)**: Rotate keys safely.
+- **[Installation ID Guide](admin-guide/INSTALLATION_ID_GUIDE.md)**: Manage installation identifiers.
+- **[Existing Customer Migration Guide](admin-guide/EXISTING_CUSTOMER_MIGRATION_GUIDE.md)**: Migrating customers.
+- **[Approval Rules Configuration](admin-guide/approval-rules-configuration.md)**: Configure approval workflows.
+- **[Approval Workflow Troubleshooting](troubleshooting/approval-workflow-issues.md)**: Diagnose approval workflow issues.
 
 ## 🗄️ Archive & History
 
-- **[Technical Implementation Notes](technical-notes/README.md)**: Index of 250+ historical development logs and design decisions.
-- **[Change Log](../CHANGELOG.md)**: History of major project releases.
+- **[Technical Notes Archive](technical-notes/)**: Historical development logs and design decisions.
 
 ---
 
