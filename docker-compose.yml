@@ -425,30 +425,35 @@ services:
 
 
   # Ollama AI service
-  ollama:
-    image: ollama/ollama
-    container_name: invoice_app_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - invoice_app_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    command: >
-      sh -c "
-        # Start Ollama server with optimized settings
-        OLLAMA_CONTEXT_LENGTH=64000 OLLAMA_HOST=0.0.0.0 OLLAMA_NUM_PARALLEL=2 ollama serve &
-        sleep 15
-        ollama pull llama3.2-vision:11b
-        ollama pull gpt-oss:latest
-        wait
-      "
+  # ollama:
+  #   image: ollama/ollama
+  #   container_name: invoice_app_ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - invoice_app_network
+  #   restart: unless-stopped
+  #   # Start Ollama server with optimized settings
+  #   environment:
+  #     - OLLAMA_CONTEXT_LENGTH=64000
+  #     - OLLAMA_HOST=0.0.0.0
+  #     - OLLAMA_NUM_PARALLEL=2
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #   entrypoint: ["/bin/bash"]
+  #   command:
+  #     - -c
+  #     - |
+  #       ollama serve &
+  #       sleep 15
+  #       ollama pull llama3.2-vision:11b
+  #       ollama pull gpt-oss:latest
+  #       tail -f /dev/null
 
   # OpenSearch for search indexing
   opensearch:

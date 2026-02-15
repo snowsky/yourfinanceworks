@@ -20,13 +20,13 @@ cp api/.env.example.full api/.env
 # Edit .env with your settings (especially database credentials)
 
 # 3. Spin up the entire stack
-docker-compose up -d
+docker-compose up --build -d
 
 # 4. Create a Super User (optional if you plan to sign up first)
 docker-compose exec api python scripts/create_super_user.py
 ```
 
-The first user to sign up in a fresh system is automatically granted Super User privileges and assigned the `admin` role.
+The first user to sign up in a fresh system is automatically granted Super User privileges and assigned the global `admin` role.
 
 ## 📚 Documentation
 

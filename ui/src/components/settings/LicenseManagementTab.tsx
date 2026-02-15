@@ -93,6 +93,8 @@ export const LicenseManagementTab: React.FC = () => {
   const [showCreateConfirmDialog, setShowCreateConfirmDialog] = useState(false);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [licenseKey, setLicenseKey] = useState('');
+  const [isEditingInstallationId, setIsEditingInstallationId] = useState(false);
+  const [tempInstallationId, setTempInstallationId] = useState('');
   const { refetch: refetchFeaturesContext } = useFeatures();
 
   // Queries
@@ -190,6 +192,24 @@ export const LicenseManagementTab: React.FC = () => {
     }
   });
 
+  const updateInstallationIdMutation = useMutation({
+    mutationFn: (newId: string) => api.post<{ success: boolean; message: string }>('/license/update-installation-id', { installation_id: newId }),
+    onSuccess: (response) => {
+      if (response.success) {
+        toast.success('Installation ID updated successfully');
+        queryClient.invalidateQueries({ queryKey: ['license-status'] });
+        setIsEditingInstallationId(false);
+        setTempInstallationId('');
+      } else {
+        toast.error(response.message || "Failed to update Installation ID");
+      }
+    },
+    onError: (error: any) => {
+      console.error('Failed to update Installation ID:', error);
+      toast.error(error.message || "Failed to update Installation ID");
+    }
+  });
+
   const handleActivateLicense = () => {
     if (!licenseKey.trim()) {
       toast.error(t('settings.license.activate.enterKey'));
@@ -267,6 +287,7 @@ export const LicenseManagementTab: React.FC = () => {
   const deactivating = deactivateMutation.isPending;
   const regenerating = regenerateIdMutation.isPending;
   const switchModePending = switchModeMutation.isPending;
+  const updatingInstallationId = updateInstallationIdMutation.isPending;
   const licenseInfo = licenseStatus;
 
   const handleModeChange = (value: string) => {
@@ -275,6 +296,33 @@ export const LicenseManagementTab: React.FC = () => {
 
   const handleRegenerateId = () => {
     regenerateIdMutation.mutate();
+  };
+
+  const handleEditInstallationId = () => {
+    const uuid = crypto.randomUUID();
+    setTempInstallationId(uuid);
+    setIsEditingInstallationId(true);
+  };
+
+  const handleSaveInstallationId = () => {
+    if (!tempInstallationId.trim()) {
+      toast.error('Installation ID cannot be empty');
+      return;
+    }
+    
+    // Basic UUID validation (optional but recommended)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(tempInstallationId.trim())) {
+      toast.error('Please enter a valid UUID format (e.g., 123e4567-e89b-12d3-a456-426614174000)');
+      return;
+    }
+
+    updateInstallationIdMutation.mutate(tempInstallationId.trim());
+  };
+
+  const handleCancelEditInstallationId = () => {
+    setIsEditingInstallationId(false);
+    setTempInstallationId('');
   };
 
   const getLicenseStatusBadge = () => {
@@ -539,9 +587,67 @@ export const LicenseManagementTab: React.FC = () => {
                 {t('settings.license.status.installationId')}
               </Label>
               <div className="flex items-center gap-2">
-                <code className="text-sm font-mono bg-background border border-border px-3 py-1.5 rounded-md shadow-sm select-all">
-                  {licenseInfo?.installation_id || 'N/A'}
-                </code>
+                {isEditingInstallationId ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={tempInstallationId}
+                      onChange={(e) => setTempInstallationId(e.target.value)}
+                      placeholder="Generated UUID (you can edit if needed)"
+                      className="font-mono text-sm flex-1 min-w-[300px] px-3 py-1.5 border border-input bg-background rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                      disabled={updatingInstallationId}
+                    />
+                    <ProfessionalButton
+                      variant="default"
+                      size="sm"
+                      className="h-8"
+                      onClick={handleSaveInstallationId}
+                      disabled={updatingInstallationId}
+                      loading={updatingInstallationId}
+                    >
+                      Save
+                    </ProfessionalButton>
+                    <ProfessionalButton
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={handleCancelEditInstallationId}
+                      disabled={updatingInstallationId}
+                    >
+                      Cancel
+                    </ProfessionalButton>
+                  </div>
+                ) : (
+                  <>
+                    <code className="text-sm font-mono bg-background border border-border px-3 py-1.5 rounded-md shadow-sm select-all">
+                      {licenseInfo?.installation_id || 'N/A'}
+                    </code>
+                    <ProfessionalButton
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 hover:bg-muted"
+                      onClick={() => {
+                        if (licenseInfo?.installation_id) {
+                          navigator.clipboard.writeText(licenseInfo.installation_id);
+                          toast.success('Installation ID copied to clipboard!');
+                        }
+                      }}
+                      title="Copy Installation ID"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </ProfessionalButton>
+                    <ProfessionalButton
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shadow-sm border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      onClick={handleEditInstallationId}
+                      title="Generate a random UUID for Installation ID"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-2" />
+                      Generate UUID
+                    </ProfessionalButton>
+                  </>
+                )}
                 {licenseInfo?.is_exempt_from_global_license && (
                   <div className="flex items-center gap-2">
                     {/* Only show Dropdown if we have a Custom ID created */}
@@ -833,7 +939,7 @@ export const LicenseManagementTab: React.FC = () => {
                 </a>
               </ProfessionalButton>
               <ProfessionalButton variant="outline" size="sm" asChild className="flex-1 md:flex-none">
-                <a href="https://docs.example.com/licensing" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/snowsky/yourfinanceworks/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {t('settings.license.help.documentation')}
                 </a>
