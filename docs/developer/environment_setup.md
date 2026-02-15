@@ -4,7 +4,7 @@ This guide explains how environment variables are loaded in different deployment
 
 ## Overview
 
-The application **no longer uses `load_dotenv()`** in Python code. Instead, environment variables are injected by the container runtime or shell environment. This approach ensures compatibility with:
+The environment variables are injected by the container runtime or shell environment. This approach ensures compatibility with:
 
 - ✅ **Docker Compose** - via `env_file` directive
 - ✅ **Kubernetes** - via ConfigMaps and Secrets
@@ -38,7 +38,7 @@ api:
 2. Start services:
 
    ```bash
-   docker-compose up -d
+   docker-compose up --build -d
    ```
 
 3. Verify environment variables are loaded:

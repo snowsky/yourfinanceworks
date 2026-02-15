@@ -1549,6 +1549,73 @@ class LicenseService:
             "installation_id": new_id
         }
 
+    def update_installation_id(self, new_installation_id: str, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+        """
+        Update the installation ID for a tenant to a specific value.
+        
+        This allows setting a custom installation ID for license management.
+        Unlike regenerate_installation_id, this can be done multiple times
+        but requires admin privileges.
+        """
+        installation = self._get_or_create_installation()
+        
+        # Validate UUID format (already validated in router, but double-check)
+        import re
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
+        if not uuid_pattern.match(new_installation_id):
+            return {
+                "success": False,
+                "message": "Invalid UUID format. Expected format: 123e4567-e89b-12d3-a456-426614174000"
+            }
+        
+        # Check if the new ID is the same as current
+        if installation.installation_id == new_installation_id:
+            return {
+                "success": False,
+                "message": "New installation ID is the same as the current one."
+            }
+        
+        old_id = installation.installation_id
+        
+        # Save current ID as original if not already saved and this is the first custom ID
+        if not installation.original_installation_id and not installation.custom_installation_id:
+            from core.models.models import GlobalInstallationInfo
+            global_info = self.master_db.query(GlobalInstallationInfo).first()
+            installation.original_installation_id = global_info.installation_id if global_info else installation.installation_id
+        
+        # Update installation ID
+        installation.custom_installation_id = new_installation_id
+        installation.installation_id = new_installation_id
+        
+        # Reset license status as the old license is no longer valid for this new ID
+        installation.license_status = "trial"  # Reset to trial
+        installation.is_licensed = False
+        installation.license_key = None
+        installation.license_activated_at = None
+        installation.license_expires_at = None
+        installation.licensed_features = None
+        
+        self.db.commit()
+        self.db.refresh(installation)
+        
+        # Log change
+        self._log_validation(
+            installation=installation,
+            validation_type="update_id",
+            validation_result="success",
+            details={"old_id": old_id, "new_id": new_installation_id},
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        return {
+            "success": True,
+            "message": "Installation ID updated successfully. Please activate a new license.",
+            "old_installation_id": old_id,
+            "installation_id": new_installation_id
+        }
+
     def switch_license_mode(self, mode: str, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
         """
         Switch between 'global' and 'local' license modes.

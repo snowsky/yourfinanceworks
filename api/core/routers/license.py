@@ -126,6 +126,17 @@ class SwitchModeResponse(BaseModel):
     message: str
 
 
+class UpdateInstallationIdRequest(BaseModel):
+    """Request model for updating installation ID"""
+    installation_id: str = Field(..., description="New installation ID (UUID format)")
+
+
+class UpdateInstallationIdResponse(BaseModel):
+    """Response model for installation ID update"""
+    success: bool
+    message: str
+
+
 
 class LicenseValidationResponse(BaseModel):
     """Response model for license validation"""
@@ -568,6 +579,79 @@ async def switch_license_mode(
             detail=f"Failed to switch license mode: {str(e)}"
         )
 
+
+@router.post("/update-installation-id", response_model=UpdateInstallationIdResponse)
+async def update_installation_id(
+    request_data: UpdateInstallationIdRequest,
+    request: Request,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db)
+):
+    """
+    Update the installation ID for the current tenant.
+    
+    This allows setting a custom installation ID for license management.
+    
+    Requires Admin privileges.
+    """
+    require_admin_or_superuser(current_user, "update installation id")
+    
+    try:
+        license_service = LicenseService(db, master_db=master_db)
+        
+        # Validate UUID format
+        import re
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
+        if not uuid_pattern.match(request_data.installation_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid UUID format. Expected format: 123e4567-e89b-12d3-a456-426614174000"
+            )
+        
+        # Extract request metadata
+        user_id = current_user.id if hasattr(current_user, 'id') else None
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+        
+        result = license_service.update_installation_id(
+            new_installation_id=request_data.installation_id,
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=400,
+                detail=result["message"]
+            )
+        
+        # Log audit event
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE_INSTALLATION_ID",
+            resource_type="LICENSE",
+            details={
+                "old_id": result.get("old_installation_id"),
+                "new_id": request_data.installation_id,
+                "message": result["message"]
+            },
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update installation ID: {str(e)}"
+        )
 
 
 @router.get("/features", response_model=FeatureAvailabilityResponse)
