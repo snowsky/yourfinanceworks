@@ -33,8 +33,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Create directory for database
-RUN mkdir -p /app/data
+# Create directories
+RUN mkdir -p /app/data /app/core/keys
 
 # Expose the port
 EXPOSE 8000
