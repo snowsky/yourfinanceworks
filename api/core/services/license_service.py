@@ -301,10 +301,19 @@ def load_public_keys() -> Dict[str, str]:
             except Exception as e:
                 print(f"Warning: Failed to load {master_key_file}: {e}")
 
-    # Auto-generate keys if none found
-    if not public_keys:
+    # Check if we have LOCAL signing keys (not just the master server key)
+    # The master_public_key.pem (server_v1) is for verifying server-issued licenses,
+    # but we also need local keys for signing our own licenses
+    local_keys = {k: v for k, v in public_keys.items() if k not in ["server_v1"]}
+
+    # Check environment variable to control RSA key pair auto-generation
+    auto_generate_keys = os.getenv("LICENSE_KEY_AUTO_GENERATE", "true").lower() == "true"
+
+    # Auto-generate RSA key pair if no local signing keys found and auto-generation is enabled
+    if not local_keys and auto_generate_keys:
         print("\n" + "=" * 60)
-        print("No license keys found - generating new key pair...")
+        print("No local license keys found - generating new key pair...")
+        print("(master_public_key.pem exists for server license verification)")
         print("=" * 60 + "\n")
 
         try:
@@ -321,9 +330,15 @@ def load_public_keys() -> Dict[str, str]:
                 "Please generate keys manually using: python api/scripts/generate_license_keys.py"
             )
             raise RuntimeError(
-                f"No license keys found and auto-generation failed: {e}\n"
+                f"No local license keys found and auto-generation failed: {e}\n"
                 "Please generate keys manually or provide them via environment variables."
             )
+    elif not local_keys and not auto_generate_keys:
+        print("\n" + "=" * 60)
+        print("WARNING: No local RSA key pairs found and auto-generation is disabled")
+        print("Set LICENSE_KEY_AUTO_GENERATE=true to enable auto-generation")
+        print("Or generate keys manually: python api/scripts/generate_license_keys.py")
+        print("=" * 60 + "\n")
 
     return public_keys
 
