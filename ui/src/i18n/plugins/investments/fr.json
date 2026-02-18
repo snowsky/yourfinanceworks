@@ -171,11 +171,11 @@
     "completed": "Terminé",
     "failed": "Échoué",
     "partial": "Partiel",
-    "holdings": "positions",
-    "transactions": "transactions",
-    "created": "créé",
-    "error": "Erreur",
-    "info": "Information"
+    "holdings_label": "positions",
+    "transactions_label": "transactions",
+    "created_label": "créé",
+    "error_label": "Erreur",
+    "info_label": "Information"
   },
   "analytics": {
     "title": "Analytiques",
