@@ -430,15 +430,40 @@ DO NOT include any markdown formatting (like ```json).
 DO NOT include any explanations, introduction, or concluding prose.
 ONLY return the JSON.
 
-For each holding found, extract:
-- security_symbol: The ticker symbol or identifier (e.g., AAPL)
-- security_name: The full name
-- quantity: Number of shares
-- cost_basis: Total cost basis for all shares (not per-share)
-- market_price: Current market price per share as shown in the document (look for columns labeled "Current Price", "Market Price", "Last Price", "Price", "Mkt Price", or similar; use null if not present)
-- purchase_date: Date of purchase
-- security_type: STOCK, BOND, ETF, MUTUAL_FUND, CASH
-- asset_class: STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES
+=== FIELD DEFINITIONS (read carefully before extracting) ===
+
+For each holding, extract these fields:
+
+1. security_symbol: The ticker symbol (e.g., AAPL, AMD, COIN)
+2. security_name: Full name of the security
+3. security_type: STOCK, BOND, ETF, MUTUAL_FUND, CASH
+4. asset_class: STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES
+
+5. quantity: Number of shares or units held
+   - Column names: "Quantity", "Shares", "Units", "Position", "Qty"
+
+6. cost_basis: The TOTAL book cost for ALL shares combined (not per-share price)
+   - Column names: "Book Cost", "Total Cost", "Cost Basis", "Adjusted Cost Base", "ACB", "Book Value"
+   - Example: 40 shares with book cost of $128.84 total -> cost_basis = 128.84
+   - WARNING: Do NOT put the market price or current price here
+
+7. market_price: The CURRENT market price PER SHARE as of the statement date
+   - Column names: "Market Price", "Current Price", "Last Price", "Price", "Mkt Price", "Unit Price"
+   - Example: AMD trading at $214.16/share -> market_price = 214.16
+   - Sanity check: market_price x quantity should approximately equal the "Market Value" column
+   - WARNING: Do NOT put the book cost or total cost here
+
+8. purchase_date: Date of purchase (YYYY-MM-DD, or null if not shown)
+9. asset_class: STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES
+
+=== COLUMN DISAMBIGUATION TABLE ===
+
+| PDF Column Label                              | Maps to JSON field |
+|-----------------------------------------------|--------------------|
+| Book Cost / Book Value / ACB / Adjusted Cost  | cost_basis         |
+| Market Price / Current Price / Last Price     | market_price       |
+| Market Value / Current Value / Mkt Value      | (do not store)     |
+| Quantity / Shares / Position / Units          | quantity           |
 
 For each transaction found, extract:
 - transaction_date: Date of the transaction
@@ -454,14 +479,14 @@ The JSON structure must be:
 {
   "holdings": [
     {
-      "security_symbol": "...",
-      "security_name": "...",
-      "quantity": 0,
-      "cost_basis": 0,
-      "market_price": 0,
-      "purchase_date": "...",
-      "security_type": "...",
-      "asset_class": "..."
+      "security_symbol": "AMD",
+      "security_name": "Advanced Micro Devices Inc.",
+      "quantity": 40,
+      "cost_basis": 128.84,
+      "market_price": 214.16,
+      "purchase_date": null,
+      "security_type": "STOCK",
+      "asset_class": "STOCKS"
     }
   ],
   "transactions": [

@@ -484,16 +484,46 @@ DO NOT include any markdown formatting (like ```json).
 DO NOT include any explanations, introduction, or concluding prose.
 ONLY return the JSON.
 
-For each holding found, extract:
-- security_symbol: The ticker symbol or identifier (e.g., AAPL, MSFT)
-- security_name: Full name of the security
-- security_type: Type of security (stock, bond, etf, mutual_fund, option, crypto, other)
-- asset_class: Asset class (stocks, bonds, cash, real_estate, commodities, alternatives, other)
-- quantity: Number of shares or units held
-- cost_basis: Total cost basis for all shares/units (not per-share)
-- market_price: Current market price per share/unit as shown in the document (look for columns labeled "Current Price", "Market Price", "Last Price", "Price", "Mkt Price", or similar; use null if not present)
-- purchase_date: Date of purchase (YYYY-MM-DD format, or null if unknown)
-- currency: Currency code (e.g., USD, EUR, CAD)
+=== FIELD DEFINITIONS (read carefully before extracting) ===
+
+For each holding, extract these fields:
+
+1. security_symbol: The ticker symbol (e.g., AAPL, MSFT, AMD, COIN)
+
+2. security_name: Full name of the security
+
+3. security_type: stock, bond, etf, mutual_fund, option, crypto, or other
+
+4. asset_class: stocks, bonds, cash, real_estate, commodities, alternatives, or other
+
+5. quantity: Number of shares or units held
+   - Column names: "Quantity", "Shares", "Units", "Position", "Qty"
+
+6. cost_basis: The TOTAL book cost for ALL shares combined (not per-share price)
+   - Column names: "Book Cost", "Total Cost", "Cost Basis", "Adjusted Cost Base", "ACB", "Book Value", "Orig Cost"
+   - This equals quantity x average purchase price per share
+   - Example: 40 shares with book cost of $128.84 total -> cost_basis = 128.84
+   - WARNING: Do NOT put the market price or current price here
+
+7. market_price: The CURRENT market price PER SHARE as of the statement date
+   - Column names: "Market Price", "Current Price", "Last Price", "Price", "Mkt Price", "Unit Price"
+   - This is a single per-share value (e.g., AMD at $214.16/share)
+   - Sanity check: market_price x quantity should approximately equal the "Market Value" total column
+   - WARNING: Do NOT put the book cost or total cost here
+
+8. purchase_date: Date of purchase (YYYY-MM-DD, or null if not shown)
+
+9. currency: Currency of the holding (e.g., USD, CAD, EUR)
+   - Use the primary currency shown (e.g., USD), not a converted foreign-currency column
+
+=== COLUMN DISAMBIGUATION TABLE ===
+
+| PDF Column Label                              | Maps to JSON field |
+|-----------------------------------------------|--------------------|
+| Book Cost / Book Value / ACB / Adjusted Cost  | cost_basis         |
+| Market Price / Current Price / Last Price     | market_price       |
+| Market Value / Current Value / Mkt Value      | (do not store)     |
+| Quantity / Shares / Position / Units          | quantity           |
 
 For each transaction found, extract:
 - transaction_date: Date of the transaction (YYYY-MM-DD format)
@@ -508,14 +538,14 @@ The JSON structure must be:
 {
   "holdings": [
     {
-      "security_symbol": "AAPL",
-      "security_name": "Apple Inc.",
+      "security_symbol": "AMD",
+      "security_name": "Advanced Micro Devices Inc.",
       "security_type": "stock",
       "asset_class": "stocks",
-      "quantity": 100,
-      "cost_basis": 15000.00,
-      "market_price": 182.50,
-      "purchase_date": "2023-01-15",
+      "quantity": 40,
+      "cost_basis": 128.84,
+      "market_price": 214.16,
+      "purchase_date": null,
       "currency": "USD"
     }
   ],
