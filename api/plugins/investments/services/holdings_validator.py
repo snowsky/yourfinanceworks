@@ -153,7 +153,8 @@ class HoldingsValidator:
         self,
         portfolio_id: int,
         security_symbol: str,
-        currency: str
+        currency: str,
+        tenant_id: int = 0
     ) -> Optional[InvestmentHolding]:
         """
         Detect if a holding with the same security symbol and currency already exists.
@@ -165,6 +166,7 @@ class HoldingsValidator:
             portfolio_id: Portfolio ID
             security_symbol: Security symbol to check
             currency: Currency code to check
+            tenant_id: Tenant ID for security
 
         Returns:
             Existing InvestmentHolding if found, None otherwise
@@ -173,15 +175,15 @@ class HoldingsValidator:
         """
         logger.debug(f"Detecting duplicate for {security_symbol} ({currency}) in portfolio {portfolio_id}")
 
-        # Query for existing holdings with same symbol and currency (returns list)
-        existing_holdings = self.holdings_repo.get_by_symbol_and_currency(portfolio_id, security_symbol, currency)
+        # Query for existing holding with same symbol and currency
+        existing_holding = self.holdings_repo.get_by_symbol_and_currency(
+            portfolio_id, security_symbol, currency, tenant_id
+        )
 
-        # Return the first active holding if any exist
-        if existing_holdings:
-            for holding in existing_holdings:
-                if not holding.is_closed:
-                    logger.info(f"Duplicate detected: {security_symbol} ({currency}) already exists in portfolio")
-                    return holding
+        # Return the holding if it's active
+        if existing_holding and not existing_holding.is_closed:
+            logger.info(f"Duplicate detected: {security_symbol} ({currency}) already exists in portfolio")
+            return existing_holding
 
         logger.debug(f"No duplicate found for {security_symbol} ({currency})")
         return None
@@ -280,7 +282,8 @@ class HoldingsValidator:
         security_symbol: str,
         currency: str,
         new_quantity: Decimal,
-        new_cost_basis: Decimal
+        new_cost_basis: Decimal,
+        tenant_id: int = 0
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Handle duplicate holding detection and resolution.
@@ -294,6 +297,7 @@ class HoldingsValidator:
             currency: Currency code
             new_quantity: Quantity from new holding
             new_cost_basis: Cost basis from new holding
+            tenant_id: Tenant ID for security
 
         Returns:
             Tuple of (is_duplicate, action_data)
@@ -308,7 +312,7 @@ class HoldingsValidator:
         logger.debug(f"Handling duplicate for {security_symbol} ({currency}) in portfolio {portfolio_id}")
 
         # Detect duplicate
-        existing_holding = self.detect_duplicate(portfolio_id, security_symbol, currency)
+        existing_holding = self.detect_duplicate(portfolio_id, security_symbol, currency, tenant_id)
 
         if not existing_holding:
             logger.debug(f"No duplicate found for {security_symbol} ({currency})")

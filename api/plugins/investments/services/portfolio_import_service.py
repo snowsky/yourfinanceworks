@@ -688,7 +688,8 @@ class PortfolioImportService:
                         holding_data.get("security_symbol"),
                         holding_currency,
                         Decimal(str(holding_data.get("quantity"))),
-                        Decimal(str(holding_data.get("cost_basis")))
+                        Decimal(str(holding_data.get("cost_basis"))),
+                        tenant_id
                     )
 
                     if is_duplicate:
