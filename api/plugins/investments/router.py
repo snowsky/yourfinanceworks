@@ -368,6 +368,45 @@ async def get_holdings(
     except Exception as e:
         raise InvestmentError(f"Failed to retrieve holdings: {str(e)}")
 
+# Static holdings routes must come BEFORE parameterized /holdings/{holding_id} routes
+# to prevent FastAPI from matching e.g. "price-status" as a holding_id integer.
+@investment_router.post("/holdings/update-prices")
+async def update_all_prices(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update market prices for all holdings in the tenant's portfolios"""
+    try:
+        from .services.market_data_service import MarketDataService
+        
+        market_data_service = MarketDataService(db)
+        result = await market_data_service.update_all_holdings_prices(current_user.tenant_id)
+        
+        return {
+            "message": "Price update completed",
+            "success": result.get("success", 0),
+            "failed": result.get("failed", 0),
+            "total": result.get("total", 0)
+        }
+    except Exception as e:
+        raise InvestmentError(f"Failed to update prices: {str(e)}")
+
+@investment_router.get("/holdings/price-status")
+async def get_price_status(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get status of price updates for holdings"""
+    try:
+        from .services.market_data_service import MarketDataService
+        
+        market_data_service = MarketDataService(db)
+        status = market_data_service.get_price_update_status(current_user.tenant_id)
+        
+        return status
+    except Exception as e:
+        raise InvestmentError(f"Failed to get price status: {str(e)}")
+
 @investment_router.get("/holdings/{holding_id}", response_model=HoldingResponse)
 async def get_holding(
     holding_id: int = Depends(validate_holding_id_param),
@@ -456,42 +495,6 @@ async def update_holding_price(
     except Exception as e:
         raise InvestmentError(f"Failed to update holding price: {str(e)}")
 
-@investment_router.post("/holdings/update-prices")
-async def update_all_prices(
-    current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Update market prices for all holdings in the tenant's portfolios"""
-    try:
-        from .services.market_data_service import MarketDataService
-        
-        market_data_service = MarketDataService(db)
-        result = await market_data_service.update_all_holdings_prices(current_user.tenant_id)
-        
-        return {
-            "message": "Price update completed",
-            "success": result.get("success", 0),
-            "failed": result.get("failed", 0),
-            "total": result.get("total", 0)
-        }
-    except Exception as e:
-        raise InvestmentError(f"Failed to update prices: {str(e)}")
-
-@investment_router.get("/holdings/price-status")
-async def get_price_status(
-    current_user: MasterUser = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get status of price updates for holdings"""
-    try:
-        from .services.market_data_service import MarketDataService
-        
-        market_data_service = MarketDataService(db)
-        status = market_data_service.get_price_update_status(current_user.tenant_id)
-        
-        return status
-    except Exception as e:
-        raise InvestmentError(f"Failed to get price status: {str(e)}")
 
 @investment_router.delete("/holdings/{holding_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_holding(
