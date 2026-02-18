@@ -1877,7 +1877,8 @@
         "ocr": "OCR Conversion",
         "email_processing": "Email Processing",
         "bank_processing": "Bank Processing",
-        "fraud_detection": "FinanceWorks Insights"
+        "fraud_detection": "FinanceWorks Insights",
+        "investments": "Investments"
       },
       "messages": {
         "failedToLoadPrompts": "Failed to load prompts",
