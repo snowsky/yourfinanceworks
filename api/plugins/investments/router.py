@@ -532,7 +532,7 @@ async def create_transaction(
 
         # Check for duplicate transactions
         duplicate_detector = DuplicateTransactionDetector(db)
-        duplicate_detector.check_for_duplicate(portfolio_id, transaction)
+        duplicate_detector.check_for_duplicate(portfolio_id, current_user.tenant_id, transaction)
 
         transaction_service = TransactionService(db)
         created_transaction = transaction_service.record_transaction(
@@ -636,7 +636,7 @@ async def get_asset_allocation(
             raise_not_found_error("Portfolio", portfolio_id)
 
         analytics_service = AnalyticsService(db)
-        allocation = analytics_service.calculate_asset_allocation(portfolio_id)
+        allocation = analytics_service.calculate_asset_allocation(current_user.tenant_id, portfolio_id)
         return allocation
     except InvestmentError:
         raise

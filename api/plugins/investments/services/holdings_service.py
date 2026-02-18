@@ -70,7 +70,12 @@ class HoldingsService:
         self._validate_holding_data(holding_data)
 
         # Check for duplicate holdings (same symbol and currency in same portfolio)
-        existing_holding = self.holdings_repo.get_by_symbol_and_currency(portfolio_id, holding_data.security_symbol, holding_data.currency)
+        existing_holding = self.holdings_repo.get_by_symbol_and_currency(
+            portfolio_id=portfolio_id,
+            security_symbol=holding_data.security_symbol,
+            currency=holding_data.currency,
+            tenant_id=tenant_id
+        )
         if existing_holding and not existing_holding.is_closed:
             raise ValidationError(f"Active holding for {holding_data.security_symbol} ({holding_data.currency}) already exists in this portfolio")
 
@@ -128,7 +133,7 @@ class HoldingsService:
         Raises:
             NotFoundError: If holding doesn't exist or doesn't belong to tenant
         """
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -161,7 +166,7 @@ class HoldingsService:
             ValidationError: If update data is invalid
         """
         # Get and validate holding
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -179,7 +184,7 @@ class HoldingsService:
 
         # Update the holding
         update_dict = holding_data.dict(exclude_unset=True)
-        updated_holding = self.holdings_repo.update(holding_id, **update_dict)
+        updated_holding = self.holdings_repo.update(holding_id, tenant_id, **update_dict)
 
         return HoldingResponse.from_orm(updated_holding)
 
@@ -207,7 +212,7 @@ class HoldingsService:
             ValidationError: If price is invalid
         """
         # Get and validate holding
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -225,7 +230,7 @@ class HoldingsService:
             price_date = datetime.now(timezone.utc)
 
         # Update the price
-        updated_holding = self.holdings_repo.update_price(holding_id, price, price_date)
+        updated_holding = self.holdings_repo.update_price(holding_id, tenant_id, price, price_date)
 
         return HoldingResponse.from_orm(updated_holding)
 
@@ -256,7 +261,7 @@ class HoldingsService:
             ValidationError: If adjustment would result in negative quantity
         """
         # Get and validate holding
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -278,11 +283,11 @@ class HoldingsService:
             raise ValidationError(f"Cost basis cannot be negative. Current: {holding.cost_basis}, Requested change: {cost_basis_change}")
 
         # Update the holding
-        updated_holding = self.holdings_repo.adjust_quantity(holding_id, quantity_change, cost_basis_change)
+        updated_holding = self.holdings_repo.adjust_quantity(holding_id, tenant_id, quantity_change, cost_basis_change)
 
         # Close holding if quantity reaches zero
         if updated_holding.quantity == 0:
-            updated_holding = self.holdings_repo.close(holding_id)
+            updated_holding = self.holdings_repo.close(holding_id, tenant_id)
 
         return HoldingResponse.from_orm(updated_holding)
 
@@ -302,7 +307,7 @@ class HoldingsService:
             ValidationError: If holding still has quantity
         """
         # Get and validate holding
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -319,7 +324,7 @@ class HoldingsService:
             raise ValidationError("Holding is already closed")
 
         # Close the holding
-        closed_holding = self.holdings_repo.close(holding_id)
+        closed_holding = self.holdings_repo.close(holding_id, tenant_id)
 
         return HoldingResponse.from_orm(closed_holding)
 
@@ -338,7 +343,7 @@ class HoldingsService:
             NotFoundError: If holding doesn't exist or doesn't belong to tenant
         """
         # Get and validate holding
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding:
             raise NotFoundError(f"Holding {holding_id} not found")
 
@@ -348,7 +353,7 @@ class HoldingsService:
             raise NotFoundError(f"Portfolio {holding.portfolio_id} not found")
 
         # Delete the holding
-        return self.holdings_repo.delete(holding_id)
+        return self.holdings_repo.delete(holding_id, tenant_id)
 
     def get_active_holdings(self, tenant_id: int, portfolio_id: int) -> List[HoldingResponse]:
         """
@@ -370,7 +375,7 @@ class HoldingsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get active holdings
-        holdings = self.holdings_repo.get_active_holdings(portfolio_id)
+        holdings = self.holdings_repo.get_active_holdings(portfolio_id, tenant_id)
 
         return [HoldingResponse.from_orm(holding) for holding in holdings]
 
@@ -400,7 +405,7 @@ class HoldingsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings by asset class
-        holdings = self.holdings_repo.get_by_asset_class(portfolio_id, asset_class)
+        holdings = self.holdings_repo.get_by_asset_class(portfolio_id, tenant_id, asset_class)
 
         return [HoldingResponse.from_orm(holding) for holding in holdings]
 

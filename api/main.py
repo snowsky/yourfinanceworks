@@ -315,6 +315,39 @@ async def app_lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to auto-activate license on startup: {str(e)}")
 
+        # Sync default prompts to DB for all tenants
+        # This ensures changes to default_prompts.py are picked up on restart
+        try:
+            from commercial.prompt_management.services.prompt_service import PromptService
+            from core.services.tenant_database_manager import tenant_db_manager
+            from core.models.database import set_tenant_context
+
+            tenant_ids = tenant_db_manager.get_existing_tenant_ids()
+            if tenant_ids:
+                logger.info(f"🔄 Syncing default prompts for {len(tenant_ids)} tenants...")
+                for tenant_id in tenant_ids:
+                    try:
+                        set_tenant_context(tenant_id)
+                        SessionLocalTenant = tenant_db_manager.get_tenant_session(tenant_id)
+                        db = SessionLocalTenant()
+                        try:
+                            result = PromptService(db).sync_default_prompts()
+                            if result["updated"] > 0 or result["inserted"] > 0:
+                                logger.info(
+                                    f"✅ Tenant {tenant_id}: prompts synced "
+                                    f"({result['inserted']} inserted, {result['updated']} updated)"
+                                )
+                        finally:
+                            db.close()
+                    except Exception as e:
+                        logger.warning(f"Failed to sync prompts for tenant {tenant_id}: {e}")
+            else:
+                logger.info("No tenants found, skipping prompt sync")
+        except ImportError:
+            logger.info("Prompt management (Commercial) not available, skipping prompt sync")
+        except Exception as e:
+            logger.warning(f"Failed to sync default prompts on startup: {e}")
+
         yield
     finally:
         # Stop reminder background service

@@ -137,7 +137,7 @@ class TransactionService:
         fees = Decimal(str(transaction_data.get('fees', 0)))
 
         # Validate holding exists and belongs to portfolio
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding or holding.portfolio_id != portfolio_id:
             raise NotFoundError(f"Holding {holding_id} not found in portfolio {portfolio_id}")
 
@@ -164,7 +164,7 @@ class TransactionService:
         )
 
         # Update holding: increase quantity and cost basis
-        self.holdings_repo.adjust_quantity(holding_id, quantity, total_cost)
+        self.holdings_repo.adjust_quantity(holding_id, tenant_id, quantity, total_cost)
 
         return TransactionResponse.model_validate(transaction)
 
@@ -196,7 +196,7 @@ class TransactionService:
         fees = Decimal(str(transaction_data.get('fees', 0)))
 
         # Validate holding exists and belongs to portfolio
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding or holding.portfolio_id != portfolio_id:
             raise NotFoundError(f"Holding {holding_id} not found in portfolio {portfolio_id}")
 
@@ -233,7 +233,7 @@ class TransactionService:
         # Update holding: decrease quantity and cost basis
         # Cost basis reduction = (quantity sold / total quantity) * total cost basis
         cost_basis_reduction = (quantity / holding.quantity) * holding.cost_basis
-        self.holdings_repo.adjust_quantity(holding_id, -quantity, -cost_basis_reduction)
+        self.holdings_repo.adjust_quantity(holding_id, tenant_id, -quantity, -cost_basis_reduction)
 
         return TransactionResponse.model_validate(transaction)
 
@@ -263,7 +263,7 @@ class TransactionService:
         dividend_type = transaction_data.get('dividend_type', DividendType.ORDINARY)
 
         # Validate holding exists and belongs to portfolio
-        holding = self.holdings_repo.get_by_id(holding_id)
+        holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
         if not holding or holding.portfolio_id != portfolio_id:
             raise NotFoundError(f"Holding {holding_id} not found in portfolio {portfolio_id}")
 
@@ -530,7 +530,7 @@ class TransactionService:
         Raises:
             NotFoundError: If transaction doesn't exist or doesn't belong to tenant
         """
-        transaction = self.transaction_repo.get_by_id(transaction_id)
+        transaction = self.transaction_repo.get_by_id(transaction_id, tenant_id)
         if not transaction:
             raise NotFoundError(f"Transaction {transaction_id} not found")
 
@@ -637,6 +637,7 @@ class TransactionService:
         # Check for duplicate
         is_duplicate = self.transaction_repo.check_duplicate_transaction(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             transaction_type=transaction_type,
             transaction_date=transaction_date,
             total_amount=total_amount,

@@ -594,6 +594,93 @@ class PromptService:
         )
         return templates
 
+    def sync_default_prompts(self) -> Dict[str, Any]:
+        """
+        Sync default prompt templates from default_prompts.py into the database.
+
+        For each default prompt:
+        - If not in DB: insert it
+        - If in DB but content differs: update the active record in-place
+
+        This is called at startup so that any changes to default_prompts.py
+        are automatically reflected in the DB without manual SQL.
+
+        Returns:
+            Dict with counts: {"inserted": N, "updated": N, "unchanged": N, "errors": N}
+        """
+        from core.constants.default_prompts import DEFAULT_PROMPT_TEMPLATES
+
+        if not self.db_session or not hasattr(self.db_session, 'query'):
+            logger.warning("sync_default_prompts: no DB session, skipping")
+            return {"inserted": 0, "updated": 0, "unchanged": 0, "errors": 0}
+
+        counts = {"inserted": 0, "updated": 0, "unchanged": 0, "errors": 0}
+
+        for default_data in DEFAULT_PROMPT_TEMPLATES:
+            name = default_data["name"]
+            new_content = default_data["template_content"]
+            try:
+                # Find the currently active record (highest version)
+                existing = (
+                    self.db_session.query(PromptTemplate)
+                    .filter(PromptTemplate.name == name, PromptTemplate.is_active == True)
+                    .order_by(PromptTemplate.version.desc())
+                    .first()
+                )
+
+                if not existing:
+                    # Insert new record
+                    provider_overrides = ensure_dict(
+                        default_data.get("provider_overrides"), "provider_overrides"
+                    )
+                    default_values = ensure_dict(
+                        default_data.get("default_values"), "default_values"
+                    )
+                    template = PromptTemplate(
+                        name=name,
+                        category=default_data["category"],
+                        description=default_data["description"],
+                        template_content=new_content,
+                        template_variables=default_data["template_variables"],
+                        output_format=default_data["output_format"],
+                        default_values=default_values,
+                        provider_overrides=provider_overrides,
+                        version=1,
+                        is_active=True,
+                    )
+                    self.db_session.add(template)
+                    self.db_session.commit()
+                    self._clear_template_cache(name)
+                    logger.info(f"sync_default_prompts: inserted '{name}'")
+                    counts["inserted"] += 1
+
+                elif existing.template_content != new_content:
+                    # Update the active record in-place (system sync, not a user edit)
+                    existing.template_content = new_content
+                    existing.description = default_data.get("description", existing.description)
+                    existing.template_variables = default_data.get(
+                        "template_variables", existing.template_variables
+                    )
+                    self.db_session.commit()
+                    self._clear_template_cache(name)
+                    logger.info(f"sync_default_prompts: updated '{name}' (content changed)")
+                    counts["updated"] += 1
+
+                else:
+                    counts["unchanged"] += 1
+
+            except Exception as e:
+                logger.error(f"sync_default_prompts: error syncing '{name}': {e}")
+                self.db_session.rollback()
+                counts["errors"] += 1
+
+        logger.info(
+            f"sync_default_prompts complete: "
+            f"{counts['inserted']} inserted, {counts['updated']} updated, "
+            f"{counts['unchanged']} unchanged, {counts['errors']} errors"
+        )
+        return counts
+
     def reset_prompt_to_default(
         self, name: str, updated_by: Optional[int] = None
     ) -> Optional[PromptTemplate]:

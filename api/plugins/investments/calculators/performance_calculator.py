@@ -35,6 +35,9 @@ class PerformanceCalculator:
 
         Formula: ((Current Value + Total Sell Proceeds + Dividends - Total Buy Cost) / Total Buy Cost) * 100
 
+        When no BUY transactions exist (e.g., PDF-imported holdings), falls back to
+        using the sum of holdings.cost_basis as the cost denominator.
+
         Args:
             holdings: List of portfolio holdings
             transactions: List of portfolio transactions
@@ -43,7 +46,7 @@ class PerformanceCalculator:
             Total return percentage (can be negative for losses)
 
         Note:
-            Returns 0 if no buy transactions exist (no cost basis to calculate return against)
+            Returns 0 if no cost basis can be determined
         """
         # Calculate current value of all holdings
         current_value = Decimal('0')
@@ -67,6 +70,16 @@ class PerformanceCalculator:
                 if transaction.fees:
                     total_buy_cost += Decimal(str(transaction.fees))
 
+        # Fallback: when no BUY transactions exist (e.g. PDF-imported holdings),
+        # use the sum of holdings cost_basis as the denominator
+        if total_buy_cost == 0:
+            for holding in holdings:
+                if not holding.is_closed and holding.cost_basis:
+                    total_buy_cost += Decimal(str(holding.cost_basis))
+
+        if total_buy_cost == 0:
+            return Decimal('0')  # No cost basis to calculate return against
+
         # Calculate total sell proceeds (sum of all SELL transactions)
         total_sell_proceeds = Decimal('0')
         for transaction in transactions:
@@ -82,10 +95,6 @@ class PerformanceCalculator:
         for transaction in transactions:
             if transaction.transaction_type == TransactionType.DIVIDEND:
                 total_dividends += Decimal(str(transaction.total_amount))
-
-        # Calculate total return
-        if total_buy_cost == 0:
-            return Decimal('0')  # No cost basis to calculate return against
 
         total_gain = current_value + total_sell_proceeds + total_dividends - total_buy_cost
         total_return_percentage = (total_gain / total_buy_cost) * Decimal('100')
@@ -165,12 +174,20 @@ class PerformanceCalculator:
 
         return total_value
 
-    def calculate_total_cost(self, transactions: List[InvestmentTransaction]) -> Decimal:
+    def calculate_total_cost(
+        self,
+        transactions: List[InvestmentTransaction],
+        holdings: Optional[List[InvestmentHolding]] = None
+    ) -> Decimal:
         """
         Calculate total cost basis from all buy transactions.
 
+        When no BUY transactions exist (e.g., PDF-imported holdings without transaction
+        records), falls back to summing cost_basis from the provided holdings list.
+
         Args:
             transactions: List of portfolio transactions
+            holdings: Optional list of holdings used as fallback when no BUY transactions exist
 
         Returns:
             Total cost basis
@@ -183,6 +200,13 @@ class PerformanceCalculator:
                 # Include fees in the cost basis
                 if transaction.fees:
                     total_cost += Decimal(str(transaction.fees))
+
+        # Fallback: when no BUY transactions exist (e.g. PDF-imported holdings),
+        # use the sum of holdings cost_basis
+        if total_cost == 0 and holdings:
+            for holding in holdings:
+                if not holding.is_closed and holding.cost_basis:
+                    total_cost += Decimal(str(holding.cost_basis))
 
         return total_cost
 

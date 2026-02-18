@@ -315,7 +315,7 @@ class PortfolioService:
         )
 
         total_value = self.holdings_repo.get_portfolio_value(portfolio_id, tenant_id)
-        total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio_id)
+        total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio_id, tenant_id)
 
         summary = {
             'holdings_count': holdings_count,

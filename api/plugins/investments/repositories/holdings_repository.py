@@ -137,34 +137,36 @@ class HoldingsRepository:
 
         return query.order_by(InvestmentHolding.security_symbol).all()
 
-    def get_active_holdings(self, portfolio_id: int) -> List[InvestmentHolding]:
+    def get_active_holdings(self, portfolio_id: int, tenant_id: int) -> List[InvestmentHolding]:
         """
-        Get only active (non-closed) holdings for a portfolio.
+        Get all active holdings for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
 
         Returns:
             List of active holding instances
         """
-        return self.get_by_portfolio(portfolio_id, include_closed=False)
+        return self.get_by_portfolio(portfolio_id, tenant_id, include_closed=False)
 
-    def update(self, holding_id: int, **updates) -> Optional[InvestmentHolding]:
+    def update(self, holding_id: int, tenant_id: int, **updates) -> Optional[InvestmentHolding]:
         """
         Update a holding.
 
         Args:
             holding_id: Holding ID
+            tenant_id: Tenant ID for security
             **updates: Fields to update (security_name, security_type, asset_class,
                       quantity, cost_basis, current_price, price_updated_at)
 
         Returns:
-            Updated holding instance if found, None otherwise
+            Updated holding instance if found and accessible, None otherwise
 
         Raises:
             SQLAlchemyError: If database operation fails
         """
-        holding = self.get_by_id(holding_id)
+        holding = self.get_by_id(holding_id, tenant_id)
         if not holding:
             return None
 
@@ -190,31 +192,32 @@ class HoldingsRepository:
 
         return holding
 
-    def delete(self, holding_id: int) -> bool:
+    def delete(self, holding_id: int, tenant_id: int) -> bool:
         """
-        Delete a holding permanently.
+        Permanently delete a holding.
 
         Args:
             holding_id: Holding ID
+            tenant_id: Tenant ID for security
 
         Returns:
-            True if holding was deleted, False otherwise
+            True if deleted, False if not found or not accessible
 
         Raises:
             SQLAlchemyError: If database operation fails
         """
-        holding = self.get_by_id(holding_id)
+        holding = self.get_by_id(holding_id, tenant_id)
         if not holding:
             return False
 
         self.db.delete(holding)
         self.db.commit()
-
         return True
 
     def update_price(
         self,
         holding_id: int,
+        tenant_id: int,
         current_price: Decimal,
         price_date: Optional[datetime] = None
     ) -> Optional[InvestmentHolding]:
@@ -223,6 +226,7 @@ class HoldingsRepository:
 
         Args:
             holding_id: Holding ID
+            tenant_id: Tenant ID for security
             current_price: New current price per share
             price_date: Price update timestamp (defaults to now)
 
@@ -234,6 +238,7 @@ class HoldingsRepository:
 
         return self.update(
             holding_id,
+            tenant_id,
             current_price=current_price,
             price_updated_at=price_date
         )
@@ -241,6 +246,7 @@ class HoldingsRepository:
     def adjust_quantity(
         self,
         holding_id: int,
+        tenant_id: int,
         quantity_delta: Decimal,
         cost_delta: Decimal
     ) -> Optional[InvestmentHolding]:
@@ -252,16 +258,17 @@ class HoldingsRepository:
 
         Args:
             holding_id: Holding ID
+            tenant_id: Tenant ID for security
             quantity_delta: Change in quantity (positive for buy, negative for sell)
             cost_delta: Change in cost basis (positive for buy, negative for sell)
 
         Returns:
-            Updated holding instance if found, None otherwise
+            Updated holding instance if found and accessible, None otherwise
 
         Raises:
             ValueError: If resulting quantity would be negative
         """
-        holding = self.get_by_id(holding_id)
+        holding = self.get_by_id(holding_id, tenant_id)
         if not holding:
             return None
 
@@ -289,25 +296,28 @@ class HoldingsRepository:
 
         return self.update(
             holding_id,
+            tenant_id,
             quantity=new_quantity,
             cost_basis=new_cost_basis
         )
 
-    def close(self, holding_id: int) -> Optional[InvestmentHolding]:
+    def close(self, holding_id: int, tenant_id: int) -> Optional[InvestmentHolding]:
         """
-        Close a holding (mark as closed but retain historical data).
+        Mark a holding as closed (sold out).
 
         Args:
             holding_id: Holding ID
+            tenant_id: Tenant ID for security
 
         Returns:
-            Updated holding instance if found, None otherwise
+            Updated holding instance if found and accessible, None otherwise
         """
-        return self.update(holding_id, is_closed=True)
+        return self.update(holding_id=holding_id, tenant_id=tenant_id, is_closed=True, quantity=Decimal('0'))
 
     def get_by_symbol(
         self,
         portfolio_id: int,
+        tenant_id: int,
         security_symbol: str,
         include_closed: bool = False
     ) -> List[InvestmentHolding]:
@@ -335,42 +345,33 @@ class HoldingsRepository:
 
         return query.order_by(InvestmentHolding.purchase_date).all()
 
-    def get_by_symbol_and_currency(
-        self,
-        portfolio_id: int,
-        security_symbol: str,
-        currency: str,
-        include_closed: bool = False
-    ) -> List[InvestmentHolding]:
+    def get_by_symbol_and_currency(self, portfolio_id: int, security_symbol: str, currency: str, tenant_id: int) -> Optional[InvestmentHolding]:
         """
-        Get holdings by security symbol and currency within a portfolio.
+        Get a specific holding by its symbol and currency within a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
-            security_symbol: Security symbol to search for
-            currency: Currency code to filter by
-            include_closed: Whether to include closed holdings
+            security_symbol: Security symbol (e.g., AAPL)
+            currency: Currency code
+            tenant_id: Tenant ID for security
 
         Returns:
-            List of holdings matching symbol and currency
+            Holding instance if found, None otherwise
         """
-        query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
+        return self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentHolding.security_symbol == security_symbol,
                 InvestmentHolding.currency == currency,
                 InvestmentPortfolio.is_archived == False
             )
-        )
-
-        if not include_closed:
-            query = query.filter(InvestmentHolding.is_closed == False)
-
-        return query.order_by(InvestmentHolding.purchase_date).all()
+        ).first()
 
     def get_by_asset_class(
         self,
         portfolio_id: int,
+        tenant_id: int,
         asset_class: AssetClass,
         include_closed: bool = False
     ) -> List[InvestmentHolding]:
@@ -379,15 +380,17 @@ class HoldingsRepository:
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
             asset_class: Asset class to filter by
             include_closed: Whether to include closed holdings
 
         Returns:
-            List of holdings in the specified asset class
+            List of holding instances
         """
         query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentHolding.asset_class == asset_class,
                 InvestmentPortfolio.is_archived == False
             )
@@ -479,21 +482,23 @@ class HoldingsRepository:
 
         return total_value
 
-    def get_portfolio_cost_basis(self, portfolio_id: int) -> Decimal:
+    def get_portfolio_cost_basis(self, portfolio_id: int, tenant_id: int) -> Decimal:
         """
-        Calculate total portfolio cost basis.
+        Calculate total cost basis of active holdings in a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
 
         Returns:
-            Total portfolio cost basis
+            Total cost basis
         """
         result = self.db.query(
             func.sum(InvestmentHolding.cost_basis)
         ).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentHolding.is_closed == False,
                 InvestmentPortfolio.is_archived == False
             )
@@ -501,20 +506,18 @@ class HoldingsRepository:
 
         return result or Decimal('0')
 
-    def validate_tenant_access(self, holding_id: int) -> bool:
+    def validate_tenant_access(self, holding_id: int, tenant_id: int) -> bool:
         """
         Validate that a holding exists and is accessible by the current tenant.
 
-        This is done by checking if the holding's portfolio is in the current
-        tenant's database (tenant isolation is handled at the database level).
-
         Args:
             holding_id: Holding ID to validate
+            tenant_id: Tenant ID for security
 
         Returns:
             True if holding exists and is accessible, False otherwise
         """
-        holding = self.get_by_id(holding_id)
+        holding = self.get_by_id(holding_id, tenant_id)
         return holding is not None
 
     def exists(self, holding_id: int) -> bool:
@@ -559,17 +562,18 @@ class HoldingsRepository:
 
         return query.scalar() or 0
 
-    def get_asset_class_summary(self, portfolio_id: int) -> List[dict]:
+    def get_asset_class_summary(self, portfolio_id: int, tenant_id: int) -> List[dict]:
         """
         Get asset class summary for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
 
         Returns:
             List of dictionaries with asset_class, total_value, holdings_count
         """
-        holdings = self.get_by_portfolio(portfolio_id, include_closed=False)
+        holdings = self.get_by_portfolio(portfolio_id, tenant_id, include_closed=False)
 
         summary = {}
         for holding in holdings:

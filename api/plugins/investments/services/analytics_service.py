@@ -92,7 +92,7 @@ class AnalyticsService:
         unrealized_gain_loss = self.performance_calculator.calculate_unrealized_gains(holdings)
         realized_gain_loss = self.performance_calculator.calculate_realized_gains(transactions)
         total_value = self.performance_calculator.calculate_total_value(holdings)
-        total_cost = self.performance_calculator.calculate_total_cost(transactions)
+        total_cost = self.performance_calculator.calculate_total_cost(transactions, holdings)
 
         # Calculate total gain/loss
         total_gain_loss = unrealized_gain_loss + realized_gain_loss

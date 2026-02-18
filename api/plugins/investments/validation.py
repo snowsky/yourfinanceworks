@@ -500,12 +500,13 @@ class DuplicateTransactionDetector:
         self.db = db
         self.transaction_repo = TransactionRepository(db)
 
-    def check_for_duplicate(self, portfolio_id: int, transaction_data: Dict[str, Any]) -> None:
+    def check_for_duplicate(self, portfolio_id: int, tenant_id: int, transaction_data: Dict[str, Any]) -> None:
         """
         Check for duplicate transactions within a 60-second window.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
             transaction_data: Transaction data to check
 
         Raises:
@@ -518,6 +519,7 @@ class DuplicateTransactionDetector:
         # Get recent transactions for the portfolio
         recent_transactions = self.transaction_repo.get_recent_transactions(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             since=cutoff_time
         )
 
