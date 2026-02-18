@@ -110,6 +110,7 @@ class HoldingsRepository:
     def get_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         include_closed: bool = False
     ) -> List[InvestmentHolding]:
         """
@@ -117,6 +118,7 @@ class HoldingsRepository:
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
             include_closed: Whether to include closed holdings
 
         Returns:
@@ -125,6 +127,7 @@ class HoldingsRepository:
         query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
@@ -452,21 +455,27 @@ class HoldingsRepository:
             )
         ).order_by(InvestmentHolding.security_symbol).all()
 
-    def get_portfolio_value(self, portfolio_id: int) -> Decimal:
+    def get_portfolio_value(self, portfolio_id: int, tenant_id: int) -> Decimal:
         """
         Calculate total portfolio value using current prices or cost basis fallback.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
 
         Returns:
             Total portfolio value
         """
-        holdings = self.get_by_portfolio(portfolio_id, include_closed=False)
+        holdings = self.get_by_portfolio(portfolio_id, tenant_id, include_closed=False)
         total_value = Decimal('0')
 
         for holding in holdings:
-            total_value += holding.current_value
+            if holding.current_price and holding.quantity:
+                # Use market value when price is available
+                total_value += Decimal(str(holding.current_price)) * Decimal(str(holding.quantity))
+            elif holding.cost_basis:
+                # Fallback to cost basis when no market price available
+                total_value += Decimal(str(holding.cost_basis))
 
         return total_value
 
@@ -525,12 +534,13 @@ class HoldingsRepository:
             )
         ).first() is not None
 
-    def count_by_portfolio(self, portfolio_id: int, include_closed: bool = False) -> int:
+    def count_by_portfolio(self, portfolio_id: int, tenant_id: int, include_closed: bool = False) -> int:
         """
         Count holdings in a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
             include_closed: Whether to include closed holdings
 
         Returns:
@@ -539,6 +549,7 @@ class HoldingsRepository:
         query = self.db.query(func.count(InvestmentHolding.id)).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )

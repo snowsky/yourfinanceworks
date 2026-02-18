@@ -309,10 +309,11 @@ class PortfolioService:
         # Calculate summary information
         holdings_count = self.holdings_repo.count_by_portfolio(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             include_closed=False
         )
 
-        total_value = self.holdings_repo.get_portfolio_value(portfolio_id)
+        total_value = self.holdings_repo.get_portfolio_value(portfolio_id, tenant_id)
         total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio_id)
 
         summary = {
@@ -352,10 +353,11 @@ class PortfolioService:
         for portfolio in portfolios:
             holdings_count = self.holdings_repo.count_by_portfolio(
                 portfolio_id=portfolio.id,
+                tenant_id=tenant_id,
                 include_closed=False
             )
 
-            total_value = self.holdings_repo.get_portfolio_value(portfolio.id)
+            total_value = self.holdings_repo.get_portfolio_value(portfolio.id, tenant_id)
             total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio.id)
 
             summary = {
