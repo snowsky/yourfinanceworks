@@ -173,7 +173,8 @@ class HoldingsRepository:
         # Update allowed fields
         allowed_fields = {
             'security_name', 'security_type', 'asset_class', 'quantity',
-            'cost_basis', 'current_price', 'price_updated_at', 'is_closed'
+            'cost_basis', 'current_price', 'price_updated_at', 'is_closed',
+            'imported_price', 'imported_price_date'
         }
 
         for field, value in updates.items():
@@ -242,6 +243,33 @@ class HoldingsRepository:
             current_price=current_price,
             price_updated_at=price_date
         )
+
+    def set_imported_price(
+        self,
+        holding_id: int,
+        imported_price: Decimal,
+        imported_price_date=None
+    ) -> Optional[InvestmentHolding]:
+        """
+        Set the imported price for a holding (from uploaded PDF or CSV file).
+
+        Args:
+            holding_id: Holding ID
+            imported_price: Price extracted from the uploaded file
+            imported_price_date: Statement date (defaults to today)
+        """
+        from datetime import date as date_type
+        holding = self.db.query(InvestmentHolding).filter(
+            InvestmentHolding.id == holding_id
+        ).first()
+        if not holding:
+            return None
+        holding.imported_price = imported_price
+        holding.imported_price_date = imported_price_date or date_type.today()
+        holding.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(holding)
+        return holding
 
     def adjust_quantity(
         self,
@@ -476,11 +504,12 @@ class HoldingsRepository:
         total_value = Decimal('0')
 
         for holding in holdings:
-            if holding.current_price and holding.quantity:
-                # Use market value when price is available
-                total_value += Decimal(str(holding.current_price)) * Decimal(str(holding.quantity))
+            effective = holding.effective_price
+            if effective and holding.quantity:
+                # Use best available price (live > pdf > fallback)
+                total_value += effective * Decimal(str(holding.quantity))
             elif holding.cost_basis:
-                # Fallback to cost basis when no market price available
+                # Fallback to cost basis when no price available
                 total_value += Decimal(str(holding.cost_basis))
 
         return total_value

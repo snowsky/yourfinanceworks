@@ -881,6 +881,17 @@ export const investmentApi = {
   },
 
 
+  getPriceStatus: () =>
+    apiRequest<{ fresh_prices: number; stale_prices: number; without_prices: number }>(
+      '/investments/holdings/price-status'
+    ),
+
+  updatePrices: () =>
+    apiRequest<{ success: number; failed: number; total: number }>(
+      '/investments/holdings/update-prices',
+      { method: 'POST' }
+    ),
+
   downloadHoldingsFileBlob: async (
     attachmentId: number
   ): Promise<{ blob: Blob; filename: string; contentType: string }> => {

@@ -20,6 +20,8 @@ interface Holding {
   purchase_date: string;
   current_price?: number;
   price_updated_at?: string;
+  imported_price?: number;
+  imported_price_date?: string;
   is_closed: boolean;
   average_cost_per_share: number;
   current_value: number;

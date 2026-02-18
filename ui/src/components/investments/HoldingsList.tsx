@@ -46,6 +46,8 @@ interface Holding {
   currency?: string;
   current_price?: number;
   price_updated_at?: string;
+  imported_price?: number;
+  imported_price_date?: string;
   is_closed: boolean;
   average_cost_per_share: number;
   current_value: number;
@@ -263,7 +265,22 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
-                          <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price || 0)}</span>
+                          {holding.current_price ? (
+                            <>
+                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price)}</span>
+                              <span className="text-[10px] text-muted-foreground opacity-60">Live</span>
+                            </>
+                          ) : holding.imported_price ? (
+                            <>
+                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.imported_price)}</span>
+                              <span className="text-[10px] text-muted-foreground opacity-60">Imported{holding.imported_price_date ? ` · ${holding.imported_price_date}` : ''}</span>
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground opacity-60">—</span>
+                          )}
+                          {holding.current_price && holding.imported_price && (
+                            <span className="text-[10px] text-muted-foreground opacity-50">Imported: {formatCurrency(holding.imported_price)}</span>
+                          )}
                           <span className="text-[10px] text-muted-foreground opacity-60">Avg: {formatCurrency(holding.average_cost_per_share)}</span>
                         </div>
                       </TableCell>

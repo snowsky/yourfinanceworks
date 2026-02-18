@@ -18,6 +18,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone, date
 from decimal import Decimal
 from enum import Enum as PyEnum
+from typing import Optional
 
 # Import encrypted column types for transparent encryption
 from core.utils.column_encryptor import EncryptedColumn
@@ -137,9 +138,13 @@ class InvestmentHolding(Base):
     purchase_date = Column(Date, nullable=False)  # Initial purchase date for the holding
     currency = Column(String(3), nullable=False, default="USD")  # ISO 4217 currency code for this holding
 
-    # Current pricing
-    current_price = Column(Numeric(precision=18, scale=2), nullable=True)  # Current price per share
+    # Current pricing (live market price, updated via Yahoo Finance)
+    current_price = Column(Numeric(precision=18, scale=2), nullable=True)  # Live market price per share
     price_updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Imported pricing (preserved from uploaded file — PDF or CSV)
+    imported_price = Column(Numeric(precision=18, scale=2), nullable=True)  # Price as of statement date
+    imported_price_date = Column(Date, nullable=True)  # Statement date the price was extracted from
 
     # Status
     is_closed = Column(Boolean, default=False, nullable=False)  # True when quantity reaches zero
@@ -160,10 +165,20 @@ class InvestmentHolding(Base):
         return Decimal('0')
 
     @property
+    def effective_price(self) -> Optional[Decimal]:
+        """Return the best available price: live first, then PDF-extracted"""
+        if self.current_price:
+            return Decimal(str(self.current_price))
+        if self.imported_price:
+            return Decimal(str(self.imported_price))
+        return None
+
+    @property
     def current_value(self) -> Decimal:
         """Calculate current market value of the holding"""
-        if self.current_price and self.quantity:
-            return Decimal(str(self.current_price)) * Decimal(str(self.quantity))
+        price = self.effective_price
+        if price and self.quantity:
+            return price * Decimal(str(self.quantity))
         return Decimal('0')
 
     @property
