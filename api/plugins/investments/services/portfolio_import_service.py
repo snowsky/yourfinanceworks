@@ -76,10 +76,23 @@ class PortfolioImportService:
         self.portfolio_repo = PortfolioRepository(db)
         self.holdings_repo = HoldingsRepository(db)
         self.transaction_repo = TransactionRepository(db)
-        self.file_storage_service = FileStorageService(db)
-        self.llm_extraction_service = LLMExtractionService(db)
         self.holdings_service = HoldingsService(db)
         self.holdings_validator = HoldingsValidator(self.holdings_repo, DuplicateHandlingMode.MERGE)
+        # Heavy services are lazy-initialized to avoid noisy startup logs on every request
+        self._file_storage_service: Optional[FileStorageService] = None
+        self._llm_extraction_service: Optional[LLMExtractionService] = None
+
+    @property
+    def file_storage_service(self) -> FileStorageService:
+        if self._file_storage_service is None:
+            self._file_storage_service = FileStorageService(self.db)
+        return self._file_storage_service
+
+    @property
+    def llm_extraction_service(self) -> LLMExtractionService:
+        if self._llm_extraction_service is None:
+            self._llm_extraction_service = LLMExtractionService(self.db)
+        return self._llm_extraction_service
 
     def _calculate_file_hash(self, file_content: bytes) -> str:
         """
