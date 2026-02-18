@@ -129,7 +129,7 @@ async def get_portfolios(
     """Get all portfolios for the current tenant with pagination and filtering"""
     try:
         service = PortfolioService(db)
-        portfolios, total = service.get_portfolios_paginated(
+        portfolios_with_summaries, total = service.get_portfolios_paginated(
             tenant_id=current_user.tenant_id,
             include_archived=include_archived,
             skip=skip,
@@ -138,8 +138,17 @@ async def get_portfolios(
             portfolio_type=portfolio_type,
             label=label
         )
+        
+        items = []
+        for p, s in portfolios_with_summaries:
+            pr = PortfolioResponse.model_validate(p)
+            pr.total_value = s.get('total_value', 0)
+            pr.holdings_count = s.get('holdings_count', 0)
+            pr.total_cost = s.get('total_cost_basis', 0)
+            items.append(pr)
+
         return {
-            "items": [PortfolioResponse.model_validate(p) for p in portfolios],
+            "items": items,
             "total": total
         }
     except InvestmentError:

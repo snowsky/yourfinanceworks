@@ -441,9 +441,9 @@ class PortfolioService:
         search: Optional[str] = None,
         portfolio_type: Optional[str] = None,
         label: Optional[str] = None
-    ) -> Tuple[List[InvestmentPortfolio], int]:
+    ) -> Tuple[List[Tuple[InvestmentPortfolio, dict]], int]:
         """
-        Get paginated portfolios with filtering and search.
+        Get paginated portfolios with filtering and search with summaries.
 
         Args:
             tenant_id: Tenant ID for ownership and isolation
@@ -455,9 +455,9 @@ class PortfolioService:
             label: Filter by label
 
         Returns:
-            Tuple of (portfolios list, total count)
+            Tuple of (list of (portfolio, summary_dict), total count)
         """
-        return self.portfolio_repo.get_paginated(
+        results, total = self.portfolio_repo.get_paginated(
             tenant_id=tenant_id,
             include_archived=include_archived,
             skip=skip,
@@ -466,6 +466,18 @@ class PortfolioService:
             portfolio_type=portfolio_type,
             label=label
         )
+
+        processed_results = []
+        for portfolio, count, cost, value in results:
+            summary = {
+                'holdings_count': count or 0,
+                'total_cost_basis': cost or Decimal('0'),
+                'total_value': value or Decimal('0'),
+                'unrealized_gain_loss': (value or Decimal('0')) - (cost or Decimal('0'))
+            }
+            processed_results.append((portfolio, summary))
+
+        return processed_results, total
 
     def get_deleted_portfolios(
         self,

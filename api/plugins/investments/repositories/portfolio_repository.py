@@ -348,10 +348,21 @@ class PortfolioRepository:
         Returns:
             Tuple of (portfolios list, total count)
         """
-        # Base query
-        query = self.db.query(InvestmentPortfolio).filter(
+        # Base query with metrics aggregation
+        query = self.db.query(
+            InvestmentPortfolio,
+            func.count(InvestmentHolding.id).label('holdings_count'),
+            func.sum(InvestmentHolding.cost_basis).label('total_cost'),
+            func.sum(InvestmentHolding.quantity * func.coalesce(InvestmentHolding.current_price, InvestmentHolding.imported_price, 0)).label('total_value')
+        ).outerjoin(
+            InvestmentHolding,
+            and_(
+                InvestmentHolding.portfolio_id == InvestmentPortfolio.id,
+                InvestmentHolding.is_closed == False
+            )
+        ).filter(
             InvestmentPortfolio.tenant_id == tenant_id
-        )
+        ).group_by(InvestmentPortfolio.id)
 
         # Apply archived filter
         if not include_archived:
@@ -373,15 +384,29 @@ class PortfolioRepository:
                 # Invalid portfolio type, return empty results
                 return [], 0
 
-        # Get total count before pagination
-        total = query.count()
+        # Get total count before pagination (use a subquery or distinct count)
+        total = self.db.query(func.count(InvestmentPortfolio.id)).filter(
+            InvestmentPortfolio.tenant_id == tenant_id,
+            InvestmentPortfolio.is_archived == include_archived if include_archived else InvestmentPortfolio.is_archived == False
+        )
+        if search and search.strip():
+            total = total.filter(InvestmentPortfolio.name.ilike(f'%{search.strip()}%'))
+        if portfolio_type:
+            try:
+                type_enum = PortfolioType(portfolio_type.lower())
+                total = total.filter(InvestmentPortfolio.portfolio_type == type_enum)
+            except ValueError:
+                return [], 0
+        
+        total_count = total.scalar()
 
         # Apply pagination and ordering
-        portfolios = query.order_by(
+        results = query.order_by(
             InvestmentPortfolio.created_at.desc()
         ).offset(skip).limit(limit).all()
 
-        return portfolios, total
+        # result is a list of tuples (portfolio, count, cost, value)
+        return results, total_count
 
     def get_deleted_portfolios(
         self,
