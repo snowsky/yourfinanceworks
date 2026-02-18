@@ -164,9 +164,6 @@ class InvestmentHolding(Base):
         """Calculate current market value of the holding"""
         if self.current_price and self.quantity:
             return Decimal(str(self.current_price)) * Decimal(str(self.quantity))
-        elif self.quantity and self.cost_basis:
-            # Fallback: use cost basis as current value when price is not set
-            return Decimal(str(self.cost_basis))
         return Decimal('0')
 
     @property
