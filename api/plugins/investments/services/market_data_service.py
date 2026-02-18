@@ -72,11 +72,12 @@ class MarketDataService:
             logger.error(f"Error fetching price for {symbol}: {e}")
             return None
 
-    async def update_holding_price(self, holding_id: int, symbol: str) -> bool:
+    async def update_holding_price(self, tenant_id: int, holding_id: int, symbol: str) -> bool:
         """
         Update the price for a single holding
         
         Args:
+            tenant_id: Tenant ID for security
             holding_id: ID of the holding to update
             symbol: Symbol to fetch price for
             
@@ -93,6 +94,7 @@ class MarketDataService:
             # Update the holding
             updated_holding = self.holdings_repo.update_price(
                 holding_id, 
+                tenant_id,
                 price, 
                 datetime.now(timezone.utc)
             )
@@ -149,14 +151,15 @@ class MarketDataService:
                         try:
                             updated = self.holdings_repo.update_price(
                                 holding.id,
+                                tenant_id,
                                 price,
                                 datetime.now(timezone.utc)
                             )
                             if updated:
-                                success_count += len(holding_list)
-                                logger.info(f"Updated price for {symbol}: ${price} ({len(holding_list)} holdings)")
+                                success_count += 1
+                                logger.info(f"Updated price for {symbol}: ${price} (holding {holding.id})")
                             else:
-                                failed_count += len(holding_list)
+                                failed_count += 1
                         except Exception as e:
                             logger.error(f"Error updating holding {holding.id}: {e}")
                             failed_count += 1

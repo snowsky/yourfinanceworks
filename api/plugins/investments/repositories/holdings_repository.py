@@ -433,21 +433,24 @@ class HoldingsRepository:
 
     def get_holdings_needing_price_update(
         self,
+        tenant_id: int,
         max_age_hours: int = 24
     ) -> List[InvestmentHolding]:
         """
         Get holdings that need price updates (price is old or missing).
 
         Args:
+            tenant_id: Tenant ID for security
             max_age_hours: Maximum age of price in hours before considering it stale
 
         Returns:
             List of holdings needing price updates
         """
-        cutoff_time = datetime.now(timezone.utc) - timezone.timedelta(hours=max_age_hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
 
         return self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentHolding.is_closed == False,
                 InvestmentPortfolio.is_archived == False,
                 or_(
