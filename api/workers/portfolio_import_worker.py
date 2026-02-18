@@ -300,13 +300,13 @@ class HoldingsImportWorker:
                     attachment.created_by
                 )
 
-                # Extract counts from result dictionary
-                holdings_created = result["holdings_created"]
-                holdings_failed = result["holdings_failed"]
-                transactions_created = result["transactions_created"]
-                transactions_failed = result["transactions_failed"]
-                total_created = result["total_created"]
-                total_failed = result["total_failed"]
+                # Extract counts from result dictionary and ensure they're integers
+                holdings_created = int(result.get("holdings_created", 0) or 0)
+                holdings_failed = int(result.get("holdings_failed", 0) or 0)
+                transactions_created = int(result.get("transactions_created", 0) or 0)
+                transactions_failed = int(result.get("transactions_failed", 0) or 0)
+                total_created = int(result.get("total_created", 0) or 0)
+                total_failed = int(result.get("total_failed", 0) or 0)
 
                 # Determine final status
                 if total_failed == 0:
