@@ -229,8 +229,10 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                   <TableHead className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.type')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.position')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.currency')}</TableHead>
-                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.market_price')}</TableHead>
-                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.market_value')}</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Statement Price</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Statement Value</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Current Price</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Current Value</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.total_gl')}</TableHead>
                   <TableHead className="text-right pr-6 font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.actions')}</TableHead>
                 </TableRow>
@@ -239,6 +241,12 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                 {activeHoldings.map((holding) => {
                   const gainPercentage = calculateUnrealizedGainPercentage(holding);
                   const isPositive = holding.unrealized_gain_loss >= 0;
+                  const statementValue = holding.imported_price != null
+                    ? holding.imported_price * holding.quantity
+                    : null;
+                  const currentValue = holding.current_price != null
+                    ? holding.current_price * holding.quantity
+                    : null;
 
                   return (
                     <TableRow key={holding.id} className="group hover:bg-primary/5 transition-colors border-border/50">
@@ -263,30 +271,57 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                           {holding.currency || 'USD'}
                         </Badge>
                       </TableCell>
+
+                      {/* Statement Price (from imported file) */}
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
-                          {holding.current_price ? (
-                            <>
-                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price)}</span>
-                              <span className="text-[10px] text-muted-foreground opacity-60">Live</span>
-                            </>
-                          ) : holding.imported_price ? (
+                          {holding.imported_price != null ? (
                             <>
                               <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.imported_price)}</span>
-                              <span className="text-[10px] text-muted-foreground opacity-60">Imported{holding.imported_price_date ? ` · ${holding.imported_price_date}` : ''}</span>
+                              {holding.imported_price_date && (
+                                <span className="text-[10px] text-muted-foreground opacity-60">{holding.imported_price_date}</span>
+                              )}
                             </>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground opacity-60">—</span>
+                            <span className="text-[10px] text-muted-foreground opacity-40">—</span>
                           )}
-                          {holding.current_price && holding.imported_price && (
-                            <span className="text-[10px] text-muted-foreground opacity-50">Imported: {formatCurrency(holding.imported_price)}</span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground opacity-60">Avg: {formatCurrency(holding.average_cost_per_share)}</span>
                         </div>
                       </TableCell>
+
+                      {/* Statement Value (imported_price × quantity) */}
                       <TableCell className="text-right">
-                        <span className="font-black text-sm tracking-tight text-foreground">{formatCurrency(holding.current_value)}</span>
+                        {statementValue != null ? (
+                          <span className="font-bold text-sm tracking-tight text-foreground">{formatCurrency(statementValue)}</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground opacity-40">—</span>
+                        )}
                       </TableCell>
+
+                      {/* Current Price (live from Yahoo Finance) */}
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end">
+                          {holding.current_price != null ? (
+                            <>
+                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price)}</span>
+                              {holding.price_updated_at && (
+                                <span className="text-[10px] text-muted-foreground opacity-60">Live</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground opacity-40">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Current Value (current_price × quantity) */}
+                      <TableCell className="text-right">
+                        {currentValue != null ? (
+                          <span className="font-black text-sm tracking-tight text-foreground">{formatCurrency(currentValue)}</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground opacity-40">—</span>
+                        )}
+                      </TableCell>
+
                       <TableCell className="text-right">
                         <div className={cn("flex flex-col items-end", isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
                           <div className="flex items-center gap-1 font-black text-sm">
