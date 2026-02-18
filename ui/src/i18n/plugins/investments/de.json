@@ -48,6 +48,7 @@
     "total_market_value": "Gesamtmarktwert aller Positionen",
     "total_return_description": "Gesamtrendite über alle Portfolios",
     "currently_tracked_securities": "Derzeit verfolgte Wertpapiere",
+    "no_performance_data": "Keine Leistungsdaten",
     "type": "Typ",
     "value": "Wert",
     "actions": "Aktionen",

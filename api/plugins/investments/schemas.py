@@ -64,6 +64,7 @@ class PortfolioResponse(PortfolioBase, TimestampMixin):
     currency: str = Field(default="USD", description="Portfolio currency code")
     holdings_count: Optional[int] = Field(None, description="Number of holdings in portfolio")
     total_value: Optional[Decimal] = Field(None, description="Total portfolio value")
+    total_cost: Optional[Decimal] = Field(None, description="Total cost basis of portfolio")
     target_allocations: Optional[Dict[AssetClass, Decimal]] = Field(None, description="Target allocation weights")
 
     class Config:

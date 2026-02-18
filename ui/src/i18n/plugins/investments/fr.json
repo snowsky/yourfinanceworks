@@ -48,6 +48,7 @@
     "total_market_value": "Valeur totale de marché de toutes les positions",
     "total_return_description": "Rendement total sur tous les portefeuilles",
     "currently_tracked_securities": "Valeurs actuellement suivies",
+    "no_performance_data": "Aucune Donnée de Performance",
     "type": "Type",
     "value": "Valeur",
     "actions": "Actions",
