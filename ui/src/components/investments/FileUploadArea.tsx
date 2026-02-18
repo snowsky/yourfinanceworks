@@ -19,7 +19,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
   onUploadSuccess,
 }) => {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation('investments');
   const [selectedFiles, setSelectedFiles] = useState<FileData[]>([]);
 
   const uploadFilesMutation = useMutation({
