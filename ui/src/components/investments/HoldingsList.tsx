@@ -222,7 +222,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl border border-border/50 shadow-inner bg-card/30">
-            <Table className="min-w-[1100px]">
+            <Table className="min-w-[900px]">
               <TableHeader className="bg-muted/50">
                 <TableRow className="hover:bg-transparent border-border/50">
                   <TableHead className="font-bold py-4 pl-6 uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.security')}</TableHead>
@@ -230,11 +230,10 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.position')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.currency')}</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Statement Price</TableHead>
-                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Statement Value</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Current Price</TableHead>
-                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Current Value</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Stmt / Current Value</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.total_gl')}</TableHead>
-                  <TableHead className="text-right pr-6 font-bold uppercase tracking-wider text-[10px] text-muted-foreground sticky right-0 bg-muted/50 z-10">{t('holdings.actions')}</TableHead>
+                  <TableHead className="text-right pr-6 font-bold uppercase tracking-wider text-[10px] text-muted-foreground">{t('holdings.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,15 +287,6 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                         </div>
                       </TableCell>
 
-                      {/* Statement Value (imported_price × quantity) */}
-                      <TableCell className="text-right">
-                        {statementValue != null ? (
-                          <span className="font-bold text-sm tracking-tight text-foreground">{formatCurrency(statementValue)}</span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground opacity-40">—</span>
-                        )}
-                      </TableCell>
-
                       {/* Current Price (live from Yahoo Finance) */}
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
@@ -313,13 +303,20 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                         </div>
                       </TableCell>
 
-                      {/* Current Value (current_price × quantity) */}
+                      {/* Statement Value / Current Value (merged column) */}
                       <TableCell className="text-right">
-                        {currentValue != null ? (
-                          <span className="font-black text-sm tracking-tight text-foreground">{formatCurrency(currentValue)}</span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground opacity-40">—</span>
-                        )}
+                        <div className="flex flex-col items-end gap-0.5">
+                          {statementValue != null ? (
+                            <span className="font-bold text-sm tracking-tight text-foreground">{formatCurrency(statementValue)}</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground opacity-40">—</span>
+                          )}
+                          {currentValue != null ? (
+                            <span className="font-black text-sm tracking-tight text-primary">{formatCurrency(currentValue)}</span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground opacity-40">—</span>
+                          )}
+                        </div>
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -331,7 +328,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                           <div className="text-[10px] font-bold opacity-80">{formatPercentage(gainPercentage)}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right pr-6 sticky right-0 bg-card/95 backdrop-blur-sm group-hover:bg-primary/5 z-10">
+                      <TableCell className="text-right pr-6">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg group-hover:bg-primary/10 group-hover:text-primary transition-all">
