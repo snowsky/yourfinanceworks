@@ -78,10 +78,16 @@ class MarketDataService:
                             return None
 
                         meta = result[0].get('meta', {})
-                        current_price = meta.get('regularMarketPrice')
+                        # Try multiple price fields — non-US symbols (e.g. TSX ETFs)
+                        # may not populate regularMarketPrice
+                        current_price = (
+                            meta.get('regularMarketPrice')
+                            or meta.get('currentPrice')
+                            or meta.get('previousClose')
+                        )
 
                         if current_price is None:
-                            logger.warning(f"No current price found for {symbol}")
+                            logger.warning(f"No current price found for {symbol} (meta keys: {list(meta.keys())})")
                             return None
 
                         return Decimal(str(current_price))

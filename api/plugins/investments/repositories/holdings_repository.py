@@ -90,22 +90,26 @@ class HoldingsRepository:
 
         return holding
 
-    def get_by_id(self, holding_id: int) -> Optional[InvestmentHolding]:
+    def get_by_id(self, holding_id: int, tenant_id: Optional[int] = None) -> Optional[InvestmentHolding]:
         """
         Get a holding by ID with tenant isolation through portfolio ownership.
 
         Args:
             holding_id: Holding ID
+            tenant_id: Optional tenant ID for security isolation
 
         Returns:
             Holding instance if found and accessible, None otherwise
         """
-        return self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
+        query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.id == holding_id,
                 InvestmentPortfolio.is_archived == False
             )
-        ).first()
+        )
+        if tenant_id is not None:
+            query = query.filter(InvestmentPortfolio.tenant_id == tenant_id)
+        return query.first()
 
     def get_by_portfolio(
         self,
