@@ -231,11 +231,11 @@ const PortfolioDetail: React.FC = () => {
                 </TabsTrigger>
                 <TabsTrigger value="analytics" className="rounded-lg px-6 font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <BarChart3 className="w-4 h-4 mr-2" />
-                  Analytics
+                  {t('portfolio.analytics_tab')}
                 </TabsTrigger>
                 <TabsTrigger value="imports" className="rounded-lg px-6 font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm">
                   <Upload className="w-4 h-4 mr-2" />
-                  Imports
+                  {t('portfolio.imports_tab')}
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -264,19 +264,19 @@ const PortfolioDetail: React.FC = () => {
           <ProfessionalCard title="Portfolio Details" variant="elevated" className="border-border/40 overflow-hidden">
             <div className="space-y-4 pt-4">
               <div className="flex justify-between items-center py-2 border-b border-border/30">
-                <span className="text-muted-foreground text-sm">Created At</span>
+                <span className="text-muted-foreground text-sm">{t('portfolio.created_at')}</span>
                 <span className="font-medium text-sm">{formatter.formatDate(new Date(portfolio.created_at), 'medium')}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border/30">
-                <span className="text-muted-foreground text-sm">Last Updated</span>
+                <span className="text-muted-foreground text-sm">{t('portfolio.last_updated')}</span>
                 <span className="font-medium text-sm">{formatter.formatDate(new Date(portfolio.updated_at), 'medium')}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border/30">
-                <span className="text-muted-foreground text-sm">Status</span>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-lg">Active</Badge>
+                <span className="text-muted-foreground text-sm">{t('portfolio.status')}</span>
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-lg">{t('portfolio.status_active')}</Badge>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-muted-foreground text-sm">Portfolio ID</span>
+                <span className="text-muted-foreground text-sm">{t('portfolio.portfolio_id')}</span>
                 <span className="font-mono text-xs text-muted-foreground">#{portfolio.id}</span>
               </div>
               <ProfessionalButton

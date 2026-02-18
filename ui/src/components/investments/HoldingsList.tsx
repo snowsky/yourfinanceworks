@@ -197,7 +197,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
               className="rounded-lg"
             >
               <RefreshCw className={cn('w-4 h-4 mr-2', refreshPricesMutation.isPending && 'animate-spin')} />
-              {refreshPricesMutation.isPending ? 'Refreshing…' : 'Refresh Prices'}
+              {refreshPricesMutation.isPending ? t('portfolio.refreshing') : t('portfolio.refresh_prices')}
             </ProfessionalButton>
             <ProfessionalButton onClick={() => setShowCreateDialog(true)} size="sm" variant="gradient" className="rounded-lg">
               <Plus className="w-4 h-4 mr-2" />

@@ -387,7 +387,7 @@ const InvestmentDashboard: React.FC = () => {
                             size="icon"
                             className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => setPermanentDeleteId(portfolio.id)}
-                            title={t('Delete Permanently')}
+                            title={t('portfolio.delete_permanently')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -395,7 +395,7 @@ const InvestmentDashboard: React.FC = () => {
                       </div>
                       <div className="mt-auto pt-3 border-t border-border/10 flex items-center justify-between">
                         <span className="text-[10px] text-muted-foreground font-medium">
-                          {t('Deleted on')} {new Date(portfolio.updated_at).toLocaleDateString()}
+                          {t('portfolio.deleted_on')} {new Date(portfolio.updated_at).toLocaleDateString()}
                         </span>
                         <div className="flex items-center gap-1 text-[10px] font-bold text-foreground/70">
                           {formatCurrency(portfolio.total_value || 0)}
