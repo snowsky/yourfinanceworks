@@ -165,7 +165,17 @@
     "ready_to_upload": "Listo para subir",
     "file": "archivo",
     "files": "archivos",
-    "total_size": "Tamaño total"
+    "total_size": "Tamaño total",
+    "pending": "Pendiente",
+    "processing": "Procesando",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "partial": "Parcial",
+    "holdings": "posiciones",
+    "transactions": "transacciones",
+    "created": "creado",
+    "error": "Error",
+    "info": "Información"
   },
   "analytics": {
     "title": "Análisis",

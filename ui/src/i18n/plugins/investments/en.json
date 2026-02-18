@@ -166,7 +166,17 @@
     "ready_to_upload": "Ready to upload",
     "file": "file",
     "files": "files",
-    "total_size": "Total size"
+    "total_size": "Total size",
+    "pending": "Pending",
+    "processing": "Processing",
+    "completed": "Completed",
+    "failed": "Failed",
+    "partial": "Partial",
+    "holdings": "holdings",
+    "transactions": "transactions",
+    "created": "created",
+    "error": "Error",
+    "info": "Information"
   },
   "analytics": {
     "title": "Analytics",

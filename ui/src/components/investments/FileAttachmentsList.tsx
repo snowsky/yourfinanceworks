@@ -52,7 +52,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
   onRefresh,
 }) => {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation('investments');
   const [selectedAttachment, setSelectedAttachment] = useState<FileAttachment | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 

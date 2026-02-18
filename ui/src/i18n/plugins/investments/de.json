@@ -165,7 +165,17 @@
     "ready_to_upload": "Bereit zum Hochladen",
     "file": "Datei",
     "files": "Dateien",
-    "total_size": "Gesamtgröße"
+    "total_size": "Gesamtgröße",
+    "pending": "Ausstehend",
+    "processing": "Verarbeitung",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "partial": "Teilweise",
+    "holdings": "Positionen",
+    "transactions": "Transaktionen",
+    "created": "erstellt",
+    "error": "Fehler",
+    "info": "Information"
   },
   "analytics": {
     "title": "Analytik",
