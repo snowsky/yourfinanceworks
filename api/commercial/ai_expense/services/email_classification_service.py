@@ -168,7 +168,7 @@ Respond with ONLY valid JSON in this exact format:
             # Prepare LLM request
             provider_name = ai_config.get("provider_name", "ollama")
             model_name = ai_config.get("model_name")
-            
+
             # Build model string for litellm
             if provider_name == "ollama":
                 model = f"ollama/{model_name}"
@@ -179,14 +179,15 @@ Respond with ONLY valid JSON in this exact format:
             else:
                 model = f"{provider_name}/{model_name}"
                 api_base = ai_config.get("provider_url")
-            
+
             kwargs = {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,  # Low temperature for consistent classification
                 "max_tokens": 200,   # Short response expected
+                "timeout": 60        # 60 second timeout for email classification
             }
-            
+
             if api_base:
                 kwargs["api_base"] = api_base
             
