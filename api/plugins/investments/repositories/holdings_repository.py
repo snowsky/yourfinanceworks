@@ -110,6 +110,7 @@ class HoldingsRepository:
     def get_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         include_closed: bool = False
     ) -> List[InvestmentHolding]:
         """
@@ -125,6 +126,7 @@ class HoldingsRepository:
         query = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentHolding.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
@@ -134,17 +136,18 @@ class HoldingsRepository:
 
         return query.order_by(InvestmentHolding.security_symbol).all()
 
-    def get_active_holdings(self, portfolio_id: int) -> List[InvestmentHolding]:
+    def get_active_holdings(self, portfolio_id: int, tenant_id: int) -> List[InvestmentHolding]:
         """
         Get only active (non-closed) holdings for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
 
         Returns:
             List of active holding instances
         """
-        return self.get_by_portfolio(portfolio_id, include_closed=False)
+        return self.get_by_portfolio(portfolio_id, tenant_id, include_closed=False)
 
     def update(self, holding_id: int, **updates) -> Optional[InvestmentHolding]:
         """
@@ -571,17 +574,18 @@ class HoldingsRepository:
             )
         ).count()
 
-    def get_asset_class_summary(self, portfolio_id: int) -> List[dict]:
+    def get_asset_class_summary(self, portfolio_id: int, tenant_id: int) -> List[dict]:
         """
         Get asset class summary for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
 
         Returns:
             List of dictionaries with asset_class, total_value, holdings_count
         """
-        holdings = self.get_by_portfolio(portfolio_id, include_closed=False)
+        holdings = self.get_by_portfolio(portfolio_id, tenant_id, include_closed=False)
 
         summary = {}
         for holding in holdings:

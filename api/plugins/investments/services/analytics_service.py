@@ -79,8 +79,8 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings and transactions
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
 
         # Calculate metrics using performance calculator
         total_return_percentage = self.performance_calculator.calculate_total_return(holdings, transactions)
@@ -125,7 +125,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
 
         # Calculate allocation using analyzer
         return self.allocation_analyzer.calculate_asset_allocation(holdings)
@@ -220,7 +220,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get all holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
 
         # Calculate date range for dividend lookup
         end_date = date.today()
@@ -320,7 +320,7 @@ class AnalyticsService:
                 continue
 
             # Get holding info
-            holding = self.holdings_repo.get_by_id(holding_id)
+            holding = self.holdings_repo.get_by_id(holding_id, tenant_id)
             if not holding:
                 continue
 
@@ -533,7 +533,7 @@ class AnalyticsService:
         allocation = self.calculate_asset_allocation(tenant_id, portfolio_id)
 
         # Get holdings count
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
         active_holdings_count = len([h for h in holdings if not h.is_closed and h.quantity > 0])
 
         # Get recent dividend income (last 12 months)
@@ -712,7 +712,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
 
         # Calculate diversification score
         diversification_score = self.allocation_analyzer.calculate_diversification_score(holdings)
