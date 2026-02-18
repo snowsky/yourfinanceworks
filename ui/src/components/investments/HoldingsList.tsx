@@ -6,7 +6,7 @@ import {
   Plus, Edit2, Trash2, TrendingUp, TrendingDown,
   DollarSign, Percent, Calendar, AlertCircle,
   MoreHorizontal, Eye, ExternalLink, ArrowUpRight, ArrowDownRight,
-  ArrowRight
+  ArrowRight, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { api } from '@/lib/api';
+import { api, investmentApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import CreateHoldingDialog from './CreateHoldingDialog';
@@ -73,6 +73,29 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
       const response = await api.get(`/investments/portfolios/${portfolioId}/holdings`);
       return Array.isArray(response) ? response : [];
     }
+  });
+
+  // Fetch price status
+  const { data: priceStatus } = useQuery({
+    queryKey: ['holdings-price-status'],
+    queryFn: () => investmentApi.getPriceStatus(),
+    staleTime: 60_000,
+  });
+
+  // Refresh all prices mutation
+  const refreshPricesMutation = useMutation({
+    mutationFn: () => investmentApi.updatePrices(),
+    onSuccess: (result) => {
+      toast.success(
+        `Prices updated: ${result.success} succeeded, ${result.failed} failed (${result.total} total)`
+      );
+      queryClient.invalidateQueries({ queryKey: ['holdings', portfolioId] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio', portfolioId] });
+      queryClient.invalidateQueries({ queryKey: ['holdings-price-status'] });
+    },
+    onError: (error: any) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to refresh prices');
+    },
   });
 
   // Delete holding mutation
@@ -155,13 +178,30 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
             {activeHoldings.length > 0 && (
               <ProfessionalCardDescription>
                 {t('holdings.detailed_overview')}
+                {priceStatus && (
+                  <span className="ml-2 text-[10px] font-medium opacity-70">
+                    · {priceStatus.fresh_prices} fresh · {priceStatus.stale_prices} stale · {priceStatus.without_prices} missing
+                  </span>
+                )}
               </ProfessionalCardDescription>
             )}
           </div>
-          <ProfessionalButton onClick={() => setShowCreateDialog(true)} size="sm" variant="gradient" className="rounded-lg">
-            <Plus className="w-4 h-4 mr-2" />
-            {t('holdings.add_position')}
-          </ProfessionalButton>
+          <div className="flex items-center gap-2">
+            <ProfessionalButton
+              onClick={() => refreshPricesMutation.mutate()}
+              disabled={refreshPricesMutation.isPending}
+              size="sm"
+              variant="outline"
+              className="rounded-lg"
+            >
+              <RefreshCw className={cn('w-4 h-4 mr-2', refreshPricesMutation.isPending && 'animate-spin')} />
+              {refreshPricesMutation.isPending ? 'Refreshing…' : 'Refresh Prices'}
+            </ProfessionalButton>
+            <ProfessionalButton onClick={() => setShowCreateDialog(true)} size="sm" variant="gradient" className="rounded-lg">
+              <Plus className="w-4 h-4 mr-2" />
+              {t('holdings.add_position')}
+            </ProfessionalButton>
+          </div>
         </ProfessionalCardHeader>
         <div className="p-0">
         {activeHoldings.length === 0 ? (

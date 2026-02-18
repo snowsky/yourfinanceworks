@@ -29,42 +29,42 @@ class MarketDataService:
     async def fetch_price_yahoo_finance(self, symbol: str) -> Optional[Decimal]:
         """
         Fetch current market price for a symbol using Yahoo Finance API
-        
+
         Args:
             symbol: Stock symbol (e.g., "AAPL", "GOOGL")
-            
+
         Returns:
             Current price as Decimal or None if fetch failed
         """
         try:
             # Yahoo Finance API endpoint
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status != 200:
                         logger.warning(f"Yahoo Finance API returned status {response.status} for {symbol}")
                         return None
-                    
+
                     data = await response.json()
-                    
+
                     # Extract the current price from the response
                     chart = data.get('chart', {})
                     result = chart.get('result', [])
-                    
+
                     if not result:
                         logger.warning(f"No data returned for {symbol}")
                         return None
-                    
+
                     meta = result[0].get('meta', {})
                     current_price = meta.get('regularMarketPrice')
-                    
+
                     if current_price is None:
                         logger.warning(f"No current price found for {symbol}")
                         return None
-                    
+
                     return Decimal(str(current_price))
-                    
+
         except asyncio.TimeoutError:
             logger.error(f"Timeout fetching price for {symbol}")
             return None
@@ -75,37 +75,37 @@ class MarketDataService:
     async def update_holding_price(self, tenant_id: int, holding_id: int, symbol: str) -> bool:
         """
         Update the price for a single holding
-        
+
         Args:
             tenant_id: Tenant ID for security
             holding_id: ID of the holding to update
             symbol: Symbol to fetch price for
-            
+
         Returns:
             True if update successful, False otherwise
         """
         try:
             price = await self.fetch_price_yahoo_finance(symbol)
-            
+
             if price is None:
                 logger.warning(f"Failed to fetch price for {symbol}")
                 return False
-            
+
             # Update the holding
             updated_holding = self.holdings_repo.update_price(
-                holding_id, 
+                holding_id,
                 tenant_id,
-                price, 
+                price,
                 datetime.now(timezone.utc)
             )
-            
+
             if updated_holding:
                 logger.info(f"Updated price for {symbol}: ${price}")
                 return True
             else:
                 logger.error(f"Failed to update holding {holding_id}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error updating holding {holding_id}: {e}")
             return False
@@ -113,26 +113,26 @@ class MarketDataService:
     async def update_all_holdings_prices(self, tenant_id: int) -> Dict[str, int]:
         """
         Update prices for all active holdings in a tenant's portfolios
-        
+
         Args:
             tenant_id: Tenant ID to update holdings for
-            
+
         Returns:
             Dictionary with success and failure counts
         """
         try:
             # Get all active holdings that need price updates
             holdings = self.holdings_repo.get_holdings_needing_price_update(tenant_id)
-            
+
             if not holdings:
                 logger.info(f"No holdings need price updates for tenant {tenant_id}")
                 return {"success": 0, "failed": 0, "total": 0}
-            
+
             logger.info(f"Updating prices for {len(holdings)} holdings")
-            
+
             success_count = 0
             failed_count = 0
-            
+
             # Group holdings by symbol to avoid duplicate API calls
             symbols_to_holdings = {}
             for holding in holdings:
@@ -140,11 +140,11 @@ class MarketDataService:
                 if symbol not in symbols_to_holdings:
                     symbols_to_holdings[symbol] = []
                 symbols_to_holdings[symbol].append(holding)
-            
+
             # Fetch price for each unique symbol and update all holdings
             for symbol, holding_list in symbols_to_holdings.items():
                 price = await self.fetch_price_yahoo_finance(symbol)
-                
+
                 if price is not None:
                     # Update all holdings with this symbol
                     for holding in holding_list:
@@ -166,16 +166,16 @@ class MarketDataService:
                 else:
                     failed_count += len(holding_list)
                     logger.warning(f"Failed to fetch price for {symbol} ({len(holding_list)} holdings)")
-            
+
             result = {
                 "success": success_count,
                 "failed": failed_count,
                 "total": len(holdings)
             }
-            
+
             logger.info(f"Price update completed: {success_count} success, {failed_count} failed, {len(holdings)} total")
             return result
-            
+
         except Exception as e:
             logger.error(f"Error in bulk price update: {e}")
             return {"success": 0, "failed": 0, "total": 0, "error": str(e)}
@@ -183,10 +183,10 @@ class MarketDataService:
     def get_price_update_status(self, tenant_id: int) -> Dict[str, int]:
         """
         Get status of price updates for holdings
-        
+
         Args:
             tenant_id: Tenant ID to check
-            
+
         Returns:
             Dictionary with counts of holdings by price update status
         """
@@ -194,13 +194,13 @@ class MarketDataService:
             # Get holdings with various price statuses
             from sqlalchemy import and_, or_
             from datetime import timedelta
-            
+
             now = datetime.now(timezone.utc)
             one_day_ago = now - timedelta(days=1)
-            
+
             # All active holdings
             all_active = self.holdings_repo.get_active_holdings_count(tenant_id)
-            
+
             # Holdings with current prices
             with_current_price = self.db.query(InvestmentHolding).filter(
                 and_(
@@ -209,7 +209,7 @@ class MarketDataService:
                     InvestmentHolding.current_price.isnot(None)
                 )
             ).count()
-            
+
             # Holdings with recent price updates (within last day)
             with_recent_updates = self.db.query(InvestmentHolding).filter(
                 and_(
@@ -218,10 +218,10 @@ class MarketDataService:
                     InvestmentHolding.price_updated_at >= one_day_ago
                 )
             ).count()
-            
+
             # Holdings with no price or stale prices
             missing_or_stale = all_active - with_recent_updates
-            
+
             return {
                 "total_active": all_active,
                 "with_current_price": with_current_price,
