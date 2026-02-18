@@ -26,9 +26,21 @@ class MarketDataService:
         self.db = db
         self.holdings_repo = HoldingsRepository(db)
 
+    # Browser-like headers to avoid Yahoo Finance rate limiting (429)
+    _YAHOO_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+        "Referer": "https://finance.yahoo.com/",
+    }
+
     async def fetch_price_yahoo_finance(self, symbol: str) -> Optional[Decimal]:
         """
-        Fetch current market price for a symbol using Yahoo Finance API
+        Fetch current market price for a symbol using Yahoo Finance API.
+        Retries once with backoff on 429 rate-limit responses.
 
         Args:
             symbol: Stock symbol (e.g., "AAPL", "GOOGL")
@@ -36,41 +48,55 @@ class MarketDataService:
         Returns:
             Current price as Decimal or None if fetch failed
         """
-        try:
-            # Yahoo Finance API endpoint
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        max_attempts = 2
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                    if response.status != 200:
-                        logger.warning(f"Yahoo Finance API returned status {response.status} for {symbol}")
-                        return None
+        for attempt in range(max_attempts):
+            try:
+                async with aiohttp.ClientSession(headers=self._YAHOO_HEADERS) as session:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                        if response.status == 429:
+                            if attempt < max_attempts - 1:
+                                wait = 2 * (attempt + 1)
+                                logger.warning(f"Yahoo Finance rate limit (429) for {symbol}, retrying in {wait}s...")
+                                await asyncio.sleep(wait)
+                                continue
+                            logger.warning(f"Yahoo Finance rate limit (429) for {symbol} after {max_attempts} attempts")
+                            return None
 
-                    data = await response.json()
+                        if response.status != 200:
+                            logger.warning(f"Yahoo Finance API returned status {response.status} for {symbol}")
+                            return None
 
-                    # Extract the current price from the response
-                    chart = data.get('chart', {})
-                    result = chart.get('result', [])
+                        data = await response.json()
 
-                    if not result:
-                        logger.warning(f"No data returned for {symbol}")
-                        return None
+                        chart = data.get('chart', {})
+                        result = chart.get('result', [])
 
-                    meta = result[0].get('meta', {})
-                    current_price = meta.get('regularMarketPrice')
+                        if not result:
+                            logger.warning(f"No data returned for {symbol}")
+                            return None
 
-                    if current_price is None:
-                        logger.warning(f"No current price found for {symbol}")
-                        return None
+                        meta = result[0].get('meta', {})
+                        current_price = meta.get('regularMarketPrice')
 
-                    return Decimal(str(current_price))
+                        if current_price is None:
+                            logger.warning(f"No current price found for {symbol}")
+                            return None
 
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout fetching price for {symbol}")
-            return None
-        except Exception as e:
-            logger.error(f"Error fetching price for {symbol}: {e}")
-            return None
+                        return Decimal(str(current_price))
+
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout fetching price for {symbol} (attempt {attempt + 1})")
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(1)
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"Error fetching price for {symbol}: {e}")
+                return None
+
+        return None
 
     async def update_holding_price(self, tenant_id: int, holding_id: int, symbol: str) -> bool:
         """
