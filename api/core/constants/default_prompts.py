@@ -490,7 +490,8 @@ For each holding found, extract:
 - security_type: Type of security (stock, bond, etf, mutual_fund, option, crypto, other)
 - asset_class: Asset class (stocks, bonds, cash, real_estate, commodities, alternatives, other)
 - quantity: Number of shares or units held
-- cost_basis: Average cost per share/unit
+- cost_basis: Total cost basis for all shares/units (not per-share)
+- market_price: Current market price per share/unit as shown in the document (look for columns labeled "Current Price", "Market Price", "Last Price", "Price", "Mkt Price", or similar; use null if not present)
 - purchase_date: Date of purchase (YYYY-MM-DD format, or null if unknown)
 - currency: Currency code (e.g., USD, EUR, CAD)
 
@@ -512,7 +513,8 @@ The JSON structure must be:
       "security_type": "stock",
       "asset_class": "stocks",
       "quantity": 100,
-      "cost_basis": 150.00,
+      "cost_basis": 15000.00,
+      "market_price": 182.50,
       "purchase_date": "2023-01-15",
       "currency": "USD"
     }

@@ -434,7 +434,8 @@ For each holding found, extract:
 - security_symbol: The ticker symbol or identifier (e.g., AAPL)
 - security_name: The full name
 - quantity: Number of shares
-- cost_basis: Total cost basis
+- cost_basis: Total cost basis for all shares (not per-share)
+- market_price: Current market price per share as shown in the document (look for columns labeled "Current Price", "Market Price", "Last Price", "Price", "Mkt Price", or similar; use null if not present)
 - purchase_date: Date of purchase
 - security_type: STOCK, BOND, ETF, MUTUAL_FUND, CASH
 - asset_class: STOCKS, BONDS, CASH, REAL_ESTATE, COMMODITIES
@@ -457,6 +458,7 @@ The JSON structure must be:
       "security_name": "...",
       "quantity": 0,
       "cost_basis": 0,
+      "market_price": 0,
       "purchase_date": "...",
       "security_type": "...",
       "asset_class": "..."

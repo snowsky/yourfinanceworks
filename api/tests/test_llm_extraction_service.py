@@ -151,7 +151,7 @@ MSFT,Microsoft Corp.,50,12000"""
     @pytest.mark.asyncio
     async def test_extract_holdings_from_csv_file_not_found(self, extraction_service):
         """Test CSV extraction fails when file not found"""
-        with pytest.raises(ValueError, match="Failed to extract holdings from CSV"):
+        with pytest.raises(ValueError, match="Failed to extract portfolio data from CSV"):
             await extraction_service.extract_holdings_from_csv("/nonexistent/file.csv")
 
     def test_parse_extracted_holdings_valid_json(self, extraction_service):
@@ -287,8 +287,9 @@ MSFT,Microsoft Corp.,50,12000"""
         assert "security_symbol" in prompt
         assert "quantity" in prompt
         assert "cost_basis" in prompt
-        assert "{document_content}" in prompt
-        assert "{document_type}" in prompt
+        assert "market_price" in prompt
+        assert "{{ document_content }}" in prompt
+        assert "{{ document_type }}" in prompt
 
     @pytest.mark.asyncio
     async def test_extract_holdings_from_pdf_ocr_failure(self, extraction_service, mock_ocr_service):

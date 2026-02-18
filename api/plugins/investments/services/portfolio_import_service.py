@@ -759,7 +759,24 @@ class PortfolioImportService:
                     )
 
                     # Create holding via holdings service
-                    self.holdings_service.create_holding(tenant_id, portfolio_id, holding_create)
+                    new_holding = self.holdings_service.create_holding(tenant_id, portfolio_id, holding_create)
+
+                    # Persist market price if extracted from the document
+                    raw_market_price = holding_data.get("market_price")
+                    if raw_market_price is not None:
+                        try:
+                            market_price_decimal = Decimal(str(raw_market_price))
+                            if market_price_decimal > 0:
+                                self.holdings_repo.update_price(new_holding.id, market_price_decimal)
+                                logger.info(
+                                    f"Set market price for {holding_data.get('security_symbol')}: "
+                                    f"{market_price_decimal}"
+                                )
+                        except Exception as price_e:
+                            logger.warning(
+                                f"Failed to set market price for {holding_data.get('security_symbol')}: {price_e}"
+                            )
+                            # Non-fatal: holding was created successfully, just without market price
 
                     created_count += 1
                     process_log["holdings"]["created"].append({
