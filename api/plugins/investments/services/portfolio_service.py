@@ -234,6 +234,7 @@ class PortfolioService:
         # Check holdings count before deletion
         holdings_count = self.holdings_repo.count_by_portfolio(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             include_closed=False
         )
 

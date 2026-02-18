@@ -89,7 +89,7 @@ class TransactionService:
         self._validate_transaction_data(transaction_data)
 
         # Check for duplicate transactions
-        self._check_duplicate_transaction(portfolio_id, transaction_data)
+        self._check_duplicate_transaction(tenant_id, portfolio_id, transaction_data)
 
         # Dispatch to appropriate processing method
         if transaction_type == TransactionType.BUY:
@@ -608,7 +608,7 @@ class TransactionService:
             except (ValueError, TypeError):
                 raise ValidationError("Invalid fees format")
 
-    def _check_duplicate_transaction(self, portfolio_id: int, transaction_data: Dict[str, Any]):
+    def _check_duplicate_transaction(self, tenant_id: int, portfolio_id: int, transaction_data: Dict[str, Any]):
         """
         Check for duplicate transactions within a time window.
 

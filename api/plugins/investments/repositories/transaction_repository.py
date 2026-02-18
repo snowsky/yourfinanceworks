@@ -101,26 +101,33 @@ class TransactionRepository:
 
         return transaction
 
-    def get_by_id(self, transaction_id: int) -> Optional[InvestmentTransaction]:
+    def get_by_id(self, transaction_id: int, tenant_id: Optional[int] = None) -> Optional[InvestmentTransaction]:
         """
         Get a transaction by ID with tenant isolation through portfolio ownership.
 
         Args:
             transaction_id: Transaction ID
+            tenant_id: Tenant ID for isolation (optional)
 
         Returns:
             Transaction instance if found and accessible, None otherwise
         """
-        return self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
+        query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.id == transaction_id,
                 InvestmentPortfolio.is_archived == False
             )
-        ).first()
+        )
+        
+        if tenant_id is not None:
+            query = query.filter(InvestmentPortfolio.tenant_id == tenant_id)
+            
+        return query.first()
 
     def get_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         transaction_types: Optional[List[TransactionType]] = None,
@@ -145,6 +152,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
@@ -173,6 +181,7 @@ t_date: Start date filter (inclusive)
     def get_by_date_range(
         self,
         portfolio_id: int,
+        tenant_id: int,
         start_date: date,
         end_date: date,
         transaction_types: Optional[List[TransactionType]] = None
@@ -192,6 +201,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_date >= start_date,
                 InvestmentTransaction.transaction_date <= end_date,
                 InvestmentPortfolio.is_archived == False
@@ -206,6 +216,7 @@ t_date: Start date filter (inclusive)
     def get_by_holding(
         self,
         holding_id: int,
+        tenant_id: int,
         transaction_types: Optional[List[TransactionType]] = None
     ) -> List[InvestmentTransaction]:
         """
@@ -221,6 +232,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.holding_id == holding_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
@@ -257,6 +269,7 @@ t_date: Start date filter (inclusive)
     def get_dividend_transactions(
         self,
         portfolio_id: int,
+        tenant_id: int,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[InvestmentTransaction]:
@@ -273,17 +286,19 @@ t_date: Start date filter (inclusive)
         """
         return self.get_by_portfolio(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             start_date=start_date,
             end_date=end_date,
             transaction_types=[TransactionType.DIVIDEND]
         )
 
-    def get_realized_gains_for_year(self, portfolio_id: int, tax_year: int) -> List[InvestmentTransaction]:
+    def get_realized_gains_for_year(self, portfolio_id: int, tenant_id: int, tax_year: int) -> List[InvestmentTransaction]:
         """
         Get all sell transactions with realized gains for a specific tax year.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             tax_year: Tax year (e.g., 2024)
 
         Returns:
@@ -295,6 +310,7 @@ t_date: Start date filter (inclusive)
         return self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_type == TransactionType.SELL,
                 InvestmentTransaction.transaction_date >= start_date,
                 InvestmentTransaction.transaction_date <= end_date,
@@ -303,12 +319,13 @@ t_date: Start date filter (inclusive)
             )
         ).order_by(asc(InvestmentTransaction.transaction_date)).all()
 
-    def get_dividends_for_year(self, portfolio_id: int, tax_year: int) -> List[InvestmentTransaction]:
+    def get_dividends_for_year(self, portfolio_id: int, tenant_id: int, tax_year: int) -> List[InvestmentTransaction]:
         """
         Get all dividend transactions for a specific tax year.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             tax_year: Tax year (e.g., 2024)
 
         Returns:
@@ -317,11 +334,12 @@ t_date: Start date filter (inclusive)
         start_date = date(tax_year, 1, 1)
         end_date = date(tax_year, 12, 31)
 
-        return self.get_dividend_transactions(portfolio_id, start_date, end_date)
+        return self.get_dividend_transactions(portfolio_id, tenant_id, start_date, end_date)
 
     def calculate_total_dividends(
         self,
         portfolio_id: int,
+        tenant_id: int,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> Decimal:
@@ -341,6 +359,7 @@ t_date: Start date filter (inclusive)
         ).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_type == TransactionType.DIVIDEND,
                 InvestmentPortfolio.is_archived == False
             )
@@ -354,12 +373,13 @@ t_date: Start date filter (inclusive)
         result = query.scalar()
         return result or Decimal('0')
 
-    def calculate_total_realized_gains(self, portfolio_id: int, tax_year: Optional[int] = None) -> Decimal:
+    def calculate_total_realized_gains(self, portfolio_id: int, tenant_id: int, tax_year: Optional[int] = None) -> Decimal:
         """
         Calculate total realized gains for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             tax_year: Optional tax year to filter by
 
         Returns:
@@ -370,6 +390,7 @@ t_date: Start date filter (inclusive)
         ).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_type == TransactionType.SELL,
                 InvestmentTransaction.realized_gain.isnot(None),
                 InvestmentPortfolio.is_archived == False
@@ -389,12 +410,13 @@ t_date: Start date filter (inclusive)
         result = query.scalar()
         return result or Decimal('0')
 
-    def get_transactions_for_tax_export(self, portfolio_id: int, tax_year: int) -> List[InvestmentTransaction]:
+    def get_transactions_for_tax_export(self, portfolio_id: int, tenant_id: int, tax_year: int) -> List[InvestmentTransaction]:
         """
         Get all transactions relevant for tax reporting for a specific year.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             tax_year: Tax year (e.g., 2024)
 
         Returns:
@@ -406,6 +428,7 @@ t_date: Start date filter (inclusive)
         return self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_date >= start_date,
                 InvestmentTransaction.transaction_date <= end_date,
                 or_(
@@ -422,6 +445,7 @@ t_date: Start date filter (inclusive)
     def count_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         transaction_types: Optional[List[TransactionType]] = None
     ) -> int:
         """
@@ -437,6 +461,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(func.count(InvestmentTransaction.id)).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
@@ -446,18 +471,19 @@ t_date: Start date filter (inclusive)
 
         return query.scalar() or 0
 
-    def get_latest_transactions(self, portfolio_id: int, limit: int = 10) -> List[InvestmentTransaction]:
+    def get_latest_transactions(self, portfolio_id: int, tenant_id: int, limit: int = 10) -> List[InvestmentTransaction]:
         """
         Get the most recent transactions for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             limit: Maximum number of transactions to return
 
         Returns:
             List of recent transactions ordered by date (descending)
         """
-        return self.get_by_portfolio(portfolio_id, limit=limit)
+        return self.get_by_portfolio(portfolio_id, tenant_id, limit=limit)
 
     def check_duplicate_transaction(
         self,
@@ -490,6 +516,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.transaction_type == transaction_type,
                 InvestmentTransaction.transaction_date == transaction_date,
                 InvestmentTransaction.total_amount == total_amount,
@@ -539,12 +566,13 @@ t_date: Start date filter (inclusive)
             )
         ).first() is not None
 
-    def get_portfolio_transaction_summary(self, portfolio_id: int) -> dict:
+    def get_portfolio_transaction_summary(self, portfolio_id: int, tenant_id: int) -> dict:
         """
         Get transaction summary statistics for a portfolio.
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
 
         Returns:
             Dictionary with transaction counts by type and total amounts
@@ -557,6 +585,7 @@ t_date: Start date filter (inclusive)
         ).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         ).group_by(InvestmentTransaction.transaction_type).all()
@@ -586,13 +615,14 @@ t_date: Start date filter (inclusive)
                 summary['total_dividend_amount'] = total_amount or Decimal('0')
 
         # Get total realized gains separately
-        summary['total_realized_gains'] = self.calculate_total_realized_gains(portfolio_id)
+        summary['total_realized_gains'] = self.calculate_total_realized_gains(portfolio_id, tenant_id)
 
         return summary
 
     def get_recent_transactions(
         self,
         portfolio_id: int,
+        tenant_id: int,
         since: datetime,
         limit: Optional[int] = 100
     ) -> List[InvestmentTransaction]:
@@ -601,6 +631,7 @@ t_date: Start date filter (inclusive)
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for isolation
             since: Get transactions created since this datetime
             limit: Maximum number of transactions to return
 
@@ -610,6 +641,7 @@ t_date: Start date filter (inclusive)
         return self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentTransaction.created_at >= since,
                 InvestmentPortfolio.is_archived == False
             )

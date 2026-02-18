@@ -208,6 +208,7 @@ class PortfolioRepository:
         ).filter(
             and_(
                 InvestmentPortfolio.id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         ).group_by(InvestmentPortfolio.id).first()
@@ -241,7 +242,7 @@ class PortfolioRepository:
         if not include_archived:
             query = query.filter(InvestmentPortfolio.is_archived == False)
 
-        return query.group_by(InvestmentPortfolio.id).order_by(
+        return query.filter(InvestmentPortfolio.tenant_id == tenant_id).group_by(InvestmentPortfolio.id).order_by(
             InvestmentPortfolio.created_at.desc()
         ).all()
 
@@ -278,6 +279,7 @@ class PortfolioRepository:
         return self.db.query(InvestmentPortfolio.id).filter(
             and_(
                 InvestmentPortfolio.id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         ).first() is not None
