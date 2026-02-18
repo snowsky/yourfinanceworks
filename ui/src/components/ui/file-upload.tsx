@@ -27,6 +27,10 @@ interface FileUploadProps {
   uploading?: boolean;
   enableCompression?: boolean;
   enableBulkOperations?: boolean;
+  customText?: {
+    dragAndDrop?: string;
+    supports?: string;
+  };
 }
 
 export function FileUpload({
@@ -40,6 +44,7 @@ export function FileUpload({
   uploading = false,
   enableCompression = true,
   enableBulkOperations = true,
+  customText,
 }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
@@ -353,7 +358,7 @@ export function FileUpload({
       >
         <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
         <p className="text-sm text-gray-600 mb-2">
-          Drag and drop files here, or{' '}
+          {customText?.dragAndDrop || 'Drag and drop files here, or'}{' '}
           <button
             type="button"
             className="text-blue-600 hover:text-blue-800 font-medium"
@@ -363,7 +368,7 @@ export function FileUpload({
           </button>
         </p>
         <p className="text-xs text-gray-500">
-          Supports: {allowedTypes.join(', ')} • Max: {maxFileSize}MB each
+          {customText?.supports || `Supports: ${allowedTypes.join(', ')} • Max: ${maxFileSize}MB each`}
         </p>
         <input
           ref={fileInputRef}

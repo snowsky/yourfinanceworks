@@ -236,9 +236,9 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold text-lg">{t('Uploaded Files')}</h3>
+              <h3 className="font-bold text-lg">{t('file_upload.uploaded_files')}</h3>
               <p className="text-sm text-muted-foreground">
-                {t('Track the status of your holdings file imports')}
+                {t('file_upload.track_status_description')}
               </p>
             </div>
           </div>
@@ -260,10 +260,10 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                       <div>
-                        <span className="font-medium">{t('Size')}:</span> {formatFileSize(attachment.file_size)}
+                        <span className="font-medium">{t('file_upload.size')}:</span> {formatFileSize(attachment.file_size)}
                       </div>
                       <div>
-                        <span className="font-medium">{t('Uploaded')}:</span>{' '}
+                        <span className="font-medium">{t('file_upload.uploaded')}:</span>{' '}
                         {format(parseISO(attachment.created_at), 'MMM d, yyyy HH:mm')}
                       </div>
                     </div>

@@ -56,14 +56,14 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
       onUploadSuccess?.();
     },
     onError: (error: any) => {
-      const errorMessage = error?.message || t('Failed to upload files');
+      const errorMessage = error?.message || t('file_upload.failed_to_upload_files');
       toast.error(errorMessage);
     },
   });
 
   const handleFilesSelected = (files: FileData[]) => {
     if (files.length + selectedFiles.length > 12) {
-      toast.error(t('Maximum 12 files per upload'));
+      toast.error(t('file_upload.maximum_files_per_upload'));
       return;
     }
     setSelectedFiles([...selectedFiles, ...files]);
@@ -89,9 +89,11 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             <Upload className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-bold text-lg">{t('Import Portfolio Data')}</h3>
+            <h3 className="font-bold text-lg">{t('file_upload.import_portfolio_data')}</h3>
 
-            <p className="text-sm text-muted-foreground">{t('Upload PDF or CSV files to automatically extract holdings and transaction history.')}</p>
+            <p className="text-sm text-muted-foreground">{t('file_upload.upload_description')}</p>
+
+            <p className="text-xs text-muted-foreground mt-2">{t('file_upload.processing_note')}</p>
 
           </div>
         </div>
@@ -110,14 +112,17 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             onFilesSelected={handleFilesSelected}
             maxFiles={12}
             allowedTypes={['application/pdf', 'text/csv']}
-            title={t('Select Portfolio Files')}
-
+            title={t('file_upload.select_portfolio_files')}
             maxFileSize={20}
             selectedFiles={selectedFiles}
             onRemoveFile={handleRemoveFile}
             uploading={uploadFilesMutation.isPending}
             enableCompression={false}
             enableBulkOperations={true}
+            customText={{
+              dragAndDrop: t('file_upload.drag_and_drop_description'),
+              supports: t('file_upload.supports_info')
+            }}
           />
         </div>
 
@@ -140,7 +145,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             onClick={() => setSelectedFiles([])}
             disabled={uploadFilesMutation.isPending || selectedFiles.length === 0}
           >
-            {t('Clear')}
+            {t('file_upload.clear')}
           </ProfessionalButton>
           <ProfessionalButton
             type="button"
@@ -150,7 +155,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             onClick={handleSubmit}
             disabled={selectedFiles.length === 0}
           >
-            {t('Upload Files')}
+            {t('file_upload.upload_files')}
           </ProfessionalButton>
         </div>
       </div>
