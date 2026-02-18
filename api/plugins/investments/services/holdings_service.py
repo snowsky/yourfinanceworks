@@ -110,7 +110,7 @@ class HoldingsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, include_closed=include_closed)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id, include_closed=include_closed)
 
         return [HoldingResponse.from_orm(holding) for holding in holdings]
 

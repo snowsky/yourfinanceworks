@@ -921,7 +921,7 @@ class PortfolioImportService:
                     security_symbol = transaction_data.get("security_symbol")
                     if security_symbol and transaction_type not in [TransactionType.DIVIDEND]:
                         # Try to find existing holding
-                        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+                        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
                         for holding in holdings:
                             if holding.security_symbol.upper() == security_symbol.upper():
                                 holding_id = holding.id

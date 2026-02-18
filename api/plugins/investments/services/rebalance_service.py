@@ -69,7 +69,7 @@ class RebalanceService:
             return None
 
         # Get current holdings and calculate current allocation
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
         current_allocation = self.analyzer.calculate_asset_allocation(holdings)
 
         total_value = current_allocation.total_value

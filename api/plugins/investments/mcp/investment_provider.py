@@ -156,7 +156,7 @@ class InvestmentMCPProvider:
 
             # Search for holdings with the specified symbol across all portfolios
             for portfolio in portfolios:
-                holdings = self.holdings_repo.get_by_portfolio(portfolio.id)
+                holdings = self.holdings_repo.get_by_portfolio(portfolio.id, portfolio.tenant_id)
 
                 for holding in holdings:
                     if holding.security_symbol.upper() == symbol.upper() and not holding.is_closed:
@@ -319,7 +319,7 @@ class InvestmentMCPProvider:
                 }
 
             # Get current holdings with dividend potential
-            holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+            holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
             dividend_holdings = []
 
             # Get dividend history for different periods

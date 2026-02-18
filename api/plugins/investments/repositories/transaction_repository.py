@@ -121,6 +121,7 @@ class TransactionRepository:
     def get_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         transaction_types: Optional[List[TransactionType]] = None,
@@ -132,8 +133,8 @@ class TransactionRepository:
 
         Args:
             portfolio_id: Portfolio ID
-            star
-t_date: Start date filter (inclusive)
+            tenant_id: Tenant ID for security
+            start_date: Start date filter (inclusive)
             end_date: End date filter (inclusive)
             transaction_types: List of transaction types to filter by
             limit: Maximum number of results
@@ -145,6 +146,7 @@ t_date: Start date filter (inclusive)
         query = self.db.query(InvestmentTransaction).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
