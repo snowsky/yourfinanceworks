@@ -211,6 +211,7 @@ async def get_portfolio(
         portfolio_response = PortfolioResponse.model_validate(portfolio)
         portfolio_response.total_value = summary.get('total_value', 0)
         portfolio_response.holdings_count = summary.get('holdings_count', 0)
+        portfolio_response.total_cost = summary.get('total_cost_basis', 0)
 
         return portfolio_response
     except InvestmentError:

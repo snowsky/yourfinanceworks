@@ -605,8 +605,14 @@ const InvestmentDashboard: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <div className="flex items-center justify-end gap-1 text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
-                          <TrendingUp className="w-4 h-4" />
-                          <span>+2.5%</span>
+                          {portfolio.total_cost && portfolio.total_value ? (
+                            <>
+                              <TrendingUp className="w-4 h-4" />
+                              <span>{formatPercentage(((portfolio.total_value - portfolio.total_cost) / portfolio.total_cost) * 100)}</span>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">{t('portfolio.no_performance_data')}</span>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground font-medium">{portfolio.holdings_count || 0} {t('portfolio.holdings_count')}</p>
                       </div>
@@ -665,7 +671,11 @@ const InvestmentDashboard: React.FC = () => {
                         <div className="font-bold text-base tracking-tight">
                           {formatCurrency(portfolio.total_value || 0)}
                         </div>
-                        <div className="text-[10px] text-emerald-600 font-bold">+2.45% today</div>
+                        {portfolio.total_cost && portfolio.total_value ? (
+                          <div className="text-[10px] text-emerald-600 font-bold">
+                            {formatPercentage(((portfolio.total_value - portfolio.total_cost) / portfolio.total_cost) * 100)} today
+                          </div>
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-right pr-6">
                         <div className="flex items-center justify-end gap-1">

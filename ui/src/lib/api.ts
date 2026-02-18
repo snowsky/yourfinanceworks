@@ -450,14 +450,16 @@ export interface InventoryDashboardData {
 export interface InvestmentPortfolio {
   id: number;
   name: string;
-  portfolio_type: 'taxable' | 'retirement' | 'business';
+  portfolio_type: string;
+  description?: string;
   is_archived: boolean;
-  created_at: string;
-  updated_at: string;
+  currency: string;
   holdings_count?: number;
   total_value?: number;
-  currency?: string;
+  total_cost?: number;
   target_allocations?: Record<string, number>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DeletedPortfolio extends InvestmentPortfolio {
@@ -466,6 +468,7 @@ export interface DeletedPortfolio extends InvestmentPortfolio {
   deleted_by_username?: string | null;
 }
 
+// ... rest of the code remains the same ...
 export interface PortfolioListResponse {
   items: InvestmentPortfolio[];
   total: number;
