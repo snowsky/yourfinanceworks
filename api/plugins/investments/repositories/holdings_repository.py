@@ -13,7 +13,7 @@ to ensure data isolation.
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from ..models import InvestmentHolding, InvestmentPortfolio, SecurityType, AssetClass
