@@ -326,7 +326,8 @@ async def test_ai_config_with_overrides(
                 "model": model_name,
                 "messages": [{"role": "user", "content": test_text}],
                 "max_tokens": max_tokens,
-                "temperature": temperature
+                "temperature": temperature,
+                "timeout": 30  # 30 second timeout for testing
             }
 
             # Add provider-specific configuration using override values
@@ -353,8 +354,10 @@ async def test_ai_config_with_overrides(
             import litellm
             litellm._turn_on_debug()
 
-            # Make the test call
-            response = completion(**kwargs)
+            # Make the test call non-blocking
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, lambda: completion(**kwargs))
 
             end_time = datetime.now(timezone.utc)
             response_time = (end_time - start_time).total_seconds() * 1000
@@ -429,7 +432,8 @@ async def test_ai_config(
                 "model": model_name,
                 "messages": [{"role": "user", "content": test_text}],
                 "max_tokens": min(db_config.max_tokens, 100),  # Limit for testing
-                "temperature": db_config.temperature
+                "temperature": db_config.temperature,
+                "timeout": 30  # 30 second timeout for testing
             }
 
             # Add provider-specific configuration
@@ -456,8 +460,10 @@ async def test_ai_config(
             import litellm
             litellm._turn_on_debug()
 
-            # Make the test call
-            response = completion(**kwargs)
+            # Make the test call non-blocking
+            import asyncio
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, lambda: completion(**kwargs))
 
             end_time = datetime.now(timezone.utc)
             response_time = (end_time - start_time).total_seconds() * 1000

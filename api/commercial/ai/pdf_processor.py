@@ -210,6 +210,7 @@ Respond with JSON only:"""
         kwargs = {
             "model": model_name,
             "messages": [{"role": "user", "content": prompt}],
+            "timeout": 120,  # 120 second timeout for PDF processing
             **model_params
         }
 

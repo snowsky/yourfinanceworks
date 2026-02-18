@@ -592,7 +592,8 @@ JSON:"""
                         "model": extraction_model,
                         "messages": [{"role": "user", "content": extraction_prompt}],
                         "temperature": 0.0, # Deterministic output
-                        "max_tokens": 150
+                        "max_tokens": 150,
+                        "timeout": 30  # 30 second timeout for client extraction
                     }
 
                     if ai_config.provider_name == "ollama" and ai_config.provider_url:
@@ -738,7 +739,8 @@ JSON:"""
                         "model": extraction_model,
                         "messages": [{"role": "user", "content": extraction_prompt}],
                         "temperature": 0.0, 
-                        "max_tokens": 150
+                        "max_tokens": 150,
+                        "timeout": 30  # 30 second timeout for expense extraction
                     }
 
                     if ai_config.provider_name == "ollama" and ai_config.provider_url:
@@ -845,6 +847,7 @@ Expense has been recorded.
         kwargs = {
             "model": model_name, 
             "messages": [{"role": "user", "content": intent_prompt}],
+            "timeout": 30,  # 30 second timeout for intent classification
             **model_params
         }
 
@@ -1676,7 +1679,8 @@ This comprehensive statistical analysis was performed using your actual invoice 
         kwargs = {
             "model": model_name,
             "messages": [{"role": "user", "content": request.message}],
-            "max_tokens": 500
+            "max_tokens": 500,
+            "timeout": 60  # 60 second timeout for main AI response
         }
 
         # Add provider-specific configuration
