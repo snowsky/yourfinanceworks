@@ -91,4 +91,4 @@ azure-storage-blob==12.27.1
 google-cloud-storage==3.5.0
 
 # Market data service
-aiohttp>=3.8.0  # Async HTTP client for market data APIs
+aiohttp>=3.13.3  # Async HTTP client for market data APIs
