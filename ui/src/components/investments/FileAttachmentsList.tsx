@@ -271,9 +271,16 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     {attachment.status === 'completed' && (
                       <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                         <p className="text-sm text-emerald-700">
-                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings_label')}{attachment.extracted_transactions_count > 0 && (
-                            <>, <span className="font-medium">{attachment.extracted_transactions_count}</span> {t('transactions_label')}</>
-                          )} {t('created_label')}
+                          {attachment.extracted_transactions_count > 0 ? (
+                            t('x_holdings_y_transactions_created', {
+                              holdings: attachment.extracted_holdings_count,
+                              transactions: attachment.extracted_transactions_count
+                            })
+                          ) : (
+                            t('x_holdings_created', {
+                              count: attachment.extracted_holdings_count
+                            })
+                          )}
                         </p>
                       </div>
                     )}
@@ -281,11 +288,17 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     {attachment.status === 'partial' && (
                       <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
                         <p className="text-sm text-amber-700">
-                          <span className="font-medium">{attachment.extracted_holdings_count}</span> {t('holdings_label')}{attachment.extracted_transactions_count > 0 && (
-                            <>, <span className="font-medium">{attachment.extracted_transactions_count}</span> {t('transactions_label')}</>
-                          )} {t('created_label')}
-                          {(attachment.failed_holdings_count > 0 || attachment.failed_transactions_count > 0) && (
-                            <>, <span className="font-medium">{attachment.failed_holdings_count + attachment.failed_transactions_count}</span> {t('failed')}</>
+                          {(attachment.failed_holdings_count > 0 || attachment.failed_transactions_count > 0) ? (
+                            t('x_holdings_y_transactions_z_failed', {
+                              holdings: attachment.extracted_holdings_count,
+                              transactions: attachment.extracted_transactions_count,
+                              failed: attachment.failed_holdings_count + attachment.failed_transactions_count
+                            })
+                          ) : (
+                            t('x_holdings_y_transactions_created', {
+                              holdings: attachment.extracted_holdings_count,
+                              transactions: attachment.extracted_transactions_count
+                            })
                           )}
                         </p>
                       </div>

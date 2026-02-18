@@ -175,7 +175,10 @@
     "transactions_label": "transactions",
     "created_label": "créé",
     "error_label": "Erreur",
-    "info_label": "Information"
+    "info_label": "Information",
+    "x_holdings_created": "{{count}} positions créées",
+    "x_holdings_y_transactions_created": "{{holdings}} positions, {{transactions}} transactions créées",
+    "x_holdings_y_transactions_z_failed": "{{holdings}} positions, {{transactions}} transactions, {{failed}} échoué"
   },
   "analytics": {
     "title": "Analytiques",
