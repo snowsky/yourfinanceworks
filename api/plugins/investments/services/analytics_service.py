@@ -538,7 +538,7 @@ class AnalyticsService:
         allocation = self.calculate_asset_allocation(tenant_id, portfolio_id)
 
         # Get holdings count
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
         active_holdings_count = len([h for h in holdings if not h.is_closed and h.quantity > 0])
 
         # Get recent dividend income (last 12 months)

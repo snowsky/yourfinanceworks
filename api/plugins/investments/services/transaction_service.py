@@ -506,6 +506,7 @@ class TransactionService:
         # Get transactions
         transactions = self.transaction_repo.get_by_portfolio(
             portfolio_id=portfolio_id,
+            tenant_id=tenant_id,
             start_date=start_date,
             end_date=end_date,
             transaction_types=transaction_types,
