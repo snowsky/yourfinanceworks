@@ -79,20 +79,15 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings and transactions
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
-        transactions = self.transaction_repo.get_by_portfolio(
-            portfolio_id=portfolio_id,
-            tenant_id=tenant_id,
-            start_date=None,
-            end_date=None
-        )
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Calculate metrics using performance calculator
         total_return_percentage = self.performance_calculator.calculate_total_return(holdings, transactions)
         unrealized_gain_loss = self.performance_calculator.calculate_unrealized_gains(holdings)
         realized_gain_loss = self.performance_calculator.calculate_realized_gains(transactions)
         total_value = self.performance_calculator.calculate_total_value(holdings)
-        total_cost = self.performance_calculator.calculate_total_cost(transactions, holdings)
+        total_cost = self.performance_calculator.calculate_total_cost(transactions)
 
         # Calculate total gain/loss
         total_gain_loss = unrealized_gain_loss + realized_gain_loss
@@ -130,7 +125,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
 
         # Calculate allocation using analyzer
         return self.allocation_analyzer.calculate_asset_allocation(holdings)
@@ -171,9 +166,9 @@ class AnalyticsService:
         from ..models import TransactionType
         dividend_transactions = self.transaction_repo.get_by_portfolio(
             portfolio_id=portfolio_id,
-            tenant_id=tenant_id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            transaction_types=[TransactionType.DIVIDEND]
         )
 
         # Calculate total dividend income
@@ -225,7 +220,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get all holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
 
         # Calculate date range for dividend lookup
         end_date = date.today()
@@ -245,9 +240,9 @@ class AnalyticsService:
             from ..models import TransactionType
             holding_dividends = self.transaction_repo.get_by_portfolio(
                 portfolio_id=portfolio_id,
-                tenant_id=tenant_id,
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
+                transaction_types=[TransactionType.DIVIDEND]
             )
 
             # Filter dividends for this specific holding
@@ -304,9 +299,9 @@ class AnalyticsService:
         from ..models import TransactionType
         dividend_transactions = self.transaction_repo.get_by_portfolio(
             portfolio_id=portfolio_id,
-            tenant_id=tenant_id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            transaction_types=[TransactionType.DIVIDEND]
         )
 
         # Group by holding and analyze frequency
@@ -466,7 +461,7 @@ class AnalyticsService:
             raise ValidationError(f"Unsupported export format: {format}")
 
         # Get all transactions for the portfolio
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Export tax data
         return self.tax_exporter.export_transaction_data(transactions, tax_year, format)
@@ -503,7 +498,7 @@ class AnalyticsService:
             raise ValidationError(f"Invalid tax year: {tax_year}")
 
         # Get all transactions for the portfolio
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Get tax export data
         return self.tax_exporter.get_tax_export_data(transactions, tax_year)
@@ -538,7 +533,7 @@ class AnalyticsService:
         allocation = self.calculate_asset_allocation(tenant_id, portfolio_id)
 
         # Get holdings count
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
         active_holdings_count = len([h for h in holdings if not h.is_closed and h.quantity > 0])
 
         # Get recent dividend income (last 12 months)
@@ -717,7 +712,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
 
         # Calculate diversification score
         diversification_score = self.allocation_analyzer.calculate_diversification_score(holdings)
@@ -832,8 +827,8 @@ class AnalyticsService:
             raise ValidationError(f"Unsupported export format: {format}")
 
         # Get portfolio data
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Get performance data if requested
         performance_data = None
@@ -897,7 +892,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get transactions
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Export using portfolio data exporter
         return self.portfolio_exporter.export_transactions_csv(
@@ -931,7 +926,7 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get holdings
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
 
         # Export using portfolio data exporter
         return self.portfolio_exporter.export_holdings_csv(
@@ -968,8 +963,8 @@ class AnalyticsService:
             raise NotFoundError(f"Portfolio {portfolio_id} not found")
 
         # Get portfolio data
-        holdings = self.holdings_repo.get_by_portfolio(portfolio_id, tenant_id)
-        transactions = self.transaction_repo.get_by_portfolio(portfolio_id, tenant_id)
+        holdings = self.holdings_repo.get_by_portfolio(portfolio_id)
+        transactions = self.transaction_repo.get_by_portfolio(portfolio_id)
 
         # Get performance data
         performance_data = None

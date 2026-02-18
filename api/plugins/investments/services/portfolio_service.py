@@ -234,7 +234,6 @@ class PortfolioService:
         # Check holdings count before deletion
         holdings_count = self.holdings_repo.count_by_portfolio(
             portfolio_id=portfolio_id,
-            tenant_id=tenant_id,
             include_closed=False
         )
 
@@ -359,7 +358,7 @@ class PortfolioService:
             )
 
             total_value = self.holdings_repo.get_portfolio_value(portfolio.id, tenant_id)
-            total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio.id)
+            total_cost_basis = self.holdings_repo.get_portfolio_cost_basis(portfolio.id, tenant_id)
 
             summary = {
                 'holdings_count': holdings_count,

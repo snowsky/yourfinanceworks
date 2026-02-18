@@ -231,26 +231,21 @@ class MarketDataService:
             one_day_ago = now - timedelta(days=1)
 
             # All active holdings
-            all_active = self.db.query(InvestmentHolding).filter(
-                and_(
-                    InvestmentHolding.portfolio.has(tenant_id=tenant_id),
-                    InvestmentHolding.is_closed == False
-                )
-            ).count()
+            all_active = self.holdings_repo.get_active_holdings_count(tenant_id)
 
             # Holdings with current prices
-            with_current_price = self.db.query(InvestmentHolding).filter(
+            with_current_price = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
                 and_(
-                    InvestmentHolding.portfolio.has(tenant_id=tenant_id),
+                    InvestmentPortfolio.tenant_id == tenant_id,
                     InvestmentHolding.is_closed == False,
                     InvestmentHolding.current_price.isnot(None)
                 )
             ).count()
 
             # Holdings with recent price updates (within last day)
-            with_recent_updates = self.db.query(InvestmentHolding).filter(
+            with_recent_updates = self.db.query(InvestmentHolding).join(InvestmentPortfolio).filter(
                 and_(
-                    InvestmentHolding.portfolio.has(tenant_id=tenant_id),
+                    InvestmentPortfolio.tenant_id == tenant_id,
                     InvestmentHolding.is_closed == False,
                     InvestmentHolding.price_updated_at >= one_day_ago
                 )
