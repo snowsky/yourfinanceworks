@@ -424,6 +424,7 @@ class TransactionRepository:
     def count_by_portfolio(
         self,
         portfolio_id: int,
+        tenant_id: int,
         transaction_types: Optional[List[TransactionType]] = None
     ) -> int:
         """
@@ -431,6 +432,7 @@ class TransactionRepository:
 
         Args:
             portfolio_id: Portfolio ID
+            tenant_id: Tenant ID for security
             transaction_types: Optional list of transaction types to filter by
 
         Returns:
@@ -439,6 +441,7 @@ class TransactionRepository:
         query = self.db.query(func.count(InvestmentTransaction.id)).join(InvestmentPortfolio).filter(
             and_(
                 InvestmentTransaction.portfolio_id == portfolio_id,
+                InvestmentPortfolio.tenant_id == tenant_id,
                 InvestmentPortfolio.is_archived == False
             )
         )
