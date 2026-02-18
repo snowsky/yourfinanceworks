@@ -75,7 +75,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   const handleSubmit = () => {
     if (selectedFiles.length === 0) {
-      toast.error(t('Please select at least one file'));
+      toast.error(t('file_upload.please_select_at_least_one_file'));
       return;
     }
     uploadFilesMutation.mutate(selectedFiles);
@@ -103,7 +103,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         <Alert className="border-amber-200 bg-amber-50">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
-            {t('Files will be processed in the background. You can track the status below.')}
+            {t('file_upload.processing_note')}
           </AlertDescription>
         </Alert>
 
@@ -129,10 +129,10 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         {selectedFiles.length > 0 && (
           <div className="p-4 rounded-xl bg-muted/50 border border-border/50">
             <p className="text-sm font-medium text-foreground">
-              {t('Ready to upload')}: {selectedFiles.length} {selectedFiles.length === 1 ? t('file') : t('files')}
+              {t('file_upload.ready_to_upload')}: {selectedFiles.length} {selectedFiles.length === 1 ? t('file_upload.file') : t('file_upload.files')}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t('Total size')}: {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(2)} MB
+              {t('file_upload.total_size')}: {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(2)} MB
             </p>
           </div>
         )}

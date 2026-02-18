@@ -160,7 +160,12 @@
     "files_uploaded_successfully": "{{count}} fichier(s) téléchargé(s) avec succès. Le traitement commencera shortly.",
     "failed_to_upload_files": "Échec du téléchargement des fichiers",
     "maximum_files_per_upload": "Maximum 12 fichiers par téléchargement",
-    "file_exceeds_limit": "Le fichier {{name}} dépasse la limite de {{size}}MB"
+    "file_exceeds_limit": "Le fichier {{name}} dépasse la limite de {{size}}MB",
+    "please_select_at_least_one_file": "Veuillez sélectionner au moins un fichier",
+    "ready_to_upload": "Prêt à télécharger",
+    "file": "fichier",
+    "files": "fichiers",
+    "total_size": "Taille totale"
   },
   "analytics": {
     "title": "Analytiques",

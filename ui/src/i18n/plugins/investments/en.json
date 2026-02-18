@@ -161,7 +161,12 @@
     "files_uploaded_successfully": "{{count}} file(s) uploaded successfully. Processing will begin shortly.",
     "failed_to_upload_files": "Failed to upload files",
     "maximum_files_per_upload": "Maximum 12 files per upload",
-    "file_exceeds_limit": "File {{name}} exceeds {{size}}MB limit"
+    "file_exceeds_limit": "File {{name}} exceeds {{size}}MB limit",
+    "please_select_at_least_one_file": "Please select at least one file",
+    "ready_to_upload": "Ready to upload",
+    "file": "file",
+    "files": "files",
+    "total_size": "Total size"
   },
   "analytics": {
     "title": "Analytics",

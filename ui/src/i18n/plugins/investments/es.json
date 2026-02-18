@@ -160,7 +160,12 @@
     "files_uploaded_successfully": "{{count}} archivo(s) subido(s) exitosamente. El procesamiento comenzará shortly.",
     "failed_to_upload_files": "Error al subir archivos",
     "maximum_files_per_upload": "Máximo 12 archivos por subida",
-    "file_exceeds_limit": "Archivo {{name}} excede el límite de {{size}}MB"
+    "file_exceeds_limit": "Archivo {{name}} excede el límite de {{size}}MB",
+    "please_select_at_least_one_file": "Por favor selecciona al menos un archivo",
+    "ready_to_upload": "Listo para subir",
+    "file": "archivo",
+    "files": "archivos",
+    "total_size": "Tamaño total"
   },
   "analytics": {
     "title": "Análisis",

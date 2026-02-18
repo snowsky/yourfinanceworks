@@ -160,7 +160,12 @@
     "files_uploaded_successfully": "{{count}} Datei(en) erfolgreich hochgeladen. Die Verarbeitung beginnt in Kürze.",
     "failed_to_upload_files": "Fehler beim Hochladen der Dateien",
     "maximum_files_per_upload": "Maximum 12 Dateien pro Upload",
-    "file_exceeds_limit": "Datei {{name}} überschreitet {{size}}MB Limit"
+    "file_exceeds_limit": "Datei {{name}} überschreitet {{size}}MB Limit",
+    "please_select_at_least_one_file": "Bitte wählen Sie mindestens eine Datei aus",
+    "ready_to_upload": "Bereit zum Hochladen",
+    "file": "Datei",
+    "files": "Dateien",
+    "total_size": "Gesamtgröße"
   },
   "analytics": {
     "title": "Analytik",
