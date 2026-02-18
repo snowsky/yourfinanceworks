@@ -199,7 +199,12 @@ class MarketDataService:
             one_day_ago = now - timedelta(days=1)
 
             # All active holdings
-            all_active = self.holdings_repo.get_active_holdings_count(tenant_id)
+            all_active = self.db.query(InvestmentHolding).filter(
+                and_(
+                    InvestmentHolding.portfolio.has(tenant_id=tenant_id),
+                    InvestmentHolding.is_closed == False
+                )
+            ).count()
 
             # Holdings with current prices
             with_current_price = self.db.query(InvestmentHolding).filter(
