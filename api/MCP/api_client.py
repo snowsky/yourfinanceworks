@@ -1002,6 +1002,36 @@ class InvoiceAPIClient:
 
         return overdue_invoices
 
+    # Investment Management Methods
+    async def list_portfolios(self, skip: int = 0, limit: int = None) -> Dict[str, Any]:
+        """List all investment portfolios"""
+        limit = limit or config.DEFAULT_PAGE_SIZE
+        return await self._make_request(
+            "GET",
+            "/investments/portfolios",
+            params={"skip": skip, "limit": limit}
+        )
+
+    async def get_portfolio(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get a specific portfolio by ID"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}")
+
+    async def get_portfolio_holdings(self, portfolio_id: int) -> List[Dict[str, Any]]:
+        """Get holdings for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/holdings")
+
+    async def get_portfolio_performance(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get performance metrics for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/performance")
+
+    async def get_portfolio_allocation(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get asset allocation for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/allocation")
+
+    async def get_portfolio_dividends(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get dividend summary for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/dividends")
+
     async def close(self):
         """Close the HTTP client and auth client"""
         await self._client.aclose()

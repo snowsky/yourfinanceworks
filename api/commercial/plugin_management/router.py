@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from core.models.models import TenantPluginSettings, Tenant, MasterUser
 from core.models.database import get_master_db
 from core.routers.auth import get_current_user
+from core.services.tenant_database_manager import tenant_db_manager
 
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -110,6 +111,15 @@ async def update_plugin_settings(
     db.commit()
     db.refresh(settings)
 
+    # Trigger schema migration to ensure tables exist for enabled plugins
+    if enabled_plugins:
+        try:
+            tenant_db_manager.migrate_tenant_schema(tenant_id)
+        except Exception as e:
+            # Log but don't fail the request - tables might already exist or migration might be partial
+            import logging
+            logging.getLogger(__name__).error(f"Failed to migrate schema for tenant {tenant_id} on plugin enablement: {e}")
+
     return {
         "tenant_id": tenant_id,
         "enabled_plugins": settings.enabled_plugins,
@@ -162,6 +172,14 @@ async def enable_plugin(
 
     db.commit()
     db.refresh(settings)
+
+    # Trigger schema migration to ensure tables exist for the enabled plugin
+    try:
+        tenant_db_manager.migrate_tenant_schema(tenant_id)
+    except Exception as e:
+        # Log but don't fail the request
+        import logging
+        logging.getLogger(__name__).error(f"Failed to migrate schema for tenant {tenant_id} on plugin '{plugin_id}' enable: {e}")
 
     return {
         "tenant_id": tenant_id,

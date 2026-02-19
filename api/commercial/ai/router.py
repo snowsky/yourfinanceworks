@@ -431,6 +431,35 @@ class AuthenticatedAPIClient:
             "data": result if isinstance(result, list) else result.get("statements", [])
         }
 
+    # Investment Management Methods
+    async def list_portfolios(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """List all investment portfolios"""
+        return await self._make_request(
+            "GET",
+            "/investments/portfolios",
+            params={"skip": skip, "limit": limit}
+        )
+
+    async def get_portfolio(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get a specific portfolio by ID"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}")
+
+    async def get_portfolio_holdings(self, portfolio_id: int) -> List[Dict[str, Any]]:
+        """Get holdings for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/holdings")
+
+    async def get_portfolio_performance(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get performance metrics for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/performance")
+
+    async def get_portfolio_allocation(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get asset allocation for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/allocation")
+
+    async def get_portfolio_dividends(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get dividend summary for a specific portfolio"""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/dividends")
+
     async def close(self):
         await self._client.aclose()
 
@@ -532,6 +561,7 @@ Categories:
 - outstanding: outstanding balances, unpaid amounts, debts
 - overdue: overdue invoices, late payments
 - statistics: statistics, summaries, totals, counts
+- investments: investment portfolios, holdings, performance, dividends, trade history
 - general: general questions not related to business data
 
 User message: "{request.message}"
@@ -883,6 +913,8 @@ Expense has been recorded.
                     intent = "overdue"
                 elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
                     intent = "statistics"
+                elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
+                    intent = "investments"
                 else:
                     intent = "general"
 
@@ -915,6 +947,80 @@ Expense has been recorded.
         print("MCP Integration: API client and tools initialized successfully")
 
         # Execute MCP tool based on AI-classified intent
+        if intent == "investments":
+            print(f"MCP Integration: Detected investments intent in message: '{request.message}'")
+            try:
+                # 1. Check Feature license
+                from core.utils.feature_gate import feature_enabled
+                if not feature_enabled("investments", db):
+                    mcp_response = "The Investment Management feature is not enabled for your account. Please contact your administrator or upgrade your license to access your investment data."
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": mcp_response,
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
+
+                # 2. List Portfolios
+                print("MCP Integration: Listing portfolios...")
+                result = await tools.list_portfolios()
+
+                if result.get("success"):
+                    portfolios = result.get("data", [])
+                    if portfolios:
+                        # If the user mentioned a specific portfolio name, we could try to get its summary
+                        # For now, let's show the summary of all portfolios
+                        portfolio_lines = []
+                        total_market_value = 0
+
+                        for p in portfolios:
+                            val = p.get('total_value', 0)
+                            total_market_value += val
+                            perf = p.get('return_percentage', 0)
+                            perf_str = f"{perf:+.2f}%" if perf != 0 else "0.00%"
+
+                            line = (f"• **{p.get('name', 'Unnamed Portfolio')}** ({p.get('type', 'Unknown')})\n"
+                                   f"  💰 Value: ${val:,.2f} | 📈 Return: {perf_str}\n"
+                                   f"  📊 Holdings: {p.get('holdings_count', 0)}")
+                            portfolio_lines.append(line)
+
+                        portfolio_display = "\n".join(portfolio_lines)
+
+                        mcp_response = f"""
+📈 **Investment Portfolio Overview**
+
+📊 **Business Summary:**
+• **Total Portfolios:** {len(portfolios)}
+• **Total Market Value:** ${total_market_value:,.2f}
+
+💼 **Individual Portfolios:**
+{portfolio_display}
+
+📋 **Data Source:**
+This information was retrieved from your investment management plugin via advanced MCP tools.
+                        """.strip()
+                    else:
+                        mcp_response = "You don't have any investment portfolios set up yet."
+
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": mcp_response,
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
+                else:
+                    print(f"MCP Integration: Tool execution failed: {result}")
+                    # Fallback
+            except Exception as e:
+                print(f"MCP Integration: Exception during investments tool execution: {e}")
+                # Fallback
+
         if intent == "analyze_patterns":
             print(f"MCP Integration: Detected analyze pattern in message: '{request.message}'")
             try:

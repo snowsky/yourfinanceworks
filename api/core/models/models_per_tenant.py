@@ -1488,5 +1488,12 @@ class LicenseValidationLog(Base):
 # This prevents "failed to locate a name" errors during mapper initialization
 try:
     from core.models.gamification import UserGamificationProfile  # and others as needed
+    # Investment plugin models
+    from plugins.investments.models import (
+        InvestmentPortfolio,
+        InvestmentHolding,
+        InvestmentTransaction,
+        FileAttachment
+    )
 except ImportError:
     pass

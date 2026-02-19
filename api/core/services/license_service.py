@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from core.models.models_per_tenant import InstallationInfo, LicenseValidationLog
-from core.models.models import GlobalInstallationInfo, GlobalLicenseValidationLog, Tenant
+from core.models.models import GlobalInstallationInfo, GlobalLicenseValidationLog, Tenant, TenantPluginSettings
 
 logger = logging.getLogger(__name__)
 
@@ -1359,43 +1359,53 @@ class LicenseService:
             List of feature IDs that are enabled
         """
         installation = self._get_or_create_installation()
+        enabled_features = ["core"]
 
         # 1. Check local license status first
         if installation.license_status == "personal":
-            return ["core"]
-
-        # If local trial is active or in grace period
-        if self.is_trial_active() or self.is_in_grace_period():
+            # Personal use: only core features
+            pass
+        elif self.is_trial_active() or self.is_in_grace_period():
             return ["all"]
-
-        # If local license is active
-        if installation.license_status in ["active", "commercial"]:
+        elif installation.license_status in ["active", "commercial"]:
             # Verify local license isn't expired
             exp_date = installation.license_expires_at
             if exp_date and exp_date.tzinfo is None:
                 exp_date = exp_date.replace(tzinfo=timezone.utc)
             if not exp_date or datetime.now(timezone.utc) <= exp_date:
-                return (installation.licensed_features or []) + ["core"]
+                enabled_features.extend(installation.licensed_features or [])
 
         # 2. Local license missing or expired - Fallback to Global license
-        global_info = self._get_or_create_global_installation()
+        if len(enabled_features) <= 1:
+            global_info = self._get_or_create_global_installation()
+            ids_match = installation.installation_id == global_info.installation_id
 
-        # Only allow global fallback if the installation IDs match (i.e., tenant hasn't broken away)
-        # and if the tenant isn't explicitly exempted (optional, but requested behavior is linking exemption to custom ID)
+            if ids_match and global_info.license_status in ["active", "commercial"]:
+                # Verify global license isn't expired
+                global_exp = global_info.license_expires_at
+                if global_exp and global_exp.tzinfo is None:
+                    global_exp = global_exp.replace(tzinfo=timezone.utc)
+                if not global_exp or datetime.now(timezone.utc) <= global_exp:
+                    enabled_features.extend(global_info.licensed_features or [])
 
-        # We rely on ID match: if tenant generated a custom ID, they are effectively decoupled.
-        ids_match = installation.installation_id == global_info.installation_id
+        # 3. Add enabled plugins from TenantPluginSettings (Master DB)
+        try:
+            from core.models.database import get_tenant_context
+            tenant_id = get_tenant_context()
 
-        if ids_match and global_info.license_status in ["active", "commercial"]:
-            # Verify global license isn't expired
-            global_exp = global_info.license_expires_at
-            if global_exp and global_exp.tzinfo is None:
-                global_exp = global_exp.replace(tzinfo=timezone.utc)
-            if not global_exp or datetime.now(timezone.utc) <= global_exp:
-                return (global_info.licensed_features or []) + ["core"]
+            # Use master_db if available
+            if tenant_id and self.master_db:
+                settings = self.master_db.query(TenantPluginSettings).filter(
+                    TenantPluginSettings.tenant_id == tenant_id
+                ).first()
+                if settings and settings.enabled_plugins:
+                    for plugin_id in settings.enabled_plugins:
+                        if plugin_id not in enabled_features:
+                            enabled_features.append(plugin_id)
+        except Exception as e:
+            logger.warning(f"Failed to fetch enabled plugins for feature check: {e}")
 
-        # 3. No active license found
-        return ["core"]
+        return list(set(enabled_features))
 
     def has_feature(self, feature_id: str, tier: str = "commercial") -> bool:
         """
