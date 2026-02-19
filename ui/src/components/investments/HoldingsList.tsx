@@ -115,8 +115,8 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
     }
   });
 
-  const formatCurrency = (amount: number) => {
-    return formatter.formatCurrency(amount, 'USD');
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    return formatter.formatCurrency(amount, currency);
   };
 
   const formatPercentage = (percentage: number) => {
@@ -276,7 +276,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                         <div className="flex flex-col items-end">
                           {holding.imported_price != null ? (
                             <>
-                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.imported_price)}</span>
+                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.imported_price, holding.currency)}</span>
                               {holding.imported_price_date && (
                                 <span className="text-[10px] text-muted-foreground opacity-60">{holding.imported_price_date}</span>
                               )}
@@ -292,7 +292,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                         <div className="flex flex-col items-end">
                           {holding.current_price != null ? (
                             <>
-                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price)}</span>
+                              <span className="font-bold text-sm tracking-tight">{formatCurrency(holding.current_price, holding.currency)}</span>
                               {holding.price_updated_at && (
                                 <span className="text-[10px] text-muted-foreground opacity-60">Live</span>
                               )}
@@ -307,12 +307,12 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end gap-0.5">
                           {statementValue != null ? (
-                            <span className="font-bold text-sm tracking-tight text-foreground">{formatCurrency(statementValue)}</span>
+                            <span className="font-bold text-sm tracking-tight text-foreground">{formatCurrency(statementValue, holding.currency)}</span>
                           ) : (
                             <span className="text-[10px] text-muted-foreground opacity-40">—</span>
                           )}
                           {currentValue != null ? (
-                            <span className="font-black text-sm tracking-tight text-primary">{formatCurrency(currentValue)}</span>
+                            <span className="font-black text-sm tracking-tight text-primary">{formatCurrency(currentValue, holding.currency)}</span>
                           ) : (
                             <span className="text-[10px] text-muted-foreground opacity-40">—</span>
                           )}
@@ -323,7 +323,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                         <div className={cn("flex flex-col items-end", isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
                           <div className="flex items-center gap-1 font-black text-sm">
                             {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {formatCurrency(Math.abs(holding.unrealized_gain_loss))}
+                            {formatCurrency(Math.abs(holding.unrealized_gain_loss), holding.currency)}
                           </div>
                           <div className="text-[10px] font-bold opacity-80">{formatPercentage(gainPercentage)}</div>
                         </div>
@@ -408,7 +408,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                     </TableCell>
                     <TableCell className="text-right">
                        <span className={cn("font-bold text-sm", holding.unrealized_gain_loss >= 0 ? "text-emerald-600/70" : "text-rose-600/70")}>
-                        {formatCurrency(holding.unrealized_gain_loss)}
+                        {formatCurrency(holding.unrealized_gain_loss, holding.currency)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right pr-6 text-xs text-muted-foreground font-medium">
