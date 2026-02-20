@@ -204,6 +204,11 @@ async def create_client(
     try:
         logger.info(f"DEBUG: Attempting to create client: name='{client.name}', email='{client.email}'")
 
+        # Prepare client data and normalize email (convert empty strings to None)
+        client_data = client.model_dump()
+        if client_data.get('email') is not None and client_data['email'].strip() == "":
+            client_data['email'] = None
+
         # Check for existing client with same name and email to prevent duplicates
         # Since name and email are encrypted, we need to check all existing clients
         # and compare decrypted values
@@ -211,19 +216,18 @@ async def create_client(
         # 1. Using database triggers for duplicate prevention
         # 2. Maintaining a separate unencrypted index table for lookups
         # 3. Using hash-based lookups with pre-computed hashes
-        existing_clients = db.query(Client).all()
-        for existing_client in existing_clients:
-            if existing_client.name == client.name and existing_client.email == client.email:
-                logger.warning(f"Attempted to create duplicate client: name='{client.name}', email='{client.email}'")
-                raise HTTPException(
-                    status_code=400,
-                    detail=CLIENT_ALREADY_EXISTS
-                )
+        # Only check for duplicates if email is provided (not None)
+        if client_data.get('email') is not None:
+            existing_clients = db.query(Client).all()
+            for existing_client in existing_clients:
+                if existing_client.name == client.name and existing_client.email == client_data['email']:
+                    logger.warning(f"Attempted to create duplicate client: name='{client.name}', email='{client_data['email']}'")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=CLIENT_ALREADY_EXISTS
+                    )
 
         logger.info("DEBUG: No duplicate client found, proceeding with creation")
-        
-        # Prepare client data
-        client_data = client.model_dump()
         
         # If no preferred_currency is provided, use tenant's default currency
         if not client_data.get('preferred_currency') or client_data.get('preferred_currency').strip() == "":
@@ -381,8 +385,13 @@ async def update_client(
 
         update_data = client.model_dump(exclude_unset=True)
 
+        # Normalize email (convert empty strings to None)
+        if 'email' in update_data and update_data['email'] is not None and update_data['email'].strip() == "":
+            update_data['email'] = None
+
         # Check for duplicate client with same name and email (excluding current client)
-        if 'name' in update_data and 'email' in update_data:
+        # Only check if email is provided (not None)
+        if 'name' in update_data and 'email' in update_data and update_data['email'] is not None:
             # Since name and email are encrypted, we need to check all existing clients
             # and compare decrypted values
             existing_clients = db.query(Client).filter(Client.id != client_id).all()

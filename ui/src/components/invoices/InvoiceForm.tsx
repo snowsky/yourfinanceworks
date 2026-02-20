@@ -104,7 +104,12 @@ export function InvoiceForm({
   // Wrapper for client creation that calls the callback
   const handleCreateClientWithCallback = async () => {
     try {
-      await clientManagement.handleCreateClient();
+      const newClient = await clientManagement.handleCreateClient();
+      // Auto-select the newly created client in the dropdown
+      if (newClient && newClient.id) {
+        invoiceForm.form.setValue('client', newClient.id.toString());
+        invoiceForm.form.trigger('client');
+      }
       // Call the onClientCreated callback if provided
       if (onClientCreated) {
         onClientCreated();

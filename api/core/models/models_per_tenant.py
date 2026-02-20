@@ -49,7 +49,7 @@ class Client(Base):
     # No tenant_id needed since each tenant has its own database
 
     name = Column(EncryptedColumn(), index=True)  # Encrypted for privacy
-    email = Column(EncryptedColumn(), unique=True, nullable=False, index=True)  # Encrypted for privacy
+    email = Column(EncryptedColumn(), unique=True, nullable=True, index=True)  # Encrypted for privacy, nullable to allow clients without email
     phone = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     address = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     company = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
