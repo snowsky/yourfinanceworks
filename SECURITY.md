@@ -2,7 +2,7 @@
 
 ## Report a Vulnerability
 
-If you found a security vulnerability, please send an email to hao.1.wang@gmail.com.
+If you found a security vulnerability, please send an email to security@yourfinanceworks.com.
 
 In your message, please include:
 
