@@ -431,17 +431,6 @@ class LicenseService:
                 # Normal verification with automatic expiration checking
                 payload = jwt.decode(license_key, public_key, algorithms=["RS256"])
 
-            # Verify required fields
-            required_fields = ["customer_email", "features"]
-            missing_fields = [f for f in required_fields if f not in payload]
-            if missing_fields:
-                return {
-                    "valid": False,
-                    "payload": payload,
-                    "error": f"Missing required fields: {', '.join(missing_fields)}",
-                    "error_code": "MALFORMED",
-                }
-
             return {
                 "valid": True,
                 "payload": payload,
@@ -769,13 +758,15 @@ class LicenseService:
 
         if not installation:
             # Auto-create local installation record synced with global ID
+            trial_start = datetime.now(timezone.utc)
+            trial_end = trial_start + timedelta(days=TRIAL_DURATION_DAYS)
             installation = InstallationInfo(
                 installation_id=global_id,
                 original_installation_id=global_id, # Store original global ID
-                license_status="invalid",
+                license_status="trial",
                 usage_type=None,
-                trial_start_date=None,
-                trial_end_date=None,
+                trial_start_date=trial_start,
+                trial_end_date=trial_end,
             )
             self.db.add(installation)
             self.db.commit()
@@ -810,13 +801,13 @@ class LicenseService:
 
         # If licensed or personal use, trial is not active
         local_exp = self._ensure_utc(installation.license_expires_at)
-        if installation.license_status in ["active", "personal", "commercial"] and (not local_exp or local_exp > now):
+        if installation.license_status in ["active", "personal", "commercial", "trial"] and (not local_exp or local_exp > now) and (installation.license_key if installation.license_status == "trial" else True):
             return False
 
         # If global license is active, trial is not active
         global_info = self._get_or_create_global_installation()
         global_exp = self._ensure_utc(global_info.license_expires_at)
-        if global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now):
+        if global_info.license_status in ["active", "commercial", "trial"] and (not global_exp or global_exp > now) and (global_info.license_key if global_info.license_status == "trial" else True):
             return False
 
         # If no trial dates set, trial is not active
@@ -878,8 +869,8 @@ class LicenseService:
         local_exp = self._ensure_utc(installation.license_expires_at)
         global_exp = self._ensure_utc(global_info.license_expires_at)
 
-        has_local = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
-        has_global = global_info.license_status in ["active", "commercial"] and (not global_exp or global_exp > now)
+        has_local = installation.license_status in ["active", "commercial", "trial"] and (not local_exp or local_exp > now) and (installation.license_key if installation.license_status == "trial" else True)
+        has_global = global_info.license_status in ["active", "commercial", "trial"] and (not global_exp or global_exp > now) and (global_info.license_key if global_info.license_status == "trial" else True)
         is_personal = installation.license_status == "personal"
 
         trial_suppressed = has_local or has_global or is_personal
@@ -959,8 +950,34 @@ class LicenseService:
                 "error": verification["error"],
             }
 
-        # Extract license information
+        # Extract and Validate license information
         payload = verification["payload"]
+
+        # Verify required fields for activation
+        required_fields = ["customer_email", "features"]
+        missing_fields = [f for f in required_fields if f not in payload]
+        if missing_fields:
+            error_msg = f"License is missing required fields: {', '.join(missing_fields)}"
+            print(f"DEBUG Activation Failed: {error_msg}")
+            self._log_validation(
+                installation=installation,
+                validation_type="activation",
+                validation_result="failed",
+                license_key=license_key,
+                error_code="MISSING_FIELDS",
+                error_message=f"License is missing required fields: {', '.join(missing_fields)}",
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+            return {
+                "success": False,
+                "message": f"License is missing required fields: {', '.join(missing_fields)}",
+                "features": None,
+                "expires_at": None,
+                "error": "MISSING_FIELDS",
+            }
+
         features = payload.get("features", [])
         exp_timestamp = payload.get("exp")
         expires_at = (
@@ -1013,6 +1030,7 @@ class LicenseService:
             license_installation_id = metadata.get("installation_id")
 
         if not license_installation_id:
+            print("DEBUG Activation Failed: MISSING_INSTALLATION_ID")
             # Log failed activation - missing installation ID
             self._log_validation(
                 installation=installation,
@@ -1061,7 +1079,7 @@ class LicenseService:
         installation.license_key = license_key
         installation.license_activated_at = now
         installation.license_expires_at = expires_at
-        installation.license_status = "active"
+        installation.license_status = payload.get("license_type", "active")
         installation.is_licensed = True
         installation.licensed_features = features
         installation.customer_name = payload.get("customer_name")
@@ -1367,7 +1385,7 @@ class LicenseService:
             pass
         elif self.is_trial_active() or self.is_in_grace_period():
             return ["all"]
-        elif installation.license_status in ["active", "commercial"]:
+        elif installation.license_status in ["active", "commercial", "trial"] and (installation.license_key if installation.license_status == "trial" else True):
             # Verify local license isn't expired
             exp_date = installation.license_expires_at
             if exp_date and exp_date.tzinfo is None:
@@ -1380,7 +1398,7 @@ class LicenseService:
             global_info = self._get_or_create_global_installation()
             ids_match = installation.installation_id == global_info.installation_id
 
-            if ids_match and global_info.license_status in ["active", "commercial"]:
+            if ids_match and global_info.license_status in ["active", "commercial", "trial"] and (global_info.license_key if global_info.license_status == "trial" else True):
                 # Verify global license isn't expired
                 global_exp = global_info.license_expires_at
                 if global_exp and global_exp.tzinfo is None:
@@ -1744,7 +1762,7 @@ class LicenseService:
         # 1. Determine if any license is CURRENTLY active
         # Local active check
         local_exp = self._ensure_utc(installation.license_expires_at)
-        local_active = (installation.license_status in ["active", "commercial"]) and (not local_exp or local_exp > now)
+        local_active = (installation.license_status in ["active", "commercial", "trial"] and (installation.license_key if installation.license_status == "trial" else True)) and (not local_exp or local_exp > now)
 
         # Global active check - ONLY if IDs match
         ids_match = installation.installation_id == global_info.installation_id
@@ -1752,7 +1770,8 @@ class LicenseService:
         global_exp = self._ensure_utc(global_info.license_expires_at)
         global_active = (
             ids_match
-            and global_info.license_status in ["active", "commercial"]
+            and global_info.license_status in ["active", "commercial", "trial"]
+            and (global_info.license_key if global_info.license_status == "trial" else True)
             and (not global_exp or global_exp > now)
         )
 
@@ -1785,13 +1804,14 @@ class LicenseService:
         global_exp = self._ensure_utc(global_info.license_expires_at)
         now = datetime.now(timezone.utc)
 
-        local_active = installation.license_status in ["active", "commercial"] and (not local_exp or local_exp > now)
+        local_active = installation.license_status in ["active", "commercial", "trial"] and (installation.license_key if installation.license_status == "trial" else True) and (not local_exp or local_exp > now)
 
         # Global active only if IDs match
         ids_match = installation.installation_id == global_info.installation_id
         global_active = (
             ids_match
-            and global_info.license_status in ["active", "commercial"] 
+            and global_info.license_status in ["active", "commercial", "trial"]
+            and (global_info.license_key if global_info.license_status == "trial" else True)
             and (not global_exp or global_exp > now)
         )
 
@@ -1840,7 +1860,7 @@ class LicenseService:
                 "organization_name": global_info.organization_name,
                 "max_tenants": global_info.max_tenants or 1,
                 "license_scope": global_info.license_scope,
-            } if global_info.license_status in ["active", "commercial"] else None,
+            } if global_info.license_status in ["active", "commercial", "trial"] and global_info.is_licensed else None,
             "enabled_features": enabled_features,
             "expired_features": self.get_expired_features(),
             "has_all_features": "all" in enabled_features,
