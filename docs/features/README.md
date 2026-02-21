@@ -24,7 +24,6 @@ YourFinanceWORKS is organized into focused capability areas. This overview links
 - **Smart Transaction Matching** - AI-powered matching between bank transactions and invoices/expenses
 - **Multi-Currency Support** - Handle international transactions with automatic currency conversion
 - **Financial Health Monitoring** - Real-time cash flow analysis and financial metrics dashboard ([Guide](FINANCIAL_HEALTH.md))
-- **Tax Management** - Configurable tax rates and tax-compliant financial reporting
 
 ## 🕵️ Forensic Auditing & Insights
 
