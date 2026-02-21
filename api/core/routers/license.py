@@ -764,7 +764,7 @@ async def get_license_request_data(
     master_db: Session = Depends(get_master_db)
 ):
     """
-    Get the license request data including private key, installation ID, and license request URL.
+    Get the license request data including public key, installation ID, and license request URL.
     Requires admin or superuser privileges.
     """
     require_admin_or_superuser(current_user, "get license request data")
@@ -780,11 +780,11 @@ async def get_license_request_data(
 
         # Define keys directory relative to this file
         keys_dir = Path(__file__).parent.parent / "keys"
-        private_key_path = keys_dir / "private_key.pem"
+        public_key_path = keys_dir / "public_key.pem"
 
-        if not private_key_path.exists() or private_key_path.stat().st_size < 100:
+        if not public_key_path.exists() or public_key_path.stat().st_size < 100:
             # If symlink doesn't exist or is a placeholder, try to find the latest versioned key
-            versioned_keys = list(keys_dir.glob("private_key_v*.pem"))
+            versioned_keys = list(keys_dir.glob("public_key_v*.pem"))
             if versioned_keys:
                 # Sort by version number (e.g., v2, v3)
                 def version_key(v):
@@ -792,14 +792,14 @@ async def get_license_request_data(
                         return int(v.stem.split('_')[-1][1:])
                     except:
                         return 0
-                private_key_path = sorted(versioned_keys, key=version_key)[-1]
+                public_key_path = sorted(versioned_keys, key=version_key)[-1]
             else:
-                if not private_key_path.exists():
-                    raise HTTPException(status_code=404, detail="Private key file not found")
-                # If it exists but is too small and no versioned keys found, we use it (it will likely fail validation)
+                if not public_key_path.exists():
+                    raise HTTPException(status_code=404, detail="Public key file not found")
+                # If it exists but is too small and no versioned keys found, we use it
 
-        # Read the private key content
-        with open(private_key_path, "r") as f:
+        # Read the public key content
+        with open(public_key_path, "r") as f:
             content = f.read()
 
         # Log sensitive data access
@@ -811,12 +811,12 @@ async def get_license_request_data(
             resource_type="LICENSE_KEY",
             details={
                 "installation_id": installation_id,
-                "note": "User accessed private key for license activation"
+                "note": "User accessed public key for license activation"
             }
         )
 
         return {
-            "private_key": content,
+            "public_key": content,
             "installation_id": installation_id,
             "license_request_url": os.getenv("LICENSE_KEY_REQUEST_URL")
         }

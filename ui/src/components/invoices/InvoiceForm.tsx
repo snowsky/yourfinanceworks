@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { ProfessionalButton } from "@/components/ui/professional-button";
-import { CheckCircle2, ChevronLeft, Save, Loader2, FileText, Mail } from "lucide-react";
+import { ChevronLeft, Save, Loader2, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { PDFDownloadLink } from '@react-pdf/renderer';
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -23,17 +22,11 @@ import { InvoicePaymentSection } from "./InvoicePaymentSection";
 // UI Components
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencySelector } from "@/components/ui/currency-selector";
-import { invoiceApi, paymentApi, Invoice, approvalApi } from "@/lib/api";
-import { InvoicePDF } from "./InvoicePDF";
-import { TemplateSelector } from "./TemplateSelector";
-import { apiRequest } from "@/lib/api";
-import { InvoiceHistoryDetailsModal } from "./InvoiceHistoryDetailsModal";
-import { getErrorMessage } from '@/lib/api';
+import { invoiceApi, Invoice, approvalApi, apiRequest } from "@/lib/api";
 import { canEditInvoice } from "@/utils/auth";
 
 interface InvoiceFormProps {
