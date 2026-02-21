@@ -230,22 +230,22 @@ export const LicenseManagementTab: React.FC = () => {
     try {
       console.log('=== Creating New License Session ===');
 
-      // Get private key content, installation ID, and license request URL from API
+      // Get public key content, installation ID, and license request URL from API
       const licenseRequestData = await api.get<{
-        private_key: string;
+        public_key: string;
         installation_id: string;
         license_request_url: string;
       }>('/license/license-request-data');
 
-      const privateKey = licenseRequestData.private_key;
+      const publicKey = licenseRequestData.public_key;
       const installationId = licenseRequestData.installation_id;
       const baseUrl = licenseRequestData.license_request_url || 'https://www.yourfinanceworks.com';
 
-      // Base64 encode the private key for URL safety
-      const encodedPrivateKey = btoa(privateKey);
+      // Base64 encode the public key for URL safety
+      const encodedPublicKey = btoa(publicKey);
 
-      // Create URL with encoded private key and installation ID
-      const landingUrl = `${baseUrl}/license-keys?transfer=true&key=${encodeURIComponent(encodedPrivateKey)}&installation_id=${encodeURIComponent(installationId)}`;
+      // Create URL with encoded public key and installation ID
+      const landingUrl = `${baseUrl}/license-keys?transfer=true&key=${encodeURIComponent(encodedPublicKey)}&installation_id=${encodeURIComponent(installationId)}`;
 
       window.open(landingUrl, '_blank');
 
@@ -254,30 +254,30 @@ export const LicenseManagementTab: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to fetch license request data:', error);
       const errorMessage = error.response?.data?.detail || error.message ||
-        t('settings.license.private_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
+        t('settings.license.public_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
       toast.error(errorMessage);
     }
   };
 
-  const handleCopyPrivateKey = async () => {
+  const handleCopyPublicKey = async () => {
     try {
       const licenseRequestData = await api.get<{
-        private_key: string;
+        public_key: string;
       }>('/license/license-request-data');
 
-      const privateKey = licenseRequestData.private_key;
+      const publicKey = licenseRequestData.public_key;
 
-      if (!privateKey) {
-        toast.error(t('settings.license.private_key_not_found', 'Private key not found.'));
+      if (!publicKey) {
+        toast.error(t('settings.license.public_key_not_found', 'Public key not found.'));
         return;
       }
 
-      await navigator.clipboard.writeText(privateKey);
-      toast.success(t('settings.license.private_key_copied', 'Private key copied to clipboard!'));
+      await navigator.clipboard.writeText(publicKey);
+      toast.success(t('settings.license.public_key_copied', 'Public key copied to clipboard!'));
     } catch (error: any) {
-      console.error('Failed to copy private key:', error);
+      console.error('Failed to copy public key:', error);
       const errorMessage = error.response?.data?.detail || error.message ||
-        t('settings.license.private_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
+        t('settings.license.public_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
       toast.error(errorMessage);
     }
   };
@@ -508,10 +508,10 @@ export const LicenseManagementTab: React.FC = () => {
                     <ProfessionalButton
                       variant="outline"
                       size="sm"
-                      onClick={handleCopyPrivateKey}
+                      onClick={handleCopyPublicKey}
                     >
                       <Copy className="h-4 w-4 mr-2" />
-                      {t('settings.license.copy_private_key', 'Copy Private Key')}
+                      {t('settings.license.copy_public_key', 'Copy Public Key')}
                     </ProfessionalButton>
                     <AlertDialogTrigger asChild>
                       <ProfessionalButton
@@ -545,10 +545,10 @@ export const LicenseManagementTab: React.FC = () => {
                 <ProfessionalButton
                   variant="outline"
                   size="sm"
-                  onClick={handleCopyPrivateKey}
+                  onClick={handleCopyPublicKey}
                 >
                   <Copy className="h-4 w-4 mr-2" />
-                  {t('settings.license.copy_private_key', 'Copy Private Key')}
+                  {t('settings.license.copy_public_key', 'Copy Public Key')}
                 </ProfessionalButton>
                 <AlertDialog open={showCreateConfirmDialog} onOpenChange={setShowCreateConfirmDialog}>
                   <AlertDialogTrigger asChild>
