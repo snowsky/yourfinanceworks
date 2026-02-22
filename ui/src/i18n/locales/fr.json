@@ -3502,6 +3502,8 @@
       "create_reminder": "Créer un Rappel",
       "edit_reminder": "Modifier le Rappel",
       "update_reminder": "Mettre à Jour le Rappel",
+      "pin_reminder": "Épingler le Rappel",
+      "pin_description": "Garder ce rappel en haut de votre liste",
       "create_your_first_reminder_to_get_started": "Créez votre premier rappel pour commencer"
     },
     "priority": {

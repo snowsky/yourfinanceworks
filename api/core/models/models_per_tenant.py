@@ -1070,6 +1070,10 @@ class Reminder(Base):
     status = Column(Enum(ReminderStatus), default=ReminderStatus.PENDING, nullable=False)
     priority = Column(Enum(ReminderPriority), default=ReminderPriority.MEDIUM, nullable=False)
 
+    # Ordering and Pinning
+    position = Column(Integer, default=0, nullable=False)
+    is_pinned = Column(Boolean, default=False, nullable=False)
+
     # Assignment
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=False)

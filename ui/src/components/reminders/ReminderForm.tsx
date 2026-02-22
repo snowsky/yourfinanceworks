@@ -14,6 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +32,7 @@ const reminderSchema = z.object({
     required_error: 'Please select who to assign this reminder to',
   }),
   tags: z.array(z.string()).optional(),
+  is_pinned: z.boolean().default(false),
 }).refine((data) => {
   if (data.recurrence_end_date && data.recurrence_end_date <= data.due_date) {
     return false;
@@ -79,6 +81,7 @@ export function ReminderForm({
       priority: reminder?.priority || 'medium',
       assigned_to_id: reminder?.assigned_to_id || users[0]?.id,
       tags: reminder?.tags || [],
+      is_pinned: reminder?.is_pinned || false,
     },
   });
 
@@ -118,11 +121,11 @@ export function ReminderForm({
   ];
 
   const recurrenceOptions = [
-    { value: 'none', label: 'No recurrence' },
-    { value: 'daily', label: 'Daily' },
-    { value: 'weekly', label: 'Weekly' },
-    { value: 'monthly', label: 'Monthly' },
-    { value: 'yearly', label: 'Yearly' },
+    { value: 'none', label: t('reminders.recurrence.none') },
+    { value: 'daily', label: t('reminders.recurrence.daily') },
+    { value: 'weekly', label: t('reminders.recurrence.weekly') },
+    { value: 'monthly', label: t('reminders.recurrence.monthly') },
+    { value: 'yearly', label: t('reminders.recurrence.yearly') },
   ];
 
   return (
@@ -442,6 +445,31 @@ export function ReminderForm({
                 </>
               )}
             </div>
+
+            {/* Pinning */}
+            <FormField
+              control={form.control}
+              name="is_pinned"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      {t('reminders.form.pin_reminder')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('reminders.form.pin_description')}
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             {/* Tags */}
             <div className="space-y-3">

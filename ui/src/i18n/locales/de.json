@@ -3575,6 +3575,8 @@
       "create_reminder": "Erinnerung Erstellen",
       "edit_reminder": "Erinnerung Bearbeiten",
       "update_reminder": "Erinnerung Aktualisieren",
+      "pin_reminder": "Erinnerung Anpinnen",
+      "pin_description": "Diese Erinnerung oben in der Liste behalten",
       "create_your_first_reminder_to_get_started": "Erstellen Sie Ihre erste Erinnerung, um zu beginnen"
     },
     "priority": {

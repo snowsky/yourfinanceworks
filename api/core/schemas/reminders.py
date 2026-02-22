@@ -33,6 +33,8 @@ class ReminderBase(BaseModel):
     recurrence_end_date: Optional[datetime] = Field(None, description="When to stop recurring")
     priority: ReminderPriority = Field(ReminderPriority.MEDIUM, description="Priority level")
     assigned_to_id: int = Field(..., description="User ID to assign this reminder to")
+    position: int = Field(0, description="Order position")
+    is_pinned: bool = Field(False, description="Whether the reminder is pinned to top")
     tags: Optional[List[str]] = Field(None, description="Tags for categorization")
     extra_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
@@ -65,6 +67,8 @@ class ReminderUpdate(BaseModel):
     recurrence_end_date: Optional[datetime] = None
     priority: Optional[ReminderPriority] = None
     assigned_to_id: Optional[int] = None
+    position: Optional[int] = None
+    is_pinned: Optional[bool] = None
     tags: Optional[List[str]] = None
     extra_metadata: Optional[Dict[str, Any]] = None
 
@@ -81,6 +85,8 @@ class ReminderResponse(ReminderBase):
     id: int
     status: ReminderStatus
     created_by_id: int
+    position: int
+    is_pinned: bool
     next_due_date: Optional[datetime] = None
     snoozed_until: Optional[datetime] = None
     snooze_count: int = 0
@@ -186,6 +192,11 @@ class BulkReminderUpdate(BaseModel):
     status: Optional[ReminderStatus] = None
     priority: Optional[ReminderPriority] = None
     assigned_to_id: Optional[int] = None
+    position: Optional[int] = None
+
+class ReorderReminders(BaseModel):
+    """Schema for reordering reminders"""
+    reminder_ids: List[int] = Field(..., min_length=1, max_length=100)
 
 class BulkReminderResponse(BaseModel):
     """Schema for bulk operation responses"""

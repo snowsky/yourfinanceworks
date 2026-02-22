@@ -13,7 +13,7 @@ from core.models.models import MasterUser
 from core.schemas.reminders import (
     ReminderCreate, ReminderUpdate, ReminderStatusUpdate, ReminderResponse, 
     ReminderWithUsers, ReminderList, ReminderFilter, BulkReminderUpdate, 
-    BulkReminderResponse, ReminderNotificationResponse
+    BulkReminderResponse, ReminderNotificationResponse, ReorderReminders
 )
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
@@ -163,20 +163,39 @@ def get_reminders(
 
         # Apply sorting
         if sort_by == "due_date":
-            query = query.order_by(Reminder.due_date.asc() if sort_order == "asc" else Reminder.due_date.desc())
+            # Default sort: Pinned first, then by position/due_date
+            query = query.order_by(
+                Reminder.is_pinned.desc(),
+                Reminder.position.asc(),
+                Reminder.due_date.asc() if sort_order == "asc" else Reminder.due_date.desc()
+            )
         elif sort_by == "created_at":
-            query = query.order_by(Reminder.created_at.asc() if sort_order == "asc" else Reminder.created_at.desc())
+            query = query.order_by(
+                Reminder.is_pinned.desc(),
+                Reminder.created_at.asc() if sort_order == "asc" else Reminder.created_at.desc()
+            )
         elif sort_by == "title":
-            query = query.order_by(Reminder.title.asc() if sort_order == "asc" else Reminder.title.desc())
+            query = query.order_by(
+                Reminder.is_pinned.desc(),
+                Reminder.title.asc() if sort_order == "asc" else Reminder.title.desc()
+            )
         elif sort_by == "priority":
             # Custom priority ordering
+            from sqlalchemy import case
             priority_order = case(
-                (Reminder.priority == ReminderPriority.HIGH, 1),
-                (Reminder.priority == ReminderPriority.MEDIUM, 2),
-                (Reminder.priority == ReminderPriority.LOW, 3),
-                else_=4
+                (Reminder.priority == ReminderPriority.URGENT, 1),
+                (Reminder.priority == ReminderPriority.HIGH, 2),
+                (Reminder.priority == ReminderPriority.MEDIUM, 3),
+                (Reminder.priority == ReminderPriority.LOW, 4),
+                else_=5
             )
-            query = query.order_by(asc(priority_order) if sort_order == "asc" else desc(priority_order))
+            query = query.order_by(
+                Reminder.is_pinned.desc(),
+                asc(priority_order) if sort_order == "asc" else desc(priority_order)
+            )
+        else:
+            # Default sorting if not specified
+            query = query.order_by(Reminder.is_pinned.desc(), Reminder.position.asc())
 
         # Get total count
         total = query.count()
@@ -275,6 +294,12 @@ def create_reminder(
             reminder_data.recurrence_interval
         )
 
+    # Get the max position for the assigned user to place new reminder at the end
+    max_pos = db.query(func.max(Reminder.position)).filter(
+        Reminder.assigned_to_id == reminder_data.assigned_to_id,
+        Reminder.is_deleted == False
+    ).scalar() or 0
+
     # Create reminder
     reminder = Reminder(
         title=reminder_data.title,
@@ -287,6 +312,8 @@ def create_reminder(
         priority=reminder_data.priority,
         created_by_id=current_user.id,
         assigned_to_id=reminder_data.assigned_to_id,
+        position=max_pos + 1,
+        is_pinned=reminder_data.is_pinned,
         tags=reminder_data.tags,
         extra_metadata=reminder_data.extra_metadata
     )
@@ -801,6 +828,94 @@ def get_overdue_reminders(
     ).order_by(asc(Reminder.due_date)).all()
 
     return [ReminderWithUsers.model_validate(reminder) for reminder in reminders]
+
+@router.post("/reorder", response_model=BulkReminderResponse)
+def reorder_reminders(
+    reorder_data: ReorderReminders,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Reorder reminders for the current user"""
+    reminder_ids = reorder_data.reminder_ids
+
+    # Verify all reminders belong to the user or admin
+    reminders = db.query(Reminder).filter(
+        Reminder.id.in_(reminder_ids),
+        Reminder.is_deleted == False
+    ).all()
+
+    if len(reminders) != len(reminder_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Some reminders were not found or are deleted"
+        )
+
+    updated_count = 0
+    failed_count = 0
+    errors = []
+
+    # Map for quick lookup
+    reminder_map = {r.id: r for r in reminders}
+
+    for index, rid in enumerate(reminder_ids):
+        reminder = reminder_map.get(rid)
+        if not reminder:
+            continue
+
+        try:
+            # Check permissions
+            check_reminder_permissions(reminder, current_user, "reorder")
+
+            # Update position
+            reminder.position = index + 1
+            updated_count += 1
+        except Exception as e:
+            failed_count += 1
+            errors.append(f"Error reordering reminder {rid}: {str(e)}")
+
+    db.commit()
+
+    return BulkReminderResponse(
+        updated_count=updated_count,
+        failed_count=failed_count,
+        errors=errors
+    )
+
+@router.post("/{reminder_id}/toggle-pin", response_model=ReminderWithUsers)
+def toggle_reminder_pin(
+    reminder_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Toggle the pinned status of a reminder"""
+    reminder = db.query(Reminder).filter(
+        Reminder.id == reminder_id,
+        Reminder.is_deleted == False
+    ).first()
+
+    if not reminder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reminder not found"
+        )
+
+    # Check permissions
+    check_reminder_permissions(reminder, current_user, "pin")
+
+    # Toggle pin
+    reminder.is_pinned = not reminder.is_pinned
+    db.commit()
+    db.refresh(reminder)
+
+    # Load relationships for response
+    reminder = db.query(Reminder).options(
+        joinedload(Reminder.created_by),
+        joinedload(Reminder.assigned_to),
+        joinedload(Reminder.completed_by)
+    ).filter(Reminder.id == reminder.id).first()
+
+    return ReminderWithUsers.model_validate(reminder)
+
 
 
 # --- Notification Management Endpoints ---

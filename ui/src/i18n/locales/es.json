@@ -3584,6 +3584,8 @@
       "create_reminder": "Crear Recordatorio",
       "edit_reminder": "Editar Recordatorio",
       "update_reminder": "Actualizar Recordatorio",
+      "pin_reminder": "Anclar Recordatorio",
+      "pin_description": "Mantener este recordatorio al principio de la lista",
       "create_your_first_reminder_to_get_started": "Crea tu primer recordatorio para comenzar"
     },
     "priority": {

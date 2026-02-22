@@ -3698,6 +3698,8 @@
       "create_reminder": "Create Reminder",
       "edit_reminder": "Edit Reminder",
       "update_reminder": "Update Reminder",
+      "pin_reminder": "Pin Reminder",
+      "pin_description": "Keep this reminder at the top of your list",
       "create_your_first_reminder_to_get_started": "Create your first reminder to get started"
     },
     "priority": {

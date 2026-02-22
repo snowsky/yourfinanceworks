@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, isToday, isPast, isTomorrow } from 'date-fns';
-import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle, Play, CheckSquare, Square } from 'lucide-react';
+import { Clock, User, Flag, Calendar, Edit, Check, Timer, Trash2, AlertCircle, Play, CheckSquare, Square, Pin, GripVertical } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,8 @@ interface ReminderCardProps {
     snoozed_until?: string;
     tags?: string[];
     snooze_count?: number;
+    is_pinned?: boolean;
+    position?: number;
   };
   currentUserId: number;
   onEdit?: (reminder: any) => void;
@@ -43,6 +45,8 @@ interface ReminderCardProps {
   isSelected?: boolean;
   onSelect?: (id: number) => void;
   showSelection?: boolean;
+  onTogglePin?: (id: number) => void;
+  dragHandleProps?: any;
 }
 
 export function ReminderCard({
@@ -56,7 +60,9 @@ export function ReminderCard({
   className,
   isSelected = false,
   onSelect,
-  showSelection = false
+  showSelection = false,
+  onTogglePin,
+  dragHandleProps
 }: ReminderCardProps) {
   const { t } = useTranslation();
   const dueDate = new Date(reminder.due_date);
@@ -121,12 +127,18 @@ export function ReminderCard({
       "transition-all duration-200 hover:shadow-md",
       isOverdue && "border-red-300 bg-red-50",
       isDueToday && "border-orange-300 bg-orange-50",
+      reminder.is_pinned && "border-primary/50 bg-primary/5 shadow-sm",
       reminder.status === 'completed' && "opacity-75",
       className
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
+            {dragHandleProps && (
+              <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground">
+                <GripVertical className="h-5 w-5" />
+              </div>
+            )}
             {showSelection && (
               <Button
                 variant="ghost"
@@ -158,6 +170,18 @@ export function ReminderCard({
             </div>
           </div>
           <div className="flex items-center gap-2 ml-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onTogglePin?.(reminder.id)}
+              className={cn(
+                "h-8 w-8 p-0",
+                reminder.is_pinned ? "text-primary" : "text-muted-foreground/50"
+              )}
+              title={reminder.is_pinned ? t('reminders.unpin') : t('reminders.pin')}
+            >
+              <Pin className={cn("h-4 w-4", reminder.is_pinned && "fill-current")} />
+            </Button>
             <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
               <Flag className="h-3 w-3 mr-1" />
               {t(`reminders.priority.${reminder.priority}`)}

@@ -3644,6 +3644,25 @@ export const reminderApi = {
     return apiRequest<any>('/reminders/overdue/');
   },
 
+  unsnoozeReminder: async (id: number) => {
+    return apiRequest<any>(`/reminders/${id}/unsnooze`, {
+      method: 'POST',
+    });
+  },
+
+  reorderReminders: async (reminderIds: number[]) => {
+    return apiRequest<any>('/reminders/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ reminder_ids: reminderIds }),
+    });
+  },
+
+  toggleReminderPin: async (id: number) => {
+    return apiRequest<any>(`/reminders/${id}/toggle-pin`, {
+      method: 'POST',
+    });
+  },
+
   // Notification methods
   getUnreadNotificationCount: async () => {
     return apiRequest<{ count: number }>('/reminders/notifications/unread-count');
@@ -3673,12 +3692,6 @@ export const reminderApi = {
 
   getReminderNotifications: async (reminderId: number) => {
     return apiRequest<any>(`/reminders/${reminderId}/notifications`);
-  },
-
-  unsnoozeReminder: async (id: number) => {
-    return apiRequest<any>(`/reminders/${id}/unsnooze`, {
-      method: 'POST',
-    });
   },
 };
 
