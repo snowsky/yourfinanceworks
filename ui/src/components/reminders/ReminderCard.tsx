@@ -97,10 +97,11 @@ export function ReminderCard({
   };
 
   const formatDueDate = (date: Date) => {
+    const time = format(date, 'h:mm a');
     if (isToday(date)) {
-      return `Today at ${format(date, 'h:mm a')}`;
+      return t('reminders.today_at', { time });
     } else if (isTomorrow(date)) {
-      return `Tomorrow at ${format(date, 'h:mm a')}`;
+      return t('reminders.tomorrow_at', { time });
     } else {
       return format(date, 'MMM d, yyyy h:mm a');
     }
@@ -110,7 +111,7 @@ export function ReminderCard({
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
-    return user?.first_name || user?.last_name || user?.email || 'Unknown';
+    return user?.first_name || user?.last_name || user?.email || t('common.unknown');
   };
 
   const handleSnooze = () => {
@@ -124,86 +125,93 @@ export function ReminderCard({
 
   return (
     <Card className={cn(
-      "transition-all duration-200 hover:shadow-md",
+      "transition-all duration-200 hover:shadow-md h-full flex flex-col",
       isOverdue && "border-red-300 bg-red-50",
       isDueToday && "border-orange-300 bg-orange-50",
       reminder.is_pinned && "border-primary/50 bg-primary/5 shadow-sm",
       reminder.status === 'completed' && "opacity-75",
       className
     )}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {dragHandleProps && (
-              <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground">
-                <GripVertical className="h-5 w-5" />
-              </div>
-            )}
-            {showSelection && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onSelect?.(reminder.id)}
-                className="h-8 w-8 p-0 flex-shrink-0"
-              >
-                {isSelected ? (
-                  <CheckSquare className="h-4 w-4 text-primary" />
-                ) : (
-                  <Square className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg truncate mb-1">
+      <CardHeader className="p-3 pb-1">
+        <div className="flex flex-col gap-1 w-full">
+          {/* Top row: Handle, Checkbox, Title, Pin */}
+          <div className="flex items-start justify-between gap-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {dragHandleProps && (
+                <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground">
+                  <GripVertical className="h-4 w-4" />
+                </div>
+              )}
+              {showSelection && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelect?.(reminder.id)}
+                  className="h-7 w-7 p-0 flex-shrink-0"
+                >
+                  {isSelected ? (
+                    <CheckSquare className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Square className="h-4 w-4 text-muted-foreground/30" />
+                  )}
+                </Button>
+              )}
+              <h3 className="font-semibold text-sm truncate">
                 {reminder.title}
               </h3>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                <Calendar className="h-4 w-4" />
-                <span className={cn(
-                  isOverdue && "text-red-600 font-medium",
-                  isDueToday && "text-orange-600 font-medium"
-                )}>
-                  {formatDueDate(dueDate)}
-                </span>
-                {isOverdue && <AlertCircle className="h-4 w-4 text-red-500" />}
-              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 ml-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onTogglePin?.(reminder.id)}
               className={cn(
-                "h-8 w-8 p-0",
-                reminder.is_pinned ? "text-primary" : "text-muted-foreground/50"
+                "h-7 w-7 p-0 flex-shrink-0",
+                reminder.is_pinned ? "text-primary" : "text-muted-foreground/30"
               )}
               title={reminder.is_pinned ? t('reminders.unpin') : t('reminders.pin')}
             >
-              <Pin className={cn("h-4 w-4", reminder.is_pinned && "fill-current")} />
+              <Pin className={cn("h-3.5 w-3.5", reminder.is_pinned && "fill-current")} />
             </Button>
-            <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
-              <Flag className="h-3 w-3 mr-1" />
-              {t(`reminders.priority.${reminder.priority}`)}
-            </Badge>
-            <Badge variant="outline" className={getStatusColor(reminder.status)}>
-              {t(`reminders.status.${reminder.status}`)}
-            </Badge>
+          </div>
+
+          {/* Second row: Date and Badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1 text-muted-foreground whitespace-nowrap">
+              <Calendar className="h-3 w-3" />
+              <span className={cn(
+                "font-medium",
+                isOverdue && "text-red-500",
+                isDueToday && "text-orange-500"
+              )}>
+                {formatDueDate(dueDate)}
+              </span>
+              {isOverdue && <AlertCircle className="h-3 w-3 text-red-500" />}
+            </div>
+            
+            <div className="flex items-center gap-1 ml-auto">
+              <Badge variant="outline" className={cn("px-1.5 py-0 h-4 text-[10px]", getPriorityColor(reminder.priority))}>
+                <Flag className="h-2.5 w-2.5 mr-0.5" />
+                {t(`reminders.priority.${reminder.priority}`)}
+              </Badge>
+              <Badge variant="outline" className={cn("px-1.5 py-0 h-4 text-[10px]", getStatusColor(reminder.status))}>
+                {t(`reminders.status.${reminder.status}`)}
+              </Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="p-3 pt-1 flex-1">
         {reminder.description && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
+          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
             {reminder.description}
           </p>
         )}
 
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground mb-2">
           {reminder.assigned_to && (
             <div className="flex items-center gap-1">
-              <User className="h-4 w-4" />
+              <User className="h-2.5 w-2.5" />
               <span>
                 {isAssignedToCurrentUser ? t('reminders.you') : getUserDisplayName(reminder.assigned_to)}
               </span>
@@ -212,32 +220,32 @@ export function ReminderCard({
 
           {reminder.created_by && (
             <div className="flex items-center gap-1">
-              <User className="h-4 w-4" />
-              <span className="text-xs">
-                {t('common.created_by')}: {isCreatedByCurrentUser ? t('reminders.you') : getUserDisplayName(reminder.created_by)}
+              <User className="h-2.5 w-2.5" />
+              <span>
+                {isCreatedByCurrentUser ? t('reminders.you') : getUserDisplayName(reminder.created_by)}
               </span>
             </div>
           )}
 
           {reminder.recurrence_pattern !== 'none' && (
             <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
+              <Clock className="h-2.5 w-2.5" />
               <span className="capitalize">{reminder.recurrence_pattern}</span>
             </div>
           )}
 
-          {reminder.snooze_count && reminder.snooze_count > 0 && (
+          {typeof reminder.snooze_count === 'number' && reminder.snooze_count > 0 && (
             <div className="flex items-center gap-1 text-blue-600">
-              <Timer className="h-4 w-4" />
+              <Timer className="h-2.5 w-2.5" />
               <span>{t('reminders.snoozed')} {reminder.snooze_count}x</span>
             </div>
           )}
         </div>
 
         {reminder.tags && reminder.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="flex flex-wrap gap-1 mb-2">
             {reminder.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
+              <Badge key={index} variant="secondary" className="text-[10px] py-0 h-4 px-1.5 opacity-70">
                 {tag}
               </Badge>
             ))}
@@ -245,87 +253,90 @@ export function ReminderCard({
         )}
 
         {reminder.snoozed_until && (
-          <div className="text-sm text-blue-600 mb-3">
+          <div className="text-[10px] text-blue-600 mb-1">
             {t('reminders.snoozed_until')} {format(new Date(reminder.snoozed_until), 'MMM d, yyyy h:mm a')}
           </div>
         )}
 
         {reminder.completed_at && (
-          <div className="text-sm text-green-600 mb-3">
+          <div className="text-[10px] text-green-600 mb-1">
             {t('reminders.completed_on')} {format(new Date(reminder.completed_at), 'MMM d, yyyy h:mm a')}
           </div>
         )}
       </CardContent>
 
-      <CardFooter className="pt-0">
-        <div className="flex items-center gap-2 w-full">
-          {reminder.status === 'pending' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
-            <>
-              <Button
-                size="sm"
-                onClick={() => onComplete?.(reminder.id)}
-                className="flex items-center gap-1"
-              >
-                <Check className="h-4 w-4" />
-                {t('reminders.complete')}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSnooze}
-                className="flex items-center gap-1"
-              >
-                <Timer className="h-4 w-4" />
-                {t('reminders.snooze')}
-              </Button>
-            </>
-          )}
+      <CardFooter className="p-3 pt-0 border-t border-muted/20 bg-muted/5">
+        <div className="flex items-center justify-between w-full pt-2">
+          <div className="flex items-center gap-1">
+            {reminder.status === 'pending' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => onComplete?.(reminder.id)}
+                  className="h-7 px-2 text-[11px] flex items-center gap-1"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {t('reminders.complete')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSnooze}
+                  className="h-7 w-7 p-0"
+                  title={t('reminders.snooze')}
+                >
+                  <Timer className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
 
-          {reminder.status === 'snoozed' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
-            <>
-              <Button
-                size="sm"
-                onClick={() => onComplete?.(reminder.id)}
-                className="flex items-center gap-1"
-              >
-                <Check className="h-4 w-4" />
-                {t('reminders.complete')}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onUnsnooze?.(reminder.id)}
-                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
-              >
-                <Play className="h-4 w-4" />
-                {t('reminders.unsnooze')}
-              </Button>
-            </>
-          )}
+            {reminder.status === 'snoozed' && (isAssignedToCurrentUser || canActOnAdminReminder) && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => onComplete?.(reminder.id)}
+                  className="h-7 px-2 text-[11px] flex items-center gap-1"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {t('reminders.complete')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onUnsnooze?.(reminder.id)}
+                  className="h-7 w-7 p-0 text-blue-600"
+                  title={t('reminders.unsnooze')}
+                >
+                  <Play className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
 
-          {isCreatedByCurrentUser && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onEdit?.(reminder)}
-              className="flex items-center gap-1"
-            >
-              <Edit className="h-4 w-4" />
-              {t('reminders.edit')}
-            </Button>
-          )}
-
-          {isCreatedByCurrentUser && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onDelete?.(reminder.id)}
-              className="flex items-center gap-1 text-red-600 hover:text-red-700 ml-auto"
-            >
-              <Trash2 className="h-4 w-4" />
-              {t('reminders.delete')}
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {onEdit && canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit?.(reminder)}
+                className="h-7 w-7 p-0 text-muted-foreground"
+                title={t('common.edit')}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {onDelete && (isCreatedByCurrentUser || canActOnAdminReminder) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete?.(reminder.id)}
+                className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                title={t('common.delete')}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardFooter>
     </Card>

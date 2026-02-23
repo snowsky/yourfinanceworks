@@ -200,7 +200,7 @@ export function ReminderForm({
                           {field.value ? (
                             format(field.value, "PPP 'at' h:mm a")
                           ) : (
-                            <span>Pick a date and time</span>
+                            <span>{t('reminders.form.pick_date_time')}</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -404,7 +404,7 @@ export function ReminderForm({
                     name="recurrence_end_date"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>{t('reminders.end_recurrence')} (Optional)</FormLabel>
+                        <FormLabel>{t('reminders.end_recurrence')}</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -419,7 +419,7 @@ export function ReminderForm({
                                 {field.value ? (
                                   format(field.value, "PPP")
                                 ) : (
-                                  <span>{t('reminders.select_end_date')} (optional)</span>
+                                  <span>{t('reminders.select_end_date')}</span>
                                 )}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>

@@ -33,6 +33,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -121,9 +122,10 @@ function SortableReminder({ id, reminder, ...props }: SortableReminderProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} className="h-full">
       <ReminderCard
         reminder={reminder}
+        className="h-full"
         {...props}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
@@ -796,12 +798,12 @@ export function ReminderList({ className }: ReminderListProps) {
                         </Button>
                         <span className="text-sm text-muted-foreground">
                           {selectedReminders.size === reminders.length && reminders.length > 0
-                            ? 'Deselect all'
-                            : `Select all (${reminders.length})`}
+                            ? t('reminders.deselect_all')
+                            : t('reminders.select_all', { count: reminders.length })}
                         </span>
                       </div>
                     )}
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -809,7 +811,7 @@ export function ReminderList({ className }: ReminderListProps) {
                       >
                         <SortableContext
                           items={reminders.map((r) => r.id)}
-                          strategy={verticalListSortingStrategy}
+                          strategy={rectSortingStrategy}
                         >
                           {reminders.map((reminder) => (
                             <SortableReminder
@@ -850,7 +852,7 @@ export function ReminderList({ className }: ReminderListProps) {
               {t('reminders.previous')}
             </ProfessionalButton>
             <span className="text-sm text-muted-foreground">
-              {t('reminders.page')} {page} {t('reminders.of')} {totalPages}
+              {t('reminders.page_of', { page, total: totalPages })}
             </span>
             <ProfessionalButton
               variant="outline"
@@ -866,13 +868,13 @@ export function ReminderList({ className }: ReminderListProps) {
         <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Selected Reminders</AlertDialogTitle>
+              <AlertDialogTitle>{t('reminders.bulk_delete_title')}</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete {selectedReminders.size} selected reminder(s)? This action cannot be undone.
+                {t('reminders.bulk_delete_description', { count: selectedReminders.size })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={bulkDeleteLoading}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={bulkDeleteLoading}>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleBulkDelete}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -883,7 +885,7 @@ export function ReminderList({ className }: ReminderListProps) {
                 ) : (
                   <Trash2 className="mr-2 h-4 w-4" />
                 )}
-                Delete {selectedReminders.size} Reminder(s)
+                {t('reminders.bulk_delete_confirm', { count: selectedReminders.size })}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
