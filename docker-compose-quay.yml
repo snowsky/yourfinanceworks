@@ -1,0 +1,536 @@
+services:
+  # Master PostgreSQL database for tenant management
+  postgres-master:
+    image: postgres:15
+    container_name: invoice_app_postgres_master
+    environment:
+      POSTGRES_DB: invoice_master
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      # Allow multiple databases to be created
+      POSTGRES_MULTIPLE_DATABASES: "true"
+    volumes:
+      - postgres_master_data:/var/lib/postgresql/data
+      - ./api/scripts/init-master-postgres.sql:/docker-entrypoint-initdb.d/init-master-postgres.sql
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # API service with multi-tenant support
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: invoice_app_api
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # ============================================================================
+      # Docker-Specific Overrides
+      # All other variables are loaded from ./api/.env
+      # Only container-specific hostnames and settings are defined here
+      # ============================================================================
+      # Master database for tenant management (Docker-specific hostname)
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      # Kafka (Docker-specific hostname)
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_OCR_TOPIC=expenses_ocr
+      - KAFKA_OCR_GROUP=invoice-app-ocr
+      - KAFKA_BANK_TOPIC=bank_statements_ocr
+      - KAFKA_REVIEW_TOPIC=review_trigger
+      # LLM Configuration (Docker-specific - points to host machine)
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
+      - LLM_API_KEY=
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+      - LLM_MODEL_INVOICES=gpt-oss:latest
+      - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
+      # AI Chat configuration (Docker-specific)
+      - AI_PROVIDER=ollama
+      - AI_MODEL=llama3.2-vision:11b
+      - AI_API_URL=http://host.docker.internal:11434
+      # OCR Configuration (Docker-specific)
+      - OLLAMA_OCR_ENDPOINT=http://host.docker.internal:11434/api/generate
+      - OLLAMA_OCR_MODEL=llama3.2-vision:11b
+      # OpenSearch Configuration (Docker-specific hostname)
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+      - /app/__pycache__
+      - /app/venv
+      - ./infra/docker/wait-for-it.sh:/wait-for-it.sh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    command: >
+      sh -c "/wait-for-it.sh postgres-master:5432 -- \
+        echo 'Starting API server...' && \
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # UI service
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: invoice_app_ui
+    environment:
+      - VITE_API_URL=/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: invoice_app_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infra/docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+      - ui
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+
+  # Kafka (single-node KRaft)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: invoice_app_kafka
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # Static cluster id required for KRaft mode (22-char base64-like string)
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Pre-create topics at startup (Confluent image doesn't have built-in create topics, we ensure from worker)
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-lc",
+          "kafka-topics --bootstrap-server kafka:9092 --list | cat",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+
+  # Kafdrop (Kafka UI)
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.0.2
+    container_name: invoice_app_kafdrop
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+      JVM_OPTS: -Xms32M -Xmx64M
+    ports:
+      - "9000:9000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+
+  # OCR Worker running as a separate container
+  ocr-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 2 #variable is not supported ${KAFKA_OCR_TOPIC_PARTITIONS:2}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      # Master database for tenant management
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      # Multi-tenant configuration
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      # Kafka
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_OCR_TOPIC=expenses_ocr
+      - KAFKA_OCR_GROUP=invoice-app-ocr
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # LLM Configuration
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
+      - LLM_MODEL_INVOICES=gpt-oss:latest
+      - LLM_MODEL_BANK_STATEMENTS=gpt-oss:latest
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+      # OCR Configuration
+      - OLLAMA_OCR_ENDPOINT=http://host.docker.internal:11434/api/generate
+      - OLLAMA_OCR_MODEL=llama3.2-vision:11b
+      # Database Encryption Configuration
+      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
+      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
+      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
+      - KEY_VAULT_PROVIDER=${KEY_VAULT_PROVIDER:-local}
+      - MASTER_KEY_ID=${MASTER_KEY_ID:-default-master-key}
+      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+    command: ["python", "-m", "workers.ocr_consumer"]
+
+  # Audit Worker for AI forensic analysis and fraud detection
+  audit-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_FRAUD_AUDIT_TOPIC=fraud_audit
+      - KAFKA_AUDIT_GROUP=invoice-app-audit
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONPATH=/app
+      # AI and LLM Configuration
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - AI_PROVIDER=ollama
+      - AI_MODEL=llama3.2-vision:11b
+      - AI_API_URL=http://host.docker.internal:11434
+      # Encryption settings
+      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
+      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
+      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
+      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+    command: ["python", "workers/audit_consumer.py"]
+
+  # Email Worker for fetching and processing emails
+  email-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 2 # ${EMAIL_WORKER_REPLICAS:2}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - EMAIL_POLL_INTERVAL=10
+      - EMAIL_BATCH_SIZE=50
+      # Kafka for config change events
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      # Encryption settings
+      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
+      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
+      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
+      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
+      # LLM Configuration for AI-powered email classification
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+      - OLLAMA_MODEL=gpt-oss:latest
+      - AI_PROVIDER=ollama
+      - AI_MODEL=llama3.2-vision:11b
+      - AI_API_URL=http://host.docker.internal:11434
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+    command: ["python", "-m", "workers.email_processor"]
+
+  # Review Worker for background AI verification
+  review-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REVIEW_POLL_INTERVAL=60
+      - PYTHONPATH=/app
+      # Kafka for review events
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_REVIEW_TOPIC=review_trigger
+      # LLM Configuration for Reviewer
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+    command: ["python", "-m", "workers.review_processor"]
+
+  # Portfolio Import Worker for portfolio holdings/transactions file processing
+  portfolio-import-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./api/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - MULTITENANT_MODE=database_per_tenant
+      - TENANT_DATABASE_PREFIX=tenant_
+      - MASTER_DATABASE_HOST=postgres-master
+      - MASTER_DATABASE_PORT=5432
+      - MASTER_DATABASE_USER=postgres
+      - MASTER_DATABASE_PASSWORD=password
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONPATH=/app
+      # Kafka for holdings import tasks
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_HOLDINGS_IMPORT_TOPIC=holdings_import_tasks
+      - KAFKA_HOLDINGS_IMPORT_GROUP=holdings-import-worker
+      # LLM Configuration for extraction
+      - LLM_API_BASE=http://host.docker.internal:11434
+      - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - LLM_MODEL_EXPENSES=llama3.2-vision:11b
+      # Encryption settings
+      - ENCRYPTION_ENABLED=${ENCRYPTION_ENABLED:-true}
+      - ENCRYPTION_ALGORITHM=${ENCRYPTION_ALGORITHM:-AES-256-GCM}
+      - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
+      - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+    command: ["python", "-m", "workers.portfolio_import_worker"]
+
+
+  # Ollama AI service
+  # ollama:
+  #   image: ollama/ollama
+  #   container_name: invoice_app_ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - invoice_app_network
+  #   restart: unless-stopped
+  #   # Start Ollama server with optimized settings
+  #   environment:
+  #     - OLLAMA_CONTEXT_LENGTH=64000
+  #     - OLLAMA_HOST=0.0.0.0
+  #     - OLLAMA_NUM_PARALLEL=2
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #   entrypoint: ["/bin/bash"]
+  #   command:
+  #     - -c
+  #     - |
+  #       ollama serve &
+  #       sleep 15
+  #       ollama pull llama3.2-vision:11b
+  #       ollama pull gpt-oss:latest
+  #       tail -f /dev/null
+
+  # OpenSearch for search indexing
+  opensearch:
+    image: opensearchproject/opensearch:3.4.0
+    container_name: invoice_app_opensearch
+    environment:
+      - cluster.name=invoice-search-cluster
+      - node.name=invoice-search-node
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # OpenSearch Dashboards (optional)
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.4.0
+    container_name: invoice_app_opensearch_dashboards
+    ports:
+      - "5601:5601"
+    expose:
+      - "5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+
+  # Database backup service (optional)
+  backup:
+    image: postgres:15
+    container_name: invoice_app_backup
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST: postgres-master
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./backups:/backups
+      - ./api/scripts/backup-tenants.sh:/backup-tenants.sh
+    networks:
+      - invoice_app_network
+    restart: "no"
+    profiles:
+      - backup
+    command: ["sh", "-c", "chmod +x /backup-tenants.sh && /backup-tenants.sh"]
+
+volumes:
+  postgres_master_data:
+  ollama_data:
+  kafka_data:
+  opensearch_data:
+
+networks:
+  invoice_app_network:
+    driver: bridge
