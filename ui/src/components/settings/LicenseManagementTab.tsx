@@ -808,7 +808,7 @@ export const LicenseManagementTab: React.FC = () => {
                             {t('settings.license.status.maxTenants', 'Maximum Organizations')}
                           </Label>
                           <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
-                            {activeInfo.max_tenants === 1 ? '1 Organization' : (activeInfo.max_tenants || 'Unlimited')}
+                            {activeInfo.max_tenants || 'Unlimited'}
                           </div>
                         </div>
                       )}
