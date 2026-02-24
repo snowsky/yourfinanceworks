@@ -78,7 +78,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
       const data = await reminderApi.getRecentNotifications();
       setNotifications(data.items || []);
     } catch (error) {
-      toast.error(t('reminders.failed_to_load_notifications'));
+      toast.error(t('reminders.messages.failed_to_load_notifications'));
     } finally {
       setLoading(false);
     }
@@ -114,9 +114,9 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
         prev.map(n => ({ ...n, is_read: true }))
       );
       setUnreadCount(0);
-      toast.success(t('reminders.all_notifications_marked_as_read'));
+      toast.success(t('reminders.messages.all_notifications_marked_as_read'));
     } catch (error) {
-      toast.error(t('reminders.failed_to_mark_all_as_read'));
+      toast.error(t('reminders.messages.failed_to_mark_all_as_read'));
     }
   };
 
@@ -129,7 +129,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      toast.error(t('reminders.failed_to_dismiss_notification'));
+      toast.error(t('reminders.messages.failed_to_dismiss_notification'));
     }
   };
 
