@@ -3029,7 +3029,12 @@
       "user_capacity_usage": "User Capacity Usage",
       "max_users_limit": "Max Users Limit",
       "max_organizations_limit": "Max Organizations Limit",
-      "user_capacity_control": "User Capacity Control"
+      "user_capacity_control": "User Capacity Control",
+      "max_tenants_description": "Manually override the system-wide organization limit.",
+      "max_users_description": "Manually override the system-wide user limit.",
+      "user": "User",
+      "email": "Email",
+      "capacity_status": "Capacity Status"
     }
   },
   "aiAssistant": {

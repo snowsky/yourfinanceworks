@@ -2927,7 +2927,12 @@
       "user_capacity_usage": "Uso de Capacidad de Usuarios",
       "max_users_limit": "Límite Máximo de Usuarios",
       "max_organizations_limit": "Límite Máximo de Organizaciones",
-      "user_capacity_control": "Control de Capacidad de Usuarios"
+      "user_capacity_control": "Control de Capacidad de Usuarios",
+      "max_tenants_description": "Anular manualmente el límite de organización del sistema.",
+      "max_users_description": "Anular manualmente el límite de usuarios del sistema.",
+      "user": "Usuario",
+      "email": "Correo electrónico",
+      "capacity_status": "Estado de Capacidad"
     }
   },
   "aiAssistant": {

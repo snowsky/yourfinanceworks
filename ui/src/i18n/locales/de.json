@@ -2884,7 +2884,12 @@
       "user_capacity_usage": "Benutzerkapazitätsnutzung",
       "max_users_limit": "Maximale Benutzerbegrenzung",
       "max_organizations_limit": "Maximale Organisationsbegrenzung",
-      "user_capacity_control": "Benutzerkapazitätssteuerung"
+      "user_capacity_control": "Benutzerkapazitätssteuerung",
+      "max_tenants_description": "Systemweite Organisationsbegrenzung manuell überschreiben.",
+      "max_users_description": "Systemweite Benutzerbegrenzung manuell überschreiben.",
+      "user": "Benutzer",
+      "email": "E-Mail",
+      "capacity_status": "Kapazitätsstatus"
     }
   },
   "aiAssistant": {
