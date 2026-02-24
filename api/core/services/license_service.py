@@ -1907,6 +1907,7 @@ class LicenseService:
                 "id": tenant.id,
                 "name": tenant.name,
                 "is_active": tenant.is_active,
+                "is_enabled": tenant.is_enabled,
                 "count_against_license": tenant.count_against_license,
                 # In a real impl, we'd cache the 'effective_source' in the Tenant model
                 # for faster monitoring access.

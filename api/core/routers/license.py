@@ -164,6 +164,7 @@ class TenantLicenseInfo(BaseModel):
     id: int
     name: str
     is_active: bool
+    is_enabled: bool
     count_against_license: bool
 
 

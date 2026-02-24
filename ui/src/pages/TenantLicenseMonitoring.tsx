@@ -34,6 +34,7 @@ interface TenantLicenseInfo {
   id: number;
   name: string;
   is_active: boolean;
+  is_enabled: boolean;
   count_against_license: boolean;
 }
 
@@ -583,6 +584,11 @@ export const TenantLicenseMonitoring: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      <Badge variant={tenant.is_enabled ? "default" : "destructive"}>
+                        {tenant.is_enabled ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1.5 text-sm">
                         <Info className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>{tenant.count_against_license ? t('superAdmin.license_capacity_monitoring.counts_against_limit', 'Counts against limit') : t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</span>
@@ -608,7 +614,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                 ))}
                 {tenants.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                       {t('superAdmin.license_capacity_monitoring.no_organizations_found', 'No organizations found')}
                     </TableCell>
                   </TableRow>
