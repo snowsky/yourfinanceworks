@@ -302,16 +302,6 @@ const InvestmentDashboard: React.FC = () => {
                 {t('portfolio.analytics')}
               </Link>
             </ProfessionalButton>
-            <ProfessionalButton
-              asChild
-              variant="outline"
-              className="bg-background/50 border-border/50 backdrop-blur-sm hover:bg-background transition-colors"
-            >
-              <Link to="/investments/cross-portfolio">
-                <Layers className="w-4 h-4 mr-2" />
-                Cross-Portfolio
-              </Link>
-            </ProfessionalButton>
             <ProfessionalButton asChild variant="default" className="shadow-lg shadow-primary/20 font-bold px-6">
               <Link to="/investments/portfolio/new">
                 <Plus className="w-4 h-4 mr-2" />

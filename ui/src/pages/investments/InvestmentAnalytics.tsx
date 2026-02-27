@@ -1,10 +1,11 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   BarChart3, PieChart, TrendingUp, Activity,
-  Target, Info, ArrowUpRight, ArrowDownRight,
-  Filter, Calendar
+  Target, Info, ArrowUpRight,
+  Filter, Calendar, Layers
 } from 'lucide-react';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -46,6 +47,13 @@ const InvestmentAnalytics: React.FC = () => {
         description={t('Consolidated performance and allocation insights across your entire investment ecosystem.')}
         actions={
           <div className="flex gap-2">
+            <Link
+              to="/investments/cross-portfolio"
+              className="inline-flex items-center gap-2 bg-background border border-border/50 rounded-xl px-4 py-2 text-sm font-medium shadow-sm hover:bg-primary hover:text-white hover:border-primary transition-all"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Cross-Portfolio</span>
+            </Link>
             <div className="flex items-center gap-2 bg-background border border-border/50 rounded-xl px-4 py-2 text-sm font-medium shadow-sm">
               <Calendar className="w-4 h-4 text-primary" />
               <span>Inception - Present</span>
