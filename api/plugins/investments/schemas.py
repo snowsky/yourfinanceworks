@@ -433,3 +433,152 @@ class PortfolioWithAttachmentResponse(BaseModel):
             datetime: lambda v: v.isoformat(),
             Decimal: lambda v: float(v)
         }
+
+
+# ============================================================
+# Cross-Portfolio Analysis Schemas
+# ============================================================
+
+class PortfolioHoldingSummary(BaseModel):
+    """Per-portfolio breakdown for a consolidated holding"""
+    portfolio_id: int
+    portfolio_name: str
+    portfolio_type: Optional[str] = None
+    quantity: float
+    cost_basis: float
+    current_value: float
+    unrealized_gain_loss: float
+    gain_loss_pct: float
+
+
+class ConsolidatedHolding(BaseModel):
+    """Aggregated view of a single stock across multiple portfolios"""
+    security_symbol: str
+    security_name: str
+    security_type: Optional[str] = None
+    asset_class: Optional[str] = None
+    total_quantity: float
+    weighted_avg_cost: float
+    total_cost_basis: float
+    total_current_value: float
+    total_unrealized_gain_loss: float
+    gain_loss_pct: float
+    portfolio_count: int
+    portfolios: List[PortfolioHoldingSummary]
+
+
+class ConsolidatedHoldingsResponse(BaseModel):
+    """Response for consolidated holdings endpoint"""
+    portfolio_count: int
+    total_unique_securities: int
+    consolidated_holdings: List[ConsolidatedHolding]
+
+
+class OverlapDetail(BaseModel):
+    """Individual overlap entry for a security found in multiple portfolios"""
+    security_symbol: str
+    security_name: Optional[str] = None
+    portfolio_ids: List[int]
+    portfolio_names: List[str]
+    portfolio_count: int
+    total_quantity: float
+    total_value: float
+
+
+class OverlapAnalysis(BaseModel):
+    """Cross-portfolio overlap report"""
+    total_unique_securities: int
+    overlapping_securities_count: int
+    overlap_percentage: float
+    portfolio_count: int
+    overlap_details: List[OverlapDetail]
+
+
+class PortfolioStockMetrics(BaseModel):
+    """Per-portfolio metrics for a specific stock"""
+    portfolio_id: int
+    portfolio_name: str
+    portfolio_type: Optional[str] = None
+    quantity: float
+    avg_cost_per_share: float
+    cost_basis: float
+    current_value: float
+    current_price: Optional[float] = None
+    unrealized_gain_loss: float
+    gain_loss_pct: float
+
+
+class StockComparison(BaseModel):
+    """Compare a stock's performance across portfolios"""
+    security_symbol: str
+    security_name: str
+    found_in_portfolios: int
+    total_quantity: float
+    total_cost_basis: float
+    total_current_value: float
+    total_unrealized_gain_loss: float
+    total_gain_loss_pct: float
+    portfolios: List[PortfolioStockMetrics]
+
+
+class ExposureDetail(BaseModel):
+    """Single stock exposure showing concentration risk"""
+    security_symbol: str
+    security_name: Optional[str] = None
+    total_value: float
+    pct_of_total: float
+    portfolio_count: int
+
+
+class ExposureReport(BaseModel):
+    """Concentration risk across all portfolios"""
+    total_combined_value: float
+    securities_count: int
+    concentration_warnings_count: int
+    concentration_warnings: List[ExposureDetail]
+    exposures: List[ExposureDetail]
+
+
+class MonthlyActivity(BaseModel):
+    """Transaction activity for a single month"""
+    month: str  # "YYYY-MM"
+    buys: float
+    sells: float
+    dividends: float
+    fees: float
+    net_flow: float
+
+
+class PortfolioMonthlyPerformance(BaseModel):
+    """Monthly performance breakdown for a single portfolio"""
+    portfolio_id: int
+    portfolio_name: str
+    portfolio_type: Optional[str] = None
+    current_value: float
+    current_cost_basis: float
+    current_gain_loss: float
+    months: List[MonthlyActivity]
+
+
+class MonthlyPerformanceComparison(BaseModel):
+    """Compare monthly returns across portfolios"""
+    months_analyzed: int
+    month_keys: List[str]
+    portfolio_count: int
+    total_combined_value: float
+    portfolios: List[PortfolioMonthlyPerformance]
+    aggregate_months: List[MonthlyActivity]
+
+
+class CrossPortfolioSummary(BaseModel):
+    """Unified cross-portfolio dashboard summary"""
+    portfolio_count: int
+    total_unique_securities: int
+    total_combined_value: float
+    total_combined_cost: float
+    total_gain_loss: float
+    total_gain_loss_pct: float
+    overlapping_securities_count: int
+    overlap_percentage: float = 0.0
+    top_holdings: List[ConsolidatedHolding]
+    concentration_warnings: List[ExposureDetail]

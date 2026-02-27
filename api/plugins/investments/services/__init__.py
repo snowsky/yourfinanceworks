@@ -6,6 +6,7 @@ from .transaction_service import TransactionService
 from .analytics_service import AnalyticsService
 from .file_storage_service import FileStorageService
 from .file_cleanup_service import FileCleanupService
+from .cross_portfolio_service import CrossPortfolioService
 
 __all__ = [
     'PortfolioService',
@@ -13,5 +14,6 @@ __all__ = [
     'TransactionService',
     'AnalyticsService',
     'FileStorageService',
-    'FileCleanupService'
+    'FileCleanupService',
+    'CrossPortfolioService'
 ]

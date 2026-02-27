@@ -27,7 +27,10 @@ from .schemas import (
     OtherTransactionCreate, TransactionResponse,
     PerformanceMetrics, AssetAllocation, DividendSummary, TaxExport,
     DateRangeQuery, TaxYearQuery, ErrorResponse, RebalanceReport,
-    FileAttachmentResponse, FileAttachmentDetailResponse, PortfolioWithAttachmentResponse
+    FileAttachmentResponse, FileAttachmentDetailResponse, PortfolioWithAttachmentResponse,
+    # Cross-portfolio analysis schemas
+    ConsolidatedHoldingsResponse, OverlapAnalysis, StockComparison,
+    ExposureReport, MonthlyPerformanceComparison, CrossPortfolioSummary
 )
 
 # Import models for enums
@@ -40,6 +43,7 @@ from .services.transaction_service import TransactionService
 from .services.analytics_service import AnalyticsService
 from .services.rebalance_service import RebalanceService
 from .services.portfolio_import_service import PortfolioImportService
+from .services.cross_portfolio_service import CrossPortfolioService
 
 
 # Import error handling
@@ -1283,3 +1287,150 @@ async def delete_portfolio_file(
         raise
     except Exception as e:
         raise InvestmentError(f"Failed to delete file attachment: {str(e)}")
+
+
+# ============================================================
+# Cross-Portfolio Analysis Endpoints
+# ============================================================
+
+def _parse_portfolio_ids(portfolio_ids: Optional[str] = None) -> Optional[List[int]]:
+    """Parse comma-separated portfolio IDs from query parameter."""
+    if not portfolio_ids:
+        return None
+    try:
+        return [int(pid.strip()) for pid in portfolio_ids.split(",") if pid.strip()]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="portfolio_ids must be a comma-separated list of integers"
+        )
+
+
+@investment_router.get("/cross-portfolio/consolidated-holdings", response_model=ConsolidatedHoldingsResponse)
+async def get_consolidated_holdings(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Get all stocks consolidated across portfolios, showing combined quantities and values"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.get_consolidated_holdings(
+            tenant_id=current_user.tenant_id,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to get consolidated holdings: {str(e)}")
+
+
+@investment_router.get("/cross-portfolio/overlap-analysis", response_model=OverlapAnalysis)
+async def get_overlap_analysis(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Identify which stocks overlap across multiple portfolios"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.get_overlap_analysis(
+            tenant_id=current_user.tenant_id,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to get overlap analysis: {str(e)}")
+
+
+@investment_router.get("/cross-portfolio/stock-comparison/{symbol}", response_model=StockComparison)
+async def get_stock_comparison(
+    symbol: str,
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Compare a specific stock's performance across all portfolios that hold it"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.compare_stock(
+            tenant_id=current_user.tenant_id,
+            symbol=symbol,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to compare stock: {str(e)}")
+
+
+@investment_router.get("/cross-portfolio/exposure-report", response_model=ExposureReport)
+async def get_exposure_report(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Get concentration risk report showing each stock's total exposure across all portfolios"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.get_exposure_report(
+            tenant_id=current_user.tenant_id,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to get exposure report: {str(e)}")
+
+
+@investment_router.get("/cross-portfolio/monthly-comparison", response_model=MonthlyPerformanceComparison)
+async def get_monthly_comparison(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    months: int = Query(6, ge=1, le=24, description="Number of months of history"),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Compare month-over-month activity and performance across portfolios"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.get_monthly_comparison(
+            tenant_id=current_user.tenant_id,
+            months=months,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to get monthly comparison: {str(e)}")
+
+
+@investment_router.get("/cross-portfolio/summary", response_model=CrossPortfolioSummary)
+async def get_cross_portfolio_summary(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    portfolio_ids: Optional[str] = Query(None, description="Comma-separated portfolio IDs to include")
+):
+    """Get unified cross-portfolio dashboard summary with key insights"""
+    try:
+        service = CrossPortfolioService(db)
+        ids = _parse_portfolio_ids(portfolio_ids)
+        result = service.get_cross_portfolio_summary(
+            tenant_id=current_user.tenant_id,
+            portfolio_ids=ids
+        )
+        return result
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to get cross-portfolio summary: {str(e)}")
