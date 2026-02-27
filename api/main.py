@@ -5,6 +5,8 @@
 # See LICENSE-AGPLv3.txt and LICENSE-COMMERCIAL.txt for details.
 
 import os
+import shutil
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
 import uvicorn
@@ -13,6 +15,25 @@ from fastapi.responses import JSONResponse
 import traceback
 import logging
 from fastapi.staticfiles import StaticFiles
+
+# Auto-copy .env.example.full to .env if .env doesn't exist
+def ensure_env_file():
+    """Copy .env.example.full to .env if .env doesn't exist"""
+    api_dir = Path(__file__).parent
+    env_file = api_dir / ".env"
+    env_example_file = api_dir / ".env.example.full"
+
+    if not env_file.exists() and env_example_file.exists():
+        try:
+            shutil.copy2(env_example_file, env_file)
+            print(f"✅ Created .env from .env.example.full")
+        except Exception as e:
+            print(f"⚠️  Failed to copy .env.example.full to .env: {e}")
+    elif not env_file.exists():
+        print("⚠️  .env file doesn't exist and .env.example.full not found")
+
+# Ensure .env file exists before proceeding
+ensure_env_file()
 
 from core.routers import (
     auth,
