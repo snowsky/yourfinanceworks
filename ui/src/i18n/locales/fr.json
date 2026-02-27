@@ -263,7 +263,8 @@
         "email_available": "✓ L'email est disponible",
         "email_taken": "✗ L'email est déjà enregistré. Veuillez utiliser un email différent ou essayer de vous connecter.",
         "error_checking": "Erreur lors de la vérification de la disponibilité",
-        "valid_email": "Veuillez entrer une adresse email valide"
+        "valid_email": "Veuillez entrer une adresse email valide",
+        "org_not_found": "Organisation '{{name}}' non trouvée. Vous pouvez créer une nouvelle organisation à la place."
       },
       "tips": {
         "org_taken_tip": "💡 Conseil : Si vous essayez de rejoindre une organisation existante, demandez à votre administrateur de vous inviter au lieu de créer un nouveau compte.",

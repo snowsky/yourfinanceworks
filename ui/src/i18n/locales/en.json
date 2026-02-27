@@ -264,7 +264,8 @@
         "email_available": "✓ Email is available",
         "email_taken": "✗ Email is already registered. Please use a different email or try logging in.",
         "error_checking": "Error checking availability",
-        "valid_email": "Please enter a valid email address"
+        "valid_email": "Please enter a valid email address",
+        "org_not_found": "Organization '{{name}}' not found. You can create a new organization instead."
       },
       "tips": {
         "org_taken_tip": "💡 Tip: If you're trying to join an existing organization, ask your admin to invite you instead of creating a new account.",

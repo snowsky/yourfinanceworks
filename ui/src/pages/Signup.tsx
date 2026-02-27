@@ -113,7 +113,9 @@ const Signup: React.FC = () => {
         setOrganizationNameStatus({
           checking: false,
           available: result.exists,
-          message: result.message
+          message: result.exists
+            ? t('auth.signup.availability.org_available')
+            : t('auth.signup.availability.org_not_found', { name })
         });
       }
     } catch (error) {

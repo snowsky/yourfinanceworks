@@ -255,7 +255,8 @@
         "email_available": "✓ E-Mail ist verfügbar",
         "email_taken": "✗ E-Mail ist bereits registriert. Bitte verwenden Sie eine andere E-Mail oder versuchen Sie sich anzumelden.",
         "error_checking": "Fehler beim Prüfen der Verfügbarkeit",
-        "valid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein"
+        "valid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+        "org_not_found": "Organisation '{{name}}' nicht gefunden. Sie können stattdessen eine neue Organisation erstellen."
       },
       "tips": {
         "org_taken_tip": "💡 Tipp: Wenn Sie einer bestehenden Organisation beitreten möchten, bitten Sie Ihren Admin um eine Einladung, anstatt ein neues Konto zu erstellen.",
