@@ -57,6 +57,7 @@ const PortfolioPerformance = React.lazy(() => import("./pages/investments/Portfo
 const InvestmentAnalytics = React.lazy(() => import("./pages/investments/InvestmentAnalytics"));
 const TaxExport = React.lazy(() => import("./pages/investments/TaxExport"));
 const RebalancingTool = React.lazy(() => import("./pages/investments/RebalancingTool"));
+const CrossPortfolioAnalysis = React.lazy(() => import("./pages/investments/CrossPortfolioAnalysis"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const AIAssistant = React.lazy(() => import("./components/AIAssistant"));
 const AuditLog = React.lazy(() => import("./pages/AuditLog"));
@@ -273,6 +274,17 @@ const AppContent = () => {
                           routePath="/investments/tax-export"
                         >
                           <TaxExport />
+                        </PluginRouteErrorBoundary>
+                      </PluginRouteGuard>
+                    } />
+                    <Route path="/investments/cross-portfolio" element={
+                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
+                        <PluginRouteErrorBoundary
+                          pluginId="investments"
+                          pluginName="Investment Management"
+                          routePath="/investments/cross-portfolio"
+                        >
+                          <CrossPortfolioAnalysis />
                         </PluginRouteErrorBoundary>
                       </PluginRouteGuard>
                     } />

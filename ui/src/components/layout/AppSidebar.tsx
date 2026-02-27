@@ -698,12 +698,6 @@ export function AppSidebar() {
         {/* Always-available thin rail to toggle when sidebar is hidden */}
         <SidebarRail />
       </Sidebar>
-      {/* Floating toggle shown when sidebar is hidden (desktop) */}
-      {state === 'collapsed' && (
-        <div className="fixed top-4 left-2 z-50 hidden md:block">
-          <SidebarTrigger className="rounded-full bg-background/80 backdrop-blur-sm shadow-lg hover:bg-background border border-border/50" />
-        </div>
-      )}
     </>
   );
 }

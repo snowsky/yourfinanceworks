@@ -929,6 +929,39 @@ export const investmentApi = {
 
     return { blob: normalizedBlob, filename, contentType: type };
   },
+
+  // Cross-Portfolio Analysis
+  getCrossPortfolioSummary: (portfolioIds?: number[]) => {
+    const params = portfolioIds ? `?portfolio_ids=${portfolioIds.join(',')}` : '';
+    return apiRequest<any>(`/investments/cross-portfolio/summary${params}`);
+  },
+
+  getConsolidatedHoldings: (portfolioIds?: number[]) => {
+    const params = portfolioIds ? `?portfolio_ids=${portfolioIds.join(',')}` : '';
+    return apiRequest<any>(`/investments/cross-portfolio/consolidated-holdings${params}`);
+  },
+
+  getOverlapAnalysis: (portfolioIds?: number[]) => {
+    const params = portfolioIds ? `?portfolio_ids=${portfolioIds.join(',')}` : '';
+    return apiRequest<any>(`/investments/cross-portfolio/overlap-analysis${params}`);
+  },
+
+  getStockComparison: (symbol: string, portfolioIds?: number[]) => {
+    const params = portfolioIds ? `?portfolio_ids=${portfolioIds.join(',')}` : '';
+    return apiRequest<any>(`/investments/cross-portfolio/stock-comparison/${encodeURIComponent(symbol)}${params}`);
+  },
+
+  getExposureReport: (portfolioIds?: number[]) => {
+    const params = portfolioIds ? `?portfolio_ids=${portfolioIds.join(',')}` : '';
+    return apiRequest<any>(`/investments/cross-portfolio/exposure-report${params}`);
+  },
+
+  getMonthlyComparison: (months: number = 6, portfolioIds?: number[]) => {
+    const searchParams = new URLSearchParams();
+    searchParams.set('months', months.toString());
+    if (portfolioIds) searchParams.set('portfolio_ids', portfolioIds.join(','));
+    return apiRequest<any>(`/investments/cross-portfolio/monthly-comparison?${searchParams.toString()}`);
+  },
 };
 
 // Add settings types

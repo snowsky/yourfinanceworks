@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, PieChart, Plus, BarChart3, Calendar,
   Wallet, Target, Activity, Archive, Trash2, RotateCcw,
   Search, List, Grid, ChevronDown, ChevronUp, RefreshCw,
-  MoreHorizontal, Eye, Filter, Download, Info, LayoutGrid, X
+  MoreHorizontal, Eye, Filter, LayoutGrid, Layers
 } from 'lucide-react';
 import { CardContent, CardDescription, CardHeader, CardTitle, Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -300,6 +300,16 @@ const InvestmentDashboard: React.FC = () => {
               <Link to="/investments/analytics">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 {t('portfolio.analytics')}
+              </Link>
+            </ProfessionalButton>
+            <ProfessionalButton
+              asChild
+              variant="outline"
+              className="bg-background/50 border-border/50 backdrop-blur-sm hover:bg-background transition-colors"
+            >
+              <Link to="/investments/cross-portfolio">
+                <Layers className="w-4 h-4 mr-2" />
+                Cross-Portfolio
               </Link>
             </ProfessionalButton>
             <ProfessionalButton asChild variant="default" className="shadow-lg shadow-primary/20 font-bold px-6">
@@ -752,7 +762,7 @@ const InvestmentDashboard: React.FC = () => {
             <Target className="w-6 h-6 text-primary" />
             {t('portfolio.strategic_actions')}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <ProfessionalCard variant="elevated" className="group p-6 border-l-4 border-l-primary hover:border-l-primary/100 transition-all shadow-md">
               <Link to="/investments/portfolio/new" className="flex flex-col gap-4">
                 <div className="p-3 rounded-2xl bg-primary/10 text-primary w-fit group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
@@ -785,6 +795,18 @@ const InvestmentDashboard: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-lg mb-1 group-hover:text-emerald-600 transition-colors">{t('portfolio.tax_efficiency')}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t('portfolio.tax_efficiency_description')}</p>
+                </div>
+              </Link>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="elevated" className="group p-6 border-l-4 border-l-cyan-500 hover:border-l-cyan-500/100 transition-all shadow-md">
+              <Link to="/investments/cross-portfolio" className="flex flex-col gap-4">
+                <div className="p-3 rounded-2xl bg-cyan-100/50 text-cyan-600 w-fit group-hover:bg-cyan-600 group-hover:text-white transition-all shadow-sm">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1 group-hover:text-cyan-600 transition-colors">Cross-Portfolio Analysis</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">Compare stocks across portfolios, find overlaps, and monitor concentration risk.</p>
                 </div>
               </Link>
             </ProfessionalCard>
