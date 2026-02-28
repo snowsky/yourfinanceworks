@@ -141,7 +141,7 @@ async def auto_activate_license():
     installation_id = os.getenv("INSTALLATION_ID")
     license_key = os.getenv("LICENSE_KEY") or os.getenv("LICENSE")
     private_key_pem = os.getenv("DEPLOYMENT_PRIVATE_KEY") or os.getenv("PRIVATE_KEY")
-    
+
     # Default to True if license_key is provided
     auto_activate_str = os.getenv("AUTO_ACTIVATE_LICENSE")
     if auto_activate_str is None and license_key:

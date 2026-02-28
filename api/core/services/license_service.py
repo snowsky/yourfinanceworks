@@ -642,19 +642,15 @@ class LicenseService:
             }
 
         else:  # business
-            # Business use: 30-day trial
-            trial_end = now + timedelta(days=TRIAL_DURATION_DAYS)
-            installation.license_status = "trial"
-            installation.trial_start_date = now
-            installation.trial_end_date = trial_end
-
+            # Business use: requires license activation via JWT - do not auto-create trial
+            # Keep license_status as "invalid" until proper license is activated
             self.db.commit()
             self.db.refresh(installation)
 
-            # Log trial start
+            # Log business use selection (no trial created)
             self._log_validation(
                 installation=installation,
-                validation_type="trial_start",
+                validation_type="usage_type_selected",
                 validation_result="success",
                 user_id=user_id,
                 ip_address=ip_address,
@@ -663,11 +659,9 @@ class LicenseService:
 
             return {
                 "success": True,
-                "message": f"Business trial started. {TRIAL_DURATION_DAYS} days remaining.",
+                "message": "Business use selected. Please activate a license to enable features.",
                 "usage_type": "business",
-                "license_status": "trial",
-                "trial_days_remaining": TRIAL_DURATION_DAYS,
-                "trial_end_date": trial_end.isoformat(),
+                "license_status": "invalid",
             }
 
     def get_usage_type_status(self) -> Dict[str, Any]:
@@ -758,21 +752,20 @@ class LicenseService:
 
         if not installation:
             # Auto-create local installation record synced with global ID
-            trial_start = datetime.now(timezone.utc)
-            trial_end = trial_start + timedelta(days=TRIAL_DURATION_DAYS)
+            # NO LONGER AUTO-CREATE TRIAL - only create basic installation record
             installation = InstallationInfo(
                 installation_id=global_id,
                 original_installation_id=global_id, # Store original global ID
-                license_status="trial",
+                license_status="invalid",  # Changed from "trial" to "invalid"
                 usage_type=None,
-                trial_start_date=trial_start,
-                trial_end_date=trial_end,
+                trial_start_date=None,  # Removed automatic trial creation
+                trial_end_date=None,  # Removed automatic trial creation
             )
             self.db.add(installation)
             self.db.commit()
             self.db.refresh(installation)
 
-            # Log local installation creation
+            # Log local installation creation (no trial)
             self._log_validation(
                 installation=installation,
                 validation_type="installation_created",
@@ -1565,7 +1558,7 @@ class LicenseService:
         installation.installation_id = new_id
 
         # Reset license status as the old license is no longer valid for this new ID
-        installation.license_status = "trial" # Reset to trial
+        installation.license_status = "invalid" # Changed from "trial" to "invalid"
         installation.is_licensed = False
         installation.license_key = None
         installation.license_activated_at = None
@@ -1631,7 +1624,7 @@ class LicenseService:
         installation.installation_id = new_installation_id
         
         # Reset license status as the old license is no longer valid for this new ID
-        installation.license_status = "trial"  # Reset to trial
+        installation.license_status = "invalid"  # Changed from "trial" to "invalid"
         installation.is_licensed = False
         installation.license_key = None
         installation.license_activated_at = None
@@ -1691,7 +1684,7 @@ class LicenseService:
         installation.installation_id = target_id
 
         # Reset license status on switch to ensure validity check happens against new ID
-        installation.license_status = "trial"
+        installation.license_status = "invalid"  # Changed from "trial" to "invalid"
         installation.is_licensed = False
         installation.license_key = None
         installation.licensed_features = None

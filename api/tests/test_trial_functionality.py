@@ -44,8 +44,8 @@ def license_service(db_session):
 class TestTrialAutoActivation:
     """Test 30-day trial auto-activation on first install"""
 
-    def test_trial_auto_created_on_first_access(self, license_service, db_session):
-        """Test that trial is automatically created on first access"""
+    def test_installation_created_with_invalid_status(self, license_service, db_session):
+        """Test that installation is created with 'invalid' status, not trial"""
         # Verify no installation exists
         installation = db_session.query(InstallationInfo).first()
         assert installation is None
@@ -56,22 +56,107 @@ class TestTrialAutoActivation:
         # Verify installation was created
         installation = db_session.query(InstallationInfo).first()
         assert installation is not None
+        assert installation.license_status == 'invalid'
+
+    def test_select_business_sets_usage_type_only(self, license_service, db_session):
+        """Test that selecting business usage only sets usage_type, doesn't create trial"""
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+        assert result['usage_type'] == 'business'
+        assert result['license_status'] == 'invalid'  # Should remain invalid, no trial created
+
+        installation = db_session.query(InstallationInfo).first()
+        assert installation.usage_type == 'business'
+        assert installation.license_status == 'invalid'
+        assert installation.trial_start_date is None  # No trial dates set
+        assert installation.trial_end_date is None
+
+    def test_trial_created_via_jwt_activation(self, license_service, db_session):
+        """Test that trials can only be created via JWT license activation"""
+        # First select business usage (doesn't create trial)
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+
+        # Verify no trial created
+        installation = db_session.query(InstallationInfo).first()
+        assert installation.license_status == 'invalid'
+        assert installation.trial_start_date is None
+
+        # Now activate a trial license via JWT
+        import jwt
+        import os
+
+        keys_dir = os.path.join(os.path.dirname(__file__), '..', 'keys')
+        private_key_path = os.path.join(keys_dir, 'private_key.pem')
+
+        with open(private_key_path, 'rb') as f:
+            private_key = f.read()
+
+        # Create trial license JWT
+        now = datetime.now(timezone.utc)
+        exp = now + timedelta(days=30)
+        payload = {
+            'customer_email': 'trial@example.com',
+            'customer_name': 'Trial User',
+            'features': ['all'],  # Trial features
+            'installation_id': installation.installation_id,
+            'license_type': 'trial',  # Explicitly trial license
+            'iat': int(now.timestamp()),
+            'exp': int(exp.timestamp())
+        }
+
+        trial_license_key = jwt.encode(payload, private_key, algorithm='RS256')
+
+        # Activate the trial license
+        activation_result = license_service.activate_license(trial_license_key)
+        assert activation_result['success'] is True
+
+        # Verify trial is now active
+        installation = db_session.query(InstallationInfo).first()
         assert installation.license_status == 'trial'
+        assert installation.trial_start_date is not None
+        assert installation.trial_end_date is not None
 
-    def test_trial_has_30_day_duration(self, license_service):
-        """Test that trial is created with 30-day duration"""
-        status = license_service.get_license_status()
-        trial_info = status['trial_info']
-
-        assert trial_info['is_trial'] is True
-        assert trial_info['trial_active'] is True
-        assert trial_info['days_remaining'] >= 29  # Allow for timing
-        assert trial_info['days_remaining'] <= 30
+        # Verify features are enabled
+        features = license_service.get_enabled_features()
+        assert "all" in features
 
     def test_trial_start_and_end_dates_set(self, license_service, db_session):
-        """Test that trial start and end dates are properly set"""
-        license_service.get_license_status()
+        """Test that trial start and end dates are properly set after JWT activation"""
+        # First select business usage (doesn't create trial)
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
 
+        installation = db_session.query(InstallationInfo).first()
+        assert installation.trial_start_date is None  # No trial dates set yet
+        assert installation.trial_end_date is None
+
+        # Now activate a trial license to set the dates
+        import jwt
+        import os
+
+        keys_dir = os.path.join(os.path.dirname(__file__), '..', 'keys')
+        private_key_path = os.path.join(keys_dir, 'private_key.pem')
+
+        with open(private_key_path, 'rb') as f:
+            private_key = f.read()
+
+        now = datetime.now(timezone.utc)
+        exp = now + timedelta(days=30)
+        payload = {
+            'customer_email': 'test@example.com',
+            'customer_name': 'Test User',
+            'features': ['all'],
+            'installation_id': installation.installation_id,
+            'license_type': 'trial',
+            'iat': int(now.timestamp()),
+            'exp': int(exp.timestamp())
+        }
+
+        trial_license_key = jwt.encode(payload, private_key, algorithm='RS256')
+        license_service.activate_license(trial_license_key)
+
+        # Now check trial dates are set
         installation = db_session.query(InstallationInfo).first()
         assert installation.trial_start_date is not None
         assert installation.trial_end_date is not None
@@ -88,21 +173,26 @@ class TestTrialAutoActivation:
         assert installation.installation_id is not None
         assert len(installation.installation_id) > 0
 
-    def test_trial_only_created_once(self, license_service, db_session):
-        """Test that trial is only created once, not on every access"""
-        # First access
-        status1 = license_service.get_license_status()
+    def test_business_usage_type_selection(self, license_service, db_session):
+        """Test that business usage type can be selected and re-selected"""
+        # First select business usage
+        result1 = license_service.select_usage_type("business")
+        assert result1['success'] is True
+        assert result1['usage_type'] == 'business'
+
         installation1 = db_session.query(InstallationInfo).first()
-        installation_id1 = installation1.installation_id
-        trial_start1 = installation1.trial_start_date
+        assert installation1.usage_type == 'business'
+        assert installation1.license_status == 'invalid'  # No trial created
 
-        # Second access
-        status2 = license_service.get_license_status()
+        # Try to select business usage again (should be rejected)
+        result2 = license_service.select_usage_type("business")
+        assert result2['success'] is False
+        assert result2['error'] == "ALREADY_SELECTED"
+
+        # Installation should remain the same
         installation2 = db_session.query(InstallationInfo).first()
-
-        # Should be the same installation
-        assert installation2.installation_id == installation_id1
-        assert installation2.trial_start_date == trial_start1
+        assert installation2.usage_type == 'business'
+        assert installation2.license_status == 'invalid'
 
 
 class TestGracePeriod:
@@ -158,6 +248,10 @@ class TestGracePeriod:
 
     def test_no_grace_period_during_active_trial(self, license_service):
         """Test that grace period is not active during trial"""
+        # First select business usage to start trial
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+
         trial_status = license_service.get_trial_status()
 
         assert trial_status['trial_active'] is True
@@ -190,12 +284,20 @@ class TestFeatureAccessDuringTrial:
 
     def test_all_features_available_during_trial(self, license_service):
         """Test that all features are available during active trial"""
+        # First select business usage to start trial
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+
         features = license_service.get_enabled_features()
 
         assert "all" in features
 
     def test_has_feature_returns_true_during_trial(self, license_service):
         """Test that has_feature returns True for any feature during trial"""
+        # First select business usage to start trial
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+
         assert license_service.has_feature("ai_invoice") is True
         assert license_service.has_feature("ai_expense") is True
         assert license_service.has_feature("tax_integration") is True
@@ -228,6 +330,10 @@ class TestFeatureAccessDuringTrial:
 
     def test_license_status_shows_trial_info(self, license_service):
         """Test that license status includes trial information"""
+        # First select business usage to start trial
+        result = license_service.select_usage_type("business")
+        assert result['success'] is True
+
         status = license_service.get_license_status()
 
         assert status['is_trial'] is True
