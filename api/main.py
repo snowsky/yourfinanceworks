@@ -432,7 +432,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     return JSONResponse(
         status_code=400,
-        content={"detail": errors, "body": body.decode('utf-8', errors='replace') if body else ""}
+        content={"detail": errors}
     )
 
 @app.exception_handler(ValidationError)

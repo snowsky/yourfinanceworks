@@ -347,8 +347,13 @@ def init_db():
                 {"db_name": db_name},
             )
             if not result.scalar():
-                conn.execute(text(f"CREATE DATABASE {db_name}"))
-                logger.info(f"Created database {db_name}")
+                # Explicitly cast to int to prevent SQL injection.
+                # CREATE DATABASE cannot use parameterized queries in PostgreSQL,
+                # so we validate the value is a safe integer before interpolating.
+                safe_tenant_id = int(tenant.id)
+                safe_db_name = f"tenant_{safe_tenant_id}"
+                conn.execute(text(f"CREATE DATABASE {safe_db_name}"))
+                logger.info(f"Created database {safe_db_name}")
         # Now create tables in the tenant DB
         tenant_engine = create_engine(tenant_db_url)
         logger.info(
