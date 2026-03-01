@@ -92,6 +92,7 @@ The first user to sign up in a fresh system is automatically granted Super User 
 - RESTful API for system integration and batch processing
 - Slack integration and external transaction management
 - Advanced export capabilities with multiple format support
+- **MCP (Model Context Protocol)** enabling to query business data in natural language
 
 ## 🏗️ Architecture (High Level)
 
@@ -128,6 +129,16 @@ This project utilizes a **Split-Licensing Model** to provide maximum transparenc
    - Ideal for businesses requiring enterprise features or proprietary integration.
    - Contact licensing@yourfinanceworks.com or visit https://www.yourfinanceworks.com for license acquisition.
    - See [LICENSE-COMMERCIAL.txt](LICENSE-COMMERCIAL.txt) for details.
+
+## 👋 Who Am I?
+
+I'm a DevOps engineer who built this entire SaaS product with the help of AI — as an experiment to test a bold hypothesis: **is the SaaS business model really dying?** With AI drastically lowering the barrier to building sophisticated software, this project explores what one person with DevOps skills and AI assistance can ship, and whether indie SaaS can still compete in today's market.
+
+If you'd like to get personalized help, code reviews, or mentoring, feel free to reach out on Codementor:
+
+[![Contact me on Codementor](https://www.codementor.io/m-badges/snowsky/find-me-on-cm-g.svg)](https://www.codementor.io/@snowsky?refer=badge)
+
+> ⭐ Reviews and feedback from past sessions are always appreciated!
 
 ## 🆘 Support
 
