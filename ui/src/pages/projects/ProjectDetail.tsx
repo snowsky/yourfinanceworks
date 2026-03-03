@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Clock, DollarSign, ListChecks,
-  Receipt, BarChart3, Plus, Trash2, Play, FileText, CheckCircle2, AlertCircle
+  Receipt, BarChart3, Plus, Trash2, Play, FileText, CheckCircle2, AlertCircle, Edit2, Save, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   useProject, useProjectSummary, useProjectTasks,
   useTimeEntries, useUnbilledItems, useCreateInvoiceFromProject,
-  useCreateTask, useDeleteTask, useDeleteTimeEntry
+  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateProject
 } from '@/plugins/time_tracking/hooks';
+import { SearchableClientSelect } from '@/plugins/time_tracking/components/SearchableClientSelect';
 import { TimeEntry, ProjectTask } from '@/plugins/time_tracking/api';
 import { useTimer } from '@/contexts/TimerContext';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
@@ -28,6 +29,9 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabType>('Overview');
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editClientId, setEditClientId] = useState<number | undefined>(undefined);
 
   const { data: project } = useProject(projectId);
   const { data: summary } = useProjectSummary(projectId);
@@ -36,7 +40,16 @@ export default function ProjectDetail() {
   const { data: unbilled } = useUnbilledItems(projectId);
   const createInvoice = useCreateInvoiceFromProject(projectId);
   const deleteEntry = useDeleteTimeEntry();
+  const updateProject = useUpdateProject(projectId);
   const { startTimer, active: timerActive } = useTimer();
+
+  // Initialize edit state when project data is loaded
+  React.useEffect(() => {
+    if (project && !isEditing) {
+      setEditName(project.name);
+      setEditClientId(project.client_id);
+    }
+  }, [project, isEditing]);
 
   if (!project) {
     return (
@@ -65,29 +78,101 @@ export default function ProjectDetail() {
     });
   };
 
+  const handleSave = async () => {
+    if (!editName || !editClientId) return;
+    await updateProject.mutateAsync({
+      name: editName,
+      client_id: editClientId,
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(project.name);
+    setEditClientId(project.client_id);
+    setIsEditing(false);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       <PageHeader
-        title={project.name}
-        description={project.client_name || `Client #${project.client_id}`}
+        title={
+          isEditing ? (
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="text-3xl font-bold h-12 bg-background/50 border-primary/30 max-w-xl"
+              placeholder="Project Name"
+              autoFocus
+            />
+          ) : (
+            project.name
+          )
+        }
+        description={
+          isEditing ? (
+            <div className="max-w-md mt-2">
+              <SearchableClientSelect
+                value={editClientId}
+                onChange={setEditClientId}
+                placeholder="Select client"
+                className="h-9"
+              />
+            </div>
+          ) : (
+            project.client_name || `Client #${project.client_id}`
+          )
+        }
         breadcrumbs={[
           { label: 'Time Tracking', href: '/time-tracking' },
           { label: project.name }
         ]}
         actions={
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className={cn("px-3 py-1 rounded-full border border-border/50 font-bold uppercase tracking-wider text-[10px]", project.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' : 'bg-slate-100 text-slate-700 dark:bg-slate-800')}>
-              {project.status}
-            </Badge>
-            {!timerActive && (
-              <ProfessionalButton
-                onClick={handleStartTimer}
-                variant="gradient"
-                className="shadow-lg shadow-primary/20 font-bold"
-                leftIcon={<Play className="w-3.5 h-3.5" />}
-              >
-                Start Timer
-              </ProfessionalButton>
+            {isEditing ? (
+              <>
+                <ProfessionalButton
+                  onClick={handleCancelEdit}
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<X className="w-4 h-4" />}
+                >
+                  Cancel
+                </ProfessionalButton>
+                <ProfessionalButton
+                  onClick={handleSave}
+                  variant="gradient"
+                  size="sm"
+                  loading={updateProject.isPending}
+                  leftIcon={<Save className="w-4 h-4" />}
+                >
+                  Save Changes
+                </ProfessionalButton>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsEditing(true)}
+                  className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors h-10 w-10"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </Button>
+                <Badge variant="outline" className={cn("px-3 py-1 rounded-full border border-border/50 font-bold uppercase tracking-wider text-[10px]", project.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' : 'bg-slate-100 text-slate-700 dark:bg-slate-800')}>
+                  {project.status}
+                </Badge>
+                {!timerActive && (
+                  <ProfessionalButton
+                    onClick={handleStartTimer}
+                    variant="gradient"
+                    className="shadow-lg shadow-primary/20 font-bold"
+                    leftIcon={<Play className="w-3.5 h-3.5" />}
+                  >
+                    Start Timer
+                  </ProfessionalButton>
+                )}
+              </>
             )}
           </div>
         }

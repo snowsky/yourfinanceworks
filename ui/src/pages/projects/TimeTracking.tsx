@@ -11,6 +11,7 @@ import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card'
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { SearchableClientSelect } from '@/plugins/time_tracking/components/SearchableClientSelect';
 
 // ─── Shared tab pill ──────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function ProjectsTab() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', client_id: '', billing_method: 'hourly', currency: 'USD' });
+  const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', currency: 'USD' });
 
   const { data: projects = [], isLoading } = useProjects({ status: statusFilter || undefined });
   const createProject = useCreateProject();
@@ -91,12 +92,12 @@ function ProjectsTab() {
     if (!newProject.name || !newProject.client_id) return;
     const result = await createProject.mutateAsync({
       name: newProject.name,
-      client_id: parseInt(newProject.client_id),
+      client_id: newProject.client_id,
       billing_method: newProject.billing_method,
       currency: newProject.currency,
     });
     setShowNewForm(false);
-    setNewProject({ name: '', client_id: '', billing_method: 'hourly', currency: 'USD' });
+    setNewProject({ name: '', client_id: undefined, billing_method: 'hourly', currency: 'USD' });
     navigate(`/projects/${result.id}`);
   };
 
@@ -152,14 +153,13 @@ function ProjectsTab() {
               value={newProject.name}
               onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
             />
-            <Input
-              required
-              type="number"
-              className="bg-background/50 border-border/50 rounded-xl px-3 py-2 text-sm focus-visible:ring-primary/20"
-              placeholder="Client ID *"
-              value={newProject.client_id}
-              onChange={(e) => setNewProject({ ...newProject, client_id: e.target.value })}
-            />
+            <div className="col-span-1 sm:col-span-1">
+              <SearchableClientSelect
+                value={newProject.client_id}
+                onChange={(id) => setNewProject({ ...newProject, client_id: id })}
+                placeholder="Client *"
+              />
+            </div>
             <select
               className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer"
               value={newProject.billing_method}

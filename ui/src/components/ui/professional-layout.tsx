@@ -4,9 +4,9 @@ import { ChevronRight, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 
 // Page Header Component
-interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
-  title: string;
-  description?: string;
+interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
+  title: React.ReactNode;
+  description?: React.ReactNode;
   actions?: React.ReactNode;
   breadcrumbs?: Array<{
     label: string;
