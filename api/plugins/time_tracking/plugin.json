@@ -1,0 +1,50 @@
+{
+    "name": "time-tracking",
+    "version": "1.0.0",
+    "author": "YourFinanceWORKS",
+    "license": "AGPLv3",
+    "description": "Project management and time tracking with invoice generation and monthly Excel export.",
+    "license_tier": "agpl",
+    "api_routes": [
+        {
+            "prefix": "/api/v1/projects"
+        },
+        {
+            "prefix": "/api/v1/time-entries"
+        }
+    ],
+    "database_tables": [
+        "projects",
+        "project_tasks",
+        "time_entries"
+    ],
+    "features": [
+        "Project creation linked to clients",
+        "Task management with hourly rates",
+        "Manual and live timer time logging",
+        "Expense tagging to projects",
+        "Unbilled items review",
+        "Invoice generation from unbilled items",
+        "Monthly Excel (.xlsx) time report export",
+        "Project profitability summary"
+    ],
+    "requirements": {
+        "minimum_license_tier": "agpl",
+        "database": "PostgreSQL",
+        "python_version": ">=3.8",
+        "dependencies": [
+            "fastapi",
+            "sqlalchemy",
+            "pydantic",
+            "openpyxl"
+        ]
+    },
+    "installation": {
+        "auto_register": true,
+        "migration_required": true,
+        "migration_files": [
+            "006_add_time_tracking_tables.py",
+            "007_add_project_fields_to_expenses.py"
+        ]
+    }
+}

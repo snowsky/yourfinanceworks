@@ -591,7 +591,20 @@ except ImportError as e:
 except Exception as e:
     logger.error(f"Failed to register investment plugin: {str(e)}")
 
-# --- Features in Commercial Module ---
+# --- Time Tracking Plugin ---
+try:
+    from plugins.time_tracking import register_time_tracking_plugin
+
+    plugin_info = register_time_tracking_plugin(app=app)
+    logger.info(f"Registered time tracking plugin: {plugin_info['name']} v{plugin_info['version']}")
+    logger.info(f"Time tracking routes registered: {plugin_info['routes']}")
+
+except ImportError as e:
+    logger.warning(f"Time tracking plugin not available: {str(e)}")
+except Exception as e:
+    logger.error(f"Failed to register time tracking plugin: {str(e)}")
+
+
 if sso_router:
     app.include_router(sso_router, prefix="/api/v1")
 

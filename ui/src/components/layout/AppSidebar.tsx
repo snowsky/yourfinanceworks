@@ -26,6 +26,7 @@ import {
   ChevronDown,
   DollarSign,
   FileText,
+  FolderKanban,
   LogOut,
   Settings,
   Users,
@@ -361,6 +362,18 @@ export function AppSidebar() {
       label: t('navigation.reminders'),
       icon: <Clock className="w-5 h-5" />,
       tourId: 'nav-reminders'
+    },
+    {
+      path: '/projects',
+      label: 'Projects',
+      icon: <FolderKanban className="w-5 h-5" />,
+      tourId: 'nav-projects'
+    },
+    {
+      path: '/time',
+      label: 'My Time',
+      icon: <Clock className="w-5 h-5" />,
+      tourId: 'nav-time'
     },
     {
       path: '/reports',
