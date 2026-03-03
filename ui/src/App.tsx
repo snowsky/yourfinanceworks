@@ -83,8 +83,8 @@ const Reminders = React.lazy(() => import("./pages/Reminders"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
-// Plugin route renderer + combined route config from all plugins
-import { PluginRoutes } from "./components/plugins/PluginRoutes";
+// Plugin route builder + combined route config from all plugins
+import { buildPluginElement } from "./components/plugins/PluginRoutes";
 import { pluginRoutes as investmentRoutes } from "./plugins/investments";
 import { pluginRoutes as timeTrackingRoutes } from "./plugins/time_tracking";
 const allPluginRoutes = [...investmentRoutes, ...timeTrackingRoutes];
@@ -190,7 +190,9 @@ const AppContent = () => {
                     <Route path="/time" element={<Navigate to="/time-tracking?tab=my-time" replace />} />
 
                     {/* ---- Plugin Routes — auto-registered from each plugin's index.ts ---- */}
-                    <PluginRoutes routes={allPluginRoutes} />
+                    {allPluginRoutes.map(r => (
+                      <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
+                    ))}
 
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />
