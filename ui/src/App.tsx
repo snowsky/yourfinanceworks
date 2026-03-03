@@ -195,9 +195,21 @@ const AppContent = () => {
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
 
                     {/* Time Tracking Plugin Routes */}
-                    <Route path="/projects" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectsList /></RoleProtectedRoute>} />
-                    <Route path="/projects/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectDetail /></RoleProtectedRoute>} />
-                    <Route path="/time" element={<MyTime />} />
+                    <Route path="/projects" element={
+                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
+                        <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectsList /></RoleProtectedRoute>
+                      </PluginRouteGuard>
+                    } />
+                    <Route path="/projects/:id" element={
+                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
+                        <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectDetail /></RoleProtectedRoute>
+                      </PluginRouteGuard>
+                    } />
+                    <Route path="/time" element={
+                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
+                        <MyTime />
+                      </PluginRouteGuard>
+                    } />
 
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />

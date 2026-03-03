@@ -249,6 +249,20 @@ class PluginDiscovery {
         rating: 4.8,
         homepage: 'https://yourfinanceworks.com/plugins/investments',
         repository: 'https://github.com/yourfinanceworks/investment-plugin'
+      },
+      {
+        id: 'time-tracking',
+        name: 'Projects & Time Tracking',
+        description: 'Manage projects, log time against tasks, run a live timer, and export monthly Excel reports',
+        icon: '⏱️',
+        version: '1.0.0',
+        author: 'YourFinanceWORKS',
+        category: 'productivity',
+        minAppVersion: '1.0.0',
+        dependencies: [],
+        lastUpdated: '2026-03-02',
+        downloadCount: 0,
+        rating: 5.0,
       }
     ];
   }

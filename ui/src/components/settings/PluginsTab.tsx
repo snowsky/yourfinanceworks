@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings } from 'lucide-react';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -90,6 +90,12 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
         return (
           <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow-sm">
             <TrendingUp className="w-5 h-5 text-white" />
+          </div>
+        );
+      case 'time-tracking':
+        return (
+          <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg shadow-sm">
+            <FolderKanban className="w-5 h-5 text-white" />
           </div>
         );
       default:

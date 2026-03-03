@@ -364,18 +364,6 @@ export function AppSidebar() {
       tourId: 'nav-reminders'
     },
     {
-      path: '/projects',
-      label: 'Projects',
-      icon: <FolderKanban className="w-5 h-5" />,
-      tourId: 'nav-projects'
-    },
-    {
-      path: '/time',
-      label: 'My Time',
-      icon: <Clock className="w-5 h-5" />,
-      tourId: 'nav-time'
-    },
-    {
       path: '/reports',
       label: t('navigation.reports'),
       icon: <BarChart className="w-5 h-5" />,
@@ -384,6 +372,7 @@ export function AppSidebar() {
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];
+
 
   const settingsMenuItems = [
     // Show Settings for all users
@@ -436,6 +425,22 @@ export function AppSidebar() {
         icon: <TrendingUp className="w-5 h-5" />,
         tourId: 'nav-investments',
         priority: 1
+      },
+      {
+        id: 'time-tracking',
+        path: '/projects',
+        label: 'Projects',
+        icon: <FolderKanban className="w-5 h-5" />,
+        tourId: 'nav-projects',
+        priority: 2
+      },
+      {
+        id: 'time-tracking',
+        path: '/time',
+        label: 'My Time',
+        icon: <Clock className="w-5 h-5" />,
+        tourId: 'nav-time',
+        priority: 3
       }
       // Additional plugins can be added here with their configurations
     ];
