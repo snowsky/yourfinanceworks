@@ -428,19 +428,11 @@ export function AppSidebar() {
       },
       {
         id: 'time-tracking',
-        path: '/projects',
-        label: 'Projects',
+        path: '/time-tracking',
+        label: 'Time Tracking',
         icon: <FolderKanban className="w-5 h-5" />,
-        tourId: 'nav-projects',
+        tourId: 'nav-time-tracking',
         priority: 2
-      },
-      {
-        id: 'time-tracking',
-        path: '/time',
-        label: 'My Time',
-        icon: <Clock className="w-5 h-5" />,
-        tourId: 'nav-time',
-        priority: 3
       }
       // Additional plugins can be added here with their configurations
     ];

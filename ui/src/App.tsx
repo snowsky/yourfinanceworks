@@ -94,9 +94,8 @@ const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJo
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
 // Time Tracking Plugin Pages
-const ProjectsList = React.lazy(() => import("./pages/projects/ProjectsList"));
 const ProjectDetail = React.lazy(() => import("./pages/projects/ProjectDetail"));
-const MyTime = React.lazy(() => import("./pages/projects/MyTime"));
+const TimeTracking = React.lazy(() => import("./pages/projects/TimeTracking"));
 
 const queryClient = new QueryClient();
 
@@ -195,9 +194,9 @@ const AppContent = () => {
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
 
                     {/* Time Tracking Plugin Routes */}
-                    <Route path="/projects" element={
+                    <Route path="/time-tracking" element={
                       <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
-                        <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectsList /></RoleProtectedRoute>
+                        <TimeTracking />
                       </PluginRouteGuard>
                     } />
                     <Route path="/projects/:id" element={
@@ -205,11 +204,9 @@ const AppContent = () => {
                         <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectDetail /></RoleProtectedRoute>
                       </PluginRouteGuard>
                     } />
-                    <Route path="/time" element={
-                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
-                        <MyTime />
-                      </PluginRouteGuard>
-                    } />
+                    {/* Redirect old routes */}
+                    <Route path="/projects" element={<Navigate to="/time-tracking?tab=projects" replace />} />
+                    <Route path="/time" element={<Navigate to="/time-tracking?tab=my-time" replace />} />
 
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />
