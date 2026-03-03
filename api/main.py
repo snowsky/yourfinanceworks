@@ -122,6 +122,14 @@ from core.models import models
 from db_init import init_db
 from core.services.search_indexer import search_indexer
 
+# Import plugin models so they register with TenantBase.metadata
+# MUST be before init_db() so create_all() includes these tables for new tenant DBs
+try:
+    from plugins.time_tracking.models import Project, ProjectTask, TimeEntry
+    logger.info("Time tracking plugin models registered with TenantBase.metadata")
+except ImportError as e:
+    logger.warning(f"Time tracking plugin models not available: {e}")
+
 # Initialize database (create tables and populate initial data)
 try:
     logger.info("Starting database initialization...")
@@ -132,6 +140,7 @@ except Exception as e:
     logger.error(f"Traceback: {traceback.format_exc()}")
     # Don't raise the exception to allow the app to start even if DB init fails
     # (Tables may not exist yet, they will be created by migrations if needed)
+
 
 async def auto_activate_license():
     """
@@ -591,7 +600,20 @@ except ImportError as e:
 except Exception as e:
     logger.error(f"Failed to register investment plugin: {str(e)}")
 
-# --- Features in Commercial Module ---
+# --- Time Tracking Plugin ---
+try:
+    from plugins.time_tracking import register_time_tracking_plugin
+
+    plugin_info = register_time_tracking_plugin(app=app)
+    logger.info(f"Registered time tracking plugin: {plugin_info['name']} v{plugin_info['version']}")
+    logger.info(f"Time tracking routes registered: {plugin_info['routes']}")
+
+except ImportError as e:
+    logger.warning(f"Time tracking plugin not available: {str(e)}")
+except Exception as e:
+    logger.error(f"Failed to register time tracking plugin: {str(e)}")
+
+
 if sso_router:
     app.include_router(sso_router, prefix="/api/v1")
 

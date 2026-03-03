@@ -93,6 +93,10 @@ const Reminders = React.lazy(() => import("./pages/Reminders"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
+// Time Tracking Plugin Pages
+const ProjectDetail = React.lazy(() => import("./pages/projects/ProjectDetail"));
+const TimeTracking = React.lazy(() => import("./pages/projects/TimeTracking"));
+
 const queryClient = new QueryClient();
 
 // Simple redirect component for expense IDs
@@ -188,14 +192,32 @@ const AppContent = () => {
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/approvals" element={<ApprovalDashboard />} />
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
+
+                    {/* Time Tracking Plugin Routes */}
+                    <Route path="/time-tracking" element={
+                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
+                        <TimeTracking />
+                      </PluginRouteGuard>
+                    } />
+                    <Route path="/projects/:id" element={
+                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
+                        <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectDetail /></RoleProtectedRoute>
+                      </PluginRouteGuard>
+                    } />
+                    {/* Redirect old routes */}
+                    <Route path="/projects" element={<Navigate to="/time-tracking?tab=projects" replace />} />
+                    <Route path="/time" element={<Navigate to="/time-tracking?tab=my-time" replace />} />
+
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />
+
                     <Route path="/users" element={<RoleProtectedRoute allowedRoles={['admin']}><Users /></RoleProtectedRoute>} />
                     <Route path="/organization-join-requests" element={<RoleProtectedRoute allowedRoles={['admin']}><OrganizationJoinRequests /></RoleProtectedRoute>} />
                     <Route path="/super-admin" element={<TenantProtectedRoute requireSuperUser={true} requirePrimaryTenant={true}><SuperAdmin /></TenantProtectedRoute>} />
                     <Route path="/audit-log" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><AuditLog /></RoleProtectedRoute>} />
                     <Route path="/recycle-bin" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute>} />
                     <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute>} />
+
 
                     {/* Investment Management Routes */}
                     <Route path="/investments" element={

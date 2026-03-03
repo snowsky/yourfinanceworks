@@ -26,6 +26,7 @@ import {
   ChevronDown,
   DollarSign,
   FileText,
+  FolderKanban,
   LogOut,
   Settings,
   Users,
@@ -372,6 +373,7 @@ export function AppSidebar() {
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];
 
+
   const settingsMenuItems = [
     // Show Settings for all users
     ...((!roleLoading) ? [{
@@ -423,6 +425,14 @@ export function AppSidebar() {
         icon: <TrendingUp className="w-5 h-5" />,
         tourId: 'nav-investments',
         priority: 1
+      },
+      {
+        id: 'time-tracking',
+        path: '/time-tracking',
+        label: 'Time Tracking',
+        icon: <FolderKanban className="w-5 h-5" />,
+        tourId: 'nav-time-tracking',
+        priority: 2
       }
       // Additional plugins can be added here with their configurations
     ];
