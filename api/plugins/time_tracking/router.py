@@ -24,9 +24,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from core.models.database import get_db
-from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.models.models_per_tenant import Client, Invoice, InvoiceItem, Expense
+from core.utils.audit import log_audit_event
 
 from .models import Project, ProjectTask, TimeEntry
 from .schemas import (
@@ -140,6 +140,19 @@ def create_project(
     db.add(project)
     db.commit()
     db.refresh(project)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="project",
+        resource_id=str(project.id),
+        resource_name=project.name,
+        details=payload.model_dump(),
+        status="success"
+    )
+
     return _enrich_project(project, db)
 
 
@@ -190,6 +203,19 @@ def update_project(
     project.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(project)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="project",
+        resource_id=str(project.id),
+        resource_name=project.name,
+        details=payload.model_dump(exclude_unset=True),
+        status="success"
+    )
+
     return _enrich_project(project, db)
 
 
@@ -199,13 +225,25 @@ def delete_project(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    """Soft-delete: sets status to 'cancelled'."""
+    """Soft-delete: sets status to 'archived'."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    project.status = "cancelled"
+    project.status = "archived"
     project.updated_at = datetime.now(timezone.utc)
     db.commit()
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="project",
+        resource_id=str(project.id),
+        resource_name=project.name,
+        details={"status": "archived"},
+        status="success"
+    )
 
 
 @projects_router.get("/{project_id}/summary", response_model=ProjectSummaryResponse)
@@ -484,6 +522,24 @@ def create_invoice_from_project(
     db.commit()
     db.refresh(invoice)
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="invoice",
+        resource_id=str(invoice.id),
+        resource_name=f"Invoice {invoice.number}",
+        details={
+            "project_id": project.id,
+            "amount": invoice.amount,
+            "currency": invoice.currency,
+            "due_date": due_date_str,
+            "line_items_count": len(line_items)
+        },
+        status="success"
+    )
+
     return ProjectInvoiceResponse(
         invoice_id=invoice.id,
         invoice_number=invoice.number,
@@ -521,13 +577,19 @@ def create_task(
     db.commit()
     db.refresh(task)
 
-    actual_hours = (
-        db.query(func.sum(TimeEntry.duration_minutes))
-        .filter(TimeEntry.task_id == task.id, TimeEntry.status != "in_progress")
-        .scalar()
-    ) or 0
-    result = {**task.__dict__, "actual_hours": round(actual_hours / 60.0, 2)}
-    return result
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="project_task",
+        resource_id=str(task.id),
+        resource_name=task.name,
+        details=payload.model_dump(),
+        status="success"
+    )
+
+    return {**task.__dict__, "actual_hours": 0.0}
 
 
 @projects_router.get("/{project_id}/tasks", response_model=List[ProjectTaskResponse])
@@ -569,6 +631,18 @@ def update_task(
     db.commit()
     db.refresh(task)
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="project_task",
+        resource_id=str(task.id),
+        resource_name=task.name,
+        details=payload.model_dump(exclude_unset=True),
+        status="success"
+    )
+
     actual_minutes = (
         db.query(func.sum(TimeEntry.duration_minutes))
         .filter(TimeEntry.task_id == task_id, TimeEntry.status != "in_progress")
@@ -592,6 +666,17 @@ def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete(task)
     db.commit()
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="project_task",
+        resource_id=str(task_id),
+        resource_name=task.name,
+        status="success"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +729,19 @@ def timer_start(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="START",
+        resource_type="timer",
+        resource_id=str(entry.id),
+        resource_name=f"Timer for Project {payload.project_id}",
+        details=payload.model_dump(),
+        status="success"
+    )
+
     return _enrich_time_entry(entry, db)
 
 
@@ -676,6 +774,23 @@ def timer_stop(
 
     db.commit()
     db.refresh(entry)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="STOP",
+        resource_type="timer",
+        resource_id=str(entry.id),
+        resource_name=f"Timer for Project {entry.project_id}",
+        details={
+            "duration_minutes": entry.duration_minutes,
+            "amount": entry.amount,
+            "notes": entry.notes
+        },
+        status="success"
+    )
+
     return _enrich_time_entry(entry, db)
 
 
@@ -938,6 +1053,19 @@ def create_time_entry(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="time_entry",
+        resource_id=str(entry.id),
+        resource_name=f"Time Log for Project {payload.project_id}",
+        details=payload.model_dump(),
+        status="success"
+    )
+
     return _enrich_time_entry(entry, db)
 
 
@@ -994,6 +1122,19 @@ def update_time_entry(
     entry.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(entry)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="time_entry",
+        resource_id=str(entry.id),
+        resource_name=f"Time Log for Project {entry.project_id}",
+        details=payload.model_dump(exclude_unset=True),
+        status="success"
+    )
+
     return _enrich_time_entry(entry, db)
 
 
@@ -1008,3 +1149,14 @@ def delete_time_entry(
         raise HTTPException(status_code=404, detail="Time entry not found")
     db.delete(entry)
     db.commit()
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="time_entry",
+        resource_id=str(entry_id),
+        resource_name=f"Time Log for Project {entry.project_id}",
+        status="success"
+    )
