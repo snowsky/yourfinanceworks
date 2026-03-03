@@ -1,0 +1,38 @@
+{
+    "name": "currency-rates",
+    "version": "1.0.0",
+    "description": "Live currency conversion rates powered by the open.er-api.com free API, with a static fallback when offline.",
+    "author": "Sample Plugin — YourFinanceWORKS",
+    "license_tier": "agpl",
+    "api_routes": [
+        {
+            "path": "/api/v1/currency-rates",
+            "methods": [
+                "GET"
+            ],
+            "description": "Returns latest exchange rates. Fetches live data from open.er-api.com; falls back to static rates if unavailable."
+        }
+    ],
+    "database_tables": [],
+    "features": [
+        "live-currency-rates",
+        "currency-conversion",
+        "offline-fallback"
+    ],
+    "requirements": [
+        "httpx>=0.24.0"
+    ],
+    "metadata": {
+        "category": "utilities",
+        "documentation_url": "https://github.com/your-org/invoice-app/blob/main/docs/developer/PLUGIN_DEVELOPMENT.md",
+        "external_services": [
+            {
+                "name": "Open Exchange Rates API",
+                "url": "https://open.er-api.com",
+                "auth_required": false,
+                "rate_limit": "1500 requests/month on free tier",
+                "fallback": "static hardcoded rates"
+            }
+        ]
+    }
+}

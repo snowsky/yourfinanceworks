@@ -87,7 +87,8 @@ const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
 import { pluginRoutes as investmentRoutes } from "./plugins/investments";
 import { pluginRoutes as timeTrackingRoutes } from "./plugins/time_tracking";
-const allPluginRoutes = [...investmentRoutes, ...timeTrackingRoutes];
+import { pluginRoutes as currencyRatesRoutes } from "./plugins/currency_rates";
+const allPluginRoutes = [...investmentRoutes, ...timeTrackingRoutes, ...currencyRatesRoutes];
 
 const queryClient = new QueryClient();
 
