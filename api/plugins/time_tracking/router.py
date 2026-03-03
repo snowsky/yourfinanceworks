@@ -437,18 +437,20 @@ def create_invoice_from_project(
 
     now = datetime.now(timezone.utc)
     due_date_str = payload.due_date or now.strftime("%Y-%m-%d")
+    due_date = datetime.strptime(due_date_str, "%Y-%m-%d") if isinstance(due_date_str, str) else due_date_str
 
     invoice = Invoice(
         number=invoice_number,
         client_id=project.client_id,
-        date=now.date(),
-        due_date=due_date_str,
+        due_date=due_date,
         amount=round(total, 2),
+        subtotal=round(total, 2),
         currency=project.currency,
         status="pending",
         notes=payload.notes or f"Generated from project: {project.name}",
         created_at=now,
         updated_at=now,
+        created_by_user_id=current_user.id
     )
     db.add(invoice)
     db.flush()  # get invoice.id
