@@ -122,13 +122,10 @@ from core.models import models
 from db_init import init_db
 from core.services.search_indexer import search_indexer
 
-# Import plugin models so they register with TenantBase.metadata
-# MUST be before init_db() so create_all() includes these tables for new tenant DBs
-try:
-    from plugins.time_tracking.models import Project, ProjectTask, TimeEntry
-    logger.info("Time tracking plugin models registered with TenantBase.metadata")
-except ImportError as e:
-    logger.warning(f"Time tracking plugin models not available: {e}")
+# Auto-discover plugins and import their models BEFORE init_db()
+# so create_all() includes plugin tables for new tenant databases.
+from plugins.loader import plugin_loader
+plugin_loader.import_models()
 
 # Initialize database (create tables and populate initial data)
 try:
@@ -580,38 +577,9 @@ app.include_router(timeline.router, prefix="/api/v1")        # Add the client ti
 # Note: Some commercial features are temporarily in core import list but should be moved.
 # ------------------------------------------------------------------------------
 
-# --- Investment Management Plugin ---
-# Register the investment management plugin (commercial feature)
-try:
-    from plugins.investments import register_investment_plugin
-
-    # Register the investment plugin with the main application
-    # Note: MCP registry is not currently implemented in main app, so passing None
-    plugin_info = register_investment_plugin(
-        app=app,
-        mcp_registry=None,  # MCP registry not implemented yet
-        feature_gate=None   # Feature gate is handled via decorators in the plugin
-    )
-    logger.info(f"Registered investment plugin: {plugin_info['name']} v{plugin_info['version']}")
-    logger.info(f"Investment routes registered: {plugin_info['routes']}")
-
-except ImportError as e:
-    logger.warning(f"Investment plugin not available: {str(e)}")
-except Exception as e:
-    logger.error(f"Failed to register investment plugin: {str(e)}")
-
-# --- Time Tracking Plugin ---
-try:
-    from plugins.time_tracking import register_time_tracking_plugin
-
-    plugin_info = register_time_tracking_plugin(app=app)
-    logger.info(f"Registered time tracking plugin: {plugin_info['name']} v{plugin_info['version']}")
-    logger.info(f"Time tracking routes registered: {plugin_info['routes']}")
-
-except ImportError as e:
-    logger.warning(f"Time tracking plugin not available: {str(e)}")
-except Exception as e:
-    logger.error(f"Failed to register time tracking plugin: {str(e)}")
+# --- Auto-register all discovered plugins ---
+# plugin_loader was already used above to import models; now register routes.
+plugin_loader.register_all(app)
 
 
 if sso_router:

@@ -268,13 +268,29 @@ class PluginDiscovery {
   }
 
   private static async discoverExternalPlugins(): Promise<PluginMetadata[]> {
-    // In a real implementation, this would:
-    // 1. Check for plugins in a plugins directory
-    // 2. Query a plugin registry API
-    // 3. Load plugin manifests from external sources
+    // Fetch plugin metadata from the backend registry endpoint.
+    // The backend scans api/plugins/*/plugin.json at startup, so this list
+    // is always in sync with what is actually installed on the server.
+    try {
+      const { apiRequest } = await import('@/lib/api');
+      const data = await apiRequest<{ plugins: any[] }>('/plugins/registry', { method: 'GET' });
 
-    // For now, return empty array as no external plugins are configured
-    return [];
+      return (data.plugins || []).map((p: any): PluginMetadata => ({
+        id: p.name,           // plugin.json uses "name" as the slug id
+        name: p.name,
+        description: p.description || '',
+        version: p.version,
+        author: p.author,
+        requiresLicense: p.license_tier === 'commercial' ? 'commercial' : undefined,
+        category: p.metadata?.category,
+        lastUpdated: p.metadata?.lastUpdated,
+        homepage: p.metadata?.documentation_url,
+        repository: p.metadata?.repository,
+      }));
+    } catch (err) {
+      console.warn('Failed to fetch plugin registry from server, using built-in list as fallback:', err);
+      return [];
+    }
   }
 
   private static getCachedDiscovery(): { plugins: Plugin[]; errors: string[] } | null {

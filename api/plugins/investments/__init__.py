@@ -101,3 +101,6 @@ def register_investment_plugin(app, mcp_registry=None, feature_gate=None):
         "mcp_providers": ["investments"] if mcp_registry else [],
         "description": "Investment portfolio tracking and analytics"
     }
+
+# Standard alias for the PluginLoader (preferred convention)
+register_plugin = register_investment_plugin

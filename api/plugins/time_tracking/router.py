@@ -26,6 +26,7 @@ from sqlalchemy import func
 from core.models.database import get_db
 from core.models.models import MasterUser
 from core.models.models_per_tenant import Client, Invoice, InvoiceItem, Expense
+from core.routers.auth import get_current_user
 from core.utils.audit import log_audit_event
 
 from .models import Project, ProjectTask, TimeEntry
