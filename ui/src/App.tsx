@@ -48,16 +48,6 @@ const Statements = React.lazy(() => import("./pages/Statements"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const Users = React.lazy(() => import("./pages/Users"));
 const SuperAdmin = React.lazy(() => import("./pages/SuperAdmin"));
-
-// Investment Management Components
-const InvestmentDashboard = React.lazy(() => import("./pages/investments/InvestmentDashboard"));
-const CreatePortfolio = React.lazy(() => import("./pages/investments/CreatePortfolio"));
-const PortfolioDetail = React.lazy(() => import("./pages/investments/PortfolioDetail"));
-const PortfolioPerformance = React.lazy(() => import("./pages/investments/PortfolioPerformance"));
-const InvestmentAnalytics = React.lazy(() => import("./pages/investments/InvestmentAnalytics"));
-const TaxExport = React.lazy(() => import("./pages/investments/TaxExport"));
-const RebalancingTool = React.lazy(() => import("./pages/investments/RebalancingTool"));
-const CrossPortfolioAnalysis = React.lazy(() => import("./pages/investments/CrossPortfolioAnalysis"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const AIAssistant = React.lazy(() => import("./components/AIAssistant"));
 const AuditLog = React.lazy(() => import("./pages/AuditLog"));
@@ -93,9 +83,11 @@ const Reminders = React.lazy(() => import("./pages/Reminders"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
-// Time Tracking Plugin Pages
-const ProjectDetail = React.lazy(() => import("./pages/projects/ProjectDetail"));
-const TimeTracking = React.lazy(() => import("./pages/projects/TimeTracking"));
+// Plugin route renderer + combined route config from all plugins
+import { PluginRoutes } from "./components/plugins/PluginRoutes";
+import { pluginRoutes as investmentRoutes } from "./plugins/investments";
+import { pluginRoutes as timeTrackingRoutes } from "./plugins/time_tracking";
+const allPluginRoutes = [...investmentRoutes, ...timeTrackingRoutes];
 
 const queryClient = new QueryClient();
 
@@ -193,20 +185,12 @@ const AppContent = () => {
                     <Route path="/approvals" element={<ApprovalDashboard />} />
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
 
-                    {/* Time Tracking Plugin Routes */}
-                    <Route path="/time-tracking" element={
-                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
-                        <TimeTracking />
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/projects/:id" element={
-                      <PluginRouteGuard pluginId="time-tracking" pluginName="Projects & Time Tracking">
-                        <RoleProtectedRoute allowedRoles={['admin', 'user']}><ProjectDetail /></RoleProtectedRoute>
-                      </PluginRouteGuard>
-                    } />
-                    {/* Redirect old routes */}
+                    {/* Redirect old routes (app-level concerns, not plugin-specific) */}
                     <Route path="/projects" element={<Navigate to="/time-tracking?tab=projects" replace />} />
                     <Route path="/time" element={<Navigate to="/time-tracking?tab=my-time" replace />} />
+
+                    {/* ---- Plugin Routes — auto-registered from each plugin's index.ts ---- */}
+                    <PluginRoutes routes={allPluginRoutes} />
 
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />
@@ -218,98 +202,6 @@ const AppContent = () => {
                     <Route path="/recycle-bin" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><RecycleBin /></RoleProtectedRoute>} />
                     <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute>} />
 
-
-                    {/* Investment Management Routes */}
-                    <Route path="/investments" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments"
-                        >
-                          <InvestmentDashboard />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/portfolio/new" element={
-                      <RoleProtectedRoute allowedRoles={['admin', 'user']}>
-                        <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                          <PluginRouteErrorBoundary
-                            pluginId="investments"
-                            pluginName="Investment Management"
-                            routePath="/investments/portfolio/new"
-                          >
-                            <CreatePortfolio />
-                          </PluginRouteErrorBoundary>
-                        </PluginRouteGuard>
-                      </RoleProtectedRoute>
-                    } />
-                    <Route path="/investments/portfolio/:id" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/portfolio/:id"
-                        >
-                          <PortfolioDetail />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/portfolio/:id/performance" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/portfolio/:id/performance"
-                        >
-                          <PortfolioPerformance />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/portfolio/:id/rebalance" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/portfolio/:id/rebalance"
-                        >
-                          <RebalancingTool />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/analytics" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/analytics"
-                        >
-                          <InvestmentAnalytics />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/tax-export" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/tax-export"
-                        >
-                          <TaxExport />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
-                    <Route path="/investments/cross-portfolio" element={
-                      <PluginRouteGuard pluginId="investments" pluginName="Investment Management">
-                        <PluginRouteErrorBoundary
-                          pluginId="investments"
-                          pluginName="Investment Management"
-                          routePath="/investments/cross-portfolio"
-                        >
-                          <CrossPortfolioAnalysis />
-                        </PluginRouteErrorBoundary>
-                      </PluginRouteGuard>
-                    } />
                     <Route path="/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute>} />
                     <Route path="/reports/:reportType" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute>} />
                     <Route path="/attachments" element={<AttachmentSearch />} />
@@ -323,6 +215,7 @@ const AppContent = () => {
                     <Route path="/expenses/recycle-bin" element={<ExpenseRecycleBin />} />
                     <Route path="/statements/recycle-bin" element={<StatementRecycleBin />} />
                   </Route>
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </React.Suspense>
