@@ -160,7 +160,7 @@ export const projectApi = {
   listTasks: (projectId: number) => api.get<ProjectTask[]>(`/projects/${projectId}/tasks`),
 
   createTask: (projectId: number, data: Partial<ProjectTask>) =>
-    api.post<ProjectTask>(`/projects/${projectId}/tasks`, data),
+    api.post<ProjectTask>(`/projects/${projectId}/tasks`, { ...data, project_id: projectId }),
 
   updateTask: (projectId: number, taskId: number, data: Partial<ProjectTask>) =>
     api.put<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data),
