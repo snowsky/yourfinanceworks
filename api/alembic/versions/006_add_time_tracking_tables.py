@@ -10,9 +10,10 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '006_time_tracking'
-down_revision = '005_add_tenant_id_to_investment_tables'
+down_revision = '005_add_tenant_id'
 branch_labels = None
 depends_on = None
+
 
 
 def upgrade():
