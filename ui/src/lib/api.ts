@@ -1800,6 +1800,47 @@ export const crmApi = {
     }),
 };
 
+// Client Activity Timeline types
+export interface TimelineEvent {
+  id: string;
+  event_type: 'invoice' | 'payment' | 'expense' | 'bank_transaction' | 'note';
+  title: string;
+  description: string;
+  amount: number | null;
+  currency: string | null;
+  status: string | null;
+  date: string;
+  source: 'invoice' | 'expense' | 'bank_statement' | 'note';
+  metadata: Record<string, unknown>;
+}
+
+export interface TimelineResponse {
+  events: TimelineEvent[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
+export interface TimelineParams {
+  page?: number;
+  page_size?: number;
+  event_types?: string;
+  source?: string;
+}
+
+export const timelineApi = {
+  getTimeline: (clientId: number, params: TimelineParams = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.append('page', params.page.toString());
+    if (params.page_size) searchParams.append('page_size', params.page_size.toString());
+    if (params.event_types) searchParams.append('event_types', params.event_types);
+    if (params.source) searchParams.append('source', params.source);
+    const qs = searchParams.toString();
+    return apiRequest<TimelineResponse>(`/clients/${clientId}/timeline${qs ? `?${qs}` : ''}`);
+  },
+};
+
 // Currency API methods
 export const currencyApi = {
   getSupportedCurrencies: () => apiRequest<any>("/currency/supported?active_only=false"),
