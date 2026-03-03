@@ -17,8 +17,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-# Use the shared Base so tables are created in the tenant schema
+# IMPORTANT: Use TenantBase so these tables are included in TenantBase.metadata.create_all()
+# which is called by tenant_database_manager._init_tenant_schema() for every new tenant.
 from core.models.models_per_tenant import Base
+
 
 
 class Project(Base):
