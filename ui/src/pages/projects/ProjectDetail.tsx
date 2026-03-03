@@ -213,6 +213,8 @@ export default function ProjectDetail() {
                 prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
               )
             }
+            onSelectAll={(ids) => setSelectedEntryIds(ids)}
+            isAllSelected={unbilled?.time_entries.length > 0 && selectedEntryIds.length === unbilled?.time_entries.length}
             onInvoice={handleInvoice}
             isInvoicing={createInvoice.isPending}
             currency={project.currency}
@@ -433,18 +435,38 @@ function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete:
   );
 }
 
-function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onInvoice, isInvoicing, currency }: any) {
+function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllSelected, onInvoice, isInvoicing, currency }: any) {
   if (!unbilled) return <div className="text-muted-foreground animate-pulse py-8">Auditing unbilled items…</div>;
 
   return (
     <div className="space-y-6">
       {/* Time entries */}
       <ProfessionalCard variant="elevated" className="overflow-hidden bg-card/50 backdrop-blur-sm border-border/30">
-        <div className="px-6 py-4 border-b border-border/30 bg-muted/30">
+        <div className="px-6 py-4 border-b border-border/30 bg-muted/30 flex items-center justify-between">
           <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
             Unbilled Time Entries
           </h3>
+          {unbilled.time_entries.length > 0 && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="select-all-time"
+                checked={isAllSelected}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    onSelectAll(unbilled.time_entries.map((en: any) => en.id));
+                  } else {
+                    onSelectAll([]);
+                  }
+                }}
+                className="rounded-lg h-4 w-4 border-border shadow-sm text-primary focus:ring-primary/20 cursor-pointer"
+              />
+              <label htmlFor="select-all-time" className="text-xs font-medium text-muted-foreground cursor-pointer select-none">
+                Select All
+              </label>
+            </div>
+          )}
         </div>
         <div className="divide-y divide-border/20">
           {unbilled.time_entries.map((entry: any) => (
