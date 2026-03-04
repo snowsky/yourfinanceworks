@@ -88,7 +88,10 @@ class PluginLoader:
 
         for manifest_path in sorted(_PLUGINS_DIR.glob("*/plugin.json")):
             plugin_dir = manifest_path.parent
-            plugin_id = plugin_dir.name  # folder name == plugin id
+            # Normalize folder name to a hyphen-slug (currency_rates → currency-rates)
+            # so backend IDs align with the frontend convention.
+            # The Python package path still uses underscores (line below).
+            plugin_id = plugin_dir.name.replace("_", "-")
 
             # Skip private / helper directories
             if plugin_id.startswith("_"):

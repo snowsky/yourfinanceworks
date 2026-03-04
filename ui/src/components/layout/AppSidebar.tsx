@@ -433,8 +433,15 @@ export function AppSidebar() {
         icon: <FolderKanban className="w-5 h-5" />,
         tourId: 'nav-time-tracking',
         priority: 2
+      },
+      {
+        id: 'currency-rates',
+        path: '/currency-rates',
+        label: 'Currency Rates',
+        icon: <DollarSign className="w-5 h-5" />,
+        tourId: 'nav-currency-rates',
+        priority: 3
       }
-      // Additional plugins can be added here with their configurations
     ];
 
     // Filter enabled plugins and sort by priority

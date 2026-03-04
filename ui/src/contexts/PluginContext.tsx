@@ -191,12 +191,14 @@ class PluginDiscovery {
         for (const pluginData of externalPlugins) {
           const validation = PluginValidator.validatePluginMetadata(pluginData);
           if (validation.isValid && validation.plugin) {
-            // Check for duplicate IDs
+            // If the backend returns a plugin whose ID already exists in the
+            // built-in list, silently prefer the built-in entry (it has richer
+            // metadata: display name, icon, etc.).  This is the expected case
+            // for the investments and time-tracking plugins.
             if (!discoveredPlugins.find(p => p.id === validation.plugin!.id)) {
               discoveredPlugins.push(validation.plugin);
-            } else {
-              errors.push(`Duplicate plugin ID found: ${validation.plugin.id}`);
             }
+            // else: already covered by built-in; no error needed
           } else {
             errors.push(`External plugin ${pluginData.id || 'unknown'}: ${validation.errors.join(', ')}`);
           }
@@ -271,27 +273,41 @@ class PluginDiscovery {
     // Fetch plugin metadata from the backend registry endpoint.
     // The backend scans api/plugins/*/plugin.json at startup, so this list
     // is always in sync with what is actually installed on the server.
+    //
+    // ID normalisation: the backend plugin.json "name" field is used as the
+    // slug, but some legacy manifests use a different slug than the frontend
+    // built-in list.  This map translates backend names → canonical frontend IDs
+    // so deduplication works correctly.
+    const BACKEND_ID_ALIAS: Record<string, string> = {
+      'investment-management': 'investments',
+    };
+
     try {
       const { apiRequest } = await import('@/lib/api');
       const data = await apiRequest<{ plugins: any[] }>('/plugins/registry', { method: 'GET' });
 
-      return (data.plugins || []).map((p: any): PluginMetadata => ({
-        id: p.name,           // plugin.json uses "name" as the slug id
-        name: p.name,
-        description: p.description || '',
-        version: p.version,
-        author: p.author,
-        requiresLicense: p.license_tier === 'commercial' ? 'commercial' : undefined,
-        category: p.metadata?.category,
-        lastUpdated: p.metadata?.lastUpdated,
-        homepage: p.metadata?.documentation_url,
-        repository: p.metadata?.repository,
-      }));
+      return (data.plugins || []).map((p: any): PluginMetadata => {
+        const rawId = p.name as string;
+        const id = BACKEND_ID_ALIAS[rawId] ?? rawId;   // normalise ID
+        return {
+          id,
+          name: p.name,
+          description: p.description || '',
+          version: p.version,
+          author: p.author,
+          requiresLicense: p.license_tier === 'commercial' ? 'commercial' : undefined,
+          category: p.metadata?.category,
+          lastUpdated: p.metadata?.lastUpdated,
+          homepage: p.metadata?.documentation_url,
+          repository: p.metadata?.repository,
+        };
+      });
     } catch (err) {
       console.warn('Failed to fetch plugin registry from server, using built-in list as fallback:', err);
       return [];
     }
   }
+
 
   private static getCachedDiscovery(): { plugins: Plugin[]; errors: string[] } | null {
     if (!PluginStorage.isStorageAvailable()) {
