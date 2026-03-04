@@ -32,6 +32,10 @@ export default function ProjectDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editClientId, setEditClientId] = useState<number | undefined>(undefined);
+  // Timer start dialog
+  const [showTimerDialog, setShowTimerDialog] = useState(false);
+  const [timerTaskId, setTimerTaskId] = useState<number | undefined>(undefined);
+  const [timerDesc, setTimerDesc] = useState('');
 
   const { data: project } = useProject(projectId);
   const { data: summary } = useProjectSummary(projectId);
@@ -69,13 +73,22 @@ export default function ProjectDetail() {
     setSelectedEntryIds([]);
   };
 
+  const openTimerDialog = () => {
+    // Default to first task (if any)
+    setTimerTaskId(tasks[0]?.id);
+    setTimerDesc('');
+    setShowTimerDialog(true);
+  };
+
   const handleStartTimer = async () => {
-    const defaultRate = tasks[0]?.hourly_rate || 100;
+    const selectedTask = tasks.find((t) => t.id === timerTaskId);
     await startTimer({
       project_id: projectId,
-      description: `Working on ${project.name}`,
-      hourly_rate: defaultRate,
+      task_id: timerTaskId,
+      description: timerDesc || undefined,
+      hourly_rate: selectedTask?.hourly_rate ?? 0,
     });
+    setShowTimerDialog(false);
   };
 
   const handleSave = async () => {
@@ -164,7 +177,7 @@ export default function ProjectDetail() {
                 </Badge>
                 {!timerActive && (
                   <ProfessionalButton
-                    onClick={handleStartTimer}
+                    onClick={openTimerDialog}
                     variant="gradient"
                     className="shadow-lg shadow-primary/20 font-bold"
                     leftIcon={<Play className="w-3.5 h-3.5" />}
@@ -201,6 +214,7 @@ export default function ProjectDetail() {
         {tab === 'Time Entries' && (
           <TimeEntriesTab
             entries={timeEntries}
+            tasks={tasks}
             onDelete={(id) => deleteEntry.mutate(id)}
           />
         )}
@@ -221,6 +235,101 @@ export default function ProjectDetail() {
           />
         )}
       </ContentSection>
+
+      {/* ── Timer Start Dialog ─────────────────────────────────────────── */}
+      {showTimerDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <ProfessionalCard variant="elevated" className="w-full max-w-md mx-4 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" /> Start Timer
+              </h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowTimerDialog(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {tasks.length === 0 ? (
+              /* No tasks — nudge user to create one first */
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
+                      No tasks yet
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                      Create at least one task first so you can set an hourly rate and associate time entries correctly.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <ProfessionalButton variant="ghost" onClick={() => setShowTimerDialog(false)}>Cancel</ProfessionalButton>
+                  <ProfessionalButton variant="gradient" onClick={() => { setShowTimerDialog(false); setTab('Tasks'); }}>
+                    <Plus className="w-4 h-4 mr-1" /> Go to Tasks
+                  </ProfessionalButton>
+                </div>
+              </div>
+            ) : (
+              /* Task picker + optional description */
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Task <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer"
+                    value={timerTaskId ?? ''}
+                    onChange={(e) => setTimerTaskId(Number(e.target.value))}
+                  >
+                    {tasks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : ' — no rate set'}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Rate preview */}
+                  {(() => {
+                    const sel = tasks.find((t) => t.id === timerTaskId);
+                    return sel ? (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Hourly rate: <span className={cn("font-semibold", sel.hourly_rate ? 'text-foreground' : 'text-amber-500')}>
+                          {sel.hourly_rate ? `$${sel.hourly_rate}/hr` : 'not set — time tracked but $0 charged'}
+                        </span>
+                      </p>
+                    ) : null;
+                  })()}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Description <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <Input
+                    placeholder={`Working on ${project?.name ?? 'project'}…`}
+                    value={timerDesc}
+                    onChange={(e) => setTimerDesc(e.target.value)}
+                    className="bg-background/50 border-border/50 rounded-xl text-sm"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <ProfessionalButton variant="ghost" onClick={() => setShowTimerDialog(false)}>Cancel</ProfessionalButton>
+                  <ProfessionalButton
+                    variant="gradient"
+                    className="shadow-lg shadow-primary/20"
+                    leftIcon={<Play className="w-3.5 h-3.5" />}
+                    onClick={handleStartTimer}
+                    disabled={!timerTaskId}
+                  >
+                    Start
+                  </ProfessionalButton>
+                </div>
+              </div>
+            )}
+          </ProfessionalCard>
+        </div>
+      )}
     </div>
   );
 }
@@ -390,10 +499,10 @@ function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[
   );
 }
 
-function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete: (id: number) => void }) {
+function TimeEntriesTab({ entries, tasks, onDelete }: { entries: TimeEntry[]; tasks: import('@/plugins/time_tracking/api').ProjectTask[]; onDelete: (id: number) => void }) {
   const updateEntry = useUpdateTimeEntry();
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ description: '', hours: '', billable: true });
+  const [editForm, setEditForm] = useState({ description: '', hours: '', billable: true, task_id: undefined as number | undefined });
 
   const startEdit = (entry: TimeEntry) => {
     setEditingId(entry.id);
@@ -401,21 +510,25 @@ function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete:
       description: entry.description || '',
       hours: entry.hours.toFixed(2),
       billable: entry.billable,
+      task_id: entry.task_id ?? undefined,
     });
   };
 
   const cancelEdit = () => { setEditingId(null); };
 
   const saveEdit = async (entry: TimeEntry) => {
-    const projectId = entry.project_id; // for cache key — not sent to API
+    const projectId = entry.project_id;
+    const selectedTask = tasks.find((t) => t.id === editForm.task_id);
     await updateEntry.mutateAsync({
       id: entry.id,
       data: {
         description: editForm.description,
-        // Backend stores duration_minutes; 'hours' is computed server-side
         duration_minutes: Math.round(parseFloat(editForm.hours) * 60),
         billable: editForm.billable,
-        project_id: projectId, // hook uses this to target the right unbilled cache key
+        task_id: editForm.task_id ?? null,
+        // Keep hourly_rate in sync with chosen task
+        ...(selectedTask?.hourly_rate != null ? { hourly_rate: selectedTask.hourly_rate } : {}),
+        project_id: projectId,
       },
     });
     setEditingId(null);
@@ -428,14 +541,21 @@ function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete:
           {editingId === entry.id ? (
             /* ── Inline edit form ── */
             <div className="space-y-3">
+              {/* Row 1: Task + Hours */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input
-                  className="sm:col-span-2 bg-background/50 border-border/50 rounded-xl text-sm"
-                  placeholder="Description"
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  autoFocus
-                />
+                {/* Task selector */}
+                <select
+                  className="sm:col-span-2 flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer"
+                  value={editForm.task_id ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, task_id: e.target.value ? Number(e.target.value) : undefined })}
+                >
+                  <option value="">— No task —</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : ''}
+                    </option>
+                  ))}
+                </select>
                 <Input
                   type="number" step="0.25" min="0.01"
                   className="bg-background/50 border-border/50 rounded-xl text-sm"
@@ -444,6 +564,14 @@ function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete:
                   onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
                 />
               </div>
+              {/* Row 2: Description */}
+              <Input
+                className="bg-background/50 border-border/50 rounded-xl text-sm"
+                placeholder="Description"
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                autoFocus
+              />
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer select-none">
                   <input

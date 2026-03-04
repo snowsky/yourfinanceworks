@@ -590,7 +590,12 @@ def create_task(
         status="success"
     )
 
-    return {**task.__dict__, "actual_hours": 0.0}
+    # Inject the computed field directly on the ORM object.
+    # Spreading task.__dict__ after db.refresh() only contains _sa_instance_state
+    # (all column attrs are expired), causing a Pydantic ResponseValidationError.
+    # With from_attributes=True, Pydantic reads real column values on demand.
+    task.actual_hours = 0.0
+    return task
 
 
 @projects_router.get("/{project_id}/tasks", response_model=List[ProjectTaskResponse])
@@ -649,7 +654,8 @@ def update_task(
         .filter(TimeEntry.task_id == task_id, TimeEntry.status != "in_progress")
         .scalar()
     ) or 0
-    return {**task.__dict__, "actual_hours": round(actual_minutes / 60.0, 2)}
+    task.actual_hours = round(actual_minutes / 60.0, 2)
+    return task
 
 
 @projects_router.delete("/{project_id}/tasks/{task_id}", status_code=204)
