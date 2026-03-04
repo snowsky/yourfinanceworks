@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type { PluginRouteConfig } from '@/types/plugin-routes';
+import type { PluginRouteConfig, PluginNavItem } from '@/types/plugin-routes';
 
 export const pluginMetadata = {
   name: 'currency-rates',
@@ -25,6 +25,20 @@ export const pluginRoutes: PluginRouteConfig[] = [
     pluginId: 'currency-rates',
     pluginName: 'Currency Rates',
     label: 'Currency Rates',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sidebar nav item — auto-discovered by AppSidebar via import.meta.glob
+// ---------------------------------------------------------------------------
+export const navItems: PluginNavItem[] = [
+  {
+    id: 'currency-rates',
+    path: '/currency-rates',
+    label: 'Currency Rates',
+    icon: 'DollarSign',
+    priority: 3,
+    tourId: 'nav-currency-rates',
   },
 ];
 

@@ -73,6 +73,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   const stopTimer = useCallback(async (notes?: string) => {
     setIsLoading(true);
+    // Capture project before clearing — needed for cache invalidation
+    const projectId = entry?.project_id;
     try {
       await timeEntryApi.stopTimer({ notes });
       setActive(false);
@@ -81,10 +83,16 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       qc.invalidateQueries({ queryKey: ['active-timer'] });
       qc.invalidateQueries({ queryKey: ['time-entries'] });
       qc.invalidateQueries({ queryKey: ['project-summary'] });
+      // Refresh unbilled tab immediately so the stopped entry appears
+      if (projectId) {
+        qc.invalidateQueries({ queryKey: ['project-unbilled', projectId] });
+      } else {
+        qc.invalidateQueries({ queryKey: ['project-unbilled'] });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [qc]);
+  }, [qc, entry]);
 
   return (
     <TimerContext.Provider value={{ active, entry, elapsedSeconds, startTimer, stopTimer, isLoading }}>

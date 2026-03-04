@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type { PluginRouteConfig } from '@/types/plugin-routes';
+import type { PluginRouteConfig, PluginNavItem } from '@/types/plugin-routes';
 
 // ---------------------------------------------------------------------------
 // Page exports (re-exported for use by other parts of the app if needed)
@@ -103,6 +103,20 @@ export const pluginRoutes: PluginRouteConfig[] = [
     pluginId: 'investments',
     pluginName: 'Investment Management',
     label: 'Cross-Portfolio Analysis',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sidebar nav item — auto-discovered by AppSidebar via import.meta.glob
+// ---------------------------------------------------------------------------
+export const navItems: PluginNavItem[] = [
+  {
+    id: 'investments',
+    path: '/investments',
+    label: 'Investments',
+    icon: 'TrendingUp',
+    priority: 1,
+    tourId: 'nav-investments',
   },
 ];
 

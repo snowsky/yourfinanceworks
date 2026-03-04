@@ -1,7 +1,29 @@
 import React from 'react';
 
 /**
- * Configuration object for a single plugin page route.
+ * PluginNavItem — self-declared sidebar navigation entry exported by each plugin.
+ *
+ * The icon field is a string key resolved through the central icon registry
+ * (ui/src/plugins/plugin-icons.ts) so plugins don't need to import Lucide
+ * components directly; the sidebar resolves them at render time.
+ */
+export interface PluginNavItem {
+  /** Must match the pluginId used in pluginRoutes entries. */
+  id: string;
+  /** React Router path to navigate to. */
+  path: string;
+  /** Human-readable sidebar label. */
+  label: string;
+  /** Key in the icon registry, e.g. 'DollarSign', 'TrendingUp'. */
+  icon: string;
+  /** Lower number = higher in the list. Default: 999. */
+  priority?: number;
+  /** data-tour attribute for onboarding tours. */
+  tourId?: string;
+}
+
+/**
+ * PluginRouteConfig — the contract between a plugin's index.ts and App.tsx.
  *
  * Each plugin declares an array of these in its `index.ts` and exports it
  * as `pluginRoutes`. The `PluginRoutes` renderer in `App.tsx` consumes the

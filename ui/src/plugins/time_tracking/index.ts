@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import type { PluginRouteConfig } from '@/types/plugin-routes';
+import type { PluginRouteConfig, PluginNavItem } from '@/types/plugin-routes';
 
 // Plugin metadata
 export const pluginMetadata = {
@@ -42,6 +42,20 @@ export const pluginRoutes: PluginRouteConfig[] = [
     label: 'Project Detail',
     requiresRole: ['admin', 'user'],
     errorBoundary: false,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sidebar nav item — auto-discovered by AppSidebar via import.meta.glob
+// ---------------------------------------------------------------------------
+export const navItems: PluginNavItem[] = [
+  {
+    id: 'time-tracking',
+    path: '/time-tracking',
+    label: 'Time Tracking',
+    icon: 'FolderKanban',
+    priority: 2,
+    tourId: 'nav-time-tracking',
   },
 ];
 

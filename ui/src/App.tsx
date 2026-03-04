@@ -83,12 +83,21 @@ const Reminders = React.lazy(() => import("./pages/Reminders"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
-// Plugin route builder + combined route config from all plugins
+// ---------------------------------------------------------------------------
+// Plugin route auto-discovery via Vite glob
+// All ui/src/plugins/*/index.ts files are scanned at build time.
+// To add a new plugin: drop its folder here — no App.tsx changes needed.
+// ---------------------------------------------------------------------------
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
-import { pluginRoutes as investmentRoutes } from "./plugins/investments";
-import { pluginRoutes as timeTrackingRoutes } from "./plugins/time_tracking";
-import { pluginRoutes as currencyRatesRoutes } from "./plugins/currency_rates";
-const allPluginRoutes = [...investmentRoutes, ...timeTrackingRoutes, ...currencyRatesRoutes];
+import type { PluginRouteConfig } from "./types/plugin-routes";
+
+const _pluginModules = import.meta.glob("./plugins/*/index.ts", { eager: true }) as Record<
+  string,
+  { pluginRoutes?: PluginRouteConfig[] }
+>;
+const allPluginRoutes: PluginRouteConfig[] = Object.values(_pluginModules).flatMap(
+  (m) => m.pluginRoutes ?? []
+);
 
 const queryClient = new QueryClient();
 

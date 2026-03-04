@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   useProject, useProjectSummary, useProjectTasks,
   useTimeEntries, useUnbilledItems, useCreateInvoiceFromProject,
-  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateProject
+  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject
 } from '@/plugins/time_tracking/hooks';
 import { SearchableClientSelect } from '@/plugins/time_tracking/components/SearchableClientSelect';
 import { TimeEntry, ProjectTask } from '@/plugins/time_tracking/api';
@@ -391,38 +391,126 @@ function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[
 }
 
 function TimeEntriesTab({ entries, onDelete }: { entries: TimeEntry[]; onDelete: (id: number) => void }) {
+  const updateEntry = useUpdateTimeEntry();
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ description: '', hours: '', billable: true });
+
+  const startEdit = (entry: TimeEntry) => {
+    setEditingId(entry.id);
+    setEditForm({
+      description: entry.description || '',
+      hours: entry.hours.toFixed(2),
+      billable: entry.billable,
+    });
+  };
+
+  const cancelEdit = () => { setEditingId(null); };
+
+  const saveEdit = async (entry: TimeEntry) => {
+    const projectId = entry.project_id; // for cache key — not sent to API
+    await updateEntry.mutateAsync({
+      id: entry.id,
+      data: {
+        description: editForm.description,
+        // Backend stores duration_minutes; 'hours' is computed server-side
+        duration_minutes: Math.round(parseFloat(editForm.hours) * 60),
+        billable: editForm.billable,
+        project_id: projectId, // hook uses this to target the right unbilled cache key
+      },
+    });
+    setEditingId(null);
+  };
+
   return (
     <div className="space-y-3">
       {entries.map((entry) => (
         <ProfessionalCard key={entry.id} className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all hover:shadow-md group">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="text-foreground font-bold text-sm tracking-tight truncate">
-                {entry.description || entry.task_name || 'Working session'}
+          {editingId === entry.id ? (
+            /* ── Inline edit form ── */
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input
+                  className="sm:col-span-2 bg-background/50 border-border/50 rounded-xl text-sm"
+                  placeholder="Description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  autoFocus
+                />
+                <Input
+                  type="number" step="0.25" min="0.01"
+                  className="bg-background/50 border-border/50 rounded-xl text-sm"
+                  placeholder="Hours"
+                  value={editForm.hours}
+                  onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
+                />
               </div>
-              <div className="text-muted-foreground text-[10px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
-                <span className="flex items-center gap-1 font-semibold">{new Date(entry.started_at).toLocaleDateString()}</span>
-                <span className="opacity-30">•</span>
-                <span>{entry.hours.toFixed(2)}h logged</span>
-                <span className="opacity-30">•</span>
-                <span className="text-foreground/80">${(entry.amount || 0).toFixed(2)}</span>
-                <span className="opacity-30">•</span>
-                <Badge variant="outline" className={cn("text-[9px] px-1.5 rounded-md", entry.invoiced ? 'border-primary/20 text-primary bg-primary/5' : 'border-amber-200 text-amber-600 bg-amber-50')}>
-                  {entry.invoiced ? 'Billed' : 'Unbilled'}
-                </Badge>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.billable}
+                    onChange={(e) => setEditForm({ ...editForm, billable: e.target.checked })}
+                    className="rounded h-4 w-4 text-primary focus:ring-primary/20"
+                  />
+                  Billable
+                </label>
+                <div className="flex gap-2">
+                  <ProfessionalButton variant="ghost" size="sm" onClick={cancelEdit}>
+                    <X className="w-3.5 h-3.5 mr-1" /> Cancel
+                  </ProfessionalButton>
+                  <ProfessionalButton
+                    variant="default" size="sm"
+                    loading={updateEntry.isPending}
+                    onClick={() => saveEdit(entry)}
+                  >
+                    <Save className="w-3.5 h-3.5 mr-1" /> Save
+                  </ProfessionalButton>
+                </div>
               </div>
             </div>
-            {!entry.invoiced && (
-              <ProfessionalButton 
-                variant="ghost" 
-                size="icon-sm" 
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive ml-4"
-                onClick={() => onDelete(entry.id)}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </ProfessionalButton>
-            )}
-          </div>
+          ) : (
+            /* ── Read view ── */
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="text-foreground font-bold text-sm tracking-tight truncate">
+                  {entry.description || entry.task_name || 'Working session'}
+                </div>
+                <div className="text-muted-foreground text-[10px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                  <span className="flex items-center gap-1 font-semibold">{new Date(entry.started_at).toLocaleDateString()}</span>
+                  <span className="opacity-30">•</span>
+                  <span>{entry.hours.toFixed(2)}h logged</span>
+                  <span className="opacity-30">•</span>
+                  <span className="text-foreground/80">${(entry.amount || 0).toFixed(2)}</span>
+                  <span className="opacity-30">•</span>
+                  <Badge variant="outline" className={cn("text-[9px] px-1.5 rounded-md", entry.invoiced ? 'border-primary/20 text-primary bg-primary/5' : 'border-amber-200 text-amber-600 bg-amber-50')}>
+                    {entry.invoiced ? 'Billed' : 'Unbilled'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!entry.invoiced && (
+                  <>
+                    <ProfessionalButton
+                      variant="ghost" size="icon-sm"
+                      className="text-muted-foreground hover:text-primary"
+                      onClick={() => startEdit(entry)}
+                      title="Edit entry"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </ProfessionalButton>
+                    <ProfessionalButton
+                      variant="ghost" size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => onDelete(entry.id)}
+                      title="Delete entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </ProfessionalButton>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </ProfessionalCard>
       ))}
       {entries.length === 0 && (
