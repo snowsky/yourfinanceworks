@@ -65,6 +65,7 @@ const OnboardingProvider = React.lazy(() => import("./components/onboarding/Onbo
 const TourOverlay = React.lazy(() => import("./components/onboarding/TourOverlay").then(module => ({ default: module.TourOverlay })));
 const SearchProvider = React.lazy(() => import("./components/search/SearchProvider").then(module => ({ default: module.SearchProvider })));
 const SearchDialog = React.lazy(() => import("./components/search/SearchDialog").then(module => ({ default: module.SearchDialog })));
+const MenuSearchDialog = React.lazy(() => import("./components/search/MenuSearchDialog").then(module => ({ default: module.MenuSearchDialog })));
 const FeatureProvider = React.lazy(() => import("./contexts/FeatureContext").then(module => ({ default: module.FeatureProvider })));
 const PluginProvider = React.lazy(() => import("./contexts/PluginContext").then(module => ({ default: module.PluginProvider })));
 const PluginStorageNotifications = React.lazy(() => import("./components/notifications/PluginStorageNotifications").then(module => ({ default: module.PluginStorageNotifications })));
@@ -251,6 +252,7 @@ const AppContent = () => {
               <TourOverlay />
             </OnboardingProvider>
             <SearchDialog />
+            <MenuSearchDialog />
           </SearchProvider>
           </PluginProvider>
         </FeatureProvider>
