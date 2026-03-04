@@ -4,6 +4,9 @@
  * Self-contained plugin for project management and time tracking.
  */
 
+import React from 'react';
+import type { PluginRouteConfig, PluginNavItem } from '@/types/plugin-routes';
+
 // Plugin metadata
 export const pluginMetadata = {
   name: 'time-tracking',
@@ -13,11 +16,47 @@ export const pluginMetadata = {
   description: 'Project management, time logging, timer, and monthly Excel export',
 };
 
-// Plugin routes configuration
-export const pluginRoutes = [
-  { path: '/projects', component: 'ProjectsList', label: 'Projects' },
-  { path: '/projects/:id', component: 'ProjectDetail', label: 'Project Detail' },
-  { path: '/time', component: 'MyTime', label: 'My Time' },
+// ---------------------------------------------------------------------------
+// Lazy page components
+// ---------------------------------------------------------------------------
+const TimeTrackingPage = React.lazy(() => import('@/pages/projects/TimeTracking'));
+const ProjectDetailPage = React.lazy(() => import('@/pages/projects/ProjectDetail'));
+
+// ---------------------------------------------------------------------------
+// Route configuration — consumed by <PluginRoutes> in App.tsx
+// ---------------------------------------------------------------------------
+export const pluginRoutes: PluginRouteConfig[] = [
+  {
+    path: '/time-tracking',
+    component: TimeTrackingPage,
+    pluginId: 'time-tracking',
+    pluginName: 'Projects & Time Tracking',
+    label: 'Time Tracking',
+    errorBoundary: false,
+  },
+  {
+    path: '/projects/:id',
+    component: ProjectDetailPage,
+    pluginId: 'time-tracking',
+    pluginName: 'Projects & Time Tracking',
+    label: 'Project Detail',
+    requiresRole: ['admin', 'user'],
+    errorBoundary: false,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Sidebar nav item — auto-discovered by AppSidebar via import.meta.glob
+// ---------------------------------------------------------------------------
+export const navItems: PluginNavItem[] = [
+  {
+    id: 'time-tracking',
+    path: '/time-tracking',
+    label: 'Time Tracking',
+    icon: 'FolderKanban',
+    priority: 2,
+    tourId: 'nav-time-tracking',
+  },
 ];
 
 // Plugin features
@@ -31,3 +70,4 @@ export const pluginFeatures = [
   'monthly-excel-export',
   'profitability-summary',
 ];
+

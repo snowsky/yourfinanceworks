@@ -158,10 +158,14 @@ export const useCreateTimeEntry = () => {
   return useMutation({
     mutationFn: (data: Partial<TimeEntry> & { started_at: string }) =>
       timeEntryApi.create(data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       toast.success('Time entry logged');
       qc.invalidateQueries({ queryKey: ['time-entries'] });
       qc.invalidateQueries({ queryKey: ['project-summary'] });
+      // Refresh unbilled tab so new entry appears immediately
+      if (variables.project_id) {
+        qc.invalidateQueries({ queryKey: ['project-unbilled', variables.project_id] });
+      }
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to log time'),
   });
@@ -172,10 +176,17 @@ export const useUpdateTimeEntry = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<TimeEntry> }) =>
       timeEntryApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       toast.success('Time entry updated');
       qc.invalidateQueries({ queryKey: ['time-entries'] });
       qc.invalidateQueries({ queryKey: ['project-summary'] });
+      // Refresh unbilled tab if we know the project
+      if (variables.data.project_id) {
+        qc.invalidateQueries({ queryKey: ['project-unbilled', variables.data.project_id] });
+      } else {
+        // Fallback: invalidate all unbilled queries
+        qc.invalidateQueries({ queryKey: ['project-unbilled'] });
+      }
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to update time entry'),
   });
@@ -189,6 +200,7 @@ export const useDeleteTimeEntry = () => {
       toast.success('Time entry deleted');
       qc.invalidateQueries({ queryKey: ['time-entries'] });
       qc.invalidateQueries({ queryKey: ['project-summary'] });
+      qc.invalidateQueries({ queryKey: ['project-unbilled'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to delete time entry'),
   });
@@ -233,6 +245,8 @@ export const useStopTimer = () => {
       qc.invalidateQueries({ queryKey: ['active-timer'] });
       qc.invalidateQueries({ queryKey: ['time-entries'] });
       qc.invalidateQueries({ queryKey: ['project-summary'] });
+      // Refresh all unbilled tabs — we don't know which project the timer was for
+      qc.invalidateQueries({ queryKey: ['project-unbilled'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to stop timer'),
   });

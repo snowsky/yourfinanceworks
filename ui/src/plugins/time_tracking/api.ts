@@ -193,7 +193,7 @@ export const timeEntryApi = {
     api.post<TimeEntry>('/time-entries', data),
 
   update: (id: number, data: Partial<TimeEntry>) =>
-    api.put<TimeEntry>(`/time-entries/${id}`, data),
+    api.patch<TimeEntry>(`/time-entries/${id}`, data),
 
   delete: (id: number) => api.delete<void>(`/time-entries/${id}`),
 

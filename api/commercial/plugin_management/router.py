@@ -5,21 +5,32 @@ Commercial feature - requires plugin_management license.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import func
 from typing import List
 from datetime import datetime, timezone
 
-from core.models.models import TenantPluginSettings, Tenant, MasterUser
+from core.models.models import TenantPluginSettings, MasterUser
 from core.models.database import get_master_db
 from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
+from plugins.loader import plugin_loader
 
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
-# Single source of truth for all registered plugin IDs.
-# Add new plugin IDs here when new plugins are created.
-VALID_PLUGINS = {"investments", "time-tracking"}
+
+def _valid_plugins() -> set[str]:
+    """Return the set of valid plugin IDs discovered on disk."""
+    return plugin_loader.get_valid_plugin_ids()
+
+
+@router.get("/registry")
+async def get_plugin_registry():
+    """
+    Return metadata for all plugins discovered on disk.
+    This is public metadata — no authentication required.
+    Used by the frontend to populate the plugin list dynamically.
+    """
+    return {"plugins": plugin_loader.get_registry()}
 
 
 @router.get("/settings")
@@ -87,8 +98,9 @@ async def update_plugin_settings(
             detail="enabled_plugins must be a list of plugin IDs"
         )
 
-    # Validate plugin IDs format
-    invalid_plugins = [p for p in enabled_plugins if p not in VALID_PLUGINS]
+    # Validate plugin IDs against discovered plugins
+    valid = _valid_plugins()
+    invalid_plugins = [p for p in enabled_plugins if p not in valid]
 
     if invalid_plugins:
         raise HTTPException(
@@ -150,7 +162,7 @@ async def enable_plugin(
         )
 
     # Validate plugin ID
-    if plugin_id not in VALID_PLUGINS:
+    if plugin_id not in _valid_plugins():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid plugin ID: {plugin_id}"
@@ -245,7 +257,7 @@ async def get_plugin_config(
     tenant_id = current_user.tenant_id
 
     # Validate plugin ID
-    if plugin_id not in VALID_PLUGINS:
+    if plugin_id not in _valid_plugins():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid plugin ID: {plugin_id}"
@@ -298,7 +310,7 @@ async def update_plugin_config(
             detail="Only administrators can manage plugin settings"
         )
 
-    if plugin_id not in VALID_PLUGINS:
+    if plugin_id not in _valid_plugins():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid plugin ID: {plugin_id}"
