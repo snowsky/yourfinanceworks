@@ -748,11 +748,12 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Load enabled plugins from API on mount and initialize them
   useEffect(() => {
     const loadPluginStates = async () => {
+      // Don't load if already loading to avoid double calls
+      setLoading(true);
       try {
-        // First, discover available plugins
-        console.log('Discovering available plugins...');
+        console.log('Loading plugin system and states...');
+        // Discover plugins (registry)
         const { plugins: discoveredPlugins, errors: discoveryErrors } = await PluginDiscovery.discoverPlugins();
-
         setPlugins(discoveredPlugins);
         setDiscoveryErrors(discoveryErrors);
 
@@ -797,14 +798,22 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
             await Promise.allSettled(initPromises);
           }
-        } catch (apiError) {
-          console.warn('Failed to load plugin settings from API, using empty list:', apiError);
-          setEnabledPlugins([]);
-          setStorageError('Failed to load plugin settings from server');
 
-          window.dispatchEvent(new CustomEvent('plugin-storage-warning', {
-            detail: { error: 'Failed to load plugin settings from server' }
-          }));
+          // Clear any storage error if we successfully loaded from API
+          setStorageError(null);
+        } catch (apiError) {
+          console.warn('Failed to load plugin settings from API:', apiError);
+          // If 401/403, it's expected if not logged in yet
+          setEnabledPlugins([]);
+
+          // Only show error if we're actually supposed to be logged in
+          const token = localStorage.getItem('token');
+          if (token) {
+            setStorageError('Failed to load plugin settings from server');
+            window.dispatchEvent(new CustomEvent('plugin-storage-warning', {
+              detail: { error: 'Failed to load plugin settings from server' }
+            }));
+          }
         }
       } catch (error) {
         console.error('Failed to load plugin system:', error);
@@ -824,7 +833,22 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     };
 
+    // Initial load
     loadPluginStates();
+
+    // Listen for auth changes to re-load settings (crucial for cross-browser persistence after login)
+    const handleAuthChange = () => {
+      console.log('Auth changed, re-loading plugin states...');
+      loadPluginStates();
+    };
+
+    window.addEventListener('auth-changed', handleAuthChange);
+    window.addEventListener('user-updated', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('auth-changed', handleAuthChange);
+      window.removeEventListener('user-updated', handleAuthChange);
+    };
   }, []);
 
   // Plugin initialization function that uses a specific plugin registry
@@ -918,10 +942,11 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           p.id === pluginId ? { ...p, status: 'disabled' as const } : p
         ));
 
-        // Persist the disabled state
-        const { success } = PluginStorage.save(updatedPlugins);
-        if (!success) {
-          console.warn('Failed to persist plugin disable after initialization failure');
+        // Persist the disabled state via API so it applies across all browsers
+        try {
+          await apiRequest(`/plugins/settings/${pluginId}/disable`, { method: 'POST' });
+        } catch (persistError) {
+          console.warn('Failed to persist plugin disable after initialization failure:', persistError);
         }
       }
 
@@ -963,12 +988,20 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         discoveredPlugins.some(plugin => plugin.id === pluginId)
       );
 
-      // If some enabled plugins were filtered out, update storage and state
+      // If some enabled plugins were filtered out, update state and persist via API
       if (validEnabledPlugins.length !== enabledPlugins.length) {
         const removedPlugins = enabledPlugins.filter(id => !validEnabledPlugins.includes(id));
         console.warn('Removing enabled plugins that are no longer available:', removedPlugins);
         setEnabledPlugins(validEnabledPlugins);
-        PluginStorage.save(validEnabledPlugins);
+        // Persist via API so changes are visible across all browsers
+        try {
+          await apiRequest<{ tenant_id: number; enabled_plugins: string[] }>('/plugins/settings', {
+            method: 'POST',
+            body: JSON.stringify({ enabled_plugins: validEnabledPlugins })
+          });
+        } catch (persistError) {
+          console.warn('Failed to persist pruned plugin list to API:', persistError);
+        }
       }
 
       // Dispatch refresh event
@@ -1109,29 +1142,28 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const handleStorageRetry = async () => {
       console.log('Retrying plugin storage operations...');
 
-      // Attempt to reload plugin states
+      // Re-fetch plugin states from the API (source of truth, works across browsers)
       try {
-        const { data, error, warnings } = PluginStorage.load();
+        const data = await apiRequest<{
+          tenant_id: number;
+          enabled_plugins: string[];
+          updated_at: string;
+        }>('/plugins/settings', { method: 'GET' });
 
-        if (!error) {
-          setStorageError(null);
-          setStorageWarnings(warnings);
+        const enabledFromApi = data.enabled_plugins || [];
 
-          // Filter to valid plugins
-          const validEnabledPlugins = data.filter(pluginId =>
-            plugins.some(plugin => plugin.id === pluginId)
-          );
+        // Filter to only plugins that are currently discovered
+        const validEnabledPlugins = enabledFromApi.filter(pluginId =>
+          plugins.some(plugin => plugin.id === pluginId)
+        );
 
-          setEnabledPlugins(validEnabledPlugins);
+        setStorageError(null);
+        setEnabledPlugins(validEnabledPlugins);
 
-          // Notify success
-          window.dispatchEvent(new CustomEvent('plugin-storage-retry-success'));
-        } else {
-          // Still failing, keep current error state
-          console.warn('Storage retry still failing:', error);
-        }
+        // Notify success
+        window.dispatchEvent(new CustomEvent('plugin-storage-retry-success'));
       } catch (retryError) {
-        console.error('Storage retry failed:', retryError);
+        console.error('Storage retry failed (API unreachable):', retryError);
       }
     };
 
