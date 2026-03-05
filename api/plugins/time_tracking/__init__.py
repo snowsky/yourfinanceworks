@@ -45,10 +45,20 @@ def register_time_tracking_plugin(app, mcp_registry=None, feature_gate=None):
         tags=["time-entries"],
     )
 
+    # Register MCP provider for AI assistant (if available)
+    if mcp_registry:
+        try:
+            from .mcp.time_tracking_provider import TimeTrackingMCPProvider
+            mcp_registry.register_provider("time_tracking", TimeTrackingMCPProvider())
+        except ImportError:
+            # MCP provider is optional
+            pass
+
     return {
         "name": "time-tracking",
         "version": "1.0.0",
         "license_tier": "agpl",
         "routes": ["/api/v1/projects", "/api/v1/time-entries"],
+        "mcp_providers": ["time_tracking"] if mcp_registry else [],
         "description": "Project management and time tracking",
     }
