@@ -2376,55 +2376,72 @@ class InvoiceTools:
         except Exception as e:
             return {"success": False, "error": f"Failed to process PDF upload: {e}"}
 
-    # Tax Integration Tools
-    async def get_tax_integration_status(self) -> Dict[str, Any]:
-        """Get tax service integration status"""
-        try:
-            status = await self.api_client.get_tax_integration_status()
+    # Accounting Export Tools
+    async def export_accounting_journal(
+        self,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        include_drafts: bool = False,
+        tax_only: bool = False,
+        include_expenses: bool = True,
+        include_invoices: bool = True,
+        include_payments: bool = True,
+    ) -> Dict[str, Any]:
+        """Download accounting journal CSV export."""
+        if not any([include_expenses, include_invoices, include_payments]):
             return {
-                "success": True,
-                "data": status,
-                "message": "Tax integration status retrieved"
+                "success": False,
+                "error": "At least one source must be included: expenses, invoices, or payments"
             }
-        except Exception as e:
-            return {"success": False, "error": f"Failed to get tax integration status: {e}"}
 
-    async def send_to_tax_service(self, item_id: int, item_type: str) -> Dict[str, Any]:
-        """Send item to tax service"""
         try:
-            result = await self.api_client.send_to_tax_service(item_id=item_id, item_type=item_type)
+            result = await self.api_client.export_accounting_journal(
+                date_from=date_from,
+                date_to=date_to,
+                include_drafts=include_drafts,
+                tax_only=tax_only,
+                include_expenses=include_expenses,
+                include_invoices=include_invoices,
+                include_payments=include_payments,
+            )
             return {
                 "success": True,
                 "data": result,
-                "message": f"Item {item_id} sent to tax service"
+                "message": f"Accounting journal export generated: {result['filename']}"
             }
         except Exception as e:
-            return {"success": False, "error": f"Failed to send item to tax service: {e}"}
+            return {"success": False, "error": f"Failed to export accounting journal: {e}"}
 
-    async def bulk_send_to_tax_service(self, item_ids: List[int], item_type: str) -> Dict[str, Any]:
-        """Bulk send items to tax service"""
+    async def export_tax_summary(
+        self,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        include_drafts: bool = False,
+        include_expenses: bool = True,
+        include_invoices: bool = True,
+    ) -> Dict[str, Any]:
+        """Download tax summary CSV export."""
+        if not any([include_expenses, include_invoices]):
+            return {
+                "success": False,
+                "error": "At least one source must be included: expenses or invoices"
+            }
+
         try:
-            result = await self.api_client.bulk_send_to_tax_service(item_ids=item_ids, item_type=item_type)
+            result = await self.api_client.export_tax_summary(
+                date_from=date_from,
+                date_to=date_to,
+                include_drafts=include_drafts,
+                include_expenses=include_expenses,
+                include_invoices=include_invoices,
+            )
             return {
                 "success": True,
                 "data": result,
-                "message": f"Bulk sent {len(item_ids)} items to tax service"
+                "message": f"Tax summary export generated: {result['filename']}"
             }
         except Exception as e:
-            return {"success": False, "error": f"Failed to bulk send items to tax service: {e}"}
-
-    async def get_tax_service_transactions(self) -> Dict[str, Any]:
-        """Get tax service transactions"""
-        try:
-            transactions = await self.api_client.get_tax_service_transactions()
-            return {
-                "success": True,
-                "data": transactions,
-                "count": len(transactions),
-                "message": f"Found {len(transactions)} tax service transactions"
-            }
-        except Exception as e:
-            return {"success": False, "error": f"Failed to get tax service transactions: {e}"}
+            return {"success": False, "error": f"Failed to export tax summary: {e}"}
 
     # Super Admin Tools
     async def get_tenant_stats(self, tenant_id: int) -> Dict[str, Any]:

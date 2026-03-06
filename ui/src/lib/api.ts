@@ -1150,6 +1150,88 @@ export interface TaxIntegrationStatus {
   last_test_result?: string;
 }
 
+export interface AccountingExportJournalParams {
+  date_from?: string;
+  date_to?: string;
+  include_drafts?: boolean;
+  tax_only?: boolean;
+  include_expenses?: boolean;
+  include_invoices?: boolean;
+  include_payments?: boolean;
+}
+
+export interface AccountingExportTaxSummaryParams {
+  date_from?: string;
+  date_to?: string;
+  include_drafts?: boolean;
+  include_expenses?: boolean;
+  include_invoices?: boolean;
+}
+
+export interface CsvExportDownload {
+  blob: Blob;
+  filename: string;
+}
+
+const downloadCsvExport = async (
+  endpoint: string,
+  params: Record<string, string | number | boolean | undefined>
+): Promise<CsvExportDownload> => {
+  const token = localStorage.getItem('token');
+  const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      return user.tenant_id?.toString();
+    } catch {
+      return undefined;
+    }
+  })();
+
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    searchParams.set(key, String(value));
+  });
+
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+  const queryString = searchParams.toString();
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ''}`,
+    { method: 'GET', headers }
+  );
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    try {
+      const errorData = JSON.parse(responseText);
+      throw new Error(errorData.detail || 'Failed to export CSV');
+    } catch {
+      throw new Error(responseText || 'Failed to export CSV');
+    }
+  }
+
+  const contentDisposition = response.headers.get('content-disposition') || '';
+  let filename = 'export.csv';
+  const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+  if (filenameMatch) {
+    filename = decodeURIComponent((filenameMatch[1] || filenameMatch[2] || '').trim()) || filename;
+  }
+
+  const blob = await response.blob();
+  return { blob, filename };
+};
+
+export const accountingExportApi = {
+  downloadJournal: (params: AccountingExportJournalParams = {}) =>
+    downloadCsvExport('/accounting-export/journal', params),
+
+  downloadTaxSummary: (params: AccountingExportTaxSummaryParams = {}) =>
+    downloadCsvExport('/accounting-export/tax-summary', params),
+};
+
 // Generic API request function with error handling
 export async function apiRequest<T>(
   url: string,

@@ -16,6 +16,7 @@ import { InvoiceItemsSection } from "./InvoiceItemsSection";
 import { InvoiceDiscountSection } from "./InvoiceDiscountSection";
 import { InvoiceLabelsSection } from "./InvoiceLabelsSection";
 import { InvoiceNotesSection } from "./InvoiceNotesSection";
+import { InvoiceTaxSection } from "./InvoiceTaxSection";
 import { InvoiceAttachmentSection } from "./InvoiceAttachmentSection";
 import { InvoicePaymentSection } from "./InvoicePaymentSection";
 
@@ -153,6 +154,17 @@ export function InvoiceForm({
     }
     try {
       if (isEdit && invoice) {
+        const customFields = (data.customFields || []).reduce((acc: Record<string, any>, { key, value }: any) => {
+          if (key?.trim()) acc[key.trim()] = value;
+          return acc;
+        }, {});
+        if (data.taxAmount !== undefined && data.taxAmount !== null) {
+          customFields.tax_amount = Number(data.taxAmount);
+        }
+        if (data.taxRate !== undefined && data.taxRate !== null) {
+          customFields.tax_rate = Number(data.taxRate);
+        }
+
         // Check if this is a payment-only update (approved invoice with payment editing allowed)
         const isPaymentOnlyUpdate = canEditPayment && !canEditInvoice(invoice);
 
@@ -199,10 +211,7 @@ export function InvoiceForm({
           })),
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
-          custom_fields: (data.customFields || []).reduce((acc: any, { key, value }: any) => {
-            if (key?.trim()) acc[key.trim()] = value;
-            return acc;
-          }, {}),
+          custom_fields: customFields,
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
           labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
@@ -243,6 +252,17 @@ export function InvoiceForm({
 
         navigate("/invoices");
       } else {
+        const customFields = (data.customFields || []).reduce((acc: Record<string, any>, { key, value }: any) => {
+          if (key?.trim()) acc[key.trim()] = value;
+          return acc;
+        }, {});
+        if (data.taxAmount !== undefined && data.taxAmount !== null) {
+          customFields.tax_amount = Number(data.taxAmount);
+        }
+        if (data.taxRate !== undefined && data.taxRate !== null) {
+          customFields.tax_rate = Number(data.taxRate);
+        }
+
         // Create new invoice
         const invoiceData = {
           number: data.invoiceNumber || undefined,
@@ -268,10 +288,7 @@ export function InvoiceForm({
           })),
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
-          custom_fields: (data.customFields || []).reduce((acc: any, { key, value }: any) => {
-            if (key?.trim()) acc[key.trim()] = value;
-            return acc;
-          }, {}),
+          custom_fields: customFields,
           show_discount_in_pdf: data.showDiscountInPdf,
           payer: data.payer,
           labels: (data.labels || []).filter((label: string) => label.trim()).slice(0, 10),
@@ -507,6 +524,11 @@ export function InvoiceForm({
           <InvoiceNotesSection
             form={invoiceForm.form}
             isEdit={isEdit}
+          />
+
+          {/* Tax and Custom Fields Section */}
+          <InvoiceTaxSection
+            form={invoiceForm.form}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

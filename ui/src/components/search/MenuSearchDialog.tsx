@@ -125,6 +125,11 @@ export function MenuSearchDialog() {
       label: t('navigation.reports'),
       icon: <BarChart className="h-4 w-4" />,
     },
+    {
+      path: '/reports/accounting-tax-export',
+      label: t('reports.accounting_tax_export.title', 'Accounting & Tax Export'),
+      icon: <FileText className="h-4 w-4" />,
+    },
   ];
 
   // ── Admin / settings items (mirrors AppSidebar settingsMenuItems) ─────────

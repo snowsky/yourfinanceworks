@@ -51,6 +51,22 @@ const formSchema = z.object({
   recurringFrequency: z.string().optional(),
   discountType: z.enum(["percentage", "fixed", "rule"] as const).default("percentage"),
   discountValue: z.number().min(0, "Discount value cannot be negative").default(0),
+  taxAmount: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isNaN(num) ? undefined : num;
+    },
+    z.number().min(0, "Tax amount cannot be negative").optional()
+  ),
+  taxRate: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isNaN(num) ? undefined : num;
+    },
+    z.number().min(0, "Tax rate cannot be negative").optional()
+  ),
   customFields: z.array(customFieldSchema)
     .refine((fields) => {
       const nonEmptyFields = fields.filter(f => f.key.trim().length > 0);
@@ -70,6 +86,43 @@ const defaultItem = {
   inventory_item_id: undefined,
   unit_of_measure: undefined,
 };
+
+const TAX_AMOUNT_KEYS = ["tax_amount", "output_tax", "vat_amount"];
+const TAX_RATE_KEYS = ["tax_rate", "output_tax_rate", "vat_rate"];
+const RESERVED_TAX_KEYS = new Set([...TAX_AMOUNT_KEYS, ...TAX_RATE_KEYS]);
+
+function extractTaxValuesFromCustomFields(customFields?: Record<string, any>) {
+  if (!customFields || typeof customFields !== "object") {
+    return { taxAmount: undefined as number | undefined, taxRate: undefined as number | undefined };
+  }
+
+  const readNumeric = (keys: string[]) => {
+    for (const key of keys) {
+      const value = customFields[key];
+      if (value === null || value === undefined || value === "") continue;
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return undefined;
+  };
+
+  return {
+    taxAmount: readNumeric(TAX_AMOUNT_KEYS),
+    taxRate: readNumeric(TAX_RATE_KEYS),
+  };
+}
+
+function mapEditableCustomFields(customFields?: Record<string, any>) {
+  if (!customFields || typeof customFields !== "object") {
+    return [];
+  }
+  return Object.entries(customFields)
+    .filter(([key]) => !RESERVED_TAX_KEYS.has(key))
+    .map(([key, value]) => ({
+      key,
+      value: value === null || value === undefined ? "" : String(value),
+    }));
+}
 
 interface InventoryInvoiceFormProps {
   invoice?: Invoice;
@@ -101,7 +154,6 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [tenants, setTenants] = useState([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
-  const [customFields, setCustomFields] = useState([]);
 
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
@@ -158,6 +210,8 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
       recurringFrequency: "",
       discountType: "percentage",
       discountValue: 0,
+      taxAmount: undefined,
+      taxRate: undefined,
       customFields: [],
       showDiscountInPdf: false,
     },
@@ -167,6 +221,7 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
   const watchedDiscountType = form.watch("discountType");
   const watchedDiscountValue = form.watch("discountValue");
   const watchedCurrency = form.watch("currency");
+  const watchedCustomFields = form.watch("customFields") || [];
 
   // Calculate subtotal
   const subtotal = useMemo(() => {
@@ -227,6 +282,7 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
 
         // Load invoice data if editing
         if (isEdit && invoice) {
+          const taxValues = extractTaxValuesFromCustomFields(invoice.custom_fields);
           form.reset({
             client: invoice.client_id.toString(),
             invoiceNumber: invoice.number,
@@ -249,7 +305,9 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
             recurringFrequency: invoice.recurring_frequency || "",
             discountType: invoice.discount_type as any || "percentage",
             discountValue: invoice.discount_value || 0,
-            customFields: invoice.custom_fields ? Object.entries(invoice.custom_fields).map(([key, value]) => ({ key, value: value as string })) : [],
+            taxAmount: taxValues.taxAmount,
+            taxRate: taxValues.taxRate,
+            customFields: mapEditableCustomFields(invoice.custom_fields),
             showDiscountInPdf: invoice.show_discount_in_pdf || false,
           });
         }
@@ -301,6 +359,36 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
     const currentItems = form.getValues("items");
     currentItems[index] = item;
     form.setValue("items", [...currentItems]);
+  }, [form]);
+
+  const addCustomField = useCallback(() => {
+    const currentFields = form.getValues("customFields") || [];
+    form.setValue("customFields", [...currentFields, { key: "", value: "" }], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [form]);
+
+  const updateCustomField = useCallback((index: number, key: "key" | "value", value: string) => {
+    const currentFields = form.getValues("customFields") || [];
+    const next = [...currentFields];
+    next[index] = { ...next[index], [key]: value };
+    form.setValue("customFields", next, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [form]);
+
+  const removeCustomField = useCallback((index: number) => {
+    const currentFields = form.getValues("customFields") || [];
+    form.setValue(
+      "customFields",
+      currentFields.filter((_, i) => i !== index),
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    );
   }, [form]);
 
   const onSubmit = async (data: FormValues) => {
@@ -358,6 +446,19 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
       // Get client details for the invoice
       const selectedClient = clients.find((client: any) => client.id === parseInt(data.client));
 
+      const customFields = (data.customFields || []).reduce((acc: Record<string, string>, field) => {
+        if (field.key.trim()) {
+          acc[field.key.trim()] = field.value || '';
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      if (data.taxAmount !== undefined && data.taxAmount !== null) {
+        customFields.tax_amount = String(Number(data.taxAmount));
+      }
+      if (data.taxRate !== undefined && data.taxRate !== null) {
+        customFields.tax_rate = String(Number(data.taxRate));
+      }
+
       const invoiceData = {
         client_id: parseInt(data.client),
         client_name: selectedClient?.name || '',
@@ -383,12 +484,7 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
         recurring_frequency: data.recurringFrequency,
         discount_type: data.discountType,
         discount_value: data.discountValue,
-        custom_fields: data.customFields.reduce((acc, field) => {
-          if (field.key.trim()) {
-            acc[field.key.trim()] = field.value || '';
-          }
-          return acc;
-        }, {} as Record<string, string>),
+        custom_fields: customFields,
         show_discount_in_pdf: data.showDiscountInPdf,
       };
 
@@ -661,6 +757,112 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
                 <span>{t('invoices.total', 'Total')}:</span>
                 <CurrencyDisplay amount={total} currency={watchedCurrency} />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Tax and Custom Fields */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t("invoices.tax_and_custom_fields", "Tax & Custom Fields")}</CardTitle>
+                <Button type="button" variant="outline" size="sm" onClick={addCustomField}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("invoices.add_custom_field", "Add Field")}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="taxAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("invoices.tax_amount", "Tax Amount")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? undefined : Number(value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("invoices.tax_rate_percent", "Tax Rate (%)")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? undefined : Number(value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {watchedCustomFields.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t("invoices.no_custom_fields", "No custom fields yet.")}
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {watchedCustomFields.map((field, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3">
+                    <Input
+                      placeholder={t("invoices.custom_field_key", "Field key")}
+                      value={field.key}
+                      onChange={(e) => updateCustomField(index, "key", e.target.value)}
+                    />
+                    <Input
+                      placeholder={t("invoices.custom_field_value", "Field value")}
+                      value={field.value || ""}
+                      onChange={(e) => updateCustomField(index, "value", e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeCustomField(index)}
+                      aria-label={t("invoices.remove_custom_field", "Remove custom field")}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <FormField
+                control={form.control}
+                name="customFields"
+                render={() => (
+                  <FormItem>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 

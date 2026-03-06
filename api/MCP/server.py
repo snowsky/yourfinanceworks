@@ -1967,55 +1967,71 @@ async def process_pdf_upload(file_path: str, filename: Optional[str] = None) -> 
 
     return await server_context.tools.process_pdf_upload(file_path=file_path, filename=filename)
 
-# Tax Integration Tools
+# Accounting Export Tools
 
 @mcp.tool()
-async def get_tax_integration_status() -> dict:
+async def export_accounting_journal(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    include_drafts: bool = False,
+    tax_only: bool = False,
+    include_expenses: bool = True,
+    include_invoices: bool = True,
+    include_payments: bool = True,
+) -> dict:
     """
-    Get tax service integration status to check if tax service is configured and connected.
-    """
-    if server_context.tools is None:
-        return {"success": False, "error": "Server not properly initialized"}
-
-    return await server_context.tools.get_tax_integration_status()
-
-@mcp.tool()
-async def send_to_tax_service(item_id: int, item_type: str) -> dict:
-    """
-    Send an item (expense or invoice) to the tax service for processing.
+    Download accountant-ready accounting journal CSV from invoices, expenses, and payments.
 
     Args:
-        item_id: ID of the item to send
-        item_type: Type of item (expense or invoice)
+        date_from: ISO datetime lower bound (inclusive), e.g. 2026-01-01T00:00:00Z
+        date_to: ISO datetime upper bound (inclusive), e.g. 2026-01-31T23:59:59Z
+        include_drafts: Include draft invoices (default: False)
+        tax_only: Include only tax-relevant expenses/invoices/payments (default: False)
+        include_expenses: Include expenses (default: True)
+        include_invoices: Include invoices (default: True)
+        include_payments: Include payments (default: True)
     """
     if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
 
-    return await server_context.tools.send_to_tax_service(item_id=item_id, item_type=item_type)
+    return await server_context.tools.export_accounting_journal(
+        date_from=date_from,
+        date_to=date_to,
+        include_drafts=include_drafts,
+        tax_only=tax_only,
+        include_expenses=include_expenses,
+        include_invoices=include_invoices,
+        include_payments=include_payments,
+    )
 
 @mcp.tool()
-async def bulk_send_to_tax_service(item_ids: List[int], item_type: str) -> dict:
+async def export_tax_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    include_drafts: bool = False,
+    include_expenses: bool = True,
+    include_invoices: bool = True,
+) -> dict:
     """
-    Bulk send multiple items to the tax service for processing.
+    Download tax summary CSV grouped by input/output tax rates.
 
     Args:
-        item_ids: List of item IDs to send
-        item_type: Type of items (expense or invoice)
+        date_from: ISO datetime lower bound (inclusive), e.g. 2026-01-01T00:00:00Z
+        date_to: ISO datetime upper bound (inclusive), e.g. 2026-01-31T23:59:59Z
+        include_drafts: Include draft invoices (default: False)
+        include_expenses: Include expenses (default: True)
+        include_invoices: Include invoices (default: True)
     """
     if server_context.tools is None:
         return {"success": False, "error": "Server not properly initialized"}
 
-    return await server_context.tools.bulk_send_to_tax_service(item_ids=item_ids, item_type=item_type)
-
-@mcp.tool()
-async def get_tax_service_transactions() -> dict:
-    """
-    Get tax service transactions to view items that have been sent to the tax service.
-    """
-    if server_context.tools is None:
-        return {"success": False, "error": "Server not properly initialized"}
-
-    return await server_context.tools.get_tax_service_transactions()
+    return await server_context.tools.export_tax_summary(
+        date_from=date_from,
+        date_to=date_to,
+        include_drafts=include_drafts,
+        include_expenses=include_expenses,
+        include_invoices=include_invoices,
+    )
 
 # Super Admin Tools
 
@@ -2372,10 +2388,8 @@ Available Tools:
   - update_notification_settings: Update notification settings
   - get_ai_status: Get AI status for PDF processing
   - process_pdf_upload: Upload and process PDF files
-  - get_tax_integration_status: Get tax integration status
-  - send_to_tax_service: Send items to tax service
-  - bulk_send_to_tax_service: Bulk send items to tax service
-  - get_tax_service_transactions: Get tax service transactions
+  - export_accounting_journal: Download accountant-ready journal CSV
+  - export_tax_summary: Download tax summary CSV
   - get_tenant_stats: Get detailed tenant statistics
   - create_tenant: Create a new tenant
   - update_tenant: Update tenant information

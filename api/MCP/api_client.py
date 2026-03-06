@@ -816,26 +816,90 @@ class InvoiceAPIClient:
             resp.raise_for_status()
             return resp.json()
 
-    # Tax Integration Methods
-    async def get_tax_integration_status(self) -> Dict[str, Any]:
-        """Get tax service integration status"""
-        return await self._make_request("GET", "/tax-integration/status")
-
-    async def send_to_tax_service(self, item_id: int, item_type: str) -> Dict[str, Any]:
-        """Send item to tax service"""
-        data = {"item_id": item_id, "item_type": item_type}
-        return await self._make_request("POST", "/tax-integration/send", json=data)
-
-    async def bulk_send_to_tax_service(
-        self, item_ids: List[int], item_type: str
+    # Accounting Export Methods
+    async def export_accounting_journal(
+        self,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        include_drafts: bool = False,
+        tax_only: bool = False,
+        include_expenses: bool = True,
+        include_invoices: bool = True,
+        include_payments: bool = True,
     ) -> Dict[str, Any]:
-        """Bulk send items to tax service"""
-        data = {"item_ids": item_ids, "item_type": item_type}
-        return await self._make_request("POST", "/tax-integration/bulk-send", json=data)
+        """Download accounting journal CSV export."""
+        params: Dict[str, Any] = {
+            "include_drafts": include_drafts,
+            "tax_only": tax_only,
+            "include_expenses": include_expenses,
+            "include_invoices": include_invoices,
+            "include_payments": include_payments,
+        }
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        return await self._download_text_export("/accounting-export/journal", params=params)
 
-    async def get_tax_service_transactions(self) -> List[Dict[str, Any]]:
-        """Get tax service transactions"""
-        return await self._make_request("GET", "/tax-integration/transactions")
+    async def export_tax_summary(
+        self,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        include_drafts: bool = False,
+        include_expenses: bool = True,
+        include_invoices: bool = True,
+    ) -> Dict[str, Any]:
+        """Download tax summary CSV export."""
+        params: Dict[str, Any] = {
+            "include_drafts": include_drafts,
+            "include_expenses": include_expenses,
+            "include_invoices": include_invoices,
+        }
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        return await self._download_text_export("/accounting-export/tax-summary", params=params)
+
+    async def _download_text_export(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Download text-based export (CSV) while preserving filename metadata."""
+        try:
+            headers = await self.auth_client.get_auth_headers()
+            response = await self._client.get(
+                url=f"{self.base_url}{endpoint}",
+                headers=headers,
+                params=params,
+            )
+            response.raise_for_status()
+
+            content_disposition = response.headers.get("content-disposition", "")
+            filename = "export.csv"
+            if "filename=" in content_disposition:
+                filename = content_disposition.split("filename=", 1)[1].strip().strip('"')
+
+            content = response.text
+            return {
+                "filename": filename,
+                "content_type": response.headers.get("content-type", "text/csv"),
+                "content": content,
+                "size": len(content.encode("utf-8")),
+            }
+        except HTTPStatusError as e:
+            if e.response.status_code == 401:
+                raise AuthenticationError("Authentication failed - check credentials")
+            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+            raise Exception(
+                f"API request failed: {e.response.status_code} - {e.response.text}"
+            )
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Request error: {e}")
+            raise Exception(f"Request error: {e}")
 
     # Tenant Methods
     async def get_tenant_info(self) -> Dict[str, Any]:

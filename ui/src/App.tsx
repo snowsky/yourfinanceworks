@@ -56,6 +56,7 @@ const ExpenseRecycleBin = React.lazy(() => import("./pages/ExpenseRecycleBin"));
 const StatementRecycleBin = React.lazy(() => import("./pages/StatementRecycleBin"));
 const Analytics = React.lazy(() => import("./pages/Analytics"));
 const Reports = React.lazy(() => import("./pages/Reports"));
+const AccountingTaxExport = React.lazy(() => import("./pages/AccountingTaxExport"));
 const ReportDetail = React.lazy(() => import("./pages/ReportDetail"));
 const AttachmentSearch = React.lazy(() => import("./pages/AttachmentSearch"));
 const ActivityPage = React.lazy(() => import("./pages/ActivityPage").then(module => ({ default: module.ActivityPage })));
@@ -216,6 +217,7 @@ const AppContent = () => {
                     <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['admin', 'superuser']}><Analytics /></RoleProtectedRoute>} />
 
                     <Route path="/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reports /></RoleProtectedRoute>} />
+                    <Route path="/reports/accounting-tax-export" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><AccountingTaxExport /></RoleProtectedRoute>} />
                     <Route path="/reports/:reportType" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ReportDetail /></RoleProtectedRoute>} />
                     <Route path="/attachments" element={<AttachmentSearch />} />
                     <Route path="/activity" element={<ActivityPage />} />

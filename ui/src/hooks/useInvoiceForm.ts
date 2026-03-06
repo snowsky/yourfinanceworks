@@ -51,6 +51,22 @@ const formSchema = z.object({
   recurringFrequency: z.string().optional(),
   discountType: z.enum(["percentage", "fixed", "rule"] as const).default("percentage"),
   discountValue: z.number().min(0, "Discount value cannot be negative").default(0),
+  taxAmount: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isNaN(num) ? undefined : num;
+    },
+    z.number().min(0, "Tax amount cannot be negative").optional()
+  ),
+  taxRate: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isNaN(num) ? undefined : num;
+    },
+    z.number().min(0, "Tax rate cannot be negative").optional()
+  ),
   customFields: z.array(customFieldSchema).default([]),
   showDiscountInPdf: z.boolean().optional().default(false),
   payer: z.enum(["You", "Client"] as const).default("Client"),
@@ -68,6 +84,43 @@ const defaultItem = {
   inventory_item_id: undefined,
   unit_of_measure: undefined
 };
+
+const TAX_AMOUNT_KEYS = ["tax_amount", "output_tax", "vat_amount"];
+const TAX_RATE_KEYS = ["tax_rate", "output_tax_rate", "vat_rate"];
+const RESERVED_TAX_KEYS = new Set([...TAX_AMOUNT_KEYS, ...TAX_RATE_KEYS]);
+
+function extractTaxValuesFromCustomFields(customFields?: Record<string, any>) {
+  if (!customFields || typeof customFields !== "object") {
+    return { taxAmount: undefined as number | undefined, taxRate: undefined as number | undefined };
+  }
+
+  const readNumeric = (keys: string[]) => {
+    for (const key of keys) {
+      const value = customFields[key];
+      if (value === null || value === undefined || value === "") continue;
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return undefined;
+  };
+
+  return {
+    taxAmount: readNumeric(TAX_AMOUNT_KEYS),
+    taxRate: readNumeric(TAX_RATE_KEYS),
+  };
+}
+
+function mapEditableCustomFields(customFields?: Record<string, any>) {
+  if (!customFields || typeof customFields !== "object") {
+    return [];
+  }
+  return Object.entries(customFields)
+    .filter(([key]) => !RESERVED_TAX_KEYS.has(key))
+    .map(([key, value]) => ({
+      key,
+      value: value === null || value === undefined ? "" : String(value),
+    }));
+}
 
 interface UseInvoiceFormProps {
   invoice?: Invoice;
@@ -129,6 +182,11 @@ export function useInvoiceForm({
     return [{ ...defaultItem }];
   }, [invoice]);
 
+  const invoiceTaxValues = useMemo(
+    () => extractTaxValuesFromCustomFields(invoice?.custom_fields),
+    [invoice?.custom_fields]
+  );
+
   const formDefaultValues = {
     client: initialData?.client || (invoice ? invoice.client_id.toString() : ""),
     invoiceNumber: initialData?.invoiceNumber || (invoice ? invoice.number : ""),
@@ -143,7 +201,9 @@ export function useInvoiceForm({
     recurringFrequency: initialData?.recurringFrequency || invoice?.recurring_frequency || "monthly",
     discountType: initialData?.discountType || "percentage" as const,
     discountValue: initialData?.discountValue ?? (invoice?.discount_value || 0),
-    customFields: initialData?.customFields || [],
+    taxAmount: initialData?.taxAmount ?? invoiceTaxValues.taxAmount,
+    taxRate: initialData?.taxRate ?? invoiceTaxValues.taxRate,
+    customFields: initialData?.customFields || mapEditableCustomFields(invoice?.custom_fields),
     showDiscountInPdf: initialData?.showDiscountInPdf ?? (invoice?.show_discount_in_pdf || false),
     payer: initialData?.payer || (invoice as any)?.payer || "Client",
     labels: initialData?.labels || invoice?.labels || [],
@@ -172,6 +232,8 @@ export function useInvoiceForm({
         recurringFrequency: initialData.recurringFrequency || "monthly",
         discountType: initialData.discountType || "percentage" as const,
         discountValue: initialData.discountValue ?? 0,
+        taxAmount: initialData.taxAmount,
+        taxRate: initialData.taxRate,
         customFields: initialData.customFields || [],
         showDiscountInPdf: initialData.showDiscountInPdf ?? false,
         payer: initialData.payer || "Client",
@@ -290,13 +352,17 @@ export function useInvoiceForm({
         recurringFrequency: invoice.recurring_frequency || "monthly",
         discountType: discountType,
         discountValue: discountValue,
-        customFields: [],
+        taxAmount: invoiceTaxValues.taxAmount,
+        taxRate: invoiceTaxValues.taxRate,
+        customFields: mapEditableCustomFields(invoice.custom_fields),
+        showDiscountInPdf: invoice.show_discount_in_pdf || false,
         payer: (invoice as any)?.payer || "Client",
+        labels: invoice.labels || [],
       };
 
       form.reset(formData);
     }
-  }, [invoice, isEdit, form, safeItems, availableDiscountRules]);
+  }, [invoice, isEdit, form, safeItems, availableDiscountRules, invoiceTaxValues]);
 
   // Calculations
   const calculateSubtotal = useCallback((itemsToUse?: any[]) => {
