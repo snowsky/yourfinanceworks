@@ -1,6 +1,6 @@
-# Tax Service Integration
+# Tax Service Integration (Legacy) and Accountant Export
 
-This document describes the integration between the Invoice App and Tax Service, allowing users to send expenses and invoices to the tax service for automated tax tracking and reporting.
+This document describes the legacy Tax Service integration and the currently supported accountant export workflow.
 
 ## Overview
 
@@ -50,25 +50,26 @@ chmod +x setup_tax_integration.sh
 
 ## API Endpoints
 
-### Status and Configuration
+### Active Endpoints (Current)
+
+- `GET /api/v1/accounting-export/journal` - Download double-entry accounting journal CSV
+- `GET /api/v1/accounting-export/tax-summary` - Download input/output tax summary CSV
+  - Optional query: `tax_only=true` to include only tax-relevant entries in journal export
+  - Invoice output tax is included only when explicit invoice tax fields are present (`tax_amount`/`tax_rate`, including `custom_fields` keys such as `tax_amount`)
+
+### Legacy Endpoints (Obsolete / Not Mounted in `api/main.py`)
 
 - `GET /api/v1/tax-integration/status` - Get integration status
 - `GET /api/v1/tax-integration/settings` - Get current settings (masked)
 - `POST /api/v1/tax-integration/test-connection` - Test connection to tax service
-
-### Send Data
-
 - `POST /api/v1/tax-integration/send` - Send single expense or invoice
 - `POST /api/v1/tax-integration/send-bulk` - Send multiple items
-
-### Debugging
-
 - `GET /api/v1/tax-integration/expenses/{id}/tax-transaction` - Preview expense mapping
 - `GET /api/v1/tax-integration/invoices/{id}/tax-transaction` - Preview invoice mapping
 
 ## Usage Examples
 
-### Send Single Expense
+### Legacy: Send Single Expense
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/tax-integration/send" \
@@ -80,7 +81,7 @@ curl -X POST "http://localhost:8000/api/v1/tax-integration/send" \
   }'
 ```
 
-### Send Single Invoice
+### Legacy: Send Single Invoice
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/tax-integration/send" \
@@ -92,7 +93,7 @@ curl -X POST "http://localhost:8000/api/v1/tax-integration/send" \
   }'
 ```
 
-### Send Multiple Items
+### Legacy: Send Multiple Items
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/tax-integration/send-bulk" \
@@ -104,7 +105,23 @@ curl -X POST "http://localhost:8000/api/v1/tax-integration/send-bulk" \
   }'
 ```
 
-### Check Status
+### Export Accounting Journal CSV
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/accounting-export/journal?date_from=2026-01-01T00:00:00Z&date_to=2026-01-31T23:59:59Z&include_drafts=false&tax_only=true" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -o accounting_journal_jan_2026.csv
+```
+
+### Export Tax Summary CSV
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/accounting-export/tax-summary?date_from=2026-01-01T00:00:00Z&date_to=2026-01-31T23:59:59Z" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -o tax_summary_jan_2026.csv
+```
+
+### Legacy: Check Status
 
 ```bash
 curl -X GET "http://localhost:8000/api/v1/tax-integration/status" \

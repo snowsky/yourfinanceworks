@@ -1,8 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, CreditCard, Receipt, Building, Package } from 'lucide-react';
+import { FileText, Users, CreditCard, Receipt, Building, Package, FileSpreadsheet } from 'lucide-react';
 import { ReportType } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface ReportTypeSelectorProps {
   reportTypes: ReportType[];
@@ -37,6 +38,7 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
   loading = false,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -70,7 +72,10 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
               : 'border-border/50 hover:border-primary/30 hover:shadow-md'
             }
           `}
-          onClick={() => navigate(`/reports/${reportType.type}`)}
+          onClick={() => {
+            onTypeSelect(reportType.type);
+            navigate(`/reports/${reportType.type}`);
+          }}
         >
           <div className={`
             p-3 rounded-xl transition-colors duration-200
@@ -103,6 +108,55 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
           </div>
         </Button>
       ))}
+
+      <Button
+        key="accounting-tax-export"
+        variant={selectedType === 'accounting-tax-export' ? "default" : "outline"}
+        className={`
+          h-auto p-6 flex flex-col items-center space-y-4 rounded-xl border-2 transition-all duration-200
+          ${selectedType === 'accounting-tax-export'
+            ? 'border-primary shadow-lg scale-105'
+            : 'border-border/50 hover:border-primary/30 hover:shadow-md'
+          }
+        `}
+        onClick={() => {
+          onTypeSelect('accounting-tax-export');
+          navigate('/reports/accounting-tax-export');
+        }}
+      >
+        <div className={`
+          p-3 rounded-xl transition-colors duration-200
+          ${selectedType === 'accounting-tax-export'
+            ? 'bg-primary-foreground text-primary'
+            : 'bg-muted/50 text-muted-foreground'
+          }
+        `}>
+          <FileSpreadsheet className="h-6 w-6" />
+        </div>
+        <div className="text-center space-y-2">
+          <div className={`
+            font-semibold text-sm
+            ${selectedType === 'accounting-tax-export'
+              ? 'text-primary-foreground'
+              : 'text-foreground'
+            }
+          `}>
+            {t('reports.accounting_tax_export.title', 'Accounting & Tax Export')}
+          </div>
+          <div className={`
+            text-xs leading-relaxed
+            ${selectedType === 'accounting-tax-export'
+              ? 'text-primary-foreground/80'
+              : 'text-muted-foreground'
+            }
+          `}>
+            {t(
+              'reports.accounting_tax_export.description',
+              'Dedicated accountant-facing exports, separate from processed-document exports.'
+            )}
+          </div>
+        </div>
+      </Button>
     </div>
   );
 };

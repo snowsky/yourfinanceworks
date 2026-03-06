@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 # Import Commercial Modules (Conditional)
 try:
     from commercial.cloud_storage.router import router as cloud_storage
-    from commercial.integrations.tax.router import router as tax_integration
+    from commercial.accounting_export.router import router as accounting_export
     from commercial.integrations.slack.router import router as slack_simplified
     from commercial.integrations.email.router import router as email_integration
     from commercial.api_access.router import router as external_api_auth
@@ -96,7 +96,7 @@ except ImportError as e:
     logger.error(f"Failed to import commercial modules: {str(e)}")
     logger.error(f"Traceback: {traceback.format_exc()}")
     cloud_storage = None
-    tax_integration = None
+    accounting_export = None
     slack_simplified = None
     email_integration = None
     external_api_auth = None
@@ -253,25 +253,6 @@ async def auto_activate_license():
 async def app_lifespan(app: FastAPI):
     # Startup logic
     try:
-        # Initialize tax integration service
-        try:
-            from config import config
-            # Try to import from commercial module
-            try:
-                from commercial.integrations.tax.service import initialize_tax_integration_service
-
-                if config.TAX_SERVICE_ENABLED and config.TAX_SERVICE_API_KEY:
-                    tax_config = config.tax_service_config
-                    initialize_tax_integration_service(tax_config)
-                    logger.info("Tax integration service initialized successfully")
-                else:
-                    logger.info("Tax integration service not enabled or not configured")
-            except ImportError:
-                logger.info("Tax integration service (Commercial) not available")
-
-        except Exception as e:
-            logger.warning(f"Failed to initialize tax integration service: {str(e)}")
-
         # Start reminder background service
         try:
             from core.services.reminder_background_service import start_reminder_background_service
@@ -389,15 +370,6 @@ async def app_lifespan(app: FastAPI):
         try:
             from commercial.ai.services.ocr_service import flush_all_producers
             flush_all_producers(10.0)
-        except Exception:
-            pass
-
-        # Cleanup tax integration service
-        try:
-            from commercial.integrations.tax.service import cleanup_tax_integration_service
-            await cleanup_tax_integration_service()
-        except ImportError:
-            pass
         except Exception:
             pass
 
@@ -592,8 +564,8 @@ if ai_config:
 if pdf_processor:
     app.include_router(pdf_processor, prefix="/api/v1")
 
-if tax_integration:
-    app.include_router(tax_integration, prefix="/api/v1")
+if accounting_export:
+    app.include_router(accounting_export, prefix="/api/v1")
 if email_integration:
     app.include_router(email_integration, prefix="/api/v1")
 if slack_simplified:
