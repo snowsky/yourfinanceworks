@@ -12,8 +12,9 @@ This guide explains how to build a plugin for YourFinanceWORKS. Plugins are self
 4. [Frontend: required files](#frontend-required-files)
 5. [Using third-party services](#using-third-party-services)
 6. [Database models and migrations](#database-models-and-migrations)
-7. [Installing a plugin](#installing-a-plugin)
-8. [Sample plugin: currency-rates](#sample-plugin-currency-rates)
+7. [Cross-Plugin Data Access](#cross-plugin-data-access)
+8. [Installing a plugin](#installing-a-plugin)
+9. [Sample plugin: currency-rates](#sample-plugin-currency-rates)
 
 ---
 
@@ -229,6 +230,47 @@ class MyPluginRecord(Base):
 The `PluginLoader` imports `models.py` automatically before `init_db()` runs, so tables are created at startup.
 
 For production use, add a proper Alembic migration under `api/alembic/versions/`.
+
+---
+
+## Cross-Plugin Data Access
+
+Plugin-to-plugin API calls are isolated by default.
+
+- If `Plugin A` calls `Plugin B` with header `X-Plugin-Caller: plugin-a`, backend guard checks whether the current user approved that access.
+- If not approved, backend returns `428` with `PLUGIN_ACCESS_APPROVAL_REQUIRED` and creates a pending request.
+- UI listens for that event and shows an approval dialog. User can approve/deny directly.
+
+### Backend: protect plugin routes
+
+```python
+from fastapi import Depends
+from core.utils.plugin_access_guard import require_plugin_access
+
+app.include_router(
+    my_router,
+    prefix="/api/v1/my-plugin",
+    dependencies=[Depends(require_plugin_access("my-plugin"))],
+)
+```
+
+### Frontend: call another plugin
+
+Use `pluginToPluginRequest` to request access and include caller identity:
+
+```ts
+import { pluginToPluginRequest } from '@/lib/plugin-access';
+
+const rates = await pluginToPluginRequest({
+  sourcePlugin: 'time-tracking',
+  targetPlugin: 'currency-rates',
+  url: '/currency-rates?base=USD',
+  options: { method: 'GET' },
+  reason: 'Convert project totals to the selected currency',
+});
+```
+
+If approval is missing, the helper raises `PLUGIN_ACCESS_APPROVAL_REQUIRED`; the UI dialog will handle the decision flow.
 
 ---
 

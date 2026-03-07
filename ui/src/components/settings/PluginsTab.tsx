@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings, ArrowRightLeft } from 'lucide-react';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -13,6 +13,17 @@ import { ProfessionalCard, ProfessionalCardContent } from '@/components/ui/profe
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { toast } from 'sonner';
 import { PluginSettingsModal } from './PluginSettingsModal';
+import { PluginAccessModal } from './PluginAccessModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 interface PluginCardProps {
@@ -26,6 +37,7 @@ interface PluginCardProps {
 const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, licenseMessage, isAdmin }) => {
   const [isToggling, setIsToggling] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const { t } = useTranslation();
 
 
@@ -44,6 +56,15 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
       return;
     }
 
+    if (enabled && plugin.required_access && plugin.required_access.length > 0) {
+      setShowPermissionDialog(true);
+      return;
+    }
+
+    await executeToggle(enabled);
+  };
+
+  const executeToggle = async (enabled: boolean) => {
     setIsToggling(true);
     try {
       await onToggle(plugin.id, enabled, isAdmin);
@@ -215,6 +236,60 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
           </div>
         </div>
       </CardHeader>
+
+      <AlertDialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              {t('plugins.required_access_title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('plugins.required_access_description', { pluginName: plugin.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="my-4 border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.target_plugin')}</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.access_type')}</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.reason_for_access')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {plugin.required_access?.map((req, idx) => (
+                  <tr key={idx} className="bg-white">
+                    <td className="px-4 py-2 font-medium">{req.target_plugin}</td>
+                    <td className="px-4 py-2">
+                      <Badge variant="outline" className={req.access_type === 'write' ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-blue-600 bg-blue-50 border-blue-200'}>
+                        {req.access_type === 'write' ? t('plugins.write_access') : t('plugins.read_access')}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{req.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowPermissionDialog(false)}>
+              {t('plugins.cancel_enablement')}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={async () => {
+                setShowPermissionDialog(false);
+                await executeToggle(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {t('plugins.grant_access_and_enable')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <CardContent>
         <CardDescription className="text-sm text-gray-600 mb-3">
           {plugin.description}
@@ -415,6 +490,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const { isFeatureEnabled, isFeatureExpired, refetch: refetchFeatures } = useFeatures();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+
 
   // Listen for feature updates and force re-render
   useEffect(() => {
@@ -489,7 +566,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
       window.removeEventListener('plugin-discovery-refreshed', handleDiscoveryRefreshed as EventListener);
       window.removeEventListener('plugin-discovery-error', handleDiscoveryError as EventListener);
     };
-  }, [plugins]);
+  }, [plugins, t]);
+
 
   const handleRefreshDiscovery = async () => {
     setIsRefreshing(true);
@@ -541,6 +619,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     return { canToggle: true };
   };
 
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -550,16 +630,29 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
             {t('plugins.description')}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefreshDiscovery}
-          disabled={isRefreshing || loading}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          {t('plugins.refresh_plugins')}
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAccessModalOpen(true)}
+              className="flex items-center gap-2 border-primary/20 hover:bg-primary/5"
+            >
+              <ArrowRightLeft className="w-4 h-4 text-primary" />
+              Manage Data Access
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshDiscovery}
+            disabled={isRefreshing || loading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {t('plugins.refresh_plugins')}
+          </Button>
+        </div>
       </div>
 
       {/* Discovery Errors Alert */}
@@ -598,6 +691,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
         </Alert>
       )}
 
+
       <div className="grid gap-4">
         {plugins.map(plugin => {
           const licenseCheck = checkPluginLicense(plugin);
@@ -631,6 +725,12 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
           </p>
         </div>
       )}
+
+      <PluginAccessModal
+        open={isAccessModalOpen}
+        onOpenChange={setIsAccessModalOpen}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 };

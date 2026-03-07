@@ -70,6 +70,7 @@ class PluginLoader:
     def __init__(self) -> None:
         self._discovered: list[DiscoveredPlugin] = []
         self._discovery_done = False
+        self._table_registry: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -199,6 +200,63 @@ class PluginLoader:
     def get_registry(self) -> list[dict]:
         """Return a list of manifest dicts suitable for the /plugins/registry endpoint."""
         return [p.manifest for p in self.discover()]
+
+    def get_table_ownership_registry(self) -> dict[str, str]:
+        """
+        Returns a mapping of table names to their owners ('core' or plugin_id).
+        Used by the database isolation interceptor.
+        """
+        if self._table_registry:
+            return self._table_registry
+
+        # Ensure models are imported first
+        self.import_models()
+
+        # Import TenantBase to inspect registered tables
+        from core.models.models_per_tenant import Base as TenantBase
+
+        registry = {}
+        for table_name, table in TenantBase.metadata.tables.items():
+            # Determine ownership based on the model's module path
+            model_class = table.info.get("model")
+            module_name = model_class.__module__ if model_class and hasattr(model_class, "__module__") else ""
+
+            owner = "core"
+            for plugin in self.discover():
+                # 1. Check explicit table list in manifest
+                explicit_tables = plugin.manifest.get("database_tables", [])
+                if table_name in explicit_tables:
+                    owner = plugin.plugin_id
+                    break
+
+                # Normalize IDs for comparison
+                pid = plugin.plugin_id.lower()
+                pid_underscore = pid.replace("-", "_")
+                pid_hyphen = pid.replace("_", "-")
+
+                # 2. Check if the table name starts with the plugin ID (various formats)
+                if table_name.startswith(f"{pid_underscore}_") or \
+                   table_name.startswith(f"{pid_hyphen}_") or \
+                   table_name == pid_underscore or \
+                   table_name == pid_hyphen:
+                    owner = plugin.plugin_id
+                    break
+
+                # 3. Check if the module name contains the plugin package
+                if module_name and (module_name.startswith(plugin.package) or \
+                                    f".plugins.{pid_underscore}." in module_name or \
+                                    f".plugins.{pid_hyphen}." in module_name):
+                    owner = plugin.plugin_id
+                    break
+
+            registry[table_name] = owner
+            if owner != "core":
+                logger.info("Table '%s' correctly mapped to plugin '%s'", table_name, owner)
+            else:
+                logger.debug("Table '%s' owned by 'core' (module: %s)", table_name, module_name)
+
+        self._table_registry = registry
+        return registry
 
     # ------------------------------------------------------------------
     # Internals

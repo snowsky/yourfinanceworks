@@ -13,6 +13,7 @@ Welcome to the YourFinanceWORKS documentation hub. This page links all available
 
 - **[User Guide Index](user-guide/README.md)**: Entry point for user workflows and onboarding docs.
 - **[Approval Workflow User Guide](user-guide/approval-workflow.md)**: Expense submission and approvals.
+- **[Plugin Data Access Approvals](user-guide/PLUGIN_DATA_ACCESS_APPROVALS_USER_GUIDE.md)**: Understand and respond to plugin data access prompts.
 - **[Batch Processing UI Guide](user-guide/BATCH_PROCESSING_UI_USER_GUIDE.md)**: Bulk document processing in the UI.
 - **[AI Assistant Usage](user-guide/AI_ASSISTANT_USAGE.md)**: Sample queries and configuration.
 - **[Achievement Rules Guide](user-guide/ACHIEVEMENT_RULES_GUIDE.md)**: Gamification and badges.
@@ -28,6 +29,7 @@ Deep dives into the system's core capabilities:
 - **[Financial Health Fundamentals](features/FINANCIAL_HEALTH.md)**: Budgeting, cash flow tracking, and core metrics.
 - **[Banking & Reconciliation](features/BANKING_RECONCILIATION.md)**: Bank statement processing and matching.
 - **[Governance & Approval Workflows](features/GOVERNANCE_WORKFLOWS.md)**: Custom rules and multi-level hierarchies.
+- **[Plugin Data Access Approvals](features/PLUGIN_DATA_ACCESS_APPROVALS.md)**: Ask for user approval when plugins request other plugins' data.
 - **[Strategic Growth Analytics](features/GROWTH_ANALYTICS.md)**: Deep reporting and business insights.
 - **[Advanced Export & Cloud](features/ADVANCED_EXPORT.md)**: Securely pushing data to S3, Azure, GCS, and Drive.
 - **[Batch Processing & Bulk Imports](features/BATCH_PROCESSING_API_ACCESS.md)**: Managing high-volume document uploads.
