@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Lock, AlertCircle, AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Button, buttonVariants } from '@/components/ui/button';
+
 
 interface FeatureGateProps {
   feature: string;
@@ -42,19 +42,23 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   if (featureIsExpired && showExpiredContent && !featureIsEnabled) {
     return (
       <>
-        <Alert className="border-amber-300 bg-amber-50 mb-4">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-900">{t('settings.license.expired')}</AlertTitle>
-          <AlertDescription className="text-amber-800">
-            <p className="mb-3">
-              {t('settings.license.expired_message')}
-            </p>
-            <div className="flex gap-2">
-              <Button asChild size="sm" variant="default">
-                <Link to="/settings?tab=license">{t('settings.license.renew')}</Link>
-              </Button>
+        <Alert className="border-amber-300 bg-amber-50 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <div className="shrink-0 mt-0.5">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
             </div>
-          </AlertDescription>
+            <div>
+              <AlertTitle className="text-amber-900">{t('settings.license.expired')}</AlertTitle>
+              <AlertDescription className="text-amber-800 mt-1">
+                {t('settings.license.expired_message')}
+              </AlertDescription>
+            </div>
+          </div>
+          <div className="shrink-0 pointer-events-auto">
+            <a href="/settings?tab=license" className={buttonVariants({ variant: "default", size: "sm" })}>
+              {t('settings.license.renew')}
+            </a>
+          </div>
         </Alert>
         {children}
       </>
@@ -68,23 +72,29 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
       const isLicenseExpired = licenseStatus && licenseStatus.is_license_expired;
 
       return (
-        <Alert className="border-amber-200 bg-amber-50">
-          <Lock className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-900">{t('settings.license.feature_locked')}</AlertTitle>
-          <AlertDescription className="text-amber-800">
-            <p className="mb-3">{defaultMessage}</p>
-            {isTrialExpired && (
-              <p className="mb-3 text-sm">{t('settings.license.trial_ended')}</p>
-            )}
-            {isLicenseExpired && (
-              <p className="mb-3 text-sm">{t('settings.license.license_expired_feature')}</p>
-            )}
-            <div className="flex gap-2">
-              <Button asChild size="sm" variant="default">
-                <Link to="/settings?tab=license">{t('settings.license.manage')}</Link>
-              </Button>
+        <Alert className="border-amber-200 bg-amber-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <div className="shrink-0 mt-0.5">
+              <Lock className="h-4 w-4 text-amber-600" />
             </div>
-          </AlertDescription>
+            <div>
+              <AlertTitle className="text-amber-900">{t('settings.license.feature_locked')}</AlertTitle>
+              <AlertDescription className="text-amber-800 mt-1 space-y-2">
+                <p>{defaultMessage}</p>
+                {isTrialExpired && (
+                  <p className="text-sm">{t('settings.license.trial_ended')}</p>
+                )}
+                {isLicenseExpired && (
+                  <p className="text-sm">{t('settings.license.license_expired_feature')}</p>
+                )}
+              </AlertDescription>
+            </div>
+          </div>
+          <div className="shrink-0 pointer-events-auto">
+            <a href="/settings?tab=license" className={buttonVariants({ variant: "default", size: "sm" })}>
+              {t('settings.license.manage')}
+            </a>
+          </div>
         </Alert>
       );
     }
@@ -115,23 +125,29 @@ export const FeatureAlert: React.FC<FeatureAlertProps> = ({
   const isLicenseExpired = licenseStatus && licenseStatus.is_license_expired;
 
   return (
-    <Alert className="border-blue-200 bg-blue-50">
-      <AlertCircle className="h-4 w-4 text-blue-600" />
-      <AlertTitle className="text-blue-900">{title}</AlertTitle>
-      <AlertDescription className="text-blue-800">
-        <p className="mb-3">{defaultMessage}</p>
-        {isTrialExpired && (
-          <p className="mb-3 text-sm">{t('settings.license.trial_ended_access')}</p>
-        )}
-        {isLicenseExpired && (
-          <p className="mb-3 text-sm">{t('settings.license.license_expired_access')}</p>
-        )}
-        <div className="flex gap-2">
-          <Button asChild size="sm" variant="default">
-            <Link to="/settings?tab=license">{t('settings.license.manage')}</Link>
-          </Button>
+    <Alert className="border-blue-200 bg-blue-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex gap-3">
+        <div className="shrink-0 mt-0.5">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
         </div>
-      </AlertDescription>
+        <div>
+          <AlertTitle className="text-blue-900">{title}</AlertTitle>
+          <AlertDescription className="text-blue-800 mt-1 space-y-2">
+            <p>{defaultMessage}</p>
+            {isTrialExpired && (
+              <p className="text-sm">{t('settings.license.trial_ended_access')}</p>
+            )}
+            {isLicenseExpired && (
+              <p className="text-sm">{t('settings.license.license_expired_access')}</p>
+            )}
+          </AlertDescription>
+        </div>
+      </div>
+      <div className="shrink-0 pointer-events-auto">
+        <a href="/settings?tab=license" className={buttonVariants({ variant: "default", size: "sm" })}>
+          {t('settings.license.manage')}
+        </a>
+      </div>
     </Alert>
   );
 };
