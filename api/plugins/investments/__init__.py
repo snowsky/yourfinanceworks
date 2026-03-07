@@ -62,6 +62,7 @@ def register_investment_plugin(app, mcp_registry=None, feature_gate=None):
     from .router import investment_router
     from .error_handlers import create_investment_exception_handler
     from .exceptions import InvestmentError
+    from core.utils.plugin_access_guard import require_plugin_access
 
     # Register exception handler
     app.add_exception_handler(InvestmentError, create_investment_exception_handler())
@@ -74,14 +75,18 @@ def register_investment_plugin(app, mcp_registry=None, feature_gate=None):
             investment_router,
             prefix="/api/v1/investments",
             tags=["investments"],
-            dependencies=[Depends(require_investments_or_any_license)]
+            dependencies=[
+                Depends(require_plugin_access("investments")),
+                Depends(require_investments_or_any_license),
+            ],
         )
     else:
         # For development/testing without feature gate
         app.include_router(
             investment_router,
             prefix="/api/v1/investments",
-            tags=["investments"]
+            tags=["investments"],
+            dependencies=[Depends(require_plugin_access("investments"))],
         )
 
     # Register MCP provider for AI assistant (if available)

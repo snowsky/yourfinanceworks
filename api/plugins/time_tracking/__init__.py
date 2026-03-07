@@ -30,12 +30,14 @@ def register_time_tracking_plugin(app, mcp_registry=None, feature_gate=None):
         dict: Plugin metadata
     """
     from .router import projects_router, time_entries_router
+    from core.utils.plugin_access_guard import require_plugin_access
 
     # Register project routes under /api/v1/projects
     app.include_router(
         projects_router,
         prefix="/api/v1/projects",
         tags=["projects"],
+        dependencies=[Depends(require_plugin_access("time-tracking"))],
     )
 
     # Register time entry routes under /api/v1/time-entries
@@ -43,6 +45,7 @@ def register_time_tracking_plugin(app, mcp_registry=None, feature_gate=None):
         time_entries_router,
         prefix="/api/v1/time-entries",
         tags=["time-entries"],
+        dependencies=[Depends(require_plugin_access("time-tracking"))],
     )
 
     # Register MCP provider for AI assistant (if available)

@@ -11,6 +11,7 @@ Use this index to navigate end-user documentation for daily workflows.
 ## Daily Workflows
 
 - **[Approval Workflow User Guide](approval-workflow.md)**: Submit, review, and manage approvals.
+- **[Plugin Data Access Approvals](PLUGIN_DATA_ACCESS_APPROVALS_USER_GUIDE.md)**: Approve or deny plugin-to-plugin data access requests.
 - **[Batch Processing UI Guide](BATCH_PROCESSING_UI_USER_GUIDE.md)**: Process files in bulk from the UI.
 - **[AI Assistant Usage](AI_ASSISTANT_USAGE.md)**: Query examples and AI configuration steps.
 

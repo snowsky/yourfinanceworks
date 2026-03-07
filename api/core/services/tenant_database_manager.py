@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import Dict, Optional
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,8 +9,45 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.models.models import Base, Tenant
 from core.models.database import SQLALCHEMY_DATABASE_URL
 from core.models.models_per_tenant import Base as TenantBase
+from core.utils.plugin_context import get_current_plugin_id
 
 logger = logging.getLogger(__name__)
+
+def _enforce_database_isolation(conn, cursor, statement, parameters, context, executemany):
+    """
+    SQLAlchemy interceptor to prevent plugins from accessing each other's tables.
+    """
+    plugin_id = get_current_plugin_id()
+    if not plugin_id:
+        return
+
+    # Skip validation for non-SELECT/DML statements if needed, 
+    # but generally we want to be strict.
+
+    # Import here to avoid circular dependencies
+    from plugins.loader import plugin_loader
+    registry = plugin_loader.get_table_ownership_registry()
+
+    # Simple but effective check: look for table names in the SQL statement
+    statement_upper = statement.upper()
+
+    logger.debug(f"Intercepting SQL for plugin '{plugin_id}': {statement[:100]}...")
+
+    for table_name, owner in registry.items():
+        # If the plugin is trying to access a table it doesn't own
+        if owner != "core" and owner != plugin_id:
+            table_upper = table_name.upper()
+            # More robust check for table name in SQL
+            found = False
+            if f" {table_upper} " in f" {statement_upper} " or \
+               f"\"{table_upper}\"" in statement_upper or \
+               f"[{table_upper}]" in statement_upper or \
+               f".{table_upper}" in statement_upper:
+                found = True
+
+            if found:
+                logger.error(f"SECURITY VIOLATION: Plugin '{plugin_id}' attempted to access unauthorized table '{table_name}'")
+                raise ValueError(f"Access Denied: Plugin '{plugin_id}' is not allowed to access table '{table_name}'")
 
 class TenantDatabaseManager:
     """
@@ -263,6 +300,9 @@ class TenantDatabaseManager:
                 pool_size=5,
                 max_overflow=10
             )
+            
+            # Register the enforcement listener for this engine
+            event.listen(self.tenant_engines[tenant_key], "before_cursor_execute", _enforce_database_isolation)
 
             self.tenant_sessions[tenant_key] = sessionmaker(
                 autocommit=False,
