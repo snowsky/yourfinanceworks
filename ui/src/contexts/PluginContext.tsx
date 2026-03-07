@@ -25,6 +25,13 @@ export interface Plugin {
   repository?: string;
   translationsLoaded?: boolean;
   translationError?: string;
+  required_access?: PluginAccessRequirement[];
+}
+
+export interface PluginAccessRequirement {
+  target_plugin: string;
+  access_type: 'read' | 'write';
+  reason?: string;
 }
 
 interface PluginContextType {
@@ -71,6 +78,7 @@ interface PluginMetadata {
   rating?: number;
   homepage?: string;
   repository?: string;
+  required_access?: PluginAccessRequirement[];
 }
 
 class PluginValidator {
@@ -139,7 +147,8 @@ class PluginValidator {
         downloadCount: metadata.downloadCount,
         rating: metadata.rating,
         homepage: metadata.homepage,
-        repository: metadata.repository
+        repository: metadata.repository,
+        required_access: metadata.required_access
       };
 
       return { isValid: true, errors: [], plugin };
@@ -300,6 +309,7 @@ class PluginDiscovery {
           lastUpdated: p.metadata?.lastUpdated,
           homepage: p.metadata?.documentation_url,
           repository: p.metadata?.repository,
+          required_access: p.required_access,
         };
       });
     } catch (err) {

@@ -2,15 +2,16 @@
 Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from typing import List
+from typing import Optional
 from datetime import datetime, timezone
 
 from core.models.models import TenantPluginSettings, MasterUser
 from core.models.database import get_master_db
 from core.routers.auth import get_current_user
+from core.services.plugin_access_control_service import PluginAccessControlService
 from core.services.tenant_database_manager import tenant_db_manager
 from plugins.loader import plugin_loader
 
@@ -23,6 +24,24 @@ def _valid_plugins() -> set[str]:
     return plugin_loader.get_valid_plugin_ids()
 
 
+def _normalize_plugin_id(plugin_id: str) -> str:
+    return plugin_id.strip().lower().replace("_", "-")
+
+
+def _is_admin(user: MasterUser) -> bool:
+    return user.role in {"admin", "superuser"}
+
+
+def _validate_plugin_id(plugin_id: str, field_name: str = "plugin_id") -> str:
+    normalized = _normalize_plugin_id(plugin_id)
+    if normalized not in _valid_plugins():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {field_name}: {plugin_id}",
+        )
+    return normalized
+
+
 @router.get("/registry")
 async def get_plugin_registry():
     """
@@ -31,6 +50,185 @@ async def get_plugin_registry():
     Used by the frontend to populate the plugin list dynamically.
     """
     return {"plugins": plugin_loader.get_registry()}
+
+
+@router.post("/access/check")
+async def check_cross_plugin_access(
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Check whether the current user already approved cross-plugin access.
+    If not approved, a pending request is created and returned.
+    """
+    source_plugin = _validate_plugin_id(payload.get("source_plugin", ""), "source_plugin")
+    target_plugin = _validate_plugin_id(payload.get("target_plugin", ""), "target_plugin")
+    access_type = str(payload.get("access_type", "read")).lower()
+    if access_type not in {"read", "write"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="access_type must be either 'read' or 'write'",
+        )
+
+    access_service = PluginAccessControlService(db)
+    decision = access_service.check_or_request_access(
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        source_plugin=source_plugin,
+        target_plugin=target_plugin,
+        access_type=access_type,
+        reason=payload.get("reason"),
+        requested_path=payload.get("requested_path"),
+    )
+
+    return {
+        "granted": decision.granted,
+        "requires_approval": not decision.granted,
+        "grant": decision.grant,
+        "request": decision.request,
+    }
+
+
+@router.get("/access-requests")
+async def list_access_requests(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    mine_only: bool = Query(True),
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List cross-plugin access requests for this tenant.
+    Non-admin users can only list their own requests.
+    """
+    if not mine_only and not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can list all access requests",
+        )
+
+    requested_by_user_id = current_user.id if mine_only or not _is_admin(current_user) else None
+    access_service = PluginAccessControlService(db)
+    requests = access_service.list_requests(
+        tenant_id=current_user.tenant_id,
+        status_filter=status_filter,
+        requested_by_user_id=requested_by_user_id,
+    )
+    return {"requests": requests}
+
+
+@router.get("/access-grants")
+async def list_access_grants(
+    mine_only: bool = Query(True),
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List cross-plugin access grants for this tenant.
+    Non-admin users can only list their own grants.
+    """
+    if not mine_only and not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can list all access grants",
+        )
+
+    granted_user_id = current_user.id if mine_only or not _is_admin(current_user) else None
+    access_service = PluginAccessControlService(db)
+    grants = access_service.list_grants(
+        tenant_id=current_user.tenant_id,
+        user_id=granted_user_id,
+    )
+    return {"grants": grants}
+
+
+@router.delete("/access-grants/{grant_id}")
+async def revoke_access_grant(
+    grant_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Revoke an active cross-plugin access grant.
+    Only administrators can revoke grants.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can revoke access grants",
+        )
+
+    access_service = PluginAccessControlService(db)
+    try:
+        access_service.revoke_grant(
+            tenant_id=current_user.tenant_id,
+            grant_id=grant_id,
+        )
+        return {"message": "Access grant revoked successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
+@router.post("/access-requests/{request_id}/approve")
+async def approve_access_request(
+    request_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Approve a pending cross-plugin access request.
+    Admin users can approve any request; others can approve their own.
+    """
+    access_service = PluginAccessControlService(db)
+    try:
+        request_obj, grant = access_service.approve_request(
+            tenant_id=current_user.tenant_id,
+            request_id=request_id,
+            resolver_user_id=current_user.id,
+            enforce_owner=not _is_admin(current_user),
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return {
+        "message": "Access request approved",
+        "request": request_obj,
+        "grant": grant,
+    }
+
+
+@router.post("/access-requests/{request_id}/deny")
+async def deny_access_request(
+    request_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Deny a pending cross-plugin access request.
+    Admin users can deny any request; others can deny their own.
+    """
+    access_service = PluginAccessControlService(db)
+    try:
+        request_obj = access_service.deny_request(
+            tenant_id=current_user.tenant_id,
+            request_id=request_id,
+            resolver_user_id=current_user.id,
+            enforce_owner=not _is_admin(current_user),
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return {
+        "message": "Access request denied",
+        "request": request_obj,
+    }
 
 
 @router.get("/settings")
@@ -186,6 +384,17 @@ async def enable_plugin(
 
     db.commit()
     db.refresh(settings)
+
+    # Automatically grant any required access defined in the plugin manifest
+    manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), None)
+    if manifest and "required_access" in manifest:
+        access_service = PluginAccessControlService(db)
+        access_service.ensure_required_access(
+            tenant_id=tenant_id,
+            source_plugin=plugin_id,
+            required_access=manifest["required_access"],
+            resolver_user_id=current_user.id
+        )
 
     # Trigger schema migration to ensure tables exist for the enabled plugin
     try:

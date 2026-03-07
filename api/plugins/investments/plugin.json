@@ -202,8 +202,24 @@
   },
   "metadata": {
     "category": "Financial Management",
-    "tags": ["investments", "portfolio", "analytics", "tax", "commercial"],
+    "tags": [
+      "investments",
+      "portfolio",
+      "analytics",
+      "tax",
+      "commercial"
+    ],
     "documentation_url": "/docs/plugins/investment-management",
     "support_contact": "support@yourfinanceworks.com"
-  }
+  },
+  "required_access": [
+    {
+      "target_plugin": "currency-rates",
+      "access_type": "read",
+      "reason": "Convert portfolio holdings and performance to different currencies",
+      "allowed_paths": [
+        "/api/v1/currency-rates*"
+      ]
+    }
+  ]
 }

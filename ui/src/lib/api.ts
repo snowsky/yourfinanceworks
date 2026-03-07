@@ -1313,6 +1313,18 @@ export async function apiRequest<T>(
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
 
+      // Surface plugin cross-access approval requests to the UI layer.
+      if (
+        response.status === 428 &&
+        errorData?.detail &&
+        typeof errorData.detail === 'object' &&
+        errorData.detail.error_code === 'PLUGIN_ACCESS_APPROVAL_REQUIRED'
+      ) {
+        window.dispatchEvent(new CustomEvent('plugin-access-approval-required', {
+          detail: errorData.detail,
+        }));
+      }
+
       // Handle authentication errors
       if (!config.isLogin && response.status === 401) {
         // Don't log out for super-admin endpoints - they might fail for other reasons
