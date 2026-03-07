@@ -174,14 +174,9 @@ export const PluginAccessApprovalPrompt: React.FC = () => {
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>Need help deciding?</span>
-          <a
-            href={PLUGIN_ACCESS_USER_GUIDE_PATH}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-          >
-            Read the user guide
-          </a>
+          <span>
+            Read the user guide at {PLUGIN_ACCESS_USER_GUIDE_PATH}
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
