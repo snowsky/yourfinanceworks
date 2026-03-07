@@ -32,9 +32,10 @@ interface PluginCardProps {
   canToggle: boolean;
   licenseMessage?: string;
   isAdmin: boolean;
+  isExpired?: boolean;
 }
 
-const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, licenseMessage, isAdmin }) => {
+const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, licenseMessage, isAdmin, isExpired }) => {
   const [isToggling, setIsToggling] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
@@ -386,7 +387,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
           )}
         </div>
 
-        {(!canToggle || !isAdmin) && (
+        {(!canToggle || !isAdmin) && !isExpired && (
           <Alert className="mt-3 border-amber-200 bg-amber-50">
             <Info className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
@@ -396,7 +397,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
                 </span>
               ) : (
                 <span>
-                  <strong>{t('plugins.license_required')}:</strong> {licenseMessage || t('plugins.license_upgrade_message')}
+                  <strong>{licenseMessage || t('plugins.license_upgrade_message')}</strong>
                 </span>
               )}
             </AlertDescription>
@@ -487,7 +488,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const { t } = useTranslation();
   const { plugins, togglePlugin, loading, storageError, discoveryErrors, refreshPluginDiscovery } = usePlugins();
-  const { isFeatureEnabled, isFeatureExpired, refetch: refetchFeatures } = useFeatures();
+  const { isFeatureEnabled, isFeatureExpired, refetch: refetchFeatures, licenseStatus } = useFeatures();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
@@ -590,6 +591,15 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   }
 
   const checkPluginLicense = (plugin: Plugin) => {
+    const isGlobalLicenseExpired = licenseStatus?.is_license_expired || isFeatureExpired('plugin_management');
+
+    if (isGlobalLicenseExpired) {
+      return {
+        canToggle: false,
+        isExpired: true
+      };
+    }
+
     if (!plugin.requiresLicense) {
       return { canToggle: true };
     }
@@ -604,7 +614,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
       let licenseMessage = t('plugins.this_plugin_requires_license', { licenseType: plugin.requiresLicense });
 
       if (isExpired) {
-        licenseMessage = t('plugins.license_expired_message', { licenseType: plugin.requiresLicense });
+        licenseMessage = '';
       } else {
         licenseMessage = t('plugins.license_renewal_message', { licenseType: plugin.requiresLicense });
       }
@@ -705,12 +715,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
                 canToggle={canToggle && isAdmin}
                 licenseMessage={licenseMessage}
                 isAdmin={isAdmin}
+                isExpired={isExpired}
               />
-              {isExpired && (
-                <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                  <strong>{t('plugins.license_expired')}</strong> {t('plugins.license_expired_banner')}
-                </div>
-              )}
             </div>
           );
         })}
