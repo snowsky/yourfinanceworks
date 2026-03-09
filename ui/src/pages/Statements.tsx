@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,6 +128,16 @@ const safeParseDateString = (dateString?: string): Date => {
 export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/statements') {
+      setSelected(null);
+      setDetail(null);
+      setRows([]);
+    }
+  }, [location.key, location.pathname]);
+
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [statements, setStatements] = useState<BankStatementSummary[]>([]);
