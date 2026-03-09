@@ -150,6 +150,7 @@ export default function Statements() {
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('bank');
+  const [dragActive, setDragActive] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
@@ -2370,7 +2371,31 @@ export default function Statements() {
                 <label className="text-sm font-medium mb-2 block">
                   {t('statements.select_files')}
                 </label>
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                <div 
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+                    dragActive ? "border-primary bg-primary/10" : "border-muted-foreground/25"
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragActive(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragActive(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragActive(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      const list = Array.from(e.dataTransfer.files).slice(0, 12);
+                      setFiles(list);
+                    }
+                  }}
+                >
                   <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                   <div className="text-sm text-muted-foreground mb-2">
                     {files.length > 0
