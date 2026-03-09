@@ -1582,13 +1582,13 @@ const Expenses = () => {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editExpense.expense_date ? format(new Date(editExpense.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                      {editExpense.expense_date ? format(new Date((editExpense.expense_date as string) + 'T00:00:00'), 'PPP') : t('expenses.labels.pick_date')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={editExpense.expense_date ? new Date(editExpense.expense_date as string) : undefined}
+                      selected={editExpense.expense_date ? new Date((editExpense.expense_date as string) + 'T00:00:00') : undefined}
                       onSelect={(d) => {
                         if (d) {
                           const iso = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().split('T')[0];

@@ -365,13 +365,13 @@ export default function ExpensesNew() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal h-10 rounded-lg border-border/50 bg-muted/30">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {form.expense_date ? format(new Date(form.expense_date as string), 'PPP') : t('expenses.labels.pick_date')}
+                      {form.expense_date ? format(new Date((form.expense_date as string) + 'T00:00:00'), 'PPP') : t('expenses.labels.pick_date')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={form.expense_date ? new Date(form.expense_date) : undefined}
+                      selected={form.expense_date ? new Date((form.expense_date as string) + 'T00:00:00') : undefined}
                       onSelect={(d) => {
                         if (d) {
                           const year = d.getFullYear();
