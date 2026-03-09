@@ -16,6 +16,7 @@ import { TenantProtectedRoute } from "./components/auth/TenantProtectedRoute";
 import { Toaster } from "sonner";
 import { useNotifications } from "./hooks/useNotifications";
 import { useExpenseStatusPolling } from "./hooks/useExpenseStatusPolling";
+import { useStatementStatusPolling } from "./hooks/useStatementStatusPolling";
 import { useJoinRequestPolling } from "./hooks/useJoinRequestPolling";
 import { getCurrentUser } from "./utils/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -125,6 +126,7 @@ const ClientRedirect = () => {
 const AppContent = () => {
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
+  const { startPolling: startStatementPolling } = useStatementStatusPolling();
   const [bellHidden, setBellHidden] = React.useState(false);
   const isLoggedIn = getCurrentUser() !== null;
   const currentUser = getCurrentUser();
@@ -145,7 +147,8 @@ const AppContent = () => {
   React.useEffect(() => {
     (window as any).addAINotification = addNotification;
     (window as any).startExpensePolling = startPolling;
-  }, [addNotification, startPolling]);
+    (window as any).startStatementPolling = startStatementPolling;
+  }, [addNotification, startPolling, startStatementPolling]);
 
   // Show bell again when new notifications arrive
   React.useEffect(() => {
