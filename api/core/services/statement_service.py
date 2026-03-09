@@ -389,36 +389,12 @@ class UniversalBankTransactionExtractor:
 
         # Try to get prompt from service
         try:
+            from core.constants.default_prompts import BANK_TRANSACTION_EXTRACTION_PROMPT
             prompt_template = self.prompt_service.get_prompt(
                 name=self.prompt_name,
                 variables={"text": "{{text}}"},  # Preserve placeholder for late binding
                 provider_name=self.provider_name,
-                fallback_prompt="""You are a financial data extraction expert. Your task is to extract ALL bank transactions from the text below.
-
-RULES:
-1. Look for dates, descriptions, and amounts.
-2. Identify the transaction type:
-   - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
-   - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
-3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount':
-   - For 'debit' transactions, the amount MUST BE NEGATIVE (e.g., -45.67).
-   - For 'credit' transactions, the amount MUST BE POSITIVE (e.g., 2500.00).
-   - Ignore existing signs or parentheses if they contradict the identified transaction type.
-5. Convert dates to YYYY-MM-DD format.
-6. Extract merchant names or transaction descriptions clearly.
-7. Only extract actual transactions, not headers, sub-totals, or account summaries.
-
-TEXT:
-{{text}}
-
-Return ONLY a JSON array like this:
-[
-  {"date": "2024-01-15", "description": "WALMART", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56},
-  {"date": "2024-01-16", "description": "ABC CORP SALARY", "amount": 2500.00, "transaction_type": "credit", "balance": 3734.56}
-]
-
-JSON:"""
+                fallback_prompt=BANK_TRANSACTION_EXTRACTION_PROMPT
             )
 
             # Create PromptTemplate object for compatibility
@@ -429,36 +405,10 @@ JSON:"""
 
         except Exception as e:
             logger.warning(f"Failed to get bank transaction extraction prompt from service: {e}")
-            # Fallback to hardcoded template
-            template = """You are a financial data extraction expert. Your task is to extract ALL bank transactions from the text below.
-
-RULES:
-1. Look for dates, descriptions, and amounts.
-2. Identify the transaction type:
-   - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
-   - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
-3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount':
-   - For 'debit' transactions, the amount MUST BE NEGATIVE (e.g., -45.67).
-   - For 'credit' transactions, the amount MUST BE POSITIVE (e.g., 2500.00).
-   - Ignore existing signs or parentheses if they contradict the identified transaction type.
-5. Convert dates to YYYY-MM-DD format.
-6. Extract merchant names or transaction descriptions clearly.
-7. Only extract actual transactions, not headers, sub-totals, or account summaries.
-
-TEXT:
-{{text}}
-
-Return ONLY a JSON array like this:
-[
-  {"date": "2024-01-15", "description": "WALMART", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56},
-  {"date": "2024-01-16", "description": "ABC CORP SALARY", "amount": 2500.00, "transaction_type": "credit", "balance": 3734.56}
-]
-
-JSON:"""
-
+            from core.constants.default_prompts import BANK_TRANSACTION_EXTRACTION_PROMPT
+            
             return PromptTemplate(
-                template=template,
+                template=BANK_TRANSACTION_EXTRACTION_PROMPT,
                 input_variables=["text"]
             )
 
@@ -924,6 +874,13 @@ JSON:"""
         # Remove invalid rows
         before_dropna = len(df)
         df = df.dropna(subset=['date', 'amount'])
+        
+        # Filter out opening/closing balances
+        if 'description' in df.columns:
+            balance_keywords = ['opening balance', 'closing balance', 'previous balance', 'new balance', 'ending balance', 'beginning balance', 'statement balance']
+            pattern = '|'.join(balance_keywords)
+            df = df[~df['description'].str.lower().str.contains(pattern, na=False, regex=True)]
+            
         after_dropna = len(df)
         if before_dropna != after_dropna:
             logger.info(f"Removed {before_dropna - after_dropna} transactions with missing date/amount")
@@ -954,9 +911,16 @@ JSON:"""
         cleaned = []
         seen = set()
 
+        balance_keywords = ['opening balance', 'closing balance', 'previous balance', 'new balance', 'ending balance', 'beginning balance', 'statement balance']
+
         for txn in transactions:
             # Ensure required fields
             if not all(key in txn for key in ['date', 'description', 'amount']):
+                continue
+
+            # Filter out opening/closing balances
+            desc = str(txn.get('description', '')).lower()
+            if any(keyword in desc for keyword in balance_keywords):
                 continue
 
             # Add transaction_type if missing

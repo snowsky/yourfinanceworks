@@ -293,6 +293,7 @@ class StructuredDataEngine:
             return (
                 "You are an OCR parser for bank statements. Extract transaction data and respond ONLY with compact JSON. "
                 "Return an array of transactions with keys: date (YYYY-MM-DD), description, amount, transaction_type, balance. "
+                "DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances. "
                 "If a field is unknown, set it to null. Do not include any prose."
             )
         
