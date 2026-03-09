@@ -1156,21 +1156,45 @@ async def super_admin_update_user_role_for_tenant(
             tenant_session.commit()
         tenant_session.close()
     except Exception:
+        print(f"Failed to update user role in tenant database: {e}")
         pass
 
     # Audit
-    log_audit_event_master(
-        db=master_db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="UPDATE",
-        resource_type="user_role",
-        resource_id=str(user_id),
-        resource_name=f"Role update for user {target_user.email} in tenant {tenant_id}",
-        details={"tenant_id": tenant_id, "new_role": role_update.role},
-        tenant_id=current_user.tenant_id,
-        status="success"
-    )
+    try:
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="user_role",
+            resource_id=str(user_id),
+            resource_name=f"Role update for user {target_user.email} in tenant {tenant_id}",
+            details={"tenant_id": tenant_id, "new_role": role_update.role},
+            tenant_id=current_user.tenant_id,
+            status="success"
+        )
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Failed to log role update to master audit log: {e}")
+
+    # Also log audit event in tenant database for visibility in regular audit log
+    try:
+        tenant_db = tenant_db_manager.get_tenant_session(tenant_id)()
+        log_audit_event(
+            db=tenant_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="user_role",
+            resource_id=str(user_id),
+            resource_name=f"Role update for user {target_user.email} in tenant {tenant_id}",
+            details={"tenant_id": tenant_id, "new_role": role_update.role},
+            status="success"
+        )
+        tenant_db.close()
+    except Exception as e:
+        # Log error but don't fail the operation
+        print(f"Failed to log role update to tenant audit log: {e}")
 
     return {"message": "User role updated for tenant"}
 
@@ -1415,6 +1439,21 @@ async def promote_to_super_admin(
     user.is_superuser = True
     user.role = 'admin'
     master_db.commit()
+
+    # Also update in tenant DB if user exists there
+    try:
+        tenant_id = user.tenant_id
+        from core.services.tenant_database_manager import tenant_db_manager
+        from core.models.models_per_tenant import User as TenantUser
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+        tenant_user = tenant_session.query(TenantUser).filter(TenantUser.id == user.id).first()
+        if tenant_user:
+            tenant_user.is_superuser = True
+            tenant_user.role = 'admin'
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception as e:
+        pass  # Ignore tenant DB errors
 
     # Log audit event in master database
     log_audit_event_master(

@@ -187,6 +187,7 @@ def get_current_user(
             TenantSession = tenant_db_manager.get_tenant_session(current_tenant_id)
             tenant_db = TenantSession()
             try:
+                tenant_db.expire_all()  # Ensure fresh data
                 tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == user.id).first()
                 if tenant_user:
                     # Create a copy of the master user with the tenant-specific role
