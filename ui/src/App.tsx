@@ -23,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { PageContextProvider } from "@/contexts/PageContext";
 
 // Lazy load only page components for code splitting
 const Index = React.lazy(() => import("./pages/Index"));
@@ -165,14 +166,15 @@ const AppContent = () => {
       />
 
       <BrowserRouter>
-        <FeatureProvider>
-          <PluginProvider>
-            <PluginStorageNotifications />
-            <PluginAccessApprovalPrompt />
-            <SearchProvider>
-            <OnboardingProvider>
-              <React.Suspense fallback={<LoadingSpinner fullScreen />}>
-                <Routes>
+        <PageContextProvider>
+          <FeatureProvider>
+            <PluginProvider>
+              <PluginStorageNotifications />
+              <PluginAccessApprovalPrompt />
+              <SearchProvider>
+              <OnboardingProvider>
+                <React.Suspense fallback={<LoadingSpinner fullScreen />}>
+                  <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/oauth-callback" element={<OAuthCallback />} />
                   <Route path="/signup" element={<Signup />} />
@@ -237,35 +239,35 @@ const AppContent = () => {
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
-                </Routes>
-              </React.Suspense>
-              {isLoggedIn && !bellHidden && (
-                <NotificationBell
-                  notifications={notifications}
-                  onMarkAsRead={markAsRead}
-                  onClearAll={clearAll}
-                  onHide={() => setBellHidden(true)}
-                />
-              )}
-              {isLoggedIn && bellHidden && notifications.some(n => !n.read) && (
-                <div
-                  className="fixed top-4 right-4 z-50 cursor-pointer"
-                  onClick={() => setBellHidden(false)}
-                  title="Show AI notifications"
-                >
-                  <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
-                </div>
-              )}
-              <TourOverlay />
-            </OnboardingProvider>
-            <SearchDialog />
-            <MenuSearchDialog />
-          </SearchProvider>
-          </PluginProvider>
-        </FeatureProvider>
+                  </Routes>
+                </React.Suspense>
+                {isLoggedIn && !bellHidden && (
+                  <NotificationBell
+                    notifications={notifications}
+                    onMarkAsRead={markAsRead}
+                    onClearAll={clearAll}
+                    onHide={() => setBellHidden(true)}
+                  />
+                )}
+                {isLoggedIn && bellHidden && notifications.some(n => !n.read) && (
+                  <div
+                    className="fixed top-4 right-4 z-50 cursor-pointer"
+                    onClick={() => setBellHidden(false)}
+                    title="Show AI notifications"
+                  >
+                    <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+                <TourOverlay />
+              </OnboardingProvider>
+              <SearchDialog />
+              <MenuSearchDialog />
+            </SearchProvider>
+            </PluginProvider>
+          </FeatureProvider>
+          <AIAssistant />
+        </PageContextProvider>
       </BrowserRouter>
-
-      <AIAssistant />
       <Toaster position="top-center" richColors />
     </TooltipProvider>
   );

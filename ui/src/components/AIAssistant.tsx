@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import PaymentCharts from './PaymentCharts';
 import { useTranslation } from 'react-i18next';
+import { usePageContext } from '@/contexts/PageContext';
 
 // Debug toggle for AI Assistant logs (set VITE_DEBUG_AI_ASSISTANT=true to enable)
 const DEBUG_AI_ASSISTANT = (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_DEBUG_AI_ASSISTANT === 'true');
@@ -474,6 +475,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>((props, ref) => {
   const { user } = props;
   const { t } = useTranslation();
+  const { pageContext } = usePageContext();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -974,7 +976,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       ) {
         const response = await api.post('/ai/chat', {
           message: textToSend,
-          config_id: defaultAIConfig?.id || 0
+          config_id: defaultAIConfig?.id || 0,
+          page_context: pageContext
         }) as any;
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
@@ -990,7 +993,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       ) {
         const response = await api.post('/ai/chat', {
           message: textToSend,
-          config_id: defaultAIConfig?.id || 0
+          config_id: defaultAIConfig?.id || 0,
+          page_context: pageContext
         }) as any;
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
@@ -1002,7 +1006,11 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       } else {
         const response = await aiApiRequest('/ai/chat', {
           method: 'POST',
-          body: JSON.stringify({ message: textToSend, config_id: defaultAIConfig?.id || 0 })
+          body: JSON.stringify({
+            message: textToSend,
+            config_id: defaultAIConfig?.id || 0,
+            page_context: pageContext
+          })
         }) as any;
         if (response.success) {
           const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";

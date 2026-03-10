@@ -7,12 +7,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta, timezone
 import httpx
 import logging
 import os
 import json
+import re
 
 from core.models.database import get_master_db, get_db, set_tenant_context
 from core.routers.auth import get_current_user
@@ -227,6 +228,7 @@ from pydantic import BaseModel, validator
 class ChatRequest(BaseModel):
     message: str
     config_id: int = 0  # Default to 0 if not provided
+    page_context: Optional[Dict[str, Any]] = None
 
 # Helper class for authenticated API requests
 class AuthenticatedAPIClient:
@@ -431,6 +433,20 @@ class AuthenticatedAPIClient:
             "data": result if isinstance(result, list) else result.get("statements", [])
         }
 
+    async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
+        """Get a specific bank statement with transactions"""
+        return await self._make_request("GET", f"/statements/{statement_id}")
+
+    async def replace_bank_statement_transactions(
+        self, statement_id: int, transactions: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Replace bank statement transactions"""
+        return await self._make_request(
+            "PUT",
+            f"/statements/{statement_id}/transactions",
+            json={"transactions": transactions}
+        )
+
     # Investment Management Methods
     async def list_portfolios(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List all investment portfolios"""
@@ -547,6 +563,14 @@ async def ai_chat(
             }
 
         # Classify user intent using AI
+        page_context = request.page_context if isinstance(request.page_context, dict) else None
+        page_context_block = ""
+        if page_context:
+            try:
+                page_context_block = f"\nCurrent page context (JSON): {json.dumps(page_context, ensure_ascii=False)}\n"
+            except Exception:
+                page_context_block = f"\nCurrent page context: {page_context}\n"
+
         intent_prompt = f"""Classify this user message into one of these business data categories. Respond with ONLY the category name:
 
 Categories:
@@ -564,12 +588,191 @@ Categories:
 - investments: investment portfolios, holdings, performance, dividends, trade history
 - general: general questions not related to business data
 
+{page_context_block}
 User message: "{request.message}"
 
 Category:"""
 
         # Pre-classification check for precise intents (skip LLM for specific patterns)
         lower_message = request.message.lower()
+
+        def _split_labels(raw: str) -> List[str]:
+            parts = re.split(r",|\s+and\s+", raw, flags=re.IGNORECASE)
+            return [p.strip().strip("\"'") for p in parts if p.strip()]
+
+        async def _init_tools():
+            from MCP.tools import InvoiceTools
+            from core.routers.auth import create_access_token
+            from datetime import timedelta
+
+            access_token_expires = timedelta(minutes=30)
+            jwt_token = create_access_token(
+                data={"sub": current_user.email}, expires_delta=access_token_expires
+            )
+
+            api_client = AuthenticatedAPIClient(
+                base_url="http://localhost:8000/api/v1",
+                jwt_token=jwt_token
+            )
+            return InvoiceTools(api_client)
+
+        # Page-aware statement actions (use current page context if available)
+        entity = page_context.get("entity") if isinstance(page_context, dict) else None
+        entity_type = entity.get("type") if isinstance(entity, dict) else None
+        entity_id = entity.get("id") if isinstance(entity, dict) else None
+        if entity_type in {"bank_statement", "statement", "statements"} and entity_id:
+            try:
+                statement_id = int(entity_id)
+            except (TypeError, ValueError):
+                statement_id = None
+
+            if statement_id:
+                if any(k in lower_message for k in ["reprocess", "re-process", "reanalyze", "re-analyze", "retry extraction", "re-run"]):
+                    tools = await _init_tools()
+                    result = await tools.reprocess_bank_statement(statement_id=statement_id)
+                    if result.get("success"):
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": f"✅ Reprocessing started for statement #{statement_id}.",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                note_match = re.search(r"(?:set|update|add)?\s*(?:note|notes)\s*(?:to|:)\s*(.+)$", request.message, re.IGNORECASE)
+                if not note_match:
+                    note_match = re.search(r"(?:add)\s*(?:note|notes)\s+(.+)$", request.message, re.IGNORECASE)
+
+                add_labels_match = re.search(r"(?:add|set)\s*(?:label|labels|tag|tags)\s*(?:to|:)\s*(.+)$", request.message, re.IGNORECASE)
+                remove_labels_match = re.search(r"(?:remove|delete)\s*(?:label|labels|tag|tags)\s*(?:named\s+)?(.+)$", request.message, re.IGNORECASE)
+
+                if note_match or add_labels_match or remove_labels_match:
+                    tools = await _init_tools()
+                    notes_value = note_match.group(1).strip() if note_match else None
+                    labels_to_add = _split_labels(add_labels_match.group(1)) if add_labels_match else []
+                    labels_to_remove = _split_labels(remove_labels_match.group(1)) if remove_labels_match else []
+
+                    current_labels: List[str] = []
+                    if labels_to_add or labels_to_remove:
+                        current_statement = await tools.get_bank_statement(statement_id=statement_id)
+                        if current_statement.get("success"):
+                            current_labels = current_statement.get("data", {}).get("labels") or []
+
+                    updated_labels = current_labels
+                    if labels_to_add:
+                        updated_labels = list({*current_labels, *labels_to_add})
+                    if labels_to_remove:
+                        updated_labels = [lbl for lbl in updated_labels if lbl not in set(labels_to_remove)]
+
+                    result = await tools.update_bank_statement_meta(
+                        statement_id=statement_id,
+                        notes=notes_value,
+                        labels=updated_labels if (labels_to_add or labels_to_remove) else None
+                    )
+                    if result.get("success"):
+                        response_lines = [f"✅ Updated statement #{statement_id}."]
+                        if notes_value:
+                            response_lines.append("• Notes updated")
+                        if labels_to_add or labels_to_remove:
+                            response_lines.append("• Labels updated")
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": "\n".join(response_lines),
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                # Update transaction date in the current statement
+                if any(k in lower_message for k in ["transaction", "transactions"]) and "date" in lower_message and any(k in lower_message for k in ["update", "change", "set"]):
+                    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", request.message)
+                    if not date_match:
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": "I can update the transaction date, but I need the target date in YYYY-MM-DD format.",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    new_date = date_match.group(1)
+                    index = None
+                    if re.search(r"\bfirst\b|\b1st\b", lower_message):
+                        index = 0
+                    elif re.search(r"\bsecond\b|\b2nd\b", lower_message):
+                        index = 1
+                    elif re.search(r"\bthird\b|\b3rd\b", lower_message):
+                        index = 2
+                    else:
+                        index_match = re.search(r"(?:transaction|tx|entry)\s*#?\s*(\d+)", lower_message)
+                        if index_match:
+                            index = int(index_match.group(1)) - 1
+
+                    if index is None:
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": "Which transaction should I update? You can say \"first transaction\" or \"transaction 3\".",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    tools = await _init_tools()
+                    current_statement = await tools.get_bank_statement(statement_id=statement_id)
+                    if not current_statement.get("success"):
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": f"Couldn't load statement #{statement_id} to update transactions.",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    transactions = current_statement.get("data", {}).get("transactions") or []
+                    if index < 0 or index >= len(transactions):
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": f"Statement #{statement_id} has {len(transactions)} transaction(s). Please pick a valid transaction number.",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    transactions[index]["date"] = new_date
+                    try:
+                        await tools.api_client.replace_bank_statement_transactions(statement_id=statement_id, transactions=transactions)
+                    except Exception as e:
+                        return {
+                            "success": True,
+                            "data": {
+                                "response": f"Failed to update transaction date: {str(e)}",
+                                "provider": ai_config.provider_name,
+                                "model": ai_config.model_name,
+                                "source": "mcp_tools"
+                            }
+                        }
+
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": f"✅ Updated transaction {index + 1} date to {new_date} for statement #{statement_id}.",
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
 
         # Check for client creation intent specifically
         if "create" in lower_message or "add" in lower_message or "new" in lower_message:
@@ -649,7 +852,6 @@ JSON:"""
                 except Exception as e:
                     print(f"MCP Integration: LLM extraction failed: {e}. Falling back to regex.")
                     # Fallback to simple regex if LLM fails
-                    import re
                     name = None
                     name_match = re.search(r'(?:create|add|new)\s+(?:a\s+)?client\s+(?:named\s+|called\s+)?["\']?([^"\',]+)["\']?', request.message, re.IGNORECASE)
                     if name_match:
@@ -1209,8 +1411,6 @@ This comprehensive payment information was retrieved using your actual payment d
                     print(f"MCP Integration: Detected client creation intent in message: '{request.message}'")
 
                     # Extract client details using regex
-                    import re
-
                     # Extract name (required)
                     # Patterns: "create client named X", "create client X", "add client X", "new client X"
                     name = None
@@ -1259,7 +1459,6 @@ You can now create invoices for this client.
 
                 elif "search" in lower_message or "find" in lower_message:
                     # Extract search query from message
-                    import re
                     search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
                     if search_match:
                         search_query = search_match.group(1)
@@ -1498,7 +1697,6 @@ This comprehensive overdue invoice information was retrieved using your actual i
             try:
                 if "search" in lower_message or "find" in lower_message:
                     # Extract search query from message
-                    import re
                     search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
                     if search_match:
                         search_query = search_match.group(1)
@@ -1575,7 +1773,6 @@ This comprehensive invoice information was retrieved using your actual invoice d
             try:
                 if "search" in lower_message or "find" in lower_message:
                     # Extract search query from message
-                    import re
                     search_match = re.search(r'(?:search|find)\s+(?:for\s+)?["\']?([^"\']+)["\']?', lower_message)
                     if search_match:
                         search_query = search_match.group(1)
@@ -1781,10 +1978,14 @@ This comprehensive statistical analysis was performed using your actual invoice 
             # For custom providers, use the model name as-is
             model_name = ai_config.model_name
 
+        user_content = request.message
+        if page_context_block:
+            user_content = f"{page_context_block.strip()}\n\nUser message: {request.message}"
+
         # Prepare the completion call
         kwargs = {
             "model": model_name,
-            "messages": [{"role": "user", "content": request.message}],
+            "messages": [{"role": "user", "content": user_content}],
             "max_tokens": 500,
             "timeout": 60  # 60 second timeout for main AI response
         }

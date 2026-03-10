@@ -34,6 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import { Wand } from 'lucide-react';
+import { usePageContext } from '@/contexts/PageContext';
 
 
 const CATEGORY_OPTIONS = [
@@ -129,14 +130,7 @@ export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
   const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname === '/statements') {
-      setSelected(null);
-      setDetail(null);
-      setRows([]);
-    }
-  }, [location.key, location.pathname]);
+  const { setPageContext } = usePageContext();
 
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
@@ -166,6 +160,36 @@ export default function Statements() {
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
   const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
+
+  useEffect(() => {
+    if (location.pathname === '/statements') {
+      setSelected(null);
+      setDetail(null);
+      setRows([]);
+    }
+  }, [location.key, location.pathname]);
+
+  useEffect(() => {
+    if (!selected || !detail) {
+      setPageContext({
+        title: t('statements.title', { defaultValue: 'Statements' }),
+        entity: undefined,
+        metadata: undefined
+      });
+      return;
+    }
+
+    setPageContext({
+      title: t('statements.title', { defaultValue: 'Statements' }),
+      entity: { type: 'bank_statement', id: selected },
+      metadata: {
+        status: detail.status,
+        labels: detail.labels || [],
+        extracted_count: detail.extracted_count,
+        original_filename: detail.original_filename
+      }
+    });
+  }, [detail, selected, setPageContext, t]);
 
 
   // Fetch settings to get timezone
