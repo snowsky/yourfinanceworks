@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -91,6 +91,27 @@ function StatusBadge({
   );
 }
 
+// Helper for card type display
+function CardTypeBadge({ type }: { type?: string }) {
+  const { t } = useTranslation();
+  const isCredit = type === 'credit';
+  
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "flex items-center gap-1.5 h-6 px-2.5 font-medium border shadow-sm",
+        isCredit 
+          ? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800" 
+          : "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+      )}
+    >
+      {isCredit ? <CreditCard className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
+      {isCredit ? t('statements.card_type.credit', 'Credit') : t('statements.card_type.debit', 'Debit')}
+    </Badge>
+  );
+}
+
 // Statement Upload Button with feature gating
 function StatementUploadButton({ onUpload }: { onUpload: () => void }) {
   const { t } = useTranslation();
@@ -154,6 +175,7 @@ export default function Statements() {
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('bank');
+  const [cardType, setCardType] = useState<string>('auto');
   const [dragActive, setDragActive] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
@@ -592,7 +614,7 @@ export default function Statements() {
       const providerName = STATEMENT_PROVIDERS.find(p => p.value === selectedProvider)?.label || 'Statement';
       addNotification?.('processing', t('statements.processing'), `Analyzing ${files.length} ${providerName.toLowerCase()} statement files with AI...`);
 
-      const resp = await bankStatementApi.uploadAndExtract(files);
+      const resp = await bankStatementApi.uploadAndExtract(files, cardType);
 
       if (resp.statements && resp.statements.length > 0) {
         const startPolling = (window as any).startStatementPolling;
@@ -1319,6 +1341,7 @@ export default function Statements() {
                       <TableHead className="font-bold text-foreground">ID</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
@@ -1391,6 +1414,9 @@ export default function Statements() {
                               }}
                             />
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <CardTypeBadge type={(s as any).card_type} />
                         </TableCell>
                         <TableCell>
                           <StatusBadge
@@ -1703,6 +1729,7 @@ export default function Statements() {
                     <Badge variant="secondary" className="px-3 py-1 font-mono font-medium self-start h-6">
                       #{selected}
                     </Badge>
+                    <CardTypeBadge type={(detail as any)?.card_type} />
                   </div>
                   <h1 className="text-4xl font-bold tracking-tight text-foreground">
                     {detail?.original_filename || t('statements.statement_detail', { defaultValue: 'Statement Detail' })}
@@ -2440,6 +2467,22 @@ export default function Statements() {
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  {t('statements.card_type', { defaultValue: 'Card Type' })}
+                </label>
+                <Select value={cardType} onValueChange={setCardType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto-detect (AI)</SelectItem>
+                    <SelectItem value="debit">Debit Card (Standard)</SelectItem>
+                    <SelectItem value="credit">Credit Card (Inverted)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

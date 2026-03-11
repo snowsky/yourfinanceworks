@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import os
@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 @require_feature("ai_bank_statement")
 async def upload_statements(
     files: List[UploadFile] = File(..., description="Up to 12 PDF or CSV statements"),
+    card_type: str = Form("auto", description="debit|credit|auto"),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -155,6 +156,7 @@ async def upload_statements(
                 cloud_file_url=cloud_file_url,
                 status="processing",
                 extracted_count=0,
+                card_type=card_type,
                 created_by_user_id=current_user.id,  # User attribution
             )
             db.add(statement)
@@ -471,7 +473,7 @@ async def merge_statements(
         now = datetime.now(timezone.utc)
 
         # Create new merged statement
-        merged_filename = f"Merged Statement ({now.strftime('%Y-%m-%d %H:%M')}).pdf"
+        merged_filename = f"Merged Statement ({now.strftime('%Y-%m-%d %H:%M')})"
         unique_id = uuid.uuid4().hex
         stored_filename = f"merged_{unique_id}.txt"
         file_path = f"merged_statements/{stored_filename}"  # Placeholder path

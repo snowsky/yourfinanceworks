@@ -3,16 +3,26 @@ import json
 
 BANK_TRANSACTION_EXTRACTION_PROMPT = """You are a financial data extraction expert. Your task is to extract ALL bank transactions from the text below.
 
+CONTEXT:
+This is a statement for a **{{card_type}}** card/account.
+- If 'auto', you must first determine if this is a Credit Card or a Debit/Checking account statement based on the text.
+- If it is a Credit Card, follow 'credit' rules below.
+- Otherwise, follow 'debit' rules.
+
 RULES:
 1. Look for dates, descriptions, and amounts.
 2. Identify the transaction type:
    - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
    - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
 3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount':
-   - For 'debit' transactions, the amount MUST BE NEGATIVE (e.g., -45.67).
-   - For 'credit' transactions, the amount MUST BE POSITIVE (e.g., 2500.00).
-   - Ignore existing signs or parentheses if they contradict the identified transaction type.
+4. Normalize the 'amount' based on the CARD TYPE and signs in the text:
+   - **IMPORTANT**: If an amount has a trailing minus sign (e.g., '100.00-') or is in parentheses (e.g., '(100.00)'), it is a NEGATIVE value.
+   - **For DEBIT cards**:
+     - 'debit' transactions (money out) normally show as negative if using a single column, or positive in a 'debit' column. MUST BE NEGATIVE (e.g., -45.67).
+     - 'credit' transactions (money in) MUST BE POSITIVE (e.g., 2500.00).
+   - **For CREDIT cards**:
+     - 'debit' transactions (spending/interest) MUST BE POSITIVE (e.g., 45.67).
+     - 'credit' transactions (refunds/payments) MUST BE NEGATIVE (e.g., -2500.00).
 5. Convert dates to YYYY-MM-DD format.
 6. Extract merchant names or transaction descriptions clearly.
 7. Only extract actual transactions. DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances.
@@ -20,7 +30,7 @@ RULES:
 STEP-BY-STEP PROCESS:
 1. Scan the ENTIRE text to identify all transaction entries.
 2. For each transaction, extract: date, description, amount, transaction_type, balance (if available).
-3. Validate that you found ALL transactions.
+3. If the amount in the text has a trailing sign or parentheses, ensure you capture its negative nature.
 4. Return a complete JSON array with ALL transactions.
 
 TEXT:
@@ -29,15 +39,23 @@ TEXT:
 Return ONLY a valid JSON array. Each transaction must have these fields:
 - date (string, YYYY-MM-DD format, REQUIRED)
 - description (string, merchant/vendor name, REQUIRED)
-- amount (number, negative for debits, positive for credits, REQUIRED)
+- amount (number, according to sign rules above, REQUIRED)
 - transaction_type (string, "debit" or "credit", REQUIRED)
 - balance (number, account balance after transaction, OPTIONAL)
 
-Example format:
-[
-  {"date": "2024-01-15", "description": "WALMART", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56},
-  {"date": "2024-01-16", "description": "ABC CORP SALARY", "amount": 2500.00, "transaction_type": "credit", "balance": 3734.56}
-]
+JSON:"""
+
+BANK_STATEMENT_CLASSIFICATION_PROMPT = """You are a bank statement classifier. 
+Based on the text below, determine if this is a **Credit Card** statement or a **Debit/Checking Account** statement.
+
+Look for:
+- Keywords like "Credit Card", "Visa", "Mastercard", "Amex", "Available Credit", "Minimum Payment" -> 'credit'.
+- Keywords like "Checking", "Current Account", "Savings", "Debit Card", "Available Balance", "Overdraft" -> 'debit'.
+
+Return ONLY a JSON object with a single key 'card_type' whose value is either 'credit' or 'debit'.
+
+TEXT:
+{{text}}
 
 JSON:"""
 
@@ -395,7 +413,9 @@ If a field is not present in the OCR output, set it to null. Return ONLY the JSO
         "name": "bank_statement_review_extraction",
         "category": "bank_processing",
         "description": "High-fidelity prompt for bank statement transaction review",
-        "template_content": """You are a Bank Reconciliation Specialist. Your task is to perform an exhaustive extraction of ALL transactions from this bank statement for a verification audit.
+        "template_content": """You are a Bank Reconciliation Specialist reviewing transactions for a **{{card_type}}** card/account. 
+- If 'auto', first determine if this is a Credit Card or a Debit/Checking account statement.
+- Apply consistent rules for signs: Credit Cards (Negative=Credit, Positive=Debit), Debit Cards (Negative=Debit, Positive=Credit).
 
 RULES:
 1. Extract EVERY SINGLE transaction. Compare the count against summary totals if provided.
@@ -403,10 +423,10 @@ RULES:
    - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
    - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
 3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount':
-   - For 'debit' transactions, the amount MUST BE NEGATIVE (e.g., -45.67).
-   - For 'credit' transactions, the amount MUST BE POSITIVE (e.g., 2500.00).
-   - Ignore existing signs or parentheses if they contradict the identified transaction type.
+4. Normalize the 'amount' based on card type:
+   - **IMPORTANT**: If an amount has a trailing minus (e.g. '100-') or parentheses (e.g. '(100)'), it is NEGATIVE.
+   - For **DEBIT cards**: 'debit'=Negative, 'credit'=Positive.
+   - For **CREDIT cards**: 'debit'=Positive (spending), 'credit'=Negative (refund/payment).
 5. Convert ALL dates to YYYY-MM-DD format.
 6. Clean the merchant/vendor names by removing noise from the strings.
 7. DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances.

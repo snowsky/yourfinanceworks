@@ -2991,6 +2991,12 @@
       "failed": "Échoué",
       "merged": "Fusionné"
     },
+    "card_type": {
+      "label": "Type",
+      "credit": "Crédit",
+      "debit": "Débit",
+      "auto": "Détection automatique (IA)"
+    },
     "review_status": {
       "label": "Révision",
       "reviewed": "Révisé",

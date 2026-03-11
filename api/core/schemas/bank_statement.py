@@ -31,6 +31,7 @@ class BankStatementBase(BaseModel):
     extracted_count: Optional[int] = Field(0, description="Number of transactions extracted")
     labels: Optional[List[str]] = Field(None, description="Labels for categorization")
     notes: Optional[str] = Field(None, description="Additional notes")
+    card_type: str = Field("debit", description="debit|credit")
 
     # Review Worker fields
     review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")

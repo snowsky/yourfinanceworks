@@ -905,9 +905,23 @@ class BankStatementMessageHandler(BaseMessageHandler):
                     # Check LLM availability and process
                     try:
                         llm_ok = is_bank_llm_reachable(ai_conf)
-                        txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                        txns = process_bank_pdf_with_llm(file_path, ai_conf, db, card_type=getattr(stmt, 'card_type', 'debit'))
 
                         self.logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
+
+                        # If auto-detected, save the result back to the statement
+                        if getattr(stmt, 'card_type', 'debit') == 'auto' and txns:
+                            detected = txns[0].get('card_type')
+                            if detected in ['credit', 'debit']:
+                                self.logger.info(f"Saving detected card_type '{detected}' for statement {statement_id}")
+                                stmt.card_type = detected
+                                try:
+                                    db.add(stmt)
+                                    db.commit()
+                                    db.refresh(stmt)
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to update detected card_type for statement {statement_id}: {e}")
+                                    db.rollback()
 
                         # Handle processing results
                         if not txns:
@@ -1108,13 +1122,17 @@ class BankStatementMessageHandler(BaseMessageHandler):
                 statement_id=stmt.id,
                 date=transaction_date,
                 description=txn_data.get("description", ""),
-                amount=float(txn_data.get("amount", 0)),
+                amount=parse_number(txn_data.get("amount", 0)),
                 transaction_type=(
                     txn_data.get("transaction_type") 
                     if txn_data.get("transaction_type") in ("debit", "credit")
-                    else ("debit" if float(txn_data.get("amount", 0)) < 0 else "credit")
+                    else (
+                        ("credit" if parse_number(txn_data.get("amount", 0)) < 0 else "debit")
+                        if getattr(stmt, 'card_type', 'debit') == 'credit'
+                        else ("debit" if parse_number(txn_data.get("amount", 0)) < 0 else "credit")
+                    )
                 ),
-                balance=float(txn_data["balance"]) if txn_data.get("balance") is not None else None,
+                balance=parse_number(txn_data.get("balance")),
                 category=txn_data.get("category"),
             ))
             count += 1

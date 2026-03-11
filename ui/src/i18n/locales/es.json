@@ -3075,6 +3075,12 @@
       "failed": "Fallido",
       "merged": "Fusionado"
     },
+    "card_type": {
+      "label": "Tipo",
+      "credit": "Crédito",
+      "debit": "Débito",
+      "auto": "Detección automática (IA)"
+    },
     "review_status": {
       "label": "Revisión",
       "reviewed": "Revisado",

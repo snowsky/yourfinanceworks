@@ -83,6 +83,7 @@ async def get_api_auth_context(
 async def process_statement_pdf(
     file: UploadFile = File(..., description="PDF or CSV bank statement file"),
     format: str = "csv",  # Response format: csv, json
+    card_type: str = "auto", # debit|credit|auto
     db: Session = Depends(get_db),
     auth_context: AuthContext = Depends(get_api_auth_context)
 ) -> StreamingResponse:
@@ -274,7 +275,7 @@ async def process_statement_pdf(
             
             # For now, use the existing transaction extraction logic
             # TODO: Integrate transaction parsing into unified service
-            transactions = process_bank_pdf_with_llm(temp_file_path, ai_config)
+            transactions = process_bank_pdf_with_llm(temp_file_path, ai_config, db, card_type=card_type)
         except BankLLMUnavailableError:
             raise HTTPException(
                 status_code=503,

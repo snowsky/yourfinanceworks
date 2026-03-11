@@ -650,7 +650,8 @@ export interface BankStatementDetail extends BankStatementSummary {
 
 export const bankStatementApi = {
   uploadAndExtract: async (
-    files: File[]
+    files: File[],
+    card_type: string = 'debit'
   ): Promise<{ success: boolean; statements: BankStatementSummary[] }> => {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
@@ -659,6 +660,7 @@ export const bankStatementApi = {
 
     const formData = new FormData();
     files.slice(0, 12).forEach((f) => formData.append('files', f));
+    formData.append('card_type', card_type);
 
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;

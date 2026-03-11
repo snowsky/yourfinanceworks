@@ -31,17 +31,34 @@ def parse_number(value: Any) -> Optional[float]:
             return None
         if isinstance(value, (int, float)):
             return float(value)
-        s = str(value)
-        # Remove currency symbols and spaces
+        s = str(value).strip()
+        
+        # Handle sign notations
+        is_negative = False
+        if s.endswith('-') or s.startswith('-') or (s.startswith('(') and s.endswith(')')):
+            is_negative = True
+        
+        # Also check for minus sign after potential currency symbols (e.g. "$-100")
+        if not is_negative and '-' in s:
+            is_negative = True
+            
+        # Remove everything except digits, comma, and dot
         import re
-        s = re.sub(r"[^0-9,.-]", "", s)
-        # If both comma and dot present, assume comma thousands
+        s = re.sub(r"[^0-9,.]", "", s)
+        
+        # Determine if comma is thousands or decimal
         if "," in s and "." in s:
+            # Both present: assume comma is thousands separator
             s = s.replace(",", "")
-        else:
-            # If only comma present, treat as decimal
+        elif "," in s:
+            # Only comma present: assume it's the decimal separator
             s = s.replace(",", ".")
-        return float(s)
+            
+        if not s or s == ".":
+            return None
+            
+        val = float(s)
+        return -val if is_negative else val
     except Exception:
         return None
 
@@ -439,7 +456,12 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any], operation_type: str =
         metadata: Additional metadata about the operation
     """
     try:
-        logger.info(f"🎯 track_ai_usage called with: {ai_config}, operation_type: {operation_type}")
+        # Create a masked version of ai_config for logging
+        masked_config = {}
+        if ai_config:
+            masked_config = {k: (v if k not in ('api_key', 'provider_url', 'api_secret') else '********') for k, v in ai_config.items()}
+            
+        logger.info(f"🎯 track_ai_usage called with: {masked_config}, operation_type: {operation_type}")
         if not ai_config or 'provider_name' not in ai_config:
             logger.warning("❌ ai_config is None or missing provider_name")
             return

@@ -3162,6 +3162,12 @@
       "failed": "Failed",
       "merged": "Merged"
     },
+    "card_type": {
+      "label": "Type",
+      "credit": "Credit",
+      "debit": "Debit",
+      "auto": "Auto-detect (AI)"
+    },
     "review_status": {
       "label": "Review",
       "reviewed": "Reviewed",
