@@ -15,13 +15,14 @@ RULES:
    - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
    - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
 3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount' based on the CARD TYPE:
+4. Normalize the 'amount' based on the CARD TYPE and signs in the text:
+   - **IMPORTANT**: If an amount has a trailing minus sign (e.g., '100.00-') or is in parentheses (e.g., '(100.00)'), it is a NEGATIVE value.
    - **For DEBIT cards**:
-     - 'debit' transactions (money out) MUST BE NEGATIVE (e.g., -45.67).
+     - 'debit' transactions (money out) normally show as negative if using a single column, or positive in a 'debit' column. MUST BE NEGATIVE (e.g., -45.67).
      - 'credit' transactions (money in) MUST BE POSITIVE (e.g., 2500.00).
    - **For CREDIT cards**:
      - 'debit' transactions (spending/interest) MUST BE POSITIVE (e.g., 45.67).
-     - 'credit' transactions (payments to the card/refunds) MUST BE NEGATIVE (e.g., -2500.00).
+     - 'credit' transactions (refunds/payments) MUST BE NEGATIVE (e.g., -2500.00).
 5. Convert dates to YYYY-MM-DD format.
 6. Extract merchant names or transaction descriptions clearly.
 7. Only extract actual transactions. DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances.
@@ -29,7 +30,7 @@ RULES:
 STEP-BY-STEP PROCESS:
 1. Scan the ENTIRE text to identify all transaction entries.
 2. For each transaction, extract: date, description, amount, transaction_type, balance (if available).
-3. Validate that you found ALL transactions.
+3. If the amount in the text has a trailing sign or parentheses, ensure you capture its negative nature.
 4. Return a complete JSON array with ALL transactions.
 
 TEXT:
@@ -422,10 +423,10 @@ RULES:
    - 'debit': Money leaving the account (Withdrawals, Payments, Transfers Out, etc.).
    - 'credit': Money entering the account (Deposits, Salary, Transfers In, Interest, etc.).
 3. Use context such as column headers (Withdrawal/Debit vs Deposit/Credit) or keywords in the description to determine the type.
-4. Normalize the 'amount':
-   - For 'debit' transactions, the amount MUST BE NEGATIVE (e.g., -45.67).
-   - For 'credit' transactions, the amount MUST BE POSITIVE (e.g., 2500.00).
-   - Ignore existing signs or parentheses if they contradict the identified transaction type.
+4. Normalize the 'amount' based on card type:
+   - **IMPORTANT**: If an amount has a trailing minus (e.g. '100-') or parentheses (e.g. '(100)'), it is NEGATIVE.
+   - For **DEBIT cards**: 'debit'=Negative, 'credit'=Positive.
+   - For **CREDIT cards**: 'debit'=Positive (spending), 'credit'=Negative (refund/payment).
 5. Convert ALL dates to YYYY-MM-DD format.
 6. Clean the merchant/vendor names by removing noise from the strings.
 7. DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances.

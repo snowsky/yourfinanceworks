@@ -512,6 +512,8 @@ class UniversalBankTransactionExtractor:
 
             if response and response.choices:
                 result_text = response.choices[0].message.content
+                # Log raw response for debugging signs
+                logger.debug(f"📄 RAW LLM RESPONSE: {result_text[:1000]}...")
                 
                 # If auto-detect, try to determine from first chunk or use result insight
                 if self.card_type == "auto":
@@ -907,6 +909,11 @@ class UniversalBankTransactionExtractor:
             # Fallback to basic validation without pandas
             return self._basic_validate_and_clean(transactions)
 
+        # Log raw transaction list before cleaning
+        logger.info(f"🔍 Validating {len(transactions)} raw transactions from LLM")
+        if transactions:
+            logger.debug(f"🔍 First raw transaction: {transactions[0]}")
+
         df = pd.DataFrame(transactions)
         initial_count = len(df)
         logger.info(f"DataFrame created with {initial_count} transactions")
@@ -984,16 +991,16 @@ class UniversalBankTransactionExtractor:
         if before_dropna != after_dropna:
             logger.info(f"Removed {before_dropna - after_dropna} transactions with missing date/amount")
 
-        # Remove duplicates
-        before_dedup = len(df)
-        df = df.drop_duplicates(subset=['date', 'description', 'amount']).reset_index(drop=True)
-        after_dedup = len(df)
-        if before_dedup != after_dedup:
-            removed_count = before_dedup - after_dedup
-            logger.warning(f"⚠️ DEDUPLICATION: Removed {removed_count} duplicate transactions ({before_dedup} → {after_dedup})")
-            logger.warning(f"   Deduplication key: (date, description, amount)")
-            if removed_count > 5:
-                logger.warning(f"   ⚠️ High deduplication rate ({removed_count}/{before_dedup} = {removed_count*100/before_dedup:.1f}%) - possible chunking issue")
+        # deduplication removed per user request
+        # before_dedup = len(df)
+        # df = df.drop_duplicates(subset=['date', 'description', 'amount']).reset_index(drop=True)
+        # after_dedup = len(df)
+        # if before_dedup != after_dedup:
+        #     removed_count = before_dedup - after_dedup
+        #     logger.warning(f"⚠️ DEDUPLICATION: Removed {removed_count} duplicate transactions ({before_dedup} → {after_dedup})")
+        #     logger.warning(f"   Deduplication key: (date, description, amount)")
+        #     if removed_count > 5:
+        #         logger.warning(f"   ⚠️ High deduplication rate ({removed_count}/{before_dedup} = {removed_count*100/before_dedup:.1f}%) - possible chunking issue")
 
         # Sort by date
         if not df.empty:
@@ -1056,11 +1063,12 @@ class UniversalBankTransactionExtractor:
                 logger.warning(f"Failed to parse amount '{txn.get('amount')}': {e}")
                 continue
 
-            # Deduplicate
-            key = (txn['date'], txn['description'], round(txn['amount'], 2))
-            if key not in seen:
-                seen.add(key)
-                cleaned.append(txn)
+            # Deduplicate removed per user request
+            # key = (txn['date'], txn['description'], round(txn['amount'], 2))
+            # if key not in seen:
+            #     seen.add(key)
+            #     cleaned.append(txn)
+            cleaned.append(txn)
 
         # Sort by date
         try:
@@ -1889,15 +1897,18 @@ JSON:"""
 
             # Validate amount
             try:
-                txn['amount'] = float(txn['amount'])
-            except:
+                orig_amt = str(txn['amount'])
+                txn['amount'] = parse_number(orig_amt)
+            except Exception as e:
+                logger.warning(f"Failed to parse amount in basic clean: {e}")
                 continue
 
-            # Deduplicate
-            key = (txn['date'], txn['description'], round(txn['amount'], 2))
-            if key not in seen:
-                seen.add(key)
-                cleaned.append(txn)
+            # Deduplicate removed per user request
+            # key = (txn['date'], txn['description'], round(txn['amount'], 2))
+            # if key not in seen:
+            #     seen.add(key)
+            #     cleaned.append(txn)
+            cleaned.append(txn)
 
         # Sort by date
         try:
