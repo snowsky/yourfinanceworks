@@ -456,7 +456,12 @@ def track_ai_usage(db: Session, ai_config: Dict[str, Any], operation_type: str =
         metadata: Additional metadata about the operation
     """
     try:
-        logger.info(f"🎯 track_ai_usage called with: {ai_config}, operation_type: {operation_type}")
+        # Create a masked version of ai_config for logging
+        masked_config = {}
+        if ai_config:
+            masked_config = {k: (v if k not in ('api_key', 'provider_url', 'api_secret') else '********') for k, v in ai_config.items()}
+            
+        logger.info(f"🎯 track_ai_usage called with: {masked_config}, operation_type: {operation_type}")
         if not ai_config or 'provider_name' not in ai_config:
             logger.warning("❌ ai_config is None or missing provider_name")
             return

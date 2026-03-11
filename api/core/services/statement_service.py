@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import requests
 from sqlalchemy.orm import Session
-from commercial.ai.services.ocr_service import track_ai_usage, track_ocr_usage
+from commercial.ai.services.ocr_service import track_ai_usage, track_ocr_usage, parse_number
 from commercial.prompt_management.services.prompt_service import get_prompt_service
 from core.utils.file_validation import validate_file_path
 
@@ -929,7 +929,21 @@ class UniversalBankTransactionExtractor:
 
         # Data type conversions and sign synchronization
         if 'amount' in df.columns:
-            df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+            # For each amount, check if it's already a float or needs parsing
+            def parse_amt(x):
+                if pd.isna(x): return x
+                if isinstance(x, (int, float)): return float(x)
+                
+                orig_val = str(x)
+                amt = parse_number(orig_val)
+                
+                # Detailed logging for potential negative numbers (contains -, (, or ))
+                if any(char in orig_val for char in ('-', '(', ')')):
+                    logger.info(f"🔢 Parsed signed amount: '{orig_val}' → {amt}")
+                
+                return amt
+
+            df['amount'] = df['amount'].apply(parse_amt)
             
             # Synchronize signs with transaction_type
             if 'transaction_type' in df.columns:
@@ -1023,7 +1037,13 @@ class UniversalBankTransactionExtractor:
 
             # Validate amount and synchronize sign
             try:
-                val = float(txn['amount'])
+                orig_amt = str(txn['amount'])
+                val = parse_number(orig_amt)
+                
+                # Detailed logging for signed amounts
+                if any(char in orig_amt for char in ('-', '(', ')')):
+                    logger.info(f"🔢 Parsed signed amount (basic): '{orig_amt}' → {val}")
+                
                 ttype = str(txn.get('transaction_type', '')).lower()
                 
                 if ttype == 'debit' and val > 0:
@@ -1032,7 +1052,8 @@ class UniversalBankTransactionExtractor:
                     txn['amount'] = abs(val)
                 else:
                     txn['amount'] = val
-            except:
+            except Exception as e:
+                logger.warning(f"Failed to parse amount '{txn.get('amount')}': {e}")
                 continue
 
             # Deduplicate
