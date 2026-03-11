@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -180,6 +180,9 @@ export default function Statements() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
   const [reprocessingLocks, setReprocessingLocks] = useState<Set<number>>(new Set());
+  const [isSplitView, setIsSplitView] = useState(false);
+  const [splitViewPdfUrl, setSplitViewPdfUrl] = useState<string | null>(null);
+  const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
   const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
@@ -188,8 +191,45 @@ export default function Statements() {
       setSelected(null);
       setDetail(null);
       setRows([]);
+      setIsSplitView(false);
     }
   }, [location.key, location.pathname]);
+
+  // Split view cleanup
+  useEffect(() => {
+    return () => {
+      if (splitViewPdfObjectUrl) {
+        URL.revokeObjectURL(splitViewPdfObjectUrl);
+      }
+    };
+  }, [splitViewPdfObjectUrl]);
+
+  const toggleSplitView = async () => {
+    if (isSplitView) {
+      setIsSplitView(false);
+      return;
+    }
+
+    if (!selected) return;
+
+    try {
+      setDetailLoading(true);
+      const { blob } = await bankStatementApi.fetchFileBlob(selected, true);
+      const objectUrl = URL.createObjectURL(blob);
+
+      if (splitViewPdfObjectUrl) {
+        URL.revokeObjectURL(splitViewPdfObjectUrl);
+      }
+
+      setSplitViewPdfObjectUrl(objectUrl);
+      setSplitViewPdfUrl(objectUrl);
+      setIsSplitView(true);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to initialize parallel view');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!selected || !detail) {
@@ -907,7 +947,7 @@ export default function Statements() {
 
   return (
     <>
-      <div className="h-full space-y-8 fade-in">
+      <div className="space-y-8 overflow-visible">
         {/* License Alert */}
         {!isFeatureEnabled('ai_bank_statement') && (
           <LicenseAlert
@@ -1711,7 +1751,7 @@ export default function Statements() {
         </Dialog>
 
         {selected && !showInvoiceForm && (
-          <div className="space-y-6 fade-in">
+          <div className="space-y-6 overflow-visible">
             {/* Hero Header */}
             <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-6">
@@ -1804,6 +1844,15 @@ export default function Statements() {
                   )}
 
                   <ProfessionalButton
+                    variant="outline"
+                    onClick={toggleSplitView}
+                    disabled={detail?.status === 'merged'}
+                    leftIcon={<Columns className="h-4 w-4" />}
+                  >
+                    {isSplitView ? t('statements.standard_view', 'Standard View') : t('statements.parallel_view', 'Parallel View')}
+                  </ProfessionalButton>
+
+                  <ProfessionalButton
                     variant="default"
                     onClick={saveRows}
                     disabled={readOnly || detailLoading}
@@ -1815,6 +1864,49 @@ export default function Statements() {
                 </div>
               </div>
             </div>
+
+            <div className={cn(
+              "flex flex-col gap-6",
+              isSplitView && "lg:flex-row lg:items-stretch"
+            )}>
+              {/* Split View PDF Pane */}
+              {isSplitView && splitViewPdfUrl && (
+                <div className="lg:w-[45%]">
+                  <div className="sticky top-4 h-[calc(100vh-40px)] z-30 flex flex-col">
+                    <ProfessionalCard className="flex-1 flex flex-col overflow-hidden p-0 border-primary/30 shadow-2xl ring-1 ring-primary/5">
+                      <div className="p-3 border-b flex items-center justify-between bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-xs font-bold uppercase tracking-wider">{t('statements.original_pdf', 'Original PDF')}</span>
+                        </div>
+                        <ProfessionalButton
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setIsSplitView(false)}
+                        >
+                          <X className="h-4 w-4" />
+                        </ProfessionalButton>
+                      </div>
+                      <div className="flex-1 min-h-0 bg-muted/10">
+                        <embed
+                          src={splitViewPdfUrl}
+                          type="application/pdf"
+                          className="w-full h-full border-none"
+                        />
+                      </div>
+                      <div className="p-2 border-t text-[10px] text-muted-foreground bg-muted/30 text-center">
+                        {t('statements.split_view_hint', 'Review transactions alongside the PDF')}
+                      </div>
+                    </ProfessionalCard>
+                  </div>
+                </div>
+              )}
+
+              {/* Transactions/Details Pane */}
+              <div className={cn(
+                "space-y-6",
+                isSplitView ? "lg:w-[55%] flex-1" : "w-full"
+              )}>
 
 
             {/* Status & Alerts Section */}
@@ -2403,6 +2495,8 @@ export default function Statements() {
                 </Table>
               </div>
             </ProfessionalCard>
+              </div>
+            </div>
           </div>
         )}
 
