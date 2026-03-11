@@ -3140,7 +3140,7 @@
     "add_currency": "Add Currency"
   },
   "statements": {
-    "title": "Statements",
+    "title": "Statement",
     "description": "Each entry is a PDF or CSV. Open to view or edit its transactions.",
     "list_title": "Statement List",
     "select_files": "Select PDFs or CSVs",
