@@ -94,7 +94,7 @@ except ImportError:
 
 # Pydantic models for structured output - optional (migrate to field_validator)
 try:
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, Field, model_validator
     try:
         # Pydantic v2
         from pydantic import field_validator
@@ -145,16 +145,37 @@ class TransactionModel(BaseModel):
     transaction_type: str = Field(description="Type of transaction: 'debit' or 'credit'")
     balance: Optional[float] = Field(default=None, description="Account balance after transaction")
     category: Optional[str] = Field(default=None, description="Transaction category")
+    card_type: str = Field(default="debit", description="debit|credit")
 
-    # Use pydantic v2 field_validator if available, else v1 validator
+    # Use pydantic v2 field_validator/model_validator if available
     if 'field_validator' in globals() and field_validator:  # type: ignore
+        @model_validator(mode='before')  # type: ignore
+        @classmethod
+        def fix_transaction_type_by_amount(cls, data: Any) -> Any:
+            if isinstance(data, dict):
+                amount = data.get('amount')
+                card_type = data.get('card_type', 'debit')
+                if amount is not None:
+                    try:
+                        amt = float(amount)
+                        if card_type == 'credit':
+                            # Credit card rule: negative is credit, positive is debit
+                            data['transaction_type'] = 'credit' if amt < 0 else 'debit'
+                        else:
+                            # Debit card/Standard rule: negative is debit, positive is credit
+                            data['transaction_type'] = 'debit' if amt < 0 else 'credit'
+                    except (ValueError, TypeError):
+                        pass
+            return data
+
         @field_validator('transaction_type', mode='before')  # type: ignore
         @classmethod
         def validate_transaction_type(cls, v):
             try:
                 vv = (v or '').lower()
                 if vv not in ['debit', 'credit']:
-                    return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '+' else 'debit')
+                    # Inverted logic: negative is credit, positive is debit
+                    return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '-' else 'debit')
                 return vv
             except Exception:
                 return 'debit'
@@ -233,7 +254,8 @@ class UniversalBankTransactionExtractor:
                  chunk_size: int = 6000,
                  chunk_overlap: int = 150,
                  request_timeout: int = 120,
-                 prompt_name: str = "bank_transaction_extraction"):
+                 prompt_name: str = "bank_transaction_extraction",
+                 card_type: str = "debit"):
         """
         Initialize the extractor with AI configuration
 
@@ -262,6 +284,8 @@ class UniversalBankTransactionExtractor:
         self.db_session = db_session
         self.prompt_name = prompt_name
         self.prompt_service = get_prompt_service(db_session)
+        self.card_type = card_type
+        self.detected_card_type = card_type if card_type != "auto" else "debit" # Default fallback
 
         logger.info(f"🚀 Initializing UniversalBankTransactionExtractor: {self.provider_name} / {self.model_name}, prompt_name={self.prompt_name}")
 
@@ -411,6 +435,43 @@ class UniversalBankTransactionExtractor:
                 template=BANK_TRANSACTION_EXTRACTION_PROMPT,
                 input_variables=["text"]
             )
+    def _detect_card_type(self, text: str) -> str:
+        """Detect if statement is for a credit or debit card"""
+        try:
+            from core.constants.default_prompts import BANK_STATEMENT_CLASSIFICATION_PROMPT
+            from litellm import completion
+
+            model_name = self._format_model_name()
+            kwargs = self._prepare_litellm_kwargs()
+
+            prompt = BANK_STATEMENT_CLASSIFICATION_PROMPT.replace("{{text}}", text[:4000])
+
+            kwargs.update({
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 100,
+                "temperature": 0.0
+            })
+
+            logger.info(f"🔍 Detecting card type for {self.provider_name}")
+            response = completion(**kwargs)
+
+            if response and response.choices:
+                result_text = response.choices[0].message.content
+                # Simple parsing for 'credit' or 'debit'
+                if '"card_type": "credit"' in result_text.lower() or "'card_type': 'credit'" in result_text.lower():
+                    return "credit"
+                elif '"card_type": "debit"' in result_text.lower() or "'card_type': 'debit'" in result_text.lower():
+                    return "debit"
+                
+                # Fallback to keyword search in result
+                if "credit" in result_text.lower(): return "credit"
+                if "debit" in result_text.lower(): return "debit"
+
+            return "debit" # Fallback
+        except Exception as e:
+            logger.warning(f"Detection failed: {e}")
+            return "debit"
 
     def _render_extraction_prompt(self, text: str) -> str:
         """Safely render extraction prompt without triggering on other braces"""
@@ -420,7 +481,7 @@ class UniversalBankTransactionExtractor:
                 # First try safe replacement
                 template_str = getattr(self.extraction_prompt, 'template', "")
                 if template_str:
-                    return template_str.replace("{text}", text).replace("{{text}}", text)
+                    return template_str.replace("{text}", text).replace("{{text}}", text).replace("{{card_type}}", self.card_type).replace("{card_type}", self.card_type)
                 return self.extraction_prompt.format(text=text)
             except Exception:
                 # Fallback to whatever the object provides
@@ -451,7 +512,19 @@ class UniversalBankTransactionExtractor:
 
             if response and response.choices:
                 result_text = response.choices[0].message.content
-                return self._parse_response(result_text)
+                
+                # If auto-detect, try to determine from first chunk or use result insight
+                if self.card_type == "auto":
+                    # For simplicity, we detect on first successful extraction call text
+                    self.detected_card_type = self._detect_card_type(text)
+                    self.card_type = self.detected_card_type # Set it so downstream uses it
+                    logger.info(f"🔍 AI detected card_type: {self.detected_card_type}")
+
+                txns = self._parse_response(result_text)
+                # Inject card_type for TransactionModel validation
+                for t in txns:
+                    t['card_type'] = self.card_type
+                return txns
             else:
                 logger.warning("No response received from LLM")
                 return []
@@ -843,9 +916,14 @@ class UniversalBankTransactionExtractor:
         for col in required_cols:
             if col not in df.columns:
                 if col == 'transaction_type':
-                    df[col] = df.get('amount', 0).apply(
-                        lambda x: 'credit' if x > 0 else 'debit'
-                    )
+                    if self.card_type == 'credit':
+                        df[col] = df.get('amount', 0).apply(
+                            lambda x: 'credit' if x < 0 else 'debit'
+                        )
+                    else:
+                        df[col] = df.get('amount', 0).apply(
+                            lambda x: 'debit' if x < 0 else 'credit'
+                        )
                 else:
                     df[col] = None
 
@@ -860,10 +938,17 @@ class UniversalBankTransactionExtractor:
                     ttype = str(row['transaction_type']).lower()
                     if pd.isna(amt): return amt
                     
-                    if ttype == 'debit' and amt > 0:
-                        return -amt
-                    elif ttype == 'credit' and amt < 0:
-                        return abs(amt)
+                    if self.card_type == 'credit':
+                        if ttype == 'debit' and amt < 0:
+                            return abs(amt)
+                        elif ttype == 'credit' and amt > 0:
+                            return -amt
+                    else:
+                        # Debit card: negative is debit, positive is credit
+                        if ttype == 'debit' and amt > 0:
+                            return -amt
+                        elif ttype == 'credit' and amt < 0:
+                            return abs(amt)
                     return amt
                 
                 df['amount'] = df.apply(sync_sign, axis=1)
@@ -925,7 +1010,10 @@ class UniversalBankTransactionExtractor:
 
             # Add transaction_type if missing
             if 'transaction_type' not in txn:
-                txn['transaction_type'] = 'credit' if float(txn.get('amount', 0)) > 0 else 'debit'
+                if self.card_type == 'credit':
+                    txn['transaction_type'] = 'credit' if float(txn.get('amount', 0)) < 0 else 'debit'
+                else:
+                    txn['transaction_type'] = 'debit' if float(txn.get('amount', 0)) < 0 else 'credit'
 
             # Normalize date
             try:
@@ -1711,7 +1799,7 @@ JSON:"""
             if col not in df.columns:
                 if col == 'transaction_type':
                     df[col] = df.get('amount', 0).apply(
-                        lambda x: 'credit' if x > 0 else 'debit'
+                        lambda x: 'credit' if x < 0 else 'debit'
                     )
                 else:
                     df[col] = None
@@ -2172,7 +2260,7 @@ def _clean_and_deduplicate_transactions(transactions: List[Dict[str, Any]]) -> L
     return unique_transactions
 
 
-def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]] = None, db: Optional[Any] = None) -> List[Dict[str, Any]]:
+def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]] = None, db: Optional[Any] = None, card_type: str = "auto") -> List[Dict[str, Any]]:
     """Enhanced LLM-based extraction using BankTransactionExtractor from test-main.py
 
     Raises BankLLMUnavailableError if LLM is unavailable and fallback extraction yields no transactions,
@@ -2198,7 +2286,8 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                     temperature=0.1,
                     chunk_size=6000,
                     chunk_overlap=150,
-                    request_timeout=120
+                    request_timeout=120,
+                    card_type=card_type
                 )
             except Exception as e:
                 logger.warning(f"Failed to initialize UniversalBankTransactionExtractor: {e}")
@@ -2240,7 +2329,8 @@ def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]]
                     temperature=0.1,
                     chunk_size=6000,
                     chunk_overlap=150,
-                    request_timeout=120
+                    request_timeout=120,
+                    card_type=card_type
                 )
             except Exception as e:
                 logger.warning(f"Failed to initialize UniversalBankTransactionExtractor: {e}")

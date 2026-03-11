@@ -154,6 +154,7 @@ export default function Statements() {
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('bank');
+  const [cardType, setCardType] = useState<string>('auto');
   const [dragActive, setDragActive] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [statementToDelete, setStatementToDelete] = useState<number | null>(null);
@@ -592,7 +593,7 @@ export default function Statements() {
       const providerName = STATEMENT_PROVIDERS.find(p => p.value === selectedProvider)?.label || 'Statement';
       addNotification?.('processing', t('statements.processing'), `Analyzing ${files.length} ${providerName.toLowerCase()} statement files with AI...`);
 
-      const resp = await bankStatementApi.uploadAndExtract(files);
+      const resp = await bankStatementApi.uploadAndExtract(files, cardType);
 
       if (resp.statements && resp.statements.length > 0) {
         const startPolling = (window as any).startStatementPolling;
@@ -2440,6 +2441,22 @@ export default function Statements() {
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  {t('statements.card_type', { defaultValue: 'Card Type' })}
+                </label>
+                <Select value={cardType} onValueChange={setCardType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto-detect (AI)</SelectItem>
+                    <SelectItem value="debit">Debit Card (Standard)</SelectItem>
+                    <SelectItem value="credit">Credit Card (Inverted)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

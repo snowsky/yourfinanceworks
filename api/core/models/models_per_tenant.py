@@ -469,6 +469,7 @@ class BankStatement(Base):
     status = Column(String, default="processing", nullable=False)  # uploaded|processing|processed|failed
     extracted_count = Column(Integer, default=0, nullable=False)
     extraction_method = Column(String, nullable=True)  # llm|regex|csv
+    card_type = Column(String, default="debit", nullable=False)  # debit|credit
     analysis_error = Column(Text, nullable=True)
     analysis_updated_at = Column(DateTime(timezone=True), nullable=True)
     local_cache_path = Column(String, nullable=True)
