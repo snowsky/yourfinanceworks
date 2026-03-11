@@ -2984,6 +2984,12 @@
       "failed": "Fehlgeschlagen",
       "merged": "Zusammengeführt"
     },
+    "card_type": {
+      "label": "Typ",
+      "credit": "Kredit",
+      "debit": "Debit",
+      "auto": "Automatische Erkennung (KI)"
+    },
     "review_status": {
       "label": "Überprüfung",
       "reviewed": "Überprüft",
