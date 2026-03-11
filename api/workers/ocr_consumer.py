@@ -1122,17 +1122,17 @@ class BankStatementMessageHandler(BaseMessageHandler):
                 statement_id=stmt.id,
                 date=transaction_date,
                 description=txn_data.get("description", ""),
-                amount=float(txn_data.get("amount", 0)),
+                amount=parse_number(txn_data.get("amount", 0)),
                 transaction_type=(
                     txn_data.get("transaction_type") 
                     if txn_data.get("transaction_type") in ("debit", "credit")
                     else (
-                        ("credit" if float(txn_data.get("amount", 0)) < 0 else "debit")
+                        ("credit" if parse_number(txn_data.get("amount", 0)) < 0 else "debit")
                         if getattr(stmt, 'card_type', 'debit') == 'credit'
-                        else ("debit" if float(txn_data.get("amount", 0)) < 0 else "credit")
+                        else ("debit" if parse_number(txn_data.get("amount", 0)) < 0 else "credit")
                     )
                 ),
-                balance=float(txn_data["balance"]) if txn_data.get("balance") is not None else None,
+                balance=parse_number(txn_data.get("balance")),
                 category=txn_data.get("category"),
             ))
             count += 1
