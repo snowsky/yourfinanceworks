@@ -15,6 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
@@ -2205,281 +2206,416 @@ export default function Statements() {
                   </TableHeader>
                   <TableBody>
                     {rows.map((r, idx) => (
-                      <TableRow key={idx} className="hover:bg-muted/20 transition-colors border-b border-border/30">
-                        <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
-                        <TableCell>
-                          {editingRow === idx ? (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-start text-left font-normal h-9 border-border/50 bg-muted/20" disabled={readOnly}>
-                                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                                  {r.date ? format(safeParseDateString(r.date), 'PPP') : 'Pick a date'}
-                                </Button>
-                              </PopoverTrigger>
-                              {!readOnly && (
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={r.date ? safeParseDateString(r.date) : undefined}
-                                    defaultMonth={r.date ? safeParseDateString(r.date) : undefined}
-                                    onSelect={(d) => {
-                                      if (!d) return;
-                                      const iso = formatDateToISO(d);
-                                      setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
-                                    }}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
+                      <ContextMenu key={idx}>
+                        <ContextMenuTrigger asChild>
+                          <TableRow className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                            <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 border-border/50 bg-muted/20" disabled={readOnly}>
+                                      <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                                      {r.date ? format(safeParseDateString(r.date), 'PPP') : 'Pick a date'}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  {!readOnly && (
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={r.date ? safeParseDateString(r.date) : undefined}
+                                        defaultMonth={r.date ? safeParseDateString(r.date) : undefined}
+                                        onSelect={(d) => {
+                                          if (!d) return;
+                                          const iso = formatDateToISO(d);
+                                          setRows(prev => prev.map((x, i) => i === idx ? { ...x, date: iso } : x));
+                                        }}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  )}
+                                </Popover>
+                              ) : (
+                                <span className="text-sm font-medium">{r.date ? format(safeParseDateString(r.date), 'PP') : '-'}</span>
                               )}
-                            </Popover>
-                          ) : (
-                            <span className="text-sm font-medium">{r.date ? format(safeParseDateString(r.date), 'PP') : '-'}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editingRow === idx ? (
-                            <div className="space-y-1">
-                              <Textarea
-                                value={r.description}
-                                onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
-                                rows={2}
-                                maxLength={500}
-                                className="w-full border-border/50 bg-muted/20 focus:bg-background text-sm min-h-[60px]"
-                              />
-                            </div>
-                          ) : (
-                            <span className="text-sm break-words line-clamp-2" title={r.description}>{r.description}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {editingRow === idx ? (
-                            <Input
-                              type="number"
-                              value={r.amount}
-                              onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))}
-                              className="h-9 border-border/50 bg-muted/20 text-right font-bold w-full"
-                            />
-                          ) : (
-                            <span className={`text-sm font-bold ${r.transaction_type === 'credit' ? 'text-success' : 'text-destructive'}`}>
-                              <CurrencyDisplay amount={r.amount} currency="USD" />
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {editingRow === idx ? (
-                            <Input
-                              type="number"
-                              value={r.balance ?? ''}
-                              onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))}
-                              className="h-9 border-border/50 bg-muted/20 text-right w-full"
-                            />
-                          ) : (
-                            <span className="text-sm font-mono opacity-80">{r.balance !== null ? <CurrencyDisplay amount={r.balance} currency="USD" /> : '-'}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editingRow === idx ? (
-                            <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
-                              <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="debit">{t('statements.type_debit', { defaultValue: 'Debit' })}</SelectItem>
-                                <SelectItem value="credit">{t('statements.type_credit', { defaultValue: 'Credit' })}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge className={`capitalize font-medium text-[10px] bg-transparent border border-current ${r.transaction_type === 'credit' ? 'border-success/30 text-success bg-success/5' : 'border-destructive/30 text-destructive bg-destructive/5'}`}>
-                              {r.transaction_type}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {editingRow === idx ? (
-                            <Select value={r.category || 'Other'} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, category: v } : x))}>
-                              <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {CATEGORY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge className="font-normal text-muted-foreground border-border/50 bg-transparent border">
-                              {r.category || '-'}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex flex-col gap-1">
-                            {Boolean((r as any).expense_id) && (
-                              <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center">
-                                EXP #{(r as any).expense_id}
-                              </Badge>
-                            )}
-                            {Boolean((r as any).invoice_id) && (
-                              <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center">
-                                INV #{(r as any).invoice_id}
-                              </Badge>
-                            )}
-                            {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && (
-                              <span className="text-xs text-muted-foreground opacity-50">-</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {editingRow === idx ? (
-                              <ProfessionalButton
-                                size="sm"
-                                onClick={async () => {
-                                  setEditingRow(null);
-                                  await saveRows();
-                                }}
-                                disabled={readOnly}
-                                className="h-8 px-3"
+                            </TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <div className="space-y-1">
+                                  <Textarea
+                                    value={r.description}
+                                    onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
+                                    rows={2}
+                                    maxLength={500}
+                                    className="w-full border-border/50 bg-muted/20 focus:bg-background text-sm min-h-[60px]"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-sm break-words line-clamp-2" title={r.description}>{r.description}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {editingRow === idx ? (
+                                <Input
+                                  type="number"
+                                  value={r.amount}
+                                  onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x))}
+                                  className="h-9 border-border/50 bg-muted/20 text-right font-bold w-full"
+                                />
+                              ) : (
+                                <span className={`text-sm font-bold ${r.transaction_type === 'credit' ? 'text-success' : 'text-destructive'}`}>
+                                  <CurrencyDisplay amount={r.amount} currency="USD" />
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {editingRow === idx ? (
+                                <Input
+                                  type="number"
+                                  value={r.balance ?? ''}
+                                  onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, balance: e.target.value === '' ? null : Number(e.target.value) } : x))}
+                                  className="h-9 border-border/50 bg-muted/20 text-right w-full"
+                                />
+                              ) : (
+                                <span className="text-sm font-mono opacity-80">{r.balance !== null ? <CurrencyDisplay amount={r.balance} currency="USD" /> : '-'}</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
+                                  <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="debit">{t('statements.type_debit', { defaultValue: 'Debit' })}</SelectItem>
+                                    <SelectItem value="credit">{t('statements.type_credit', { defaultValue: 'Credit' })}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge className={`capitalize font-medium text-[10px] bg-transparent border border-current ${r.transaction_type === 'credit' ? 'border-success/30 text-success bg-success/5' : 'border-destructive/30 text-destructive bg-destructive/5'}`}>
+                                  {r.transaction_type}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <Select value={r.category || 'Other'} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, category: v } : x))}>
+                                  <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {CATEGORY_OPTIONS.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge className="font-normal text-muted-foreground border-border/50 bg-transparent border">
+                                  {r.category || '-'}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex flex-col gap-1">
+                                {Boolean((r as any).expense_id) && (
+                                  <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center">
+                                    EXP #{(r as any).expense_id}
+                                  </Badge>
+                                )}
+                                {Boolean((r as any).invoice_id) && (
+                                  <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center">
+                                    INV #{(r as any).invoice_id}
+                                  </Badge>
+                                )}
+                                {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && (
+                                  <span className="text-xs text-muted-foreground opacity-50">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {editingRow === idx ? (
+                                  <ProfessionalButton
+                                    size="sm"
+                                    onClick={async () => {
+                                      setEditingRow(null);
+                                      await saveRows();
+                                    }}
+                                    disabled={readOnly}
+                                    className="h-8 px-3"
+                                  >
+                                    {t('common.done', { defaultValue: 'Done' })}
+                                  </ProfessionalButton>
+                                ) : (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/50 transition-colors" disabled={readOnly}>
+                                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      <DropdownMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
+                                        <Edit className="w-4 h-4 mr-2 text-primary" />
+                                        {t('common.edit', { defaultValue: 'Edit' })}
+                                      </DropdownMenuItem>
+
+                                      <DropdownMenuSeparator />
+
+                                      {r.transaction_type === 'debit' && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={() => createExpenseFromTransaction(idx)}
+                                            disabled={readOnly || Boolean((r as any).expense_id)}
+                                          >
+                                            <Plus className="w-4 h-4 mr-2 text-success" />
+                                            {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
+                                          </DropdownMenuItem>
+                                          {Boolean((r as any).expense_id) && (
+                                            <>
+                                              <DropdownMenuItem
+                                                onClick={async () => {
+                                                  try {
+                                                    await navigator.clipboard.writeText(String((r as any).expense_id));
+                                                    toast.success(`Copied Expense ID ${(r as any).expense_id}`);
+                                                  } catch (e) {
+                                                    toast.error('Failed to copy');
+                                                  }
+                                                }}
+                                              >
+                                                <Copy className="w-4 h-4 mr-2" />
+                                                {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onClick={async () => {
+                                                  if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                                  try {
+                                                    const expId = (r as any).expense_id;
+                                                    await expenseApi.deleteExpense(expId);
+                                                    toast.success('Expense deleted');
+                                                    const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
+                                                    setRows(updated);
+                                                    if (selected) {
+                                                      const cleaned = updated.map(row => ({
+                                                        ...row,
+                                                        balance: row.balance === undefined ? null : row.balance,
+                                                        category: row.category || null,
+                                                        invoice_id: row.invoice_id ?? null,
+                                                        expense_id: row.expense_id ?? null,
+                                                      }));
+                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                      await openStatement(selected);
+                                                    }
+                                                  } catch (e: any) {
+                                                    toast.error(e?.message || 'Failed to delete');
+                                                  }
+                                                }}
+                                                className="text-destructive focus:text-destructive"
+                                              >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+
+                                      {r.transaction_type === 'credit' && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={() => createInvoiceFromTransaction(idx)}
+                                            disabled={readOnly || Boolean((r as any).invoice_id)}
+                                          >
+                                            <Plus className="w-4 h-4 mr-2 text-success" />
+                                            {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
+                                          </DropdownMenuItem>
+                                          {Boolean((r as any).invoice_id) && (
+                                            <>
+                                              <DropdownMenuItem
+                                                onClick={async () => {
+                                                  try {
+                                                    const invId = Number((r as any).invoice_id);
+                                                    const inv = await invoiceApi.getInvoice(invId);
+                                                    const toCopy = inv.number || String(invId);
+                                                    await navigator.clipboard.writeText(toCopy);
+                                                    toast.success(`Copied Invoice No ${toCopy}`);
+                                                  } catch (e) {
+                                                    toast.error('Failed to copy');
+                                                  }
+                                                }}
+                                              >
+                                                <Copy className="w-4 h-4 mr-2" />
+                                                {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onClick={async () => {
+                                                  if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                                  try {
+                                                    const invId = Number((r as any).invoice_id);
+                                                    await invoiceApi.deleteInvoice(invId);
+                                                    toast.success('Invoice deleted');
+                                                    const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
+                                                    setRows(updated);
+                                                    if (selected) {
+                                                      const cleaned = updated.map(row => ({
+                                                        ...row,
+                                                        balance: row.balance === undefined ? null : row.balance,
+                                                        category: row.category || null,
+                                                        invoice_id: row.invoice_id ?? null,
+                                                        expense_id: row.expense_id ?? null,
+                                                      }));
+                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                      await openStatement(selected);
+                                                    }
+                                                  } catch (e: any) {
+                                                    let errorMessage = e?.message || 'Failed to delete invoice';
+                                                    if (errorMessage.includes('linked expenses')) {
+                                                      errorMessage = t('invoices.delete_error_linked_expenses');
+                                                    }
+                                                    toast.error(errorMessage);
+                                                  }
+                                                }}
+                                                className="text-destructive focus:text-destructive"
+                                              >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-56">
+                          <ContextMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
+                            <Edit className="w-4 h-4 mr-2 text-primary" />
+                            {t('common.edit', { defaultValue: 'Edit' })}
+                          </ContextMenuItem>
+
+                          <ContextMenuSeparator />
+
+                          {r.transaction_type === 'debit' && (
+                            <>
+                              <ContextMenuItem
+                                onClick={() => createExpenseFromTransaction(idx)}
+                                disabled={readOnly || Boolean((r as any).expense_id)}
                               >
-                                {t('common.done', { defaultValue: 'Done' })}
-                              </ProfessionalButton>
-                            ) : (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/50 transition-colors" disabled={readOnly}>
-                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
-                                  <DropdownMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
-                                    <Edit className="w-4 h-4 mr-2 text-primary" />
-                                    {t('common.edit', { defaultValue: 'Edit' })}
-                                  </DropdownMenuItem>
+                                <Plus className="w-4 h-4 mr-2 text-success" />
+                                {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
+                              </ContextMenuItem>
+                              {Boolean((r as any).expense_id) && (
+                                <>
+                                  <ContextMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(String((r as any).expense_id));
+                                        toast.success(`Copied Expense ID ${(r as any).expense_id}`);
+                                      } catch (e) {
+                                        toast.error('Failed to copy');
+                                      }
+                                    }}
+                                  >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                  </ContextMenuItem>
+                                  <ContextMenuItem
+                                    onClick={async () => {
+                                      if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                      try {
+                                        const expId = (r as any).expense_id;
+                                        await expenseApi.deleteExpense(expId);
+                                        toast.success('Expense deleted');
+                                        const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
+                                        setRows(updated);
+                                        if (selected) {
+                                          const cleaned = updated.map(row => ({
+                                            ...row,
+                                            balance: row.balance === undefined ? null : row.balance,
+                                            category: row.category || null,
+                                            invoice_id: row.invoice_id ?? null,
+                                            expense_id: row.expense_id ?? null,
+                                          }));
+                                          await bankStatementApi.replaceTransactions(selected, cleaned);
+                                          await openStatement(selected);
+                                        }
+                                      } catch (e: any) {
+                                        toast.error(e?.message || 'Failed to delete');
+                                      }
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
+                                  </ContextMenuItem>
+                                </>
+                              )}
+                            </>
+                          )}
 
-                                  <DropdownMenuSeparator />
-
-                                  {r.transaction_type === 'debit' && (
-                                    <>
-                                      <DropdownMenuItem
-                                        onClick={() => createExpenseFromTransaction(idx)}
-                                        disabled={readOnly || Boolean((r as any).expense_id)}
-                                      >
-                                        <Plus className="w-4 h-4 mr-2 text-success" />
-                                        {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
-                                      </DropdownMenuItem>
-                                      {Boolean((r as any).expense_id) && (
-                                        <>
-                                          <DropdownMenuItem
-                                            onClick={async () => {
-                                              try {
-                                                await navigator.clipboard.writeText(String((r as any).expense_id));
-                                                toast.success(`Copied Expense ID ${(r as any).expense_id}`);
-                                              } catch (e) {
-                                                toast.error('Failed to copy');
-                                              }
-                                            }}
-                                          >
-                                            <Copy className="w-4 h-4 mr-2" />
-                                            {t('common.copy_id', { defaultValue: 'Copy ID' })}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={async () => {
-                                              if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
-                                              try {
-                                                const expId = (r as any).expense_id;
-                                                await expenseApi.deleteExpense(expId);
-                                                toast.success('Expense deleted');
-                                                const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
-                                                setRows(updated);
-                                                if (selected) {
-                                                  const cleaned = updated.map(row => ({
-                                                    ...row,
-                                                    balance: row.balance === undefined ? null : row.balance,
-                                                    category: row.category || null,
-                                                    invoice_id: row.invoice_id ?? null,
-                                                    expense_id: row.expense_id ?? null,
-                                                  }));
-                                                  await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                  await openStatement(selected);
-                                                }
-                                              } catch (e: any) {
-                                                toast.error(e?.message || 'Failed to delete');
-                                              }
-                                            }}
-                                            className="text-destructive focus:text-destructive"
-                                          >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </>
-                                  )}
-
-                                  {r.transaction_type === 'credit' && (
-                                    <>
-                                      <DropdownMenuItem
-                                        onClick={() => createInvoiceFromTransaction(idx)}
-                                        disabled={readOnly || Boolean((r as any).invoice_id)}
-                                      >
-                                        <Plus className="w-4 h-4 mr-2 text-success" />
-                                        {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
-                                      </DropdownMenuItem>
-                                      {Boolean((r as any).invoice_id) && (
-                                        <>
-                                          <DropdownMenuItem
-                                            onClick={async () => {
-                                              try {
-                                                const invId = Number((r as any).invoice_id);
-                                                const inv = await invoiceApi.getInvoice(invId);
-                                                const toCopy = inv.number || String(invId);
-                                                await navigator.clipboard.writeText(toCopy);
-                                                toast.success(`Copied Invoice No ${toCopy}`);
-                                              } catch (e) {
-                                                toast.error('Failed to copy');
-                                              }
-                                            }}
-                                          >
-                                            <Copy className="w-4 h-4 mr-2" />
-                                            {t('common.copy_id', { defaultValue: 'Copy ID' })}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={async () => {
-                                              if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
-                                              try {
-                                                const invId = Number((r as any).invoice_id);
-                                                await invoiceApi.deleteInvoice(invId);
-                                                toast.success('Invoice deleted');
-                                                const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
-                                                setRows(updated);
-                                                if (selected) {
-                                                  const cleaned = updated.map(row => ({
-                                                    ...row,
-                                                    balance: row.balance === undefined ? null : row.balance,
-                                                    category: row.category || null,
-                                                    invoice_id: row.invoice_id ?? null,
-                                                    expense_id: row.expense_id ?? null,
-                                                  }));
-                                                  await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                  await openStatement(selected);
-                                                }
-                                              } catch (e: any) {
-                                                let errorMessage = e?.message || 'Failed to delete invoice';
-                                                if (errorMessage.includes('linked expenses')) {
-                                                  errorMessage = t('invoices.delete_error_linked_expenses');
-                                                }
-                                                toast.error(errorMessage);
-                                              }
-                                            }}
-                                            className="text-destructive focus:text-destructive"
-                                          >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                          {r.transaction_type === 'credit' && (
+                            <>
+                              <ContextMenuItem
+                                onClick={() => createInvoiceFromTransaction(idx)}
+                                disabled={readOnly || Boolean((r as any).invoice_id)}
+                              >
+                                <Plus className="w-4 h-4 mr-2 text-success" />
+                                {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
+                              </ContextMenuItem>
+                              {Boolean((r as any).invoice_id) && (
+                                <>
+                                  <ContextMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        const invId = Number((r as any).invoice_id);
+                                        const inv = await invoiceApi.getInvoice(invId);
+                                        const toCopy = inv.number || String(invId);
+                                        await navigator.clipboard.writeText(toCopy);
+                                        toast.success(`Copied Invoice No ${toCopy}`);
+                                      } catch (e) {
+                                        toast.error('Failed to copy');
+                                      }
+                                    }}
+                                  >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                  </ContextMenuItem>
+                                  <ContextMenuItem
+                                    onClick={async () => {
+                                      if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                      try {
+                                        const invId = Number((r as any).invoice_id);
+                                        await invoiceApi.deleteInvoice(invId);
+                                        toast.success('Invoice deleted');
+                                        const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
+                                        setRows(updated);
+                                        if (selected) {
+                                          const cleaned = updated.map(row => ({
+                                            ...row,
+                                            balance: row.balance === undefined ? null : row.balance,
+                                            category: row.category || null,
+                                            invoice_id: row.invoice_id ?? null,
+                                            expense_id: row.expense_id ?? null,
+                                          }));
+                                          await bankStatementApi.replaceTransactions(selected, cleaned);
+                                          await openStatement(selected);
+                                        }
+                                      } catch (e: any) {
+                                        let errorMessage = e?.message || 'Failed to delete invoice';
+                                        if (errorMessage.includes('linked expenses')) {
+                                          errorMessage = t('invoices.delete_error_linked_expenses');
+                                        }
+                                        toast.error(errorMessage);
+                                      }
+                                    }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
+                                  </ContextMenuItem>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </ContextMenuContent>
+                      </ContextMenu>
                     ))}
                     {rows.length === 0 && (
                       <TableRow>
