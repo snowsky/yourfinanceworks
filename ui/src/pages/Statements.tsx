@@ -486,7 +486,7 @@ export default function Statements() {
         vendor: transaction.description,
         notes: `Created from bank statement: ${detail?.original_filename}`,
         payment_method: 'Bank Transfer',
-        status: 'completed',
+        status: 'recorded',
         analysis_status: 'done'
       };
 
