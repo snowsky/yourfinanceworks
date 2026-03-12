@@ -73,6 +73,37 @@ locales/
 └── fr.json    # French
 ```
 
+### Plugin Translations
+
+Plugin-specific translations are stored within each plugin's folder:
+
+```
+plugins/
+├── investments/
+│   ├── locales/
+│   │   ├── en.json
+│   │   ├── es.json
+│   │   ├── fr.json
+│   │   └── de.json
+│   └── index.ts
+├── time_tracking/
+│   ├── locales/
+│   │   ├── en.json
+│   │   ├── es.json
+│   │   ├── fr.json
+│   │   └── de.json
+│   └── index.ts
+└── currency_rates/
+    ├── locales/
+    │   ├── en.json
+    │   ├── es.json
+    │   ├── fr.json
+    │   └── de.json
+    └── index.ts
+```
+
+Plugin translations are loaded dynamically when the plugin is activated.
+
 ### Translation Keys
 
 Keys are organized hierarchically:
