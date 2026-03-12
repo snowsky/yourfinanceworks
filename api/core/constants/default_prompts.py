@@ -5,9 +5,16 @@ BANK_TRANSACTION_EXTRACTION_PROMPT = """You are a financial data extraction expe
 
 CONTEXT:
 This is a statement for a **{{card_type}}** card/account.
+{{statement_context}} 
 - If 'auto', you must first determine if this is a Credit Card or a Debit/Checking account statement based on the text.
 - If it is a Credit Card, follow 'credit' rules below.
 - Otherwise, follow 'debit' rules.
+
+**YEAR ENFORCEMENT**:
+- The current statement year is provided in the CONTEXT above.
+- You MUST use this year for ALL transactions.
+- If the context says 2025, do NOT return 2023 or any other year.
+- This is a CRITICAL REQUIREMENT for data integrity.
 
 RULES:
 1. Look for dates, descriptions, and amounts.
@@ -23,7 +30,9 @@ RULES:
    - **For CREDIT cards**:
      - 'debit' transactions (spending/interest) MUST BE POSITIVE (e.g., 45.67).
      - 'credit' transactions (refunds/payments) MUST BE NEGATIVE (e.g., -2500.00).
-5. Convert dates to YYYY-MM-DD format.
+5. Convert dates to YYYY-MM-DD format. 
+   - **CRITICAL**: Use the **Year** and **Statement Period** provided in the **CONTEXT** to determine the correct year for ALL transactions.
+   - If the context says 2025, a transaction like 'Jan 15' MUST be returned as '2025-01-15'.
 6. Extract merchant names or transaction descriptions clearly.
 7. Only extract actual transactions. DO NOT extract account summaries, opening balances, closing balances, previous balances, or statement balances.
 
@@ -56,6 +65,26 @@ Return ONLY a JSON object with a single key 'card_type' whose value is either 'c
 
 TEXT:
 {{text}}
+
+JSON:"""
+
+BANK_STATEMENT_METADATA_EXTRACTION_PROMPT = """Analyze this bank statement header text and extract metadata.
+
+Look for:
+1. The Statement Year (4-digit format, e.g., 2024).
+2. The Statement Period (e.g., "Jan 01, 2024 to Jan 31, 2024").
+3. The Account Type (detect if 'credit' or 'debit').
+
+TEXT:
+{{header_text}}
+
+CRITICAL: Return ONLY a JSON object. Do not include any introductory text, conclusions, or conversation.
+Example output:
+{
+  "year": 2024,
+  "period": "January 2024",
+  "card_type": "credit"
+}
 
 JSON:"""
 
@@ -214,16 +243,28 @@ Document path: {{file_path}}""",
     "category": "bank_processing",
     "description": "Extract bank transactions from statement text",
     "template_content": BANK_TRANSACTION_EXTRACTION_PROMPT,
-    "template_variables": ["text"],
+    "template_variables": ["text", "card_type", "statement_context"],
     "output_format": "json",
-    "default_values": {},
-    "version": 2,
+    "default_values": {"card_type": "auto", "statement_context": ""},
+    "version": 3,
     "is_active": True,
     "provider_overrides": {
         # "openai": "You are a financial data extraction expert. Extract ALL bank transactions from the text. Be thorough and extract every single transaction.",
         # "anthropic": "As an expert in financial data analysis, meticulously extract ALL transactions with high precision. Do not skip any transactions."
     }
   },
+    {
+        "name": "bank_statement_metadata_extraction",
+        "category": "bank_processing",
+        "description": "Extract statement metadata (year, period, card_type) from header text",
+        "template_content": BANK_STATEMENT_METADATA_EXTRACTION_PROMPT,
+        "template_variables": ["header_text"],
+        "output_format": "json",
+        "default_values": {},
+        "version": 1,
+        "is_active": True,
+        "provider_overrides": {}
+    },
     {
         "name": "forensic_auditor_phantom_vendor",
         "category": "fraud_detection",
