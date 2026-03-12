@@ -1153,6 +1153,7 @@ export interface TaxIntegrationStatus {
 }
 
 export interface AccountingExportJournalParams {
+  [key: string]: string | number | boolean | undefined;
   date_from?: string;
   date_to?: string;
   include_drafts?: boolean;
@@ -1163,6 +1164,7 @@ export interface AccountingExportJournalParams {
 }
 
 export interface AccountingExportTaxSummaryParams {
+  [key: string]: string | number | boolean | undefined;
   date_from?: string;
   date_to?: string;
   include_drafts?: boolean;

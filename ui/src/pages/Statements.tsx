@@ -2741,8 +2741,15 @@ export default function Statements() {
                     e.stopPropagation();
                     setDragActive(false);
                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      const list = Array.from(e.dataTransfer.files).slice(0, 12);
-                      setFiles(list);
+                      const newFiles = Array.from(e.dataTransfer.files);
+                      setFiles(prev => {
+                        const combined = [...prev, ...newFiles];
+                        if (combined.length > 12) {
+                          toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+                          return combined.slice(0, 12);
+                        }
+                        return combined;
+                      });
                     }
                   }}
                 >
@@ -2760,8 +2767,17 @@ export default function Statements() {
                     className="hidden"
                     id="file-upload"
                     onChange={(e) => {
-                      const list = Array.from(e.target.files || []).slice(0, 12);
-                      setFiles(list);
+                      const newFiles = Array.from(e.target.files || []);
+                      setFiles(prev => {
+                        const combined = [...prev, ...newFiles];
+                        if (combined.length > 12) {
+                          toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+                          return combined.slice(0, 12);
+                        }
+                        return combined;
+                      });
+                      // Reset value so the same file can be selected again if removed
+                      e.target.value = '';
                     }}
                   />
                   <label
@@ -2780,9 +2796,22 @@ export default function Statements() {
                     <div className="text-sm font-medium mb-2">Selected Files:</div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm bg-muted p-2 rounded">
-                          <span className="truncate">{file.name}</span>
-                          <span className="text-muted-foreground">({Math.round(file.size / 1024)} KB)</span>
+                        <div key={index} className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all">
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <FileText className="w-4 h-4 text-primary/60 flex-shrink-0" />
+                            <span className="truncate font-medium">{file.name}</span>
+                            <span className="text-[10px] text-muted-foreground flex-shrink-0 opacity-70">({Math.round(file.size / 1024)} KB)</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-1 shrink-0"
+                            onClick={() => {
+                              setFiles(prev => prev.filter((_, i) => i !== index));
+                            }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       ))}
                     </div>
