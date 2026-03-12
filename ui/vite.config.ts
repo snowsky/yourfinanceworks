@@ -13,17 +13,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          radix: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox'],
-          router: ['react-router-dom'],
-          query: ['@tanstack/react-query'],
-          forms: ['react-hook-form', '@hookform/resolvers'],
+          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'react-i18next', 'i18next'],
+          radix_ui: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
           charts: ['recharts'],
           pdf: ['@react-pdf/renderer'],
-          scanner: ['@ericblade/quagga2'],
-          utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge'],
           icons: ['lucide-react'],
-          ui: ['@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner']
+          utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge']
         }
       }
     },

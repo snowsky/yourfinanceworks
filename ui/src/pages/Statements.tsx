@@ -205,31 +205,48 @@ export default function Statements() {
     };
   }, [splitViewPdfObjectUrl]);
 
-  const toggleSplitView = async () => {
-    if (isSplitView) {
-      setIsSplitView(false);
-      return;
-    }
+  // Effect to automatically update PDF when switching statements in Split View
+  useEffect(() => {
+    let active = true;
 
-    if (!selected) return;
-
-    try {
-      setDetailLoading(true);
-      const { blob } = await bankStatementApi.fetchFileBlob(selected, true);
-      const objectUrl = URL.createObjectURL(blob);
-
-      if (splitViewPdfObjectUrl) {
-        URL.revokeObjectURL(splitViewPdfObjectUrl);
+    const updateSplitViewPdf = async () => {
+      if (!isSplitView || !selected) {
+        return;
       }
 
-      setSplitViewPdfObjectUrl(objectUrl);
-      setSplitViewPdfUrl(objectUrl);
-      setIsSplitView(true);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to initialize parallel view');
-    } finally {
-      setDetailLoading(false);
-    }
+      try {
+        setDetailLoading(true);
+        const { blob } = await bankStatementApi.fetchFileBlob(selected, true);
+        
+        if (!active) return;
+
+        const objectUrl = URL.createObjectURL(blob);
+
+        setSplitViewPdfObjectUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev);
+          return objectUrl;
+        });
+        setSplitViewPdfUrl(objectUrl);
+      } catch (e: any) {
+        if (active) {
+          console.error('Failed to update parallel view PDF:', e);
+        }
+      } finally {
+        if (active) {
+          setDetailLoading(false);
+        }
+      }
+    };
+
+    updateSplitViewPdf();
+    
+    return () => {
+      active = false;
+    };
+  }, [selected, isSplitView]);
+
+  const toggleSplitView = () => {
+    setIsSplitView(!isSplitView);
   };
 
   useEffect(() => {
@@ -1889,11 +1906,14 @@ export default function Statements() {
                         </ProfessionalButton>
                       </div>
                       <div className="flex-1 min-h-0 bg-muted/10">
-                        <embed
-                          src={splitViewPdfUrl}
-                          type="application/pdf"
-                          className="w-full h-full border-none"
-                        />
+                        {splitViewPdfUrl && (
+                          <embed
+                            key={splitViewPdfUrl}
+                            src={splitViewPdfUrl}
+                            type="application/pdf"
+                            className="w-full h-full border-none"
+                          />
+                        )}
                       </div>
                       <div className="p-2 border-t text-[10px] text-muted-foreground bg-muted/30 text-center">
                         {t('statements.split_view_hint', 'Review transactions alongside the PDF')}

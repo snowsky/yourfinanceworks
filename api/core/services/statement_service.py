@@ -286,6 +286,7 @@ class UniversalBankTransactionExtractor:
         self.prompt_service = get_prompt_service(db_session)
         self.card_type = card_type
         self.detected_card_type = card_type if card_type != "auto" else "debit" # Default fallback
+        self.statement_metadata = {} # Store year, period, etc.
 
         logger.info(f"🚀 Initializing UniversalBankTransactionExtractor: {self.provider_name} / {self.model_name}, prompt_name={self.prompt_name}")
 
@@ -416,7 +417,11 @@ class UniversalBankTransactionExtractor:
             from core.constants.default_prompts import BANK_TRANSACTION_EXTRACTION_PROMPT
             prompt_template = self.prompt_service.get_prompt(
                 name=self.prompt_name,
-                variables={"text": "{{text}}"},  # Preserve placeholder for late binding
+                variables={
+                    "text": "{{text}}",
+                    "card_type": "{{card_type}}",
+                    "statement_context": "{{statement_context}}"
+                },  # Preserve placeholders for late binding
                 provider_name=self.provider_name,
                 fallback_prompt=BANK_TRANSACTION_EXTRACTION_PROMPT
             )
@@ -424,7 +429,7 @@ class UniversalBankTransactionExtractor:
             # Create PromptTemplate object for compatibility
             return PromptTemplate(
                 template=prompt_template,
-                input_variables=["text"]
+                input_variables=["text", "card_type", "statement_context"]
             )
 
         except Exception as e:
@@ -474,19 +479,122 @@ class UniversalBankTransactionExtractor:
             return "debit"
 
     def _render_extraction_prompt(self, text: str) -> str:
-        """Safely render extraction prompt without triggering on other braces"""
-        if hasattr(self.extraction_prompt, 'format'):
+        """Safely render extraction prompt with metadata context injection"""
+        prompt_info = "Fallback"
+        if hasattr(self.extraction_prompt, 'name') and self.extraction_prompt.name:
+            prompt_info = f"DB Prompt '{self.extraction_prompt.name}'"
+            if hasattr(self.extraction_prompt, 'version'):
+                prompt_info += f" (v{self.extraction_prompt.version})"
+        elif hasattr(self, 'prompt_name'):
+            prompt_info = f"Prompt '{self.prompt_name}'"
+
+        if hasattr(self.extraction_prompt, 'format') or hasattr(self.extraction_prompt, 'template'):
             # This handles both our dummy class and LangChain's if used safely
             try:
                 # First try safe replacement
                 template_str = getattr(self.extraction_prompt, 'template', "")
                 if template_str:
-                    return template_str.replace("{text}", text).replace("{{text}}", text).replace("{{card_type}}", self.card_type).replace("{card_type}", self.card_type)
+                    placeholder = "{{statement_context}}"
+                    has_placeholder = placeholder in template_str or "{statement_context}" in template_str
+                    
+                    # Inject metadata context if available
+                    context_str = ""
+                    if self.statement_metadata:
+                        year = self.statement_metadata.get('year')
+                        period = self.statement_metadata.get('period')
+                        if year or period:
+                            context_str = f"STATEMENT CONTEXT:\n"
+                            if year: context_str += f"- Year: {year}\n"
+                            if period: context_str += f"- Statement Period: {period}\n"
+
+                    logger.info(f"📄 Using {prompt_info} (Placeholder: {'FOUND' if has_placeholder else 'MISSING'})")
+                    
+                    if context_str:
+                        if has_placeholder:
+                            logger.info(f"💉 Injecting context: {context_str.strip().replace('\n', ', ')}")
+                        else:
+                            logger.warning(f"⚠️ Placeholder {placeholder} missing in {prompt_info}! Prepending context as safety.")
+                            # Safety measure: prepend context to ensure AI sees it even if placeholder is missing
+                            template_str = f"{context_str}\n\n{template_str}"
+                    else:
+                        logger.warning("⚠️ No metadata context available for injection!")
+                    
+                    rendered = template_str.replace("{{text}}", text).replace("{text}", text) \
+                                       .replace("{{card_type}}", self.card_type).replace("{card_type}", self.card_type) \
+                                       .replace("{{statement_context}}", context_str).replace("{statement_context}", context_str)
+                    return rendered
                 return self.extraction_prompt.format(text=text)
             except Exception:
                 # Fallback to whatever the object provides
                 return str(self.extraction_prompt).replace("{text}", text)
         return str(self.extraction_prompt).replace("{text}", text)
+
+    def _extract_statement_metadata(self, text: str):
+        """Perform a first-pass LLM call to extract statement metadata (year, period, card_type)"""
+        try:
+            logger.info("🧠 [AI SMARTS] Running first-pass metadata extraction...")
+            from litellm import completion
+            
+            # Use only the first 4000 characters for metadata extraction to be efficient
+            header_text = text[:4000]
+            
+            model_name = self._format_model_name()
+            kwargs = self._prepare_litellm_kwargs()
+            
+            from core.constants.default_prompts import BANK_STATEMENT_METADATA_EXTRACTION_PROMPT
+            
+            # Try to get metadata prompt from service
+            try:
+                prompt_template = self.prompt_service.get_prompt(
+                    name="bank_statement_metadata_extraction",
+                    variables={"header_text": "{{header_text}}"}, 
+                    provider_name=self.provider_name,
+                    fallback_prompt=BANK_STATEMENT_METADATA_EXTRACTION_PROMPT
+                )
+                prompt = prompt_template.replace("{{header_text}}", header_text).replace("{header_text}", header_text)
+            except Exception as e:
+                logger.warning(f"Failed to get metadata extraction prompt from service: {e}")
+                prompt = BANK_STATEMENT_METADATA_EXTRACTION_PROMPT.replace("{{header_text}}", header_text)
+
+            kwargs.update({
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 200,
+                "temperature": 0.0
+            })
+
+            logger.info(f"🔍 Extracting statement metadata using {self.provider_name}...")
+            response = completion(**kwargs)
+
+            if response and response.choices:
+                result_text = response.choices[0].message.content
+                import json
+                # Basic JSON extraction from response
+                # More robust JSON extraction - find the outermost { }
+                match = re.search(r'(\{[\s\S]*\})', result_text)
+                if match:
+                    try:
+                        json_str = match.group(0)
+                        self.statement_metadata = json.loads(json_str)
+                        logger.info(f"✨ [AI SMARTS] Successfully detected statement metadata:")
+                        logger.info(f"   - Year: {self.statement_metadata.get('year')}")
+                        logger.info(f"   - Period: {self.statement_metadata.get('period')}")
+                        logger.info(f"   - Type: {self.statement_metadata.get('card_type')}")
+                        
+                        # Update card_type if it was auto and we detected it here
+                        if self.card_type == "auto" and self.statement_metadata.get('card_type'):
+                            self.detected_card_type = self.statement_metadata['card_type']
+                            self.card_type = self.detected_card_type
+                            logger.info(f"   - Card type set to: {self.card_type}")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"🔍 [AI SMARTS] Found JSON-like block but it was invalid: {e}")
+                        logger.info(f"📄 RAW METADATA RESPONSE: {result_text}")
+                else:
+                    logger.warning("🔍 [AI SMARTS] Metadata extraction LLM responded, but no JSON was found.")
+                    logger.info(f"📄 RAW METADATA RESPONSE: {result_text}")
+        except Exception as e:
+            logger.warning(f"Metadata extraction failed: {e}")
+            # Non-critical failure, we continue with empty metadata
 
     def extract_transactions_with_litellm(self, text: str, temperature: float = None) -> List[Dict]:
         """Extract transactions using LiteLLM"""
@@ -672,8 +780,8 @@ class UniversalBankTransactionExtractor:
 
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
-            content = re.sub(r'Statement Period:.*?\n', '', content)
-            content = re.sub(r'Account Summary.*?\n', '', content)
+            # content = re.sub(r'Statement Period:.*?\n', '', content)
+            # content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
 
             full_text += content + "\n\n"
@@ -708,6 +816,10 @@ class UniversalBankTransactionExtractor:
         all_transactions = []
 
         logger.info(f"Extracting transactions from {len(documents)} chunks using {self.provider_name}")
+
+        # FIRST PASS: Extract global metadata from the first chunk
+        if documents:
+            self._extract_statement_metadata(documents[0].page_content)
 
         for i, doc in enumerate(documents):
             logger.info(f"Processing chunk {i+1}/{len(documents)} (size: {len(doc.page_content)} chars)")
@@ -1592,8 +1704,8 @@ JSON:"""
 
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
-            content = re.sub(r'Statement Period:.*?\n', '', content)
-            content = re.sub(r'Account Summary.*?\n', '', content)
+            # content = re.sub(r'Statement Period:.*?\n', '', content)
+            # content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
 
             full_text += content + "\n\n"

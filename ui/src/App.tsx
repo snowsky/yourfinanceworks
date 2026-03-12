@@ -24,6 +24,8 @@ import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { PageContextProvider } from "@/contexts/PageContext";
+import { I18nextProvider } from "react-i18next";
+import i18n from "./i18n";
 
 // Lazy load only page components for code splitting
 const Index = React.lazy(() => import("./pages/Index"));
@@ -276,9 +278,11 @@ const AppContent = () => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="invoice-app-theme">
-        <AppContent />
-      </ThemeProvider>
+      <I18nextProvider i18n={i18n}>
+        <ThemeProvider defaultTheme="system" storageKey="invoice-app-theme">
+          <AppContent />
+        </ThemeProvider>
+      </I18nextProvider>
     </QueryClientProvider>
   );
 };
