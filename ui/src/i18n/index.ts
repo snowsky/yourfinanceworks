@@ -37,14 +37,14 @@ export const loadPluginTranslations = async (pluginId: string, languages: string
 
     for (const lang of languages) {
       try {
-        const module = await import(`./plugins/${pluginId}/${lang}.json`);
+        const module = await import(`../plugins/${pluginId}/locales/${lang}.json`);
         translations[lang] = module.default;
       } catch (error) {
         console.warn(`Failed to load ${lang} translations for plugin ${pluginId}:`, error);
         // Fallback to English if available
         if (lang !== 'en') {
           try {
-            const englishModule = await import(`./plugins/${pluginId}/en.json`);
+            const englishModule = await import(`../plugins/${pluginId}/locales/en.json`);
             translations[lang] = englishModule.default;
           } catch (fallbackError) {
             console.warn(`Failed to load English fallback for plugin ${pluginId}:`, fallbackError);
