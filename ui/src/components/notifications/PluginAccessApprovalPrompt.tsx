@@ -73,6 +73,12 @@ export const PluginAccessApprovalPrompt: React.FC = () => {
     let mounted = true;
 
     const loadPending = async () => {
+      // Only load pending requests if user is authenticated
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+
       try {
         const result = await pluginAccessApi.listPendingMine();
         if (!mounted) return;

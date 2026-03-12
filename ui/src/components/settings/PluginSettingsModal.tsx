@@ -45,7 +45,13 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
       setConfig(response.config || {});
     } catch (error) {
       console.error('Failed to load plugin config:', error);
-      toast.error('Failed to load plugin settings');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error(`Failed to load plugin settings: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }

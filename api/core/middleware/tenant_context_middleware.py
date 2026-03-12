@@ -169,6 +169,8 @@ async def tenant_context_middleware(request: Request, call_next):
         # Organization join endpoints must be public (used during signup)
         "/api/v1/organization-join/lookup",
         "/api/v1/organization-join/request",
+        # Plugin registry endpoint must be public (used for plugin discovery)
+        "/api/v1/plugins/registry",
         # Sync endpoints handle their own authentication (JWT or API key)
         "/api/v1/sync/status",
         "/api/v1/sync/import"

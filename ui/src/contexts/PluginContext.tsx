@@ -776,6 +776,15 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         // Load enabled plugin states from API
         try {
+          // Only attempt to load plugin settings if user is authenticated
+          const token = localStorage.getItem('token');
+          if (!token) {
+            console.log('User not authenticated, skipping plugin settings load');
+            setEnabledPlugins([]);
+            setStorageError(null);
+            return;
+          }
+
           const data = await apiRequest<{
             tenant_id: number;
             enabled_plugins: string[];

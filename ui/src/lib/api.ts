@@ -4297,12 +4297,24 @@ export const gamificationApi = {
 
 // Plugin Management API
 export const pluginApi = {
-  getPluginConfig: (pluginId: string) =>
-    apiRequest<{ plugin_id: string; config: Record<string, any> }>(`/plugins/settings/${pluginId}/config`),
+  getPluginConfig: (pluginId: string) => {
+    // Verify token exists before making request
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required. Please log in again.');
+    }
+    return apiRequest<{ plugin_id: string; config: Record<string, any> }>(`/plugins/settings/${pluginId}/config`);
+  },
 
-  updatePluginConfig: (pluginId: string, config: Record<string, any>) =>
-    apiRequest<{ plugin_id: string; config: Record<string, any>; message: string }>(`/plugins/settings/${pluginId}/config`, {
+  updatePluginConfig: (pluginId: string, config: Record<string, any>) => {
+    // Verify token exists before making request
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required. Please log in again.');
+    }
+    return apiRequest<{ plugin_id: string; config: Record<string, any>; message: string }>(`/plugins/settings/${pluginId}/config`, {
       method: 'PUT',
       body: JSON.stringify({ config }),
-    }),
+    });
+  },
 };
