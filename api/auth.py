@@ -1,5 +1,8 @@
+import logging
 import os
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, IntegerIDMixin
@@ -12,11 +15,11 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from httpx_oauth.clients.google import GoogleOAuth2
 from sqlalchemy.orm import Session
 
+from config import config
 from core.models.database import get_db
 from core.models.models import User
 
-# Secret key for JWT - in production, use environment variable
-SECRET = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET = config.SECRET_KEY
 
 # Google OAuth2 client
 google_oauth_client = GoogleOAuth2(
@@ -29,17 +32,17 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     verification_token_secret = SECRET
 
     async def on_after_register(self, user: User, request: Optional[Request] = None):
-        print(f"User {user.id} has registered.")
+        logger.info(f"User {user.id} has registered.")
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Optional[Request] = None
     ):
-        print(f"User {user.id} has requested a password reset.")
+        logger.info(f"User {user.id} has requested a password reset.")
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Optional[Request] = None
     ):
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
+        logger.info(f"Verification requested for user {user.id}.")
 
 async def get_user_db(session: Session = Depends(get_db)):
     yield SQLAlchemyUserDatabase(session, User)

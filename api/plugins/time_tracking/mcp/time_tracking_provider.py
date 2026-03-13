@@ -38,7 +38,7 @@ class TimeTrackingMCPProvider:
         ) or 0
         amount_agg = (
             self.db.query(func.sum(TimeEntry.amount))
-            .filter(TimeEntry.project_id == project.id, TimeEntry.invoiced == False)  # noqa: E712
+            .filter(TimeEntry.project_id == project.id, TimeEntry.invoiced.is_(False))
             .scalar()
         ) or 0.0
 

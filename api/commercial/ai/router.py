@@ -257,7 +257,7 @@ class AuthenticatedAPIClient:
             try:
                 # Start by getting the response text to debug
                 error_text = e.response.text
-                print(f"DEBUG: HTTP Error Response: {error_text}")
+                logger.debug(f"HTTP Error Response: {error_text}")
 
                 try:
                     error_data = e.response.json()
@@ -286,7 +286,7 @@ class AuthenticatedAPIClient:
                         raise inner_e
                 raise Exception(f"Request error: {e}")
         except Exception as e:
-                print(f"DEBUG: General Request Error: {e}")
+                logger.error(f"General Request Error: {e}")
                 raise Exception(f"Request error: {e}")
 
     # Client Management Methods

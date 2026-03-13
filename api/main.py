@@ -433,7 +433,7 @@ app.mount("/api/v1/static", StaticFiles(directory=static_dir), name="api_static"
 
 # CORS Middleware (permissive for development)
 # Check multiple environment indicators for debug mode
-debug_env = os.getenv("DEBUG", "True").lower()
+debug_env = os.getenv("DEBUG", "False").lower()
 dev_env = os.getenv("ENVIRONMENT", "development").lower()
 debug_mode = debug_env == "true" or dev_env in ["development", "dev"]
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()

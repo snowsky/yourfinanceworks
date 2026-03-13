@@ -951,7 +951,7 @@ class LicenseService:
         missing_fields = [f for f in required_fields if f not in payload]
         if missing_fields:
             error_msg = f"License is missing required fields: {', '.join(missing_fields)}"
-            print(f"DEBUG Activation Failed: {error_msg}")
+            logger.warning(f"Activation Failed: {error_msg}")
             self._log_validation(
                 installation=installation,
                 validation_type="activation",
@@ -1023,7 +1023,7 @@ class LicenseService:
             license_installation_id = metadata.get("installation_id")
 
         if not license_installation_id:
-            print("DEBUG Activation Failed: MISSING_INSTALLATION_ID")
+            logger.warning("Activation Failed: MISSING_INSTALLATION_ID")
             # Log failed activation - missing installation ID
             self._log_validation(
                 installation=installation,

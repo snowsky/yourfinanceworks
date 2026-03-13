@@ -57,7 +57,7 @@ def _enrich_project(project: Project, db: Session) -> dict:
     ) or 0
     amount_agg = (
         db.query(func.sum(TimeEntry.amount))
-        .filter(TimeEntry.project_id == project.id, TimeEntry.invoiced == False)  # noqa: E712
+        .filter(TimeEntry.project_id == project.id, TimeEntry.invoiced.is_(False))
         .scalar()
     ) or 0.0
 
@@ -282,7 +282,7 @@ def get_project_summary(
         db.query(func.sum(TimeEntry.duration_minutes))
         .filter(
             TimeEntry.project_id == project_id,
-            TimeEntry.invoiced == False,  # noqa: E712
+            TimeEntry.invoiced.is_(False),
             TimeEntry.status != "in_progress",
         )
         .scalar()
@@ -291,7 +291,7 @@ def get_project_summary(
         db.query(func.sum(TimeEntry.amount))
         .filter(
             TimeEntry.project_id == project_id,
-            TimeEntry.invoiced == False,  # noqa: E712
+            TimeEntry.invoiced.is_(False),
             TimeEntry.status != "in_progress",
         )
         .scalar()
@@ -342,7 +342,7 @@ def get_unbilled_items(
         db.query(TimeEntry)
         .filter(
             TimeEntry.project_id == project_id,
-            TimeEntry.invoiced == False,  # noqa: E712
+            TimeEntry.invoiced.is_(False),
             TimeEntry.status != "in_progress",
         )
         .all()
@@ -424,7 +424,7 @@ def create_invoice_from_project(
         .filter(
             TimeEntry.id.in_(payload.time_entry_ids),
             TimeEntry.project_id == project_id,
-            TimeEntry.invoiced == False,  # noqa: E712
+            TimeEntry.invoiced.is_(False),
         )
         .all()
     )
@@ -870,7 +870,7 @@ def export_monthly(
     if user_id:
         q = q.filter(TimeEntry.user_id == user_id)
     if billable_only:
-        q = q.filter(TimeEntry.billable == True)  # noqa: E712
+        q = q.filter(TimeEntry.billable.is_(True))
 
     entries = q.order_by(TimeEntry.started_at.asc()).all()
 
