@@ -33,8 +33,7 @@ const Login = () => {
       const data = await authApi.login(email, password);
       // Clear any previous tenant selection
       localStorage.removeItem('selected_tenant_id');
-      // Store token and user info
-      localStorage.setItem("token", data.access_token);
+      // Store user info (token is stored in httpOnly cookie set by server)
       localStorage.setItem("user", JSON.stringify(data.user));
       // Dispatch custom event to notify FeatureContext
       window.dispatchEvent(new Event('auth-changed'));
@@ -76,7 +75,7 @@ const Login = () => {
         try {
           const userJson = atob(userB64.replace(/-/g, '+').replace(/_/g, '/'));
           const user = JSON.parse(userJson);
-          localStorage.setItem('token', token);
+          // token is delivered via httpOnly cookie set by the SSO callback redirect
           localStorage.setItem('user', JSON.stringify(user));
           // Dispatch custom event to notify FeatureContext
           window.dispatchEvent(new Event('auth-changed'));

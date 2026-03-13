@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
+AUTH_COOKIE_NAME = "auth_token"
+_is_production = os.getenv("ENVIRONMENT", "development").lower() not in ("development", "dev")
+
 # --- Google OAuth2 (SSO) setup ---
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -312,8 +315,18 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             return obj.isoformat()
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
     user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
-    redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
-    return RedirectResponse(url=redirect_url)
+    redirect_url = f"{ui_base}/oauth-callback?user={user_b64}&next={redirect_next}"
+    redirect_response = RedirectResponse(url=redirect_url)
+    redirect_response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=_is_production,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return redirect_response
 
 # -------------------- Azure AD OAuth (SSO) endpoints --------------------
 @router.get("/azure/login")
@@ -522,5 +535,15 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             return obj.isoformat()
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
     user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
-    redirect_url = f"{ui_base}/oauth-callback?token={access_token}&user={user_b64}&next={redirect_next}"
-    return RedirectResponse(url=redirect_url)
+    redirect_url = f"{ui_base}/oauth-callback?user={user_b64}&next={redirect_next}"
+    redirect_response = RedirectResponse(url=redirect_url)
+    redirect_response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=_is_production,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return redirect_response

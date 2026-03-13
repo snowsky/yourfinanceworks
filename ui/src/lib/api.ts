@@ -653,7 +653,6 @@ export const bankStatementApi = {
     files: File[],
     card_type: string = 'debit'
   ): Promise<{ success: boolean; statements: BankStatementSummary[] }> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
     })();
@@ -663,11 +662,10 @@ export const bankStatementApi = {
     formData.append('card_type', card_type);
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     const url = `${API_BASE_URL}/statements/upload`;
-    const resp = await fetch(url, { method: 'POST', headers, body: formData });
+    const resp = await fetch(url, { method: 'POST', headers, body: formData, credentials: 'include' });
     const text = await resp.text();
     if (!resp.ok) {
       try { throw new Error(JSON.parse(text).detail || 'Failed to process bank statements'); }
@@ -739,16 +737,14 @@ export const bankStatementApi = {
     statementId: number,
     inline = true
   ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
     })();
     const base = API_BASE_URL.replace(/\/$/, '');
     const url = `${base}/statements/${statementId}/file${inline ? '?inline=true' : ''}`;
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
-    const resp = await fetch(url, { method: 'GET', headers });
+    const resp = await fetch(url, { method: 'GET', headers, credentials: 'include' });
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       throw new Error(text || `Failed to fetch file (${resp.status})`);
@@ -897,17 +893,15 @@ export const investmentApi = {
   downloadHoldingsFileBlob: async (
     attachmentId: number
   ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
     })();
     const base = API_BASE_URL.replace(/\/$/, '');
     const url = `${base}/investments/holdings-files/${attachmentId}/download`;
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const resp = await fetch(url, { method: 'GET', headers });
+    const resp = await fetch(url, { method: 'GET', headers, credentials: 'include' });
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
@@ -1181,7 +1175,6 @@ const downloadCsvExport = async (
   endpoint: string,
   params: Record<string, string | number | boolean | undefined>
 ): Promise<CsvExportDownload> => {
-  const token = localStorage.getItem('token');
   const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -1198,13 +1191,12 @@ const downloadCsvExport = async (
   });
 
   const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
   const queryString = searchParams.toString();
   const response = await fetch(
     `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ''}`,
-    { method: 'GET', headers }
+    { method: 'GET', headers, credentials: 'include' }
   );
 
   if (!response.ok) {
@@ -1243,17 +1235,13 @@ export async function apiRequest<T>(
   config: { isLogin?: boolean; skipTenant?: boolean } = {}
 ): Promise<T> {
   try {
-    // Get JWT token from localStorage
-    const token = localStorage.getItem('token');
-    // Get tenantId from localStorage - check for selected tenant first, then fallback to user's default
+    // Resolve tenant ID from selected tenant or user's default
     let tenantId: string | undefined = undefined;
     try {
-      // First check if user has selected a specific tenant
       const selectedTenantId = localStorage.getItem('selected_tenant_id');
       if (selectedTenantId) {
         tenantId = selectedTenantId;
       } else {
-        // Fallback to user's default tenant
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const user = JSON.parse(userStr);
@@ -1270,38 +1258,27 @@ export async function apiRequest<T>(
     let extraHeaders: Record<string, string> = {};
     if (options.headers) {
       if (options.headers instanceof Headers) {
-        // Convert Headers instance to plain object
-        options.headers.forEach((value, key) => {
-          extraHeaders[key] = value;
-        });
+        options.headers.forEach((value, key) => { extraHeaders[key] = value; });
       } else if (typeof options.headers === 'object' && !Array.isArray(options.headers)) {
         extraHeaders = options.headers as Record<string, string>;
       }
     }
-    const headers: Record<string, string> = {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...extraHeaders,
-    };
+    const headers: Record<string, string> = { ...extraHeaders };
 
     // Only set Content-Type for non-FormData requests
-    // FormData requests need the browser to set Content-Type with boundary
     if (!(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
     if (!config.skipTenant && tenantId) {
-      // Ensure tenant ID is a valid number string
       const numericTenantId = parseInt(tenantId, 10);
       if (!isNaN(numericTenantId)) {
         headers['X-Tenant-ID'] = numericTenantId.toString();
-      } else {
-        console.warn(`⚠️ Invalid tenant ID: ${tenantId}`);
       }
-    } else if (!config.skipTenant) {
-      console.warn(`⚠️ No tenant ID available for request to ${requestUrl}`);
     }
     const response = await fetch(requestUrl, {
       ...options,
       headers,
+      credentials: 'include',
     });
 
     // Log the raw response text for debugging
@@ -1333,14 +1310,12 @@ export async function apiRequest<T>(
       if (!config.isLogin && response.status === 401) {
         // Don't log out for super-admin endpoints - they might fail for other reasons
         if (!requestUrl.includes('/super-admin/')) {
-          // Only log out on 401 (unauthorized) - token is invalid/expired
-          localStorage.removeItem('token');
+          // Session expired — clear local user data and redirect to login
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           // Show toast and redirect to login only if not already on login page
           if (!window.location.pathname.includes('/login')) {
             toast.error('Session expired. Please log in again.');
-            // Use window.location.replace for reliability
             setTimeout(() => window.location.replace('/login'), 100);
           }
           throw new Error('Authentication failed. Please log in again.');
@@ -1355,7 +1330,6 @@ export async function apiRequest<T>(
         // Check if it's a tenant context error (but not for super-admin endpoints)
         if (!requestUrl.includes('/super-admin/') && errorData.detail && errorData.detail.includes('Tenant context required')) {
           // This is a session/tenant context issue - log out the user
-          localStorage.removeItem('token');
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           toast.error('Session expired. Please log in again.');
@@ -1371,7 +1345,6 @@ export async function apiRequest<T>(
       if (response.status === 400 && errorData.detail && typeof errorData.detail === 'string' && errorData.detail.includes('Tenant context required')) {
         // This is a session/tenant context issue - log out the user (but not for super-admin endpoints)
         if (!requestUrl.includes('/super-admin/')) {
-          localStorage.removeItem('token');
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           toast.error('Session expired. Please log in again.');
@@ -2256,7 +2229,6 @@ export const invoiceApi = {
 
   // Attachment methods
   uploadAttachment: async (invoiceId: number, file: File) => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') ||
       (() => {
         try {
@@ -2268,9 +2240,7 @@ export const invoiceApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = {};
     if (tenantId) {
       headers['X-Tenant-ID'] = tenantId;
     }
@@ -2280,6 +2250,7 @@ export const invoiceApi = {
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: formData,
     });
 
@@ -2524,7 +2495,6 @@ export const expenseApi = {
   deleteExpense: async (id: number) =>
     apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
   uploadReceipt: async (expenseId: number, file: File) => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -2535,13 +2505,11 @@ export const expenseApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = {};
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     const uploadUrl = `${API_BASE_URL}/expenses/${expenseId}/upload-receipt`;
-    const response = await fetch(uploadUrl, { method: 'POST', headers, body: formData });
+    const response = await fetch(uploadUrl, { method: 'POST', headers, body: formData, credentials: 'include' });
     if (!response.ok) {
       const errorText = await response.text();
       try { throw new Error(JSON.parse(errorText).detail || 'Failed to upload receipt'); }
@@ -2560,7 +2528,6 @@ export const expenseApi = {
     return apiRequest(`/expenses/${expenseId}/attachments/${attachmentId}`, { method: 'DELETE' });
   },
   downloadAttachmentBlob: async (expenseId: number, attachmentId: number, inline: boolean = true): Promise<{ blob: Blob; contentType: string | null }> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -2569,11 +2536,10 @@ export const expenseApi = {
     })();
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    let url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
-    const resp = await fetch(url, { headers });
+    const url = `${API_BASE_URL}/expenses/${expenseId}/attachments/${attachmentId}/download?inline=${inline}`;
+    const resp = await fetch(url, { headers, credentials: 'include' });
     if (!resp.ok) {
       const text = await resp.text();
       try { throw new Error(JSON.parse(text).detail || 'Failed to download'); }
@@ -2908,11 +2874,8 @@ export const settingsApi = {
   testNotification: () => apiRequest<any>("/notifications/test", { method: 'POST' }),
   testEmailConfiguration: () => apiRequest<any>("/email/test", { method: 'POST' }),
   exportData: async () => {
-    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}/settings/export-data`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -2942,16 +2905,13 @@ export const settingsApi = {
     document.body.removeChild(a);
   },
   importData: async (file: File) => {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await fetch(`${API_BASE_URL}/settings/import-data`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
       body: formData,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -3357,34 +3317,17 @@ export const reportApi = {
 
   downloadReport: async (reportId: number) => {
     try {
-      console.log('DownloadReport: Starting download for report ID:', reportId);
-
-      // For downloads, we need to bypass the JSON parsing in apiRequest
-      const token = localStorage.getItem('token');
       const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
         try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
       })();
 
-      console.log('DownloadReport: Auth check - token exists:', !!token, 'tenantId:', tenantId);
-
       const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
       if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
       const downloadUrl = `${API_BASE_URL}/reports/download/${reportId}`;
-      console.log('DownloadReport: Making request to:', downloadUrl);
+      const response = await fetch(downloadUrl, { method: 'GET', headers, credentials: 'include' });
 
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-        headers,
-      });
-
-      console.log('DownloadReport: Response status:', response.status, response.statusText);
-
-      // Handle 401 errors specifically for downloads
       if (response.status === 401) {
-        console.error('DownloadReport: 401 Unauthorized - clearing auth data');
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('selected_tenant_id');
         window.location.replace('/login');
@@ -3392,11 +3335,9 @@ export const reportApi = {
       }
 
       if (!response.ok) {
-        console.error('DownloadReport: Request failed with status:', response.status, response.statusText);
         throw new Error(`Download failed: ${response.status} ${response.statusText}`);
       }
 
-      console.log('DownloadReport: Download successful');
       return response;
     } catch (error) {
       console.error('Download report error:', error);
@@ -3705,7 +3646,6 @@ export const inventoryApi = {
     include_inactive?: boolean;
     category_id?: number;
   }) => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') ||
       (() => {
         try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
@@ -3717,12 +3657,12 @@ export const inventoryApi = {
     const queryString = searchParams.toString();
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     const response = await fetch(`${API_BASE_URL}/inventory/export/csv${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
       headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -4298,20 +4238,10 @@ export const gamificationApi = {
 // Plugin Management API
 export const pluginApi = {
   getPluginConfig: (pluginId: string) => {
-    // Verify token exists before making request
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Authentication required. Please log in again.');
-    }
     return apiRequest<{ plugin_id: string; config: Record<string, any> }>(`/plugins/settings/${pluginId}/config`);
   },
 
   updatePluginConfig: (pluginId: string, config: Record<string, any>) => {
-    // Verify token exists before making request
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Authentication required. Please log in again.');
-    }
     return apiRequest<{ plugin_id: string; config: Record<string, any>; message: string }>(`/plugins/settings/${pluginId}/config`, {
       method: 'PUT',
       body: JSON.stringify({ config }),

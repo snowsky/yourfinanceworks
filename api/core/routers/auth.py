@@ -3,7 +3,7 @@
 # Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 # See LICENSE-AGPLv3.txt for details.
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -56,7 +56,10 @@ def _prune_attempts(attempts: deque, window_seconds: int) -> None:
         attempts.popleft()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
+
+AUTH_COOKIE_NAME = "auth_token"
+_is_production = os.getenv("ENVIRONMENT", "development").lower() not in ("development", "dev")
 # --- Google OAuth2 (SSO) and Azure AD OAuth2 (SSO) are now in commercial module ---
 
 def create_password_reset_token() -> str:
@@ -153,7 +156,8 @@ class ChangePasswordRequest(BaseModel):
     confirm_password: str
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_master_db)
 ) -> MasterUser:
     credentials_exception = HTTPException(
@@ -161,8 +165,11 @@ def get_current_user(
         detail=INVALID_CREDENTIALS,
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = credentials.credentials if credentials else request.cookies.get(AUTH_COOKIE_NAME)
+    if not token:
+        raise credentials_exception
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             logger.warning("get_current_user: No email in JWT payload")
@@ -599,8 +606,14 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
 # -------------------- Google OAuth (SSO) endpoints moved to commercial module --------------------
 
 
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(AUTH_COOKIE_NAME, path="/", samesite="lax")
+    return {"message": "Logged out successfully"}
+
+
 @router.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db)):
+async def login(user_credentials: UserLogin, response: Response, db: Session = Depends(get_master_db)):
     # Rate limit by email
     email_key = (user_credentials.email or "").lower().strip()
     attempts = LOGIN_ATTEMPTS[email_key]
@@ -651,6 +664,16 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_master_db
     # Create user response with organizations
     user_response = UserRead.model_validate(user)
     user_response.organizations = organizations
+
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=_is_production,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
 
     return {
         "access_token": access_token,
