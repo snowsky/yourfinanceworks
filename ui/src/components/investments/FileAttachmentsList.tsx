@@ -93,7 +93,6 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
   const downloadAttachmentMutation = useMutation({
     mutationFn: async (attachmentId: string) => {
       try {
-        const token = localStorage.getItem('token');
         const selectedTenantId = localStorage.getItem('selected_tenant_id');
         const userStr = localStorage.getItem('user');
         let tenantId = selectedTenantId;
@@ -106,9 +105,9 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
           `/api/v1/investments/holdings-files/${attachmentId}/download`,
           {
             headers: {
-              'Authorization': `Bearer ${token}`,
               ...(tenantId && { 'X-Tenant-ID': tenantId }),
             },
+            credentials: 'include',
           }
         );
 

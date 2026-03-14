@@ -50,21 +50,11 @@ export const getCurrentUserRole = (): UserRole => {
 };
 
 /**
- * Check if current user is authenticated
+ * Check if current user is authenticated (auth cookie is httpOnly, so we rely on user data presence)
  * @returns boolean
  */
 export const isAuthenticated = (): boolean => {
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
-  const authenticated = !!(token && user);
-
-  console.log('isAuthenticated check:', {
-    hasToken: !!token,
-    hasUser: !!user,
-    authenticated
-  });
-
-  return authenticated;
+  return !!localStorage.getItem('user');
 };
 
 /**
@@ -115,30 +105,11 @@ export const canPerformActions = (): boolean => {
  * @returns boolean
  */
 export const hasRole = (allowedRoles: UserRole[]): boolean => {
-  const currentRole = getCurrentUserRole();
-  const hasAccess = allowedRoles.includes(currentRole);
-
-  console.log('hasRole check:', {
-    currentRole,
-    allowedRoles,
-    hasAccess
-  });
-
-  return hasAccess;
+  return allowedRoles.includes(getCurrentUserRole());
 };
 
-/**
- * Check if current user can access a specific feature
- * @param feature Feature name for debugging
- * @param allowedRoles Array of allowed roles
- * @returns boolean
- */
-export const canAccess = (feature: string, allowedRoles: UserRole[]): boolean => {
-  const hasAccess = hasRole(allowedRoles);
-  if (!hasAccess) {
-    console.log(`Access denied to ${feature}. Required roles: ${allowedRoles.join(', ')}, Current role: ${getCurrentUserRole()}`);
-  }
-  return hasAccess;
+export const canAccess = (_feature: string, allowedRoles: UserRole[]): boolean => {
+  return hasRole(allowedRoles);
 };
 
 /**
@@ -249,11 +220,14 @@ export const updateCurrentUser = (userData: Partial<User>): void => {
 /**
  * Clear authentication data and redirect to login
  */
-export const logout = () => {
-  localStorage.removeItem('token');
+export const logout = async () => {
+  try {
+    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch {
+    // proceed with local cleanup even if server call fails
+  }
   localStorage.removeItem('user');
   localStorage.removeItem('selected_tenant_id');
-  // Dispatch custom event to notify FeatureContext
   window.dispatchEvent(new Event('auth-changed'));
   window.location.href = '/login';
 };
@@ -264,15 +238,9 @@ export const logout = () => {
  * @returns boolean indicating if user is authenticated
  */
 export const ensureAuthenticated = (redirectOnFailure: boolean = true): boolean => {
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
-
-  const isAuthenticated = !!(token && user);
-
-  if (!isAuthenticated && redirectOnFailure) {
-    console.warn('Authentication check failed, redirecting to login');
+  const authenticated = isAuthenticated();
+  if (!authenticated && redirectOnFailure) {
     window.location.href = '/login';
   }
-
-  return isAuthenticated;
+  return authenticated;
 }; 

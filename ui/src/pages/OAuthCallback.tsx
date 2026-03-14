@@ -8,14 +8,14 @@ const OAuthCallback = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const token = params.get('token');
     const userB64 = params.get('user');
     const next = params.get('next') || '/dashboard';
-    if (token && userB64) {
+    if (userB64) {
       try {
         const userJson = atob(userB64.replace(/-/g, '+').replace(/_/g, '/'));
         const user = JSON.parse(userJson);
-        localStorage.setItem('token', token);
+        // token is delivered via httpOnly cookie set by the SSO backend redirect
+        localStorage.removeItem('token'); // clear any pre-migration token
         localStorage.setItem('user', JSON.stringify(user));
         // Dispatch custom event to notify FeatureContext
         window.dispatchEvent(new Event('auth-changed'));

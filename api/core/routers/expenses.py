@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -59,8 +59,8 @@ def check_expense_modification_allowed(expense: Expense) -> None:
 
 @router.get("/", response_model=ExpenseListResponse)
 async def list_expenses(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
     category: Optional[str] = None,
     label: Optional[str] = None,
     invoice_id: Optional[int] = None,
@@ -1247,8 +1247,8 @@ async def update_expense(
 
 @router.get("/recycle-bin", response_model=PaginatedDeletedExpenses)
 async def get_deleted_expenses(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):

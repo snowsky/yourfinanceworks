@@ -75,11 +75,7 @@ const AttachmentSearch = () => {
 
   const handleDownload = async (result: AttachmentResult) => {
     try {
-      const response = await fetch(result.download_url, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await fetch(result.download_url, { credentials: 'include' });
 
       if (!response.ok) throw new Error('Download failed');
 

@@ -150,14 +150,12 @@ const Dashboard = () => {
         }
 
         // Fetch tenant name
-        const token = localStorage.getItem('token');
-        if (token && isMounted) {
+        const userItem = localStorage.getItem('user');
+        if (userItem && isMounted) {
           try {
             const response = await fetch(`${API_BASE_URL}/tenants/me`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
             });
 
             if (response.ok) {

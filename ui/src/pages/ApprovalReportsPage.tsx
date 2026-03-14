@@ -276,10 +276,8 @@ export default function ApprovalReportsPage() {
 
       const response = await fetch(`${API_BASE_URL}/approval-reports/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           report_type: 'metrics',
           filters: {

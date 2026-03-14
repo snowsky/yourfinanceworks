@@ -341,10 +341,10 @@ const Signup: React.FC = () => {
       if (signupMode === 'create') {
         // Regular signup - create new organization
         const data = await authApi.register(formData);
-        // Clear any previous tenant selection
+        // Clear any previous tenant selection and pre-migration token
         localStorage.removeItem('selected_tenant_id');
-        // Store token and user info
-        localStorage.setItem('token', data.access_token);
+        localStorage.removeItem('token');
+        // Store user info (token is stored in httpOnly cookie set by server)
         localStorage.setItem('user', JSON.stringify(data.user));
         // Dispatch custom event to notify FeatureContext
         window.dispatchEvent(new Event('auth-changed'));

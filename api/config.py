@@ -4,6 +4,13 @@ Configuration settings for the Invoice Application
 import os
 from typing import Optional
 
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"Required environment variable '{name}' is not set")
+    return value
+
 # Application constants
 APP_NAME = "YourFinanceWORKS"
 
@@ -42,8 +49,8 @@ class Config:
     UPLOAD_PATH: str = os.getenv("UPLOAD_PATH", "./attachments")
 
     # Security settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-jwt-secret-key")
+    SECRET_KEY: str = _require_env("SECRET_KEY")
+    JWT_SECRET_KEY: str = _require_env("JWT_SECRET_KEY")
 
     # Tenant settings
     MULTI_TENANT: bool = os.getenv("MULTI_TENANT", "true").lower() == "true"

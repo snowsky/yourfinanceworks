@@ -74,8 +74,8 @@ export const PluginAccessApprovalPrompt: React.FC = () => {
 
     const loadPending = async () => {
       // Only load pending requests if user is authenticated
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const user = localStorage.getItem('user');
+      if (!user) {
         return;
       }
 

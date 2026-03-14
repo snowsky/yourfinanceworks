@@ -364,11 +364,11 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
   const [authInitialized, setAuthInitialized] = useState(false);
 
   // Check authentication and user role
+  // Note: token is no longer stored in localStorage (httpOnly cookie); check user data only
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
-      const authStatus = !!(token && userStr);
+      const authStatus = !!userStr;
 
       let currentUser = null;
       let adminStatus = false;
@@ -434,11 +434,10 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 
     // Check auth every 1 second for immediate logout detection
     const authInterval = setInterval(() => {
-      const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
 
-      // If either token or user data is missing, hide the assistant
-      if (!token || !userStr) {
+      // If user data is missing, hide the assistant
+      if (!userStr) {
         if (isAuthenticated) { // Only log if state changes
           setIsAuthenticated(false);
           setUser(null);
@@ -843,7 +842,6 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
 
   // Separate API client for AI requests to avoid interfering with global loading states
   const aiApiRequest = async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -854,13 +852,13 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     const requestUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}${url}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...(tenantId && { 'X-Tenant-ID': tenantId }),
     };
 
     const response = await fetch(requestUrl, {
       ...options,
       headers: { ...headers, ...options.headers },
+      credentials: 'include',
     });
 
     if (!response.ok) {

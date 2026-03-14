@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: invoice_master
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       # Allow multiple databases to be created
       POSTGRES_MULTIPLE_DATABASES: "true"
     volumes:
@@ -38,13 +38,13 @@ services:
       # Only container-specific hostnames and settings are defined here
       # ============================================================================
       # Master database for tenant management (Docker-specific hostname)
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       # Kafka (Docker-specific hostname)
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_OCR_TOPIC=expenses_ocr
@@ -200,14 +200,14 @@ services:
       - ./api/.env
     environment:
       # Master database for tenant management
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       # Multi-tenant configuration
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       # Kafka
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_OCR_TOPIC=expenses_ocr
@@ -254,13 +254,13 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_FRAUD_AUDIT_TOPIC=fraud_audit
       - KAFKA_AUDIT_GROUP=invoice-app-audit
@@ -301,13 +301,13 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMAIL_POLL_INTERVAL=10
       - EMAIL_BATCH_SIZE=50
@@ -350,13 +350,13 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - REVIEW_POLL_INTERVAL=60
       - PYTHONPATH=/app
@@ -391,13 +391,13 @@ services:
     env_file:
       - ./api/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres-master:5432/invoice_master
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres-master:5432/invoice_master
       - MULTITENANT_MODE=database_per_tenant
       - TENANT_DATABASE_PREFIX=tenant_
       - MASTER_DATABASE_HOST=postgres-master
       - MASTER_DATABASE_PORT=5432
       - MASTER_DATABASE_USER=postgres
-      - MASTER_DATABASE_PASSWORD=password
+      - MASTER_DATABASE_PASSWORD=${POSTGRES_PASSWORD:-password}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONPATH=/app
       # Kafka for holdings import tasks
@@ -512,7 +512,7 @@ services:
     container_name: invoice_app_backup
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_HOST: postgres-master
       POSTGRES_PORT: 5432
     volumes:

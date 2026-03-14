@@ -1286,7 +1286,7 @@ async def recreate_tenant_database(
 
         # Log audit event for database recreation
         from core.utils.audit import log_audit_event_master
-        print(f"DEBUG: Creating master audit log for database recreation by {current_user.email}")
+        logger.info(f"Creating master audit log for database recreation by {current_user.email}")
         log_audit_event_master(
             db=master_db,
             user_id=current_user.id,
@@ -1305,7 +1305,7 @@ async def recreate_tenant_database(
             status="success",
             tenant_id=tenant_id
         )
-        print(f"DEBUG: Master audit log created successfully")
+        logger.info("Master audit log created successfully")
 
         return {"message": f"Database for tenant {tenant.name} recreated successfully"}
 

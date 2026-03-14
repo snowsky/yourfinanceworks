@@ -135,9 +135,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const fetchImageWithAuth = async (attachmentId: number): Promise<string | null> => {
     try {
       const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachmentId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -167,9 +165,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const fetchAttachmentContent = async (attachmentId: number): Promise<{ content: string; contentType: string; isTruncated?: boolean } | null> => {
     try {
       const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachmentId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -235,9 +231,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
   const handleDownload = async (attachment: Attachment) => {
     try {
       const response = await fetch(`/api/v1/inventory/${itemId}/attachments/${attachment.id}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        credentials: 'include'
       });
       if (!response.ok) {
         throw new Error('Download failed');

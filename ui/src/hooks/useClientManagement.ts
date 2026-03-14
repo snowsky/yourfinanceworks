@@ -39,8 +39,7 @@ export function useClientManagement({ clients, setClients, tenantInfo }: UseClie
   // Handle client creation
   const handleCreateClient = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!localStorage.getItem('user')) {
         toast.error("Please log in to create a client");
         return;
       }
