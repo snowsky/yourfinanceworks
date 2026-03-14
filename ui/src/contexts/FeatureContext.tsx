@@ -62,8 +62,9 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setError(null);
 
       // Check if user is authenticated before making the API call
-      const token = localStorage.getItem('token');
-      if (!token) {
+      // Token is now in an httpOnly cookie (not readable from JS); use presence of user data instead
+      const user = localStorage.getItem('user');
+      if (!user) {
         // User not authenticated - use safe defaults
         setFeatures({
           ai_invoice: false,
@@ -230,9 +231,9 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchFeatures();
     }
 
-    // Listen for storage events (e.g., when token is set in another tab or after login)
+    // Listen for storage events (e.g., when user is set in another tab or after login)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
+      if (e.key === 'user') {
         fetchFeatures();
       }
     };

@@ -19,14 +19,14 @@ export function RoleProtectedRoute({
   const [isLoading, setIsLoading] = useState(true);
 
   // Role check logic
+  // Note: token is no longer stored in localStorage (httpOnly cookie); check user data only
   const checkRole = () => {
-    const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
     console.log('RoleProtectedRoute: Checking role authorization', { path: location.pathname });
 
-    if (!token || !user) {
-      console.log('RoleProtectedRoute: No token or user found, redirecting to login');
+    if (!user) {
+      console.log('RoleProtectedRoute: No user found, redirecting to login');
       setIsAuthorized(false);
       setIsLoading(false);
       navigate('/login', { replace: true });
@@ -53,7 +53,6 @@ export function RoleProtectedRoute({
     } catch (error) {
       console.log('RoleProtectedRoute: Invalid user data, clearing and redirecting');
       // Invalid user data, clear and redirect
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
       setIsAuthorized(false);
       setIsLoading(false);

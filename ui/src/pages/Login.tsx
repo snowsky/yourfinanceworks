@@ -31,8 +31,9 @@ const Login = () => {
 
     try {
       const data = await authApi.login(email, password);
-      // Clear any previous tenant selection
+      // Clear any previous tenant selection and pre-migration token
       localStorage.removeItem('selected_tenant_id');
+      localStorage.removeItem('token'); // clear any pre-migration token
       // Store user info (token is stored in httpOnly cookie set by server)
       localStorage.setItem("user", JSON.stringify(data.user));
       // Dispatch custom event to notify FeatureContext

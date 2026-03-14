@@ -2275,7 +2275,6 @@ export const invoiceApi = {
     }
   },
   downloadAttachment: (invoiceId: number, attachmentId?: number) => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') ||
       (() => {
         try {
@@ -2285,14 +2284,13 @@ export const invoiceApi = {
       })();
 
     // Create a form to submit with proper headers
+    // Auth is handled via the httpOnly cookie sent automatically by the browser
     const form = document.createElement('form');
     form.method = 'GET';
     form.action = `${API_BASE_URL}/invoices/${invoiceId}/download-attachment`;
     form.target = '_blank';
 
-    // Add token as query parameter since we can't set headers on form submission
     const url = new URL(form.action);
-    url.searchParams.set('token', token || '');
     if (tenantId) {
       url.searchParams.set('tenant_id', tenantId);
     }
@@ -2308,7 +2306,6 @@ export const invoiceApi = {
   getAttachmentInfo: (invoiceId: number) =>
     apiRequest<{ has_attachment: boolean; filename?: string; content_type?: string; file_size?: number }>(`/invoices/${invoiceId}/attachment-info`),
   previewAttachmentBlob: async (invoiceId: number, attachmentId?: number): Promise<Blob> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -2317,14 +2314,13 @@ export const invoiceApi = {
     })();
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     let url = `${API_BASE_URL}/invoices/${invoiceId}/preview-attachment`;
     if (attachmentId) {
       url += `?attachment_id=${attachmentId}`;
     }
-    const resp = await fetch(url, { headers });
+    const resp = await fetch(url, { headers, credentials: 'include' });
     if (!resp.ok) {
       const text = await resp.text();
       try { throw new Error(JSON.parse(text).detail || 'Failed to preview'); }

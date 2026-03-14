@@ -39,9 +39,7 @@ const InventoryItemDetail: React.FC = () => {
   const fetchImageWithAuth = async (attachmentId: number): Promise<string | null> => {
     try {
       const response = await fetch(`/api/v1/inventory/${id}/attachments/${attachmentId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -215,9 +213,7 @@ const InventoryItemDetail: React.FC = () => {
                       onClick={async () => {
                         try {
                           const response = await fetch(`/api/v1/inventory/${item.id}/attachments/${primaryImage.id}/download`, {
-                            headers: {
-                              'Authorization': `Bearer ${localStorage.getItem('token')}`
-                            }
+                            credentials: 'include'
                           });
 
                           if (!response.ok) {
@@ -275,9 +271,7 @@ const InventoryItemDetail: React.FC = () => {
                       onClick={async () => {
                         try {
                           const response = await fetch(`/api/v1/inventory/${item.id}/attachments/${primaryImage.id}/download`, {
-                            headers: {
-                              'Authorization': `Bearer ${localStorage.getItem('token')}`
-                            }
+                            credentials: 'include'
                           });
 
                           if (!response.ok) {

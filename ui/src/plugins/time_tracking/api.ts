@@ -220,7 +220,6 @@ export const timeEntryApi = {
     user_id?: number;
     billable_only?: boolean;
   }): Promise<void> => {
-    const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
       try {
         const u = JSON.parse(localStorage.getItem('user') || '{}');
@@ -233,10 +232,9 @@ export const timeEntryApi = {
     const url = `${API_BASE_URL}/time-entries/export/monthly${qs}`;
 
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-    const resp = await fetch(url, { method: 'GET', headers });
+    const resp = await fetch(url, { method: 'GET', headers, credentials: 'include' });
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       throw new Error(text || `Export failed (${resp.status})`);

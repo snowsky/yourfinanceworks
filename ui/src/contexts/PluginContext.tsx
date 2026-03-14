@@ -777,8 +777,8 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // Load enabled plugin states from API
         try {
           // Only attempt to load plugin settings if user is authenticated
-          const token = localStorage.getItem('token');
-          if (!token) {
+          const user = localStorage.getItem('user');
+          if (!user) {
             console.log('User not authenticated, skipping plugin settings load');
             setEnabledPlugins([]);
             setStorageError(null);
@@ -826,8 +826,8 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           setEnabledPlugins([]);
 
           // Only show error if we're actually supposed to be logged in
-          const token = localStorage.getItem('token');
-          if (token) {
+          const user = localStorage.getItem('user');
+          if (user) {
             setStorageError('Failed to load plugin settings from server');
             window.dispatchEvent(new CustomEvent('plugin-storage-warning', {
               detail: { error: 'Failed to load plugin settings from server' }

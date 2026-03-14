@@ -12,11 +12,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Auth check logic extracted for reuse
+  // Note: token is no longer stored in localStorage (httpOnly cookie); check user data only
   const checkAuth = () => {
-    const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
-    if (!token || !user) {
+    if (!user) {
       setIsAuthenticated(false);
       setIsLoading(false);
       navigate('/login', { replace: true });
@@ -25,12 +25,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     try {
       // Validate that user data is valid JSON
-      const userData = JSON.parse(user);
+      JSON.parse(user);
       setIsAuthenticated(true);
       setIsLoading(false);
     } catch (error) {
       // Invalid user data, clear and redirect
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
       setIsAuthenticated(false);
       setIsLoading(false);
@@ -47,12 +46,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Listen for storage events (cross-tab logout/login)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'token' && !localStorage.getItem('token')) {
-        console.log('ProtectedRoute: Detected token removal via storage event, redirecting to login');
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        navigate('/login', { replace: true });
-      }
       if (e.key === 'user' && !localStorage.getItem('user')) {
         console.log('ProtectedRoute: Detected user removal via storage event, redirecting to login');
         setIsAuthenticated(false);
