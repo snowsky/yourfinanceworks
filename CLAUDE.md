@@ -10,38 +10,24 @@ YourFinanceWORKS is an AI-powered financial management SaaS platform. It uses a 
 
 ### Running the Full Stack
 ```bash
-docker-compose up                        # Start all services (PostgreSQL, Redis, Kafka, OpenSearch, API, UI)
+docker compose up                        # Start all services (PostgreSQL, Redis, Kafka, OpenSearch, API, UI)
 ```
 
 ### Backend (FastAPI)
 ```bash
-cd api
-pip install -r requirements.txt
-uvicorn main:app --reload               # Dev server
-
-# Tests
-pytest -v                               # All tests
-pytest -v --cov=. --cov-report=html    # With coverage
-pytest tests/test_invoices.py          # Single test file
-pytest -k "test_create_invoice"        # Single test by name
-
-# In Docker
-docker-compose exec api pytest -v
+# Tests (via Docker)
+docker compose exec api pytest -v                               # All tests
+docker compose exec api pytest -v --cov=. --cov-report=html    # With coverage
+docker compose exec api pytest tests/test_invoices.py          # Single test file
+docker compose exec api pytest -k "test_create_invoice"        # Single test by name
 ```
 
 ### Frontend (React/TypeScript/Vite)
 ```bash
-cd ui
-npm install
-npm run dev          # Dev server
-npm run build        # Production build
-npm run lint         # ESLint
-npm run test         # Vitest (watch mode)
-npm run test:run     # Vitest (single run)
-npm run test:coverage  # With coverage
-
-# Single test file
-npx vitest run src/components/InvoiceForm.test.tsx
+# Tests (via Docker)
+docker compose exec ui npx vitest run                                          # Single run
+docker compose exec ui npx vitest run --coverage                               # With coverage
+docker compose exec ui npx vitest run src/components/InvoiceForm.test.tsx      # Single test file
 ```
 
 ### Run All Tests
