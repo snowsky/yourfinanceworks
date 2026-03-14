@@ -235,20 +235,25 @@ async def tenant_context_middleware(request: Request, call_next):
             authorization = request.headers.get("Authorization")
             header_tenant_id = request.headers.get("X-Tenant-ID")
 
-            # SECURITY IMPROVEMENT 10: Don't log partial tokens
-            auth_present = bool(authorization and authorization.startswith("Bearer "))
+            # Extract token from Bearer header or httpOnly cookie
+            token = None
+            if authorization and authorization.startswith("Bearer "):
+                token = authorization.split(" ")[1]
+            else:
+                token = request.cookies.get("auth_token")
+
+            auth_present = bool(token)
             logger.info(f"Auth token present: {auth_present}")
 
             if not auth_present:
-                logger.info("No valid Bearer token found")
+                logger.info("No valid Bearer token or auth cookie found")
                 record_failed_auth(client_ip)
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={"detail": "Authentication required. Please log in."},
                 )
 
-            logger.info("Processing Bearer token")
-            token = authorization.split(" ")[1]
+            logger.info("Processing token")
 
             # SECURITY IMPROVEMENT 11: Add token validation
             if len(token) < 10:  # Basic sanity check
