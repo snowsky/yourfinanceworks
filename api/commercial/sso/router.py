@@ -20,6 +20,7 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
 from core.utils.feature_gate import require_feature, check_feature
 from core.utils.auth import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from core.routers.auth import AUTH_COOKIE_NAME
 from config import config
 from sqlalchemy import func
 from core.utils.rbac import require_admin
@@ -29,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-AUTH_COOKIE_NAME = "auth_token"
 _is_production = os.getenv("ENVIRONMENT", "development").lower() not in ("development", "dev")
 
 # --- Google OAuth2 (SSO) setup ---
