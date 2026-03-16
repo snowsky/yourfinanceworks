@@ -143,10 +143,18 @@ async def list_expenses(
         # Log pagination info for debugging
         logger.info(f"Expenses query: total_count={total_count}, skip={skip}, limit={limit}, returned={len(expenses)}, exclude_status={exclude_status}")
 
-        # Add attachment count for preview
+        # Add attachment count for preview (single batched query instead of N+1)
         try:
-            for ex in expenses:
-                ex.attachments_count = db.query(ExpenseAttachment).filter(ExpenseAttachment.expense_id == ex.id).count()
+            if expenses:
+                expense_ids = [ex.id for ex in expenses]
+                attachment_counts = dict(
+                    db.query(ExpenseAttachment.expense_id, sa.func.count(ExpenseAttachment.id))
+                    .filter(ExpenseAttachment.expense_id.in_(expense_ids))
+                    .group_by(ExpenseAttachment.expense_id)
+                    .all()
+                )
+                for ex in expenses:
+                    ex.attachments_count = attachment_counts.get(ex.id, 0)
         except Exception as e:
             logger.warning(f"Failed to get attachment count for expenses: {e}")
 

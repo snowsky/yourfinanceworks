@@ -1834,7 +1834,9 @@ async def update_invoice(
             )
             db.add(history_entry)
             # Recalculate subtotal and amount based on updated items and discount
-            recalculated_subtotal = sum(item.quantity * item.price for item in db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all())
+            recalculated_subtotal = db.query(
+                sa.func.coalesce(sa.func.sum(InvoiceItem.quantity * InvoiceItem.price), 0)
+            ).filter(InvoiceItem.invoice_id == invoice_id).scalar()
             db_invoice.subtotal = recalculated_subtotal
 
             # Apply discount if provided in update or use existing
