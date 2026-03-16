@@ -1,6 +1,6 @@
 fastapi==0.116.1
 uvicorn==0.35.0
-pydantic>=2.11.0,<3.0.0
+pydantic==2.11.0
 pydantic-settings==2.10.1
 python-dotenv==1.1.1
 sqlalchemy==2.0.42
@@ -12,11 +12,11 @@ bcrypt==4.1.3
 python-dateutil==2.8.2
 fastapi-users[sqlalchemy]==15.0.4
 fastapi-users[oauth]==15.0.4
-httpx-oauth>=0.16.1
+httpx-oauth==0.16.1
 httpx==0.28.1
 msal==1.34.0  # Microsoft Authentication Library for Azure AD SSO
 setuptools==80.9.0
-python-multipart>=0.0.22
+python-multipart==0.0.22
 
 # PostgreSQL driver
 psycopg2-binary==2.9.10
@@ -24,26 +24,26 @@ psycopg2-binary==2.9.10
 # Email service dependencies
 boto3==1.42.51  # AWS SES
 azure-communication-email==1.0.0  # Azure Email Services
-requests>=2.32.5  # For Mailgun HTTP API
+requests==2.32.5  # For Mailgun HTTP API
 jinja2==3.1.6  # Email templating
 reportlab==4.4.3  # PDF generation for email attachments
 
 # AI/LLM dependencies
-openai>=2.21.0  # OpenAI client (compatible with litellm)
+openai==2.21.0  # OpenAI client (compatible with litellm)
 litellm==1.75.0  # Unified interface for multiple LLM providers
 langchain==1.0.3  # LangChain main package
 langchain-community==0.4.1  # LangChain community components
-langchain-core>=1.2.13  # LangChain core components
+langchain-core==1.2.13  # LangChain core components
 langchain-text-splitters==1.0.0  # LangChain text splitters
-pypdf>=6.1.3  # Modern PDF processing (successor to PyPDF2)
-ollama>=0.6.1  # Ollama client
+pypdf==6.1.3  # Modern PDF processing (successor to PyPDF2)
+ollama==0.6.1  # Ollama client
 ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
-langchain-ollama>=1.0.1  # LangChain Ollama integration
-langchain-openai>=1.0.10  # LangChain OpenAI integration
-langchain-anthropic>=1.3.3  # LangChain Anthropic integration
+langchain-ollama==1.0.1  # LangChain Ollama integration
+langchain-openai==1.0.10  # LangChain OpenAI integration
+langchain-anthropic==1.3.3  # LangChain Anthropic integration
 
 # OCR dependencies for bank statement fallback
-unstructured[pdf]>=0.18.31  # UnstructuredLoader with PDF support
+unstructured[pdf]==0.18.31  # UnstructuredLoader with PDF support
 pytesseract==0.3.13  # Python wrapper for Tesseract OCR
 tesseract==0.1.3  # Tesseract OCR engine Python bindings
 
@@ -91,4 +91,4 @@ azure-storage-blob==12.27.1
 google-cloud-storage==3.5.0
 
 # Market data service
-aiohttp>=3.13.3  # Async HTTP client for market data APIs
+aiohttp==3.13.3  # Async HTTP client for market data APIs

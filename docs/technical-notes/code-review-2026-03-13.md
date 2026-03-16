@@ -52,7 +52,7 @@
 |---|-------|------|--------|
 | 15 | SQLAlchemy `== False/True` boolean comparisons | `api/plugins/time_tracking/router.py`, `api/plugins/time_tracking/mcp/time_tracking_provider.py` | ✅ Fixed in commit b1c04bc |
 | 16 | Unbounded pagination params (no max limit) | `api/core/routers/expenses.py:62-63` | ✅ Fixed in commit b1c04bc — `Query(100, ge=1, le=1000)` |
-| 17 | Pydantic v1/v2 `# type: ignore` compat hacks | `api/core/services/statement_service.py:104-206` | ⬜ Open — standardize on Pydantic v2 |
+| 17 | Pydantic v1/v2 `# type: ignore` compat hacks | `api/core/services/statement_service.py:104-206` | ✅ Fixed — removed 33-line v1/v2 compat block; clean pydantic v2 imports + validators only |
 | 18 | Encryption key cache has no TTL or invalidation | `api/core/services/encryption_service.py:56-59` | ✅ Already implemented — `KEY_CACHE_TTL_SECONDS` + `_cleanup_cache()` + `clear_cache()` present in code |
 
 ---
@@ -61,21 +61,21 @@
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 19 | Test suite effectively empty (`def test_pass(): assert True`) | `api/tests/test_simple.py` | ⬜ Open — write real integration tests |
-| 20 | Some deps use `>=` ranges instead of pinned versions | `api/requirements.txt` | ⬜ Open — pin all deps with `==` for reproducibility |
+| 19 | Test suite effectively empty (`def test_pass(): assert True`) | `api/tests/test_simple.py` | ✅ Fixed — 14 real unit tests for rate limiter, URL builder, and TransactionModel validators |
+| 20 | Some deps use `>=` ranges instead of pinned versions | `api/requirements.txt` | ✅ Fixed — 13 `>=` ranges pinned to `==`; Snyk security floor pins kept as `>=` |
 
 ---
 
 ## Summary
 
 **Fixed in commit b1c04bc (2026-03-13):** 8 of 20 issues
-**Fixed in this session (2026-03-16):** #3, #5, #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10, #14, #18 (was already implemented)
-**Remaining open:** 4 issues
+**Fixed in this session (2026-03-16):** #3, #5, #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10, #14, #17, #18 (was already implemented), #19, #20
+**Remaining open:** 2 issues (require infrastructure decisions)
 
 ### Priority order for remaining work
 1. **High — Security:** ~~JWT in localStorage (#3)~~ ✅, ~~CSRF protection (#5)~~ ✅
 2. **High — Reliability:** ~~Redis-backed rate limiting (#9)~~ ✅, ~~silent exception handlers (#10)~~ ✅
 3. **Medium — Performance:** ~~N+1 queries in export (#7)~~ ✅, ~~invoice recalc (#8)~~ ✅, encrypted field search full-table scan (#6) — still open (requires OpenSearch)
 4. **Medium — Security:** Key management via vault (#13)
-5. **Low — Quality:** Pydantic v2 migration (#17), ~~Alembic URL builder (#14)~~ ✅, ~~encryption cache TTL (#18)~~ ✅ (was already done)
-6. **Low — Testing:** Real test coverage (#19), dep pinning (#20)
+5. **Low — Quality:** ~~Pydantic v2 migration (#17)~~ ✅, ~~Alembic URL builder (#14)~~ ✅, ~~encryption cache TTL (#18)~~ ✅ (was already done)
+6. **Low — Testing:** ~~Real test coverage (#19)~~ ✅, ~~dep pinning (#20)~~ ✅

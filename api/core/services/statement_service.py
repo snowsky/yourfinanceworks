@@ -92,39 +92,8 @@ except ImportError:
 
     LANGCHAIN_AVAILABLE = False
 
-# Pydantic models for structured output - optional (migrate to field_validator)
-try:
-    from pydantic import BaseModel, Field, model_validator
-    try:
-        # Pydantic v2
-        from pydantic import field_validator
-        _HAS_FIELD_VALIDATOR = True
-    except ImportError:
-        # Pydantic v1 fallback
-        from pydantic import validator  # type: ignore
-        field_validator = None  # type: ignore
-        _HAS_FIELD_VALIDATOR = False
-    from typing import List as TypingList
-    PYDANTIC_AVAILABLE = True
-except ImportError:
-    logger.warning("Pydantic not available - using basic validation")
-    # Create dummy classes
-    class BaseModel:
-        def __init__(self, **kwargs):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-
-    def Field(**kwargs):
-        return None
-
-    def validator(field_name):
-        def decorator(func):
-            return func
-        return decorator
-    field_validator = validator  # type: ignore
-
-    TypingList = List
-    PYDANTIC_AVAILABLE = False
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import List as TypingList
 
 
 @dataclass
@@ -147,74 +116,49 @@ class TransactionModel(BaseModel):
     category: Optional[str] = Field(default=None, description="Transaction category")
     card_type: str = Field(default="debit", description="debit|credit")
 
-    # Use pydantic v2 field_validator/model_validator if available
-    if 'field_validator' in globals() and field_validator:  # type: ignore
-        @model_validator(mode='before')  # type: ignore
-        @classmethod
-        def fix_transaction_type_by_amount(cls, data: Any) -> Any:
-            if isinstance(data, dict):
-                amount = data.get('amount')
-                card_type = data.get('card_type', 'debit')
-                if amount is not None:
-                    try:
-                        amt = float(amount)
-                        if card_type == 'credit':
-                            # Credit card rule: negative is credit, positive is debit
-                            data['transaction_type'] = 'credit' if amt < 0 else 'debit'
-                        else:
-                            # Debit card/Standard rule: negative is debit, positive is credit
-                            data['transaction_type'] = 'debit' if amt < 0 else 'credit'
-                    except (ValueError, TypeError):
-                        pass
-            return data
+    @model_validator(mode='before')
+    @classmethod
+    def fix_transaction_type_by_amount(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            amount = data.get('amount')
+            card_type = data.get('card_type', 'debit')
+            if amount is not None:
+                try:
+                    amt = float(amount)
+                    if card_type == 'credit':
+                        data['transaction_type'] = 'credit' if amt < 0 else 'debit'
+                    else:
+                        data['transaction_type'] = 'debit' if amt < 0 else 'credit'
+                except (ValueError, TypeError):
+                    pass
+        return data
 
-        @field_validator('transaction_type', mode='before')  # type: ignore
-        @classmethod
-        def validate_transaction_type(cls, v):
-            try:
-                vv = (v or '').lower()
-                if vv not in ['debit', 'credit']:
-                    # Inverted logic: negative is credit, positive is debit
-                    return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '-' else 'debit')
-                return vv
-            except Exception:
-                return 'debit'
+    @field_validator('transaction_type', mode='before')
+    @classmethod
+    def validate_transaction_type(cls, v):
+        try:
+            vv = (v or '').lower()
+            if vv not in ['debit', 'credit']:
+                return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '-' else 'debit')
+            return vv
+        except Exception:
+            return 'debit'
 
-        @field_validator('date', mode='before')  # type: ignore
-        @classmethod
-        def validate_date(cls, v):
-            try:
-                from datetime import datetime
-                s = str(v)
-                for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
-                    try:
-                        dt = datetime.strptime(s, fmt)
-                        return dt.strftime('%Y-%m-%d')
-                    except ValueError:
-                        continue
-                return s
-            except Exception:
-                return v
-    else:
-        @validator('transaction_type')  # type: ignore
-        def validate_transaction_type_v1(cls, v):  # type: ignore
-            if (v or '').lower() not in ['debit', 'credit']:
-                return 'debit' if v else 'credit'
-            return (v or '').lower()
-
-        @validator('date')  # type: ignore
-        def validate_date_v1(cls, v):  # type: ignore
-            try:
-                from datetime import datetime
-                for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
-                    try:
-                        dt = datetime.strptime(v, fmt)
-                        return dt.strftime('%Y-%m-%d')
-                    except ValueError:
-                        continue
-                return v
-            except Exception:
-                return v
+    @field_validator('date', mode='before')
+    @classmethod
+    def validate_date(cls, v):
+        try:
+            from datetime import datetime
+            s = str(v)
+            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
+                try:
+                    dt = datetime.strptime(s, fmt)
+                    return dt.strftime('%Y-%m-%d')
+                except ValueError:
+                    continue
+            return s
+        except Exception:
+            return v
 
 
 class TransactionListModel(BaseModel):
