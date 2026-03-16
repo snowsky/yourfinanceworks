@@ -42,7 +42,7 @@
 |---|-------|------|--------|
 | 12 | Hardcoded `password` in docker-compose | `docker-compose.yml:9,41,47,...` | ✅ Fixed in commit b1c04bc — uses `${POSTGRES_PASSWORD:-password}` |
 | 13 | Private keys stored on filesystem | `api/main.py:183-190` | ⬜ Open — consider Azure Key Vault / AWS KMS / HashiCorp Vault |
-| 14 | Alembic tenant URL built via brittle string replace | `api/alembic/env.py:55-64` | ⬜ Open — use parameterized URL builder |
+| 14 | Alembic tenant URL built via brittle string replace | `api/alembic/env.py:55-64` | ✅ Fixed — `_resolve_db_url()` uses `urllib.parse.urlparse`/`urlunparse` |
 
 ---
 
@@ -53,7 +53,7 @@
 | 15 | SQLAlchemy `== False/True` boolean comparisons | `api/plugins/time_tracking/router.py`, `api/plugins/time_tracking/mcp/time_tracking_provider.py` | ✅ Fixed in commit b1c04bc |
 | 16 | Unbounded pagination params (no max limit) | `api/core/routers/expenses.py:62-63` | ✅ Fixed in commit b1c04bc — `Query(100, ge=1, le=1000)` |
 | 17 | Pydantic v1/v2 `# type: ignore` compat hacks | `api/core/services/statement_service.py:104-206` | ⬜ Open — standardize on Pydantic v2 |
-| 18 | Encryption key cache has no TTL or invalidation | `api/core/services/encryption_service.py:56-59` | ⬜ Open — add cache expiry or invalidation hooks |
+| 18 | Encryption key cache has no TTL or invalidation | `api/core/services/encryption_service.py:56-59` | ✅ Already implemented — `KEY_CACHE_TTL_SECONDS` + `_cleanup_cache()` + `clear_cache()` present in code |
 
 ---
 
@@ -69,13 +69,13 @@
 ## Summary
 
 **Fixed in commit b1c04bc (2026-03-13):** 8 of 20 issues
-**Fixed in this session (2026-03-16):** #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10
-**Remaining open:** 8 issues
+**Fixed in this session (2026-03-16):** #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10, #14, #18 (was already implemented)
+**Remaining open:** 6 issues
 
 ### Priority order for remaining work
 1. **High — Security:** JWT in localStorage (#3), CSRF protection (#5)
 2. **High — Reliability:** ~~Redis-backed rate limiting (#9)~~ ✅, ~~silent exception handlers (#10)~~ ✅
 3. **Medium — Performance:** ~~N+1 queries in export (#7)~~ ✅, ~~invoice recalc (#8)~~ ✅, encrypted field search full-table scan (#6) — still open (requires OpenSearch)
 4. **Medium — Security:** Key management via vault (#13)
-5. **Low — Quality:** Pydantic v2 migration (#17), Alembic URL builder (#14), encryption cache TTL (#18)
+5. **Low — Quality:** Pydantic v2 migration (#17), ~~Alembic URL builder (#14)~~ ✅, ~~encryption cache TTL (#18)~~ ✅ (was already done)
 6. **Low — Testing:** Real test coverage (#19), dep pinning (#20)

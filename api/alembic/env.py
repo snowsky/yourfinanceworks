@@ -1,6 +1,7 @@
 from logging.config import fileConfig
 import os
 import sys
+from urllib.parse import urlparse, urlunparse
 from sqlalchemy import engine_from_config, create_engine
 from sqlalchemy import pool
 from alembic import context
@@ -39,6 +40,19 @@ else:
 # ... etc.
 
 
+def _resolve_db_url() -> str:
+    """Return the migration target URL based on ALEMBIC_DB_TYPE and TENANT_ID env vars."""
+    if db_type == 'master':
+        return os.getenv('DATABASE_URL') or config.get_main_option("sqlalchemy.url")
+    # Tenant database: replace only the path component of the base URL
+    tenant_id = os.getenv('TENANT_ID')
+    if tenant_id:
+        base_url = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/invoice_master')
+        parsed = urlparse(base_url)
+        return urlunparse(parsed._replace(path=f"/tenant_{tenant_id}"))
+    return config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -51,18 +65,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    # Get database URL based on type
-    if db_type == 'master':
-        url = os.getenv('DATABASE_URL') or config.get_main_option("sqlalchemy.url")
-    else:
-        # For tenant databases, use the tenant-specific URL
-        tenant_id = os.getenv('TENANT_ID')
-        if tenant_id:
-            base_url = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432')
-            url = base_url.replace('/invoice_master', f'/tenant_{tenant_id}')
-        else:
-            url = config.get_main_option("sqlalchemy.url")
-    
+    url = _resolve_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -81,18 +84,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Get database URL based on type
-    if db_type == 'master':
-        url = os.getenv('DATABASE_URL') or config.get_main_option("sqlalchemy.url")
-    else:
-        # For tenant databases, use the tenant-specific URL
-        tenant_id = os.getenv('TENANT_ID')
-        if tenant_id:
-            base_url = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432')
-            url = base_url.replace('/invoice_master', f'/tenant_{tenant_id}')
-        else:
-            url = config.get_main_option("sqlalchemy.url")
-    
+    url = _resolve_db_url()
     # Create engine with the appropriate URL
     connectable = create_engine(url, poolclass=pool.NullPool)
 
