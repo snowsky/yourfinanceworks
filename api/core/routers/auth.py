@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone, date
 from typing import Optional, List, Dict, Any
-from collections import defaultdict, deque
-import time
+from core.utils.rate_limiter import record_and_check
 import os
 import secrets
 from sqlalchemy import func
@@ -42,18 +41,9 @@ from core.constants.password import MIN_PASSWORD_LENGTH
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-# Simple in-memory rate limiting (per email) to deter brute-force attacks
-# Note: For multi-instance deployments, replace with a shared store (e.g., Redis)
-LOGIN_ATTEMPTS: Dict[str, deque] = defaultdict(deque)
-PASSWORD_RESET_ATTEMPTS: Dict[str, deque] = defaultdict(deque)
 MAX_LOGIN_ATTEMPTS = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
 MAX_RESET_ATTEMPTS = int(os.getenv("MAX_RESET_ATTEMPTS", "5"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
-
-def _prune_attempts(attempts: deque, window_seconds: int) -> None:
-    cutoff = time.time() - window_seconds
-    while attempts and attempts[0] < cutoff:
-        attempts.popleft()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 security = HTTPBearer(auto_error=False)
@@ -614,16 +604,13 @@ async def logout(response: Response):
 
 @router.post("/login", response_model=Token)
 async def login(user_credentials: UserLogin, response: Response, db: Session = Depends(get_master_db)):
-    # Rate limit by email
+    # Rate limit by email (Redis-backed; falls back to in-memory if Redis is unavailable)
     email_key = (user_credentials.email or "").lower().strip()
-    attempts = LOGIN_ATTEMPTS[email_key]
-    _prune_attempts(attempts, RATE_LIMIT_WINDOW_SECONDS)
-    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+    if record_and_check(f"login:{email_key}", MAX_LOGIN_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Please try again later."
         )
-    attempts.append(time.time())
     user = db.query(MasterUser).filter(MasterUser.email == user_credentials.email).first()
 
     if not user:
@@ -1730,17 +1717,14 @@ async def request_password_reset(
     master_db: Session = Depends(get_master_db)
 ):
     """Request a password reset for a user"""
-    # Rate limit by email
+    # Rate limit by email (Redis-backed; falls back to in-memory if Redis is unavailable)
     email_key = (request.email or "").lower().strip()
-    attempts = PASSWORD_RESET_ATTEMPTS[email_key]
-    _prune_attempts(attempts, RATE_LIMIT_WINDOW_SECONDS)
-    if len(attempts) >= MAX_RESET_ATTEMPTS:
-        # Return success but do not proceed
+    if record_and_check(f"reset:{email_key}", MAX_RESET_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS):
+        # Return success but do not proceed (prevent email enumeration)
         return PasswordResetResponse(
             message="If the email address exists in our system, you will receive a password reset email shortly.",
             success=True
         )
-    attempts.append(time.time())
     user = master_db.query(MasterUser).filter(
         func.lower(MasterUser.email) == func.lower(request.email.strip())
     ).first()

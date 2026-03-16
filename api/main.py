@@ -364,14 +364,14 @@ async def app_lifespan(app: FastAPI):
             from core.services.reminder_background_service import stop_reminder_background_service
             await stop_reminder_background_service()
         except Exception:
-            pass
+            logger.warning("Failed to stop reminder background service on shutdown", exc_info=True)
 
         # Shutdown: flush Kafka producers
         try:
             from commercial.ai.services.ocr_service import flush_all_producers
             flush_all_producers(10.0)
         except Exception:
-            pass
+            logger.warning("Failed to flush Kafka producers on shutdown", exc_info=True)
 
 app = FastAPI(
     title="Invoice API",

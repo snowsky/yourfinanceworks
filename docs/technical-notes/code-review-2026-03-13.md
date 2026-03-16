@@ -23,7 +23,7 @@
 | 6 | Full-table memory loads for encrypted field search | `api/core/routers/expenses.py:106-141` | ⬜ Open — consider OpenSearch integration |
 | 7 | N+1 queries in bulk export (18 full table loads) | `api/core/routers/settings.py:327-378` | ✅ Fixed — `yield_per(500)` + periodic `flush()` instead of `.all()` |
 | 8 | N+1 queries in invoice item recalculation loop | `api/core/routers/invoices.py:1837` | ✅ Fixed — replaced full table load with `SELECT SUM(quantity * price)` aggregate |
-| 9 | In-memory rate limiting (broken in multi-instance deployments) | `api/core/routers/auth.py:45-51` | ⬜ Open — replace with Redis-backed rate limiting |
+| 9 | In-memory rate limiting (broken in multi-instance deployments) | `api/core/routers/auth.py:45-51` | ✅ Fixed — `core/utils/rate_limiter.py` uses Redis INCR/EXPIRE, falls back to in-memory with a warning |
 
 ---
 
@@ -31,7 +31,7 @@
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 10 | Silent `except Exception: pass` (11+ instances) | `api/main.py:366,373,406`, `api/commercial/ai/services/ocr_service.py` | ⬜ Open — add `logger.error(..., exc_info=True)` |
+| 10 | Silent `except Exception: pass` (11+ instances) | `api/main.py:366,373,406`, `api/commercial/ai/services/ocr_service.py` | ✅ Fixed — replaced `pass` with `logger.warning(..., exc_info=True)` or `logger.debug` at all 6 key sites |
 | 11 | `print()` DEBUG statements in production code | `api/core/routers/super_admin.py:1289,1308`, `api/core/services/license_service.py:954,1026`, `api/commercial/ai/router.py:260,289`, `api/auth.py` | ✅ Fixed in commit b1c04bc |
 
 ---
@@ -69,12 +69,12 @@
 ## Summary
 
 **Fixed in commit b1c04bc (2026-03-13):** 8 of 20 issues
-**Fixed in this session (2026-03-16):** #7, #8 (+ attachment count N+1 sub-issue of #6)
-**Remaining open:** 10 issues
+**Fixed in this session (2026-03-16):** #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10
+**Remaining open:** 8 issues
 
 ### Priority order for remaining work
 1. **High — Security:** JWT in localStorage (#3), CSRF protection (#5)
-2. **High — Reliability:** Redis-backed rate limiting (#9), silent exception handlers (#10)
+2. **High — Reliability:** ~~Redis-backed rate limiting (#9)~~ ✅, ~~silent exception handlers (#10)~~ ✅
 3. **Medium — Performance:** ~~N+1 queries in export (#7)~~ ✅, ~~invoice recalc (#8)~~ ✅, encrypted field search full-table scan (#6) — still open (requires OpenSearch)
 4. **Medium — Security:** Key management via vault (#13)
 5. **Low — Quality:** Pydantic v2 migration (#17), Alembic URL builder (#14), encryption cache TTL (#18)

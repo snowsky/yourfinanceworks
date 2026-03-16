@@ -239,7 +239,7 @@ async def apply_ocr_extraction_to_expense(
             if parsed_dt:
                 expense.expense_date = parsed_dt
         except Exception:
-            pass
+            logger.warning(f"Failed to parse expense_date '{date_str}' from OCR result", exc_info=True)
 
     # Receipt timestamp (exact time from receipt)
     timestamp_str = first_key(extracted, ["receipt_timestamp", "timestamp", "transaction_time", "receipt_time"]) or None
@@ -424,7 +424,7 @@ async def apply_ocr_extraction_to_expense(
         }
         logger.info(f"Mapped OCR fields for expense {expense.id}: {mapped_preview}")
     except Exception:
-        pass
+        logger.debug(f"Could not log OCR field preview for expense {expense.id}", exc_info=True)
 
     db.commit()
     logger.info(f"Expense {expense.id} analysis updated: {expense.analysis_status}")
@@ -897,7 +897,7 @@ def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
                 else:
                     logger.warning(f"Skipping invalid combined timestamp: {candidate_timestamp}")
             except Exception:
-                pass
+                logger.debug("Failed to build combined date+time timestamp from heuristic match", exc_info=True)
         elif m_time:
             # Just time found, use today's date
             try:
@@ -911,7 +911,7 @@ def _heuristic_parse_text(text: str) -> Optional[Dict[str, Any]]:
                 else:
                     logger.warning(f"Skipping invalid time-only timestamp: {candidate_timestamp}")
             except Exception:
-                pass
+                logger.debug("Failed to build time-only timestamp from heuristic match", exc_info=True)
 
     # Vendor
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -1311,7 +1311,7 @@ def flush_all_producers(timeout_sec: float = 10.0) -> None:
         try:
             entry["producer"].flush(timeout_sec)
         except Exception:
-            pass
+            logger.warning("Failed to flush Kafka producer on shutdown", exc_info=True)
 
 
 def initialize_ocr_dependencies() -> Dict[str, Any]:
@@ -1803,7 +1803,7 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                             error_message="No response from AI provider"
                         )
                      except Exception:
-                         pass
+                         logger.warning("Failed to log OCR usage metrics", exc_info=True)
                 return {"error": "No response from AI provider"}
 
         except ImportError:
