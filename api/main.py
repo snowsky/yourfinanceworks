@@ -473,6 +473,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_CSRF_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+_AUTH_COOKIE_NAME = "auth_token"
+
+def _origin_is_trusted(origin: str, allowed: list) -> bool:
+    origin = origin.rstrip("/")
+    return any(origin == ao.rstrip("/") for ao in allowed)
+
+@app.middleware("http")
+async def csrf_protection(request: Request, call_next):
+    """Validate Origin/Referer on state-changing cookie-authenticated requests.
+
+    Rules:
+    - Safe methods (GET/HEAD/OPTIONS) are always allowed.
+    - In debug mode (wildcard CORS) the check is skipped.
+    - Requests using Bearer token auth are inherently CSRF-safe; skip check.
+    - For cookie-authenticated requests, the Origin header must match an
+      allowed origin. If Origin is absent, the Referer is checked instead.
+      Requests with neither header are allowed (non-browser API clients).
+    """
+    if request.method in _CSRF_SAFE_METHODS or debug_mode:
+        return await call_next(request)
+
+    # Bearer token ⇒ CSRF-safe by design
+    if request.headers.get("authorization", "").startswith("Bearer "):
+        return await call_next(request)
+
+    # Only enforce for requests that carry the session cookie
+    if not request.cookies.get(_AUTH_COOKIE_NAME):
+        return await call_next(request)
+
+    origin = request.headers.get("origin")
+    if origin:
+        if not _origin_is_trusted(origin, allowed_origins):
+            logger.warning(f"CSRF check failed: untrusted Origin '{origin}' on {request.method} {request.url.path}")
+            return JSONResponse(status_code=403, content={"detail": "CSRF check failed: untrusted origin"})
+    else:
+        referer = request.headers.get("referer", "")
+        if referer:
+            from urllib.parse import urlparse as _urlparse
+            p = _urlparse(referer)
+            ref_origin = f"{p.scheme}://{p.netloc}"
+            if not _origin_is_trusted(ref_origin, allowed_origins):
+                logger.warning(f"CSRF check failed: untrusted Referer '{referer}' on {request.method} {request.url.path}")
+                return JSONResponse(status_code=403, content={"detail": "CSRF check failed: untrusted referer"})
+        # No Origin and no Referer ⇒ non-browser client; allow
+
+    return await call_next(request)
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
