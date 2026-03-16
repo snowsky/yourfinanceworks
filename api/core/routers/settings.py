@@ -320,63 +320,56 @@ async def export_tenant_data(
     SqliteSession = sessionmaker(bind=sqlite_engine)
     sqlite_session = SqliteSession()
 
+    _EXPORT_BATCH_SIZE = 500
+
+    def _copy_table(src_query, model_cls):
+        """Stream rows in batches to avoid loading entire tables into memory."""
+        count = 0
+        for obj in src_query.yield_per(_EXPORT_BATCH_SIZE):
+            sqlite_session.add(model_cls(**{c.name: getattr(obj, c.name) for c in model_cls.__table__.columns}))
+            count += 1
+            if count % _EXPORT_BATCH_SIZE == 0:
+                sqlite_session.flush()
+
     try:
-        # Copy all data from the current tenant's database
+        # Copy all data from the current tenant's database using streaming to avoid OOM on large tables.
         # NOTE: SQLAlchemy ORM queries are safe and automatically parameterized - not vulnerable to SQL injection
         # 1. Users
-        for obj in db.query(User).all():
-            sqlite_session.add(User(**{c.name: getattr(obj, c.name) for c in User.__table__.columns}))
+        _copy_table(db.query(User), User)
         # 2. Clients
-        for obj in db.query(Client).all():
-            sqlite_session.add(Client(**{c.name: getattr(obj, c.name) for c in Client.__table__.columns}))
+        _copy_table(db.query(Client), Client)
         # 3. ClientNotes
-        for obj in db.query(ClientNote).all():
-            sqlite_session.add(ClientNote(**{c.name: getattr(obj, c.name) for c in ClientNote.__table__.columns}))
+        _copy_table(db.query(ClientNote), ClientNote)
         # 4. Invoices
-        for obj in db.query(Invoice).all():
-            sqlite_session.add(Invoice(**{c.name: getattr(obj, c.name) for c in Invoice.__table__.columns}))
+        _copy_table(db.query(Invoice), Invoice)
         # 5. Payments
-        for obj in db.query(Payment).all():
-            sqlite_session.add(Payment(**{c.name: getattr(obj, c.name) for c in Payment.__table__.columns}))
+        _copy_table(db.query(Payment), Payment)
         # 6. Settings
-        for obj in db.query(Settings).all():
-            sqlite_session.add(Settings(**{c.name: getattr(obj, c.name) for c in Settings.__table__.columns}))
+        _copy_table(db.query(Settings), Settings)
         # 7. DiscountRules
-        for obj in db.query(DiscountRule).all():
-            sqlite_session.add(DiscountRule(**{c.name: getattr(obj, c.name) for c in DiscountRule.__table__.columns}))
+        _copy_table(db.query(DiscountRule), DiscountRule)
         # 8. SupportedCurrencies
-        for obj in db.query(SupportedCurrency).all():
-            sqlite_session.add(SupportedCurrency(**{c.name: getattr(obj, c.name) for c in SupportedCurrency.__table__.columns}))
+        _copy_table(db.query(SupportedCurrency), SupportedCurrency)
         # 9. CurrencyRates
-        for obj in db.query(CurrencyRate).all():
-            sqlite_session.add(CurrencyRate(**{c.name: getattr(obj, c.name) for c in CurrencyRate.__table__.columns}))
+        _copy_table(db.query(CurrencyRate), CurrencyRate)
         # 10. InvoiceItems
-        for obj in db.query(InvoiceItem).all():
-            sqlite_session.add(InvoiceItem(**{c.name: getattr(obj, c.name) for c in InvoiceItem.__table__.columns}))
+        _copy_table(db.query(InvoiceItem), InvoiceItem)
         # 11. InvoiceHistory
-        for obj in db.query(InvoiceHistory).all():
-            sqlite_session.add(InvoiceHistory(**{c.name: getattr(obj, c.name) for c in InvoiceHistory.__table__.columns}))
+        _copy_table(db.query(InvoiceHistory), InvoiceHistory)
         # 12. AIConfig
-        for obj in db.query(AIConfig).all():
-            sqlite_session.add(AIConfig(**{c.name: getattr(obj, c.name) for c in AIConfig.__table__.columns}))
+        _copy_table(db.query(AIConfig), AIConfig)
         # 13. Expenses
-        for obj in db.query(Expense).all():
-            sqlite_session.add(Expense(**{c.name: getattr(obj, c.name) for c in Expense.__table__.columns}))
+        _copy_table(db.query(Expense), Expense)
         # 14. ExpenseAttachments
-        for obj in db.query(ExpenseAttachment).all():
-            sqlite_session.add(ExpenseAttachment(**{c.name: getattr(obj, c.name) for c in ExpenseAttachment.__table__.columns}))
+        _copy_table(db.query(ExpenseAttachment), ExpenseAttachment)
         # 15. BankStatements
-        for obj in db.query(BankStatement).all():
-            sqlite_session.add(BankStatement(**{c.name: getattr(obj, c.name) for c in BankStatement.__table__.columns}))
+        _copy_table(db.query(BankStatement), BankStatement)
         # 16. BankStatementTransactions
-        for obj in db.query(BankStatementTransaction).all():
-            sqlite_session.add(BankStatementTransaction(**{c.name: getattr(obj, c.name) for c in BankStatementTransaction.__table__.columns}))
+        _copy_table(db.query(BankStatementTransaction), BankStatementTransaction)
         # 17. AuditLogs
-        for obj in db.query(AuditLog).all():
-            sqlite_session.add(AuditLog(**{c.name: getattr(obj, c.name) for c in AuditLog.__table__.columns}))
+        _copy_table(db.query(AuditLog), AuditLog)
         # 18. AIChatHistory
-        for obj in db.query(AIChatHistory).all():
-            sqlite_session.add(AIChatHistory(**{c.name: getattr(obj, c.name) for c in AIChatHistory.__table__.columns}))
+        _copy_table(db.query(AIChatHistory), AIChatHistory)
         sqlite_session.commit()
         sqlite_session.close()
 
