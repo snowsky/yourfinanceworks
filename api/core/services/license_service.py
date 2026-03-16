@@ -301,6 +301,21 @@ def load_public_keys() -> Dict[str, str]:
             except Exception as e:
                 print(f"Warning: Failed to load {master_key_file}: {e}")
 
+    # Warn if private key files are on the filesystem — recommend using env vars instead
+    if KEYS_DIR.exists():
+        fs_private_keys = list(KEYS_DIR.glob("private_key*.pem"))
+        if fs_private_keys:
+            env_key_provided = bool(
+                os.getenv("DEPLOYMENT_PRIVATE_KEY") or os.getenv("PRIVATE_KEY")
+            )
+            if not env_key_provided:
+                print(
+                    "\nWARNING: License private key(s) found on filesystem: "
+                    + ", ".join(str(p) for p in fs_private_keys)
+                    + "\n  Consider moving private keys to a secret manager and injecting via "
+                    "DEPLOYMENT_PRIVATE_KEY env var to avoid storing credentials on disk.\n"
+                )
+
     # Check if we have LOCAL signing keys (not just the master server key)
     # The master_public_key.pem (server_v1) is for verifying server-issued licenses,
     # but we also need local keys for signing our own licenses

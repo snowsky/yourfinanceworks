@@ -103,31 +103,51 @@ async def list_expenses(
             query = query.filter(Expense.status != exclude_status)
         if created_by_user_id is not None:
             query = query.filter(Expense.created_by_user_id == created_by_user_id)
-        # For search, we need to fetch all matching expenses and filter in Python
-        # because vendor and notes are encrypted and can't be searched at the DB level
+        # For search: two-phase approach to avoid full-table memory loads.
+        # Phase 1: DB-level match on non-encrypted fields (fast path).
+        # Phase 2: Stream remaining rows with yield_per to check encrypted fields.
         if search:
             logger.info(f"list_expenses: applying search filter with term={search}")
-            # First, get all expenses with non-search filters applied
-            all_expenses = query.order_by(Expense.id.desc()).all()
-
-            # Filter in Python to search encrypted fields
             search_lower = search.lower()
-            filtered_expenses = []
-            for expense in all_expenses:
-                # Search across all fields including encrypted ones
-                if (
-                    (expense.vendor and search_lower in (expense.vendor or "").lower()) or
-                    (expense.category and search_lower in (expense.category or "").lower()) or
-                    (expense.notes and search_lower in (expense.notes or "").lower()) or
-                    (expense.labels and any(search_lower in label.lower() for label in (expense.labels or [])))
-                ):
-                    filtered_expenses.append(expense)
 
-            total_count = len(filtered_expenses)
+            # Phase 1: match category / label / labels at DB level
+            db_matched_ids: set = set(
+                row[0]
+                for row in query.with_entities(Expense.id).filter(
+                    sa.or_(
+                        sa.func.lower(Expense.category).contains(search_lower),
+                        Expense.label.ilike(f"%{search_lower}%"),
+                        sa.cast(Expense.labels, sa.String).ilike(f"%{search_lower}%"),
+                    )
+                ).all()
+            )
+
+            # Phase 2: stream remaining expenses to search encrypted vendor/notes
+            remaining_query = query.with_entities(Expense.id, Expense.vendor, Expense.notes)
+            if db_matched_ids:
+                remaining_query = remaining_query.filter(Expense.id.notin_(db_matched_ids))
+            encrypted_matched_ids: set = set()
+            for row in remaining_query.yield_per(500):
+                if (
+                    (row.vendor and search_lower in row.vendor.lower()) or
+                    (row.notes and search_lower in row.notes.lower())
+                ):
+                    encrypted_matched_ids.add(row.id)
+
+            all_matched_ids = db_matched_ids | encrypted_matched_ids
+            total_count = len(all_matched_ids)
             logger.info(f"list_expenses: total_count (after search filter)={total_count}")
 
-            # Apply pagination to filtered results
-            expenses = filtered_expenses[skip:skip + limit]
+            if all_matched_ids:
+                expenses = (
+                    query.filter(Expense.id.in_(all_matched_ids))
+                    .order_by(Expense.id.desc())
+                    .offset(skip)
+                    .limit(limit)
+                    .all()
+                )
+            else:
+                expenses = []
         else:
             # Count total expenses with all filters applied
             total_count = query.count()

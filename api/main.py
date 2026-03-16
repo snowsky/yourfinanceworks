@@ -177,44 +177,27 @@ async def auto_activate_license():
     try:
         service = LicenseService(db, master_db=db)
 
-        # 1. Save private key and update public key if provided
+        # 1. Load private key from env var into memory — derive public key without disk writes
         if private_key_pem:
-            KEYS_DIR.mkdir(parents=True, exist_ok=True)
-            private_path = KEYS_DIR / f"private_key_{DEFAULT_KEY_ID}.pem"
+            try:
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.backends import default_backend
 
-            # Save private key if it doesn't exist or is different
-            if not private_path.exists() or private_path.read_text() != private_key_pem:
-                try:
-                    private_path.write_text(private_key_pem)
-                    os.chmod(private_path, 0o600)
-                    logger.info(f"Saved injected private key to {private_path}")
+                pk = serialization.load_pem_private_key(
+                    private_key_pem.encode(),
+                    password=None,
+                    backend=default_backend()
+                )
+                pub_pem = pk.public_key().public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                ).decode("utf-8")
 
-                    # Also try to update/generate public key for consistency
-                    try:
-                        from cryptography.hazmat.primitives import serialization
-                        from cryptography.hazmat.backends import default_backend
-
-                        pk = serialization.load_pem_private_key(
-                            private_key_pem.encode(),
-                            password=None,
-                            backend=default_backend()
-                        )
-                        pub_key = pk.public_key()
-                        pub_pem = pub_key.public_bytes(
-                            encoding=serialization.Encoding.PEM,
-                            format=serialization.PublicFormat.SubjectPublicKeyInfo
-                        ).decode("utf-8")
-
-                        public_path = KEYS_DIR / f"public_key_{DEFAULT_KEY_ID}.pem"
-                        public_path.write_text(pub_pem)
-
-                        # Update the in-memory public keys dict
-                        PUBLIC_KEYS[DEFAULT_KEY_ID] = pub_pem
-                        logger.info(f"Updated public key from injected private key")
-                    except Exception as pk_err:
-                        logger.warning(f"Could not update public key from private key: {pk_err}")
-                except Exception as save_err:
-                    logger.error(f"Failed to save injected private key: {save_err}")
+                # Update in-memory public key — no filesystem write needed
+                PUBLIC_KEYS[DEFAULT_KEY_ID] = pub_pem
+                logger.info("Loaded private key from env var; derived public key held in memory (not written to disk)")
+            except Exception as pk_err:
+                logger.warning(f"Could not load private key from env var: {pk_err}")
 
         # 2. Sync Installation ID if provided
         if installation_id:
