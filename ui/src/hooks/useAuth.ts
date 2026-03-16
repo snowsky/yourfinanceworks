@@ -3,17 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getCurrentUser,
-  getCurrentUserRole,
-  isAuthenticated as checkIsAuthenticated,
-  isAdmin as checkIsAdmin,
-  isUser as checkIsUser,
-  isViewer as checkIsViewer,
-  canPerformActions as checkCanPerformActions,
   hasRole as checkHasRole,
   canAccess as checkCanAccess,
   User,
   UserRole
 } from '@/utils/auth';
+import { authApi } from '@/lib/api';
 
 export interface UseAuthReturn {
   // State
@@ -54,27 +49,41 @@ export const useAuth = (): UseAuthReturn => {
   const isViewer = userRole === 'viewer';
   const canPerformActions = isAdmin || isUser;
 
-  // Load authentication state
-  const loadAuthState = useCallback(() => {
+  // Load authentication state — verify with server so the httpOnly cookie
+  // is the source of truth, not localStorage (prevents localStorage spoofing).
+  const loadAuthState = useCallback(async () => {
     try {
-      const currentUser = getCurrentUser();
-      const currentRole = getCurrentUserRole();
-      const authenticated = checkIsAuthenticated();
+      // Fast path: show cached user data immediately while we verify
+      const cachedUser = getCurrentUser();
+      if (cachedUser) {
+        setUser(cachedUser);
+        setUserRole(cachedUser.role ?? 'user');
+        setIsAuthenticated(true);
+      }
 
-      setUser(currentUser);
-      setUserRole(currentRole);
-      setIsAuthenticated(authenticated);
-
-      console.log('useAuth: Auth state loaded', {
-        user: currentUser,
-        role: currentRole,
-        authenticated
-      });
-    } catch (error) {
-      console.error('useAuth: Error loading auth state:', error);
-      setUser(null);
-      setUserRole('user');
-      setIsAuthenticated(false);
+      // Server-side verification: confirm the session cookie is valid
+      const serverUser: User = await authApi.getCurrentUser();
+      // Sync canonical data from server back to localStorage
+      localStorage.setItem('user', JSON.stringify(serverUser));
+      setUser(serverUser);
+      setUserRole(serverUser.role ?? 'user');
+      setIsAuthenticated(true);
+    } catch (error: any) {
+      const status = error?.response?.status ?? error?.status;
+      if (status === 401 || status === 403) {
+        // Cookie is invalid/expired — clear stale local state
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+        setUserRole('user');
+        setIsAuthenticated(false);
+      } else {
+        // Network error or server down — fall back to cached state
+        const cachedUser = getCurrentUser();
+        setUser(cachedUser);
+        setUserRole(cachedUser?.role ?? 'user');
+        setIsAuthenticated(!!cachedUser);
+      }
     } finally {
       setIsLoading(false);
     }

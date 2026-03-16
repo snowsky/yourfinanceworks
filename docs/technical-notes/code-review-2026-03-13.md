@@ -10,9 +10,9 @@
 |---|-------|------|--------|
 | 1 | Insecure default secrets (`"your-secret-key-here"`) | `api/config.py:45-46`, `api/auth.py:19` | ✅ Fixed in commit b1c04bc |
 | 2 | DEBUG defaults to `True` | `api/main.py:436` | ✅ Fixed in commit b1c04bc |
-| 3 | JWT stored in localStorage (XSS-accessible) | `ui/src/utils/auth.ts:25,57-58` | ⬜ Open — migrate to httpOnly cookies |
+| 3 | JWT stored in localStorage (XSS-accessible) | `ui/src/utils/auth.ts:25,57-58` | ✅ Fixed — JWT already in httpOnly cookie; `useAuth.ts` now verifies via `/auth/me` on mount so cookie is authoritative, not localStorage |
 | 4 | TypeScript strict mode disabled | `ui/tsconfig.app.json:18-22` | ✅ Fixed in commit b1c04bc (type errors may need cleanup) |
-| 5 | No CSRF token validation for state-changing requests | `api/main.py:468-474` | ⬜ Open |
+| 5 | No CSRF token validation for state-changing requests | `api/main.py:468-474` | ✅ Fixed — `csrf_protection` middleware validates `Origin`/`Referer` on state-changing cookie-authenticated requests; skips Bearer token and debug mode |
 
 ---
 
@@ -69,11 +69,11 @@
 ## Summary
 
 **Fixed in commit b1c04bc (2026-03-13):** 8 of 20 issues
-**Fixed in this session (2026-03-16):** #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10, #14, #18 (was already implemented)
-**Remaining open:** 6 issues
+**Fixed in this session (2026-03-16):** #3, #5, #7, #8 (+ attachment count N+1 sub-issue of #6), #9, #10, #14, #18 (was already implemented)
+**Remaining open:** 4 issues
 
 ### Priority order for remaining work
-1. **High — Security:** JWT in localStorage (#3), CSRF protection (#5)
+1. **High — Security:** ~~JWT in localStorage (#3)~~ ✅, ~~CSRF protection (#5)~~ ✅
 2. **High — Reliability:** ~~Redis-backed rate limiting (#9)~~ ✅, ~~silent exception handlers (#10)~~ ✅
 3. **Medium — Performance:** ~~N+1 queries in export (#7)~~ ✅, ~~invoice recalc (#8)~~ ✅, encrypted field search full-table scan (#6) — still open (requires OpenSearch)
 4. **Medium — Security:** Key management via vault (#13)
