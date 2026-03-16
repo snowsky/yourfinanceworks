@@ -9,6 +9,7 @@ YourFinanceWORKS is an AI-powered financial management SaaS platform. It uses a 
 ## Commands
 
 ### Running the Full Stack
+```bash
 docker-compose up                        # Start all services (PostgreSQL, Redis, Kafka, OpenSearch, API, UI)
 ```
 
