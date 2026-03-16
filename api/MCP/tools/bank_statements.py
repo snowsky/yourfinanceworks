@@ -38,25 +38,7 @@ class BankStatementToolsMixin:
     # Statement Management
     async def list_statements(self) -> Dict[str, Any]:
         """List all statements with enhanced formatting"""
-        try:
-            response = await self.api_client.list_statements()
-
-            # Extract statements from response
-            statements = self._extract_items_from_response(response, ["statements", "items", "data"])
-
-            # Format statements for better readability
-            formatted_statements = []
-            for stmt in statements:
-                formatted = self._format_statement_for_display(stmt)
-                formatted_statements.append(formatted)
-
-            return {
-                "success": True,
-                "data": formatted_statements,
-                "count": len(formatted_statements)
-            }
-        except Exception as e:
-            return {"success": False, "error": f"Failed to list bank statements: {e}"}
+        return await self.list_bank_statements()
 
     # Recycle Bin Management
     async def list_deleted_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:

@@ -398,7 +398,7 @@ class InventoryToolsMixin:
                 item_data["description"] = description
             if category_id:
                 item_data["category_id"] = category_id
-            if cost_price:
+            if cost_price is not None:
                 item_data["cost_price"] = cost_price
 
             response = await self.api_client._make_request("POST", "/inventory/items", json=item_data)

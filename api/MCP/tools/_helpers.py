@@ -5,6 +5,38 @@ from typing import Any, Dict, List, Optional
 
 
 class ToolHelpersMixin:
+    # ------------------------------------------------------------------
+    # Response builders — use these instead of constructing dicts inline
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _ok(data: Any, message: Optional[str] = None) -> Dict[str, Any]:
+        """Return a successful single-item response."""
+        result: Dict[str, Any] = {"success": True, "data": data}
+        if message is not None:
+            result["message"] = message
+        return result
+
+    @staticmethod
+    def _err(action: str, exc: Exception) -> Dict[str, Any]:
+        """Return a failure response."""
+        return {"success": False, "error": f"Failed to {action}: {exc}"}
+
+    @staticmethod
+    def _list_response(items: List[Any], skip: int = 0, limit: int = 0) -> Dict[str, Any]:
+        """Return a paginated list response."""
+        result: Dict[str, Any] = {"success": True, "data": items, "count": len(items)}
+        if limit:
+            result["pagination"] = {"skip": skip, "limit": limit}
+        return result
+
+    @staticmethod
+    def _filter_none(**kwargs: Any) -> Dict[str, Any]:
+        """Return a dict with None values removed — use for building request params/payloads."""
+        return {k: v for k, v in kwargs.items() if v is not None}
+
+    # ------------------------------------------------------------------
+
     def _extract_items_from_response(self, response: Any, keys: List[str] = None) -> List[Dict[str, Any]]:
         """Extract items list from various response formats"""
         if isinstance(response, list):

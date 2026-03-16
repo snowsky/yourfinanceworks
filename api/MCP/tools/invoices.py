@@ -3,6 +3,7 @@ Invoice-related tools mixin.
 """
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+import asyncio
 import logging
 from pydantic import BaseModel, Field
 
@@ -168,10 +169,10 @@ class InvoiceToolsMixin:
     async def analyze_invoice_patterns(self) -> Dict[str, Any]:
         """Analyze invoice patterns to identify trends and provide recommendations."""
         try:
-            # Fetch invoices and clients with pagination for better performance
-            # Use smaller initial limit and expand if needed
-            invoices = await self.api_client.list_invoices(limit=500)
-            clients = await self.api_client.list_clients(limit=500)
+            invoices, clients = await asyncio.gather(
+                self.api_client.list_invoices(limit=500),
+                self.api_client.list_clients(limit=500),
+            )
 
             if not invoices:
                 return {"success": True, "data": {"message": "No invoices found to analyze."}}

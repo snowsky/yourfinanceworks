@@ -2,6 +2,7 @@
 Investment portfolio-related tools mixin.
 """
 from typing import Any, Dict, List, Optional
+import asyncio
 import logging
 
 
@@ -27,18 +28,13 @@ class InvestmentToolsMixin:
     async def get_portfolio_summary(self, portfolio_id: int) -> Dict[str, Any]:
         """Get a comprehensive summary of a portfolio including holdings and performance"""
         try:
-            # 1. Get Portfolio details (includes summary metrics in the response usually)
-            portfolio = await self.api_client.get_portfolio(portfolio_id)
-
-            # 2. Get Holdings
-            holdings_resp = await self.api_client.get_portfolio_holdings(portfolio_id)
+            portfolio, holdings_resp, performance, allocation = await asyncio.gather(
+                self.api_client.get_portfolio(portfolio_id),
+                self.api_client.get_portfolio_holdings(portfolio_id),
+                self.api_client.get_portfolio_performance(portfolio_id),
+                self.api_client.get_portfolio_allocation(portfolio_id),
+            )
             holdings = self._extract_items_from_response(holdings_resp, ["items", "data", "holdings"])
-
-            # 3. Get Performance
-            performance = await self.api_client.get_portfolio_performance(portfolio_id)
-
-            # 4. Get Allocation
-            allocation = await self.api_client.get_portfolio_allocation(portfolio_id)
 
             return {
                 "success": True,

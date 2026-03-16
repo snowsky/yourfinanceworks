@@ -117,9 +117,9 @@ class ApprovalToolsMixin:
         """Get pending approvals for current user"""
         try:
             params = {}
-            if limit:
+            if limit is not None:
                 params["limit"] = limit
-            if offset:
+            if offset is not None:
                 params["offset"] = offset
 
             response = await self.api_client._make_request("GET", "/approvals/pending", params=params)

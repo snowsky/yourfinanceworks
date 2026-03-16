@@ -37,7 +37,6 @@ class ClientToolsMixin:
     async def list_clients(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         """List all clients"""
         try:
-            from ..auth_client import AuthenticationError
             response = await self.api_client.list_clients(skip=skip, limit=limit)
 
             # Extract items from paginated response
