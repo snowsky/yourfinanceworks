@@ -69,6 +69,8 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
+      # Plugin installer - path where frontend plugin files are written
+      - UI_PLUGINS_DIR=/ui_plugins
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -84,6 +86,7 @@ services:
       - /app/__pycache__
       - /app/venv
       - ./infra/docker/wait-for-it.sh:/wait-for-it.sh
+      - ./ui/src/plugins:/ui_plugins
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 5s

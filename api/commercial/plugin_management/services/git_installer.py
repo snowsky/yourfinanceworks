@@ -8,6 +8,7 @@ rebuild are required after installation for the plugin to become active.
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -25,7 +26,10 @@ logger = logging.getLogger(__name__)
 #  ^4 parents up = api/
 _API_DIR = Path(__file__).parent.parent.parent.parent
 _API_PLUGINS_DIR = _API_DIR / "plugins"
-_UI_PLUGINS_DIR = _API_DIR.parent / "ui" / "src" / "plugins"
+
+# UI plugins dir: prefer the env var (set in Docker to a mounted host path),
+# fall back to the relative path for local non-Docker runs.
+_UI_PLUGINS_DIR = Path(os.environ.get("UI_PLUGINS_DIR", str(_API_DIR.parent / "ui" / "src" / "plugins")))
 
 _VALID_GIT_URL = re.compile(
     r"^(https?://[^\s]+|git@[^\s:]+:[^\s]+|ssh://[^\s]+|file://[^\s]+)$"
