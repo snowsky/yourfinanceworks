@@ -35,8 +35,46 @@ _VALID_GIT_URL = re.compile(
     r"^(https?://[^\s]+|git@[^\s:]+:[^\s]+|ssh://[^\s]+|file://[^\s]+)$"
 )
 
-# In-memory job store (single-process; sufficient for self-hosted deployments)
-_jobs: dict[str, "InstallJob"] = {}
+# Job store — persisted to disk so jobs survive uvicorn --reload restarts
+# triggered by the file watcher when new plugin files are written.
+_JOBS_DIR = Path(tempfile.gettempdir()) / "yfworks_plugin_jobs"
+_JOBS_DIR.mkdir(exist_ok=True)
+
+
+def _job_path(job_id: str) -> Path:
+    return _JOBS_DIR / f"{job_id}.json"
+
+
+def _save_job(job: "InstallJob") -> None:
+    try:
+        _job_path(job.job_id).write_text(json.dumps(job.to_dict()), encoding="utf-8")
+    except Exception as exc:
+        logger.warning("Could not persist install job %s: %s", job.job_id, exc)
+
+
+def _load_job(job_id: str) -> Optional["InstallJob"]:
+    path = _job_path(job_id)
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        job = InstallJob(
+            job_id=data["job_id"],
+            git_url=data["git_url"],
+            ref=data["ref"],
+            status=data["status"],
+            plugin_id=data.get("plugin_id"),
+            error=data.get("error"),
+            restart_required=data.get("restart_required", True),
+            created_at=datetime.fromisoformat(data["created_at"]),
+        )
+        for s in data.get("steps", []):
+            step = InstallStep(label=s["label"], status=s["status"], detail=s.get("detail"))
+            job.steps.append(step)
+        return job
+    except Exception as exc:
+        logger.warning("Could not load install job %s: %s", job_id, exc)
+        return None
 
 
 @dataclass
@@ -78,17 +116,20 @@ class InstallJob:
 def _step(job: InstallJob, label: str) -> InstallStep:
     s = InstallStep(label=label, status="running")
     job.steps.append(s)
+    _save_job(job)
     return s
 
 
-def _ok(step: InstallStep, detail: Optional[str] = None) -> None:
+def _ok(step: InstallStep, job: InstallJob, detail: Optional[str] = None) -> None:
     step.status = "done"
     step.detail = detail
+    _save_job(job)
 
 
-def _fail(step: InstallStep, detail: str) -> None:
+def _fail(step: InstallStep, job: InstallJob, detail: str) -> None:
     step.status = "failed"
     step.detail = detail
+    _save_job(job)
 
 
 def _validate_git_url(url: str) -> None:
@@ -104,13 +145,15 @@ def run_install(job_id: str) -> None:
     """
     Blocking install routine — intended to be called from a background thread
     via FastAPI BackgroundTasks.
+    Job state is written to disk after every step so it survives a uvicorn
+    --reload triggered by new files appearing in api/plugins/.
     """
-    job = _jobs.get(job_id)
+    job = _load_job(job_id)
     if not job:
         return
 
     job.status = "running"
-    tmp_dir: Optional[Path] = None
+    _save_job(job)
 
     try:
         # ── 1. Clone ─────────────────────────────────────────────────────────
@@ -124,15 +167,15 @@ def run_install(job_id: str) -> None:
                 timeout=120,
             )
             if result.returncode != 0:
-                _fail(step, result.stderr.strip())
+                _fail(step, job, result.stderr.strip())
                 raise RuntimeError("git clone failed")
-            _ok(step, f"Cloned from {job.git_url}@{job.ref}")
+            _ok(step, job, f"Cloned from {job.git_url}@{job.ref}")
 
             # ── 2. Validate manifest ─────────────────────────────────────────
             step = _step(job, "Validating plugin manifest")
             manifest_path = tmp_dir / "plugin.json"
             if not manifest_path.exists():
-                _fail(step, "plugin.json not found in repository root")
+                _fail(step, job, "plugin.json not found in repository root")
                 raise RuntimeError("Missing plugin.json")
 
             with manifest_path.open() as fh:
@@ -140,18 +183,18 @@ def run_install(job_id: str) -> None:
 
             missing = [f for f in ("name", "version", "description") if not manifest.get(f)]
             if missing:
-                _fail(step, f"plugin.json missing required fields: {missing}")
+                _fail(step, job, f"plugin.json missing required fields: {missing}")
                 raise RuntimeError("Invalid manifest")
 
             raw_name: str = manifest["name"]
             plugin_id = raw_name.lower().replace(" ", "-")
             folder_name = plugin_id.replace("-", "_")
             job.plugin_id = plugin_id
-            _ok(step, f"Plugin: {raw_name} v{manifest['version']}")
+            _ok(step, job, f"Plugin: {raw_name} v{manifest['version']}")
 
             dest_api = _API_PLUGINS_DIR / folder_name
             if dest_api.exists():
-                _fail(step, f"Plugin folder already exists: {dest_api}")
+                _fail(step, job, f"Plugin folder already exists: {dest_api}")
                 raise RuntimeError("Plugin already installed")
 
             # ── 3. Install Python dependencies ───────────────────────────────
@@ -165,22 +208,18 @@ def run_install(job_id: str) -> None:
                     timeout=300,
                 )
                 if result.returncode != 0:
-                    _fail(step, result.stderr.strip()[:500])
+                    _fail(step, job, result.stderr.strip()[:500])
                     raise RuntimeError("pip install failed")
-                _ok(step, "Dependencies installed")
+                _ok(step, job, "Dependencies installed")
 
             # ── 4. Copy backend plugin files ─────────────────────────────────
             step = _step(job, "Installing plugin files")
-            # If the repo has an api/plugins/<name>/ subfolder, use that;
-            # otherwise treat the repo root as the plugin folder.
             nested = tmp_dir / "api" / "plugins" / folder_name
             source_api = nested if nested.exists() else tmp_dir
-
             shutil.copytree(str(source_api), str(dest_api), ignore=shutil.ignore_patterns("ui", ".git", "__pycache__", "*.pyc"))
-            _ok(step, f"Backend installed to plugins/{folder_name}/")
+            _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
-            # Look for ui/ in repo root or ui/src/plugins/<name>/
             ui_source = None
             for candidate in (
                 tmp_dir / "ui" / "src" / "plugins" / folder_name,
@@ -194,10 +233,10 @@ def run_install(job_id: str) -> None:
                 step = _step(job, "Installing frontend plugin files")
                 dest_ui = _UI_PLUGINS_DIR / folder_name
                 shutil.copytree(str(ui_source), str(dest_ui))
-                _ok(step, f"Frontend installed to ui/src/plugins/{folder_name}/")
+                _ok(step, job, f"Frontend installed to ui/src/plugins/{folder_name}/")
             else:
                 step = _step(job, "Frontend files")
-                _ok(step, "No frontend files found (backend-only plugin)")
+                _ok(step, job, "No frontend files found (backend-only plugin)")
 
             # ── 6. Reset plugin loader cache ─────────────────────────────────
             step = _step(job, "Registering plugin")
@@ -206,26 +245,26 @@ def run_install(job_id: str) -> None:
                 plugin_loader._discovery_done = False
                 plugin_loader._discovered = []
                 plugin_loader._table_registry = {}
-                _ok(step, "Plugin loader cache reset — restart required to activate")
+                _ok(step, job, "Plugin loader cache reset — restart required to activate")
             except Exception as exc:
-                _ok(step, f"Cache reset skipped: {exc}")
+                _ok(step, job, f"Cache reset skipped: {exc}")
 
         job.status = "done"
+        _save_job(job)
         logger.info("Plugin '%s' installed successfully from %s", plugin_id, job.git_url)
 
     except Exception as exc:
         job.status = "failed"
         job.error = str(exc)
         logger.error("Plugin install failed (job %s): %s", job_id, exc)
-        # Mark any still-running steps as failed
         for s in job.steps:
             if s.status == "running":
                 s.status = "failed"
+        _save_job(job)
         # Clean up partial install
         try:
             if job.plugin_id:
-                folder = job.plugin_id.replace("-", "_")
-                partial = _API_PLUGINS_DIR / folder
+                partial = _API_PLUGINS_DIR / job.plugin_id.replace("-", "_")
                 if partial.exists():
                     shutil.rmtree(partial)
         except Exception:
@@ -233,15 +272,16 @@ def run_install(job_id: str) -> None:
 
 
 def start_install(git_url: str, ref: str = "main") -> InstallJob:
-    """Validate inputs, create an InstallJob, and return it (caller runs it in background)."""
+    """Validate inputs, create an InstallJob, persist it to disk, and return it."""
     _validate_git_url(git_url)
     job = InstallJob(job_id=str(uuid.uuid4()), git_url=git_url, ref=ref)
-    _jobs[job.job_id] = job
+    _save_job(job)
     return job
 
 
 def get_job(job_id: str) -> Optional[InstallJob]:
-    return _jobs.get(job_id)
+    """Load job state from disk — survives process restarts."""
+    return _load_job(job_id)
 
 
 def uninstall_plugin(plugin_id: str) -> None:
