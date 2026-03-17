@@ -40,6 +40,11 @@ _VALID_GIT_URL = re.compile(
 _JOBS_DIR = Path(tempfile.gettempdir()) / "yfworks_plugin_jobs"
 _JOBS_DIR.mkdir(exist_ok=True)
 
+# Tokens are kept in-memory ONLY — never written to disk.
+# They are only needed during the clone step (step 1), which completes
+# before uvicorn --reload is triggered by new plugin files in step 4/5.
+_job_tokens: dict[str, str] = {}
+
 
 def _job_path(job_id: str) -> Path:
     return _JOBS_DIR / f"{job_id}.json"
@@ -141,6 +146,18 @@ def _validate_git_url(url: str) -> None:
             raise ValueError("Git URL contains disallowed characters")
 
 
+def _authenticated_url(git_url: str, token: str) -> str:
+    """Embed a token into an HTTPS git URL for authenticated cloning."""
+    # Works for GitHub, GitHub Enterprise, Gitea, GitLab, etc.
+    # https://github.com/org/repo  →  https://<token>@github.com/org/repo
+    if git_url.startswith("https://"):
+        return git_url.replace("https://", f"https://{token}@", 1)
+    # For http:// (uncommon but valid)
+    if git_url.startswith("http://"):
+        return git_url.replace("http://", f"http://{token}@", 1)
+    return git_url  # SSH / file:// — token has no effect
+
+
 def run_install(job_id: str) -> None:
     """
     Blocking install routine — intended to be called from a background thread
@@ -152,6 +169,9 @@ def run_install(job_id: str) -> None:
     if not job:
         return
 
+    # Retrieve token from in-memory store (not persisted to disk)
+    token = _job_tokens.pop(job_id, None)
+
     job.status = "running"
     _save_job(job)
 
@@ -160,8 +180,9 @@ def run_install(job_id: str) -> None:
         step = _step(job, "Cloning repository")
         with tempfile.TemporaryDirectory(prefix="yfworks_plugin_") as td:
             tmp_dir = Path(td) / "repo"
+            clone_url = _authenticated_url(job.git_url, token) if token else job.git_url
             result = subprocess.run(
-                ["git", "clone", "--depth", "1", "--branch", job.ref, job.git_url, str(tmp_dir)],
+                ["git", "clone", "--depth", "1", "--branch", job.ref, clone_url, str(tmp_dir)],
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -271,11 +292,17 @@ def run_install(job_id: str) -> None:
             pass
 
 
-def start_install(git_url: str, ref: str = "main") -> InstallJob:
-    """Validate inputs, create an InstallJob, persist it to disk, and return it."""
+def start_install(git_url: str, ref: str = "main", github_token: Optional[str] = None) -> InstallJob:
+    """Validate inputs, create an InstallJob, persist it to disk, and return it.
+
+    If *github_token* is provided it is stored in-memory only and used during
+    the clone step. It is never written to disk.
+    """
     _validate_git_url(git_url)
     job = InstallJob(job_id=str(uuid.uuid4()), git_url=git_url, ref=ref)
     _save_job(job)
+    if github_token:
+        _job_tokens[job.job_id] = github_token
     return job
 
 

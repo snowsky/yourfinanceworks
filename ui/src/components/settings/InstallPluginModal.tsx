@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, GitBranch, Download, CheckCircle, XCircle, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Loader2, GitBranch, Download, CheckCircle, XCircle, Clock, AlertTriangle, RotateCcw, KeyRound } from 'lucide-react';
 import { pluginApi, InstallJob } from '@/lib/api/plugins';
 import { toast } from 'sonner';
 
@@ -33,6 +33,7 @@ const StepIcon: React.FC<{ status: InstallJob['steps'][0]['status'] }> = ({ stat
 export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, onOpenChange, onInstalled }) => {
   const [gitUrl, setGitUrl] = useState('');
   const [ref, setRef] = useState('main');
+  const [githubToken, setGithubToken] = useState('');
   const [modalState, setModalState] = useState<ModalState>('form');
   const [job, setJob] = useState<InstallJob | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +79,7 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
     if (!gitUrl.trim()) return;
     setSubmitting(true);
     try {
-      const { job_id } = await pluginApi.installFromGit(gitUrl.trim(), ref.trim() || 'main');
+      const { job_id } = await pluginApi.installFromGit(gitUrl.trim(), ref.trim() || 'main', githubToken.trim() || undefined);
       setModalState('installing');
       // Fetch initial state immediately
       const initial = await pluginApi.getInstallStatus(job_id);
@@ -97,6 +98,7 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
     setJob(null);
     setGitUrl('');
     setRef('main');
+    setGithubToken('');
     onOpenChange(false);
   };
 
@@ -145,6 +147,23 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
                   value={ref}
                   onChange={e => setRef(e.target.value)}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="github-token" className="flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5" />
+                  GitHub Token <span className="text-muted-foreground font-normal">(optional — for private repos)</span>
+                </Label>
+                <Input
+                  id="github-token"
+                  type="password"
+                  placeholder="ghp_…"
+                  value={githubToken}
+                  onChange={e => setGithubToken(e.target.value)}
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used only during cloning. Never stored on disk.
+                </p>
               </div>
 
               <Alert className="border-amber-200 bg-amber-50">

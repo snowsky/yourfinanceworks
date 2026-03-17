@@ -599,6 +599,7 @@ async def install_plugin_from_git(
 
     git_url = str(payload.get("git_url", "")).strip()
     ref = str(payload.get("ref", "main")).strip() or "main"
+    github_token = str(payload["github_token"]).strip() if payload.get("github_token") else None
 
     if not git_url:
         raise HTTPException(
@@ -607,7 +608,7 @@ async def install_plugin_from_git(
         )
 
     try:
-        job = start_install(git_url=git_url, ref=ref)
+        job = start_install(git_url=git_url, ref=ref, github_token=github_token)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

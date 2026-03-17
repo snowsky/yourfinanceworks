@@ -25,10 +25,10 @@ export const pluginApi = {
     });
   },
 
-  installFromGit: (gitUrl: string, ref: string = 'main') => {
+  installFromGit: (gitUrl: string, ref: string = 'main', githubToken?: string) => {
     return apiRequest<{ job_id: string; message: string; status_url: string }>('/plugins/install', {
       method: 'POST',
-      body: JSON.stringify({ git_url: gitUrl, ref }),
+      body: JSON.stringify({ git_url: gitUrl, ref, github_token: githubToken || undefined }),
     });
   },
 
