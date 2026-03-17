@@ -6,20 +6,25 @@ import { toast } from "sonner";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { ClientNotes } from "@/components/clients/ClientNotes";
 import { ClientTimeline } from "@/components/clients/ClientTimeline";
+import { CrmContactsPanel } from "@/components/clients/CrmContactsPanel";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { usePlugins } from "@/contexts/PluginContext";
 
-const TABS = ["Details", "Activity"] as const;
-type TabValue = (typeof TABS)[number];
+const BASE_TABS = ["Details", "Activity"] as const;
+type TabValue = "Details" | "Activity" | "Contacts";
 
 const EditClient = () => {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isPluginEnabled } = usePlugins();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState<TabValue>("Details");
+
+  const tabs: TabValue[] = [...BASE_TABS, ...(isPluginEnabled('crm') ? ['Contacts' as const] : [])];
 
   useEffect(() => {
     const fetchClient = async () => {
@@ -93,7 +98,7 @@ const EditClient = () => {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -122,6 +127,10 @@ const EditClient = () => {
 
         {activeTab === "Activity" && client && (
           <ClientTimeline clientId={client.id} />
+        )}
+
+        {activeTab === "Contacts" && client && (
+          <CrmContactsPanel clientId={client.id} />
         )}
       </div>
     </>
