@@ -170,12 +170,7 @@ export const expenseApi = {
   deleteExpense: async (id: number) =>
     apiRequest(`/expenses/${id}`, { method: 'DELETE' }),
   uploadReceipt: async (expenseId: number, file: File) => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        return user.tenant_id?.toString();
-      } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -203,12 +198,7 @@ export const expenseApi = {
     return apiRequest(`/expenses/${expenseId}/attachments/${attachmentId}`, { method: 'DELETE' });
   },
   downloadAttachmentBlob: async (expenseId: number, attachmentId: number, inline: boolean = true): Promise<{ blob: Blob; contentType: string | null }> => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        return user.tenant_id?.toString();
-      } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
 
     const headers: Record<string, string> = {};
     if (tenantId) headers['X-Tenant-ID'] = tenantId;

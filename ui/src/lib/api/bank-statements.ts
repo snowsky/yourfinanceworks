@@ -51,9 +51,7 @@ export const bankStatementApi = {
     files: File[],
     card_type: string = 'debit'
   ): Promise<{ success: boolean; statements: BankStatementSummary[] }> => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
 
     const formData = new FormData();
     files.slice(0, 12).forEach((f) => formData.append('files', f));
@@ -135,9 +133,7 @@ export const bankStatementApi = {
     statementId: number,
     inline = true
   ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
     const base = API_BASE_URL.replace(/\/$/, '');
     const url = `${base}/statements/${statementId}/file${inline ? '?inline=true' : ''}`;
     const headers: Record<string, string> = {};

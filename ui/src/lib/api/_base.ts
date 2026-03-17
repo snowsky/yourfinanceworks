@@ -227,6 +227,18 @@ export function getErrorMessage(error: any, t: (key: string) => string): string 
   return t('errors.unknown_error');
 }
 
+// Shared helper — resolves tenant ID from localStorage without duplicating the IIFE everywhere
+export function getTenantId(): string | undefined {
+  const selected = localStorage.getItem('selected_tenant_id');
+  if (selected) return selected;
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.tenant_id?.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export interface CsvExportDownload {
   blob: Blob;
   filename: string;
@@ -236,14 +248,7 @@ export const downloadCsvExport = async (
   endpoint: string,
   params: Record<string, string | number | boolean | undefined>
 ): Promise<CsvExportDownload> => {
-  const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      return user.tenant_id?.toString();
-    } catch {
-      return undefined;
-    }
-  })();
+  const tenantId = getTenantId();
 
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

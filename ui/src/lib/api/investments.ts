@@ -212,9 +212,7 @@ export const investmentApi = {
   downloadHoldingsFileBlob: async (
     attachmentId: number
   ): Promise<{ blob: Blob; filename: string; contentType: string }> => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
     const base = API_BASE_URL.replace(/\/$/, '');
     const url = `${base}/investments/holdings-files/${attachmentId}/download`;
     const headers: Record<string, string> = {};

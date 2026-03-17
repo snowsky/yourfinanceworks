@@ -26,11 +26,15 @@ export const activityApi = {
       // For now, we'll fetch from multiple endpoints and combine them
       const activities: ActivityItem[] = [];
 
-      // Fetch recent invoices
-      try {
-        const data = await invoiceApi.getInvoices();
-        const invoices = data.items;
-        const recentInvoices = invoices
+      const [invoicesResult, clientsResult, expensesResult, approvalsResult] = await Promise.allSettled([
+        invoiceApi.getInvoices(),
+        clientApi.getClients(0, 10),
+        expenseApi.getExpenses(),
+        approvalApi.getPendingApprovals(),
+      ]);
+
+      if (invoicesResult.status === 'fulfilled') {
+        const recentInvoices = invoicesResult.value.items
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 3)
           .map(invoice => ({
@@ -45,15 +49,12 @@ export const activityApi = {
             link: `/invoices/${invoice.id}`
           }));
         activities.push(...recentInvoices);
-      } catch (error) {
-        console.warn('Failed to fetch recent invoices for activity feed:', error);
+      } else {
+        console.warn('Failed to fetch recent invoices for activity feed:', invoicesResult.reason);
       }
 
-      // Fetch recent clients
-      try {
-        const data = await clientApi.getClients(0, 10);
-        const clients = data.items;
-        const recentClients = clients
+      if (clientsResult.status === 'fulfilled') {
+        const recentClients = clientsResult.value.items
           .sort((a, b) => {
             const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
             const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -69,35 +70,32 @@ export const activityApi = {
             link: `/clients/${client.id}`
           }));
         activities.push(...recentClients);
-      } catch (error) {
-        console.warn('Failed to fetch recent clients for activity feed:', error);
+      } else {
+        console.warn('Failed to fetch recent clients for activity feed:', clientsResult.reason);
       }
 
-      // Fetch recent expenses
-      try {
-        const expenses = await expenseApi.getExpenses();
-        const recentExpenses = expenses
+      if (expensesResult.status === 'fulfilled') {
+        const recentExpenses = expensesResult.value
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 2)
           .map(expense => ({
             id: `expense-${expense.id}`,
             type: 'expense' as const,
-            title: `Expense ${(expense as any).approval_status || 'submitted'}`,
-            description: (expense as any).description || expense.category || 'Business expense',
+            title: `Expense ${expense.status || 'submitted'}`,
+            description: expense.notes || expense.category || 'Business expense',
             timestamp: expense.created_at,
-            status: (expense as any).approval_status,
+            status: expense.status,
             amount: expense.amount,
             currency: expense.currency,
             link: `/expenses/${expense.id}`
           }));
         activities.push(...recentExpenses);
-      } catch (error) {
-        console.warn('Failed to fetch recent expenses for activity feed:', error);
+      } else {
+        console.warn('Failed to fetch recent expenses for activity feed:', expensesResult.reason);
       }
 
-      // Fetch recent approvals
-      try {
-        const approvalsResponse = await approvalApi.getPendingApprovals();
+      if (approvalsResult.status === 'fulfilled') {
+        const approvalsResponse = approvalsResult.value;
         const approvals = Array.isArray(approvalsResponse) ? approvalsResponse : approvalsResponse.approvals || [];
         const recentApprovals = approvals
           .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
@@ -114,8 +112,8 @@ export const activityApi = {
             link: `/approvals/${approval.id}`
           }));
         activities.push(...recentApprovals);
-      } catch (error) {
-        console.warn('Failed to fetch recent approvals for activity feed:', error);
+      } else {
+        console.warn('Failed to fetch recent approvals for activity feed:', approvalsResult.reason);
       }
 
       // Sort all activities by timestamp and limit

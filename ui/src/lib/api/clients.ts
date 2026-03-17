@@ -114,8 +114,8 @@ export const crmApi = {
 export const timelineApi = {
   getTimeline: (clientId: number, params: TimelineParams = {}) => {
     const searchParams = new URLSearchParams();
-    if (params.page) searchParams.append('page', params.page.toString());
-    if (params.page_size) searchParams.append('page_size', params.page_size.toString());
+    if (params.page !== undefined) searchParams.append('page', params.page.toString());
+    if (params.page_size !== undefined) searchParams.append('page_size', params.page_size.toString());
     if (params.event_types) searchParams.append('event_types', params.event_types);
     if (params.source) searchParams.append('source', params.source);
     const qs = searchParams.toString();

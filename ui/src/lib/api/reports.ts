@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { API_BASE_URL, apiRequest } from './_base';
+import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 
 // Report error handling types
 export interface ReportError {
@@ -321,8 +321,8 @@ export const reportApi = {
   // Report history
   getHistory: (limit?: number, offset?: number, reportType?: string, status?: string) => {
     const params = new URLSearchParams();
-    if (limit) params.set('limit', limit.toString());
-    if (offset) params.set('offset', offset.toString());
+    if (limit !== undefined) params.set('limit', limit.toString());
+    if (offset !== undefined) params.set('offset', offset.toString());
     if (reportType) params.set('report_type', reportType);
     if (status) params.set('status', status);
     return apiRequest<{ reports: ReportHistory[]; total: number }>(`/reports/history${params.toString() ? `?${params.toString()}` : ''}`);
@@ -347,9 +347,7 @@ export const reportApi = {
 
   downloadReport: async (reportId: number) => {
     try {
-      const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-        try { const user = JSON.parse(localStorage.getItem('user') || '{}'); return user.tenant_id?.toString(); } catch { return undefined; }
-      })();
+      const tenantId = getTenantId();
 
       const headers: Record<string, string> = {};
       if (tenantId) headers['X-Tenant-ID'] = tenantId;

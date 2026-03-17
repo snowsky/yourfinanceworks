@@ -1,6 +1,5 @@
 import { clientApi } from './clients';
 import { invoiceApi } from './invoices';
-import { paymentApi } from './payments';
 import { expenseApi } from './expenses';
 import type { DashboardStats } from './invoices';
 
@@ -8,13 +7,11 @@ import type { DashboardStats } from './invoices';
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     try {
-      const [clientsData, invoicesData, payments] = await Promise.all([
+      const [clientsData, invoicesData] = await Promise.all([
         clientApi.getClients(0, 1000), // get more for dashboard
         invoiceApi.getInvoices(undefined, undefined, 0, 1000),
-        paymentApi.getPayments(),
       ]);
 
-      const clients = clientsData.items;
       const invoices = invoicesData.items;
 
       const totalClients = clientsData.total;
@@ -177,12 +174,6 @@ export const dashboardApi = {
         // Calculate overdue rate
         overdueRate = Math.round((overdueInvoices.length / invoices.length) * 100);
       }
-
-      console.log('Payment trends calculations:', {
-        onTimePaymentRate,
-        averagePaymentTime,
-        overdueRate
-      });
 
       return {
         totalIncome,

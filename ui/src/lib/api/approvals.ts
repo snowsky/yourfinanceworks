@@ -15,8 +15,8 @@ export const approvalApi = {
     sort_order?: 'asc' | 'desc';
   }) => {
     const params = new URLSearchParams();
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+    if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
     if (filters?.category) params.append('category', filters.category);
     if (filters?.min_amount) params.append('min_amount', filters.min_amount.toString());
     if (filters?.max_amount) params.append('max_amount', filters.max_amount.toString());
@@ -112,8 +112,8 @@ export const approvalApi = {
 
   getPendingInvoiceApprovals: (filters?: { limit?: number; offset?: number }) => {
     const params = new URLSearchParams();
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+    if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
 
     const queryString = params.toString();
     return apiRequest<{ approvals: any[]; total: number; }>(`/approvals/invoices/pending${queryString ? `?${queryString}` : ''}`);
@@ -154,8 +154,8 @@ export const approvalApi = {
     if (filters?.approver_id) params.append('approver_id', filters.approver_id.toString());
     if (filters?.delegate_id) params.append('delegate_id', filters.delegate_id.toString());
     if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.offset) params.append('offset', filters.offset.toString());
+    if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+    if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
 
     const queryString = params.toString();
     return apiRequest<ApprovalDelegate[]>(`/approvals/delegates${queryString ? `?${queryString}` : ''}`);

@@ -397,12 +397,7 @@ export const invoiceApi = {
   getAttachmentInfo: (invoiceId: number) =>
     apiRequest<{ has_attachment: boolean; filename?: string; content_type?: string; file_size?: number }>(`/invoices/${invoiceId}/attachment-info`),
   previewAttachmentBlob: async (invoiceId: number, attachmentId?: number): Promise<Blob> => {
-    const tenantId = localStorage.getItem('selected_tenant_id') || (() => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        return user.tenant_id?.toString();
-      } catch { return undefined; }
-    })();
+    const tenantId = getTenantId();
 
     const headers: Record<string, string> = {};
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
