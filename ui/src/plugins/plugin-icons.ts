@@ -33,6 +33,10 @@ import {
   Briefcase,
   Calendar,
   Tag,
+  CalendarCheck,
+  UserPlus,
+  Activity,
+  Puzzle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -59,4 +63,8 @@ export const iconRegistry: Record<string, LucideIcon> = {
   Briefcase,
   Calendar,
   Tag,
+  CalendarCheck,
+  UserPlus,
+  Activity,
+  Puzzle,
 };
