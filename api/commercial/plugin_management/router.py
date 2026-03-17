@@ -2,7 +2,7 @@
 Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
@@ -14,6 +14,12 @@ from core.routers.auth import get_current_user
 from core.services.plugin_access_control_service import PluginAccessControlService
 from core.services.tenant_database_manager import tenant_db_manager
 from plugins.loader import plugin_loader
+from commercial.plugin_management.services.git_installer import (
+    start_install,
+    run_install,
+    get_job,
+    uninstall_plugin,
+)
 
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -561,4 +567,123 @@ async def update_plugin_config(
         "plugin_id": plugin_id,
         "config": config,
         "message": f"Configuration for plugin '{plugin_id}' updated successfully"
+    }
+
+
+# ---------------------------------------------------------------------------
+# Git-based plugin installation
+# ---------------------------------------------------------------------------
+
+@router.post("/install", status_code=status.HTTP_202_ACCEPTED)
+async def install_plugin_from_git(
+    payload: dict,
+    background_tasks: BackgroundTasks,
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Start a background job that clones a git repository and installs it as a plugin.
+    A server restart (and frontend rebuild if the plugin includes UI) is required
+    after installation to activate the plugin.
+
+    Payload:
+    {
+        "git_url": "https://github.com/org/my-plugin",
+        "ref": "main"          // branch, tag, or commit (default: "main")
+    }
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can install plugins",
+        )
+
+    git_url = str(payload.get("git_url", "")).strip()
+    ref = str(payload.get("ref", "main")).strip() or "main"
+
+    if not git_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="git_url is required",
+        )
+
+    try:
+        job = start_install(git_url=git_url, ref=ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    background_tasks.add_task(run_install, job.job_id)
+
+    return {
+        "job_id": job.job_id,
+        "message": "Installation started",
+        "status_url": f"/api/v1/plugins/install/status/{job.job_id}",
+    }
+
+
+@router.get("/install/status/{job_id}")
+async def get_install_status(
+    job_id: str,
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Poll the status of a plugin installation job.
+    Returns step-by-step progress and final result.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can view installation status",
+        )
+
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Install job '{job_id}' not found",
+        )
+
+    return job.to_dict()
+
+
+@router.delete("/{plugin_id}/uninstall", status_code=status.HTTP_200_OK)
+async def uninstall_plugin_endpoint(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Remove a plugin from disk and disable it for all tenants.
+    Requires admin role. A server restart is required after uninstallation.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can uninstall plugins",
+        )
+
+    normalized = _normalize_plugin_id(plugin_id)
+
+    # Disable the plugin for this tenant if it is enabled
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == current_user.tenant_id
+    ).first()
+    if settings and normalized in (settings.enabled_plugins or []):
+        settings.enabled_plugins = [p for p in settings.enabled_plugins if p != normalized]
+        settings.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+    try:
+        uninstall_plugin(normalized)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Uninstall failed: {exc}",
+        )
+
+    return {
+        "plugin_id": normalized,
+        "message": f"Plugin '{normalized}' uninstalled. A server restart is required.",
+        "restart_required": True,
     }

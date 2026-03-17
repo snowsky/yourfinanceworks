@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Zap, Settings, ArrowRightLeft } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Settings, ArrowRightLeft, Trash2, GitBranch } from 'lucide-react';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -14,6 +14,8 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { toast } from 'sonner';
 import { PluginSettingsModal } from './PluginSettingsModal';
 import { PluginAccessModal } from './PluginAccessModal';
+import { InstallPluginModal } from './InstallPluginModal';
+import { pluginApi } from '@/lib/api/plugins';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +31,34 @@ import {
 interface PluginCardProps {
   plugin: Plugin;
   onToggle: (pluginId: string, enabled: boolean, isAdmin?: boolean) => Promise<void>;
+  onUninstall?: (pluginId: string) => Promise<void>;
   canToggle: boolean;
   licenseMessage?: string;
   isAdmin: boolean;
   isExpired?: boolean;
 }
 
-const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, licenseMessage, isAdmin, isExpired }) => {
+const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, canToggle, licenseMessage, isAdmin, isExpired }) => {
   const [isToggling, setIsToggling] = useState(false);
+  const [isUninstalling, setIsUninstalling] = useState(false);
+  const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const { t } = useTranslation();
+
+  const handleUninstall = async () => {
+    if (!onUninstall) return;
+    setIsUninstalling(true);
+    try {
+      await onUninstall(plugin.id);
+      toast.success(`${plugin.name} uninstalled. Restart the server to complete removal.`);
+    } catch (error) {
+      toast.error(`Failed to uninstall: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsUninstalling(false);
+      setShowUninstallDialog(false);
+    }
+  };
 
 
   const handleToggle = async (enabled: boolean) => {
@@ -238,6 +257,32 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
         </div>
       </CardHeader>
 
+      {/* Uninstall confirmation dialog */}
+      <AlertDialog open={showUninstallDialog} onOpenChange={setShowUninstallDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              Uninstall {plugin.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the plugin files from disk and disable it. The plugin data in the
+              database will remain. A server restart is required to complete removal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUninstall}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isUninstalling ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+              Uninstall
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
@@ -385,6 +430,24 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, canToggle, li
               </Button>
             </div>
           )}
+
+          {/* Uninstall button — admin only */}
+          {isAdmin && onUninstall && (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => setShowUninstallDialog(true)}
+                disabled={isUninstalling}
+              >
+                {isUninstalling
+                  ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  : <Trash2 className="w-3 h-3 mr-1" />}
+                Uninstall
+              </Button>
+            </div>
+          )}
         </div>
 
         {(!canToggle || !isAdmin) && !isExpired && (
@@ -492,6 +555,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
 
   // Listen for feature updates and force re-render
@@ -581,6 +645,11 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     }
   };
 
+  const handleUninstall = async (pluginId: string) => {
+    await pluginApi.uninstallPlugin(pluginId);
+    await refreshPluginDiscovery();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -652,6 +721,17 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
               Manage Data Access
             </Button>
           )}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsInstallModalOpen(true)}
+              className="flex items-center gap-2 border-blue-200 hover:bg-blue-50 text-blue-700"
+            >
+              <GitBranch className="w-4 h-4" />
+              Install from Git
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -712,6 +792,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
               <PluginCard
                 plugin={plugin}
                 onToggle={togglePlugin}
+                onUninstall={isAdmin ? handleUninstall : undefined}
                 canToggle={canToggle && isAdmin}
                 licenseMessage={licenseMessage}
                 isAdmin={isAdmin}
@@ -736,6 +817,15 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
         open={isAccessModalOpen}
         onOpenChange={setIsAccessModalOpen}
         isAdmin={isAdmin}
+      />
+
+      <InstallPluginModal
+        open={isInstallModalOpen}
+        onOpenChange={setIsInstallModalOpen}
+        onInstalled={async () => {
+          await refreshPluginDiscovery();
+          toast.info('Plugin installed — restart the server to activate it.');
+        }}
       />
     </div>
   );
