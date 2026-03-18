@@ -2723,7 +2723,7 @@ export default function Statements() {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">
-                  {t('statements.card_type', { defaultValue: 'Card Type' })}
+                  {t('statements.card_type.label', 'Card Type')}
                 </label>
                 <Select value={cardType} onValueChange={setCardType}>
                   <SelectTrigger>

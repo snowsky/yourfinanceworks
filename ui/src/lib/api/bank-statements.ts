@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from './_base';
+import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 
 export interface BankTransactionEntry {
   id?: number;
