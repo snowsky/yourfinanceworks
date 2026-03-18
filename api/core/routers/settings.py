@@ -42,10 +42,14 @@ async def get_settings(
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-        # Get invoice settings from tenant database
-        invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
+        # Fetch all needed settings in a single query
+        _setting_keys = {"invoice_settings", "ai_chat_history_retention_days", "timezone"}
+        _settings_map = {
+            s.key: s
+            for s in db.query(Settings).filter(Settings.key.in_(_setting_keys)).all()
+        }
 
-        # Default invoice settings
+        invoice_settings_record = _settings_map.get("invoice_settings")
         default_invoice_settings = {
             "prefix": "INV-",
             "next_number": "0001",
@@ -54,30 +58,24 @@ async def get_settings(
             "send_copy": True,
             "auto_reminders": True
         }
-
-        # Use stored settings or defaults
         if invoice_settings_record and invoice_settings_record.value:
             invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}
         else:
             invoice_settings = default_invoice_settings
 
-        # Get AI chat history retention setting from tenant database
-        ai_chat_history_retention_setting = db.query(Settings).filter(Settings.key == "ai_chat_history_retention_days").first()
-        ai_chat_history_retention_days = 7  # default
-        if ai_chat_history_retention_setting and ai_chat_history_retention_setting.value:
+        ai_chat_history_retention_days = 7
+        ai_setting = _settings_map.get("ai_chat_history_retention_days")
+        if ai_setting and ai_setting.value:
             try:
-                ai_chat_history_retention_days = int(ai_chat_history_retention_setting.value)
-                # Ensure it's within valid range (1-30 days)
-                ai_chat_history_retention_days = max(1, min(30, ai_chat_history_retention_days))
+                ai_chat_history_retention_days = max(1, min(30, int(ai_setting.value)))
             except (ValueError, TypeError):
                 ai_chat_history_retention_days = 7
 
-        # Get timezone setting from tenant database
-        timezone_setting = db.query(Settings).filter(Settings.key == "timezone").first()
-        timezone = "UTC"  # default
-        if timezone_setting and timezone_setting.value:
+        timezone = "UTC"
+        tz_setting = _settings_map.get("timezone")
+        if tz_setting and tz_setting.value:
             try:
-                timezone = str(timezone_setting.value)
+                timezone = str(tz_setting.value)
             except (ValueError, TypeError):
                 timezone = "UTC"
 

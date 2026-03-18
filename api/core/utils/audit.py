@@ -1,3 +1,5 @@
+import asyncio
+import concurrent.futures
 from sqlalchemy.orm import Session
 from core.models.models_per_tenant import AuditLog
 from core.models.models import AuditLog as MasterAuditLog
@@ -6,6 +8,8 @@ from datetime import datetime, date, timezone
 import logging
 
 logger = logging.getLogger(__name__)
+
+_audit_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="audit")
 
 # Import encryption services for decryption
 try:
@@ -135,6 +139,66 @@ def convert_datetimes(obj):
         return obj
 
 
+def _write_audit_log_sync(
+    tenant_id: Optional[int],
+    user_id: int,
+    user_email: str,
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    resource_name: Optional[str],
+    details: Optional[Dict[str, Any]],
+    ip_address: Optional[str],
+    user_agent: Optional[str],
+    status: str,
+    error_message: Optional[str],
+) -> None:
+    """Write an audit log entry in its own DB session (safe for background thread use)."""
+    try:
+        from core.models.database import set_tenant_context
+        from core.services.tenant_database_manager import tenant_db_manager
+
+        if tenant_id:
+            set_tenant_context(tenant_id)
+            session_factory = tenant_db_manager.get_tenant_session(tenant_id)
+            db = session_factory()
+        else:
+            from core.models.database import get_db as _get_db
+            db = next(_get_db())
+
+        try:
+            if details is not None:
+                details = safe_extract_audit_data(details, tenant_id)
+                details = convert_datetimes(details)
+
+            audit_log = AuditLog(
+                user_id=user_id,
+                user_email=user_email,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                resource_name=resource_name,
+                details=details,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                status=status,
+                error_message=error_message,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(audit_log)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Background audit log write failed: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Background audit log setup failed: {e}")
+
+
 def log_audit_event(
     db: Session,
     user_id: int,
@@ -149,36 +213,47 @@ def log_audit_event(
     status: str = "success",
     error_message: Optional[str] = None,
 ):
-    # Ensure details is JSON serializable and decrypt encrypted data
-    if details is not None:
-        # Get tenant context for decryption
-        tenant_id = None
-        try:
-            tenant_id = get_tenant_context()
-        except:
-            pass
-        
-        details = safe_extract_audit_data(details, tenant_id)
-        details = convert_datetimes(details)
-    
-    audit_log = AuditLog(
-        user_id=user_id,
-        user_email=user_email,
-        action=action,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        resource_name=resource_name,
-        details=details,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        status=status,
-        error_message=error_message,
-        created_at=datetime.now(timezone.utc),
-    )
-    db.add(audit_log)
-    db.commit()
-    db.refresh(audit_log)
-    return audit_log
+    tenant_id = None
+    try:
+        tenant_id = get_tenant_context()
+    except Exception:
+        pass
+
+    try:
+        loop = asyncio.get_running_loop()
+        # We're inside an async request — offload the write to avoid blocking
+        loop.run_in_executor(
+            _audit_executor,
+            _write_audit_log_sync,
+            tenant_id, user_id, user_email, action, resource_type,
+            resource_id, resource_name, details,
+            ip_address, user_agent, status, error_message,
+        )
+        return None
+    except RuntimeError:
+        # No running event loop (e.g. tests, CLI) — write synchronously
+        if details is not None:
+            details = safe_extract_audit_data(details, tenant_id)
+            details = convert_datetimes(details)
+
+        audit_log = AuditLog(
+            user_id=user_id,
+            user_email=user_email,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            status=status,
+            error_message=error_message,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(audit_log)
+        db.commit()
+        db.refresh(audit_log)
+        return audit_log
 
 
 def log_audit_event_master(

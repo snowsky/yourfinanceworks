@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, Loader2, Pencil, Trash2, Users, Tag, Minus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -101,9 +101,12 @@ const Clients = () => {
     fetchClients();
   }, [currentTenantId, page, pageSize, labelFilter]); // Use state variables as dependency
 
-  const filteredClients = (clients || []).filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredClients = useMemo(
+    () => (clients || []).filter(client =>
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [clients, searchQuery]
   );
 
   const handleDelete = async () => {
@@ -126,11 +129,7 @@ const Clients = () => {
   const handleBulkDelete = async () => {
     setDeleting(true);
     try {
-      // We need a bulk delete API for clients, or loop through them
-      // For now, let's assume we might need to add one or use a loop
-      for (const id of selectedIds) {
-        await clientApi.deleteClient(id);
-      }
+      await Promise.all(selectedIds.map(id => clientApi.deleteClient(id)));
       setClients(prev => prev.filter(c => !selectedIds.includes(c.id)));
       setSelectedIds([]);
       setBulkDeleteModalOpen(false);
