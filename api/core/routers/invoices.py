@@ -749,29 +749,40 @@ async def read_invoices(
             Invoice.id, Client.name
         ).order_by(Invoice.created_at.desc(), Invoice.id.desc()).offset(skip).limit(limit).all()
 
+        # Batch-load attachments and creators to avoid N+1 queries
+        from core.models.models_per_tenant import InvoiceAttachment
+        invoice_ids = [inv.id for inv, _, _ in invoices]
+        creator_ids = list({inv.created_by_user_id for inv, _, _ in invoices if inv.created_by_user_id})
+
+        attachments_by_invoice: dict = {}
+        if invoice_ids:
+            for att in db.query(InvoiceAttachment).filter(
+                InvoiceAttachment.invoice_id.in_(invoice_ids),
+                InvoiceAttachment.is_active == True
+            ).all():
+                attachments_by_invoice.setdefault(att.invoice_id, []).append(att)
+
+        creators_by_id: dict = {}
+        if creator_ids:
+            for u in db.query(User).filter(User.id.in_(creator_ids)).all():
+                creators_by_id[u.id] = u
+
         # Convert to response format
         result = []
         for invoice, client_name, total_paid in invoices:
-            # Check for new-style attachments
-            from core.models.models_per_tenant import InvoiceAttachment
-            new_attachments = db.query(InvoiceAttachment).filter(
-                InvoiceAttachment.invoice_id == invoice.id,
-                InvoiceAttachment.is_active == True
-            ).all()
+            new_attachments = attachments_by_invoice.get(invoice.id, [])
 
-            # Get creator information - explicitly load since selectinload doesn't work with tuple queries
             created_by_username = None
             created_by_email = None
-            if invoice.created_by_user_id:
-                creator = db.query(User).filter(User.id == invoice.created_by_user_id).first()
-                if creator:
-                    if creator.first_name and creator.last_name:
-                        created_by_username = f"{creator.first_name} {creator.last_name}"
-                    elif creator.first_name:
-                        created_by_username = creator.first_name
-                    else:
-                        created_by_username = creator.email
-                    created_by_email = creator.email
+            creator = creators_by_id.get(invoice.created_by_user_id) if invoice.created_by_user_id else None
+            if creator:
+                if creator.first_name and creator.last_name:
+                    created_by_username = f"{creator.first_name} {creator.last_name}"
+                elif creator.first_name:
+                    created_by_username = creator.first_name
+                else:
+                    created_by_username = creator.email
+                created_by_email = creator.email
 
             invoice_dict = {
                 "id": invoice.id,
@@ -866,9 +877,10 @@ async def get_deleted_invoices(
 ):
     """Get all deleted invoices in the recycle bin"""
     try:
+        from sqlalchemy.orm import selectinload
         query = db.query(Invoice).filter(
             Invoice.is_deleted == True
-        )
+        ).options(selectinload(Invoice.deleted_by_user))
 
         total_count = query.count()
 

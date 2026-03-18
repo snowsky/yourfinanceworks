@@ -1,3 +1,4 @@
+import json
 import logging
 import hashlib
 import os
@@ -22,6 +23,58 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+# --- Auth context cache (Redis-backed, in-memory fallback) ---
+# Caches resolved user+tenant data per JWT token to avoid 4-5 DB queries per request.
+# TTL is intentionally short (60s) to limit stale-auth exposure.
+_AUTH_CACHE_TTL = 60  # seconds
+_auth_cache_local: dict = {}  # fallback: {token_hash: (data, expires_at)}
+
+try:
+    import redis as _redis_lib
+    _REDIS_URL = os.getenv("REDIS_URL")
+    _redis_client = _redis_lib.from_url(_REDIS_URL, decode_responses=True) if _REDIS_URL else None
+except Exception:
+    _redis_client = None
+
+
+def _auth_cache_key(token: str) -> str:
+    return "auth_ctx:" + hashlib.sha256(token.encode()).hexdigest()
+
+
+def _get_auth_cache(token: str) -> Optional[dict]:
+    key = _auth_cache_key(token)
+    try:
+        if _redis_client:
+            raw = _redis_client.get(key)
+            return json.loads(raw) if raw else None
+    except Exception:
+        pass
+    entry = _auth_cache_local.get(key)
+    if entry and time.time() < entry[1]:
+        return entry[0]
+    return None
+
+
+def _set_auth_cache(token: str, data: dict) -> None:
+    key = _auth_cache_key(token)
+    try:
+        if _redis_client:
+            _redis_client.setex(key, _AUTH_CACHE_TTL, json.dumps(data))
+            return
+    except Exception:
+        pass
+    _auth_cache_local[key] = (data, time.time() + _AUTH_CACHE_TTL)
+
+
+def _invalidate_auth_cache(token: str) -> None:
+    key = _auth_cache_key(token)
+    try:
+        if _redis_client:
+            _redis_client.delete(key)
+    except Exception:
+        pass
+    _auth_cache_local.pop(key, None)
 
 # SECURITY IMPROVEMENT 1: Better secret key validation
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -272,6 +325,33 @@ async def tenant_context_middleware(request: Request, call_next):
                 email_hash = hashlib.sha256(email.encode()).hexdigest()[:8]
                 logger.info(f"Token processed for user hash: {email_hash}")
 
+                # --- Fast path: serve from auth cache to skip 4-5 DB queries ---
+                cached = _get_auth_cache(token)
+                if cached:
+                    resolved_tenant_id = cached["tenant_id"]
+                    cached_tenant_ids = cached["user_tenant_ids"]
+                    if header_tenant_id:
+                        try:
+                            requested_tenant_id = int(header_tenant_id)
+                            if requested_tenant_id <= 0:
+                                raise ValueError("Invalid tenant ID")
+                        except (ValueError, TypeError):
+                            return JSONResponse(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"detail": "Invalid tenant ID format"},
+                            )
+                        if requested_tenant_id not in cached_tenant_ids:
+                            record_failed_auth(client_ip)
+                            return JSONResponse(
+                                status_code=status.HTTP_401_UNAUTHORIZED,
+                                content={"detail": "Access denied to requested organization."},
+                            )
+                        resolved_tenant_id = requested_tenant_id
+                    set_tenant_context(resolved_tenant_id)
+                    logger.debug(f"Auth context served from cache for {email_hash}")
+                    return await call_next(request)
+                # --- End fast path ---
+
                 master_db = next(get_master_db())
                 try:
                     from sqlalchemy.orm import joinedload
@@ -389,6 +469,13 @@ async def tenant_context_middleware(request: Request, call_next):
                                 )
 
                                 sync_user_to_tenant_database(user, tenant_id)
+
+                            # Cache resolved auth context for subsequent requests
+                            _set_auth_cache(token, {
+                                "tenant_id": tenant_id,
+                                "user_tenant_ids": user_tenant_ids,
+                                "user_id": user.id,
+                            })
                         except Exception as e:
                             logger.warning(
                                 f"Tenant database for tenant {tenant_id} does not exist or is inaccessible: {e}"

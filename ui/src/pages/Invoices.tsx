@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package, X, Tag } from "lucide-react";
@@ -22,7 +22,7 @@ import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { FeatureGate } from "@/components/FeatureGate";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from "@/components/ReviewDiffModal";
 import { Wand } from "lucide-react";
@@ -42,9 +42,8 @@ interface DeletedInvoice {
 
 const Invoices = () => {
   const { t } = useTranslation();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -86,8 +85,7 @@ const Invoices = () => {
       await invoiceApi.acceptReview(selectedReviewInvoice.id);
       toast.success('Review accepted successfully');
       setReviewModalOpen(false);
-      // Refresh list
-      fetchInvoices();
+      invalidateInvoices();
     } catch (error) {
       toast.error('Failed to accept review');
     } finally {
@@ -103,7 +101,7 @@ const Invoices = () => {
       await invoiceApi.rejectReview(selectedReviewInvoice.id);
       toast.success('Review dismissed');
       setReviewModalOpen(false);
-      fetchInvoices();
+      invalidateInvoices();
     } catch (error) {
       toast.error('Failed to dismiss review');
     } finally {
@@ -119,7 +117,7 @@ const Invoices = () => {
       await invoiceApi.reReview(selectedReviewInvoice.id);
       toast.success('Review re-triggered');
       setReviewModalOpen(false);
-      fetchInvoices();
+      invalidateInvoices();
     } catch (error) {
       toast.error('Failed to re-trigger review');
     } finally {
@@ -137,7 +135,18 @@ const Invoices = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  const [totalInvoices, setTotalInvoices] = useState(0);
+
+  // Fetch invoices via TanStack Query — eliminates N+1 manual refetches
+  const { data: invoicesData, isLoading: loading } = useQuery({
+    queryKey: ['invoices', statusFilter, labelFilter, page, pageSize, currentTenantId],
+    queryFn: () => {
+      const status = statusFilter !== "all" ? statusFilter : undefined;
+      const skip = (page - 1) * pageSize;
+      return invoiceApi.getInvoices(status, labelFilter || undefined, skip, pageSize);
+    },
+  });
+  const invoices = invoicesData?.items ?? [];
+  const totalInvoices = invoicesData?.total ?? 0;
 
   // Fetch settings to get timezone
   const { data: settings } = useQuery({
@@ -217,25 +226,8 @@ const Invoices = () => {
     }
   }, [showRecycleBin, recycleBinCurrentPage]);
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const skip = (page - 1) * pageSize;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, skip, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
-    } catch (error) {
-      console.error("Failed to fetch invoices:", error);
-      toast.error(t('invoices.errors.load_failed'));
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, labelFilter, currentTenantId, page, pageSize, t]);
-
-  useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const invalidateInvoices = () => queryClient.invalidateQueries({ queryKey: ['invoices'] });
 
   const fetchDeletedInvoices = async () => {
     try {
@@ -263,11 +255,7 @@ const Invoices = () => {
     try {
       await invoiceApi.deleteInvoice(invoiceToDelete);
       toast.success(t('invoices.delete_success'));
-      // Refresh the invoices list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
       // Refresh recycle bin if open
       if (showRecycleBin) {
         fetchDeletedInvoices();
@@ -297,11 +285,7 @@ const Invoices = () => {
       await invoiceApi.bulkDelete(selectedIds);
       toast.success(`Successfully deleted ${selectedIds.length} invoice${selectedIds.length > 1 ? 's' : ''}`);
       setSelectedIds([]);
-      // Refresh the invoices list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
       // Refresh recycle bin if open
       if (showRecycleBin) {
         console.log('🔄 Invoices bulk delete: Refreshing recycle bin, showRecycleBin:', showRecycleBin);
@@ -331,11 +315,7 @@ const Invoices = () => {
       await api.post(`/invoices/${invoiceId}/restore`, { new_status: 'draft' });
       toast.success('Invoice restored successfully');
       fetchDeletedInvoices();
-      // Refresh main invoices list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
     } catch (error) {
       toast.error('Failed to restore invoice');
     }
@@ -408,11 +388,7 @@ const Invoices = () => {
     try {
       const newInvoice = await invoiceApi.cloneInvoice(invoiceId);
       toast.success(`Cloned as ${newInvoice.number}`);
-      // Refresh list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
       // Redirect to edit
       navigate(`/invoices/edit/${newInvoice.id}`);
     } catch (error) {
@@ -424,11 +400,7 @@ const Invoices = () => {
     try {
       await invoiceApi.reReview(invoiceId);
       toast.success('Review triggered. The agent will process it shortly.');
-      // Refresh list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to trigger review');
     }
@@ -438,11 +410,7 @@ const Invoices = () => {
     try {
       await invoiceApi.cancelReview(invoiceId);
       toast.success('Review cancelled.');
-      // Refresh list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to cancel review');
     }
@@ -452,19 +420,15 @@ const Invoices = () => {
     if (selectedIds.length === 0) return;
 
     try {
-      setLoading(true);
+      setIsBulkLoading(true);
       await Promise.all(selectedIds.map(id => invoiceApi.reReview(id)));
       toast.success(`Review triggered for ${selectedIds.length} invoices.`);
       setSelectedIds([]);
-      // Refresh list
-      const status = statusFilter !== "all" ? statusFilter : undefined;
-      const data = await invoiceApi.getInvoices(status, labelFilter || undefined, (page - 1) * pageSize, pageSize);
-      setInvoices(data.items);
-      setTotalInvoices(data.total);
+      invalidateInvoices();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to trigger bulk review');
     } finally {
-      setLoading(false);
+      setIsBulkLoading(false);
     }
   };
 
@@ -500,7 +464,7 @@ const Invoices = () => {
                 <ProfessionalButton
                   variant="outline"
                   size="default"
-                  onClick={fetchInvoices}
+                  onClick={invalidateInvoices}
                   className="whitespace-nowrap"
                   disabled={loading}
                 >
@@ -852,8 +816,7 @@ const Invoices = () => {
                       onClick={async () => {
                         try {
                           await invoiceApi.bulkLabels(selectedIds, 'add', bulkLabel.trim());
-                          const data = await invoiceApi.getInvoices(statusFilter !== 'all' ? statusFilter : undefined, labelFilter || undefined);
-                          setInvoices(data.items);
+                          invalidateInvoices();
                           setSelectedIds([]);
                           setBulkLabel('');
                           toast.success('Labels added');
@@ -874,8 +837,7 @@ const Invoices = () => {
                       onClick={async () => {
                         try {
                           await invoiceApi.bulkLabels(selectedIds, 'remove', bulkLabel.trim());
-                          const data = await invoiceApi.getInvoices(statusFilter !== 'all' ? statusFilter : undefined, labelFilter || undefined);
-                          setInvoices(data.items);
+                          invalidateInvoices();
                           setSelectedIds([]);
                           setBulkLabel('');
                           toast.success('Labels removed');
@@ -1027,7 +989,7 @@ const Invoices = () => {
                                     onClick={() => {
                                       const next = invoice.labels?.filter((_, i) => i !== idx) || [];
                                       invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
-                                        setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? { ...x, labels: next } : x)));
+                                        invalidateInvoices();
                                       }).catch((err: any) => {
                                         toast.error(err?.message || 'Failed to remove label');
                                       });
@@ -1052,7 +1014,7 @@ const Invoices = () => {
                                     }
                                     const next = [...existing, raw].slice(0, 10);
                                     invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
-                                      setInvoices((prev) => prev.map((x) => (x.id === invoice.id ? { ...x, labels: next } : x)));
+                                      invalidateInvoices();
                                       setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: '' }));
                                     }).catch((err: any) => {
                                       toast.error(err?.message || 'Failed to add label');

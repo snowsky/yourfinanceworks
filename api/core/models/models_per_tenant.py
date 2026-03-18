@@ -88,10 +88,10 @@ class Invoice(Base):
     amount = Column(Float, nullable=False)
     currency = Column(String, default="USD", nullable=False)
     due_date = Column(DateTime, nullable=False)
-    status = Column(String, nullable=False, default="draft")
+    status = Column(String, nullable=False, default="draft", index=True)
     notes = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     # No tenant_id needed since each tenant has its own database
-    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
     is_recurring = Column(Boolean, default=False)
     recurring_frequency = Column(String, nullable=True)
     discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
@@ -110,7 +110,7 @@ class Invoice(Base):
     last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
 
     # Soft delete fields for recycle bin functionality
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
 
@@ -122,7 +122,7 @@ class Invoice(Base):
     review_result = Column(EncryptedJSON(), nullable=True)  # Encrypted sensitive review data
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships (no tenant relationship needed)
@@ -167,7 +167,7 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     # No tenant_id needed since each tenant has its own database
 
-    invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), index=True)
     amount = Column(Float, nullable=False)
     currency = Column(String, default="USD", nullable=False)
     payment_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
@@ -210,7 +210,7 @@ class Expense(Base):
     amount = Column(Float, nullable=True)
     currency = Column(String, default="USD", nullable=False)
     expense_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    category = Column(String, nullable=False)
+    category = Column(String, nullable=False, index=True)
     vendor = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     # Optional label to categorize or tag expenses (legacy single label)
     label = Column(String, nullable=True, index=True)  # Keep unencrypted for indexing/filtering
@@ -239,7 +239,7 @@ class Expense(Base):
 
     # OCR/AI analysis fields
     imported_from_attachment = Column(Boolean, default=False, nullable=False)
-    analysis_status = Column(String, default="not_started", nullable=False)  # not_started|queued|processing|done|failed|cancelled
+    analysis_status = Column(String, default="not_started", nullable=False, index=True)  # not_started|queued|processing|done|failed|cancelled
     analysis_result = Column(EncryptedJSON(),nullable=True)  # Encrypted sensitive analysis data
     analysis_error = Column(Text, nullable=True)  # Keep unencrypted for debugging
     manual_override = Column(Boolean, default=False, nullable=False)
@@ -254,7 +254,7 @@ class Expense(Base):
     last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
 
     # Soft delete fields for recycle bin functionality
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
 
@@ -378,7 +378,7 @@ class InvoiceItem(Base):
     __tablename__ = "invoice_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
+    invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     inventory_item_id = Column(Integer, ForeignKey("inventory_items.id"), nullable=True)  # Optional link to inventory item
     description = Column(String, nullable=False)
     quantity = Column(Float, nullable=False, default=1.0)
@@ -452,7 +452,7 @@ class AuditLog(Base):
     user_agent = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     status = Column(String, default="success", nullable=False)  # success, error, warning
     error_message = Column(String, nullable=True)  # Keep unencrypted for debugging
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
 # --- Statements ---
 

@@ -35,13 +35,30 @@ async def read_clients(
     current_user: MasterUser = Depends(get_current_user)
 ):
     try:
-        # Get clients with their total invoice amounts, total paid amounts, and calculate outstanding balance
-        # No tenant_id filtering needed since we're in the tenant's database
-        # Build query
+        # Pending invoice aliases to avoid join ambiguity
+        PendingInvoice = sa.orm.aliased(Invoice)
+        PendingPayment = sa.orm.aliased(Payment)
+
         query = db.query(
             Client,
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid'),
-            func.coalesce(func.sum(Invoice.amount), 0).label('total_invoiced')
+            func.coalesce(func.sum(Invoice.amount), 0).label('total_invoiced'),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(['pending', 'overdue', 'partially_paid']), Invoice.is_deleted == False), Invoice.amount),
+                        else_=0
+                    )
+                ), 0
+            ).label('pending_invoiced'),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(['pending', 'overdue', 'partially_paid']), Invoice.is_deleted == False), Payment.amount),
+                        else_=0
+                    )
+                ), 0
+            ).label('pending_paid'),
         ).outerjoin(
             Invoice, and_(Invoice.client_id == Client.id, Invoice.is_deleted == False)
         ).outerjoin(
@@ -60,29 +77,8 @@ async def read_clients(
 
         # Convert to response format
         result = []
-        for client, total_paid, total_invoiced in clients:
-            # Calculate outstanding balance for pending/unpaid invoices
-            pending_invoices = db.query(
-                func.coalesce(func.sum(Invoice.amount), 0)
-            ).filter(
-                Invoice.client_id == client.id,
-                Invoice.status.in_(['pending', 'overdue', 'partially_paid']),
-                Invoice.is_deleted == False
-            ).scalar()
-            
-            pending_payments = db.query(
-                func.coalesce(func.sum(Payment.amount), 0)
-            ).filter(
-                Payment.invoice_id.in_(
-                    db.query(Invoice.id).filter(
-                        Invoice.client_id == client.id,
-                        Invoice.status.in_(['pending', 'overdue', 'partially_paid']),
-                        Invoice.is_deleted == False
-                    )
-                )
-            ).scalar()
-            
-            outstanding_balance = float(pending_invoices or 0) - float(pending_payments or 0)
+        for client, total_paid, total_invoiced, pending_invoiced, pending_paid in clients:
+            outstanding_balance = float(pending_invoiced or 0) - float(pending_paid or 0)
             
             client_dict = {
                 "id": client.id,
@@ -120,11 +116,25 @@ async def read_client(
     current_user: MasterUser = Depends(get_current_user)
 ):
     try:
-        # Get client with total paid amount
-        # No tenant_id filtering needed since we're in the tenant's database
         client_tuple = db.query(
             Client,
-            func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
+            func.coalesce(func.sum(Payment.amount), 0).label('total_paid'),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(['pending', 'overdue', 'partially_paid']), Invoice.is_deleted == False), Invoice.amount),
+                        else_=0
+                    )
+                ), 0
+            ).label('pending_invoiced'),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(['pending', 'overdue', 'partially_paid']), Invoice.is_deleted == False), Payment.amount),
+                        else_=0
+                    )
+                ), 0
+            ).label('pending_paid'),
         ).outerjoin(
             Invoice, and_(Invoice.client_id == Client.id, Invoice.is_deleted == False)
         ).outerjoin(
@@ -141,30 +151,8 @@ async def read_client(
                 detail=CLIENT_NOT_FOUND
             )
 
-        client, total_paid = client_tuple
-        
-        # Calculate outstanding balance for pending/unpaid invoices
-        pending_invoices = db.query(
-            func.coalesce(func.sum(Invoice.amount), 0)
-        ).filter(
-            Invoice.client_id == client.id,
-            Invoice.status.in_(['pending', 'overdue', 'partially_paid']),
-            Invoice.is_deleted == False
-        ).scalar()
-        
-        pending_payments = db.query(
-            func.coalesce(func.sum(Payment.amount), 0)
-        ).filter(
-            Payment.invoice_id.in_(
-                db.query(Invoice.id).filter(
-                    Invoice.client_id == client.id,
-                    Invoice.status.in_(['pending', 'overdue', 'partially_paid']),
-                    Invoice.is_deleted == False
-                )
-            )
-        ).scalar()
-        
-        outstanding_balance = float(pending_invoices or 0) - float(pending_payments or 0)
+        client, total_paid, pending_invoiced, pending_paid = client_tuple
+        outstanding_balance = float(pending_invoiced or 0) - float(pending_paid or 0)
         
         client_dict = {
             "id": client.id,

@@ -106,7 +106,15 @@ const allPluginRoutes: PluginRouteConfig[] = Object.values(_pluginModules).flatM
   (m) => m.pluginRoutes ?? []
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,           // data stays fresh for 30s — avoids refetch on every mount/focus
+      refetchOnWindowFocus: false, // don't refetch just because the user switched tabs
+      retry: 1,
+    },
+  },
+});
 
 // Simple redirect component for expense IDs
 const ExpenseRedirect = () => {
