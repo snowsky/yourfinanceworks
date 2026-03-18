@@ -482,10 +482,13 @@ class ExpenseMessageHandler(BaseMessageHandler):
                 with database_session(tenant_id) as db:
                     from core.models.models_per_tenant import Expense
 
-                    # Check if expense exists and is not manually overridden
+                    # Check if expense exists, is not deleted, and is not manually overridden
                     exp = db.query(Expense).filter(Expense.id == expense_id).first()
                     if not exp:
                         self.logger.warning(f"Expense {expense_id} not found; skipping")
+                        return ProcessingResult(success=True, committed=True)
+                    if getattr(exp, 'is_deleted', False):
+                        self.logger.warning(f"Expense {expense_id} is deleted; skipping OCR")
                         return ProcessingResult(success=True, committed=True)
 
                     if exp.manual_override:
