@@ -1872,7 +1872,8 @@ async def upload_receipt(
             uploaded_by=current_user.id,
         )
         db.add(attachment)
-        expense.updated_at = get_tenant_timezone_aware_datetime(db)
+        db.commit()
+        db.refresh(attachment)
 
         # Mark expense as imported and queue OCR if not manually overridden and AI not disabled
         try:
@@ -1895,11 +1896,6 @@ async def upload_receipt(
             tenant_id = get_tenant_context()
         except Exception:
             tenant_id = None
-        try:
-            db.refresh(attachment)
-        except Exception:
-            pass
-
         # Only process attachment if AI recognition is not disabled
         disable_ai = getattr(expense, "disable_ai_recognition", False)
         if not disable_ai:
