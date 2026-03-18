@@ -71,6 +71,7 @@ class PluginLoader:
         self._discovered: list[DiscoveredPlugin] = []
         self._discovery_done = False
         self._table_registry: dict[str, str] = {}
+        self._load_errors: dict[str, str] = {}  # plugin_id → human-readable error
 
     # ------------------------------------------------------------------
     # Public API
@@ -150,6 +151,7 @@ class PluginLoader:
                 logger.warning(
                     "Plugin '%s': error importing models — %s", plugin.plugin_id, exc
                 )
+                self._load_errors[plugin.plugin_id] = f"Model import failed: {exc}"
 
     def register_all(self, app: Any, mcp_registry: Any = None) -> None:
         """
@@ -164,13 +166,14 @@ class PluginLoader:
         for plugin in self.discover():
             try:
                 mod = importlib.import_module(plugin.package)
-            except ImportError as exc:
+            except Exception as exc:
                 logger.warning(
                     "Plugin '%s': cannot import package '%s' — %s",
                     plugin.plugin_id,
                     plugin.package,
                     exc,
                 )
+                self._load_errors[plugin.plugin_id] = f"Import failed: {exc}"
                 continue
 
             register_fn = self._resolve_register_fn(mod, plugin)
@@ -179,6 +182,7 @@ class PluginLoader:
                     "Plugin '%s': no register function found, skipping.",
                     plugin.plugin_id,
                 )
+                self._load_errors[plugin.plugin_id] = "No register function found in plugin package"
                 continue
 
             try:
@@ -192,14 +196,25 @@ class PluginLoader:
                 logger.error(
                     "Plugin '%s': registration failed — %s", plugin.plugin_id, exc
                 )
+                self._load_errors[plugin.plugin_id] = f"Registration failed: {exc}"
 
     def get_valid_plugin_ids(self) -> set[str]:
         """Return the set of IDs of all discovered plugins (for API validation)."""
         return {p.plugin_id for p in self.discover()}
 
     def get_registry(self) -> list[dict]:
-        """Return a list of manifest dicts suitable for the /plugins/registry endpoint."""
-        return [p.manifest for p in self.discover()]
+        """Return a list of manifest dicts suitable for the /plugins/registry endpoint.
+
+        Plugins that failed to load are included with a ``load_error`` field so the
+        frontend can show an error state on the plugin card instead of hiding them.
+        """
+        result = []
+        for p in self.discover():
+            entry = dict(p.manifest)
+            if p.plugin_id in self._load_errors:
+                entry["load_error"] = self._load_errors[p.plugin_id]
+            result.append(entry)
+        return result
 
     def get_table_ownership_registry(self) -> dict[str, str]:
         """

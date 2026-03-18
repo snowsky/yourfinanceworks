@@ -198,6 +198,33 @@ class PluginDiscovery {
       try {
         const externalPlugins = await this.discoverExternalPlugins();
         for (const pluginData of externalPlugins) {
+          const loadError = (pluginData as any).load_error as string | undefined;
+
+          if (loadError) {
+            // Plugin was discovered but failed to load on the backend — show it
+            // with an error state so the user can see what went wrong.
+            const existingIdx = discoveredPlugins.findIndex(p => p.id === pluginData.id);
+            const errorPlugin: Plugin = {
+              id: pluginData.id,
+              name: pluginData.name || pluginData.id,
+              description: pluginData.description || '',
+              icon: '🔌',
+              enabled: false,
+              status: 'error',
+              initializationError: loadError,
+              version: pluginData.version,
+              author: pluginData.author,
+              category: pluginData.category,
+            };
+            if (existingIdx >= 0) {
+              // Overlay the error onto an existing built-in entry
+              discoveredPlugins[existingIdx] = { ...discoveredPlugins[existingIdx], status: 'error', initializationError: loadError };
+            } else {
+              discoveredPlugins.push(errorPlugin);
+            }
+            continue;
+          }
+
           const validation = PluginValidator.validatePluginMetadata(pluginData);
           if (validation.isValid && validation.plugin) {
             // If the backend returns a plugin whose ID already exists in the
@@ -295,7 +322,7 @@ class PluginDiscovery {
       const { apiRequest } = await import('@/lib/api');
       const data = await apiRequest<{ plugins: any[] }>('/plugins/registry', { method: 'GET' });
 
-      return (data.plugins || []).map((p: any): PluginMetadata => {
+      return (data.plugins || []).map((p: any): PluginMetadata & { load_error?: string } => {
         const rawId = p.name as string;
         const id = BACKEND_ID_ALIAS[rawId] ?? rawId;   // normalise ID
         return {
@@ -310,6 +337,7 @@ class PluginDiscovery {
           homepage: p.metadata?.documentation_url,
           repository: p.metadata?.repository,
           required_access: p.required_access,
+          load_error: p.load_error,
         };
       });
     } catch (err) {

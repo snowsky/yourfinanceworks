@@ -24,7 +24,7 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   showExpiredContent = true,  // Default to showing expired content with banner
 }) => {
   const { t } = useTranslation();
-  const { isFeatureEnabled, isFeatureExpired, loading, licenseStatus } = useFeatures();
+  const { isFeatureEnabled, isFeatureExpired, loading, licenseStatus, error } = useFeatures();
 
   if (loading) {
     return (
