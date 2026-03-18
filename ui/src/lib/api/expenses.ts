@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from './_base';
+import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 
 export interface Expense {
