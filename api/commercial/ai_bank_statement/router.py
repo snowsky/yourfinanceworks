@@ -5,7 +5,7 @@ import os
 import shutil
 import uuid
 import logging
-from core.utils.file_validation import validate_file_path
+from core.utils.file_validation import validate_file_path, validate_file_magic_bytes
 from core.utils.file_deletion import delete_file_from_storage
 
 from core.models.database import get_db, get_master_db
@@ -83,6 +83,7 @@ async def upload_statements(
                 raise HTTPException(
                     status_code=400, detail="Each file must be <= 20 MB"
                 )
+            validate_file_magic_bytes(contents, f.content_type)
             await f.seek(0)
 
             name = (f.filename or "statement.pdf").strip()
@@ -185,10 +186,11 @@ async def upload_statements(
                         f"Bank enqueue success id={statement.id} topic={topic_name}"
                     )
             except Exception as e:
-                # Keep as processing so UI reflects pending state; worker retry/ops will handle later
-                pass
+                statement.status = "failed"
+                statement.analysis_error = "Failed to queue for processing"
+                logger.error(f"Failed to enqueue bank statement {statement.id}: {e}")
             finally:
-                # Persist statement in processing state so it appears immediately
+                # Persist statement state so it appears immediately
                 db.commit()
                 db.refresh(statement)
 
@@ -672,7 +674,7 @@ async def empty_statement_recycle_bin(
         return {"message": "Recycle bin is already empty", "deleted_count": 0}
 
     # Define the background task function
-    def delete_statements_background(tenant_id: int, user_id: int, user_email: str, count: int):
+    async def delete_statements_background(tenant_id: int, user_id: int, user_email: str, count: int):
         """Background task to delete all statements in recycle bin"""
         from core.models.database import set_tenant_context
         from core.services.tenant_database_manager import tenant_db_manager
@@ -761,7 +763,7 @@ async def empty_statement_recycle_bin(
                                     )
 
                 # Run async file deletion
-                asyncio.run(delete_files())
+                await delete_files()
 
                 if deleted_statements:
                     logger.info(
@@ -1429,14 +1431,22 @@ async def reprocess_statement(
         db.commit()
 
         # Enqueue processing task (sync call)
-        publish_bank_statement_task(
-            {
-                "statement_id": s.id,
-                "file_path": s.file_path,
-                "tenant_id": tenant_id,
-                "attempt": 0,
-            }
-        )
+        try:
+            publish_bank_statement_task(
+                {
+                    "statement_id": s.id,
+                    "file_path": s.file_path,
+                    "tenant_id": tenant_id,
+                    "attempt": 0,
+                }
+            )
+        except Exception as enqueue_err:
+            s.status = "failed"
+            s.analysis_error = "Failed to queue for processing"
+            db.commit()
+            ProcessingLock.release_lock(db, "bank_statement", statement_id)
+            logger.error(f"Failed to enqueue reprocess task for statement {statement_id}: {enqueue_err}")
+            raise HTTPException(status_code=500, detail="Failed to queue statement for reprocessing")
 
         log_audit_event(
             db=db,

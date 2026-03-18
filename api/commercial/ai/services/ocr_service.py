@@ -32,18 +32,23 @@ def parse_number(value: Any) -> Optional[float]:
         if isinstance(value, (int, float)):
             return float(value)
         s = str(value).strip()
-        
-        # Handle sign notations
-        is_negative = False
-        if s.endswith('-') or s.startswith('-') or (s.startswith('(') and s.endswith(')')):
-            is_negative = True
-        
-        # Also check for minus sign after potential currency symbols (e.g. "$-100")
-        if not is_negative and '-' in s:
-            is_negative = True
-            
-        # Remove everything except digits, comma, and dot
+
+        # Detect sign notations on the original string before stripping non-numeric chars.
+        # Only treat as negative when the minus is clearly a sign, not part of a date/ID:
+        #   - parenthetical: "(100.00)"
+        #   - leading minus: "-100" or trailing minus: "100-"
+        #   - minus immediately after a currency symbol: "$-100", "USD-100"
         import re
+        is_negative = False
+        if s.startswith('(') and s.endswith(')'):
+            is_negative = True
+        elif s.startswith('-') or s.endswith('-'):
+            is_negative = True
+        elif re.search(r'[^0-9]-', s) and re.search(r'-[0-9]', s):
+            # minus surrounded by non-digit on left and digit on right → currency prefix like "$-100"
+            is_negative = True
+
+        # Remove everything except digits, comma, and dot
         s = re.sub(r"[^0-9,.]", "", s)
         
         # Determine if comma is thousands or decimal
@@ -118,9 +123,6 @@ async def apply_ocr_extraction_to_expense(
             expense.analysis_status = "failed"
             expense.analysis_error = extracted_text[:500]
             db.commit()
-            logger.error(f"OCR transport error for expense {expense.id}: {expense.analysis_error}")
-            return
-
             logger.error(f"OCR transport error for expense {expense.id}: {expense.analysis_error}")
             return
 
@@ -1392,12 +1394,6 @@ def validate_ocr_setup() -> None:
         dependencies = check_ocr_dependencies()
 
         # Check for required dependencies
-        if not dependencies["unstructured"]:
-            raise OCRDependencyMissingError(
-                "unstructured package is required",
-                missing_dependency="unstructured"
-            )
-
         if not dependencies["unstructured"]:
             raise OCRDependencyMissingError(
                 "unstructured package is required",

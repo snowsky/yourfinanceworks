@@ -1,3 +1,4 @@
+import contextlib
 import os
 import re
 import json
@@ -926,18 +927,18 @@ class UniversalBankTransactionExtractor:
                 from commercial.ai_bank_statement.analytics.bank_statement_analytics_service import track_bank_statement_extraction
                 from core.models.database import get_db
 
-                db = next(get_db())
-                track_bank_statement_extraction(
-                    db=db,
-                    method=extraction_method,
-                    pdf_path=pdf_path,
-                    processing_time=processing_time,
-                    text_length=getattr(self, 'last_text_length', 0),
-                    word_count=getattr(self, 'last_text_length', 0) // 5,
-                    success=False,
-                    ai_config=self.ai_config,
-                    error_details=str(e)
-                )
+                with contextlib.closing(next(get_db())) as db:
+                    track_bank_statement_extraction(
+                        db=db,
+                        method=extraction_method,
+                        pdf_path=pdf_path,
+                        processing_time=processing_time,
+                        text_length=getattr(self, 'last_text_length', 0),
+                        word_count=getattr(self, 'last_text_length', 0) // 5,
+                        success=False,
+                        ai_config=self.ai_config,
+                        error_details=str(e)
+                    )
             except Exception as track_error:
                 logger.warning(f"Failed to track failed extraction: {track_error}")
 
@@ -1155,24 +1156,22 @@ class UniversalBankTransactionExtractor:
             from commercial.ai_bank_statement.analytics.bank_statement_analytics_service import track_bank_statement_extraction
             from core.models.database import get_db
 
-            # Get database session for tracking
-            db = next(get_db())
-
             # Calculate text metrics if available
             text_length = getattr(self, 'last_text_length', 0)
             word_count = text_length // 5 if text_length > 0 else 0  # Rough estimate
 
             # Track the extraction attempt
-            track_bank_statement_extraction(
-                db=db,
-                method=method,
-                pdf_path=pdf_path,
-                processing_time=processing_time,
-                text_length=text_length,
-                word_count=word_count,
-                success=True,  # Assume success if we're tracking
-                ai_config=self.ai_config
-            )
+            with contextlib.closing(next(get_db())) as db:
+                track_bank_statement_extraction(
+                    db=db,
+                    method=method,
+                    pdf_path=pdf_path,
+                    processing_time=processing_time,
+                    text_length=text_length,
+                    word_count=word_count,
+                    success=True,  # Assume success if we're tracking
+                    ai_config=self.ai_config
+                )
 
         except Exception as e:
             logger.warning(f"Failed to track extraction method with analytics service: {e}")

@@ -23,6 +23,7 @@ from core.services.external_api_auth_service import ExternalAPIAuthService, Auth
 from core.decorators.sandbox_validation import require_production_auth_context
 from core.services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
 from core.utils.audit import log_audit_event
+from core.utils.file_validation import validate_file_magic_bytes
 
 router = APIRouter(prefix="/api/v1", tags=["external-api"])
 logger = logging.getLogger(__name__)
@@ -122,9 +123,10 @@ async def process_statement_pdf(
     allowed_types = {"application/pdf", "text/csv", "application/vnd.ms-excel"}
     if file.content_type not in allowed_types:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Only PDF and CSV files are supported"
         )
+    validate_file_magic_bytes(file_content, file.content_type)
     
     # Get API client for rate limiting and permissions
     api_client = db.query(APIClient).filter(
