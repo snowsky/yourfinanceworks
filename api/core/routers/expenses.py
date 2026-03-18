@@ -1874,8 +1874,9 @@ async def upload_receipt(
         db.add(attachment)
         db.commit()
         db.refresh(attachment)
+        attachment_id = attachment.id
 
-        # Mark expense as imported and queue OCR if not manually overridden and AI not disabled
+        # Update expense status and queue OCR — non-fatal if anything fails
         try:
             expense.imported_from_attachment = True
             disable_ai = getattr(expense, "disable_ai_recognition", False)
@@ -1887,29 +1888,31 @@ async def upload_receipt(
             expense.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(expense)
-        except Exception:
-            db.rollback()
 
-        # TODO: Publish Kafka message for OCR processing
-        try:
-            from core.models.database import get_tenant_context
-            tenant_id = get_tenant_context()
-        except Exception:
-            tenant_id = None
-        # Only process attachment if AI recognition is not disabled
-        disable_ai = getattr(expense, "disable_ai_recognition", False)
-        if not disable_ai:
-            # Check if ai_expense feature is licensed
-            from core.services.license_service import LicenseService
-            license_service = LicenseService(db)
-            if not license_service.has_feature("ai_expense"):
-                logger.info(f"Skipping AI processing for expense {expense_id} - ai_expense feature not licensed")
-                expense.analysis_status = "skipped"
-                db.commit()
+            # Queue OCR processing
+            try:
+                from core.models.database import get_tenant_context
+                tenant_id = get_tenant_context()
+            except Exception:
+                tenant_id = None
+            disable_ai = getattr(expense, "disable_ai_recognition", False)
+            if not disable_ai:
+                from core.services.license_service import LicenseService
+                license_service = LicenseService(db)
+                if not license_service.has_feature("ai_expense"):
+                    logger.info(f"Skipping AI processing for expense {expense_id} - ai_expense feature not licensed")
+                    expense.analysis_status = "skipped"
+                    db.commit()
+                else:
+                    queue_or_process_attachment(db, tenant_id, expense_id, attachment_id, str(file_path))
             else:
-                queue_or_process_attachment(db, tenant_id, expense_id, getattr(attachment, 'id', 0), str(file_path))
-        else:
-            logger.info(f"Skipping AI processing for expense {expense_id} - AI recognition disabled")
+                logger.info(f"Skipping AI processing for expense {expense_id} - AI recognition disabled")
+        except Exception as post_commit_err:
+            logger.warning(f"Non-fatal error after attachment commit for expense {expense_id}: {post_commit_err}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
         return {
             "message": "Attachment uploaded successfully",
