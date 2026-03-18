@@ -595,6 +595,17 @@ class ExpenseMessageHandler(BaseMessageHandler):
         error_message = getattr(expense, "analysis_error", "Unknown error")
 
         # Check if error is retryable
+        # Non-retryable errors: invalid request, bad image, model limitations, auth failures
+        non_retryable_patterns = [
+            "invalid_request_error", "could not process image", "bad request",
+            "invalidaccesskeyid", "authentication", "authorization",
+            "does not support image", "does not support vision",
+        ]
+        if any(p in error_message.lower() for p in non_retryable_patterns):
+            self.logger.warning(f"Non-retryable OCR error for expense_id={expense_id}: {error_message}")
+            await self._send_to_dlq(expense_id, tenant_id, payload.get("attachment_id"), payload.get("file_path"), error_message, payload)
+            return ProcessingResult(success=False, committed=True)
+
         if "timeout" in error_message.lower():
             retry_delay = min(300000, 60000 * (attempt + 1))  # 1-5 minutes for timeouts
         else:

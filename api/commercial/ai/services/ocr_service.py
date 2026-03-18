@@ -1688,7 +1688,7 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
             if base_url and provider_name != "openai":  # OpenAI has default base URL
                 kwargs["api_base"] = base_url
 
-            # Encode image to base64
+            # Encode file to base64
             from core.utils.file_validation import validate_file_path
             try:
                 safe_path = validate_file_path(file_path)
@@ -1698,7 +1698,9 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
             with open(safe_path, "rb") as image_file:
                 image_data = base64.b64encode(image_file.read()).decode('utf-8')
 
-            # Determine image format
+            is_pdf = file_path.lower().endswith('.pdf')
+
+            # Determine image format for non-PDF files
             if file_path.lower().endswith('.png'):
                 image_format = "png"
             elif file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
@@ -1706,21 +1708,34 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
             elif file_path.lower().endswith('.webp'):
                 image_format = "webp"
             else:
-                image_format = "png"  # Default fallback
+                image_format = "png"  # Default fallback for unknown image types
 
             prompt = prompt_text
+
+            # PDFs must be sent as documents (Anthropic format); images use image_url
+            if is_pdf and provider_name == "anthropic":
+                file_content_block = {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": image_data,
+                    }
+                }
+            else:
+                file_content_block = {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/{image_format};base64,{image_data}"
+                    }
+                }
 
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/{image_format};base64,{image_data}"
-                            }
-                        }
+                        file_content_block,
                     ]
                 }
             ]
