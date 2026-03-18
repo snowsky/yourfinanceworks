@@ -620,7 +620,7 @@ class ExpenseMessageHandler(BaseMessageHandler):
             await asyncio.sleep(retry_delay / 1000.0)
 
             payload.update({"attempt": attempt + 1})
-            await publish_ocr_task(payload)
+            publish_ocr_task(payload)
             await self._commit_message(consumer, message)
 
             return ProcessingResult(success=False, should_retry=True, retry_count=attempt + 1)

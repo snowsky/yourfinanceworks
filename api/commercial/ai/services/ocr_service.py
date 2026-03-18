@@ -17,6 +17,7 @@ from commercial.ai.exceptions.bank_ocr_exceptions import (
     OCRConfigurationError
 )
 from core.utils.timezone import get_tenant_timezone_aware_datetime
+from core.utils.currency import CURRENCY_SYMBOL_MAP
 
 def _resolve_log_level(name: str) -> int:
     try:
@@ -212,25 +213,15 @@ async def apply_ocr_extraction_to_expense(
     # Currency - convert symbols to ISO codes
     cur = first_key(extracted, ["currency", "currency_code", "iso_currency", "total_currency"]) or None
     if isinstance(cur, str) and len(cur) <= 5:
-        # Map common currency symbols to ISO codes
-        currency_symbol_map = {
-            '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₹': 'INR',
-            'C$': 'CAD', 'A$': 'AUD', 'NZ$': 'NZD', 'HK$': 'HKD', 'S$': 'SGD',
-            'R$': 'BRL', 'R': 'ZAR', '₽': 'RUB', '₩': 'KRW', '₺': 'TRY',
-            'kr': 'SEK', 'CHF': 'CHF',
-        }
-        # If it's a symbol, convert it; otherwise use as-is (assuming it's already an ISO code)
         cur_upper = cur.upper().strip()
-        if cur in currency_symbol_map:
-            expense.currency = currency_symbol_map[cur]
+        if cur in CURRENCY_SYMBOL_MAP:
+            expense.currency = CURRENCY_SYMBOL_MAP[cur]
         elif len(cur_upper) == 3 and cur_upper.isalpha():
-            # Looks like a valid ISO code
             expense.currency = cur_upper
         else:
-            # Unknown format, default to USD
             expense.currency = 'USD'
     elif not expense.currency:
-        expense.currency = 'USD' # Default if missing
+        expense.currency = 'USD'
 
     # Date
     date_str = first_key(extracted, ["expense_date", "date", "transaction_date", "purchase_date"]) or None
@@ -760,27 +751,7 @@ def _parse_csv_like_response(text: str) -> Optional[Dict[str, Any]]:
                 # Extract currency from symbol if not already set
                 if 'currency' not in data:
                     symbol = amount_match.group(1)
-                    currency_map = {
-                        '$': 'USD',
-                        '€': 'EUR',
-                        '£': 'GBP',
-                        '¥': 'JPY',
-                        '₹': 'INR',
-                        'C$': 'CAD',
-                        'A$': 'AUD',
-                        'NZ$': 'NZD',
-                        'HK$': 'HKD',
-                        'S$': 'SGD',
-                        'R$': 'BRL',
-                        'R': 'ZAR',
-                        '₽': 'RUB',
-                        '₩': 'KRW',
-                        '₺': 'TRY',
-                        'kr': 'SEK',
-                        'CHF': 'CHF',
-                        '¥': 'CNY',
-                    }
-                    data['currency'] = currency_map.get(symbol, 'USD')
+                    data['currency'] = CURRENCY_SYMBOL_MAP.get(symbol, 'USD')
                 continue
             except:
                 pass
@@ -1963,28 +1934,17 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
         logger.info(f"Expense {expense_id} manually overridden; skipping OCR.")
         return
 
-    # Set tenant context for encryption - determine tenant from database connection
+    # Set tenant context for encryption
     try:
-        # In this multi-tenant setup, the tenant_id is determined by which database we're connected to
-        # Since we're connected to tenant_1 database, the tenant_id is 1
-        # We can infer this from the database connection or use a more robust method
-
-        # Check if expense has direct tenant_id (if the model supports it)
-        if hasattr(expense, 'tenant_id') and expense.tenant_id:
-            tenant_id = expense.tenant_id
-        else:
-            # Since we're already connected to the tenant database, we know the tenant_id
-            # In this case, we're connected to tenant_1, so tenant_id = 1
-            # This avoids the circular dependency of accessing user data
-            tenant_id = 1  # This should be determined from the database connection context
-
-        logger.info(f"Setting tenant context to {tenant_id} for expense {expense_id} OCR processing")
-        set_tenant_context(tenant_id)
+        # Prefer tenant_id from the expense model if available (most authoritative),
+        # otherwise use the tenant_id passed into this function.
+        effective_tenant_id = (expense.tenant_id if hasattr(expense, 'tenant_id') and expense.tenant_id else tenant_id)
+        logger.info(f"Setting tenant context to {effective_tenant_id} for expense {expense_id} OCR processing")
+        set_tenant_context(effective_tenant_id)
     except Exception as e:
         logger.error(f"Failed to set tenant context for expense {expense_id}: {e}")
-        # Set a default tenant context to prevent encryption errors
-        set_tenant_context(1)
-        logger.warning(f"Using default tenant context (1) for expense {expense_id}")
+        set_tenant_context(tenant_id)
+        logger.warning(f"Using passed tenant context ({tenant_id}) for expense {expense_id}")
     try:
         expense.analysis_status = "processing"
         db.commit()
@@ -2000,7 +1960,6 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             # First try to find an AI config with OCR enabled
             ai_row = db.query(AIConfigModel).filter(
                 AIConfigModel.is_active == True,
-                AIConfigModel.tested == True,
                 AIConfigModel.ocr_enabled == True
             ).order_by(AIConfigModel.is_default.desc()).first()
 
@@ -2016,8 +1975,7 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
             else:
                 # If no OCR-enabled config found, check if any active config exists and log the issue
                 any_active_config = db.query(AIConfigModel).filter(
-                    AIConfigModel.is_active == True,
-                    AIConfigModel.tested == True
+                    AIConfigModel.is_active == True
                 ).first()
                 if any_active_config:
                     logger.warning(f"No OCR-enabled AI config found. Active config exists for {any_active_config.provider_name} but OCR is not enabled. Falling back to environment variables.")
@@ -2050,6 +2008,8 @@ async def process_attachment_inline(db: Session, expense_id: int, attachment_id:
     # Use UnifiedOCRService for expense processing
     result = None
     ai_extraction_attempted = False
+
+    effective_ai_config = ai_config or _get_ai_config_from_env()
 
     try:
         from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
@@ -2246,10 +2206,10 @@ def queue_or_process_attachment(db: Session, tenant_id: Optional[int], expense_i
     published = publish_ocr_task(message)
     if not published:
         try:
-            # Inline background processing
-            asyncio.get_event_loop().create_task(process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id))
+            # Inline background processing (running event loop exists)
+            asyncio.get_running_loop().create_task(process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id))
         except RuntimeError:
-            # If no running loop (sync context), schedule with new loop via thread
+            # No running event loop (sync context) - run synchronously
             asyncio.run(process_attachment_inline(db, expense_id, attachment_id, file_path, tenant_id))
 
 

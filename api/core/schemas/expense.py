@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from core.constants.expense_status import ExpenseStatus
+from core.utils.currency import CURRENCY_SYMBOL_MAP
 
 
 class ExpenseBase(BaseModel):
@@ -55,29 +56,9 @@ class ExpenseBase(BaseModel):
     @classmethod
     def validate_currency(cls, v):
         if v is not None:
-            # Map common currency symbols to ISO codes
-            currency_symbol_map = {
-                '$': 'USD',
-                '€': 'EUR',
-                '£': 'GBP',
-                '¥': 'JPY',
-                '₹': 'INR',
-                'C$': 'CAD',
-                'A$': 'AUD',
-                'NZ$': 'NZD',
-                'HK$': 'HKD',
-                'S$': 'SGD',
-                'R$': 'BRL',
-                'R': 'ZAR',
-                '₽': 'RUB',
-                '₩': 'KRW',
-                '₺': 'TRY',
-                'kr': 'SEK',
-            }
-
             # If it's a symbol, convert it
-            if v in currency_symbol_map:
-                return currency_symbol_map[v]
+            if v in CURRENCY_SYMBOL_MAP:
+                return CURRENCY_SYMBOL_MAP[v]
 
             # Validate it's a 3-letter code
             v_upper = v.upper().strip()
@@ -145,29 +126,9 @@ class ExpenseUpdate(BaseModel):
     @classmethod
     def validate_currency(cls, v):
         if v is not None:
-            # Map common currency symbols to ISO codes
-            currency_symbol_map = {
-                '$': 'USD',
-                '€': 'EUR',
-                '£': 'GBP',
-                '¥': 'JPY',
-                '₹': 'INR',
-                'C$': 'CAD',
-                'A$': 'AUD',
-                'NZ$': 'NZD',
-                'HK$': 'HKD',
-                'S$': 'SGD',
-                'R$': 'BRL',
-                'R': 'ZAR',
-                '₽': 'RUB',
-                '₩': 'KRW',
-                '₺': 'TRY',
-                'kr': 'SEK',
-            }
-
             # If it's a symbol, convert it
-            if v in currency_symbol_map:
-                return currency_symbol_map[v]
+            if v in CURRENCY_SYMBOL_MAP:
+                return CURRENCY_SYMBOL_MAP[v]
 
             # Validate it's a 3-letter code
             v_upper = v.upper().strip()
