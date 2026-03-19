@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YourFinanceWORKS — External API: Expense Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade-in { animation: fadeIn 0.25s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    pre { white-space: pre-wrap; word-break: break-all; }
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-gray-900">Expense API Explorer</h1>
+        <p class="text-xs text-gray-500">YourFinanceWORKS · External Developer API · Example</p>
+      </div>
+    </div>
+    <span id="tier-badge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full border"></span>
+  </header>
+
+  <div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- Config Card -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+        API Configuration
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+          <input
+            id="api-key"
+            type="password"
+            placeholder="ak_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Base URL</label>
+          <input
+            id="base-url"
+            type="text"
+            value="http://localhost:8000"
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+          />
+        </div>
+      </div>
+      <div class="mt-3 flex items-center gap-3">
+        <button
+          onclick="testConnection()"
+          class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <span id="connect-spinner" class="hidden">
+            <svg class="w-3 h-3 spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </span>
+          Test Connection
+        </button>
+        <span id="connection-status" class="text-xs"></span>
+      </div>
+    </div>
+
+    <!-- Rate Limit Bar -->
+    <div id="rate-limit-bar" class="hidden bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Rate Limit Usage</p>
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <div class="flex justify-between text-xs text-gray-600 mb-1">
+            <span>Per Minute</span>
+            <span id="rl-minute-text">—</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div id="rl-minute-bar" class="h-full bg-blue-500 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-600 mb-1">
+            <span>Per Hour</span>
+            <span id="rl-hour-text">—</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div id="rl-hour-bar" class="h-full bg-blue-500 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-600 mb-1">
+            <span>Per Day</span>
+            <span id="rl-day-text">—</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div id="rl-day-bar" class="h-full bg-blue-500 rounded-full transition-all" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Left: List Expenses -->
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            List Expenses
+            <code class="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">GET /api/v1/external/expenses/</code>
+          </h2>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Skip</label>
+              <input id="list-skip" type="number" value="0" min="0"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Limit</label>
+              <input id="list-limit" type="number" value="10" min="1" max="500"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          <button
+            onclick="listExpenses()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <span id="list-spinner" class="hidden">
+              <svg class="w-3 h-3 spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </span>
+            Fetch Expenses
+          </button>
+
+          <!-- Expense Cards -->
+          <div id="expense-list" class="mt-4 space-y-2 max-h-96 overflow-y-auto"></div>
+
+          <!-- Pagination -->
+          <div id="pagination" class="hidden mt-3 flex items-center justify-between">
+            <button onclick="prevPage()" class="text-xs text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-50 transition-colors">← Prev</button>
+            <span id="page-info" class="text-xs text-gray-500"></span>
+            <button onclick="nextPage()" class="text-xs text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded border border-gray-200 hover:bg-gray-50 transition-colors">Next →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Get Single Expense -->
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Get Single Expense
+            <code class="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-mono">GET /api/v1/external/expenses/{id}</code>
+          </h2>
+
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Expense ID</label>
+            <div class="flex gap-2">
+              <input id="expense-id" type="number" min="1" placeholder="e.g. 42"
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onkeydown="if(event.key==='Enter') getExpense()" />
+              <button
+                onclick="getExpense()"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <span id="get-spinner" class="hidden">
+                  <svg class="w-3 h-3 spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                </span>
+                Fetch
+              </button>
+            </div>
+          </div>
+
+          <!-- Single expense detail card -->
+          <div id="expense-detail" class="hidden fade-in"></div>
+        </div>
+
+        <!-- Request / Response Inspector -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+            Last Request / Response
+          </h2>
+
+          <!-- Request -->
+          <div class="mb-3">
+            <p class="text-xs font-medium text-gray-500 mb-1">REQUEST</p>
+            <pre id="req-display" class="text-xs bg-gray-900 text-green-400 rounded-lg p-3 font-mono min-h-12">—</pre>
+          </div>
+
+          <!-- Response -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-xs font-medium text-gray-500">RESPONSE</p>
+              <span id="status-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full"></span>
+            </div>
+            <pre id="res-display" class="text-xs bg-gray-900 text-gray-300 rounded-lg p-3 font-mono max-h-64 overflow-y-auto min-h-12">—</pre>
+          </div>
+        </div>
+
+        <!-- Code Snippet -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              Code Snippet
+            </h2>
+            <div class="flex gap-1">
+              <button onclick="setLang('fetch')" id="btn-fetch" class="text-xs px-2.5 py-1 rounded border border-blue-500 bg-blue-50 text-blue-700 font-medium transition-colors">fetch</button>
+              <button onclick="setLang('curl')" id="btn-curl" class="text-xs px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium transition-colors">curl</button>
+              <button onclick="setLang('python')" id="btn-python" class="text-xs px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium transition-colors">python</button>
+            </div>
+          </div>
+          <pre id="code-snippet" class="text-xs bg-gray-900 text-yellow-300 rounded-lg p-3 font-mono overflow-x-auto"></pre>
+          <button onclick="copySnippet()" class="mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Copy to clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let currentSkip = 0;
+    let currentLimit = 10;
+    let currentLang = 'fetch';
+    let lastUrl = '';
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    const apiKey  = () => document.getElementById('api-key').value.trim();
+    const baseUrl = () => document.getElementById('base-url').value.trim().replace(/\/$/, '');
+
+    function headers() {
+      return { 'X-API-Key': apiKey(), 'Content-Type': 'application/json' };
+    }
+
+    function showReq(method, url) {
+      lastUrl = url;
+      document.getElementById('req-display').textContent =
+        `${method} ${url}\nX-API-Key: ${apiKey() ? apiKey().slice(0, 10) + '...' : '(none)'}`;
+      updateSnippet(url);
+    }
+
+    async function doFetch(method, url) {
+      showReq(method, url);
+      const res = await fetch(url, { method, headers: headers() });
+      const body = await res.json().catch(() => ({}));
+      showRes(res.status, body);
+      updateRateLimitBar(res.headers);
+      return { res, body };
+    }
+
+    function showRes(status, body) {
+      const badge = document.getElementById('status-badge');
+      badge.classList.remove('hidden');
+      badge.textContent = status;
+      badge.className = status < 300
+        ? 'text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700'
+        : status < 500
+          ? 'text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700'
+          : 'text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700';
+      document.getElementById('res-display').textContent = JSON.stringify(body, null, 2);
+    }
+
+    function spin(id, on) {
+      document.getElementById(id).classList.toggle('hidden', !on);
+    }
+
+    function updateRateLimitBar(hdrs) {
+      const bar = document.getElementById('rate-limit-bar');
+      // Headers may not be exposed unless CORS allows them; best-effort
+      const remaining = hdrs.get('X-RateLimit-Remaining-Minute');
+      if (!remaining) { bar.classList.remove('hidden'); return; }
+      bar.classList.remove('hidden');
+      // Placeholder — real headers depend on server implementation
+    }
+
+    function setStatusMsg(id, msg, color) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = `text-xs font-medium text-${color}-600`;
+    }
+
+    // ── Connection test ────────────────────────────────────────────────────────
+    async function testConnection() {
+      if (!apiKey()) { setStatusMsg('connection-status', 'Enter an API key first.', 'red'); return; }
+      spin('connect-spinner', true);
+      setStatusMsg('connection-status', 'Testing…', 'gray');
+      try {
+        const url = `${baseUrl()}/api/v1/external/expenses/?limit=1`;
+        const { res, body } = await doFetch('GET', url);
+        if (res.ok) {
+          setStatusMsg('connection-status', '✓ Connected successfully', 'green');
+          // Show tier badge if quota data available
+          if (body.length !== undefined) showTierBadge(res.headers);
+        } else {
+          setStatusMsg('connection-status', `✗ ${res.status}: ${body.detail || 'Error'}`, 'red');
+        }
+      } catch (e) {
+        setStatusMsg('connection-status', `✗ Network error: ${e.message}`, 'red');
+      } finally {
+        spin('connect-spinner', false);
+      }
+    }
+
+    function showTierBadge(hdrs) {
+      const tier = hdrs.get('X-License-Tier') || 'starter';
+      const badge = document.getElementById('tier-badge');
+      const styles = {
+        starter: 'bg-gray-100 text-gray-700 border-gray-300',
+        professional: 'bg-blue-100 text-blue-700 border-blue-300',
+        enterprise: 'bg-purple-100 text-purple-700 border-purple-300',
+      };
+      badge.textContent = `${tier.charAt(0).toUpperCase() + tier.slice(1)} Tier`;
+      badge.className = `text-xs font-semibold px-2.5 py-1 rounded-full border ${styles[tier] || styles.starter}`;
+      badge.classList.remove('hidden');
+    }
+
+    // ── List Expenses ──────────────────────────────────────────────────────────
+    async function listExpenses() {
+      if (!apiKey()) { alert('Enter an API key first.'); return; }
+      currentSkip  = parseInt(document.getElementById('list-skip').value)  || 0;
+      currentLimit = parseInt(document.getElementById('list-limit').value) || 10;
+      spin('list-spinner', true);
+      const listEl = document.getElementById('expense-list');
+      listEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Loading…</p>';
+      try {
+        const url = `${baseUrl()}/api/v1/external/expenses/?skip=${currentSkip}&limit=${currentLimit}`;
+        const { res, body } = await doFetch('GET', url);
+        if (res.ok) {
+          renderExpenseList(body);
+        } else {
+          listEl.innerHTML = renderError(body);
+        }
+      } catch (e) {
+        listEl.innerHTML = `<p class="text-xs text-red-500 text-center py-4">Network error: ${e.message}</p>`;
+      } finally {
+        spin('list-spinner', false);
+      }
+    }
+
+    function renderExpenseList(expenses) {
+      const listEl = document.getElementById('expense-list');
+      const pagination = document.getElementById('pagination');
+
+      if (!expenses || expenses.length === 0) {
+        listEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">No expenses found.</p>';
+        pagination.classList.add('hidden');
+        return;
+      }
+
+      listEl.innerHTML = expenses.map(e => `
+        <div
+          class="border border-gray-100 rounded-lg p-3 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer fade-in"
+          onclick="loadExpenseById(${e.id})"
+          title="Click to view full details"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono text-gray-400">#${e.id}</span>
+                <span class="text-xs font-semibold text-gray-700 truncate">${e.category || '—'}</span>
+                ${e.vendor_name ? `<span class="text-xs text-gray-500 truncate">${esc(e.vendor_name)}</span>` : ''}
+              </div>
+              ${e.description ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${esc(e.description)}</p>` : ''}
+              <p class="text-xs text-gray-400 mt-0.5">${formatDate(e.expense_date)}</p>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <p class="text-sm font-bold text-gray-900">${formatAmount(e.amount, e.currency)}</p>
+              <span class="inline-block text-xs px-1.5 py-0.5 rounded-full font-medium mt-0.5 ${statusColor(e.status)}">${e.status}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Pagination controls
+      pagination.classList.remove('hidden');
+      document.getElementById('page-info').textContent =
+        `${currentSkip + 1}–${currentSkip + expenses.length} · ${expenses.length} shown`;
+      document.querySelector('#pagination button:first-child').disabled = currentSkip === 0;
+    }
+
+    function loadExpenseById(id) {
+      document.getElementById('expense-id').value = id;
+      getExpense();
+    }
+
+    // ── Get Single Expense ─────────────────────────────────────────────────────
+    async function getExpense() {
+      const id = document.getElementById('expense-id').value.trim();
+      if (!id)     { alert('Enter an expense ID.'); return; }
+      if (!apiKey()) { alert('Enter an API key first.'); return; }
+      spin('get-spinner', true);
+      const detailEl = document.getElementById('expense-detail');
+      detailEl.classList.add('hidden');
+      try {
+        const url = `${baseUrl()}/api/v1/external/expenses/${id}`;
+        const { res, body } = await doFetch('GET', url);
+        if (res.ok) {
+          renderExpenseDetail(body);
+        } else {
+          detailEl.innerHTML = renderError(body);
+          detailEl.classList.remove('hidden');
+        }
+      } catch (e) {
+        detailEl.innerHTML = `<p class="text-xs text-red-500 py-2">Network error: ${e.message}</p>`;
+        detailEl.classList.remove('hidden');
+      } finally {
+        spin('get-spinner', false);
+      }
+    }
+
+    function renderExpenseDetail(e) {
+      const detailEl = document.getElementById('expense-detail');
+      detailEl.innerHTML = `
+        <div class="border border-blue-200 rounded-lg p-4 bg-blue-50/30 fade-in">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="text-xs text-gray-500 font-mono">ID #${e.id}</p>
+              <p class="text-lg font-bold text-gray-900">${formatAmount(e.amount, e.currency)}</p>
+            </div>
+            <span class="text-xs px-2 py-1 rounded-full font-semibold ${statusColor(e.status)}">${e.status}</span>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <div><dt class="text-gray-500">Category</dt><dd class="font-medium text-gray-800">${esc(e.category || '—')}</dd></div>
+            <div><dt class="text-gray-500">Date</dt><dd class="font-medium text-gray-800">${formatDate(e.expense_date)}</dd></div>
+            <div><dt class="text-gray-500">Vendor</dt><dd class="font-medium text-gray-800">${esc(e.vendor_name || '—')}</dd></div>
+            <div><dt class="text-gray-500">Currency</dt><dd class="font-medium text-gray-800">${e.currency}</dd></div>
+            ${e.description ? `<div class="col-span-2"><dt class="text-gray-500">Description</dt><dd class="font-medium text-gray-800">${esc(e.description)}</dd></div>` : ''}
+          </dl>
+        </div>
+      `;
+      detailEl.classList.remove('hidden');
+    }
+
+    // ── Pagination ─────────────────────────────────────────────────────────────
+    function prevPage() {
+      currentSkip = Math.max(0, currentSkip - currentLimit);
+      document.getElementById('list-skip').value = currentSkip;
+      listExpenses();
+    }
+    function nextPage() {
+      currentSkip += currentLimit;
+      document.getElementById('list-skip').value = currentSkip;
+      listExpenses();
+    }
+
+    // ── Code Snippet ──────────────────────────────────────────────────────────
+    function setLang(lang) {
+      currentLang = lang;
+      ['fetch', 'curl', 'python'].forEach(l => {
+        const btn = document.getElementById(`btn-${l}`);
+        if (l === lang) {
+          btn.className = 'text-xs px-2.5 py-1 rounded border border-blue-500 bg-blue-50 text-blue-700 font-medium transition-colors';
+        } else {
+          btn.className = 'text-xs px-2.5 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium transition-colors';
+        }
+      });
+      updateSnippet(lastUrl || `${baseUrl()}/api/v1/external/expenses/?skip=0&limit=10`);
+    }
+
+    function updateSnippet(url) {
+      const key = apiKey() || 'YOUR_API_KEY';
+      let code = '';
+      if (currentLang === 'fetch') {
+        code = `const response = await fetch(\n  '${url}',\n  {\n    headers: {\n      'X-API-Key': '${key}'\n    }\n  }\n);\n\nconst expenses = await response.json();\nconsole.log(expenses);`;
+      } else if (currentLang === 'curl') {
+        code = `curl -X GET '${url}' \\\n  -H 'X-API-Key: ${key}'`;
+      } else if (currentLang === 'python') {
+        code = `import requests\n\nresponse = requests.get(\n    '${url}',\n    headers={'X-API-Key': '${key}'}\n)\n\nexpenses = response.json()\nprint(expenses)`;
+      }
+      document.getElementById('code-snippet').textContent = code;
+    }
+
+    function copySnippet() {
+      const text = document.getElementById('code-snippet').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target.closest('button');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
+        setTimeout(() => btn.innerHTML = orig, 1500);
+      });
+    }
+
+    // ── Formatting helpers ─────────────────────────────────────────────────────
+    function formatAmount(amount, currency) {
+      if (amount == null) return '—';
+      try {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(amount);
+      } catch { return `${amount} ${currency}`; }
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+      catch { return iso; }
+    }
+
+    function statusColor(status) {
+      const map = {
+        recorded: 'bg-gray-100 text-gray-600',
+        pending:  'bg-yellow-100 text-yellow-700',
+        approved: 'bg-green-100 text-green-700',
+        rejected: 'bg-red-100 text-red-700',
+        paid:     'bg-blue-100 text-blue-700',
+      };
+      return map[status] || 'bg-gray-100 text-gray-500';
+    }
+
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function renderError(body) {
+      return `<div class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 fade-in">
+        <strong>Error:</strong> ${esc(body.detail || JSON.stringify(body))}
+      </div>`;
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    updateSnippet(`${baseUrl()}/api/v1/external/expenses/?skip=0&limit=10`);
+    document.getElementById('base-url').addEventListener('input', () =>
+      updateSnippet(`${baseUrl()}/api/v1/external/expenses/?skip=0&limit=10`)
+    );
+    document.getElementById('api-key').addEventListener('input', () =>
+      updateSnippet(lastUrl || `${baseUrl()}/api/v1/external/expenses/?skip=0&limit=10`)
+    );
+  </script>
+</body>
+</html>
