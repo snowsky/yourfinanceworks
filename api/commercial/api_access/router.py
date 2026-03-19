@@ -55,6 +55,37 @@ def _get_api_key_prefix(api_key: str) -> str:
     return api_key[:7] + "..."
 
 
+def _resolve_api_tier(tenant_db: Session) -> dict:
+    """Resolve the API license tier from tenant's licensed features."""
+    from core.services.license_service import LicenseService
+    svc = LicenseService(tenant_db)
+    features = svc.get_enabled_features()
+    if "api_developer_enterprise" in features:
+        return {
+            "license_tier": "enterprise",
+            "domains": ["invoice", "expense", "statement", "portfolio"],
+            "rate_limit_per_minute": 300,
+            "rate_limit_per_hour": 5000,
+            "rate_limit_per_day": 50000
+        }
+    if "api_developer_pro" in features or "all" in features:
+        return {
+            "license_tier": "professional",
+            "domains": ["invoice", "expense", "statement", "portfolio"],
+            "rate_limit_per_minute": 120,
+            "rate_limit_per_hour": 2000,
+            "rate_limit_per_day": 20000
+        }
+    # Default starter tier
+    return {
+        "license_tier": "starter",
+        "domains": ["invoice", "expense"],
+        "rate_limit_per_minute": 30,
+        "rate_limit_per_hour": 500,
+        "rate_limit_per_day": 5000
+    }
+
+
 @router.post("/api-keys", response_model=APIKeyResponse)
 @require_feature("external_api")
 async def create_api_key(
@@ -68,9 +99,12 @@ async def create_api_key(
 
     **Business License Required**: This feature is only available with a business license.
     """
-    
+    # Resolve the tier from the tenant's license
+    tier_config = _resolve_api_tier(tenant_db)
+    tier_domains = tier_config["domains"]
+
     # Validate and normalize document types
-    valid_types = ["invoice", "expense", "statement"]
+    valid_types = ["invoice", "expense", "statement", "portfolio"]
     normalized_types = []
     for doc_type in request_data.allowed_document_types:
         # Normalize to lowercase for consistency
@@ -80,8 +114,10 @@ async def create_api_key(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid document type: {doc_type}. Must be one of: {valid_types}"
             )
-        normalized_types.append(normalized)
-    
+        # Strip domains not allowed by tier
+        if normalized in tier_domains:
+            normalized_types.append(normalized)
+
     # Use normalized types (remove duplicates while preserving order)
     seen = set()
     unique_normalized = []
@@ -90,31 +126,40 @@ async def create_api_key(
             seen.add(doc_type)
             unique_normalized.append(doc_type)
     request_data.allowed_document_types = unique_normalized
-    
+
     # Check API key limit (max 2 per user)
     existing_clients = db.query(APIClient).filter(
         APIClient.user_id == current_user.id,
         APIClient.tenant_id == current_user.tenant_id,
         APIClient.is_active == True
     ).count()
-    
+
     if existing_clients >= 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Maximum of 2 API keys allowed per user"
         )
-    
+
     # Generate API key and client ID
     api_key = _generate_api_key()
     api_key_hash = _hash_api_key(api_key)
     api_key_prefix = _get_api_key_prefix(api_key)
     client_id = f"client_{secrets.token_urlsafe(16)}"
-    
+
     # Set expiration if specified
     expires_at = None
     if request_data.expires_in_days:
         expires_at = datetime.now(timezone.utc) + timedelta(days=request_data.expires_in_days)
-    
+
+    # Stamp tier-based custom_quotas and override rate limits
+    custom_quotas = {
+        "license_tier": tier_config["license_tier"],
+        "allowed_domains": tier_domains,
+        "rate_limit_per_minute": tier_config["rate_limit_per_minute"],
+        "rate_limit_per_hour": tier_config["rate_limit_per_hour"],
+        "rate_limit_per_day": tier_config["rate_limit_per_day"],
+    }
+
     # Create API client record
     api_client = APIClient(
         client_id=client_id,
@@ -126,21 +171,22 @@ async def create_api_key(
         api_key_prefix=api_key_prefix,
         allowed_document_types=request_data.allowed_document_types,
         max_transaction_amount=request_data.max_transaction_amount,
-        rate_limit_per_minute=request_data.rate_limit_per_minute,
-        rate_limit_per_hour=request_data.rate_limit_per_hour,
-        rate_limit_per_day=request_data.rate_limit_per_day,
+        rate_limit_per_minute=tier_config["rate_limit_per_minute"],
+        rate_limit_per_hour=tier_config["rate_limit_per_hour"],
+        rate_limit_per_day=tier_config["rate_limit_per_day"],
         allowed_ip_addresses=request_data.allowed_ip_addresses,
         webhook_url=request_data.webhook_url,
         is_sandbox=request_data.is_sandbox,
+        custom_quotas=custom_quotas,
         created_by=current_user.id,
         terms_accepted_at=datetime.now(timezone.utc),
         privacy_policy_accepted_at=datetime.now(timezone.utc)
     )
-    
+
     db.add(api_client)
     db.commit()
     db.refresh(api_client)
-    
+
     return APIKeyResponse(
         client_id=client_id,
         api_key=api_key,  # Only returned once during creation
@@ -148,9 +194,9 @@ async def create_api_key(
         client_name=request_data.client_name,
         allowed_document_types=request_data.allowed_document_types,
         rate_limits={
-            "per_minute": request_data.rate_limit_per_minute,
-            "per_hour": request_data.rate_limit_per_hour,
-            "per_day": request_data.rate_limit_per_day
+            "per_minute": tier_config["rate_limit_per_minute"],
+            "per_hour": tier_config["rate_limit_per_hour"],
+            "per_day": tier_config["rate_limit_per_day"]
         },
         expires_at=expires_at,
         created_at=api_client.created_at
@@ -196,7 +242,8 @@ async def list_api_keys(
             total_transactions_submitted=client.total_transactions_submitted,
             last_used_at=client.last_used_at,
             created_at=client.created_at,
-            updated_at=client.updated_at
+            updated_at=client.updated_at,
+            custom_quotas=client.custom_quotas
         )
         for client in api_clients
     ]
@@ -242,7 +289,8 @@ async def get_api_key(
         total_transactions_submitted=api_client.total_transactions_submitted,
         last_used_at=api_client.last_used_at,
         created_at=api_client.created_at,
-        updated_at=api_client.updated_at
+        updated_at=api_client.updated_at,
+        custom_quotas=api_client.custom_quotas
     )
 
 
@@ -274,7 +322,7 @@ async def update_api_key(
     
     # Validate document types if provided
     if "allowed_document_types" in update_data:
-        valid_types = ["invoice", "expense", "statement"]
+        valid_types = ["invoice", "expense", "statement", "portfolio"]
         for doc_type in update_data["allowed_document_types"]:
             if doc_type not in valid_types:
                 raise HTTPException(
@@ -307,7 +355,8 @@ async def update_api_key(
         total_transactions_submitted=api_client.total_transactions_submitted,
         last_used_at=api_client.last_used_at,
         created_at=api_client.created_at,
-        updated_at=api_client.updated_at
+        updated_at=api_client.updated_at,
+        custom_quotas=api_client.custom_quotas
     )
 
 
@@ -403,7 +452,7 @@ async def create_oauth_client(
     """Create a new OAuth 2.0 client for enterprise integration."""
     
     # Validate and normalize document types
-    valid_types = ["invoice", "expense", "statement"]
+    valid_types = ["invoice", "expense", "statement", "portfolio"]
     normalized_types = []
     for doc_type in request_data.allowed_document_types:
         # Normalize to lowercase for consistency
@@ -414,7 +463,7 @@ async def create_oauth_client(
                 detail=f"Invalid document type: {doc_type}. Must be one of: {valid_types}"
             )
         normalized_types.append(normalized)
-    
+
     # Use normalized types (remove duplicates while preserving order)
     seen = set()
     unique_normalized = []
@@ -423,7 +472,7 @@ async def create_oauth_client(
             seen.add(doc_type)
             unique_normalized.append(doc_type)
     request_data.allowed_document_types = unique_normalized
-    
+
     # Generate OAuth client credentials
     oauth_client_id = f"oauth_{secrets.token_urlsafe(16)}"
     oauth_client_secret = secrets.token_urlsafe(32)
@@ -510,7 +559,8 @@ async def admin_list_all_api_keys(
             total_transactions_submitted=client.total_transactions_submitted,
             last_used_at=client.last_used_at,
             created_at=client.created_at,
-            updated_at=client.updated_at
+            updated_at=client.updated_at,
+            custom_quotas=client.custom_quotas
         )
         for client in api_clients
     ]

@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 
-from core.models.database import get_master_db
+from core.models.database import get_master_db, set_tenant_context
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, AuthenticationMethod, Permission
 from core.models.api_models import APIClient
 
@@ -47,7 +47,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
 
         try:
             # For API client endpoints, require API key authentication
-            if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/"]):
+            if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/", "/api/v1/external/"]):
                 # Try API key authentication first
                 api_key = request.headers.get("X-API-Key")
                 if api_key:
@@ -57,6 +57,9 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     if auth_context and auth_context.is_authenticated:
                         # Set auth context on request
                         request.state.auth = auth_context
+                        # Set tenant context so get_db() works in route handlers
+                        if auth_context.tenant_id:
+                            set_tenant_context(auth_context.tenant_id)
                         # Process request
                         response = await call_next(request)
                         return response
@@ -128,7 +131,8 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
         api_client_paths = [
             "/api/v1/external-transactions/transactions",
             "/api/v1/external-transactions/batch-processing",  # Batch processing uses API keys
-            "/api/v1/external-auth"
+            "/api/v1/external-auth",
+            "/api/v1/external/"  # Developer API endpoints
         ]
 
         # UI endpoints (require JWT authentication)

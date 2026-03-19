@@ -91,6 +91,7 @@ try:
     from commercial.ai_bank_statement.external_router import router as external_api
     from commercial.external_transactions.router import router as external_transactions
     from commercial.plugin_management.router import router as plugin_management
+    from commercial.developer_api.router import router as developer_api_router
     COMMERCIAL_MODULES_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import commercial modules: {str(e)}")
@@ -115,6 +116,7 @@ except ImportError as e:
     prompts = None
     external_api = None
     external_transactions = None
+    developer_api_router = None
     COMMERCIAL_MODULES_AVAILABLE = False
 from core.models.database import engine
 from core.models import models
@@ -652,6 +654,12 @@ if plugin_management:
     app.include_router(plugin_management, prefix="/api/v1")
 else:
     logger.warning("plugin_management router is None - not registering")
+
+if developer_api_router:
+    logger.info("Registering developer_api router")
+    app.include_router(developer_api_router)
+else:
+    logger.warning("developer_api router is None - not registering")
 
 @app.get("/")
 def read_root():

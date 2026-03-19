@@ -102,6 +102,22 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'api_developer_pro': {
+            'name': 'API Developer Pro',
+            'description': 'Professional-tier external API access with invoice, expense, statement, and portfolio domains',
+            'category': 'integration',
+            'env_var': 'FEATURE_API_DEVELOPER_PRO_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
+        'api_developer_enterprise': {
+            'name': 'API Developer Enterprise',
+            'description': 'Enterprise-tier external API access with all domains and highest rate limits',
+            'category': 'integration',
+            'env_var': 'FEATURE_API_DEVELOPER_ENTERPRISE_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
         'external_transactions': {
             'name': 'External Transactions',
             'description': 'Ingest transaction data via external API',

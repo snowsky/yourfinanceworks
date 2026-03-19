@@ -44,6 +44,13 @@ interface APIClient {
   last_used_at?: string;
   created_at: string;
   updated_at: string;
+  custom_quotas?: {
+    license_tier?: string;
+    allowed_domains?: string[];
+    rate_limit_per_minute?: number;
+    rate_limit_per_hour?: number;
+    rate_limit_per_day?: number;
+  };
 }
 
 interface APIKeyCreateRequest {
@@ -87,16 +94,24 @@ interface OAuthClientCreateRequest {
 }
 
 const DOCUMENT_TYPES = [
-  { value: 'invoice', label: 'Invoices' },
-  { value: 'expense', label: 'Expenses' },
-  { value: 'statement', label: 'Statements' }
+  { value: 'invoice', label: 'Invoices', requiresPro: false },
+  { value: 'expense', label: 'Expenses', requiresPro: false },
+  { value: 'statement', label: 'Statements', requiresPro: false },
+  { value: 'portfolio', label: 'Portfolio', requiresPro: true },
 ];
 
 const getDocumentTypes = (t: any) => [
-  { value: 'invoice', label: t('settings.api_keys.invoice') },
-  { value: 'expense', label: t('settings.api_keys.expense') },
-  { value: 'statement', label: t('settings.api_keys.statement') }
+  { value: 'invoice', label: t('settings.api_keys.invoice'), requiresPro: false },
+  { value: 'expense', label: t('settings.api_keys.expense'), requiresPro: false },
+  { value: 'statement', label: t('settings.api_keys.statement'), requiresPro: false },
+  { value: 'portfolio', label: 'Portfolio', requiresPro: true },
 ];
+
+const TIER_BADGE_STYLES: Record<string, string> = {
+  starter: 'bg-gray-100 text-gray-700 border-gray-200',
+  professional: 'bg-blue-100 text-blue-800 border-blue-200',
+  enterprise: 'bg-purple-100 text-purple-800 border-purple-200',
+};
 
 const OAUTH_SCOPES = [
   { value: 'read', label: 'Read Access' },
@@ -213,6 +228,14 @@ const APIClientManagementContent: React.FC = () => {
   // Form helpers
   const [ipAddressInput, setIpAddressInput] = useState('');
   const [redirectUriInput, setRedirectUriInput] = useState('');
+
+  // Fetch license features to determine tier
+  const { data: licenseData } = useQuery<{ features: string[] }>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get('/license/status'),
+  });
+  const licenseFeatures: string[] = licenseData?.features || [];
+  const hasProTier = licenseFeatures.includes('api_developer_pro') || licenseFeatures.includes('api_developer_enterprise') || licenseFeatures.includes('all');
 
   // Fetch clients
   const { data: clientsData, isLoading: loading } = useQuery<APIClient[]>({
@@ -549,18 +572,23 @@ const APIClientManagementContent: React.FC = () => {
                     <div>
                       <Label className="text-sm font-medium mb-3 block">{t('settings.api_keys.allowed_document_types')}</Label>
                       <div className="flex flex-wrap gap-4">
-                        {getDocumentTypes(t).map((type) => (
-                          <div key={type.value} className="flex items-center space-x-2 bg-card p-3 rounded-lg border border-border/50 shadow-sm">
-                            <Switch
-                              id={type.value}
-                              checked={createForm.allowed_document_types.includes(type.value)}
-                              onCheckedChange={(checked) => handleDocumentTypeToggle(type.value, checked)}
-                            />
-                            <Label htmlFor={type.value} className="text-sm cursor-pointer">
-                              {type.label}
-                            </Label>
-                          </div>
-                        ))}
+                        {getDocumentTypes(t).map((type) => {
+                          const isDisabled = type.requiresPro && !hasProTier;
+                          return (
+                            <div key={type.value} className={cn("flex items-center space-x-2 bg-card p-3 rounded-lg border border-border/50 shadow-sm", isDisabled && "opacity-50")}>
+                              <Switch
+                                id={type.value}
+                                checked={createForm.allowed_document_types.includes(type.value)}
+                                onCheckedChange={(checked) => handleDocumentTypeToggle(type.value, checked)}
+                                disabled={isDisabled}
+                              />
+                              <Label htmlFor={type.value} className={cn("text-sm", isDisabled ? "cursor-not-allowed" : "cursor-pointer")}>
+                                {type.label}
+                                {isDisabled && <span className="ml-1 text-xs text-muted-foreground">(Pro)</span>}
+                              </Label>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -913,6 +941,14 @@ const APIClientManagementContent: React.FC = () => {
                         <Badge variant={client.is_active ? "default" : "destructive"} className={cn(client.is_active ? "bg-green-600 hover:bg-green-700" : "")}>
                           {client.is_active ? 'Active' : 'Inactive'}
                         </Badge>
+                        {client.custom_quotas?.license_tier && (
+                          <Badge
+                            variant="outline"
+                            className={cn("capitalize border", TIER_BADGE_STYLES[client.custom_quotas.license_tier] || TIER_BADGE_STYLES.starter)}
+                          >
+                            {client.custom_quotas.license_tier}
+                          </Badge>
+                        )}
                       </div>
                       {client.client_description && (
                         <p className="text-muted-foreground mb-2 text-sm">{client.client_description}</p>

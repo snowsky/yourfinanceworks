@@ -164,11 +164,11 @@ class EncryptedColumn(TypeDecorator):
                 logger.error(f"Column: {column_context}")
                 logger.error(f"Data preview: {str(value)[:50]}...")
                 logger.error(f"Data length: {len(value)} characters")
-                
-                # For corrupted encrypted data, return a safe default
+
+                # Return None so callers fall back to safe defaults rather than
+                # propagating the sentinel string into the UI
                 if self._looks_like_encrypted_data(value):
-                    logger.debug(f"Returning safe default for corrupted encrypted data in {column_context}")
-                    return "[Encrypted data - decryption failed]"
+                    return None
                 else:
                     # If it doesn't look encrypted, treat as plain text
                     logger.debug(f"Treating as plain text data in {column_context}")
@@ -176,11 +176,9 @@ class EncryptedColumn(TypeDecorator):
             elif "Failed to decrypt data:" in error_str:
                 # Other decryption errors - log with column context
                 logger.error(f"DECRYPTION FAILED in {column_context} for tenant {tenant_id}: {error_str}")
-                
-                # For corrupted encrypted data, return a safe default
+
                 if self._looks_like_encrypted_data(value):
-                    logger.debug(f"Returning safe default for corrupted encrypted data in {column_context}")
-                    return "[Encrypted data - decryption failed]"
+                    return None
                 else:
                     # If it doesn't look encrypted, treat as plain text
                     return value

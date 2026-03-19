@@ -276,13 +276,19 @@ class Expense(Base):
     @property
     def created_by_username(self):
         """Get creator username for API responses"""
-        # User model implies email is the identifier
+        # Check for pre-set override (used by routes when tenant DB decryption fails)
+        override = self.__dict__.get('_creator_display_name')
+        if override is not None:
+            return override
         if self.created_by:
-            if self.created_by.first_name and self.created_by.last_name:
-                return f"{self.created_by.first_name} {self.created_by.last_name}"
-            if self.created_by.first_name:
-                return self.created_by.first_name
-            return self.created_by.email
+            first = self.created_by.first_name
+            last = self.created_by.last_name
+            email = self.created_by.email
+            if first and last:
+                return f"{first} {last}"
+            if first:
+                return first
+            return email
         return None
 
     @property

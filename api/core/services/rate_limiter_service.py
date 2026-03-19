@@ -2,10 +2,12 @@
 Rate Limiter Service
 
 Implements per-API-client rate limiting for batch processing endpoints.
-Uses in-memory cache with thread-safe operations.
+Uses Redis as the primary backend (INCR + EXPIRE sliding window pattern)
+with an in-memory fallback when Redis is unavailable.
 """
 
 import logging
+import os
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -15,6 +17,21 @@ from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
+
+# Redis client (optional — falls back to in-memory if unavailable)
+_redis_client = None
+try:
+    import redis as _redis_lib
+    _REDIS_URL = os.getenv("REDIS_URL")
+    if _REDIS_URL:
+        _redis_client = _redis_lib.from_url(_REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+        _redis_client.ping()  # Verify connection at startup
+        logger.info("Rate limiter: Redis backend connected")
+    else:
+        logger.info("Rate limiter: REDIS_URL not set, using in-memory backend")
+except Exception as _e:
+    _redis_client = None
+    logger.warning(f"Rate limiter: Redis unavailable ({_e}), falling back to in-memory")
 
 
 class RateLimiterService:
@@ -93,15 +110,24 @@ class RateLimiterService:
                     f"{rate_limit_per_day}"
                 )
         
+        # Try Redis backend first
+        if _redis_client:
+            try:
+                return self._check_rate_limit_redis(
+                    api_client_id, rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day
+                )
+            except Exception as _redis_err:
+                logger.warning(f"Redis rate limit check failed, falling back to in-memory: {_redis_err}")
+
         with self._lock:
             current_time = time.time()
-            
+
             # Clean up expired entries
             self._cleanup_expired_entries(api_client_id, current_time)
-            
+
             # Get current counts for each window
             counts = self._get_current_counts(api_client_id, current_time)
-            
+
             # Check each rate limit
             if counts['minute'] >= rate_limit_per_minute:
                 retry_after = self._calculate_retry_after(
@@ -157,6 +183,39 @@ class RateLimiterService:
             
             return (True, None, None)
     
+    def _check_rate_limit_redis(
+        self,
+        api_client_id: str,
+        rate_limit_per_minute: int,
+        rate_limit_per_hour: int,
+        rate_limit_per_day: int,
+    ) -> Tuple[bool, Optional[str], Optional[int]]:
+        """Check and increment rate limits using Redis INCR + EXPIRE pattern."""
+        windows = [
+            ("minute", rate_limit_per_minute, 60),
+            ("hour", rate_limit_per_hour, 3600),
+            ("day", rate_limit_per_day, 86400),
+        ]
+        for window, limit, ttl in windows:
+            key = f"rate:{api_client_id}:{window}"
+            count = _redis_client.incr(key)
+            if count == 1:
+                _redis_client.expire(key, ttl)
+            if count > limit:
+                retry_after = _redis_client.ttl(key)
+                if retry_after < 0:
+                    retry_after = ttl
+                logger.warning(
+                    f"Rate limit exceeded for {api_client_id}: "
+                    f"{count}/{limit} per {window}"
+                )
+                return (
+                    False,
+                    f"Rate limit exceeded: {count}/{limit} requests per {window}",
+                    retry_after,
+                )
+        return (True, None, None)
+
     def _cleanup_expired_entries(self, api_client_id: str, current_time: float):
         """
         Remove expired entries from storage.
