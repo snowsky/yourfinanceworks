@@ -230,7 +230,8 @@ async def tenant_context_middleware(request: Request, call_next):
     ]
 
     # Skip tenant context for external API endpoints (they use API key auth)
-    if request.url.path.startswith("/api/v1/external-transactions/"):
+    if request.url.path.startswith("/api/v1/external-transactions/") or \
+       request.url.path.startswith("/api/v1/external/"):
         logger.info(
             f"Skipping tenant context for external API endpoint: {request.url.path}"
         )

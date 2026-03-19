@@ -96,7 +96,7 @@ class FeatureConfigService:
         },
         'external_api': {
             'name': 'External API Access',
-            'description': 'External API access with API key authentication',
+            'description': 'External API access with API key authentication for all financial domains (expenses, invoices, statements, portfolio)',
             'category': 'integration',
             'env_var': 'FEATURE_EXTERNAL_API_ENABLED',
             'default': False,

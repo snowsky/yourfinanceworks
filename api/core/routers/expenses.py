@@ -13,7 +13,7 @@ from collections import defaultdict
 import sqlalchemy as sa
 import traceback
 
-from core.models.database import get_db
+from core.models.database import get_db, get_master_db
 from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
@@ -36,6 +36,31 @@ logger = logging.getLogger(__name__)
 uvicorn_logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
+
+
+def _apply_creator_fallback(expenses: list, master_db: Session) -> None:
+    """
+    Populate _creator_display_name on expenses whose created_by_username is None
+    (tenant DB decryption failed) by falling back to the master DB where user
+    names are stored as plain text.
+    """
+    needs = [ex for ex in expenses if ex.created_by_username is None and ex.created_by_user_id]
+    if not needs:
+        return
+    user_ids = list({ex.created_by_user_id for ex in needs})
+    master_users = {
+        mu.id: mu
+        for mu in master_db.query(MasterUser).filter(MasterUser.id.in_(user_ids)).all()
+    }
+    for ex in needs:
+        mu = master_users.get(ex.created_by_user_id)
+        if mu:
+            if mu.first_name and mu.last_name:
+                ex.__dict__['_creator_display_name'] = f"{mu.first_name} {mu.last_name}"
+            elif mu.first_name:
+                ex.__dict__['_creator_display_name'] = mu.first_name
+            elif mu.email:
+                ex.__dict__['_creator_display_name'] = mu.email
 
 
 def validate_status_transition(current_status: str, new_status: str) -> bool:
@@ -70,6 +95,7 @@ async def list_expenses(
     created_by_user_id: Optional[int] = None,
     include_total: bool = False,
     db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
     # Set tenant context for encryption operations
@@ -178,6 +204,9 @@ async def list_expenses(
         except Exception as e:
             logger.warning(f"Failed to get attachment count for expenses: {e}")
 
+        # Fallback: when tenant DB decryption fails, use master DB for creator name
+        _apply_creator_fallback(expenses, master_db)
+
         # Always return the structured response format
         return {
             "success": True,
@@ -193,6 +222,7 @@ async def list_expenses(
 async def get_expense(
     expense_id: int,
     db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
     # Set tenant context for encryption operations
@@ -223,14 +253,12 @@ async def get_expense(
         try:
             creator = db.query(User).filter(User.id == expense.created_by_user_id).first()
             if creator:
-                # We can't easily attach it to the object if it's not in the session in the right way,
-                # but we can try to set it if it's None. 
-                # However, since we return the object and Pydantic reads properties,
-                # we need to make sure the property works.
-                # The property reads self.created_by.
                 expense.created_by = creator
         except Exception as e:
             logger.warning(f"Failed to load creator for expense {expense_id}: {e}")
+
+    # Fallback: when tenant DB decryption fails, use master DB for creator name
+    _apply_creator_fallback([expense], master_db)
 
     return expense
 

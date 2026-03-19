@@ -59,6 +59,7 @@ class APIClientResponse(BaseModel):
     last_used_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    custom_quotas: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -263,6 +264,126 @@ class UserPermissionsResponse(BaseModel):
     email: str
     roles: List[str]
     permissions: List[str]
+
+    class Config:
+        from_attributes = True
+
+
+# External Developer API Response Schemas (safe/public-facing, omit internal audit fields)
+
+class ExternalExpenseResponse(BaseModel):
+    """Public response schema for expenses via developer API."""
+    id: int
+    amount: Optional[float]
+    currency: str
+    expense_date: datetime
+    description: Optional[str] = None
+    category: str
+    vendor_name: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        return cls(
+            id=obj.id,
+            amount=obj.amount,
+            currency=obj.currency,
+            expense_date=obj.expense_date,
+            description=obj.notes,
+            category=obj.category,
+            vendor_name=obj.vendor,
+            status=obj.status,
+            created_at=obj.created_at,
+        )
+
+
+class ExternalInvoiceResponse(BaseModel):
+    """Public response schema for invoices via developer API."""
+    id: int
+    invoice_number: str
+    amount: float
+    currency: str
+    due_date: datetime
+    status: str
+    client_name: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        return cls(
+            id=obj.id,
+            invoice_number=obj.number,
+            amount=obj.amount,
+            currency=obj.currency,
+            due_date=obj.due_date,
+            status=obj.status,
+            client_name=obj.client.name if obj.client else None,
+            created_at=obj.created_at,
+        )
+
+
+class ExternalStatementTransactionResponse(BaseModel):
+    """Public response schema for bank statement transactions."""
+    id: int
+    date: Any
+    description: str
+    amount: float
+    transaction_type: str
+    balance: Optional[float] = None
+    category: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ExternalStatementResponse(BaseModel):
+    """Public response schema for bank statements via developer API."""
+    id: int
+    statement_date: datetime
+    account_name: str
+    total_transactions: int
+    transactions: List[ExternalStatementTransactionResponse] = []
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        transactions = [
+            ExternalStatementTransactionResponse(
+                id=t.id,
+                date=t.date,
+                description=t.description,
+                amount=t.amount,
+                transaction_type=t.transaction_type,
+                balance=t.balance,
+                category=t.category,
+            )
+            for t in (obj.transactions or [])
+        ]
+        return cls(
+            id=obj.id,
+            statement_date=obj.created_at,
+            account_name=obj.original_filename,
+            total_transactions=len(transactions),
+            transactions=transactions,
+        )
+
+
+class ExternalPortfolioResponse(BaseModel):
+    """Public response schema for investment portfolios via developer API."""
+    id: int
+    name: str
+    portfolio_type: str
+    total_value: Optional[float] = None
+    holdings_count: int = 0
 
     class Config:
         from_attributes = True

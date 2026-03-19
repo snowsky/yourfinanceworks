@@ -44,6 +44,12 @@ interface APIClient {
   last_used_at?: string;
   created_at: string;
   updated_at: string;
+  custom_quotas?: {
+    allowed_domains?: string[];
+    rate_limit_per_minute?: number;
+    rate_limit_per_hour?: number;
+    rate_limit_per_day?: number;
+  };
 }
 
 interface APIKeyCreateRequest {
@@ -89,13 +95,15 @@ interface OAuthClientCreateRequest {
 const DOCUMENT_TYPES = [
   { value: 'invoice', label: 'Invoices' },
   { value: 'expense', label: 'Expenses' },
-  { value: 'statement', label: 'Statements' }
+  { value: 'statement', label: 'Statements' },
+  { value: 'portfolio', label: 'Portfolio' },
 ];
 
 const getDocumentTypes = (t: any) => [
   { value: 'invoice', label: t('settings.api_keys.invoice') },
   { value: 'expense', label: t('settings.api_keys.expense') },
-  { value: 'statement', label: t('settings.api_keys.statement') }
+  { value: 'statement', label: t('settings.api_keys.statement') },
+  { value: 'portfolio', label: 'Portfolio' },
 ];
 
 const OAUTH_SCOPES = [
@@ -213,6 +221,13 @@ const APIClientManagementContent: React.FC = () => {
   // Form helpers
   const [ipAddressInput, setIpAddressInput] = useState('');
   const [redirectUriInput, setRedirectUriInput] = useState('');
+
+  // Fetch license features to determine tier
+  const { data: licenseData } = useQuery<{ features: string[] }>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get('/license/status'),
+  });
+  const licenseFeatures: string[] = licenseData?.features || [];
 
   // Fetch clients
   const { data: clientsData, isLoading: loading } = useQuery<APIClient[]>({
@@ -549,18 +564,20 @@ const APIClientManagementContent: React.FC = () => {
                     <div>
                       <Label className="text-sm font-medium mb-3 block">{t('settings.api_keys.allowed_document_types')}</Label>
                       <div className="flex flex-wrap gap-4">
-                        {getDocumentTypes(t).map((type) => (
-                          <div key={type.value} className="flex items-center space-x-2 bg-card p-3 rounded-lg border border-border/50 shadow-sm">
-                            <Switch
-                              id={type.value}
-                              checked={createForm.allowed_document_types.includes(type.value)}
-                              onCheckedChange={(checked) => handleDocumentTypeToggle(type.value, checked)}
-                            />
-                            <Label htmlFor={type.value} className="text-sm cursor-pointer">
-                              {type.label}
-                            </Label>
-                          </div>
-                        ))}
+                        {getDocumentTypes(t).map((type) => {
+                          return (
+                            <div key={type.value} className="flex items-center space-x-2 bg-card p-3 rounded-lg border border-border/50 shadow-sm">
+                              <Switch
+                                id={type.value}
+                                checked={createForm.allowed_document_types.includes(type.value)}
+                                onCheckedChange={(checked) => handleDocumentTypeToggle(type.value, checked)}
+                              />
+                              <Label htmlFor={type.value} className="text-sm cursor-pointer">
+                                {type.label}
+                              </Label>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
