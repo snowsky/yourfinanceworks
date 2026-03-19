@@ -31,15 +31,25 @@ async def get_api_auth_context(
     x_api_key: Optional[str] = Header(None),
     master_db: Session = Depends(get_master_db),
 ) -> AuthContext:
-    """Authenticate using API key from Authorization or X-API-Key header."""
+    """Authenticate using API key from Authorization or X-API-Key header.
+
+    Reuses the AuthContext already set by ExternalAPIAuthMiddleware when
+    present to avoid calling authenticate_api_key twice (which would
+    double-increment total_requests). Also re-calls set_tenant_context
+    in this scope because BaseHTTPMiddleware runs call_next in a separate
+    async task, so ContextVars set there do not carry into route handlers.
+    """
+    # Reuse auth already performed by middleware — avoids double-counting
+    middleware_auth: Optional[AuthContext] = getattr(request.state, "auth", None)
+    if middleware_auth and middleware_auth.is_authenticated:
+        if middleware_auth.tenant_id:
+            set_tenant_context(middleware_auth.tenant_id)
+        return middleware_auth
+
+    # Fallback: middleware was bypassed (e.g. direct test calls)
     api_key = None
-
     if authorization:
-        if authorization.startswith("Bearer "):
-            api_key = authorization[7:]
-        else:
-            api_key = authorization
-
+        api_key = authorization[7:] if authorization.startswith("Bearer ") else authorization
     if not api_key and x_api_key:
         api_key = x_api_key
 

@@ -1496,6 +1496,7 @@
       "invoice": "Factura",
       "expense": "Gasto",
       "statement": "Extracto",
+      "portfolio": "Portafolio",
       "regenerate": "Regenerar",
       "revoke": "Revocar",
       "api_key_prefix": "Prefijo de Clave API",

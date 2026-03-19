@@ -1520,6 +1520,7 @@
       "invoice": "Invoice",
       "expense": "Expense",
       "statement": "Statement",
+      "portfolio": "Portfolio",
       "regenerate": "Regenerate",
       "revoke": "Revoke",
       "api_key_prefix": "API Key Prefix",
