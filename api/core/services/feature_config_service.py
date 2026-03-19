@@ -96,25 +96,9 @@ class FeatureConfigService:
         },
         'external_api': {
             'name': 'External API Access',
-            'description': 'External API access with API key authentication',
+            'description': 'External API access with API key authentication for all financial domains (expenses, invoices, statements, portfolio)',
             'category': 'integration',
             'env_var': 'FEATURE_EXTERNAL_API_ENABLED',
-            'default': False,
-            'license_tier': 'commercial'
-        },
-        'api_developer_pro': {
-            'name': 'API Developer Pro',
-            'description': 'Professional-tier external API access with invoice, expense, statement, and portfolio domains',
-            'category': 'integration',
-            'env_var': 'FEATURE_API_DEVELOPER_PRO_ENABLED',
-            'default': False,
-            'license_tier': 'commercial'
-        },
-        'api_developer_enterprise': {
-            'name': 'API Developer Enterprise',
-            'description': 'Enterprise-tier external API access with all domains and highest rate limits',
-            'category': 'integration',
-            'env_var': 'FEATURE_API_DEVELOPER_ENTERPRISE_ENABLED',
             'default': False,
             'license_tier': 'commercial'
         },

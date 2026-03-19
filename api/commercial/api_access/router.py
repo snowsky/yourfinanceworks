@@ -56,33 +56,12 @@ def _get_api_key_prefix(api_key: str) -> str:
 
 
 def _resolve_api_tier(tenant_db: Session) -> dict:
-    """Resolve the API license tier from tenant's licensed features."""
-    from core.services.license_service import LicenseService
-    svc = LicenseService(tenant_db)
-    features = svc.get_enabled_features()
-    if "api_developer_enterprise" in features:
-        return {
-            "license_tier": "enterprise",
-            "domains": ["invoice", "expense", "statement", "portfolio"],
-            "rate_limit_per_minute": 300,
-            "rate_limit_per_hour": 5000,
-            "rate_limit_per_day": 50000
-        }
-    if "api_developer_pro" in features or "all" in features:
-        return {
-            "license_tier": "professional",
-            "domains": ["invoice", "expense", "statement", "portfolio"],
-            "rate_limit_per_minute": 120,
-            "rate_limit_per_hour": 2000,
-            "rate_limit_per_day": 20000
-        }
-    # Default starter tier
+    """Resolve API access config from tenant's licensed features."""
     return {
-        "license_tier": "starter",
-        "domains": ["invoice", "expense"],
-        "rate_limit_per_minute": 30,
-        "rate_limit_per_hour": 500,
-        "rate_limit_per_day": 5000
+        "domains": ["invoice", "expense", "statement", "portfolio"],
+        "rate_limit_per_minute": 120,
+        "rate_limit_per_hour": 2000,
+        "rate_limit_per_day": 20000,
     }
 
 
@@ -151,9 +130,7 @@ async def create_api_key(
     if request_data.expires_in_days:
         expires_at = datetime.now(timezone.utc) + timedelta(days=request_data.expires_in_days)
 
-    # Stamp tier-based custom_quotas and override rate limits
     custom_quotas = {
-        "license_tier": tier_config["license_tier"],
         "allowed_domains": tier_domains,
         "rate_limit_per_minute": tier_config["rate_limit_per_minute"],
         "rate_limit_per_hour": tier_config["rate_limit_per_hour"],
