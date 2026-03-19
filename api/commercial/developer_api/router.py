@@ -6,7 +6,7 @@ External Developer API router — provides read endpoints for financial domains
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, set_tenant_context  # get_db used via get_tenant_db
@@ -27,19 +27,25 @@ auth_service = ExternalAPIAuthService()
 
 async def get_api_auth_context(
     request: Request,
-    authorization: Optional[str] = Header(None),
-    x_api_key: Optional[str] = Header(None),
     master_db: Session = Depends(get_master_db),
 ) -> AuthContext:
-    """Authenticate using API key from Authorization or X-API-Key header."""
+    """Return the auth context set by the middleware (avoids double-counting total_requests)."""
+    auth_context: Optional[AuthContext] = getattr(request.state, "auth", None)
+
+    if auth_context and auth_context.is_authenticated:
+        # Re-set tenant context in the current async scope — BaseHTTPMiddleware's
+        # call_next runs in a different task so ContextVars don't reliably carry over.
+        if auth_context.tenant_id:
+            set_tenant_context(auth_context.tenant_id)
+        return auth_context
+
+    # Fallback: middleware skipped (e.g. tests), authenticate directly without double-counting
+    authorization = request.headers.get("authorization")
+    x_api_key = request.headers.get("x-api-key")
+
     api_key = None
-
     if authorization:
-        if authorization.startswith("Bearer "):
-            api_key = authorization[7:]
-        else:
-            api_key = authorization
-
+        api_key = authorization[7:] if authorization.startswith("Bearer ") else authorization
     if not api_key and x_api_key:
         api_key = x_api_key
 

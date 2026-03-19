@@ -1469,6 +1469,7 @@
       "invoice": "Rechnung",
       "expense": "Ausgabe",
       "statement": "Kontoauszug",
+      "portfolio": "Portfolio",
       "regenerate": "Regenerieren",
       "revoke": "Widerrufen",
       "api_key_prefix": "API-Schlüssel-Präfix",

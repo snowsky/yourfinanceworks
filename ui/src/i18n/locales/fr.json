@@ -1435,6 +1435,7 @@
       "invoice": "Facture",
       "expense": "Dépense",
       "statement": "Relevé",
+      "portfolio": "Portefeuille",
       "regenerate": "Régénérer",
       "revoke": "Révoquer",
       "api_key_prefix": "Préfixe de Clé API",
