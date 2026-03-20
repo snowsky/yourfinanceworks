@@ -2955,7 +2955,10 @@
     "tip_ai": "Automatisieren Sie Aktivitäten mit KI-gestützter Unterstützung",
     "tip_templates": "Sparen Sie Zeit mit Rechnungsvorlagen",
     "tip_reminders": "Richten Sie automatische Zahlungserinnerungen ein",
-    "tip_backups": "Exportieren Sie Daten regelmäßig für Backups"
+    "tip_backups": "Exportieren Sie Daten regelmäßig für Backups",
+    "priority_support": "Prioritäts-Support",
+    "priority_support_description": "Benötigen Sie spezialisierte Unterstützung? Unsere Finanzplattform-Spezialisten helfen Ihnen, Ihre Abläufe zu optimieren.",
+    "expert_highlights": "Experten-Highlights"
   },
   "currency_manager": {
     "custom_currencies": "Benutzerdefinierte Währungen",

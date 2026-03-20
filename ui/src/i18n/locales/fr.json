@@ -3108,7 +3108,10 @@
     "tip_ai": "Automatisez les activités avec une assistance alimentée par l'IA",
     "tip_templates": "Gagnez du temps avec les modèles de factures",
     "tip_reminders": "Configurez des rappels de paiement automatiques",
-    "tip_backups": "Exportez les données régulièrement pour les sauvegardes"
+    "tip_backups": "Exportez les données régulièrement pour les sauvegardes",
+    "priority_support": "Support Prioritaire",
+    "priority_support_description": "Besoin d'une assistance spécialisée ? Nos spécialistes de la plateforme financière sont prêts à vous aider à optimiser vos opérations.",
+    "expert_highlights": "Points Forts des Experts"
   },
   "inventory": {
     "title": "Inventaire",
