@@ -4,13 +4,17 @@ Prompt Management API Routes
 REST API for managing AI prompt templates with admin interface support.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 
 from core.models.database import get_db, get_tenant_context
 from commercial.prompt_management.models.prompt_templates import PromptTemplate
+from commercial.prompt_management.models.prompt_improvement_job import PromptImprovementJob
 from commercial.prompt_management.services.prompt_service import PromptService, get_prompt_service
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
@@ -613,6 +617,179 @@ async def restore_prompt_version(
         created_by=template.created_by,
         updated_by=template.updated_by
     )
+
+
+# ---------------------------------------------------------------------------
+# Prompt Improvement (AI-assisted from chat)
+# ---------------------------------------------------------------------------
+
+class PromptImprovementRequest(BaseModel):
+    message: str = Field(..., description="User's plain-language complaint")
+    document_id: Optional[int] = Field(None, description="ID of the document that failed")
+    document_type: Optional[str] = Field(None, description="invoice | expense | bank_statement | portfolio")
+
+
+class IterationEntry(BaseModel):
+    iteration: int
+    prompt_preview: str
+    evaluation: str
+    reason: str
+
+
+class PromptImprovementJobResponse(BaseModel):
+    job_id: int
+    status: str
+    prompt_name: Optional[str] = None
+    prompt_category: Optional[str] = None
+    current_iteration: int
+    max_iterations: int
+    iteration_log: Optional[List[Dict[str, Any]]] = None
+    result_summary: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: str
+    completed_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+async def _run_improvement_loop_bg(job_id: int, tenant_id: int):
+    """Background task wrapper that creates its own DB session."""
+    from commercial.prompt_management.services.prompt_improvement_service import run_improvement_loop
+    await run_improvement_loop(job_id, tenant_id)
+
+
+@router.post("/improve", response_model=PromptImprovementJobResponse)
+async def start_prompt_improvement(
+    request: PromptImprovementRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_tenant_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Start an AI-assisted prompt improvement job from a user chat message.
+
+    Synchronously identifies the affected prompt (~1s), creates the job record,
+    then schedules the improvement loop as a background task.
+    """
+    from core.utils.feature_gate import check_feature
+    check_feature("prompt_management", db)
+
+    from commercial.prompt_management.services.prompt_improvement_service import PromptImprovementService
+
+    svc = PromptImprovementService(db)
+
+    # Identify affected prompt synchronously (fast)
+    try:
+        identified = await svc.identify_affected_prompt(
+            message=request.message,
+            document_type=request.document_type,
+        )
+        prompt_name = identified.get("prompt_name")
+        prompt_category = identified.get("category")
+    except Exception as e:
+        logger.warning(f"Prompt identification failed, using generic fallback: {e}")
+        prompt_name = None
+        prompt_category = None
+
+    # Create job record
+    job = PromptImprovementJob(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        user_message=request.message,
+        document_id=request.document_id,
+        document_type=request.document_type,
+        prompt_name=prompt_name,
+        prompt_category=prompt_category,
+        status="pending",
+        max_iterations=5,
+        iteration_log=[],
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    # Schedule background loop
+    background_tasks.add_task(_run_improvement_loop_bg, job.id, current_user.tenant_id)
+
+    return PromptImprovementJobResponse(
+        job_id=job.id,
+        status=job.status,
+        prompt_name=job.prompt_name,
+        prompt_category=job.prompt_category,
+        current_iteration=job.current_iteration or 0,
+        max_iterations=job.max_iterations,
+        iteration_log=job.iteration_log or [],
+        result_summary=job.result_summary,
+        error_message=job.error_message,
+        created_at=job.created_at.isoformat() if job.created_at else "",
+        completed_at=job.completed_at.isoformat() if job.completed_at else None,
+    )
+
+
+@router.get("/improve/{job_id}", response_model=PromptImprovementJobResponse)
+async def get_improvement_job(
+    job_id: int,
+    db: Session = Depends(get_tenant_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Get the current state of a prompt improvement job (used for polling)."""
+    from core.utils.feature_gate import check_feature_read_only
+    check_feature_read_only("prompt_management", db)
+
+    job = db.query(PromptImprovementJob).filter(PromptImprovementJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Improvement job {job_id} not found")
+
+    return PromptImprovementJobResponse(
+        job_id=job.id,
+        status=job.status,
+        prompt_name=job.prompt_name,
+        prompt_category=job.prompt_category,
+        current_iteration=job.current_iteration or 0,
+        max_iterations=job.max_iterations,
+        iteration_log=job.iteration_log or [],
+        result_summary=job.result_summary,
+        error_message=job.error_message,
+        created_at=job.created_at.isoformat() if job.created_at else "",
+        completed_at=job.completed_at.isoformat() if job.completed_at else None,
+    )
+
+
+@router.get("/improve", response_model=List[PromptImprovementJobResponse])
+async def list_improvement_jobs(
+    limit: int = Query(10, description="Max number of jobs to return"),
+    db: Session = Depends(get_tenant_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """List recent prompt improvement jobs."""
+    from core.utils.feature_gate import check_feature_read_only
+    check_feature_read_only("prompt_management", db)
+
+    jobs = (
+        db.query(PromptImprovementJob)
+        .filter(PromptImprovementJob.user_id == current_user.id)
+        .order_by(PromptImprovementJob.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        PromptImprovementJobResponse(
+            job_id=j.id,
+            status=j.status,
+            prompt_name=j.prompt_name,
+            prompt_category=j.prompt_category,
+            current_iteration=j.current_iteration or 0,
+            max_iterations=j.max_iterations,
+            iteration_log=j.iteration_log or [],
+            result_summary=j.result_summary,
+            error_message=j.error_message,
+            created_at=j.created_at.isoformat() if j.created_at else "",
+            completed_at=j.completed_at.isoformat() if j.completed_at else None,
+        )
+        for j in jobs
+    ]
 
 
 @router.get("/{name}", response_model=PromptTemplateResponse)

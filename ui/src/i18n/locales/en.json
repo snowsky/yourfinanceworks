@@ -1914,7 +1914,8 @@
         "actions": "Actions"
       },
       "noCustomPrompts": "No custom prompts found. Create your first custom prompt to get started."
-    }
+    },
+    "ai_assistant_disabled": "AI Assistant is disabled."
   },
   "users": {
     "title": "Users",

@@ -125,7 +125,7 @@ class LLMExtractionService:
         return result["holdings"]
 
     async def extract_portfolio_data_from_pdf(
-        self, file_path: str, use_ai_extraction: bool = False
+        self, file_path: str, use_ai_extraction: bool = False, custom_prompt: Optional[str] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Extract portfolio data (holdings and optionally transactions) from a PDF file.
@@ -158,7 +158,7 @@ class LLMExtractionService:
             logger.info(f"✓ Extracted {len(extracted_text)} characters from PDF")
 
             # Send to LLM for extraction
-            data = await self._extract_with_llm(extracted_text, "pdf", use_ai_extraction)
+            data = await self._extract_with_llm(extracted_text, "pdf", use_ai_extraction, custom_prompt=custom_prompt)
 
             return data
 
@@ -186,7 +186,7 @@ class LLMExtractionService:
         return result["holdings"]
 
     async def extract_portfolio_data_from_csv(
-        self, file_path: str, use_ai_extraction: bool = False
+        self, file_path: str, use_ai_extraction: bool = False, custom_prompt: Optional[str] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Extract portfolio data (holdings and optionally transactions) from a CSV file.
@@ -213,7 +213,7 @@ class LLMExtractionService:
             logger.info(f"✓ Read CSV file: {len(csv_content)} characters")
 
             # Send to LLM for extraction
-            data = await self._extract_with_llm(csv_content, "csv", use_ai_extraction)
+            data = await self._extract_with_llm(csv_content, "csv", use_ai_extraction, custom_prompt=custom_prompt)
 
             return data
 
@@ -223,7 +223,8 @@ class LLMExtractionService:
 
 
     async def _extract_with_llm(
-        self, content: str, file_type: str, use_ai_extraction: bool = False
+        self, content: str, file_type: str, use_ai_extraction: bool = False,
+        custom_prompt: Optional[str] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Send content to LLM for portfolio data extraction.
@@ -232,6 +233,7 @@ class LLMExtractionService:
             content: File content (text or CSV)
             file_type: Type of file ("pdf" or "csv")
             use_ai_extraction: If True, use AI to extract both holdings and transaction history
+            custom_prompt: Optional override prompt (used by prompt improvement testing)
 
         Returns:
             Dictionary with "holdings" and "transactions" keys
@@ -245,14 +247,18 @@ class LLMExtractionService:
         try:
             # Get extraction prompt from prompt management system
             # Always extract both holdings and transactions when using AI
-            prompt_text = self.prompt_service.get_prompt(
-                name="portfolio_data_extraction",
-                variables={
-                    "document_content": content,
-                    "document_type": file_type
-                },
-                fallback_prompt=self._get_default_extraction_prompt()
-            )
+            if custom_prompt:
+                # Inject document content into the custom prompt
+                prompt_text = custom_prompt.replace("{{ document_content }}", content).replace("{{ document_type }}", file_type)
+            else:
+                prompt_text = self.prompt_service.get_prompt(
+                    name="portfolio_data_extraction",
+                    variables={
+                        "document_content": content,
+                        "document_type": file_type
+                    },
+                    fallback_prompt=self._get_default_extraction_prompt()
+                )
 
 
 
