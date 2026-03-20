@@ -358,7 +358,7 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
       {isExhausted && (
         <div className="px-4 py-3 border-t border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
           <a
-            href="/settings/prompts"
+            href="/settings?tab=prompts"
             className="text-xs text-amber-700 dark:text-amber-400 underline hover:no-underline"
           >
             Open Prompt Management to edit manually →
