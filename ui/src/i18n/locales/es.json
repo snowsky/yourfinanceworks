@@ -3192,7 +3192,10 @@
     "tip_ai": "Automatiza actividades con asistencia impulsada por IA",
     "tip_templates": "Ahorra tiempo con plantillas de facturas",
     "tip_reminders": "Configura recordatorios automáticos de pago",
-    "tip_backups": "Exporta datos regularmente para respaldos"
+    "tip_backups": "Exporta datos regularmente para respaldos",
+    "priority_support": "Soporte Prioritario",
+    "priority_support_description": "¿Necesitas asistencia especializada? Nuestros especialistas en plataforma financiera están listos para ayudarte a optimizar tus operaciones.",
+    "expert_highlights": "Destacados de Expertos"
   },
   "inventory": {
     "title": "Inventario",

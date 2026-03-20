@@ -7,23 +7,123 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { 
-  HelpCircle, 
-  Play, 
-  BookOpen, 
-  Video, 
-  MessageCircle, 
+import {
+  HelpCircle,
+  Play,
+  BookOpen,
+  MessageCircle,
   Search,
   FileText,
   Users,
   Settings,
   CreditCard,
-  Mail
+  Mail,
+  Trophy,
+  Brain,
+  ChevronLeft
 } from 'lucide-react';
 import { useOnboarding } from './OnboardingProvider';
 import { useTranslation } from 'react-i18next';
 import { HELP_ARTICLES_CONTENT } from './HelpArticlesData';
-import { ChevronLeft } from 'lucide-react';
+
+const helpArticles = [
+  {
+    id: 'financial-health',
+    title: 'Financial Health Fundamentals',
+    description: 'Master the core concepts of comprehensive finance management',
+    category: 'Foundation',
+    icon: BookOpen,
+  },
+  {
+    id: 'revenue-optimization',
+    title: 'Revenue Cycle Optimization',
+    description: 'Streamline your accounts receivable and collection process',
+    category: 'Revenue',
+    icon: CreditCard,
+  },
+  {
+    id: 'expense-intelligence',
+    title: 'Expense & Outbound Intelligence',
+    description: 'Control costs and optimize your business expenditure',
+    category: 'Expenditure',
+    icon: FileText,
+  },
+  {
+    id: 'reconciliation-mastery',
+    title: 'Banking & Reconciliation',
+    description: 'Ensure 100% accounting accuracy with automated tools',
+    category: 'Banking',
+    icon: Settings,
+  },
+  {
+    id: 'governance-workflows',
+    title: 'Governance & Approvals',
+    description: 'Establish robust internal controls and workflows',
+    category: 'Compliance',
+    icon: Users,
+  },
+  {
+    id: 'growth-analytics',
+    title: 'Strategic Growth Analytics',
+    description: 'Turn your financial data into actionable business intelligence',
+    category: 'Insights',
+    icon: FileText,
+  },
+];
+
+function MarkdownRenderer({ content }: { content: string }) {
+  if (!content) return null;
+  const sections = content.split('\n');
+
+  const processInlineBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-bold text-primary">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div className="space-y-3 text-[0.95rem] leading-relaxed">
+      {sections.map((line, idx) => {
+        const isHeader = line.startsWith('#');
+        const isBullet = line.trim().startsWith('* ') || line.trim().startsWith('- ') || line.trim().startsWith('• ');
+
+        if (isBullet) {
+          const bulletContent = line.replace(/^[\*\-\•]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start text-foreground/90 ml-3">
+              <span className="mr-2 mt-2 h-1.5 w-1.5 rounded-full bg-primary/40 shrink-0"></span>
+              <span>{processInlineBold(bulletContent)}</span>
+            </div>
+          );
+        }
+
+        if (isHeader) {
+          const level = line.match(/^#+/)?.[0].length || 1;
+          const headerContent = line.replace(/^#+\s+/, '');
+          const sizes = ['', 'text-2xl', 'text-xl', 'text-lg', 'text-base'];
+          return (
+            <div key={idx} className={cn("font-extrabold text-primary pt-4 pb-1", sizes[level] || 'text-base')}>
+              {headerContent}
+            </div>
+          );
+        }
+
+        if (!line.trim()) return <div key={idx} className="h-1"></div>;
+        if (line.trim() === '---') return <div key={idx} className="my-6 border-t border-border/50"></div>;
+
+        return (
+          <div key={idx} className="whitespace-pre-wrap text-muted-foreground font-medium">
+            {processInlineBold(line)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function HelpCenter() {
   const { startTour, tours } = useOnboarding();
@@ -33,57 +133,6 @@ export function HelpCenter() {
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const { t } = useTranslation();
 
-  const helpArticles = [
-    {
-      id: 'financial-health',
-      title: 'Financial Health Fundamentals',
-      description: 'Master the core concepts of comprehensive finance management',
-      category: 'Foundation',
-      icon: BookOpen,
-      content: 'This guide explores how to leverage our integrated tools to maintain a healthy financial ecosystem...'
-    },
-    {
-      id: 'revenue-optimization',
-      title: 'Revenue Cycle Optimization',
-      description: 'Streamline your accounts receivable and collection process',
-      category: 'Revenue',
-      icon: CreditCard,
-      content: 'Learn how to manage the end-to-end revenue cycle, from document generation to final reconciliation...'
-    },
-    {
-      id: 'expense-intelligence',
-      title: 'Expense & Outbound Intelligence',
-      description: 'Control costs and optimize your business expenditure',
-      category: 'Expenditure',
-      icon: FileText,
-      content: 'Discover how to track, categorize, and analyze expenses to improve your bottom line...'
-    },
-    {
-      id: 'reconciliation-mastery',
-      title: 'Banking & Reconciliation',
-      description: 'Ensure 100% accounting accuracy with automated tools',
-      category: 'Banking',
-      icon: Settings,
-      content: 'Master the art of automated bank reconciliation and transaction matching...'
-    },
-    {
-      id: 'governance-workflows',
-      title: 'Governance & Approvals',
-      description: 'Establish robust internal controls and workflows',
-      category: 'Compliance',
-      icon: Users,
-      content: 'Configure multi-level approval hierarchies to ensure spending compliance across your team...'
-    },
-    {
-      id: 'growth-analytics',
-      title: 'Strategic Growth Analytics',
-      description: 'Turn your financial data into actionable business intelligence',
-      category: 'Insights',
-      icon: FileText,
-      content: 'Leverage our advanced reporting engine to identify growth opportunities and trends...'
-    }
-  ];
-
   const filteredArticles = helpArticles.filter(article =>
     article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     article.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,60 +140,6 @@ export function HelpCenter() {
   );
 
   const selectedArticle = helpArticles.find(a => a.id === selectedArticleId);
-
-  // Simple Markdown Renderer (similar to AIAssistant.tsx)
-  const MarkdownRenderer = ({ content }: { content: string }) => {
-    if (!content) return null;
-    const sections = content.split('\n');
-    return (
-      <div className="space-y-3 text-[0.95rem] leading-relaxed">
-        {sections.map((line, idx) => {
-          const isHeader = line.startsWith('#');
-          const isBullet = line.trim().startsWith('* ') || line.trim().startsWith('- ') || line.trim().startsWith('• ');
-          
-          const processInlineBold = (text: string) => {
-            const parts = text.split(/(\*\*.*?\*\*)/g);
-            return parts.map((part, i) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={i} className="font-bold text-primary">{part.slice(2, -2)}</strong>;
-              }
-              return part;
-            });
-          };
-
-          if (isBullet) {
-            const bulletContent = line.replace(/^[\*\-\•]\s*/, '');
-            return (
-              <div key={idx} className="flex items-start text-foreground/90 ml-3">
-                <span className="mr-2 mt-2 h-1.5 w-1.5 rounded-full bg-primary/40 shrink-0"></span>
-                <span>{processInlineBold(bulletContent)}</span>
-              </div>
-            );
-          }
-
-          if (isHeader) {
-            const level = line.match(/^#+/)?.[0].length || 1;
-            const headerContent = line.replace(/^#+\s+/, '');
-            const sizes = ['', 'text-2xl', 'text-xl', 'text-lg', 'text-base'];
-            return (
-              <div key={idx} className={cn("font-extrabold text-primary pt-4 pb-1", sizes[level] || 'text-base')}>
-                {headerContent}
-              </div>
-            );
-          }
-
-          if (!line.trim()) return <div key={idx} className="h-1"></div>;
-          if (line.trim() === '---') return <div key={idx} className="my-6 border-t border-border/50"></div>;
-
-          return (
-            <div key={idx} className="whitespace-pre-wrap text-muted-foreground font-medium">
-              {processInlineBold(line)}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -155,7 +150,7 @@ export function HelpCenter() {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden z-[1100] p-0 border-none shadow-3xl" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden z-[1100] p-0 border-none shadow-3xl">
         <div className="bg-primary/5 border-b border-primary/10 p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-2xl font-bold tracking-tight text-primary">
@@ -189,7 +184,7 @@ export function HelpCenter() {
               </div>
               <ScrollArea className="flex-1 -mr-2 pr-4 scrollbar-none">
                 <div className="pb-8">
-                  <MarkdownRenderer content={HELP_ARTICLES_CONTENT[selectedArticle.id] || selectedArticle.content} />
+                  <MarkdownRenderer content={HELP_ARTICLES_CONTENT[selectedArticle.id] || ''} />
                 </div>
               </ScrollArea>
             </div>
@@ -225,7 +220,7 @@ export function HelpCenter() {
                             {t('helpCenter.interactive_walkthrough')}
                           </p>
                           <p className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-widest">
-                            Estimated: {Math.ceil(tour.steps.length * 0.5)} MINS
+                            {t('helpCenter.duration', { minutes: Math.ceil(tour.steps.length * 0.5) })}
                           </p>
                         </div>
                         
@@ -299,12 +294,12 @@ export function HelpCenter() {
                       <div className="p-2 bg-primary/10 rounded-xl">
                         <MessageCircle className="h-5 w-5" />
                       </div>
-                      Priority Support
+                      {t('helpCenter.priority_support')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                      Need specialized assistance? Our financial platform specialists are ready to help you optimize your operations.
+                      {t('helpCenter.priority_support_description')}
                     </p>
                     
                     <div className="space-y-3">
@@ -322,13 +317,13 @@ export function HelpCenter() {
                 
                 <Card className="border-border/50 bg-muted/10 rounded-2xl shadow-none">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Expert Highlights</CardTitle>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">{t('helpCenter.expert_highlights')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-3 pt-2">
                       {[
-                        { tip: t('helpCenter.tip_gamification'), icon: <Settings className="h-3.5 w-3.5" /> },
-                        { tip: t('helpCenter.tip_ai'), icon: <Settings className="h-3.5 w-3.5" /> },
+                        { tip: t('helpCenter.tip_gamification'), icon: <Trophy className="h-3.5 w-3.5" /> },
+                        { tip: t('helpCenter.tip_ai'), icon: <Brain className="h-3.5 w-3.5" /> },
                         { tip: t('helpCenter.tip_templates'), icon: <FileText className="h-3.5 w-3.5" /> },
                         { tip: t('helpCenter.tip_reminders'), icon: <Mail className="h-3.5 w-3.5" /> },
                         { tip: t('helpCenter.tip_backups'), icon: <Users className="h-3.5 w-3.5" /> }

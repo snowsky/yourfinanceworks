@@ -3133,7 +3133,10 @@
     "tip_ai": "Automate activities with AI-powered assistance",
     "tip_templates": "Save time with invoice templates",
     "tip_reminders": "Set up automatic payment reminders",
-    "tip_backups": "Export data regularly for backups"
+    "tip_backups": "Export data regularly for backups",
+    "priority_support": "Priority Support",
+    "priority_support_description": "Need specialized assistance? Our financial platform specialists are ready to help you optimize your operations.",
+    "expert_highlights": "Expert Highlights"
   },
   "currency_manager": {
     "custom_currencies": "Custom Currencies",
