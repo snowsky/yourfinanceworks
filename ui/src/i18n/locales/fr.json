@@ -1798,7 +1798,8 @@
         "actions": "Actions"
       },
       "noCustomPrompts": "Aucun prompt personnalisé trouvé. Créez votre premier prompt personnalisé pour commencer."
-    }
+    },
+    "ai_assistant_disabled": "L'assistant IA est désactivé."
   },
   "users": {
     "title": "Utilisateurs",

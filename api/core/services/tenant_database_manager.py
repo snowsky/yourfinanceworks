@@ -187,10 +187,12 @@ class TenantDatabaseManager:
             # Create prompt templates tables (uses a different Base class)
             # Import here to avoid circular imports
             from commercial.prompt_management.models.prompt_templates import PromptTemplate, PromptUsageLog
+            from commercial.prompt_management.models.prompt_improvement_job import PromptImprovementJob
             from core.models.database import Base as DatabaseBase
             DatabaseBase.metadata.create_all(bind=tenant_engine, tables=[
                 PromptTemplate.__table__,
-                PromptUsageLog.__table__
+                PromptUsageLog.__table__,
+                PromptImprovementJob.__table__,
             ])
             logger.info(f"Created prompt templates tables for tenant {tenant_id}")
 

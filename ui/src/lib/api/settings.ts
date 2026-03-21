@@ -129,6 +129,44 @@ export interface TaxIntegrationStatus {
   last_test_result?: string;
 }
 
+// Prompt Improvement types
+export interface PromptImprovementJob {
+  job_id: number;
+  status: string;
+  prompt_name?: string;
+  prompt_category?: string;
+  current_iteration: number;
+  max_iterations: number;
+  iteration_log?: Array<{
+    iteration: number;
+    prompt_preview: string;
+    evaluation: 'pass' | 'fail';
+    reason: string;
+  }>;
+  result_summary?: string;
+  error_message?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface StartImprovementRequest {
+  message: string;
+  document_id?: number;
+  document_type?: 'invoice' | 'expense' | 'bank_statement' | 'portfolio';
+}
+
+export const promptImprovementApi = {
+  startJob: (req: StartImprovementRequest) =>
+    apiRequest<PromptImprovementJob>('/prompts/improve', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  getJob: (id: number) =>
+    apiRequest<PromptImprovementJob>(`/prompts/improve/${id}`),
+  listJobs: (limit = 10) =>
+    apiRequest<PromptImprovementJob[]>(`/prompts/improve?limit=${limit}`),
+};
+
 // Settings API methods
 export const settingsApi = {
   getSettings: () => apiRequest<Settings>("/settings/"),

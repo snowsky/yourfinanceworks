@@ -1875,7 +1875,8 @@
         "actions": "Aktionen"
       },
       "noCustomPrompts": "Keine benutzerdefinierten Prompts gefunden. Erstellen Sie Ihren ersten benutzerdefinierten Prompt, um zu beginnen."
-    }
+    },
+    "ai_assistant_disabled": "KI-Assistent ist deaktiviert."
   },
   "users": {
     "title": "Benutzer",

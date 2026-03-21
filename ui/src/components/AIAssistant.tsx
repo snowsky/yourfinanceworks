@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, Sparkles, Zap, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader } from 'lucide-react';
+import { MessageCircle, Send, Sparkles, Zap, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader, Wrench } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import PaymentCharts from './PaymentCharts';
 import { useTranslation } from 'react-i18next';
 import { usePageContext } from '@/contexts/PageContext';
+import { promptImprovementApi, type PromptImprovementJob } from '@/lib/api/settings';
 
 // Debug toggle for AI Assistant logs (set VITE_DEBUG_AI_ASSISTANT=true to enable)
 const DEBUG_AI_ASSISTANT = (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_DEBUG_AI_ASSISTANT === 'true');
@@ -273,6 +274,99 @@ const formatMessageTime = (dateString?: string, timezone?: string) => {
   } catch (e) {
     return '';
   }
+};
+
+// Prompt Improvement Progress Card
+const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
+  const isRunning = job.status === 'pending' || job.status === 'running';
+  const isSucceeded = job.status === 'succeeded';
+  const isExhausted = job.status === 'exhausted';
+  const isFailed = job.status === 'failed';
+
+  return (
+    <div className="w-full rounded-2xl border overflow-hidden">
+      {/* Header */}
+      <div className={cn(
+        "flex items-center gap-3 px-4 py-3",
+        isSucceeded ? "bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800" :
+        isExhausted ? "bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800" :
+        isFailed ? "bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800" :
+        "bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800"
+      )}>
+        {isRunning && <Loader className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400 shrink-0" />}
+        {isSucceeded && <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+        {isExhausted && <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />}
+        {isFailed && <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />}
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            "text-sm font-semibold",
+            isSucceeded ? "text-emerald-800 dark:text-emerald-200" :
+            isExhausted ? "text-amber-800 dark:text-amber-200" :
+            isFailed ? "text-red-800 dark:text-red-200" :
+            "text-blue-800 dark:text-blue-200"
+          )}>
+            {isRunning && (job.prompt_name
+              ? `Improving prompt: ${job.prompt_name}`
+              : 'Analyzing issue...')}
+            {isSucceeded && `Prompt improved successfully`}
+            {isExhausted && 'Could not auto-fix — manual edit needed'}
+            {isFailed && 'Improvement failed'}
+          </p>
+          {isRunning && (
+            <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+              Iteration {job.current_iteration} / {job.max_iterations}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Result summary */}
+      {job.result_summary && (
+        <div className="px-4 py-3 text-sm text-foreground bg-white/50 dark:bg-black/20">
+          {job.result_summary}
+        </div>
+      )}
+
+      {/* Error */}
+      {job.error_message && (
+        <div className="px-4 py-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/10">
+          {job.error_message}
+        </div>
+      )}
+
+      {/* Iteration log */}
+      {job.iteration_log && job.iteration_log.length > 0 && (
+        <div className="px-4 py-3 space-y-2 bg-white/30 dark:bg-black/10">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Iterations</p>
+          {job.iteration_log.map((entry) => (
+            <div key={entry.iteration} className="flex items-start gap-2 text-xs">
+              <span className={cn(
+                "mt-0.5 shrink-0 font-bold",
+                entry.evaluation === 'pass' ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
+              )}>
+                {entry.evaluation === 'pass' ? '✓' : '✗'}
+              </span>
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">#{entry.iteration}</span> — {entry.reason}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Link to prompt management on exhaustion */}
+      {isExhausted && (
+        <div className="px-4 py-3 border-t border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+          <a
+            href="/settings?tab=prompts"
+            className="text-xs text-amber-700 dark:text-amber-400 underline hover:no-underline"
+          >
+            Open Prompt Management to edit manually →
+          </a>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // Enhanced AI Response with different styles based on content
@@ -892,6 +986,53 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   };
 
 
+  const isPromptImprovementIntent = (text: string): boolean =>
+    [
+      'not being recognized', 'not extracted', 'parsing problem', 'improve prompt',
+      'fix prompt', 'extraction issue', 'not reading', 'misread', 'incorrect field',
+      'missing field', 'not parsing', 'recognized wrong', 'wrong number',
+      'holdings not', 'portfolio not', 'wrong holding', 'incorrect holding',
+    ].some((kw) => text.includes(kw));
+
+  const handlePromptImprovementChat = async (message: string) => {
+    const docId = (pageContext as any)?.entity?.id as number | undefined;
+    const docType = (pageContext as any)?.entity?.type as 'invoice' | 'expense' | 'bank_statement' | 'portfolio' | undefined;
+
+    let job: PromptImprovementJob;
+    try {
+      job = await promptImprovementApi.startJob({ message, document_id: docId, document_type: docType });
+    } catch (err) {
+      updateAiMessage(`Sorry, I couldn't start the prompt improvement job: ${err}`);
+      return;
+    }
+
+    // Show initial progress card (stops the thinking indicator)
+    updateAiMessage(<PromptImprovementProgress job={job} />);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const updated = await promptImprovementApi.getJob(job.job_id);
+        // Update the last message in place by replacing it
+        setMessages((prev) => {
+          const updated2 = [...prev];
+          updated2[updated2.length - 1] = {
+            ...updated2[updated2.length - 1],
+            text: <PromptImprovementProgress job={updated} />,
+          };
+          return updated2;
+        });
+
+        if (['succeeded', 'exhausted', 'failed'].includes(updated.status)) {
+          clearInterval(pollInterval);
+          await saveChatMessage(updated.result_summary || updated.error_message || '', 'ai');
+        }
+      } catch (err) {
+        console.error('Prompt improvement poll error:', err);
+        clearInterval(pollInterval);
+      }
+    }, 3000);
+  };
+
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (textToSend === '') return;
@@ -1001,6 +1142,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         } else {
           throw new Error(response.error || 'Failed to get AI response');
         }
+      } else if (isPromptImprovementIntent(lowerText)) {
+        await handlePromptImprovementChat(textToSend);
       } else {
         const response = await aiApiRequest('/ai/chat', {
           method: 'POST',
@@ -1231,6 +1374,15 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   >
                     📈
                     {t('aiAssistant.paymentCharts')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    onClick={() => handleQuickAction('improve prompt - extraction issue')}
+                  >
+                    <Wrench className="mr-1.5 h-3.5 w-3.5" />
+                    Improve Prompt
                   </Button>
                 </div>
 
