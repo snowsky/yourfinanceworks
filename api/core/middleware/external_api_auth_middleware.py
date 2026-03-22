@@ -47,9 +47,13 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
 
         try:
             # For API client endpoints, require API key authentication
-            if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/", "/api/v1/external/"]):
-                # Try API key authentication first
+            if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/", "/api/v1/external/", "/api/v1/tools/"]):
+                # Try API key from X-API-Key header or Authorization: Bearer <key>
                 api_key = request.headers.get("X-API-Key")
+                if not api_key:
+                    auth_header = request.headers.get("Authorization", "")
+                    if auth_header.startswith("Bearer "):
+                        api_key = auth_header[7:]
                 if api_key:
                     client_ip = self._get_client_ip(request)
                     auth_context = await self.auth_service.authenticate_api_key(db, api_key, client_ip)
@@ -132,7 +136,8 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
             "/api/v1/external-transactions/transactions",
             "/api/v1/external-transactions/batch-processing",  # Batch processing uses API keys
             "/api/v1/external-auth",
-            "/api/v1/external/"  # Developer API endpoints
+            "/api/v1/external/",  # Developer API endpoints
+            "/api/v1/tools/",     # Tools API endpoints (agent-consumable read+write)
         ]
 
         # UI endpoints (require JWT authentication)

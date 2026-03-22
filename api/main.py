@@ -92,6 +92,7 @@ try:
     from commercial.external_transactions.router import router as external_transactions
     from commercial.plugin_management.router import router as plugin_management
     from commercial.developer_api.router import router as developer_api_router
+    from commercial.tools_api.router import router as tools_api_router
     COMMERCIAL_MODULES_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import commercial modules: {str(e)}")
@@ -117,6 +118,7 @@ except ImportError as e:
     external_api = None
     external_transactions = None
     developer_api_router = None
+    tools_api_router = None
     COMMERCIAL_MODULES_AVAILABLE = False
 from core.models.database import engine
 from core.models import models
@@ -660,6 +662,12 @@ if developer_api_router:
     app.include_router(developer_api_router)
 else:
     logger.warning("developer_api router is None - not registering")
+
+if tools_api_router:
+    logger.info("Registering tools_api router")
+    app.include_router(tools_api_router)
+else:
+    logger.warning("tools_api router is None - not registering")
 
 @app.get("/")
 def read_root():

@@ -198,6 +198,19 @@ class PluginLoader:
                 )
                 self._load_errors[plugin.plugin_id] = f"Registration failed: {exc}"
 
+            # Auto-mount plugin Tools API router if present (api/plugins/<name>/tools/router.py)
+            try:
+                tools_mod = importlib.import_module(f"{plugin.package}.tools.router")
+                if hasattr(tools_mod, "router"):
+                    app.include_router(tools_mod.router)
+                    logger.info("Plugin '%s': tools router registered.", plugin.plugin_id)
+            except ModuleNotFoundError:
+                pass  # No tools/router.py — optional, not an error
+            except Exception as exc:
+                logger.warning(
+                    "Plugin '%s': tools router failed to register — %s", plugin.plugin_id, exc
+                )
+
     def get_valid_plugin_ids(self) -> set[str]:
         """Return the set of IDs of all discovered plugins (for API validation)."""
         return {p.plugin_id for p in self.discover()}
