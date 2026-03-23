@@ -1,0 +1,44 @@
+{
+  "images": [
+    {
+      "name": "confluentinc/cp-kafka",
+      "tag": "7.6.1",
+      "digest": "sha256:620734d9fc0bb1f9886932e5baf33806074469f40e3fe246a3fdbb59309535fa"
+    },
+    {
+      "name": "nginx",
+      "tag": "alpine",
+      "digest": "sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0"
+    },
+    {
+      "name": "node",
+      "tag": "25.6.1-alpine",
+      "digest": "sha256:b9b5737eabd423ba73b21fe2e82332c0656d571daf1ebf19b0f89d0dd0d3ca93"
+    },
+    {
+      "name": "obsidiandynamics/kafdrop",
+      "tag": "4.0.2",
+      "digest": "sha256:b1a316d2c2e3ef783758ba2d253eb7cfa65c1bc8ae4c6cd3686942cdec7f96e7"
+    },
+    {
+      "name": "opensearchproject/opensearch",
+      "tag": "3.4.0",
+      "digest": "sha256:1647ce2e07371f1ac8bbad28890a64ef77c5a694a61f656120f0ace09e66bf48"
+    },
+    {
+      "name": "opensearchproject/opensearch-dashboards",
+      "tag": "3.4.0",
+      "digest": "sha256:27a0c22806b6cbf6611746053a63961c9c52236f1fa58ca6dfe1f256f7121054"
+    },
+    {
+      "name": "postgres",
+      "tag": "15",
+      "digest": "sha256:c635fa3e3b7421a659d34abdfd6d492f679cbe8149e261a501237b55c5a94212"
+    },
+    {
+      "name": "python",
+      "tag": "3.13-slim",
+      "digest": "sha256:739e7213785e88c0f702dcdc12c0973afcbd606dbf021a589cab77d6b00b579d"
+    }
+  ]
+}
