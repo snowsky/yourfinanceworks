@@ -93,6 +93,21 @@ class PasswordResetToken(Base):
     # Relationships
     user = relationship("MasterUser", back_populates="password_reset_tokens")
 
+class ShareToken(Base):
+    __tablename__ = "share_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    record_type = Column(String(32), nullable=False)  # invoice|expense|payment|client|bank_statement|portfolio
+    record_id = Column(Integer, nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("master_users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    tenant = relationship("Tenant")
+
 class Tenant(Base):
     __tablename__ = "tenants"
 

@@ -24,6 +24,7 @@ import { canEditInvoice, canEditInvoicePayment } from '@/utils/auth';
 import { InvoicePDF } from '@/components/invoices/InvoicePDF';
 import { pdf } from '@react-pdf/renderer';
 import { ProfessionalButton } from '@/components/ui/professional-button';
+import { ShareButton } from '@/components/sharing/ShareButton';
 
 export default function ViewInvoice() {
   const { t } = useTranslation();
@@ -213,6 +214,7 @@ export default function ViewInvoice() {
           ]}
           actions={
             <div className="flex gap-2">
+              <ShareButton recordType="invoice" recordId={invoice.id} />
               <ProfessionalButton
                 variant="outline"
                 onClick={handleLivePreview}

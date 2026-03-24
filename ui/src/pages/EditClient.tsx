@@ -10,6 +10,7 @@ import { CrmContactsPanel } from "@/components/clients/CrmContactsPanel";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { usePlugins } from "@/contexts/PluginContext";
+import { ShareButton } from "@/components/sharing/ShareButton";
 
 const BASE_TABS = ["Details", "Activity"] as const;
 type TabValue = "Details" | "Activity" | "Contacts";
@@ -93,6 +94,7 @@ const EditClient = () => {
               <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('editClient.editClient')}</h1>
               <p className="text-lg text-muted-foreground">{t('editClient.updateClientInformation')}</p>
             </div>
+            {client?.id && <ShareButton recordType="client" recordId={client.id} />}
           </div>
         </div>
 

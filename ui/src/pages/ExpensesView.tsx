@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ShareButton } from '@/components/sharing/ShareButton';
 import { ExpenseApproval } from '@/types';
 
 export default function ExpensesView() {
@@ -164,6 +165,7 @@ export default function ExpensesView() {
           ]}
           actions={
             <div className="flex gap-2">
+              {form.id && <ShareButton recordType="expense" recordId={form.id as number} />}
               {approval && (
                 <ApprovalActionButtons
                   approval={approval}

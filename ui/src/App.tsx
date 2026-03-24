@@ -28,6 +28,7 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
 
 // Lazy load only page components for code splitting
+const SharedRecord = React.lazy(() => import("./pages/SharedRecord"));
 const Index = React.lazy(() => import("./pages/Index"));
 const Login = React.lazy(() => import("./pages/Login"));
 const OAuthCallback = React.lazy(() => import("./pages/OAuthCallback"));
@@ -185,6 +186,7 @@ const AppContent = () => {
               <OnboardingProvider>
                 <React.Suspense fallback={<LoadingSpinner fullScreen />}>
                   <Routes>
+                  <Route path="/shared/:token" element={<SharedRecord />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/oauth-callback" element={<OAuthCallback />} />
                   <Route path="/signup" element={<Signup />} />

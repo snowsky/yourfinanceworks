@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paymentApi, Payment } from "@/lib/api";
+import { ShareButton } from "@/components/sharing/ShareButton";
 import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useTranslation } from 'react-i18next';
@@ -169,6 +170,7 @@ const Payments = () => {
                       <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -197,6 +199,9 @@ const Payments = () => {
                             <Badge variant="outline" className="capitalize font-medium">
                               {payment.status || 'N/A'}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <ShareButton recordType="payment" recordId={payment.id} size="icon" variant="ghost" />
                           </TableCell>
                         </TableRow>
                       ))

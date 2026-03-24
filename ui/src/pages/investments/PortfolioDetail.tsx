@@ -11,6 +11,7 @@ import {
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
+import { ShareButton } from '@/components/sharing/ShareButton';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -159,6 +160,7 @@ const PortfolioDetail: React.FC = () => {
         description={translationsReady ? t('portfolio.taxable_portfolio_description') : 'Manage holdings and track performance for your taxable portfolio'}
         actions={
           <div className="flex gap-2">
+            <ShareButton recordType="portfolio" recordId={portfolio.id} />
             <ProfessionalButton
               variant="outline"
               size="sm"

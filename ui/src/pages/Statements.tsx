@@ -29,6 +29,7 @@ import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
+import { ShareButton } from '@/components/sharing/ShareButton';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useQuery } from '@tanstack/react-query';
@@ -1573,6 +1574,7 @@ export default function Statements() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right flex gap-2 justify-end">
+                          <ShareButton recordType="bank_statement" recordId={s.id} size="sm" />
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
                             <Eye className="w-4 h-4" />
                           </Button>
