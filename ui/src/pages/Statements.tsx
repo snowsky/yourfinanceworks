@@ -982,7 +982,7 @@ export default function Statements() {
           <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
             <div className="flex items-center justify-between gap-6">
               <div className="space-y-2">
-                <h1 className="font-display text-4xl font-normal tracking-tight">{t('navigation.bank_statements')}</h1>
+                <h1 className="text-4xl font-bold tracking-tight">{t('navigation.bank_statements')}</h1>
                 <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
               </div>
               <div className="flex gap-3 items-center flex-wrap justify-end">
@@ -1791,7 +1791,7 @@ export default function Statements() {
                     </Badge>
                     <CardTypeBadge type={(detail as any)?.card_type} />
                   </div>
-                  <h1 className="font-display text-4xl font-normal tracking-tight">
+                  <h1 className="text-4xl font-bold tracking-tight">
                     {detail?.original_filename || t('statements.statement_detail', { defaultValue: 'Statement Detail' })}
                   </h1>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-sm">

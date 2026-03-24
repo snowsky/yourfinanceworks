@@ -104,7 +104,7 @@ const Payments = () => {
       {/* Hero Header */}
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
         <div className="space-y-2">
-          <h1 className="font-display text-4xl font-normal tracking-tight">{t('payments.title')}</h1>
+          <h1 className="text-4xl font-bold tracking-tight">{t('payments.title')}</h1>
           <p className="text-lg text-muted-foreground">{t('payments.description')}</p>
         </div>
       </div>

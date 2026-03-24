@@ -295,7 +295,7 @@ export default function ExpensesEdit() {
                   <ArrowLeft className="h-4 w-4" />
                 </ProfessionalButton>
               </div>
-              <h1 className="font-display text-4xl font-normal tracking-tight">{t('expenses.edit_title')}</h1>
+              <h1 className="text-4xl font-bold tracking-tight">{t('expenses.edit_title')}</h1>
               <p className="text-lg text-muted-foreground">{t('expenses.edit_description')}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
