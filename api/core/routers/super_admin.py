@@ -10,7 +10,7 @@ import secrets
 from core.models.database import get_master_db
 from core.models.models import (
     Tenant, MasterUser, User, Client, ClientNote, Invoice, Payment, Settings, CurrencyRate, DiscountRule, AIConfig, TenantKey,
-    OrganizationJoinRequest, InvoiceHistory, AuditLog, user_tenant_association
+    OrganizationJoinRequest, InvoiceHistory, AuditLog, TenantPluginSettings, user_tenant_association
 )
 from core.models.api_models import APIClient, ExternalTransaction, ClientPermission
 from core.models.models_per_tenant import User as TenantUser
@@ -460,6 +460,7 @@ async def delete_tenant(
         master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
         master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
         master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
+        master_db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id).delete()
 
     except Exception as e:
         master_db.rollback()
