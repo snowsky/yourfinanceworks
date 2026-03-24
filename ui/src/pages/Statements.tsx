@@ -2843,34 +2843,30 @@ export default function Statements() {
                       : t('statements.drop_files_here')
                     }
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const newFiles = Array.from(e.target.files || []);
-                      setFiles(prev => {
-                        const combined = [...prev, ...newFiles];
-                        if (combined.length > 12) {
-                          toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
-                          return combined.slice(0, 12);
-                        }
-                        return combined;
-                      });
-                      // Reset value so the same file can be selected again if removed
-                      e.target.value = '';
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium cursor-pointer hover:bg-primary/90 transition-colors"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {t('statements.choose_files')}
-                  </button>
+                  <div className="relative inline-flex">
+                    <span className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium pointer-events-none">
+                      <Upload className="w-4 h-4 mr-2" />
+                      {t('statements.choose_files')}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
+                      multiple
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const newFiles = Array.from(e.target.files || []);
+                        setFiles(prev => {
+                          const combined = [...prev, ...newFiles];
+                          if (combined.length > 12) {
+                            toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+                            return combined.slice(0, 12);
+                          }
+                          return combined;
+                        });
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
                   <div className="text-xs text-muted-foreground mt-2">
                     {t('statements.supported_formats')}
                   </div>
