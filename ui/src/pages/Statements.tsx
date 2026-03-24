@@ -189,6 +189,8 @@ export default function Statements() {
   const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
   const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
   const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
+  const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
@@ -665,9 +667,11 @@ export default function Statements() {
     }
   };
 
-  const openStatement = async (id: number) => {
+  const openStatement = async (id: number, highlightBackendId?: number) => {
     setSelected(id);
     setDetailLoading(true);
+    setHighlightedBackendId(null);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     try {
       const s = await bankStatementApi.get(id);
       setDetail(s);
@@ -688,6 +692,10 @@ export default function Statements() {
         backend_id: (t as any).id, // Preserve original backend ID for API calls
       }));
       setRows(transactionsWithIds);
+      if (highlightBackendId) {
+        setHighlightedBackendId(highlightBackendId);
+        highlightTimerRef.current = setTimeout(() => setHighlightedBackendId(null), 3000);
+      }
     } catch (e: any) {
       toast.error(e?.message || t('statements.detail_load_failed', { defaultValue: 'Failed to load statement' }));
       setSelected(null);
@@ -2262,7 +2270,7 @@ export default function Statements() {
                     {rows.map((r, idx) => (
                       <ContextMenu key={idx}>
                         <ContextMenuTrigger asChild>
-                          <TableRow className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                          <TableRow className={`hover:bg-muted/20 transition-colors border-b border-border/30${(r as any).backend_id && (r as any).backend_id === highlightedBackendId ? ' ring-2 ring-inset ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                             <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
                             <TableCell>
                               {editingRow === idx ? (
@@ -2376,7 +2384,14 @@ export default function Statements() {
                                   </Badge>
                                 )}
                                 {Boolean((r as any).linked_transfer) && (
-                                  <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 border text-[10px] h-5 justify-center gap-1 cursor-default" title={`Linked to: ${(r as any).linked_transfer?.linked_statement_filename}`}>
+                                  <Badge
+                                    className="bg-blue-500/10 text-blue-600 border-blue-500/20 border text-[10px] h-5 justify-center gap-1 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                                    title={`Jump to: ${(r as any).linked_transfer?.linked_statement_filename}`}
+                                    onClick={() => openStatement(
+                                      (r as any).linked_transfer.linked_statement_id,
+                                      (r as any).linked_transfer.linked_transaction_id
+                                    )}
+                                  >
                                     <ArrowLeftRight className="w-2.5 h-2.5" />
                                     {(r as any).linked_transfer?.link_type === 'fx_conversion' ? 'FX' : 'TRF'}
                                   </Badge>
@@ -2999,7 +3014,7 @@ export default function Statements() {
           <LinkTransferModal
             isOpen={linkTransferModalOpen}
             onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
-            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id }}
+            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined }}
             sourceStatementId={selected!}
             onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
           />
