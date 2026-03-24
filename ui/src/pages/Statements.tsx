@@ -423,6 +423,7 @@ export default function Statements() {
   const [deletedStatements, setDeletedStatements] = useState<DeletedBankStatement[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
   const prevDeletedCount = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [statementToPermanentlyDelete, setStatementToPermanentlyDelete] = useState<number | null>(null);
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
 
@@ -2843,11 +2844,11 @@ export default function Statements() {
                     }
                   </div>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
                     multiple
                     className="hidden"
-                    id="file-upload"
                     onChange={(e) => {
                       const newFiles = Array.from(e.target.files || []);
                       setFiles(prev => {
@@ -2862,13 +2863,14 @@ export default function Statements() {
                       e.target.value = '';
                     }}
                   />
-                  <label
-                    htmlFor="file-upload"
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium cursor-pointer hover:bg-primary/90 transition-colors"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     {t('statements.choose_files')}
-                  </label>
+                  </button>
                   <div className="text-xs text-muted-foreground mt-2">
                     {t('statements.supported_formats')}
                   </div>
