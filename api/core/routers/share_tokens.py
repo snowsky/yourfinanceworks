@@ -7,7 +7,7 @@ from typing import Optional, Union
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from core.models.database import get_db, get_master_db, SessionLocal
+from core.models.database import get_db, get_master_db, SessionLocal, set_tenant_context, clear_tenant_context
 from core.models.models import MasterUser, ShareToken
 from core.models.models_per_tenant import (
     Invoice, InvoiceItem, Expense, Payment, Client,
@@ -337,8 +337,11 @@ def get_shared_record(token: str):
         TenantSession = tenant_db_manager.get_tenant_session(share.tenant_id)
         tenant_db = TenantSession()
         try:
+            # Set tenant context so EncryptedColumn can decrypt fields correctly
+            set_tenant_context(share.tenant_id)
             return _fetch_public_record(tenant_db, share.record_type, share.record_id)
         finally:
+            clear_tenant_context()
             tenant_db.close()
     finally:
         master_db.close()
