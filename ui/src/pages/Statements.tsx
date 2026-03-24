@@ -17,9 +17,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
+import { TransactionLinkInfo } from '@/lib/api/bank-statements';
+import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -55,7 +57,7 @@ const STATEMENT_PROVIDERS = [
 const STATEMENT_STATUSES = ['uploaded', 'processing', 'processed', 'failed', 'merged'] as const;
 type StatementStatus = typeof STATEMENT_STATUSES[number];
 
-type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null };
+type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null; linked_transfer?: TransactionLinkInfo | null };
 
 // Helper component to display analysis status consistently
 function StatusBadge({
@@ -185,6 +187,9 @@ export default function Statements() {
   const [isSplitView, setIsSplitView] = useState(false);
   const [splitViewPdfUrl, setSplitViewPdfUrl] = useState<string | null>(null);
   const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
+  const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
+  const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
+
   const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
@@ -634,6 +639,31 @@ export default function Statements() {
     }
   }, [showRecycleBin, recycleBinCurrentPage]);
 
+  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
+    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+    setLinkTransferModalOpen(false);
+    setLinkingRowIdx(null);
+  };
+
+  const handleUnlinkTransfer = async (rowIdx: number) => {
+    const row = rows[rowIdx];
+    const linkId = row.linked_transfer?.id;
+    if (!linkId) return;
+    if (!confirm('Remove this transfer link?')) return;
+    try {
+      await bankStatementApi.deleteTransactionLink(linkId);
+      setRows((prev) => prev.map((r, i) => {
+        if (i === rowIdx) return { ...r, linked_transfer: null };
+        // Also clear the linked side if it's visible in the same statement
+        if (r.backend_id === row.linked_transfer?.linked_transaction_id) return { ...r, linked_transfer: null };
+        return r;
+      }));
+      toast.success('Transfer link removed');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to remove transfer link');
+    }
+  };
+
   const openStatement = async (id: number) => {
     setSelected(id);
     setDetailLoading(true);
@@ -653,6 +683,7 @@ export default function Statements() {
         category: t.category ?? null,
         invoice_id: (t as any).invoice_id ?? null,
         expense_id: (t as any).expense_id ?? null,
+        linked_transfer: (t as any).linked_transfer ?? null,
         backend_id: (t as any).id, // Preserve original backend ID for API calls
       }));
       setRows(transactionsWithIds);
@@ -2343,7 +2374,13 @@ export default function Statements() {
                                     INV #{(r as any).invoice_id}
                                   </Badge>
                                 )}
-                                {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && (
+                                {Boolean((r as any).linked_transfer) && (
+                                  <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 border text-[10px] h-5 justify-center gap-1 cursor-default" title={`Linked to: ${(r as any).linked_transfer?.linked_statement_filename}`}>
+                                    <ArrowLeftRight className="w-2.5 h-2.5" />
+                                    {(r as any).linked_transfer?.link_type === 'fx_conversion' ? 'FX' : 'TRF'}
+                                  </Badge>
+                                )}
+                                {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && !Boolean((r as any).linked_transfer) && (
                                   <span className="text-xs text-muted-foreground opacity-50">-</span>
                                 )}
                               </div>
@@ -2374,6 +2411,29 @@ export default function Statements() {
                                         <Edit className="w-4 h-4 mr-2 text-primary" />
                                         {t('common.edit', { defaultValue: 'Edit' })}
                                       </DropdownMenuItem>
+
+                                      <DropdownMenuSeparator />
+
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setLinkingRowIdx(idx);
+                                          setLinkTransferModalOpen(true);
+                                        }}
+                                        disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
+                                      >
+                                        <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                                        {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
+                                      </DropdownMenuItem>
+                                      {Boolean((r as any).linked_transfer) && (
+                                        <DropdownMenuItem
+                                          onClick={() => handleUnlinkTransfer(idx)}
+                                          className="text-destructive focus:text-destructive"
+                                          disabled={readOnly}
+                                        >
+                                          <X className="w-4 h-4 mr-2" />
+                                          Unlink Transfer
+                                        </DropdownMenuItem>
+                                      )}
 
                                       <DropdownMenuSeparator />
 
@@ -2938,6 +2998,16 @@ export default function Statements() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {linkTransferModalOpen && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
+          <LinkTransferModal
+            isOpen={linkTransferModalOpen}
+            onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
+            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id }}
+            sourceStatementId={selected!}
+            onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
+          />
+        )}
       </div>
     </>
   );

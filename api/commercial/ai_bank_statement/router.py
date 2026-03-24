@@ -23,7 +23,9 @@ from core.schemas.bank_statement import (
     RestoreStatementRequest,
     PaginatedBankStatements,
     PaginatedDeletedBankStatements,
+    TransactionLinkCreate,
 )
+from core.services import transaction_link_service
 from datetime import datetime, timezone
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 from fastapi.responses import FileResponse
@@ -819,6 +821,84 @@ async def empty_statement_recycle_bin(
     }
 
 
+# ── Transaction Link Endpoints ──────────────────────────────────────────────
+
+
+@router.post("/transactions/links", response_model=Dict[str, Any])
+@require_feature("ai_bank_statement")
+async def create_transaction_link(
+    payload: TransactionLinkCreate,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Link two transactions from different statements (e.g., inter-account transfer or FX conversion)."""
+    require_non_viewer(current_user, "link transactions")
+    try:
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    link = transaction_link_service.create_link(
+        db=db,
+        tenant_id=tenant_id,
+        user_id=current_user.id,
+        txn_a_id=payload.transaction_a_id,
+        txn_b_id=payload.transaction_b_id,
+        link_type=payload.link_type,
+        notes=payload.notes,
+    )
+
+    # Build response with enriched data
+    enriched = transaction_link_service.enrich_transactions_with_links(
+        db, [payload.transaction_a_id, payload.transaction_b_id]
+    )
+
+    log_audit_event(db, current_user.id, "transaction_link_created", {
+        "link_id": link.id,
+        "transaction_a_id": link.transaction_a_id,
+        "transaction_b_id": link.transaction_b_id,
+        "link_type": link.link_type,
+    })
+
+    return {
+        "success": True,
+        "link": {
+            "id": link.id,
+            "link_type": link.link_type,
+            "notes": link.notes,
+            "created_at": link.created_at.isoformat() if link.created_at else None,
+            "linked_for_a": enriched.get(payload.transaction_a_id),
+            "linked_for_b": enriched.get(payload.transaction_b_id),
+        }
+    }
+
+
+@router.delete("/transactions/links/{link_id}", response_model=Dict[str, Any])
+@require_feature("ai_bank_statement")
+async def delete_transaction_link(
+    link_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Remove a cross-statement transaction link."""
+    require_non_viewer(current_user, "unlink transactions")
+    try:
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    transaction_link_service.delete_link(db=db, tenant_id=tenant_id, link_id=link_id)
+
+    log_audit_event(db, current_user.id, "transaction_link_deleted", {"link_id": link_id})
+
+    return {"success": True}
+
 
 @router.get("/{statement_id}", response_model=Dict[str, Any])
 async def get_statement(
@@ -857,6 +937,10 @@ async def get_statement(
         )
         .all()
     )
+
+    txn_ids = [t.id for t in txns]
+    links_by_txn_id = transaction_link_service.enrich_transactions_with_links(db, txn_ids)
+
     return {
         "success": True,
         "statement": {
@@ -897,6 +981,7 @@ async def get_statement(
                     "category": t.category,
                     "invoice_id": getattr(t, "invoice_id", None),
                     "expense_id": getattr(t, "expense_id", None),
+                    "linked_transfer": links_by_txn_id.get(t.id),
                 }
                 for t in txns
             ],

@@ -529,6 +529,31 @@ class BankStatementTransaction(Base):
 
     # Relationships
     statement = relationship("BankStatement", back_populates="transactions")
+    links_as_a = relationship("TransactionLink", foreign_keys="TransactionLink.transaction_a_id", cascade="all, delete-orphan")
+    links_as_b = relationship("TransactionLink", foreign_keys="TransactionLink.transaction_b_id", cascade="all, delete-orphan")
+
+
+class TransactionLink(Base):
+    """Links two bank statement transactions that represent the same real-world event
+    (e.g., inter-account transfer, USD→CAD conversion)."""
+    __tablename__ = "transaction_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_a_id = Column(Integer, ForeignKey("bank_statement_transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_b_id = Column(Integer, ForeignKey("bank_statement_transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    link_type = Column(String, nullable=False, default="transfer")  # "transfer" | "fx_conversion"
+    notes = Column(Text, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    transaction_a = relationship("BankStatementTransaction", foreign_keys=[transaction_a_id])
+    transaction_b = relationship("BankStatementTransaction", foreign_keys=[transaction_b_id])
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+    __table_args__ = (
+        UniqueConstraint("transaction_a_id", "transaction_b_id", name="unique_transaction_link_pair"),
+    )
 
 
 class BankStatementAttachment(Base):
