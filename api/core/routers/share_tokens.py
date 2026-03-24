@@ -1,7 +1,7 @@
 import uuid
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -69,7 +69,10 @@ def create_share_token(
             detail=f"Invalid record_type. Must be one of: {', '.join(sorted(ALLOWED_RECORD_TYPES))}",
         )
 
-    # Idempotency: return existing active token for this record
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=1)
+
+    # Idempotency: return existing active non-expired token for this record
     existing = (
         master_db.query(ShareToken)
         .filter(
@@ -77,6 +80,7 @@ def create_share_token(
             ShareToken.record_type == payload.record_type,
             ShareToken.record_id == payload.record_id,
             ShareToken.is_active == True,
+            ShareToken.expires_at > now,
         )
         .first()
     )
@@ -89,6 +93,7 @@ def create_share_token(
         record_type=payload.record_type,
         record_id=payload.record_id,
         created_by_user_id=current_user.id,
+        expires_at=expires_at,
     )
     master_db.add(share)
     master_db.commit()

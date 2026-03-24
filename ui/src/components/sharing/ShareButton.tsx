@@ -23,17 +23,14 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  const handleOpen = async () => {
-    setOpen(true);
-    if (token) return; // already loaded
-
+  const fetchToken = async () => {
     setLoading(true);
     try {
-      // Check for existing token first (idempotent on backend, but avoids regenerating)
       const res = await shareTokenApi.createToken(recordType, recordId);
       setToken(res.token);
-      // Use frontend origin so the URL matches the actual deployment
+      setExpiresAt(res.expires_at);
       setShareUrl(`${window.location.origin}/shared/${res.token}`);
     } catch {
       toast.error('Failed to generate share link');
@@ -41,6 +38,12 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpen = async () => {
+    setOpen(true);
+    if (token) return; // already loaded
+    await fetchToken();
   };
 
   const handleCopy = async () => {
@@ -59,6 +62,7 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
       await shareTokenApi.revokeToken(token);
       setToken(null);
       setShareUrl(null);
+      setExpiresAt(null);
       setOpen(false);
       toast.success('Share link revoked');
     } catch {
@@ -91,6 +95,11 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Anyone with this link can view this record without logging in.
+                {expiresAt && (
+                  <span className="block mt-1 text-xs">
+                    Expires {new Date(expiresAt).toLocaleString()}
+                  </span>
+                )}
               </p>
               <div className="flex gap-2">
                 <Input readOnly value={shareUrl} className="font-mono text-xs" />
