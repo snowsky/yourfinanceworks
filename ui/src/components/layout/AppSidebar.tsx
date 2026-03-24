@@ -500,7 +500,11 @@ export function AppSidebar() {
           >
             <button
               onClick={() => scrollToDirection('up')}
-              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
+                canScrollUp
+                  ? "bg-blue-600/90 border-blue-400/60 text-white hover:bg-blue-500 ring-2 ring-blue-400/40"
+                  : "bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700"
+              }`}
               tabIndex={canScrollUp ? 0 : -1}
               aria-label="Scroll up"
             >
@@ -532,7 +536,7 @@ export function AppSidebar() {
                     >
                       <Link
                         to={item.path}
-                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        className="flex items-center gap-2.5 w-full h-full py-2 px-3"
                         data-tour={item.tourId}
                         onClick={handleNavigation}
                       >
@@ -542,7 +546,7 @@ export function AppSidebar() {
                           }`}>
                           {item.icon}
                         </div>
-                        <span className="font-medium text-sm">{item.label}</span>
+                        <span className="font-medium text-[13px] leading-5">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -573,7 +577,7 @@ export function AppSidebar() {
                     >
                       <Link
                         to={item.path}
-                        className="flex items-center gap-3 w-full h-full py-3 px-4"
+                        className="flex items-center gap-2.5 w-full h-full py-2 px-3"
                         data-tour={item.tourId}
                         onClick={handleNavigation}
                       >
@@ -583,7 +587,7 @@ export function AppSidebar() {
                           }`}>
                           {item.icon}
                         </div>
-                        <span className="font-medium text-sm">{item.label}</span>
+                        <span className="font-medium text-[13px] leading-5">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -622,7 +626,7 @@ export function AppSidebar() {
                             >
                               <Link
                                 to={item.path}
-                                className="flex items-center gap-3 w-full h-full py-3 px-4"
+                                className="flex items-center gap-2.5 w-full h-full py-2 px-3"
                                 data-tour={item.tourId}
                                 onClick={handleNavigation}
                               >
@@ -632,7 +636,7 @@ export function AppSidebar() {
                                   }`}>
                                   {IconComponent && <IconComponent className="w-5 h-5" />}
                                 </div>
-                                <span className="font-medium text-sm">{item.label}</span>
+                                <span className="font-medium text-[13px] leading-5">{item.label}</span>
                               </Link>
                             </SidebarMenuButton>
                           </PluginMenuErrorBoundary>
@@ -652,7 +656,11 @@ export function AppSidebar() {
           >
             <button
               onClick={() => scrollToDirection('down')}
-              className="bg-slate-800/80 rounded-full p-1 shadow-lg border border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700 transition-all pointer-events-auto cursor-pointer"
+              className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
+                canScrollDown
+                  ? "bg-blue-600/90 border-blue-400/60 text-white hover:bg-blue-500 ring-2 ring-blue-400/40"
+                  : "bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700"
+              }`}
               tabIndex={canScrollDown ? 0 : -1}
               aria-label="Scroll down"
             >
