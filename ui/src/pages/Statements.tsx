@@ -17,9 +17,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
+import { TransactionLinkInfo } from '@/lib/api/bank-statements';
+import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -55,7 +57,7 @@ const STATEMENT_PROVIDERS = [
 const STATEMENT_STATUSES = ['uploaded', 'processing', 'processed', 'failed', 'merged'] as const;
 type StatementStatus = typeof STATEMENT_STATUSES[number];
 
-type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null };
+type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null; linked_transfer?: TransactionLinkInfo | null };
 
 // Helper component to display analysis status consistently
 function StatusBadge({
@@ -185,6 +187,11 @@ export default function Statements() {
   const [isSplitView, setIsSplitView] = useState(false);
   const [splitViewPdfUrl, setSplitViewPdfUrl] = useState<string | null>(null);
   const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
+  const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
+  const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
+  const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const readOnly = detail?.status === 'processing' || detail?.status === 'merged';
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
@@ -418,6 +425,7 @@ export default function Statements() {
   const [deletedStatements, setDeletedStatements] = useState<DeletedBankStatement[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
   const prevDeletedCount = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [statementToPermanentlyDelete, setStatementToPermanentlyDelete] = useState<number | null>(null);
   const [emptyRecycleBinModalOpen, setEmptyRecycleBinModalOpen] = useState(false);
 
@@ -634,9 +642,36 @@ export default function Statements() {
     }
   }, [showRecycleBin, recycleBinCurrentPage]);
 
-  const openStatement = async (id: number) => {
+  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
+    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+    setLinkTransferModalOpen(false);
+    setLinkingRowIdx(null);
+  };
+
+  const handleUnlinkTransfer = async (rowIdx: number) => {
+    const row = rows[rowIdx];
+    const linkId = row.linked_transfer?.id;
+    if (!linkId) return;
+    if (!confirm('Remove this transfer link?')) return;
+    try {
+      await bankStatementApi.deleteTransactionLink(linkId);
+      setRows((prev) => prev.map((r, i) => {
+        if (i === rowIdx) return { ...r, linked_transfer: null };
+        // Also clear the linked side if it's visible in the same statement
+        if (r.backend_id === row.linked_transfer?.linked_transaction_id) return { ...r, linked_transfer: null };
+        return r;
+      }));
+      toast.success('Transfer link removed');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to remove transfer link');
+    }
+  };
+
+  const openStatement = async (id: number, highlightBackendId?: number) => {
     setSelected(id);
     setDetailLoading(true);
+    setHighlightedBackendId(null);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     try {
       const s = await bankStatementApi.get(id);
       setDetail(s);
@@ -653,9 +688,14 @@ export default function Statements() {
         category: t.category ?? null,
         invoice_id: (t as any).invoice_id ?? null,
         expense_id: (t as any).expense_id ?? null,
+        linked_transfer: (t as any).linked_transfer ?? null,
         backend_id: (t as any).id, // Preserve original backend ID for API calls
       }));
       setRows(transactionsWithIds);
+      if (highlightBackendId) {
+        setHighlightedBackendId(highlightBackendId);
+        highlightTimerRef.current = setTimeout(() => setHighlightedBackendId(null), 3000);
+      }
     } catch (e: any) {
       toast.error(e?.message || t('statements.detail_load_failed', { defaultValue: 'Failed to load statement' }));
       setSelected(null);
@@ -2230,7 +2270,7 @@ export default function Statements() {
                     {rows.map((r, idx) => (
                       <ContextMenu key={idx}>
                         <ContextMenuTrigger asChild>
-                          <TableRow className="hover:bg-muted/20 transition-colors border-b border-border/30">
+                          <TableRow className={`hover:bg-muted/20 transition-colors border-b border-border/30${(r as any).backend_id && (r as any).backend_id === highlightedBackendId ? ' ring-2 ring-inset ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                             <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
                             <TableCell>
                               {editingRow === idx ? (
@@ -2343,7 +2383,20 @@ export default function Statements() {
                                     INV #{(r as any).invoice_id}
                                   </Badge>
                                 )}
-                                {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && (
+                                {Boolean((r as any).linked_transfer) && (
+                                  <Badge
+                                    className="bg-blue-500/10 text-blue-600 border-blue-500/20 border text-[10px] h-5 justify-center gap-1 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                                    title={`Jump to: ${(r as any).linked_transfer?.linked_statement_filename}`}
+                                    onClick={() => openStatement(
+                                      (r as any).linked_transfer.linked_statement_id,
+                                      (r as any).linked_transfer.linked_transaction_id
+                                    )}
+                                  >
+                                    <ArrowLeftRight className="w-2.5 h-2.5" />
+                                    {(r as any).linked_transfer?.link_type === 'fx_conversion' ? 'FX' : 'TRF'}
+                                  </Badge>
+                                )}
+                                {!Boolean((r as any).expense_id) && !Boolean((r as any).invoice_id) && !Boolean((r as any).linked_transfer) && (
                                   <span className="text-xs text-muted-foreground opacity-50">-</span>
                                 )}
                               </div>
@@ -2374,6 +2427,29 @@ export default function Statements() {
                                         <Edit className="w-4 h-4 mr-2 text-primary" />
                                         {t('common.edit', { defaultValue: 'Edit' })}
                                       </DropdownMenuItem>
+
+                                      <DropdownMenuSeparator />
+
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setLinkingRowIdx(idx);
+                                          setLinkTransferModalOpen(true);
+                                        }}
+                                        disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
+                                      >
+                                        <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                                        {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
+                                      </DropdownMenuItem>
+                                      {Boolean((r as any).linked_transfer) && (
+                                        <DropdownMenuItem
+                                          onClick={() => handleUnlinkTransfer(idx)}
+                                          className="text-destructive focus:text-destructive"
+                                          disabled={readOnly}
+                                        >
+                                          <X className="w-4 h-4 mr-2" />
+                                          Unlink Transfer
+                                        </DropdownMenuItem>
+                                      )}
 
                                       <DropdownMenuSeparator />
 
@@ -2697,11 +2773,11 @@ export default function Statements() {
             setSelectedProvider('bank');
           }
         }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>{t('statements.upload_statement', { defaultValue: 'Upload Statement' })}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   {t('statements.select_provider', { defaultValue: 'Statement Provider' })}
@@ -2782,33 +2858,30 @@ export default function Statements() {
                       : t('statements.drop_files_here')
                     }
                   </div>
-                  <input
-                    type="file"
-                    accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
-                    multiple
-                    className="hidden"
-                    id="file-upload"
-                    onChange={(e) => {
-                      const newFiles = Array.from(e.target.files || []);
-                      setFiles(prev => {
-                        const combined = [...prev, ...newFiles];
-                        if (combined.length > 12) {
-                          toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
-                          return combined.slice(0, 12);
-                        }
-                        return combined;
-                      });
-                      // Reset value so the same file can be selected again if removed
-                      e.target.value = '';
-                    }}
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium cursor-pointer hover:bg-primary/90 transition-colors"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {t('statements.choose_files')}
-                  </label>
+                  <div className="relative inline-flex">
+                    <span className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium pointer-events-none">
+                      <Upload className="w-4 h-4 mr-2" />
+                      {t('statements.choose_files')}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.csv,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf,text/csv,application/vnd.ms-excel"
+                      multiple
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const newFiles = Array.from(e.target.files || []);
+                        setFiles(prev => {
+                          const combined = [...prev, ...newFiles];
+                          if (combined.length > 12) {
+                            toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+                            return combined.slice(0, 12);
+                          }
+                          return combined;
+                        });
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
                   <div className="text-xs text-muted-foreground mt-2">
                     {t('statements.supported_formats')}
                   </div>
@@ -2818,16 +2891,14 @@ export default function Statements() {
                     <div className="text-sm font-medium mb-2">Selected Files:</div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all">
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <FileText className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                            <span className="truncate font-medium">{file.name}</span>
-                            <span className="text-[10px] text-muted-foreground flex-shrink-0 opacity-70">({Math.round(file.size / 1024)} KB)</span>
-                          </div>
+                        <div key={index} className="flex items-center gap-2 text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all overflow-hidden">
+                          <FileText className="w-4 h-4 text-primary/60 shrink-0" />
+                          <span className="truncate font-medium min-w-0 flex-1">{file.name}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 opacity-70">({Math.round(file.size / 1024)} KB)</span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-1 shrink-0"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                             onClick={() => {
                               setFiles(prev => prev.filter((_, i) => i !== index));
                             }}
@@ -2841,24 +2912,24 @@ export default function Statements() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
-                  {t('common.cancel', 'Cancel')}
-                </Button>
-                <Button onClick={onUpload} disabled={loading || files.length === 0}>
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      {t('statements.processing')}
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      {t('statements.upload')}
-                    </>
-                  )}
-                </Button>
-              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t border-border/50 shrink-0">
+              <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button onClick={onUpload} disabled={loading || files.length === 0}>
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    {t('statements.processing')}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {t('statements.upload')}
+                  </>
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -2938,6 +3009,16 @@ export default function Statements() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {linkTransferModalOpen && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
+          <LinkTransferModal
+            isOpen={linkTransferModalOpen}
+            onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
+            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined }}
+            sourceStatementId={selected!}
+            onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
+          />
+        )}
       </div>
     </>
   );

@@ -1,5 +1,15 @@
 import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 
+export interface TransactionLinkInfo {
+  id: number;
+  link_type: 'transfer' | 'fx_conversion';
+  notes?: string | null;
+  linked_transaction_id: number;
+  linked_statement_id: number;
+  linked_statement_filename: string;
+  created_at?: string | null;
+}
+
 export interface BankTransactionEntry {
   id?: number;
   date: string;
@@ -10,6 +20,7 @@ export interface BankTransactionEntry {
   category?: string | null;
   invoice_id?: number | null;
   expense_id?: number | null;
+  linked_transfer?: TransactionLinkInfo | null;
 }
 
 export interface BankStatementSummary {
@@ -22,6 +33,7 @@ export interface BankStatementSummary {
   extraction_method?: string | null;
   analysis_error?: string | null;
   analysis_updated_at?: string | null;
+  card_type?: string;
   labels?: string[] | null;
   notes?: string | null;
   created_at?: string;
@@ -186,4 +198,26 @@ export const bankStatementApi = {
       method: 'POST',
       body: JSON.stringify({ ids }),
     }),
+
+  createTransactionLink: (
+    transactionAId: number,
+    transactionBId: number,
+    linkType: 'transfer' | 'fx_conversion' = 'transfer',
+    notes?: string
+  ) =>
+    apiRequest<{ success: boolean; link: { id: number; link_type: string; notes?: string | null; created_at?: string | null; linked_for_a?: TransactionLinkInfo; linked_for_b?: TransactionLinkInfo } }>(
+      '/statements/transactions/links',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          transaction_a_id: transactionAId,
+          transaction_b_id: transactionBId,
+          link_type: linkType,
+          notes,
+        }),
+      }
+    ),
+
+  deleteTransactionLink: (linkId: number) =>
+    apiRequest<{ success: boolean }>(`/statements/transactions/links/${linkId}`, { method: 'DELETE' }),
 };

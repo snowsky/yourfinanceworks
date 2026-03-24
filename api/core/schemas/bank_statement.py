@@ -3,6 +3,27 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
+class TransactionLinkCreate(BaseModel):
+    """Request schema for creating a cross-statement transaction link"""
+    transaction_a_id: int
+    transaction_b_id: int
+    link_type: str = "transfer"  # "transfer" | "fx_conversion"
+    notes: Optional[str] = None
+
+
+class TransactionLinkResponse(BaseModel):
+    """Response schema for a transaction link, from the perspective of one transaction"""
+    id: int
+    link_type: str
+    notes: Optional[str] = None
+    linked_transaction_id: int        # the "other side" relative to the queried transaction
+    linked_statement_id: int
+    linked_statement_filename: str
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class BankStatementTransactionBase(BaseModel):
     """Base schema for bank statement transactions"""
     date: datetime = Field(..., description="Transaction date")
@@ -18,6 +39,7 @@ class BankStatementTransactionBase(BaseModel):
 class BankStatementTransactionResponse(BankStatementTransactionBase):
     """Response schema for bank statement transactions"""
     id: int
+    linked_transfer: Optional[TransactionLinkResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

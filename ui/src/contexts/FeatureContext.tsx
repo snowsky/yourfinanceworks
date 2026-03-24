@@ -61,42 +61,10 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       setError(null);
 
-      // Check if user is authenticated before making the API call
-      // Token is now in an httpOnly cookie (not readable from JS); use presence of user data instead
-      const user = localStorage.getItem('user');
-      if (!user) {
-        // User not authenticated - use safe defaults
-        setFeatures({
-          ai_invoice: false,
-          ai_expense: false,
-          ai_bank_statement: false,
-          ai_chat: false,
-          // tax_integration: false,
-          slack_integration: false,
-          cloud_storage: false,
-          sso: false,
-          external_api: false,
-          external_transactions: false,
-          advanced_export: false,
-          approval_analytics: false,
-          batch_processing: false,
-          reporting: false,
-          approvals: false,
-          advanced_search: false,
-          email_integration: false,
-          prompt_management: false,
-          anomaly_detection: false,
-          plugin_management: false,
-          inventory: true,
-          crm: true,
-        });
-        setLicenseStatus(null);
-        setLoading(false);
-        setHasAttemptedFetch(true);
-        return;
-      }
-
       // Fetch actual license status with enabled features
+      // Auth is via httpOnly cookie — do not gate on localStorage, which may be absent
+      // in sandboxed browser contexts (PWA, WebView, app mode). The API returns 401 if
+      // the user is not authenticated, and the catch block handles that gracefully.
       // This requires authentication and returns user's actual license
       const response = await api.get<{
         enabled_features: string[];
