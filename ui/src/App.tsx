@@ -26,6 +26,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { PageContextProvider } from "@/contexts/PageContext";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
+import { useTranslation } from "react-i18next";
 
 // Lazy load only page components for code splitting
 const SharedRecord = React.lazy(() => import("./pages/SharedRecord"));
@@ -136,6 +137,7 @@ const ClientRedirect = () => {
 };
 
 const AppContent = () => {
+  const { t } = useTranslation();
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
   const { startPolling: startStatementPolling } = useStatementStatusPolling();
@@ -262,13 +264,15 @@ const AppContent = () => {
                   />
                 )}
                 {isLoggedIn && bellHidden && notifications.some(n => !n.read) && (
-                  <div
+                  <button
+                    type="button"
                     className="fixed top-4 right-4 z-50 cursor-pointer"
                     onClick={() => setBellHidden(false)}
-                    title="Show AI notifications"
+                    title={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
+                    aria-label={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
                   >
                     <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
-                  </div>
+                  </button>
                 )}
                 <TourOverlay />
               </OnboardingProvider>

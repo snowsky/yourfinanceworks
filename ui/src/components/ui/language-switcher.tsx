@@ -23,9 +23,10 @@ export function LanguageSwitcher() {
   // Get the current language from i18n and ensure it's a valid option
   useEffect(() => {
     const detectedLanguage = i18n.language;
+    const normalizedLanguage = (detectedLanguage || 'en').split('-')[0];
     // Ensure the detected language is one of our supported languages
     const supportedLanguages = languages.map(lang => lang.code);
-    const validLanguage = supportedLanguages.includes(detectedLanguage) ? detectedLanguage : 'en';
+    const validLanguage = supportedLanguages.includes(normalizedLanguage) ? normalizedLanguage : 'en';
     setCurrentLanguage(validLanguage);
   }, [i18n.language]);
 

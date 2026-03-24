@@ -172,6 +172,12 @@ const Login = () => {
                   size="icon-sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword
+                    ? t('auth.hide_password', { defaultValue: 'Hide password' })
+                    : t('auth.show_password', { defaultValue: 'Show password' })}
+                  title={showPassword
+                    ? t('auth.hide_password', { defaultValue: 'Hide password' })
+                    : t('auth.show_password', { defaultValue: 'Show password' })}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />

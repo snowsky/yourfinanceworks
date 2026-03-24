@@ -104,6 +104,23 @@ const ProfessionalTableHead = React.forwardRef<
     }
   };
 
+  const handleSortKeyDown = (event: React.KeyboardEvent<HTMLTableCellElement>) => {
+    if (!sortable || !onSort) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSort();
+    }
+  };
+
+  const ariaSortValue =
+    sortDirection === "asc"
+      ? "ascending"
+      : sortDirection === "desc"
+        ? "descending"
+        : sortable
+          ? "none"
+          : undefined;
+
   return (
     <th
       ref={ref}
@@ -113,6 +130,9 @@ const ProfessionalTableHead = React.forwardRef<
         className
       )}
       onClick={handleSort}
+      onKeyDown={handleSortKeyDown}
+      tabIndex={sortable ? 0 : undefined}
+      aria-sort={ariaSortValue as React.AriaAttributes["aria-sort"]}
       {...props}
     >
       <div className="flex items-center gap-2">

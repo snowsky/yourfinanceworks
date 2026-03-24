@@ -261,9 +261,9 @@ const Clients = () => {
                           setTotalClients(data.total);
                           setSelectedIds([]);
                           setBulkLabel('');
-                          toast.success('Labels added');
+                          toast.success(t('clients.labels.added', { defaultValue: 'Labels added' }));
                         } catch (e: any) {
-                          toast.error(e?.message || 'Failed to add label');
+                          toast.error(e?.message || t('clients.labels.add_failed', { defaultValue: 'Failed to add label' }));
                         }
                       }}
                       className="h-9 px-3 gap-1.5"
@@ -289,9 +289,9 @@ const Clients = () => {
                           setTotalClients(data.total);
                           setSelectedIds([]);
                           setBulkLabel('');
-                          toast.success('Labels removed');
+                          toast.success(t('clients.labels.removed', { defaultValue: 'Labels removed' }));
                         } catch (e: any) {
-                          toast.error(e?.message || 'Failed to remove label');
+                          toast.error(e?.message || t('clients.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                         }
                       }}
                       className="h-9 px-3 gap-1.5"
@@ -335,6 +335,7 @@ const Clients = () => {
                       <TableHead className="w-[40px]">
                         <Checkbox
                           checked={filteredClients.length > 0 && selectedIds.length === filteredClients.length}
+                          aria-label={t('common.select_all', { defaultValue: 'Select all' })}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setSelectedIds(filteredClients.map(c => c.id));
@@ -344,10 +345,10 @@ const Clients = () => {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="font-bold text-foreground">ID</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('clients.table.name')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('clients.table.email')}</TableHead>
-                      <TableHead className="font-bold text-foreground">Labels</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('clients.table.phone')}</TableHead>
                       <TableHead className="hidden md:table-cell font-bold text-foreground">{t('clients.table.address')}</TableHead>
                       <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('clients.table.preferred_currency')}</TableHead>
@@ -362,6 +363,7 @@ const Clients = () => {
                         <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(client.id)}
+                            aria-label={t('clients.select_client', { defaultValue: 'Select client' })}
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 setSelectedIds(prev => [...prev, client.id]);
@@ -384,13 +386,14 @@ const Clients = () => {
                               >
                                 {label}
                                 <button
+                                  aria-label={t('clients.remove_label', { defaultValue: 'Remove label' })}
                                   className="hover:text-destructive transition-colors"
                                   onClick={() => {
                                     const next = client.labels?.filter((_, i) => i !== idx) || [];
                                     clientApi.updateClient(client.id, { labels: next }).then(() => {
                                       setClients((prev) => prev.map((x) => (x.id === client.id ? { ...x, labels: next } : x)));
                                     }).catch((err: any) => {
-                                      toast.error(err?.message || 'Failed to remove label');
+                                      toast.error(err?.message || t('clients.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                                     });
                                   }}
                                 >
@@ -416,7 +419,7 @@ const Clients = () => {
                                     setClients((prev) => prev.map((x) => (x.id === client.id ? { ...x, labels: next } : x)));
                                     setNewLabelValueById((prev) => ({ ...prev, [client.id]: '' }));
                                   }).catch((err: any) => {
-                                    toast.error(err?.message || 'Failed to add label');
+                                    toast.error(err?.message || t('clients.labels.add_failed', { defaultValue: 'Failed to add label' }));
                                   });
                                 }
                               }}
@@ -484,7 +487,11 @@ const Clients = () => {
             {filteredClients.length > 0 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
                 <div className="text-sm text-muted-foreground">
-                  Showing <span className="font-medium text-foreground">{filteredClients.length}</span> of <span className="font-medium text-foreground">{totalClients}</span> results
+                {t('common.showing_results', {
+                  shown: filteredClients.length,
+                  total: totalClients,
+                  defaultValue: 'Showing {{shown}} of {{total}} results'
+                })}
                 </div>
                 <div className="flex items-center gap-2">
                   <ProfessionalButton

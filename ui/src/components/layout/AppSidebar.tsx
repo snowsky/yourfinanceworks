@@ -353,7 +353,7 @@ export function AppSidebar() {
     },
     {
       path: '/approvals',
-      label: 'Approvals',
+      label: t('navigation.approvals', { defaultValue: 'Approvals' }),
       icon: <ListChecks className="w-5 h-5" />,
       tourId: 'nav-approvals'
     },
@@ -411,7 +411,7 @@ export function AppSidebar() {
     // Only show Analytics for admin or superuser if user has enabled it
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg) && showAnalytics) ? [{
       path: '/analytics',
-      label: 'Analytics',
+      label: t('navigation.analytics', { defaultValue: 'Analytics' }),
       icon: <BarChart className="w-5 h-5" />,
       tourId: 'nav-analytics'
     }] : []),
@@ -480,7 +480,9 @@ export function AppSidebar() {
                   })()}
                 </span>
                 <span className="text-xs text-slate-300 truncate">
-                  {currentOrgRole === 'admin' ? 'Administrator' : 'User'}
+                  {currentOrgRole === 'admin'
+                    ? t('roles.administrator', { defaultValue: 'Administrator' })
+                    : t('roles.user', { defaultValue: 'User' })}
                 </span>
               </div>
             </div>
@@ -515,12 +517,13 @@ export function AppSidebar() {
               <div className="space-y-1">
                 <div className="px-3 mb-3">
                   <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Core
+                    {t('navigation.section.core', { defaultValue: 'Core' })}
                   </h3>
                 </div>
                 {mainMenuItems.map((item) => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
+                      asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                         ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
                         : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
@@ -555,12 +558,13 @@ export function AppSidebar() {
               <div className="space-y-1">
                 <div className="px-3 mb-3">
                   <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Administration
+                    {t('navigation.section.administration', { defaultValue: 'Administration' })}
                   </h3>
                 </div>
                 {settingsMenuItems.map((item) => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
+                      asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                         ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
                         : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
@@ -597,7 +601,7 @@ export function AppSidebar() {
                   <div className="space-y-1">
                     <div className="px-3 mb-3">
                       <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Plugins
+                        {t('navigation.section.plugins', { defaultValue: 'Plugins' })}
                       </h3>
                     </div>
                     {pluginMenuItems.map((item) => {
@@ -609,6 +613,7 @@ export function AppSidebar() {
                             pluginName={item.label}
                           >
                             <SidebarMenuButton
+                              asChild
                               className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                                 ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
                                 : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"

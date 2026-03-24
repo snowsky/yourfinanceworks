@@ -326,12 +326,12 @@ export default function Statements() {
     try {
       setIsAcceptingReview(true);
       await bankStatementApi.acceptReview(selectedReviewStatement.id);
-      toast.success('Review accepted successfully');
+      toast.success(t('statements.review.accepted_success', { defaultValue: 'Review accepted successfully' }));
       setReviewModalOpen(false);
       // Refresh list
       loadList();
     } catch (error) {
-      toast.error('Failed to accept review');
+      toast.error(t('statements.review.accept_failed', { defaultValue: 'Failed to accept review' }));
     } finally {
       setIsAcceptingReview(false);
     }
@@ -343,11 +343,11 @@ export default function Statements() {
     try {
       setIsRejectingReview(true);
       await bankStatementApi.rejectReview(selectedReviewStatement.id);
-      toast.success('Review dismissed');
+      toast.success(t('statements.review.dismissed', { defaultValue: 'Review dismissed' }));
       setReviewModalOpen(false);
       loadList();
     } catch (error) {
-      toast.error('Failed to dismiss review');
+      toast.error(t('statements.review.dismiss_failed', { defaultValue: 'Failed to dismiss review' }));
     } finally {
       setIsRejectingReview(false);
     }
@@ -359,11 +359,11 @@ export default function Statements() {
     try {
       setIsRetriggeringReview(true);
       await bankStatementApi.reReview(selectedReviewStatement.id);
-      toast.success('Review re-triggered');
+      toast.success(t('statements.review.retriggered', { defaultValue: 'Review re-triggered' }));
       setReviewModalOpen(false);
       loadList();
     } catch (error) {
-      toast.error('Failed to re-trigger review');
+      toast.error(t('statements.review.retrigger_failed', { defaultValue: 'Failed to re-trigger review' }));
     } finally {
       setIsRetriggeringReview(false);
     }
@@ -372,22 +372,22 @@ export default function Statements() {
   const handleRunReview = async (statementId: number) => {
     try {
       await bankStatementApi.reReview(statementId);
-      toast.success('Review triggered. The agent will process it shortly.');
+      toast.success(t('statements.review.triggered', { defaultValue: 'Review triggered. The agent will process it shortly.' }));
       // Refresh list
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to trigger review');
+      toast.error(error?.message || t('statements.review.trigger_failed', { defaultValue: 'Failed to trigger review' }));
     }
   };
 
   const handleCancelReview = async (statementId: number) => {
     try {
       await bankStatementApi.cancelReview(statementId);
-      toast.success('Review cancelled.');
+      toast.success(t('statements.review.cancelled', { defaultValue: 'Review cancelled.' }));
       // Refresh list
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to cancel review');
+      toast.error(error?.message || t('statements.review.cancel_failed', { defaultValue: 'Failed to cancel review' }));
     }
   };
 
@@ -401,7 +401,7 @@ export default function Statements() {
       setSelectedIds([]);
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to trigger bulk review');
+      toast.error(error?.message || t('statements.review.bulk_trigger_failed', { defaultValue: 'Failed to trigger bulk review' }));
     } finally {
       setLoading(false);
     }
@@ -445,7 +445,7 @@ export default function Statements() {
 
   const exportToCSV = () => {
     if (rows.length === 0) {
-      toast.error('No transactions to export');
+      toast.error(t('statements.export.no_transactions', { defaultValue: 'No transactions to export' }));
       return;
     }
 
@@ -472,17 +472,17 @@ export default function Statements() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success('CSV exported successfully');
+    toast.success(t('statements.export.csv_success', { defaultValue: 'CSV exported successfully' }));
   };
 
   const createExpenseFromTransaction = async (rowIndex: number) => {
     const transaction = rows[rowIndex];
     if (transaction.transaction_type !== 'debit') {
-      toast.error('Can only create expenses from debit transactions');
+      toast.error(t('statements.expense.create_only_debit', { defaultValue: 'Can only create expenses from debit transactions' }));
       return;
     }
     if ((transaction as any).expense_id) {
-      toast.error('An expense has already been created for this transaction');
+      toast.error(t('statements.expense.already_created', { defaultValue: 'An expense has already been created for this transaction' }));
       return;
     }
 
@@ -509,7 +509,7 @@ export default function Statements() {
       };
 
       const created = await expenseApi.createExpense(expenseData as any);
-      toast.success('Expense created successfully');
+      toast.success(t('statements.expense.create_success', { defaultValue: 'Expense created successfully' }));
 
       // Link this transaction to the created expense to prevent duplicates
       const updatedRows: BankRow[] = rows.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r);
@@ -531,20 +531,20 @@ export default function Statements() {
         }
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to create expense');
+      toast.error(e?.message || t('statements.expense.create_failed', { defaultValue: 'Failed to create expense' }));
     }
   };
 
   const createInvoiceFromTransaction = (rowIndex: number) => {
     const transaction = rows[rowIndex];
     if (transaction.transaction_type !== 'credit') {
-      toast.error('Can only create invoices from credit transactions');
+      toast.error(t('statements.invoice.create_only_credit', { defaultValue: 'Can only create invoices from credit transactions' }));
       return;
     }
 
     // Prevent duplicate invoice creation if already linked
     if ((transaction as any).invoice_id) {
-      toast.error('An invoice has already been created for this transaction');
+      toast.error(t('statements.invoice.already_created', { defaultValue: 'An invoice has already been created for this transaction' }));
       return;
     }
 
@@ -593,7 +593,7 @@ export default function Statements() {
         }
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to load statements');
+      toast.error(e?.message || t('statements.load_failed', { defaultValue: 'Failed to load statements' }));
     }
   }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
@@ -657,7 +657,7 @@ export default function Statements() {
       }));
       setRows(transactionsWithIds);
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to load statement');
+      toast.error(e?.message || t('statements.detail_load_failed', { defaultValue: 'Failed to load statement' }));
       setSelected(null);
     } finally {
       setDetailLoading(false);
@@ -688,8 +688,8 @@ export default function Statements() {
       setUploadModalOpen(false);
       await loadList();
     } catch (e: any) {
-      addNotification?.('error', t('statements.failed_to_delete'), `Failed to process statements: ${e?.message || 'Unknown error'}`);
-      toast.error(e?.message || 'Failed to extract transactions');
+      addNotification?.('error', t('statements.failed_to_delete'), t('statements.process_failed_message', { defaultValue: 'Failed to process statements: {{error}}', error: e?.message || t('common.unknown_error', { defaultValue: 'Unknown error' }) }));
+      toast.error(e?.message || t('statements.extract_failed', { defaultValue: 'Failed to extract transactions' }));
     } finally {
       setLoading(false);
     }
@@ -735,12 +735,12 @@ export default function Statements() {
         expense_id: r.expense_id ?? null,
       }));
       await bankStatementApi.replaceTransactions(selected, cleaned);
-      toast.success('Transactions saved');
+      toast.success(t('statements.transactions_saved', { defaultValue: 'Transactions saved' }));
       // Refresh detail and list counts but preserve frontend ID sequence
       await openStatement(selected);
       await loadList();
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to save transactions');
+      toast.error(e?.message || t('statements.save_transactions_failed', { defaultValue: 'Failed to save transactions' }));
     } finally {
       setDetailLoading(false);
     }
@@ -757,9 +757,9 @@ export default function Statements() {
       const resp = await bankStatementApi.updateMeta(selected, updates);
       setDetail(prev => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [] } : prev);
       await loadList();
-      toast.success('Statement updated');
+      toast.success(t('statements.update_success', { defaultValue: 'Statement updated' }));
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to update statement');
+      toast.error(e?.message || t('statements.update_failed', { defaultValue: 'Failed to update statement' }));
     } finally {
       setDetailLoading(false);
     }
@@ -806,7 +806,7 @@ export default function Statements() {
       setSelectedIds([]);
       setBulkDeleteModalOpen(false);
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to delete statements');
+      toast.error(e?.message || t('statements.delete_failed', { defaultValue: 'Failed to delete statements' }));
     } finally {
       setLoading(false);
     }
@@ -816,7 +816,7 @@ export default function Statements() {
     setLoading(true);
     try {
       const resp = await bankStatementApi.merge(selectedIds);
-      toast.success(resp.message || 'Statements merged successfully');
+      toast.success(resp.message || t('statements.merge_success', { defaultValue: 'Statements merged successfully' }));
       await loadList();
       setSelectedIds([]);
       setBulkMergeModalOpen(false);
@@ -824,7 +824,7 @@ export default function Statements() {
         openStatement(resp.id);
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to merge statements');
+      toast.error(e?.message || t('statements.merge_failed', { defaultValue: 'Failed to merge statements' }));
     } finally {
       setLoading(false);
     }
@@ -840,7 +840,7 @@ export default function Statements() {
       setRecycleBinTotalCount(response.total);
     } catch (error) {
       console.error('Failed to fetch deleted statements:', error);
-      toast.error('Failed to load recycle bin');
+      toast.error(t('recycleBin.load_failed', { defaultValue: 'Failed to load recycle bin' }));
     } finally {
       setRecycleBinLoading(false);
     }
@@ -849,24 +849,24 @@ export default function Statements() {
   const handleRestoreStatement = async (statementId: number) => {
     try {
       await bankStatementApi.restoreStatement(statementId, 'processed');
-      toast.success('Statement restored successfully');
+      toast.success(t('statements.restore_success', { defaultValue: 'Statement restored successfully' }));
       fetchDeletedStatements();
       loadList(); // Refresh main list
     } catch (error: any) {
       console.error('Failed to restore statement:', error);
-      toast.error(error?.message || 'Failed to restore statement');
+      toast.error(error?.message || t('statements.restore_failed', { defaultValue: 'Failed to restore statement' }));
     }
   };
 
   const handlePermanentlyDeleteStatement = async (statementId: number) => {
     try {
       await bankStatementApi.permanentlyDeleteStatement(statementId);
-      toast.success('Statement permanently deleted');
+      toast.success(t('statements.permanent_delete_success', { defaultValue: 'Statement permanently deleted' }));
       fetchDeletedStatements();
       setStatementToPermanentlyDelete(null);
     } catch (error: any) {
       console.error('Failed to permanently delete statement:', error);
-      toast.error(error?.message || 'Failed to permanently delete statement');
+      toast.error(error?.message || t('statements.permanent_delete_failed', { defaultValue: 'Failed to permanently delete statement' }));
     }
   };
 
@@ -1309,9 +1309,9 @@ export default function Statements() {
                             loadList();
                             setSelectedIds([]);
                             setBulkLabel('');
-                            toast.success('Labels added');
+                            toast.success(t('statements.labels.added', { defaultValue: 'Labels added' }));
                           } catch (e: any) {
-                            toast.error(e?.message || 'Failed to add label');
+                            toast.error(e?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
                           }
                         }}
                         className="h-9 px-3 gap-1.5"
@@ -1330,9 +1330,9 @@ export default function Statements() {
                             await loadList();
                             setSelectedIds([]);
                             setBulkLabel('');
-                            toast.success('Labels removed');
+                            toast.success(t('statements.labels.removed', { defaultValue: 'Labels removed' }));
                           } catch (e: any) {
-                            toast.error(e?.message || 'Failed to remove label');
+                            toast.error(e?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                           }
                         }}
                         className="h-9 px-3 gap-1.5"
@@ -1397,7 +1397,7 @@ export default function Statements() {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="font-bold text-foreground">ID</TableHead>
+                      <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>
@@ -1441,7 +1441,7 @@ export default function Statements() {
                                     bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
                                       setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                     }).catch((err: any) => {
-                                      toast.error(err?.message || 'Failed to remove label');
+                                      toast.error(err?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                                     });
                                   }}
                                 >
@@ -1467,7 +1467,7 @@ export default function Statements() {
                                     setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                     setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' }));
                                   }).catch((err: any) => {
-                                    toast.error(err?.message || 'Failed to add label');
+                                    toast.error(err?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
                                   });
                                 }
                               }}
@@ -1591,7 +1591,7 @@ export default function Statements() {
                                   if (typeof startPolling === 'function') {
                                     startPolling([s.id]);
                                   }
-                                  toast.success('Reprocessing started');
+                                  toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
                                   await loadList();
                                   setTimeout(() => {
                                     setReprocessingLocks(prev => {
@@ -1606,7 +1606,7 @@ export default function Statements() {
                                     next.delete(s.id);
                                     return next;
                                   });
-                                  toast.error(e?.message || 'Failed to reprocess');
+                                  toast.error(e?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
                                 }
                               }}
                               disabled={reprocessingLocks.has(s.id)}
@@ -1838,7 +1838,7 @@ export default function Statements() {
                           addNotification?.('processing', 'Reprocessing', `Re-analyzing ${detail?.original_filename}...`);
                           await bankStatementApi.reprocess(selected);
                           addNotification?.('success', 'Started', `Reprocessing ${detail?.original_filename}`);
-                          toast.success('Reprocessing started');
+                          toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
                           await openStatement(selected);
                           setTimeout(() => {
                             setReprocessingLocks(prev => {
@@ -1853,7 +1853,7 @@ export default function Statements() {
                             next.delete(selected);
                             return next;
                           });
-                          toast.error(e?.message || 'Failed to reprocess');
+                          toast.error(e?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
                         }
                       }}
                       disabled={reprocessingLocks.has(selected) || loading}
@@ -1957,7 +1957,7 @@ export default function Statements() {
                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3 text-blue-700 dark:text-blue-400 slide-in">
                       <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
                       <div className="text-sm">
-                        <strong>Note:</strong> Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.
+                        <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('statements.transaction_edit_note', { defaultValue: 'Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.' })}
                       </div>
                     </div>
                   )}
@@ -2101,7 +2101,7 @@ export default function Statements() {
                                     setStatementLabels((resp.statement as any).labels || []);
                                     setDetail(prev => prev ? { ...prev, labels: (resp.statement as any).labels || [] } : prev);
                                   } catch (err: any) {
-                                    toast.error(err?.message || 'Failed to remove label');
+                                    toast.error(err?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                                   }
                                 }}
                               >
@@ -2130,7 +2130,7 @@ export default function Statements() {
                             if (!raw) return;
                             const existing = statementLabels || [];
                             if (existing.includes(raw)) { setNewStatementLabel(''); return; }
-                            if (existing.length >= 10) { toast.error('Maximum of 10 labels reached'); return; }
+                            if (existing.length >= 10) { toast.error(t('common.max_labels_reached', { defaultValue: 'Maximum of 10 labels reached' })); return; }
                             try {
                               if (!selected) return;
                               const next = [...existing, raw];
@@ -2138,9 +2138,9 @@ export default function Statements() {
                               setStatementLabels((resp.statement as any).labels || []);
                               setDetail(prev => prev ? { ...prev, labels: (resp.statement as any).labels || [] } : prev);
                               setNewStatementLabel('');
-                              toast.success('Label added');
+                              toast.success(t('common.label_added', { defaultValue: 'Label added' }));
                             } catch (err: any) {
-                              toast.error(err?.message || 'Failed to add label');
+                              toast.error(err?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
                             }
                           }
                         }}
@@ -2215,14 +2215,14 @@ export default function Statements() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/50">
-                      <TableHead className="w-[60px] font-bold text-foreground text-center">ID</TableHead>
+                      <TableHead className="w-[60px] font-bold text-foreground text-center">{t('common.id', { defaultValue: 'ID' })}</TableHead>
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_date', { defaultValue: 'Date' })}</TableHead>
                       <TableHead className="min-w-[250px] font-bold text-foreground">{t('statements.table_description', { defaultValue: 'Description' })}</TableHead>
                       <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_amount', { defaultValue: 'Amount' })}</TableHead>
                       <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance', { defaultValue: 'Balance' })}</TableHead>
                       <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type', { defaultValue: 'Type' })}</TableHead>
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
-                      <TableHead className="w-[120px] font-bold text-foreground text-center">Reference</TableHead>
+                      <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference', { defaultValue: 'Reference' })}</TableHead>
                       <TableHead className="w-[80px] text-right font-bold text-foreground">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2394,7 +2394,7 @@ export default function Statements() {
                                                     await navigator.clipboard.writeText(String((r as any).expense_id));
                                                     toast.success(`Copied Expense ID ${(r as any).expense_id}`);
                                                   } catch (e) {
-                                                    toast.error('Failed to copy');
+                                                    toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                                   }
                                                 }}
                                               >
@@ -2407,7 +2407,7 @@ export default function Statements() {
                                                   try {
                                                     const expId = (r as any).expense_id;
                                                     await expenseApi.deleteExpense(expId);
-                                                    toast.success('Expense deleted');
+                                                    toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
                                                     const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
                                                     setRows(updated);
                                                     if (selected) {
@@ -2422,7 +2422,7 @@ export default function Statements() {
                                                       await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
-                                                    toast.error(e?.message || 'Failed to delete');
+                                                    toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
                                                   }
                                                 }}
                                                 className="text-destructive focus:text-destructive"
@@ -2455,7 +2455,7 @@ export default function Statements() {
                                                     await navigator.clipboard.writeText(toCopy);
                                                     toast.success(`Copied Invoice No ${toCopy}`);
                                                   } catch (e) {
-                                                    toast.error('Failed to copy');
+                                                    toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                                   }
                                                 }}
                                               >
@@ -2468,7 +2468,7 @@ export default function Statements() {
                                                   try {
                                                     const invId = Number((r as any).invoice_id);
                                                     await invoiceApi.deleteInvoice(invId);
-                                                    toast.success('Invoice deleted');
+                                                    toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
                                                     const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
                                                     setRows(updated);
                                                     if (selected) {
@@ -2483,7 +2483,7 @@ export default function Statements() {
                                                       await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
-                                                    let errorMessage = e?.message || 'Failed to delete invoice';
+                                                    let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
                                                     if (errorMessage.includes('linked expenses')) {
                                                       errorMessage = t('invoices.delete_error_linked_expenses');
                                                     }
@@ -2531,7 +2531,7 @@ export default function Statements() {
                                         await navigator.clipboard.writeText(String((r as any).expense_id));
                                         toast.success(`Copied Expense ID ${(r as any).expense_id}`);
                                       } catch (e) {
-                                        toast.error('Failed to copy');
+                                        toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                       }
                                     }}
                                   >
@@ -2544,7 +2544,7 @@ export default function Statements() {
                                       try {
                                         const expId = (r as any).expense_id;
                                         await expenseApi.deleteExpense(expId);
-                                        toast.success('Expense deleted');
+                                        toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
                                         const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
                                         setRows(updated);
                                         if (selected) {
@@ -2559,7 +2559,7 @@ export default function Statements() {
                                           await openStatement(selected);
                                         }
                                       } catch (e: any) {
-                                        toast.error(e?.message || 'Failed to delete');
+                                        toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
                                       }
                                     }}
                                     className="text-destructive focus:text-destructive"
@@ -2592,7 +2592,7 @@ export default function Statements() {
                                         await navigator.clipboard.writeText(toCopy);
                                         toast.success(`Copied Invoice No ${toCopy}`);
                                       } catch (e) {
-                                        toast.error('Failed to copy');
+                                        toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                       }
                                     }}
                                   >
@@ -2605,7 +2605,7 @@ export default function Statements() {
                                       try {
                                         const invId = Number((r as any).invoice_id);
                                         await invoiceApi.deleteInvoice(invId);
-                                        toast.success('Invoice deleted');
+                                        toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
                                         const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
                                         setRows(updated);
                                         if (selected) {
@@ -2620,7 +2620,7 @@ export default function Statements() {
                                           await openStatement(selected);
                                         }
                                       } catch (e: any) {
-                                        let errorMessage = e?.message || 'Failed to delete invoice';
+                                        let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
                                         if (errorMessage.includes('linked expenses')) {
                                           errorMessage = t('invoices.delete_error_linked_expenses');
                                         }
@@ -2678,7 +2678,7 @@ export default function Statements() {
                 onInvoiceUpdate={async () => {
                   setShowInvoiceForm(false);
                   setInvoiceInitialData(null);
-                  toast.success('Invoice created successfully!');
+                  toast.success(t('invoices.create_success', { defaultValue: 'Invoice created successfully!' }));
                   // Refresh the statement to reflect the linked invoice_id
                   if (selected) {
                     await openStatement(selected);

@@ -167,11 +167,11 @@ const Expenses = () => {
     setIsAcceptingReview(true);
     try {
       await expenseApi.acceptReview(selectedReviewExpense.id);
-      toast.success('Review accepted');
+      toast.success(t('expenses.review.accepted', { defaultValue: 'Review accepted' }));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error('Failed to accept review');
+      toast.error(t('expenses.review.accept_failed', { defaultValue: 'Failed to accept review' }));
     } finally {
       setIsAcceptingReview(false);
     }
@@ -182,11 +182,11 @@ const Expenses = () => {
     setIsRejectingReview(true);
     try {
       await expenseApi.rejectReview(selectedReviewExpense.id);
-      toast.success('Review dismissed');
+      toast.success(t('expenses.review.dismissed', { defaultValue: 'Review dismissed' }));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error('Failed to dismiss review');
+      toast.error(t('expenses.review.dismiss_failed', { defaultValue: 'Failed to dismiss review' }));
     } finally {
       setIsRejectingReview(false);
     }
@@ -197,11 +197,11 @@ const Expenses = () => {
     setIsRetriggeringReview(true);
     try {
       await expenseApi.reReview(selectedReviewExpense.id);
-      toast.success('Review re-triggered');
+      toast.success(t('expenses.review.retriggered', { defaultValue: 'Review re-triggered' }));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error('Failed to re-trigger review');
+      toast.error(t('expenses.review.retrigger_failed', { defaultValue: 'Failed to re-trigger review' }));
     } finally {
       setIsRetriggeringReview(false);
     }
@@ -210,22 +210,22 @@ const Expenses = () => {
   const handleRunReview = async (expenseId: number) => {
     try {
       await expenseApi.reReview(expenseId);
-      toast.success('Review triggered. The agent will process it shortly.');
+      toast.success(t('expenses.review.triggered', { defaultValue: 'Review triggered. The agent will process it shortly.' }));
       // Refresh list
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to trigger review');
+      toast.error(error?.message || t('expenses.review.trigger_failed', { defaultValue: 'Failed to trigger review' }));
     }
   };
 
   const handleCancelReview = async (expenseId: number) => {
     try {
       await expenseApi.cancelReview(expenseId);
-      toast.success('Review cancelled.');
+      toast.success(t('expenses.review.cancelled', { defaultValue: 'Review cancelled.' }));
       // Refresh list
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to cancel review');
+      toast.error(error?.message || t('expenses.review.cancel_failed', { defaultValue: 'Failed to cancel review' }));
     }
   };
 
@@ -235,11 +235,14 @@ const Expenses = () => {
     try {
       setLoading(true);
       await Promise.all(selectedIds.map(id => expenseApi.reReview(id)));
-      toast.success(`Review triggered for ${selectedIds.length} expenses.`);
+      toast.success(t('expenses.review.bulk_triggered', {
+        count: selectedIds.length,
+        defaultValue: 'Review triggered for {{count}} expenses.'
+      }));
       setSelectedIds([]);
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to trigger bulk review');
+      toast.error(error?.message || t('expenses.review.bulk_trigger_failed', { defaultValue: 'Failed to trigger bulk review' }));
     } finally {
       setLoading(false);
     }
@@ -349,7 +352,7 @@ const Expenses = () => {
       const hasMore = skip + pageSize < result.total;
       setHasNextPage(hasMore);
     } catch (e) {
-      toast.error('Failed to load expenses');
+      toast.error(t('expenses.load_failed', { defaultValue: 'Failed to load expenses' }));
     } finally {
       setLoading(false);
     }
@@ -406,9 +409,9 @@ const Expenses = () => {
       if (showRecycleBin) {
         fetchDeletedExpenses();
       }
-      toast.success('Expense deleted');
+      toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to delete expense');
+      toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
     }
   };
 
@@ -430,10 +433,10 @@ const Expenses = () => {
       } else {
         console.warn('startExpensePolling is not available globally');
       }
-      toast.success('Receipt uploaded');
+      toast.success(t('expenses.receipt.uploaded', { defaultValue: 'Receipt uploaded' }));
     } catch (e: any) {
-      addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e?.message || 'Unknown error'}`);
-      toast.error(e?.message || 'Failed to upload receipt');
+      addNotification?.('error', t('expenses.receipt.failed_title', { defaultValue: 'Expense Receipt Failed' }), t('expenses.receipt.failed_message', { defaultValue: 'Failed to upload receipt: {{error}}', error: e?.message || t('common.unknown_error', { defaultValue: 'Unknown error' }) }));
+      toast.error(e?.message || t('expenses.receipt.upload_failed', { defaultValue: 'Failed to upload receipt' }));
     } finally {
       setUploadingId(null);
     }
@@ -456,7 +459,7 @@ const Expenses = () => {
       await expenseApi.reprocessExpense(expenseId);
 
       addNotification?.('success', 'Expense Reprocessing Started', `Successfully started reprocessing expense receipts.`);
-      toast.success('Expense reprocessing started');
+      toast.success(t('expenses.reprocess.started', { defaultValue: 'Expense reprocessing started' }));
 
       // Refresh the expense list
       const data = await expenseApi.getExpenses(categoryFilter);
@@ -480,9 +483,9 @@ const Expenses = () => {
       });
 
       // Handle specific lock error messages
-      const errorMessage = e?.message || 'Failed to reprocess expense';
+      const errorMessage = e?.message || t('expenses.reprocess.failed', { defaultValue: 'Failed to reprocess expense' });
       if (errorMessage.includes('already being processed') || errorMessage.includes('processing lock')) {
-        toast.error('This expense is currently being processed by another operation. Please try again in a few minutes.');
+        toast.error(t('expenses.processing_locked', { defaultValue: 'This expense is currently being processed by another operation. Please try again in a few minutes.' }));
         addNotification?.('warning', 'Processing Lock Active', 'This expense is already being processed. Please wait and try again.');
       } else {
         addNotification?.('error', 'Expense Reprocessing Failed', errorMessage);
@@ -521,11 +524,11 @@ const Expenses = () => {
     try {
       if (!editExpense.id) return;
       if (!editExpense.amount || !editExpense.category) {
-        toast.error('Amount and category are required');
+        toast.error(t('expenses.validation.amount_category_required', { defaultValue: 'Amount and category are required' }));
         return;
       }
       if (isEditInventoryConsumption && (!editConsumptionItems || editConsumptionItems.length === 0)) {
-        toast.error('Inventory consumption must include at least one item');
+        toast.error(t('expenses.validation.inventory_item_required', { defaultValue: 'Inventory consumption must include at least one item' }));
         return;
       }
       const payload = {
@@ -565,7 +568,7 @@ const Expenses = () => {
         } catch (e) {
           console.error('Receipt upload failed on update:', e);
           addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
-          toast.error('Receipt upload failed');
+          toast.error(t('expenses.receipt.upload_failed', { defaultValue: 'Receipt upload failed' }));
         } finally {
           setUploadingId(null);
           setEditReceiptFile(null);
@@ -573,9 +576,9 @@ const Expenses = () => {
       }
       setExpenses(prev => prev.map(x => (x.id === finalUpdated.id ? finalUpdated : x)));
       setIsEditOpen(false);
-      toast.success('Expense updated');
+      toast.success(t('expenses.update_success', { defaultValue: 'Expense updated' }));
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to update expense');
+      toast.error(e?.message || t('expenses.update_failed', { defaultValue: 'Failed to update expense' }));
     }
   };
 
@@ -589,7 +592,7 @@ const Expenses = () => {
       setRecycleBinTotalCount(response.total);
     } catch (error) {
       console.error('Failed to fetch deleted expenses:', error);
-      toast.error('Failed to load recycle bin');
+      toast.error(t('recycleBin.load_failed', { defaultValue: 'Failed to load recycle bin' }));
     } finally {
       setRecycleBinLoading(false);
     }
@@ -598,24 +601,24 @@ const Expenses = () => {
   const handleRestoreExpense = async (expenseId: number) => {
     try {
       await expenseApi.restoreExpense(expenseId, 'recorded');
-      toast.success('Expense restored successfully');
+      toast.success(t('expenses.restore_success', { defaultValue: 'Expense restored successfully' }));
       fetchDeletedExpenses();
       fetchExpenses(); // Refresh main list
     } catch (error: any) {
       console.error('Failed to restore expense:', error);
-      toast.error(error?.message || 'Failed to restore expense');
+      toast.error(error?.message || t('expenses.restore_failed', { defaultValue: 'Failed to restore expense' }));
     }
   };
 
   const handlePermanentlyDeleteExpense = async (expenseId: number) => {
     try {
       await expenseApi.permanentlyDeleteExpense(expenseId);
-      toast.success('Expense permanently deleted');
+      toast.success(t('expenses.permanent_delete_success', { defaultValue: 'Expense permanently deleted' }));
       fetchDeletedExpenses();
       setExpenseToPermanentlyDelete(null);
     } catch (error: any) {
       console.error('Failed to permanently delete expense:', error);
-      toast.error(error?.message || 'Failed to permanently delete expense');
+      toast.error(error?.message || t('expenses.permanent_delete_failed', { defaultValue: 'Failed to permanently delete expense' }));
     }
   };
 
@@ -1032,9 +1035,9 @@ const Expenses = () => {
                             setTotalExpenses(result.total);
                             setSelectedIds([]);
                             setBulkLabel('');
-                            toast.success('Labels added');
+                            toast.success(t('expenses.labels.added', { defaultValue: 'Labels added' }));
                           } catch (e: any) {
-                            toast.error(e?.message || 'Failed to add label');
+                            toast.error(e?.message || t('expenses.labels.add_failed', { defaultValue: 'Failed to add label' }));
                           }
                         }}
                         className="h-9 px-3 gap-1.5"
@@ -1056,9 +1059,9 @@ const Expenses = () => {
                             setTotalExpenses(result.total);
                             setSelectedIds([]);
                             setBulkLabel('');
-                            toast.success('Labels removed');
+                            toast.success(t('expenses.labels.removed', { defaultValue: 'Labels removed' }));
                           } catch (e: any) {
-                            toast.error(e?.message || 'Failed to remove label');
+                            toast.error(e?.message || t('expenses.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                           }
                         }}
                         className="h-9 px-3 gap-1.5"
@@ -1131,7 +1134,7 @@ const Expenses = () => {
                                 setSelectedIds([]);
                                 toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
                               } catch (e: any) {
-                                toast.error(e?.message || 'Failed to delete expenses');
+                                toast.error(e?.message || t('expenses.bulk_delete_failed', { defaultValue: 'Failed to delete expenses' }));
                               }
                             }}
                           >
@@ -1169,7 +1172,7 @@ const Expenses = () => {
                     <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
                     <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
-                    <TableHead className="font-bold text-foreground">Review</TableHead>
+                    <TableHead className="font-bold text-foreground">{t('expenses.review.title', { defaultValue: 'Review' })}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
                     <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
                   </TableRow>
@@ -1231,7 +1234,7 @@ const Expenses = () => {
                                         await expenseApi.updateExpense(e.id, { labels: next });
                                         setExpenses((prev) => prev.map((x) => (x.id === e.id ? { ...x, labels: next } as Expense : x)));
                                       } catch (err: any) {
-                                        toast.error(err?.message || 'Failed to remove label');
+                                        toast.error(err?.message || t('expenses.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
                                       }
                                     }}
                                   >
@@ -1259,7 +1262,7 @@ const Expenses = () => {
                                       setExpenses((prev) => prev.map((x) => (x.id === e.id ? { ...x, labels: next } as Expense : x)));
                                       setNewLabelValueById((prev) => ({ ...prev, [e.id]: '' }));
                                     } catch (err: any) {
-                                      toast.error(err?.message || 'Failed to add label');
+                                      toast.error(err?.message || t('expenses.labels.add_failed', { defaultValue: 'Failed to add label' }));
                                     }
                                   }
                                 }}
@@ -1312,11 +1315,11 @@ const Expenses = () => {
                               ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
                                 <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</div>
                               ) : e.analysis_status === 'failed' ? (
-                                <div className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">Failed</div>
+                                <div className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">{t('common.failed', { defaultValue: 'Failed' })}</div>
                               ) : e.analysis_status === 'cancelled' ? (
-                                <div className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 rounded">Cancelled</div>
+                                <div className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 rounded">{t('common.cancelled', { defaultValue: 'Cancelled' })}</div>
                               ) : e.imported_from_attachment ? (
-                                <div className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">Not Started</div>
+                                <div className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">{t('common.not_started', { defaultValue: 'Not Started' })}</div>
                               ) : (
                                 <span className="text-muted-foreground text-xs">—</span>
                               )}
@@ -1723,7 +1726,7 @@ const Expenses = () => {
                   <Alert className="mb-3 border-amber-200 bg-amber-50">
                     <AlertCircle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 text-sm">
-                      <strong>Note:</strong> AI-powered receipt analysis is not available.
+                      <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('expenses.ai_receipt_unavailable', { defaultValue: 'AI-powered receipt analysis is not available.' })}
                       Files will be uploaded as attachments only, without automatic data extraction.
                     </AlertDescription>
                   </Alert>
