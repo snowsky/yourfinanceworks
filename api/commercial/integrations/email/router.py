@@ -11,6 +11,7 @@ from core.models.models_per_tenant import Settings
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from commercial.integrations.email.service import EmailIngestionService
+from commercial.integrations.email.references_router import router as references_router
 from core.utils.rbac import require_admin
 from core.utils.feature_gate import require_feature
 
@@ -21,6 +22,7 @@ router = APIRouter(
     tags=["email-integration"],
     dependencies=[Depends(lambda db=Depends(get_db): require_feature("email_integration")(lambda: None)())]
 )
+router.include_router(references_router)
 
 class EmailConfig(BaseModel):
     imap_host: str

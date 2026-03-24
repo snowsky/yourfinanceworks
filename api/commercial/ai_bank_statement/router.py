@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.utils.rbac import require_non_viewer
+from core.services.document_email_reference_service import DocumentEmailReferenceService
 from core.utils.feature_gate import require_feature
 from core.services.statement_service import extract_transactions_from_pdf_paths
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
@@ -1790,3 +1791,14 @@ async def cancel_statement_review(
     logger.info(f"Cancelled review for bank statement {statement_id}")
 
     return statement
+
+
+@router.get("/{statement_id}/email-references")
+async def get_statement_email_references(
+    statement_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return all source emails linked to a bank statement."""
+    svc = DocumentEmailReferenceService(db, current_user.id)
+    return svc.get_email_references("bank_statement", statement_id)

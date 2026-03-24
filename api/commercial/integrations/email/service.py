@@ -665,8 +665,21 @@ Respond with ONLY valid JSON:
             logger.warning(f"Failed to process gamification for email expense {expense.id}: {e}")
             # Don't fail the expense creation if gamification processing fails
 
-        # Link expense to raw email
+        # Link expense to raw email (legacy FK kept for backward-compat)
         raw_email.expense_id = expense.id
+
+        # Also write to the generic junction table
+        try:
+            from core.services.document_email_reference_service import DocumentEmailReferenceService
+            ref_svc = DocumentEmailReferenceService(self.db, self.user_id)
+            ref_svc.add_reference(
+                raw_email_id=raw_email.id,
+                document_type="expense",
+                document_id=expense.id,
+                link_type="auto",
+            )
+        except Exception as _ref_err:
+            logger.warning(f"Failed to write document_email_reference for expense {expense.id}: {_ref_err}")
 
         # Process attachments (will update expense with attachment data if found)
         self._process_attachments(msg, expense)

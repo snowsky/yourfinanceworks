@@ -14,6 +14,7 @@ import sqlalchemy as sa
 import traceback
 
 from core.models.database import get_db, get_master_db
+from core.services.document_email_reference_service import DocumentEmailReferenceService
 from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
@@ -2603,3 +2604,14 @@ async def get_expense_categories_analytics(
     except Exception as e:
         logger.error(f"Failed to get expense categories analytics: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch expense categories analytics")
+
+
+@router.get("/{expense_id}/email-references")
+async def get_expense_email_references(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return all source emails linked to an expense."""
+    svc = DocumentEmailReferenceService(db, current_user.id)
+    return svc.get_email_references("expense", expense_id)

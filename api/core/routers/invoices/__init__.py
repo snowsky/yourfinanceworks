@@ -10,7 +10,7 @@ Split from the original monolithic invoices.py (3,640 lines) into focused module
 """
 
 from fastapi import APIRouter
-from . import crud, history, pdf_email, attachments, reviews
+from . import crud, history, pdf_email, attachments, reviews, email_references
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -21,5 +21,6 @@ router.include_router(history.router)
 router.include_router(pdf_email.router)
 router.include_router(attachments.router)
 router.include_router(reviews.router)
+router.include_router(email_references.router)
 
 __all__ = ["router"]

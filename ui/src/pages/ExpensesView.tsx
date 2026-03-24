@@ -15,6 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
+import { EmailReferences } from '@/components/email/EmailReferences';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -561,6 +562,15 @@ export default function ExpensesView() {
             </CardContent>
           </ProfessionalCard>
         </ContentSection>
+
+        {/* Source Emails */}
+        {id && (
+          <EmailReferences
+            documentType="expense"
+            documentId={Number(id)}
+            apiPath={`/expenses/${id}/email-references`}
+          />
+        )}
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back', { defaultValue: 'Back' })}</Button>

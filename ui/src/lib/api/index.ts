@@ -1,4 +1,5 @@
 export * from './_base';
+export * from './email-references';
 export * from './invoices';
 export * from './expenses';
 export * from './clients';

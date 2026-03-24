@@ -599,11 +599,34 @@ class RawEmail(Base):
     retry_count = Column(Integer, default=0, nullable=False)
 
     # Links
-    expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)
+    expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)  # Deprecated: use DocumentEmailReference
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     processed_at = Column(DateTime(timezone=True), nullable=True)
+
+    document_references = relationship("DocumentEmailReference", back_populates="raw_email", cascade="all, delete-orphan")
+
+
+class DocumentEmailReference(Base):
+    """Junction table linking RawEmail rows to any document type (many-to-many)."""
+    __tablename__ = "document_email_references"
+    __table_args__ = (
+        UniqueConstraint("raw_email_id", "document_type", "document_id", name="uq_email_document"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    raw_email_id = Column(Integer, ForeignKey("raw_emails.id", ondelete="CASCADE"), nullable=False, index=True)
+    # "invoice" | "expense" | "bank_statement" | "investment_portfolio"
+    document_type = Column(String(50), nullable=False, index=True)
+    document_id = Column(Integer, nullable=False, index=True)
+    link_type = Column(String(20), nullable=False, default="auto")  # "auto" | "manual"
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    raw_email = relationship("RawEmail", back_populates="document_references")
+
 
 # --- Reporting Module Models ---
 

@@ -15,6 +15,7 @@ import { CalendarIcon, Edit, Eye, Loader2, AlertCircle, RotateCcw } from 'lucide
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES, settingsApi, Settings } from '@/lib/api';
+import { EmailReferences } from '@/components/email/EmailReferences';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
@@ -490,6 +491,15 @@ export default function ViewInvoice() {
               </div>
             </CardContent>
           </ProfessionalCard>
+        )}
+
+        {/* Source Emails */}
+        {invoice?.id && (
+          <EmailReferences
+            documentType="invoice"
+            documentId={invoice.id}
+            apiPath={`/invoices/${invoice.id}/email-references`}
+          />
         )}
 
         {/* Live Preview Modal */}
