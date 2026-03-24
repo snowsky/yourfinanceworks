@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&display=swap");
 @import "./styles/professional-enhancements.css";
 
 @tailwind base;
@@ -109,9 +109,9 @@
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    /* Gold Accent */
-    --accent: 43 96% 56%;
-    --accent-foreground: 220 13% 18%;
+    /* Teal Accent — distinct from warning */
+    --accent: 188 78% 41%;
+    --accent-foreground: 0 0% 100%;
 
     /* Rose Destructive */
     --destructive: 0 84% 60%;
@@ -129,12 +129,12 @@
     --input: 214 32% 91%;
     --ring: 221 83% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     /* Professional Sidebar */
     --sidebar-background: 220 26% 14%;
     --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 158 64% 52%;
+    --sidebar-primary: 221 83% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 26% 18%;
     --sidebar-accent-foreground: 210 20% 98%;
@@ -164,13 +164,13 @@
     --muted: 220 13% 15%;
     --muted-foreground: 215 20% 65%;
 
-    /* Darker Accent for Dark Mode */
-    --accent: 217 71% 53%;
+    /* Teal Accent for Dark Mode */
+    --accent: 188 78% 48%;
     --accent-foreground: 220 13% 9%;
 
-    /* Darker Rose for Dark Mode */
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 20% 98%;
+    /* Brighter Rose for Dark Mode — visible on dark backgrounds */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
     /* Success - Emerald */
     --success: 160 84% 39%;
@@ -187,7 +187,7 @@
     /* Dark Professional Sidebar */
     --sidebar-background: 220 26% 8%;
     --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 158 64% 52%;
+    --sidebar-primary: 221 83% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 26% 12%;
     --sidebar-accent-foreground: 210 20% 98%;
@@ -204,14 +204,21 @@
   body {
     @apply bg-background text-foreground;
     font-family:
-      "Inter",
+      "Plus Jakarta Sans",
       -apple-system,
       BlinkMacSystemFont,
       "Segoe UI",
-      "Roboto",
       sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variant-numeric: tabular-nums;
     letter-spacing: -0.011em;
+  }
+
+  /* Display font for large numbers, metric values, page titles */
+  .font-display {
+    font-family: "DM Serif Display", Georgia, serif;
+    font-feature-settings: normal;
+    letter-spacing: -0.02em;
   }
 
   /* Typography Hierarchy */

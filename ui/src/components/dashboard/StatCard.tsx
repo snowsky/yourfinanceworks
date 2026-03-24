@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LucideIcon, Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StatCardProps {
@@ -16,93 +16,97 @@ export interface StatCardProps {
   variant?: 'default' | 'success' | 'warning' | 'destructive';
 }
 
-const getVariantStyles = (variant: string) => {
-  switch (variant) {
-    case 'success':
-      return 'border-l-4 border-l-success bg-success/5 hover:bg-success/10';
-    case 'warning':
-      return 'border-l-4 border-l-warning bg-warning/5 hover:bg-warning/10';
-    case 'destructive':
-      return 'border-l-4 border-l-destructive bg-destructive/5 hover:bg-destructive/10';
-    default:
-      return 'border-l-4 border-l-primary bg-primary/5 hover:bg-primary/10';
-  }
+const variantConfig = {
+  default: {
+    iconBg: 'bg-primary/10',
+    iconBgHover: 'group-hover:bg-primary/15',
+    iconColor: 'text-primary',
+    dot: 'bg-primary',
+  },
+  success: {
+    iconBg: 'bg-success/10',
+    iconBgHover: 'group-hover:bg-success/15',
+    iconColor: 'text-success',
+    dot: 'bg-success',
+  },
+  warning: {
+    iconBg: 'bg-warning/10',
+    iconBgHover: 'group-hover:bg-warning/15',
+    iconColor: 'text-warning',
+    dot: 'bg-warning',
+  },
+  destructive: {
+    iconBg: 'bg-destructive/10',
+    iconBgHover: 'group-hover:bg-destructive/15',
+    iconColor: 'text-destructive',
+    dot: 'bg-destructive',
+  },
 };
 
-const getIconColor = (variant: string) => {
-  switch (variant) {
-    case 'success': return 'text-success';
-    case 'warning': return 'text-warning';
-    case 'destructive': return 'text-destructive';
-    default: return 'text-primary';
-  }
-};
-
-export function StatCard({ 
-  title, 
-  value, 
-  icon: Icon, 
-  description, 
-  trend, 
-  loading = false, 
+export function StatCard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  trend,
+  loading = false,
   onClick,
   variant = 'default'
 }: StatCardProps) {
   const TrendIcon = trend?.isPositive ? TrendingUp : trend?.value === 0 ? Minus : TrendingDown;
-  
+  const cfg = variantConfig[variant];
+
   return (
     <Card className={cn(
-      "group transition-all duration-300 hover:shadow-lg hover:scale-[1.02]",
-      getVariantStyles(variant),
+      "group transition-all duration-300 hover:shadow-md border-border/60",
       onClick && "cursor-pointer"
     )}
     onClick={onClick}
     >
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-          {title}
-        </CardTitle>
-        <div className={cn(
-          "p-2 rounded-lg transition-all duration-300",
-          variant === 'success' ? 'bg-success/10 group-hover:bg-success/20' :
-          variant === 'warning' ? 'bg-warning/10 group-hover:bg-warning/20' :
-          variant === 'destructive' ? 'bg-destructive/10 group-hover:bg-destructive/20' :
-          'bg-primary/10 group-hover:bg-primary/20'
-        )}>
-          {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : (
-            <Icon className={cn("h-5 w-5 transition-colors", getIconColor(variant))} />
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="p-5">
         {loading ? (
-          <div className="space-y-2">
-            <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-            <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-            <div className="flex items-center gap-2 pt-1">
-              <div className="h-5 w-16 bg-muted animate-pulse rounded-full" />
-              <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="h-4 w-28 bg-muted animate-pulse rounded" />
+              <div className="h-10 w-10 bg-muted animate-pulse rounded-xl" />
             </div>
+            <div className="h-9 w-36 bg-muted animate-pulse rounded" />
+            <div className="h-5 w-24 bg-muted animate-pulse rounded-full" />
           </div>
         ) : (
           <>
-            <div className="text-3xl font-bold tracking-tight">{value}</div>
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-sm font-medium text-muted-foreground leading-none">{title}</p>
+              <div className={cn(
+                "p-2.5 rounded-xl transition-colors duration-200",
+                cfg.iconBg,
+                cfg.iconBgHover
+              )}>
+                <Icon className={cn("h-5 w-5", cfg.iconColor)} />
+              </div>
+            </div>
+
+            <div className="font-display text-3xl font-normal tracking-tight text-foreground mb-2 leading-none">
+              {value}
+            </div>
+
             {description && (
-              <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+              <p className="text-xs text-muted-foreground mb-2">{description}</p>
             )}
+
             {trend && (
-              <div className="flex items-center gap-2 pt-1">
-                <div className={cn(
-                  "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                  trend.isPositive ? 'bg-success/10 text-success' :
-                  trend.value === 0 ? 'bg-muted text-muted-foreground' :
-                  'bg-destructive/10 text-destructive'
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded",
+                  trend.isPositive
+                    ? 'text-success bg-success/10'
+                    : trend.value === 0
+                    ? 'text-muted-foreground bg-muted'
+                    : 'text-destructive bg-destructive/10'
                 )}>
                   <TrendIcon className="h-3 w-3" />
                   {trend.value === 0 ? '0' : `${trend.isPositive ? '+' : ''}${trend.value}`}%
-                </div>
+                </span>
                 <span className="text-xs text-muted-foreground">vs last month</span>
               </div>
             )}

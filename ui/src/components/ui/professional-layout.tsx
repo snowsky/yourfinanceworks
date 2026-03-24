@@ -55,7 +55,7 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2 flex-1">
-              <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+              <h1 className="font-display text-4xl font-normal tracking-tight">{title}</h1>
               {description && (
                 <p className="text-muted-foreground text-base">{description}</p>
               )}

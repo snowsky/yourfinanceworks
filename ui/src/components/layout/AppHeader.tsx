@@ -10,7 +10,7 @@ export function AppHeader() {
   const { t } = useTranslation();
 
   return (
-    <header className="flex items-center justify-between p-4 border-b">
+    <header className="flex items-center justify-between px-5 py-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
       <div className="flex items-center gap-4">
         <SidebarTrigger />
         {/* Add any other header content here */}
