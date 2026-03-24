@@ -14,9 +14,26 @@ import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+
+const CLIENT_COLUMNS: ColumnDef[] = [
+  { key: 'select', label: 'Select', essential: true },
+  { key: 'id', label: 'ID' },
+  { key: 'name', label: 'Name', essential: true },
+  { key: 'email', label: 'Email', essential: true },
+  { key: 'labels', label: 'Labels' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'address', label: 'Address' },
+  { key: 'currency', label: 'Preferred Currency' },
+  { key: 'total_paid', label: 'Total Paid' },
+  { key: 'outstanding_balance', label: 'Outstanding Balance' },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const Clients = () => {
   const { t } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('clients', CLIENT_COLUMNS);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -192,10 +209,12 @@ const Clients = () => {
                   />
                 </div>
 
+                <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
+
                 {/* Page Size */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { 
+                  <Select value={String(pageSize)} onValueChange={(v) => {
                     // Ensure v is a string before converting to number
                     const pageSizeValue = typeof v === 'string' ? Number(v) : 50;
                     setPageSize(pageSizeValue); 
@@ -345,15 +364,15 @@ const Clients = () => {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
+                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('clients.table.name')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('clients.table.email')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('clients.table.phone')}</TableHead>
-                      <TableHead className="hidden md:table-cell font-bold text-foreground">{t('clients.table.address')}</TableHead>
-                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('clients.table.preferred_currency')}</TableHead>
-                      <TableHead className="text-right font-bold text-foreground">{t('clients.table.total_paid')}</TableHead>
-                      <TableHead className="text-right font-bold text-foreground">{t('clients.table.outstanding_balance')}</TableHead>
+                      {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>}
+                      {isVisible('phone') && <TableHead className="font-bold text-foreground">{t('clients.table.phone')}</TableHead>}
+                      {isVisible('address') && <TableHead className="font-bold text-foreground">{t('clients.table.address')}</TableHead>}
+                      {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('clients.table.preferred_currency')}</TableHead>}
+                      {isVisible('total_paid') && <TableHead className="text-right font-bold text-foreground">{t('clients.table.total_paid')}</TableHead>}
+                      {isVisible('outstanding_balance') && <TableHead className="text-right font-bold text-foreground">{t('clients.table.outstanding_balance')}</TableHead>}
                       <TableHead className="w-[100px] text-right font-bold text-foreground">{t('clients.table.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -373,10 +392,10 @@ const Clients = () => {
                             }}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{client.id}</TableCell>
+                        {isVisible('id') && <TableCell className="font-mono text-xs text-muted-foreground">{client.id}</TableCell>}
                         <TableCell className="font-semibold text-foreground">{client.name}</TableCell>
                         <TableCell className="text-foreground">{client.email}</TableCell>
-                        <TableCell>
+                        {isVisible('labels') && <TableCell>
                           <div className="flex flex-wrap gap-1 items-center min-w-[150px]">
                             {client.labels && client.labels.map((label, idx) => (
                               <Badge
@@ -425,18 +444,18 @@ const Clients = () => {
                               }}
                             />
                           </div>
-                        </TableCell>
-                        <TableCell className="text-foreground">{client.phone}</TableCell>
-                        <TableCell className="hidden md:table-cell text-foreground">{client.address}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-foreground">{client.preferred_currency || 'USD'}</TableCell>
-                        <TableCell className="text-right font-semibold text-foreground">
+                        </TableCell>}
+                        {isVisible('phone') && <TableCell className="text-foreground">{client.phone}</TableCell>}
+                        {isVisible('address') && <TableCell className="text-foreground">{client.address}</TableCell>}
+                        {isVisible('currency') && <TableCell className="text-foreground">{client.preferred_currency || 'USD'}</TableCell>}
+                        {isVisible('total_paid') && <TableCell className="text-right font-semibold text-foreground">
                           ${client.paid_amount.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </TableCell>}
+                        {isVisible('outstanding_balance') && <TableCell className="text-right">
                           <span className={(client.outstanding_balance || 0) > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
                             ${(client.outstanding_balance || 0).toFixed(2)}
                           </span>
-                        </TableCell>
+                        </TableCell>}
                         <TableCell>
                           <div className="text-right flex gap-2 justify-end">
                             {canPerformAction && (

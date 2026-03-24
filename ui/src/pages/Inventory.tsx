@@ -19,9 +19,24 @@ import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+
+const INVENTORY_COLUMNS: ColumnDef[] = [
+  { key: 'name', label: 'Name', essential: true },
+  { key: 'sku', label: 'SKU' },
+  { key: 'category', label: 'Category' },
+  { key: 'price', label: 'Price', essential: true },
+  { key: 'stock', label: 'Stock', essential: true },
+  { key: 'created', label: 'Created' },
+  { key: 'updated', label: 'Updated' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const Inventory = () => {
   const { t } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('inventory', INVENTORY_COLUMNS);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [analytics, setAnalytics] = useState<InventoryAnalytics | null>(null);
@@ -299,6 +314,13 @@ const Inventory = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
+                    <ColumnPicker
+                      columns={INVENTORY_COLUMNS}
+                      isVisible={isVisible}
+                      onToggle={toggle}
+                      onReset={reset}
+                      hiddenCount={hiddenCount}
+                    />
                   </div>
                 </div>
               </CardHeader>
@@ -308,12 +330,12 @@ const Inventory = () => {
                     <TableHeader>
                       <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                         <TableHead>{t('inventory.table.name', 'Name')}</TableHead>
-                        <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>
-                        <TableHead>{t('inventory.table.category', 'Category')}</TableHead>
+                        {isVisible('sku') && <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>}
+                        {isVisible('category') && <TableHead>{t('inventory.table.category', 'Category')}</TableHead>}
                         <TableHead className="text-right">{t('inventory.table.price', 'Price')}</TableHead>
                         <TableHead className="text-right">{t('inventory.table.stock', 'Stock')}</TableHead>
-                        <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>
-                        <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>
+                        {isVisible('created') && <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>}
+                        {isVisible('updated') && <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>}
                         <TableHead>{t('inventory.table.status', 'Status')}</TableHead>
                         <TableHead className="w-[100px]">{t('inventory.table.actions', 'Actions')}</TableHead>
                       </TableRow>
@@ -350,8 +372,8 @@ const Inventory = () => {
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>{item.sku || '-'}</TableCell>
-                              <TableCell>{item.category?.name || '-'}</TableCell>
+                              {isVisible('sku') && <TableCell>{item.sku || '-'}</TableCell>}
+                              {isVisible('category') && <TableCell>{item.category?.name || '-'}</TableCell>}
                               <TableCell className="text-right font-medium">
                                 <CurrencyDisplay amount={item.unit_price} currency={item.currency} />
                               </TableCell>
@@ -364,12 +386,16 @@ const Inventory = () => {
                                   <span className="text-muted-foreground">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {formatDateTime(item.created_at)}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {formatDateTime(item.updated_at)}
-                              </TableCell>
+                              {isVisible('created') && (
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {formatDateTime(item.created_at)}
+                                </TableCell>
+                              )}
+                              {isVisible('updated') && (
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {formatDateTime(item.updated_at)}
+                                </TableCell>
+                              )}
                               <TableCell>
                                 <Badge variant={stockStatus.color || 'default'}>
                                   {stockStatus.label}

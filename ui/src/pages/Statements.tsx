@@ -39,7 +39,21 @@ import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import { Wand } from 'lucide-react';
 import { usePageContext } from '@/contexts/PageContext';
+import { useColumnVisibility, type ColumnDef } from '@/hooks/useColumnVisibility';
+import { ColumnPicker } from '@/components/ui/column-picker';
 
+const STATEMENT_COLUMNS: ColumnDef[] = [
+  { key: 'select', label: 'Select', essential: true },
+  { key: 'id', label: 'ID' },
+  { key: 'filename', label: 'Filename', essential: true },
+  { key: 'labels', label: 'Labels' },
+  { key: 'type', label: 'Type' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'review_status', label: 'Review Status' },
+  { key: 'transactions', label: 'Transactions' },
+  { key: 'created_at_by', label: 'Created at/by' },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -154,6 +168,7 @@ const safeParseDateString = (dateString?: string): Date => {
 export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
   const location = useLocation();
   const { setPageContext } = usePageContext();
 
@@ -1306,6 +1321,14 @@ export default function Statements() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <ColumnPicker
+                    columns={STATEMENT_COLUMNS}
+                    isVisible={isVisible}
+                    onToggle={toggle}
+                    onReset={reset}
+                    hiddenCount={hiddenCount}
+                  />
                 </div>
               </div>
 
@@ -1437,14 +1460,14 @@ export default function Statements() {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
+                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>
+                      {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>}
+                      {isVisible('type') && <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
-                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
+                      {isVisible('review_status') && <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>}
+                      {isVisible('transactions') && <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>}
+                      {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
                       <TableHead className="w-[100px] text-right font-bold text-foreground">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1463,9 +1486,9 @@ export default function Statements() {
                             }}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">#{s.id}</TableCell>
+                        {isVisible('id') && <TableCell className="font-mono text-sm text-muted-foreground">#{s.id}</TableCell>}
                         <TableCell className="font-semibold text-foreground">{s.original_filename}</TableCell>
-                        <TableCell>
+                        {isVisible('labels') && <TableCell>
                           <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
                             {Array.isArray((s as any).labels) && (s as any).labels.map((label: string, idx: number) => (
                               <Badge
@@ -1513,10 +1536,12 @@ export default function Statements() {
                               }}
                             />
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <CardTypeBadge type={(s as any).card_type} />
-                        </TableCell>
+                        </TableCell>}
+                        {isVisible('type') && (
+                          <TableCell>
+                            <CardTypeBadge type={(s as any).card_type} />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <StatusBadge
                             status={s.status}
@@ -1524,7 +1549,7 @@ export default function Statements() {
                             analysis_error={s.analysis_error}
                           />
                         </TableCell>
-                        <TableCell>
+                        {isVisible('review_status') && <TableCell>
                           {s.review_status === 'diff_found' ? (
                             <Button 
                               size="sm" 
@@ -1594,25 +1619,27 @@ export default function Statements() {
                               )}
                             </div>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="text-sm">
-                            <div className="text-muted-foreground">
-                              {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), { 
-                                timeZone: timezone,
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : ''}
+                        </TableCell>}
+                        {isVisible('transactions') && <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>}
+                        {isVisible('created_at_by') && (
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="text-muted-foreground">
+                                {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), {
+                                  timeZone: timezone,
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : ''}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {s.created_by_username || s.created_by_email || t('common.unknown')}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {s.created_by_username || s.created_by_email || t('common.unknown')}
-                            </div>
-                          </div>
-                        </TableCell>
+                          </TableCell>
+                        )}
                         <TableCell className="text-right flex gap-2 justify-end">
                           <ShareButton recordType="bank_statement" recordId={s.id} size="sm" />
                           <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>

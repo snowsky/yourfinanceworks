@@ -27,6 +27,23 @@ import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from "@/components/ReviewDiffModal";
 import { Wand } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+
+const INVOICE_COLUMNS: ColumnDef[] = [
+  { key: 'select', label: 'Select', essential: true },
+  { key: 'id', label: 'ID' },
+  { key: 'invoice', label: 'Invoice', essential: true },
+  { key: 'client', label: 'Client', essential: true },
+  { key: 'labels', label: 'Labels' },
+  { key: 'due_date', label: 'Due Date' },
+  { key: 'total_paid', label: 'Total Paid' },
+  { key: 'outstanding_balance', label: 'Outstanding Balance' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'review', label: 'Review' },
+  { key: 'created_at_by', label: 'Created at / by' },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 interface DeletedInvoice {
   id: number;
@@ -42,6 +59,7 @@ interface DeletedInvoice {
 
 const Invoices = () => {
   const { t } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('invoices', INVOICE_COLUMNS);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -792,6 +810,9 @@ const Invoices = () => {
                     <List className="h-4 w-4" />
                   </ProfessionalButton>
                 </div>
+                {viewMode === 'table' && (
+                  <ColumnPicker columns={INVOICE_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
+                )}
               </div>
             </div>
 
@@ -957,16 +978,16 @@ const Invoices = () => {
                             aria-label="Select all"
                           />
                         </TableHead>
-                        <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
+                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('invoices.table.invoice')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.client')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>
-                        <TableHead className="hidden md:table-cell font-bold text-foreground">{t('invoices.table.due_date')}</TableHead>
-                        <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>
-                        <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>
+                        {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>}
+                        {isVisible('due_date') && <TableHead className="font-bold text-foreground">{t('invoices.table.due_date')}</TableHead>}
+                        {isVisible('total_paid') && <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>}
+                        {isVisible('outstanding_balance') && <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('invoices.table.status')}</TableHead>
-                        <TableHead className="font-bold text-foreground">{t('invoices.review.title', { defaultValue: 'Review' })}</TableHead>
-                        <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
+                        {isVisible('review') && <TableHead className="font-bold text-foreground">{t('invoices.review.title', { defaultValue: 'Review' })}</TableHead>}
+                        {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
                         <TableHead className="w-[100px] text-right font-bold text-foreground">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -983,7 +1004,7 @@ const Invoices = () => {
                               aria-label={`Select invoice ${invoice.id}`}
                             />
                           </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{invoice.id}</TableCell>
+                          {isVisible('id') && <TableCell className="font-mono text-xs text-muted-foreground">{invoice.id}</TableCell>}
                           <TableCell className="font-semibold text-foreground">
                             <span className="inline-flex items-center gap-2">
                               <FileText className="h-4 w-4 text-primary/60" />
@@ -991,7 +1012,7 @@ const Invoices = () => {
                             </span>
                           </TableCell>
                           <TableCell className="text-foreground font-medium">{invoice.client_name}</TableCell>
-                          <TableCell>
+                          {isVisible('labels') && <TableCell>
                             <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
                               {invoice.labels && invoice.labels.map((label: string, idx: number) => (
                                 <Badge
@@ -1040,23 +1061,23 @@ const Invoices = () => {
                                 }}
                               />
                             </div>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString(getLocale(), { 
+                          </TableCell>}
+                          {isVisible('due_date') && <TableCell className="text-muted-foreground text-sm">
+                            {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString(getLocale(), {
                               timeZone: timezone,
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric'
                             }) : 'N/A'}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-foreground">
+                          </TableCell>}
+                          {isVisible('total_paid') && <TableCell className="text-right font-semibold text-foreground">
                             <CurrencyDisplay amount={invoice.paid_amount || 0} currency={invoice.currency} />
-                          </TableCell>
-                          <TableCell className="text-right">
+                          </TableCell>}
+                          {isVisible('outstanding_balance') && <TableCell className="text-right">
                             <span className={(invoice.amount - (invoice.paid_amount || 0)) > 0 ? 'text-warning font-semibold' : 'text-success font-semibold'}>
                               <CurrencyDisplay amount={invoice.amount - (invoice.paid_amount || 0)} currency={invoice.currency} />
                             </span>
-                          </TableCell>
+                          </TableCell>}
                           <TableCell>
                             <Badge
                               className={
@@ -1070,7 +1091,7 @@ const Invoices = () => {
                               {formatStatus(invoice.status)}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          {isVisible('review') && <TableCell>
                             {invoice.review_status === 'diff_found' ? (
                               <Button 
                                 size="sm" 
@@ -1144,8 +1165,8 @@ const Invoices = () => {
                                 )}
                                 </div>
                             )}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
+                          </TableCell>}
+                          {isVisible('created_at_by') && <TableCell>
                             <div className="text-sm">
                               <div className="text-muted-foreground">
                                 {invoice.created_at ? new Date(invoice.created_at).toLocaleString(getLocale(), { 
@@ -1161,7 +1182,7 @@ const Invoices = () => {
                                 {invoice.created_by_username || invoice.created_by_email || t('common.unknown')}
                               </div>
                             </div>
-                          </TableCell>
+                          </TableCell>}
                           <TableCell>
                             {canPerformAction && (
                               <div className="text-right flex gap-2 justify-end">
