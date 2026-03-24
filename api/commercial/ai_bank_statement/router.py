@@ -856,12 +856,9 @@ async def create_transaction_link(
         db, [payload.transaction_a_id, payload.transaction_b_id]
     )
 
-    log_audit_event(db, current_user.id, "transaction_link_created", {
-        "link_id": link.id,
-        "transaction_a_id": link.transaction_a_id,
-        "transaction_b_id": link.transaction_b_id,
-        "link_type": link.link_type,
-    })
+    log_audit_event(db, current_user.id, current_user.email, "transaction_link_created",
+        "transaction_link", resource_id=str(link.id),
+        details={"transaction_a_id": link.transaction_a_id, "transaction_b_id": link.transaction_b_id, "link_type": link.link_type})
 
     return {
         "success": True,
@@ -895,7 +892,8 @@ async def delete_transaction_link(
 
     transaction_link_service.delete_link(db=db, tenant_id=tenant_id, link_id=link_id)
 
-    log_audit_event(db, current_user.id, "transaction_link_deleted", {"link_id": link_id})
+    log_audit_event(db, current_user.id, current_user.email, "transaction_link_deleted",
+        "transaction_link", resource_id=str(link_id))
 
     return {"success": True}
 
