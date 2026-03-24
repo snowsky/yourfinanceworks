@@ -158,7 +158,6 @@ ProfessionalTableHead.displayName = "ProfessionalTableHead";
 const ProfessionalTableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
 >(({ className, ...props }, ref) => {
   const { density } = useListDensity();
   const densityClass = density === "compact" ? "px-3 py-2.5" : "px-4 py-3";
