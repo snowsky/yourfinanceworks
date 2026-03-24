@@ -203,10 +203,10 @@ const RecycleBin = () => {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                     <TableHead>{t('recycleBin.invoice')}</TableHead>
                     <TableHead>{t('recycleBin.amount')}</TableHead>
                     <TableHead>{t('recycleBin.status')}</TableHead>
@@ -224,7 +224,7 @@ const RecycleBin = () => {
                     </TableRow>
                   ) : deletedInvoices.length > 0 ? (
                     deletedInvoices.map((invoice) => (
-                      <TableRow key={invoice.id} className="hover:bg-muted/50">
+                      <TableRow key={invoice.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
                         <TableCell className="font-medium">
                           {invoice.number}
                         </TableCell>

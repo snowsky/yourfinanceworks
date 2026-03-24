@@ -183,10 +183,10 @@ const ExpenseRecycleBin = () => {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                     <TableHead>{t('expenseRecycleBin.expense')}</TableHead>
                     <TableHead>{t('expenseRecycleBin.amount')}</TableHead>
                     <TableHead>{t('expenseRecycleBin.category')}</TableHead>
@@ -205,7 +205,7 @@ const ExpenseRecycleBin = () => {
                     </TableRow>
                   ) : deletedExpenses.length > 0 ? (
                     deletedExpenses.map((expense) => (
-                      <TableRow key={expense.id} className="hover:bg-muted/50">
+                      <TableRow key={expense.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
                         <TableCell className="font-medium">
                           <div>
                             <div className="font-medium">{expense.vendor || t('expenseRecycleBin.unknown_vendor')}</div>

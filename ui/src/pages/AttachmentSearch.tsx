@@ -165,10 +165,10 @@ const AttachmentSearch = () => {
                 </div>
               )}
 
-              <div className="rounded-md border">
+              <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                       <TableHead>Type</TableHead>
                       <TableHead>Entity</TableHead>
                       <TableHead>Client/Vendor</TableHead>
@@ -181,7 +181,7 @@ const AttachmentSearch = () => {
                   <TableBody>
                     {results.length > 0 ? (
                       results.map((result) => (
-                        <TableRow key={`${result.entity_type}-${result.id}`}>
+                        <TableRow key={`${result.entity_type}-${result.id}`} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
                           <TableCell>
                             <Badge className={getEntityColor(result.entity_type)}>
                               {getEntityIcon(result.entity_type)}

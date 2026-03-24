@@ -274,18 +274,22 @@ const Inventory = () => {
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <CardTitle>{t('inventory.items_list', 'Inventory Items')}</CardTitle>
                   <div className="flex gap-2">
-                    <select
-                      className="px-3 py-2 border border-input bg-background rounded-md text-sm"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                    <Select
+                      value={String(selectedCategory)}
+                      onValueChange={(val) => setSelectedCategory(val === "all" ? "all" : parseInt(val))}
                     >
-                      <option value="all">{t('inventory.all_categories', 'All Categories')}</option>
-                      {categories.map(category => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                        <SelectValue placeholder={t('inventory.all_categories', 'All Categories')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('inventory.all_categories', 'All Categories')}</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={String(category.id)}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <div className="relative max-w-sm">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -299,7 +303,7 @@ const Inventory = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
@@ -496,7 +500,7 @@ const Inventory = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {advancedAnalytics.top_performing_items.slice(0, 10).map((item: any, index: number) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={item.id} className="flex items-center justify-between px-4 py-3.5 border border-border/30 rounded-lg">
                           <div className="flex items-center gap-4">
                             <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-full">
                               <span className="text-sm font-medium">#{index + 1}</span>
@@ -529,7 +533,7 @@ const Inventory = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {advancedAnalytics.category_performance.map((category: any) => (
-                        <div key={category.category} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={category.category} className="flex items-center justify-between px-4 py-3.5 border border-border/30 rounded-lg">
                           <div>
                             <div className="font-medium">{category.category}</div>
                             <div className="text-sm text-muted-foreground">
