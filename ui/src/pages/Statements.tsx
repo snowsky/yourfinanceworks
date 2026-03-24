@@ -2876,16 +2876,14 @@ export default function Statements() {
                     <div className="text-sm font-medium mb-2">Selected Files:</div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all">
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <FileText className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                            <span className="truncate font-medium">{file.name}</span>
-                            <span className="text-[10px] text-muted-foreground flex-shrink-0 opacity-70">({Math.round(file.size / 1024)} KB)</span>
-                          </div>
+                        <div key={index} className="flex items-center gap-2 text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all overflow-hidden">
+                          <FileText className="w-4 h-4 text-primary/60 shrink-0" />
+                          <span className="truncate font-medium min-w-0 flex-1">{file.name}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 opacity-70">({Math.round(file.size / 1024)} KB)</span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 -mr-1 shrink-0"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                             onClick={() => {
                               setFiles(prev => prev.filter((_, i) => i !== index));
                             }}
