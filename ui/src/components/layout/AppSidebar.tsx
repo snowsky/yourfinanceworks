@@ -448,49 +448,9 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl backdrop-blur-xl">
-        <SidebarHeader className="py-4 px-4 border-b border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
-          {/* Organization Switcher (Topmost) */}
-          <div className="mb-4">
-            <OrganizationSwitcher />
-          </div>
-
-          {/* User Profile Section */}
-          <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700/20 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-8 w-8 ring-2 ring-slate-600/30">
-                <AvatarImage src={undefined as any} alt={currentUser?.email || 'User'} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
-                  {(() => {
-                    const first = (currentUser?.first_name || '').trim();
-                    const last = (currentUser?.last_name || '').trim();
-                    const name = `${first} ${last}`.trim() || (currentUser?.email?.split('@')[0] || 'User');
-                    const parts = name.split(' ').filter(Boolean);
-                    const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
-                    return initials.toUpperCase();
-                  })()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col leading-tight flex-1 min-w-0">
-                <span className="text-xs font-semibold text-white truncate">
-                  {(() => {
-                    const first = (currentUser?.first_name || '').trim();
-                    const last = (currentUser?.last_name || '').trim();
-                    const name = `${first} ${last}`.trim();
-                    return name || (currentUser?.email?.split('@')[0] || 'User');
-                  })()}
-                </span>
-                <span className="text-xs text-slate-300 truncate">
-                  {currentOrgRole === 'admin'
-                    ? t('roles.administrator', { defaultValue: 'Administrator' })
-                    : t('roles.user', { defaultValue: 'User' })}
-                </span>
-              </div>
-            </div>
-          </div>
+        <SidebarHeader className="py-3 px-4 border-b border-slate-700/30">
+          <OrganizationSwitcher />
         </SidebarHeader>
-
-
-
 
         {/* Wrapper for flexible content with relative positioning for scroll indicators */}
         <div className="flex-1 min-h-0 relative flex flex-col">
@@ -670,34 +630,63 @@ export function AppSidebar() {
         </div>
 
 
-        <SidebarFooter className="py-4 px-4 border-t border-slate-700/30 bg-gradient-to-r from-slate-800/30 to-slate-700/30 backdrop-blur-sm">
-          <div className="space-y-4">
-            {/* Controls */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1">
-                <LanguageSwitcher />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('navigation.dark_mode')}
-                title={t('navigation.dark_mode')}
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-8 w-8 border border-slate-600/30 bg-slate-700/20 hover:bg-slate-600/20 text-slate-300 hover:text-white transition-all duration-200 rounded-lg"
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </Button>
+        <SidebarFooter className="py-3 px-4 border-t border-slate-700/30">
+          {/* User identity + actions zone */}
+          <div className="flex items-center gap-2.5 mb-3">
+            <Avatar className="h-8 w-8 shrink-0 ring-2 ring-slate-600/30">
+              <AvatarImage src={undefined as any} alt={currentUser?.email || 'User'} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
+                {(() => {
+                  const first = (currentUser?.first_name || '').trim();
+                  const last = (currentUser?.last_name || '').trim();
+                  const name = `${first} ${last}`.trim() || (currentUser?.email?.split('@')[0] || 'User');
+                  const parts = name.split(' ').filter(Boolean);
+                  const initials = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
+                  return initials.toUpperCase();
+                })()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col leading-tight flex-1 min-w-0">
+              <span className="text-xs font-semibold text-white truncate">
+                {(() => {
+                  const first = (currentUser?.first_name || '').trim();
+                  const last = (currentUser?.last_name || '').trim();
+                  const name = `${first} ${last}`.trim();
+                  return name || (currentUser?.email?.split('@')[0] || 'User');
+                })()}
+              </span>
+              <span className="text-[11px] text-slate-400 truncate">
+                {currentOrgRole === 'admin'
+                  ? t('roles.administrator', { defaultValue: 'Administrator' })
+                  : t('roles.user', { defaultValue: 'User' })}
+              </span>
             </div>
-
-            {/* Softened Logout Button */}
             <Button
-              variant="outline"
-              size="sm"
-              className="w-full border-slate-700/50 bg-slate-800/20 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 font-medium py-2.5 rounded-xl transition-all duration-200"
+              variant="ghost"
+              size="icon"
+              aria-label={t('auth.logout')}
+              title={t('auth.logout')}
               onClick={handleLogout}
+              className="h-7 w-7 shrink-0 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
             >
-              <LogOut className="w-4 h-4 mr-2" />
-              <span className="text-sm">{t('auth.logout')}</span>
+              <LogOut className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+
+          {/* Controls row */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <LanguageSwitcher />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('navigation.dark_mode')}
+              title={t('navigation.dark_mode')}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="h-8 w-8 border border-slate-600/30 bg-slate-700/20 hover:bg-slate-600/20 text-slate-300 hover:text-white transition-all duration-200 rounded-lg shrink-0"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
           </div>
         </SidebarFooter>
