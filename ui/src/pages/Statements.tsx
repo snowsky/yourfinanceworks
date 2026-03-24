@@ -2773,11 +2773,11 @@ export default function Statements() {
             setSelectedProvider('bank');
           }
         }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>{t('statements.upload_statement', { defaultValue: 'Upload Statement' })}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   {t('statements.select_provider', { defaultValue: 'Statement Provider' })}
@@ -2912,24 +2912,24 @@ export default function Statements() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
-                  {t('common.cancel', 'Cancel')}
-                </Button>
-                <Button onClick={onUpload} disabled={loading || files.length === 0}>
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      {t('statements.processing')}
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      {t('statements.upload')}
-                    </>
-                  )}
-                </Button>
-              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t border-border/50 shrink-0">
+              <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button onClick={onUpload} disabled={loading || files.length === 0}>
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    {t('statements.processing')}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {t('statements.upload')}
+                  </>
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
