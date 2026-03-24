@@ -95,7 +95,7 @@ export default function ExpensesImport() {
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('expenses.page.title')}</h1>
+              <h1 className="font-display text-4xl font-normal tracking-tight">{t('expenses.page.title')}</h1>
               <p className="text-lg text-muted-foreground">{t('expenses.page.description')}</p>
             </div>
             <div className="flex gap-4">

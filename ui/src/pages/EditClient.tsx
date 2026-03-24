@@ -91,7 +91,7 @@ const EditClient = () => {
                   <ArrowLeft className="h-4 w-4" />
                 </ProfessionalButton>
               </div>
-              <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('editClient.editClient')}</h1>
+              <h1 className="font-display text-4xl font-normal tracking-tight">{t('editClient.editClient')}</h1>
               <p className="text-lg text-muted-foreground">{t('editClient.updateClientInformation')}</p>
             </div>
             {client?.id && <ShareButton recordType="client" recordId={client.id} />}

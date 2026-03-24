@@ -266,7 +266,7 @@ const InvestmentDashboard: React.FC = () => {
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('portfolio.investment_portfolio')}</h1>
+            <h1 className="font-display text-4xl font-normal tracking-tight">{t('portfolio.investment_portfolio')}</h1>
             <p className="text-lg text-muted-foreground">{t('portfolio.track_wealth_performance')}</p>
           </div>
           <div className="flex flex-wrap gap-3 items-center justify-end">
