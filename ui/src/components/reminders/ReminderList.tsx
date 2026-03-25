@@ -178,6 +178,8 @@ export function ReminderList({ className }: ReminderListProps) {
   const [dueDateTo, setDueDateTo] = useState<Date | undefined>(
     searchParams.get('due_to') ? new Date(searchParams.get('due_to')!) : undefined
   );
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [datePickerStep, setDatePickerStep] = useState<'from' | 'to'>('from');
 
   // Pagination
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
@@ -700,7 +702,10 @@ export function ReminderList({ className }: ReminderListProps) {
             </>
           )}
 
-          <Popover>
+          <Popover open={datePickerOpen} onOpenChange={(open) => {
+            setDatePickerOpen(open);
+            if (open) setDatePickerStep('from');
+          }}>
             <PopoverTrigger asChild>
               <ProfessionalButton variant="outline" size="default" className="flex items-center gap-2 whitespace-nowrap">
                 <Filter className="h-4 w-4" />
@@ -717,35 +722,57 @@ export function ReminderList({ className }: ReminderListProps) {
               </ProfessionalButton>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <div className="p-4 space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">{t('reminders.from_date')}</label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={dueDateFrom}
-                    onSelect={setDueDateFrom}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">{t('reminders.to_date')}</label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={dueDateTo}
-                    onSelect={setDueDateTo}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <ProfessionalButton
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setDueDateFrom(undefined);
-                      setDueDateTo(undefined);
-                    }}
-                  >
-                    {t('reminders.clear')}
-                  </ProfessionalButton>
-                </div>
+              <div className="p-4 space-y-3">
+                {datePickerStep === 'from' ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">{t('reminders.from_date')}</label>
+                      {(dueDateFrom || dueDateTo) && (
+                        <button
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => { setDueDateFrom(undefined); setDueDateTo(undefined); }}
+                        >
+                          {t('reminders.clear')}
+                        </button>
+                      )}
+                    </div>
+                    <CalendarComponent
+                      mode="single"
+                      selected={dueDateFrom}
+                      onSelect={(date) => {
+                        setDueDateFrom(date);
+                        setDatePickerStep('to');
+                      }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <button
+                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                        onClick={() => setDatePickerStep('from')}
+                      >
+                        ← {dueDateFrom ? format(dueDateFrom, 'MMM d') : t('reminders.from_date')}
+                      </button>
+                      <button
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => { setDueDateFrom(undefined); setDueDateTo(undefined); setDatePickerStep('from'); }}
+                      >
+                        {t('reminders.clear')}
+                      </button>
+                    </div>
+                    <label className="text-sm font-medium block">{t('reminders.to_date')}</label>
+                    <CalendarComponent
+                      mode="single"
+                      selected={dueDateTo}
+                      disabled={dueDateFrom ? { before: dueDateFrom } : undefined}
+                      onSelect={(date) => {
+                        setDueDateTo(date);
+                        setDatePickerOpen(false);
+                      }}
+                    />
+                  </>
+                )}
               </div>
             </PopoverContent>
           </Popover>
