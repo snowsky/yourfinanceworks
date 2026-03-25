@@ -207,6 +207,8 @@ export default function Statements() {
   const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
   const [linkTransferModalMounted, setLinkTransferModalMounted] = useState(false);
   const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
+  const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
+  const [rowToUnlink, setRowToUnlink] = useState<number | null>(null);
   const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -677,9 +679,11 @@ export default function Statements() {
 
   const closeLinkTransferModal = () => {
     setLinkTransferModalOpen(false);
-    setLinkingRowIdx(null);
     // Unmount after animation completes so Radix can clean up the overlay properly
-    setTimeout(() => setLinkTransferModalMounted(false), 300);
+    setTimeout(() => {
+      setLinkTransferModalMounted(false);
+      setLinkingRowIdx(null);
+    }, 300);
   };
 
   const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
@@ -691,17 +695,21 @@ export default function Statements() {
     }
   };
 
-  const handleUnlinkTransfer = async (rowIdx: number) => {
-    const row = rows[rowIdx];
+  const confirmUnlinkTransfer = async () => {
+    if (rowToUnlink === null) return;
+    const row = rows[rowToUnlink];
     const linkId = row.linked_transfer?.id;
     if (!linkId) return;
-    if (!confirm('Remove this transfer link?')) return;
+
     try {
       await bankStatementApi.deleteTransactionLink(linkId);
       toast.success('Transfer link removed');
       if (selected) await openStatement(selected);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to remove transfer link');
+    } finally {
+      setUnlinkModalOpen(false);
+      setRowToUnlink(null);
     }
   };
 
@@ -2500,7 +2508,10 @@ export default function Statements() {
                                       </DropdownMenuItem>
                                       {Boolean((r as any).linked_transfer) && (
                                         <DropdownMenuItem
-                                          onClick={() => handleUnlinkTransfer(idx)}
+                                          onClick={() => {
+                                            setRowToUnlink(idx);
+                                            setUnlinkModalOpen(true);
+                                          }}
                                           className="text-destructive focus:text-destructive"
                                           disabled={readOnly}
                                         >
@@ -3035,6 +3046,25 @@ export default function Statements() {
               <AlertDialogAction onClick={handleBulkMerge} className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus className="mr-2 h-4 w-4" />
                 {t('statements.merge', { defaultValue: 'Merge' })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Unlink Transfer Modal */}
+        <AlertDialog open={unlinkModalOpen} onOpenChange={setUnlinkModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Transfer Link</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove this transfer link? This will unlink the transaction from the other statement, but will not delete the transaction itself.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setRowToUnlink(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmUnlinkTransfer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <X className="mr-2 h-4 w-4" />
+                Unlink
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
