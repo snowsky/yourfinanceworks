@@ -690,7 +690,7 @@ async def read_invoices(
             Invoice,
             Client.name.label('client_name'),
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
-        ).join(
+        ).outerjoin(
             Client, Invoice.client_id == Client.id
         ).outerjoin(
             Payment, Invoice.id == Payment.invoice_id

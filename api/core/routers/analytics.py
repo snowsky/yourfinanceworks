@@ -43,16 +43,20 @@ async def get_page_views(
             
             # 2. Exclude specific noisy paths (and their sub-paths)
             noisy_prefixes = [
-                '/api/v1/settings',      # catches /settings, /settings/, /settings/sub
-                '/api/v1/ai-config',     # catches /ai-config, /ai-config/
+                '/api/v1/settings',                      # catches /settings, /settings/, /settings/sub
+                '/api/v1/ai-config',                     # catches /ai-config, /ai-config/
                 '/api/v1/reminders/unread-count',
+                '/api/v1/reminders/notifications',       # covers /recent and /unread-count (polls every 30-60s)
                 '/api/v1/invoices/status',
                 '/api/v1/clients/status',
-                '/api/v1/expenses/status'
+                '/api/v1/expenses/status',
+                '/api/v1/organization-join/pending',     # admin polling every 60s
+                '/api/v1/email-integration/sync/status', # polls every 2s during sync
+                '/api/v1/bank-statements/',              # status polling during processing (contains IDs)
             ]
             for prefix in noisy_prefixes:
                 q = q.filter(~PageView.path.startswith(prefix))
-                
+
             # 3. Exclude broad patterns
             q = q.filter(~PageView.path.contains('/unread-count'))
             q = q.filter(~PageView.path.endswith('/status'))
