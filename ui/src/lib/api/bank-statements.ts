@@ -20,6 +20,7 @@ export interface BankTransactionEntry {
   category?: string | null;
   invoice_id?: number | null;
   expense_id?: number | null;
+  notes?: string | null;
   linked_transfer?: TransactionLinkInfo | null;
 }
 

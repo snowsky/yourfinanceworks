@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -479,8 +479,8 @@ export default function Statements() {
       return;
     }
 
-    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference', 'Notes'];
-    const csvContent = [
+    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference'];
+    let csvContent = [
       headers.join(','),
       ...rows.map(row => {
         const refs: string[] = [];
@@ -501,11 +501,14 @@ export default function Statements() {
           row.transaction_type,
           row.balance ?? '',
           row.category ?? '',
-          refs.join('; '),
-          `"${((row as any).notes || '').replace(/"/g, '""')}"`
+          refs.join('; ')
         ].join(',');
       })
     ].join('\n');
+
+    if (statementNotes) {
+      csvContent += `\n\n"Notes: ${statementNotes.replace(/"/g, '""')}"`;
+    }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -2330,6 +2333,7 @@ export default function Statements() {
                       <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance', { defaultValue: 'Balance' })}</TableHead>
                       <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type', { defaultValue: 'Type' })}</TableHead>
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
+                      <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_notes', { defaultValue: 'Notes' })}</TableHead>
                       <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference', { defaultValue: 'Reference' })}</TableHead>
                       <TableHead className="w-[80px] text-right font-bold text-foreground">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
@@ -2439,17 +2443,35 @@ export default function Statements() {
                                 </Badge>
                               )}
                             </TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <Input
+                                  value={r.notes || ''}
+                                  onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, notes: e.target.value } : x))}
+                                  className="h-9 border-border/50 bg-muted/20 w-full"
+                                  placeholder={t('statements.notes_placeholder', { defaultValue: 'Notes...' })}
+                                />
+                              ) : (
+                                <span className="text-sm truncate max-w-[150px] inline-block" title={r.notes || ''}>
+                                  {r.notes || <span className="text-muted-foreground/50 italic">-</span>}
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-center">
                               <div className="flex flex-col gap-1">
                                 {Boolean((r as any).expense_id) && (
-                                  <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center">
-                                    EXP #{(r as any).expense_id}
-                                  </Badge>
+                                  <Link to={`/expenses/view/${(r as any).expense_id}`}>
+                                    <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center cursor-pointer hover:bg-destructive/10 transition-colors">
+                                      EXP #{(r as any).expense_id}
+                                    </Badge>
+                                  </Link>
                                 )}
                                 {Boolean((r as any).invoice_id) && (
-                                  <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center">
-                                    INV #{(r as any).invoice_id}
-                                  </Badge>
+                                  <Link to={`/invoices/view/${(r as any).invoice_id}`}>
+                                    <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center cursor-pointer hover:bg-success/10 transition-colors">
+                                      INV #{(r as any).invoice_id}
+                                    </Badge>
+                                  </Link>
                                 )}
                                 {Boolean((r as any).linked_transfer) && (
                                   <Badge

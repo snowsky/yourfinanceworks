@@ -32,6 +32,7 @@ class BankStatementTransactionBase(BaseModel):
     transaction_type: Optional[str] = Field(None, description="Type of transaction (debit/credit)")
     balance: Optional[float] = Field(None, description="Account balance after transaction")
     category: Optional[str] = Field(None, description="Transaction category")
+    notes: Optional[str] = Field(None, description="Transaction notes")
     invoice_id: Optional[int] = Field(None, description="Linked invoice ID")
     expense_id: Optional[int] = Field(None, description="Linked expense ID")
 

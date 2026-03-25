@@ -1120,7 +1120,7 @@ async def patch_statement_transaction(
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    allowed_fields = {"expense_id", "invoice_id", "category", "description", "amount", "balance", "transaction_type", "date"}
+    allowed_fields = {"expense_id", "invoice_id", "category", "description", "amount", "balance", "transaction_type", "date", "notes"}
     for field, value in payload.items():
         if field not in allowed_fields:
             continue
@@ -1207,6 +1207,7 @@ async def replace_statement_transactions(
                     float(t["balance"]) if t.get("balance") not in (None, "") else None
                 ),
                 category=t.get("category") or None,
+                notes=t.get("notes") or None,
             )
             inv_id = t.get("invoice_id")
             try:
