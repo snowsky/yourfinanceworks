@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -171,6 +171,7 @@ export default function Statements() {
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
   const [shareStatementId, setShareStatementId] = useState<number | null>(null);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setPageContext } = usePageContext();
 
   const [files, setFiles] = useState<File[]>([]);
@@ -631,6 +632,15 @@ export default function Statements() {
     loadList();
   }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
+  // Auto-open statement from URL ?id= param on mount / after list loads
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam && !selected) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) openStatement(id);
+    }
+  }, [searchParams]);
+
   // Listen for polling completion events
   useEffect(() => {
     const handleRefresh = (e: any) => {
@@ -691,6 +701,7 @@ export default function Statements() {
 
   const openStatement = async (id: number, highlightBackendId?: number) => {
     setSelected(id);
+    setSearchParams({ id: String(id) }, { replace: true });
     setDetailLoading(true);
     setHighlightedBackendId(null);
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
@@ -842,6 +853,7 @@ export default function Statements() {
         setSelected(null);
         setDetail(null);
         setRows([]);
+        setSearchParams({}, { replace: true });
       }
     } catch (e: any) {
       toast.error(e?.message || t('statements.failed_to_delete'));
@@ -1857,7 +1869,7 @@ export default function Statements() {
                     <ProfessionalButton
                       variant="outline"
                       size="icon-sm"
-                      onClick={() => { setSelected(null); setDetail(null); setRows([]); }}
+                      onClick={() => { setSelected(null); setDetail(null); setRows([]); setSearchParams({}, { replace: true }); }}
                       className="rounded-full"
                     >
                       <ArrowLeft className="h-4 w-4" />
