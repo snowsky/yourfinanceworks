@@ -19,16 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    try:
-        op.add_column('bank_statement_transactions', sa.Column('notes', sa.Text(), nullable=True))
-    except Exception as e:
-        # SQLite doesn't natively support all ALTER operations in the same way, but add_column usually works.
-        # If it fails, print or log
-        pass
+    # Add notes column to bank_statement_transactions
+    op.add_column('bank_statement_transactions', sa.Column('notes', sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
-    try:
-        op.drop_column('bank_statement_transactions', 'notes')
-    except Exception as e:
-        pass
+    # Remove notes column from bank_statement_transactions
+    op.drop_column('bank_statement_transactions', 'notes')
