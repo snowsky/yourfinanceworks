@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
   Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2
@@ -14,9 +15,22 @@ import {
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
-const SIDEBAR_TRIGGER = "w-full justify-start px-3 py-2.5 h-auto rounded-lg text-sm font-medium " +
-  "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm " +
-  "hover:bg-muted/60 transition-all duration-200 text-muted-foreground whitespace-nowrap";
+const NavItem = ({ value, icon: Icon, label, activeTab, onClick }: {
+  value: string; icon: React.ElementType; label: string; activeTab: string; onClick: (v: string) => void;
+}) => (
+  <button
+    onClick={() => onClick(value)}
+    className={cn(
+      "w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-left",
+      activeTab === value
+        ? "bg-primary text-primary-foreground shadow-sm"
+        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+    )}
+  >
+    <Icon className="w-4 h-4 flex-shrink-0" />
+    <span>{label}</span>
+  </button>
+);
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -71,109 +85,58 @@ const Settings = () => {
 
           {/* Vertical Sidebar */}
           <div className="w-full md:w-[220px] md:flex-shrink-0 md:sticky md:top-6">
-            <TabsList className="flex flex-row md:flex-col h-auto w-full bg-muted/20 p-2 rounded-xl border border-border/30 gap-0.5 overflow-x-auto md:overflow-x-visible">
+            <nav className="flex flex-col gap-0.5 bg-muted/20 p-2 rounded-xl border border-border/30">
 
               {/* Personal */}
-              <p className="hidden md:block px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full">
+              <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {t('settings.categories.personal', 'Personal')}
               </p>
-              <TabsTrigger value="profile" className={SIDEBAR_TRIGGER}>
-                <User className="w-4 h-4 mr-2 flex-shrink-0" />
-                {t('settings.tabs.profile', 'Profile')}
-              </TabsTrigger>
-              <TabsTrigger value="cookies" className={SIDEBAR_TRIGGER}>
-                <Lock className="w-4 h-4 mr-2 flex-shrink-0" />
-                {t('settings.tabs.cookies', 'Privacy')}
-              </TabsTrigger>
+              <NavItem value="profile" icon={User} label={t('settings.tabs.profile', 'Profile')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Privacy')} activeTab={activeTab} onClick={setActiveTab} />
 
               {isAdmin && (
                 <>
                   {/* Company */}
-                  <div className="hidden md:block border-t border-border/30 my-1 w-full" />
-                  <p className="hidden md:block px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full">
+                  <div className="border-t border-border/30 my-1" />
+                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.company', 'Company')}
                   </p>
-                  <TabsTrigger value="company" className={SIDEBAR_TRIGGER}>
-                    <Building2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.company', 'Company')}
-                  </TabsTrigger>
-                  <TabsTrigger value="invoices" className={SIDEBAR_TRIGGER}>
-                    <FileText className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.invoices', 'Invoices')}
-                  </TabsTrigger>
-                  <TabsTrigger value="discount-rules" className={SIDEBAR_TRIGGER}>
-                    <Percent className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.discount_rules', 'Discounts')}
-                  </TabsTrigger>
+                  <NavItem value="company" icon={Building2} label={t('settings.tabs.company', 'Company')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
-                  <div className="hidden md:block border-t border-border/30 my-1 w-full" />
-                  <p className="hidden md:block px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full">
+                  <div className="border-t border-border/30 my-1" />
+                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.features', 'Features')}
                   </p>
-                  <TabsTrigger value="ai-config" className={SIDEBAR_TRIGGER}>
-                    <Cpu className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.ai_config', 'AI Config')}
-                  </TabsTrigger>
-                  <TabsTrigger value="gamification" className={SIDEBAR_TRIGGER}>
-                    <Trophy className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.gamification', 'Gamification')}
-                  </TabsTrigger>
-                  <TabsTrigger value="plugins" className={SIDEBAR_TRIGGER}>
-                    <Puzzle className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.plugins', 'Plugins')}
-                  </TabsTrigger>
-                  <TabsTrigger value="search" className={SIDEBAR_TRIGGER}>
-                    <Search className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.search', 'Search')}
-                  </TabsTrigger>
-                  <TabsTrigger value="export" className={SIDEBAR_TRIGGER}>
-                    <ExternalLink className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.export_destinations', 'Exports')}
-                  </TabsTrigger>
+                  <NavItem value="ai-config" icon={Cpu} label={t('settings.tabs.ai_config', 'AI Config')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="gamification" icon={Trophy} label={t('settings.tabs.gamification', 'Gamification')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="plugins" icon={Puzzle} label={t('settings.tabs.plugins', 'Plugins')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="search" icon={Search} label={t('settings.tabs.search', 'Search')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="export" icon={ExternalLink} label={t('settings.tabs.export_destinations', 'Exports')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Integrations */}
-                  <div className="hidden md:block border-t border-border/30 my-1 w-full" />
-                  <p className="hidden md:block px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full">
+                  <div className="border-t border-border/30 my-1" />
+                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.integrations', 'Integrations')}
                   </p>
-                  <TabsTrigger value="notifications" className={SIDEBAR_TRIGGER}>
-                    <Bell className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.email_notifications', 'Notifications')}
-                  </TabsTrigger>
-                  <TabsTrigger value="currencies" className={SIDEBAR_TRIGGER}>
-                    <Activity className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.currencies', 'Currencies')}
-                  </TabsTrigger>
-                  <TabsTrigger value="api-integrations" className={SIDEBAR_TRIGGER}>
-                    <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.email', 'Email')}
-                  </TabsTrigger>
-                  <TabsTrigger value="api-clients" className={SIDEBAR_TRIGGER}>
-                    <ShieldCheck className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.api_keys', 'API Keys')}
-                  </TabsTrigger>
+                  <NavItem value="notifications" icon={Bell} label={t('settings.tabs.email_notifications', 'Notifications')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies', 'Currencies')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="api-integrations" icon={Mail} label={t('settings.tabs.email', 'Email')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="api-clients" icon={ShieldCheck} label={t('settings.tabs.api_keys', 'API Keys')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* System */}
-                  <div className="hidden md:block border-t border-border/30 my-1 w-full" />
-                  <p className="hidden md:block px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full">
+                  <div className="border-t border-border/30 my-1" />
+                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.system', 'System')}
                   </p>
-                  <TabsTrigger value="prompts" className={SIDEBAR_TRIGGER}>
-                    <Terminal className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.prompts', 'Prompts')}
-                  </TabsTrigger>
-                  <TabsTrigger value="license" className={SIDEBAR_TRIGGER}>
-                    <Shield className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.license.tabTitle', 'License')}
-                  </TabsTrigger>
-                  <TabsTrigger value="data" className={SIDEBAR_TRIGGER}>
-                    <Database className="w-4 h-4 mr-2 flex-shrink-0" />
-                    {t('settings.tabs.export', 'Data')}
-                  </TabsTrigger>
+                  <NavItem value="prompts" icon={Terminal} label={t('settings.tabs.prompts', 'Prompts')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="license" icon={Shield} label={t('settings.license.tabTitle', 'License')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="data" icon={Database} label={t('settings.tabs.export', 'Data')} activeTab={activeTab} onClick={setActiveTab} />
                 </>
               )}
-            </TabsList>
+            </nav>
           </div>
 
           {/* Content Area */}
