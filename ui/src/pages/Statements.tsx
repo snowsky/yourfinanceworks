@@ -479,7 +479,7 @@ export default function Statements() {
       return;
     }
 
-    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference'];
+    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference', 'Notes'];
     const csvContent = [
       headers.join(','),
       ...rows.map(row => {
@@ -501,7 +501,8 @@ export default function Statements() {
           row.transaction_type,
           row.balance ?? '',
           row.category ?? '',
-          refs.join('; ')
+          refs.join('; '),
+          `"${((row as any).notes || '').replace(/"/g, '""')}"`
         ].join(',');
       })
     ].join('\n');
