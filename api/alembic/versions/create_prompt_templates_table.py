@@ -19,8 +19,11 @@ depends_on = None
 def upgrade():
     """Create prompt_templates and prompt_usage_logs tables."""
     
-    # Create prompt_templates table
-    try:
+    bind = op.get_bind()
+    from sqlalchemy.engine.reflection import Inspector
+    inspector = Inspector.from_engine(bind)
+
+    if not inspector.has_table('prompt_templates'):
         op.create_table(
             'prompt_templates',
             sa.Column('id', sa.Integer(), nullable=False),
@@ -45,11 +48,8 @@ def upgrade():
         )
         op.create_index(op.f('ix_prompt_templates_category'), 'prompt_templates', ['category'], unique=False)
         op.create_index(op.f('ix_prompt_templates_name'), 'prompt_templates', ['name'], unique=False)
-    except Exception as e:
-        print(f"Skipping prompt_templates creation: {e}")
     
-    # Create prompt_usage_logs table
-    try:
+    if not inspector.has_table('prompt_usage_logs'):
         op.create_table(
             'prompt_usage_logs',
             sa.Column('id', sa.Integer(), nullable=False),
@@ -71,8 +71,6 @@ def upgrade():
         )
         op.create_index(op.f('ix_prompt_usage_logs_template_id'), 'prompt_usage_logs', ['template_id'], unique=False)
         op.create_index(op.f('ix_prompt_usage_logs_tenant_id'), 'prompt_usage_logs', ['tenant_id'], unique=False)
-    except Exception as e:
-        print(f"Skipping prompt_usage_logs creation: {e}")
 
 
 def downgrade():

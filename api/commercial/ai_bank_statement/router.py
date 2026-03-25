@@ -977,6 +977,7 @@ async def get_statement(
                     "transaction_type": t.transaction_type,
                     "balance": t.balance,
                     "category": t.category,
+                    "notes": getattr(t, "notes", None),
                     "invoice_id": getattr(t, "invoice_id", None),
                     "expense_id": getattr(t, "expense_id", None),
                     "linked_transfer": links_by_txn_id.get(t.id),
@@ -1207,7 +1208,7 @@ async def replace_statement_transactions(
                     float(t["balance"]) if t.get("balance") not in (None, "") else None
                 ),
                 category=t.get("category") or None,
-                notes=t.get("notes") or None,
+                notes=t.get("notes", None),
             )
             inv_id = t.get("invoice_id")
             try:
