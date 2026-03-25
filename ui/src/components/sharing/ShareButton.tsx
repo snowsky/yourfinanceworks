@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Share2, Copy, Link, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,10 +16,16 @@ interface ShareButtonProps {
   recordId: number;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  /** Controlled mode: when provided, the trigger button is not rendered */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function ShareButton({ recordType, recordId, variant = 'outline', size = 'sm' }: ShareButtonProps) {
-  const [open, setOpen] = useState(false);
+export function ShareButton({ recordType, recordId, variant = 'outline', size = 'sm', open: controlledOpen, onOpenChange }: ShareButtonProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -39,6 +45,13 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
       setLoading(false);
     }
   };
+
+  // In controlled mode, fetch token when opened externally
+  useEffect(() => {
+    if (isControlled && controlledOpen && !token) {
+      fetchToken();
+    }
+  }, [isControlled, controlledOpen]);
 
   const handleOpen = async () => {
     setOpen(true);
@@ -72,10 +85,12 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
 
   return (
     <>
-      <Button variant={variant} size={size} onClick={handleOpen}>
-        <Share2 className="h-4 w-4 mr-1" />
-        Share
-      </Button>
+      {!isControlled && (
+        <Button variant={variant} size={size} onClick={handleOpen}>
+          <Share2 className="h-4 w-4 mr-1" />
+          Share
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

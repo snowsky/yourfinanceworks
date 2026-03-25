@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
@@ -169,6 +169,7 @@ export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
+  const [shareStatementId, setShareStatementId] = useState<number | null>(null);
   const location = useLocation();
   const { setPageContext } = usePageContext();
 
@@ -1642,7 +1643,12 @@ export default function Statements() {
                         )}
                         <TableCell className="text-right">
                           <div className="flex items-center gap-1 justify-end">
-                            <ShareButton recordType="bank_statement" recordId={s.id} size="sm" variant="ghost" />
+                            <ShareButton
+                              recordType="bank_statement"
+                              recordId={s.id}
+                              open={shareStatementId === s.id}
+                              onOpenChange={(isOpen: boolean) => { if (!isOpen) setShareStatementId(null); }}
+                            />
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
@@ -1652,6 +1658,9 @@ export default function Statements() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => openStatement(s.id)}>
                                   <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setShareStatementId(s.id)}>
+                                  <Share2 className="mr-2 w-4 h-4" /> Share
                                 </DropdownMenuItem>
                                 {isCompleted(s) && s.status !== 'merged' && (
                                   <DropdownMenuItem

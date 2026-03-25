@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight, MoreHorizontal, Share2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,6 +29,7 @@ const PAYMENT_COLUMNS: ColumnDef[] = [
 const Payments = () => {
   const { t } = useTranslation();
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('payments', PAYMENT_COLUMNS);
+  const [sharePaymentId, setSharePaymentId] = useState<number | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -223,8 +225,25 @@ const Payments = () => {
                               {payment.status || 'N/A'}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <ShareButton recordType="payment" recordId={payment.id} size="icon" variant="ghost" />
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setSharePaymentId(payment.id)}>
+                                  <Share2 className="mr-2 h-4 w-4" /> Share
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <ShareButton
+                              recordType="payment"
+                              recordId={payment.id}
+                              open={sharePaymentId === payment.id}
+                              onOpenChange={(isOpen: boolean) => { if (!isOpen) setSharePaymentId(null); }}
+                            />
                           </TableCell>
                         </TableRow>
                       ))
