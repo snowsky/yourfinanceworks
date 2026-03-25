@@ -473,17 +473,27 @@ export default function Statements() {
       return;
     }
 
-    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category'];
+    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference'];
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => [
-        row.date,
-        `"${row.description.replace(/"/g, '""')}"`,
-        row.amount,
-        row.transaction_type,
-        row.balance ?? '',
-        row.category ?? ''
-      ].join(','))
+      ...rows.map(row => {
+        const refs: string[] = [];
+        if ((row as any).expense_id) refs.push(`EXP #${(row as any).expense_id}`);
+        if ((row as any).invoice_id) refs.push(`INV #${(row as any).invoice_id}`);
+        if ((row as any).linked_transfer) {
+          const linkType = (row as any).linked_transfer?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
+          refs.push(linkType);
+        }
+        return [
+          row.date,
+          `"${row.description.replace(/"/g, '""')}"`,
+          row.amount,
+          row.transaction_type,
+          row.balance ?? '',
+          row.category ?? '',
+          refs.join('; ')
+        ].join(',');
+      })
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
