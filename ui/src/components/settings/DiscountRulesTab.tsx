@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import {
     ProfessionalCard,
     ProfessionalCardContent,
+    ProfessionalCardHeader,
+    ProfessionalCardTitle,
 } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import {
@@ -164,25 +166,21 @@ export const DiscountRulesTab: React.FC<DiscountRulesTabProps> = ({
 
     return (
         <>
-            {/* Gradient Banner */}
-            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm mb-6">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Percent className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold tracking-tight">{t('settings.discount_rules.title')}</h2>
-                            <p className="text-muted-foreground mt-0.5">{t('settings.discount_rules.description', 'Automate discounts based on invoice amounts')}</p>
-                        </div>
-                    </div>
-                    <ProfessionalButton onClick={handleOpenCreateDialog} leftIcon={<Plus className="h-4 w-4" />}>
-                        {t('settings.discount_rules.create_rule')}
-                    </ProfessionalButton>
-                </div>
-            </div>
-
             <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <ProfessionalCardTitle className="flex items-center gap-2">
+                                <Percent className="w-4 h-4 text-primary" />
+                                {t('settings.discount_rules.title')}
+                            </ProfessionalCardTitle>
+                            <p className="text-sm text-muted-foreground mt-0.5">{t('settings.discount_rules.description', 'Automate discounts based on invoice amounts')}</p>
+                        </div>
+                        <ProfessionalButton onClick={handleOpenCreateDialog} leftIcon={<Plus className="h-4 w-4" />}>
+                            {t('settings.discount_rules.create_rule')}
+                        </ProfessionalButton>
+                    </div>
+                </ProfessionalCardHeader>
                 <ProfessionalCardContent>
                     {isLoading ? (
                         <div className="flex justify-center py-12">

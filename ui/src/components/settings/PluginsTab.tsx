@@ -487,20 +487,7 @@ interface PluginsTabProps {
 export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const { t } = useTranslation();
   return (
-    <div className="space-y-6">
-      {/* Gradient Banner */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Puzzle className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">{t('plugins.title', 'Plugins')}</h2>
-            <p className="text-muted-foreground mt-0.5">{t('plugins.description', 'Manage and configure your application plugins')}</p>
-          </div>
-        </div>
-      </div>
-      <FeatureGate
+    <FeatureGate
       feature="plugin_management"
       fallback={
         <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
@@ -558,7 +545,6 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     >
       <PluginsTabContent isAdmin={isAdmin} />
     </FeatureGate>
-    </div>
   );
 };
 

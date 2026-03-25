@@ -486,15 +486,14 @@ const APIClientManagementContent: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Gradient Banner */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Key className="w-6 h-6 text-primary" />
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Key className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">{t('settings.api_keys.api_clients')}</h2>
+              <h3 className="font-semibold text-foreground">{t('settings.api_keys.api_clients')}</h3>
               <div className="flex items-center gap-3 text-muted-foreground mt-0.5">
                 <p>{t('settings.api_keys.manage_api_keys_oauth')}</p>
                 <Badge variant={clients.length >= 2 ? "destructive" : clients.length > 0 ? "secondary" : "outline"}>
@@ -695,7 +694,6 @@ const APIClientManagementContent: React.FC = () => {
               </Dialog>
             </div>
           </div>
-        </div>
 
       {/* API Key Display Dialog */}
       {showApiKey && (

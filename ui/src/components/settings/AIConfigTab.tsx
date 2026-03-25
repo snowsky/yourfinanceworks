@@ -451,19 +451,6 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
 
     return (
         <>
-            {/* Gradient Banner */}
-            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <CpuIcon className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight">{t('settings.ai_config.ai_configuration')}</h2>
-                        <p className="text-muted-foreground mt-0.5">{t('settings.ai_config.description', 'Configure your AI provider and model preferences')}</p>
-                    </div>
-                </div>
-            </div>
-
             <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="flex items-center gap-2">
