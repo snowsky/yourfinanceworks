@@ -555,6 +555,7 @@ export default function Statements() {
       if (selected && backendId) {
         try {
           await bankStatementApi.patchTransaction(selected, backendId, { expense_id: created.id });
+          await openStatement(selected);
         } catch (linkErr: any) {
           console.error('Failed to persist expense link:', linkErr);
         }
@@ -2524,6 +2525,7 @@ export default function Statements() {
                                                     const backendId = (r as any).backend_id;
                                                     if (selected && backendId) {
                                                       await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
+                                                      await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
                                                     toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
@@ -2577,6 +2579,7 @@ export default function Statements() {
                                                     const backendId = (r as any).backend_id;
                                                     if (selected && backendId) {
                                                       await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
+                                                      await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
                                                     let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
@@ -2645,6 +2648,7 @@ export default function Statements() {
                                         const backendId = (r as any).backend_id;
                                         if (selected && backendId) {
                                           await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
+                                          await openStatement(selected);
                                         }
                                       } catch (e: any) {
                                         toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
@@ -2698,6 +2702,7 @@ export default function Statements() {
                                         const backendId = (r as any).backend_id;
                                         if (selected && backendId) {
                                           await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
+                                          await openStatement(selected);
                                         }
                                       } catch (e: any) {
                                         let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
