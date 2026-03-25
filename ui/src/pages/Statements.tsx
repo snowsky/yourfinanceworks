@@ -3029,15 +3029,13 @@ export default function Statements() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {linkTransferModalOpen && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
-          <LinkTransferModal
-            isOpen={linkTransferModalOpen}
-            onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
-            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined }}
-            sourceStatementId={selected!}
-            onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
-          />
-        )}
+        <LinkTransferModal
+          isOpen={linkTransferModalOpen && linkingRowIdx !== null && !!rows[linkingRowIdx]?.backend_id && !!selected}
+          onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
+          sourceTransaction={linkingRowIdx !== null && rows[linkingRowIdx] ? { ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined } : {} as BankTransactionEntry}
+          sourceStatementId={selected ?? 0}
+          onLinked={(link) => linkingRowIdx !== null && handleTransactionLinked(linkingRowIdx, link)}
+        />
       </div>
     </>
   );
