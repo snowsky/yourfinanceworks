@@ -40,7 +40,7 @@ const Settings = () => {
 
   const [activeTab, setActiveTab] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const defaultTab = isAdmin ? 'company' : 'profile';
+    const defaultTab = 'profile';
     return urlParams.get('tab') || defaultTab;
   });
 
