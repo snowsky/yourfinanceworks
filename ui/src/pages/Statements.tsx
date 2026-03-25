@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
@@ -39,7 +39,21 @@ import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import { Wand } from 'lucide-react';
 import { usePageContext } from '@/contexts/PageContext';
+import { useColumnVisibility, type ColumnDef } from '@/hooks/useColumnVisibility';
+import { ColumnPicker } from '@/components/ui/column-picker';
 
+const STATEMENT_COLUMNS: ColumnDef[] = [
+  { key: 'select', label: 'Select', essential: true },
+  { key: 'id', label: 'ID' },
+  { key: 'filename', label: 'Filename', essential: true },
+  { key: 'labels', label: 'Labels' },
+  { key: 'type', label: 'Type' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'review_status', label: 'Review Status' },
+  { key: 'transactions', label: 'Transactions' },
+  { key: 'created_at_by', label: 'Created at/by' },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const CATEGORY_OPTIONS = [
   'Income', 'Food', 'Transportation', 'Shopping', 'Bills', 'Healthcare', 'Entertainment', 'Financial', 'Travel', 'Other'
@@ -154,6 +168,8 @@ const safeParseDateString = (dateString?: string): Date => {
 export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
+  const [shareStatementId, setShareStatementId] = useState<number | null>(null);
   const location = useLocation();
   const { setPageContext } = usePageContext();
 
@@ -1306,6 +1322,14 @@ export default function Statements() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <ColumnPicker
+                    columns={STATEMENT_COLUMNS}
+                    isVisible={isVisible}
+                    onToggle={toggle}
+                    onReset={reset}
+                    hiddenCount={hiddenCount}
+                  />
                 </div>
               </div>
 
@@ -1437,14 +1461,14 @@ export default function Statements() {
                           }}
                         />
                       </TableHead>
-                      <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>
+                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>
+                      {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>}
+                      {isVisible('type') && <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>
-                      <TableHead className="hidden lg:table-cell font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
+                      {isVisible('review_status') && <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>}
+                      {isVisible('transactions') && <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>}
+                      {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
                       <TableHead className="w-[100px] text-right font-bold text-foreground">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1463,9 +1487,9 @@ export default function Statements() {
                             }}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">#{s.id}</TableCell>
+                        {isVisible('id') && <TableCell className="font-mono text-sm text-muted-foreground">#{s.id}</TableCell>}
                         <TableCell className="font-semibold text-foreground">{s.original_filename}</TableCell>
-                        <TableCell>
+                        {isVisible('labels') && <TableCell>
                           <div className="flex flex-wrap gap-1 items-center min-w-[200px]">
                             {Array.isArray((s as any).labels) && (s as any).labels.map((label: string, idx: number) => (
                               <Badge
@@ -1513,10 +1537,12 @@ export default function Statements() {
                               }}
                             />
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <CardTypeBadge type={(s as any).card_type} />
-                        </TableCell>
+                        </TableCell>}
+                        {isVisible('type') && (
+                          <TableCell>
+                            <CardTypeBadge type={(s as any).card_type} />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <StatusBadge
                             status={s.status}
@@ -1524,7 +1550,7 @@ export default function Statements() {
                             analysis_error={s.analysis_error}
                           />
                         </TableCell>
-                        <TableCell>
+                        {isVisible('review_status') && <TableCell>
                           {s.review_status === 'diff_found' ? (
                             <Button 
                               size="sm" 
@@ -1594,91 +1620,96 @@ export default function Statements() {
                               )}
                             </div>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="text-sm">
-                            <div className="text-muted-foreground">
-                              {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), { 
-                                timeZone: timezone,
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : ''}
+                        </TableCell>}
+                        {isVisible('transactions') && <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>}
+                        {isVisible('created_at_by') && (
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="text-muted-foreground">
+                                {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), {
+                                  timeZone: timezone,
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : ''}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {s.created_by_username || s.created_by_email || t('common.unknown')}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {s.created_by_username || s.created_by_email || t('common.unknown')}
-                            </div>
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            <ShareButton
+                              recordType="bank_statement"
+                              recordId={s.id}
+                              open={shareStatementId === s.id}
+                              onOpenChange={(isOpen: boolean) => { if (!isOpen) setShareStatementId(null); }}
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openStatement(s.id)}>
+                                  <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setShareStatementId(s.id)}>
+                                  <Share2 className="mr-2 w-4 h-4" /> Share
+                                </DropdownMenuItem>
+                                {isCompleted(s) && s.status !== 'merged' && (
+                                  <DropdownMenuItem
+                                    disabled={reprocessingLocks.has(s.id)}
+                                    onClick={async () => {
+                                      if (reprocessingLocks.has(s.id)) return;
+                                      try {
+                                        setReprocessingLocks(prev => new Set([...prev, s.id]));
+                                        await bankStatementApi.reprocess(s.id);
+                                        const startPolling = (window as any).startStatementPolling;
+                                        if (typeof startPolling === 'function') startPolling([s.id]);
+                                        toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
+                                        await loadList();
+                                        setTimeout(() => {
+                                          setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
+                                        }, 30000);
+                                      } catch (err: any) {
+                                        setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
+                                        toast.error(err?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
+                                      }
+                                    }}
+                                  >
+                                    {reprocessingLocks.has(s.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                                    {t('statements.reprocess.label', 'Reprocess')}
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  disabled={previewLoading === s.id || s.status === 'merged'}
+                                  onClick={() => handlePreview(s.id)}
+                                >
+                                  {previewLoading === s.id ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : <ExternalLink className="mr-2 w-4 h-4" />}
+                                  {t('common.preview', 'Preview')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={s.status === 'merged'}
+                                  onClick={() => handleDownload(s.id, s.original_filename)}
+                                >
+                                  <Download className="mr-2 w-4 h-4" /> {t('common.download', 'Download')}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => { setStatementToDelete(s.id); setDeleteModalOpen(true); }}
+                                >
+                                  <Trash2 className="mr-2 w-4 h-4" /> {t('common.delete', 'Delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right flex gap-2 justify-end">
-                          <ShareButton recordType="bank_statement" recordId={s.id} size="sm" />
-                          <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {isCompleted(s) && s.status !== 'merged' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                if (reprocessingLocks.has(s.id)) return;
-                                try {
-                                  setReprocessingLocks(prev => new Set([...prev, s.id]));
-                                  await bankStatementApi.reprocess(s.id);
-                                  const startPolling = (window as any).startStatementPolling;
-                                  if (typeof startPolling === 'function') {
-                                    startPolling([s.id]);
-                                  }
-                                  toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
-                                  await loadList();
-                                  setTimeout(() => {
-                                    setReprocessingLocks(prev => {
-                                      const next = new Set(prev);
-                                      next.delete(s.id);
-                                      return next;
-                                    });
-                                  }, 30000);
-                                } catch (e: any) {
-                                  setReprocessingLocks(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(s.id);
-                                    return next;
-                                  });
-                                  toast.error(e?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
-                                }
-                              }}
-                              disabled={reprocessingLocks.has(s.id)}
-                            >
-                              {reprocessingLocks.has(s.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                            </Button>
-                          )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handlePreview(s.id)}
-                              disabled={previewLoading === s.id || s.status === 'merged'}
-                            >
-                            {previewLoading === s.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <ExternalLink className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)} disabled={s.status === 'merged'}>
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              setStatementToDelete(s.id);
-                              setDeleteModalOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight, MoreHorizontal, Share2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,9 +13,23 @@ import { toast } from "sonner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalCard } from "@/components/ui/professional-card";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+
+const PAYMENT_COLUMNS: ColumnDef[] = [
+  { key: 'invoice', label: 'Invoice', essential: true },
+  { key: 'client', label: 'Client', essential: true },
+  { key: 'date', label: 'Date', essential: true },
+  { key: 'amount', label: 'Amount', essential: true },
+  { key: 'method', label: 'Method' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const Payments = () => {
   const { t } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('payments', PAYMENT_COLUMNS);
+  const [sharePaymentId, setSharePaymentId] = useState<number | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,6 +160,14 @@ const Payments = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <ColumnPicker
+                columns={PAYMENT_COLUMNS}
+                isVisible={isVisible}
+                onToggle={toggle}
+                onReset={reset}
+                hiddenCount={hiddenCount}
+              />
             </div>
           </div>
 
@@ -168,7 +191,7 @@ const Payments = () => {
                       <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>
+                      {isVisible('method') && <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -190,24 +213,43 @@ const Payments = () => {
                           <TableCell className="font-semibold text-foreground">
                             <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize font-medium">
-                              {payment.payment_method || 'N/A'}
-                            </Badge>
-                          </TableCell>
+                          {isVisible('method') && (
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize font-medium">
+                                {payment.payment_method || 'N/A'}
+                              </Badge>
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Badge variant="outline" className="capitalize font-medium">
                               {payment.status || 'N/A'}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <ShareButton recordType="payment" recordId={payment.id} size="icon" variant="ghost" />
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setSharePaymentId(payment.id)}>
+                                  <Share2 className="mr-2 h-4 w-4" /> Share
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <ShareButton
+                              recordType="payment"
+                              recordId={payment.id}
+                              open={sharePaymentId === payment.id}
+                              onOpenChange={(isOpen: boolean) => { if (!isOpen) setSharePaymentId(null); }}
+                            />
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-auto p-0 border-none">
+                        <TableCell colSpan={7} className="h-auto p-0 border-none">
                           <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CreditCard className="h-8 w-8 text-primary" />

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, ChevronDown } from "lucide-react";
+import { Trash2, RotateCcw, ChevronDown, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -183,10 +184,10 @@ const ExpenseRecycleBin = () => {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                     <TableHead>{t('expenseRecycleBin.expense')}</TableHead>
                     <TableHead>{t('expenseRecycleBin.amount')}</TableHead>
                     <TableHead>{t('expenseRecycleBin.category')}</TableHead>
@@ -205,7 +206,7 @@ const ExpenseRecycleBin = () => {
                     </TableRow>
                   ) : deletedExpenses.length > 0 ? (
                     deletedExpenses.map((expense) => (
-                      <TableRow key={expense.id} className="hover:bg-muted/50">
+                      <TableRow key={expense.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
                         <TableCell className="font-medium">
                           <div>
                             <div className="font-medium">{expense.vendor || t('expenseRecycleBin.unknown_vendor')}</div>
@@ -229,27 +230,23 @@ const ExpenseRecycleBin = () => {
                         </TableCell>
                         <TableCell>{formatDate(expense.deleted_at)}</TableCell>
                         <TableCell>{expense.deleted_by_username || t('expenseRecycleBin.unknown')}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRestore(expense.id)}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              title={t('expenseRecycleBin.restore_expense')}
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handlePermanentDelete(expense.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title={t('expenseRecycleBin.permanently_delete')}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleRestore(expense.id)}>
+                                <RotateCcw className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.restore_expense', 'Restore')}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handlePermanentDelete(expense.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.permanently_delete', 'Delete permanently')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))

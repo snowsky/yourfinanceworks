@@ -41,7 +41,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
 // removed duplicate icons
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -55,7 +55,28 @@ import { formatDate } from '@/lib/utils';
 import { PageHeader, ContentSection } from "@/components/ui/professional-layout";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+import { ShareButton } from "@/components/sharing/ShareButton";
+import { Share2 } from "lucide-react";
 
+const EXPENSE_COLUMNS: ColumnDef[] = [
+  { key: 'select', label: 'Select', essential: true },
+  { key: 'id', label: 'ID' },
+  { key: 'date', label: 'Date', essential: true },
+  { key: 'category', label: 'Category', essential: true },
+  { key: 'vendor', label: 'Vendor' },
+  { key: 'labels', label: 'Labels' },
+  { key: 'amount', label: 'Amount', essential: true },
+  { key: 'total', label: 'Total' },
+  { key: 'invoice', label: 'Invoice' },
+  { key: 'approval_status', label: 'Approval Status' },
+  { key: 'created_at_by', label: 'Created at / by' },
+  { key: 'analyzed', label: 'Analyzed' },
+  { key: 'review', label: 'Review' },
+  { key: 'receipt', label: 'Receipt' },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 // Helper function to format date without timezone issues
 const formatDateToISO = (date: Date): string => {
@@ -81,6 +102,7 @@ const safeParseDateString = (dateString?: string): Date => {
 
 const Expenses = () => {
   const { t, i18n } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('expenses', EXPENSE_COLUMNS);
   const { isFeatureEnabled } = useFeatures();
   const hasAIExpenseFeature = isFeatureEnabled('ai_expense');
 
@@ -131,6 +153,8 @@ const Expenses = () => {
 
   // Inventory consumption state for edit expense
   const [isEditInventoryConsumption, setIsEditInventoryConsumption] = useState(false);
+  const [expenseIdToDelete, setExpenseIdToDelete] = useState<number | null>(null);
+  const [shareExpenseId, setShareExpenseId] = useState<number | null>(null);
   const [editConsumptionItems, setEditConsumptionItems] = useState<any[]>([]);
 
   // Processing lock state for expenses
@@ -985,6 +1009,8 @@ const Expenses = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <ColumnPicker columns={EXPENSE_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
               </div>
             </div>
 
@@ -1161,19 +1187,19 @@ const Expenses = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>
+                    {isVisible('id') && <TableHead className="font-bold text-foreground">{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>}
                     <TableHead className="font-bold text-foreground">{t('expenses.table.date')}</TableHead>
                     <TableHead className="font-bold text-foreground">{t('expenses.table.category')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.vendor')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>
+                    {isVisible('vendor') && <TableHead className="font-bold text-foreground">{t('expenses.table.vendor')}</TableHead>}
+                    {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>}
                     <TableHead className="font-bold text-foreground">{t('expenses.table.amount')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>
-                    <TableHead className="hidden xl:table-cell font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.review.title', { defaultValue: 'Review' })}</TableHead>
-                    <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>
+                    {isVisible('total') && <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>}
+                    {isVisible('invoice') && <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>}
+                    {isVisible('approval_status') && <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>}
+                    {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
+                    {isVisible('analyzed') && <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>}
+                    {isVisible('review') && <TableHead className="font-bold text-foreground">{t('expenses.review.title', { defaultValue: 'Review' })}</TableHead>}
+                    {isVisible('receipt') && <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>}
                     <TableHead className="w-[100px] text-right font-bold text-foreground">{t('expenses.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1200,7 +1226,7 @@ const Expenses = () => {
                             aria-label={`Select expense ${e.id}`}
                           />
                         </TableCell>
-                        <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>
+                        {isVisible('id') && <TableCell className="text-muted-foreground whitespace-nowrap">#{e.id}</TableCell>}
                         <TableCell>
                           <div className="flex flex-col">
                             <div className="font-medium text-sm">
@@ -1214,8 +1240,8 @@ const Expenses = () => {
                           </div>
                         </TableCell>
                         <TableCell>{e.category}</TableCell>
-                        <TableCell>{e.vendor || '—'}</TableCell>
-                        <TableCell>
+                        {isVisible('vendor') && <TableCell>{e.vendor || '—'}</TableCell>}
+                        {isVisible('labels') && <TableCell>
                           <div className="flex flex-wrap items-center gap-2">
                             {(e.labels || []).slice(0, 10).map((lab, idx) => (
                               <Badge
@@ -1269,17 +1295,17 @@ const Expenses = () => {
                               />
                             )}
                           </div>
-                        </TableCell>
+                        </TableCell>}
                         <TableCell><CurrencyDisplay amount={e.amount || 0} currency={e.currency || 'USD'} /></TableCell>
-                        <TableCell><CurrencyDisplay amount={e.total_amount || e.amount || 0} currency={e.currency || 'USD'} /></TableCell>
-                        <TableCell>
+                        {isVisible('total') && <TableCell><CurrencyDisplay amount={e.total_amount || e.amount || 0} currency={e.currency || 'USD'} /></TableCell>}
+                        {isVisible('invoice') && <TableCell>
                           {typeof e.invoice_id === 'number' ? (
                             <Link to={`/invoices/edit/${e.invoice_id}`} className="text-blue-600 hover:underline">#{e.invoice_id}</Link>
                           ) : (
                             <span className="text-muted-foreground">{t('expenses.none')}</span>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        {isVisible('approval_status') && <TableCell>
                           <ExpenseApprovalStatus
                             expense={{
                               id: e.id,
@@ -1289,8 +1315,8 @@ const Expenses = () => {
                             }}
                             approvals={[]} // TODO: Fetch approvals data
                           />
-                        </TableCell>
-                        <TableCell className="hidden xl:table-cell">
+                        </TableCell>}
+                        {isVisible('created_at_by') && <TableCell>
                           <div className="text-sm">
                             <div className="text-muted-foreground">
                               {e.created_at ? new Date(e.created_at).toLocaleString(getLocale(), { 
@@ -1306,8 +1332,8 @@ const Expenses = () => {
                               {e.created_by_username || e.created_by_email || t('common.unknown')}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        {isVisible('analyzed') && <TableCell>
                           <div className="flex flex-col gap-2">
                             <div>
                               {e.analysis_status === 'done' ? (
@@ -1351,8 +1377,8 @@ const Expenses = () => {
                               </Button>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        {isVisible('review') && <TableCell>
                           {/* Review Status Column */}
                           {e.review_status === 'diff_found' ? (
                             <Button size="sm" variant="outline" className="border-amber-500 text-amber-600 hover:bg-amber-50" onClick={() => handleReviewClick(e)}>
@@ -1418,8 +1444,8 @@ const Expenses = () => {
                               )}
                             </div>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        {isVisible('receipt') && <TableCell>
                           <div className="flex flex-col gap-2">
                             <label className="inline-flex items-center gap-2 cursor-pointer w-fit">
                               <Upload className="w-4 h-4" />
@@ -1453,40 +1479,37 @@ const Expenses = () => {
                               )}
                             </Button>
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </TableCell>}
+                        <TableCell className="text-right">
                           {canPerformActions() && (
-                            <div className="text-right flex gap-2 justify-end">
-                              <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/view/${e.id}`}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              {canEditExpense(e) && (
-                                <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
-                                  <Edit className="w-4 h-4" />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </Button>
-                              )}
-                              {canDeleteExpense(e) && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive">
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('expenses.delete_confirm_description')}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => window.location.href = `/expenses/view/${e.id}`}>
+                                  <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                                </DropdownMenuItem>
+                                {canEditExpense(e) && (
+                                  <DropdownMenuItem onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
+                                    <Edit className="mr-2 w-4 h-4" /> {t('common.edit', 'Edit')}
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => setShareExpenseId(e.id)}>
+                                  <Share2 className="mr-2 w-4 h-4" /> Share
+                                </DropdownMenuItem>
+                                {canDeleteExpense(e) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setExpenseIdToDelete(e.id)}>
+                                      <Trash2 className="mr-2 w-4 h-4" /> {t('expenses.delete', 'Delete')}
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </TableCell>
                       </TableRow>
@@ -1898,6 +1921,24 @@ const Expenses = () => {
           readOnly={selectedReviewExpense?.review_status === 'reviewed' || selectedReviewExpense?.review_status === 'no_diff'}
         />
       )}
+
+      {shareExpenseId !== null && (
+        <ShareButton recordType="expense" recordId={shareExpenseId} open onOpenChange={(open) => { if (!open) setShareExpenseId(null); }} />
+      )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={expenseIdToDelete !== null} onOpenChange={(open) => { if (!open) setExpenseIdToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('expenses.delete_confirm_description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (expenseIdToDelete !== null) { handleDelete(expenseIdToDelete); setExpenseIdToDelete(null); } }}>{t('expenses.delete')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

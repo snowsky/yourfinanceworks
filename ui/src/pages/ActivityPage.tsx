@@ -417,7 +417,7 @@ export function ActivityPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-16">
+                <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20">
                   <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
                   <h3 className="text-xl font-semibold mb-2">{t('dashboard.activity.no_activities_found')}</h3>
                   <p className="text-muted-foreground mb-6">

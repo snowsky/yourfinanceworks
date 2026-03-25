@@ -1,4 +1,5 @@
 import * as React from "react"
+import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useListDensity } from "@/hooks/use-list-density"
@@ -80,24 +81,48 @@ const TableRow = React.forwardRef<
 ))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef<
-  HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => {
-  const { density } = useListDensity();
-  const densityClass = density === "compact" ? "h-10 px-3 text-[11px]" : "h-12 px-4 text-xs";
-  return (
-    <th
-      ref={ref}
-      className={cn(
-        "sticky top-0 z-10 text-left align-middle font-semibold uppercase tracking-wide text-muted-foreground bg-muted/80 backdrop-blur-sm [&:has([role=checkbox])]:pr-0",
-        densityClass,
-        className
-      )}
-      {...props}
-    />
-  )
-})
+interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  sortable?: boolean;
+  sortDirection?: "asc" | "desc" | null;
+  onSort?: () => void;
+}
+
+const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
+  ({ className, sortable, sortDirection, onSort, children, ...props }, ref) => {
+    const { density } = useListDensity();
+    const densityClass = density === "compact" ? "h-10 px-3 text-[11px]" : "h-12 px-4 text-xs";
+
+    const SortIcon = sortDirection === "asc"
+      ? ChevronUp
+      : sortDirection === "desc"
+        ? ChevronDown
+        : ChevronsUpDown;
+
+    return (
+      <th
+        ref={ref}
+        className={cn(
+          "sticky top-0 z-10 text-left align-middle font-semibold uppercase tracking-wide text-muted-foreground bg-muted/80 backdrop-blur-sm [&:has([role=checkbox])]:pr-0",
+          densityClass,
+          sortable && "cursor-pointer select-none hover:text-foreground transition-colors",
+          className
+        )}
+        onClick={sortable ? onSort : undefined}
+        {...props}
+      >
+        {sortable ? (
+          <span className="flex items-center gap-1">
+            {children}
+            <SortIcon className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              sortDirection ? "text-foreground" : "text-muted-foreground/50"
+            )} />
+          </span>
+        ) : children}
+      </th>
+    );
+  }
+)
 TableHead.displayName = "TableHead"
 
 const TableCell = React.forwardRef<

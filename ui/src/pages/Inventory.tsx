@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2, Eye, Package, AlertTriangle, TrendingUp, DollarSign, BarChart3, Zap, Target, Lightbulb, Image as ImageIcon } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Eye, Package, AlertTriangle, TrendingUp, DollarSign, BarChart3, Zap, Target, Lightbulb, Image as ImageIcon, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState, useEffect } from "react";
 import { inventoryApi, InventoryItem, InventoryCategory, InventoryAnalytics, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
@@ -19,9 +20,24 @@ import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ColumnPicker } from "@/components/ui/column-picker";
+
+const INVENTORY_COLUMNS: ColumnDef[] = [
+  { key: 'name', label: 'Name', essential: true },
+  { key: 'sku', label: 'SKU' },
+  { key: 'category', label: 'Category' },
+  { key: 'price', label: 'Price', essential: true },
+  { key: 'stock', label: 'Stock', essential: true },
+  { key: 'created', label: 'Created' },
+  { key: 'updated', label: 'Updated' },
+  { key: 'status', label: 'Status', essential: true },
+  { key: 'actions', label: 'Actions', essential: true },
+];
 
 const Inventory = () => {
   const { t } = useTranslation();
+  const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('inventory', INVENTORY_COLUMNS);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [analytics, setAnalytics] = useState<InventoryAnalytics | null>(null);
@@ -274,18 +290,22 @@ const Inventory = () => {
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <CardTitle>{t('inventory.items_list', 'Inventory Items')}</CardTitle>
                   <div className="flex gap-2">
-                    <select
-                      className="px-3 py-2 border border-input bg-background rounded-md text-sm"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                    <Select
+                      value={String(selectedCategory)}
+                      onValueChange={(val) => setSelectedCategory(val === "all" ? "all" : parseInt(val))}
                     >
-                      <option value="all">{t('inventory.all_categories', 'All Categories')}</option>
-                      {categories.map(category => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                        <SelectValue placeholder={t('inventory.all_categories', 'All Categories')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('inventory.all_categories', 'All Categories')}</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={String(category.id)}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <div className="relative max-w-sm">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -295,21 +315,28 @@ const Inventory = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
+                    <ColumnPicker
+                      columns={INVENTORY_COLUMNS}
+                      isVisible={isVisible}
+                      onToggle={toggle}
+                      onReset={reset}
+                      hiddenCount={hiddenCount}
+                    />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
                         <TableHead>{t('inventory.table.name', 'Name')}</TableHead>
-                        <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>
-                        <TableHead>{t('inventory.table.category', 'Category')}</TableHead>
+                        {isVisible('sku') && <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>}
+                        {isVisible('category') && <TableHead>{t('inventory.table.category', 'Category')}</TableHead>}
                         <TableHead className="text-right">{t('inventory.table.price', 'Price')}</TableHead>
                         <TableHead className="text-right">{t('inventory.table.stock', 'Stock')}</TableHead>
-                        <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>
-                        <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>
+                        {isVisible('created') && <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>}
+                        {isVisible('updated') && <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>}
                         <TableHead>{t('inventory.table.status', 'Status')}</TableHead>
                         <TableHead className="w-[100px]">{t('inventory.table.actions', 'Actions')}</TableHead>
                       </TableRow>
@@ -346,8 +373,8 @@ const Inventory = () => {
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>{item.sku || '-'}</TableCell>
-                              <TableCell>{item.category?.name || '-'}</TableCell>
+                              {isVisible('sku') && <TableCell>{item.sku || '-'}</TableCell>}
+                              {isVisible('category') && <TableCell>{item.category?.name || '-'}</TableCell>}
                               <TableCell className="text-right font-medium">
                                 <CurrencyDisplay amount={item.unit_price} currency={item.currency} />
                               </TableCell>
@@ -360,42 +387,49 @@ const Inventory = () => {
                                   <span className="text-muted-foreground">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {formatDateTime(item.created_at)}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {formatDateTime(item.updated_at)}
-                              </TableCell>
+                              {isVisible('created') && (
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {formatDateTime(item.created_at)}
+                                </TableCell>
+                              )}
+                              {isVisible('updated') && (
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {formatDateTime(item.updated_at)}
+                                </TableCell>
+                              )}
                               <TableCell>
                                 <Badge variant={stockStatus.color || 'default'}>
                                   {stockStatus.label}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Link to={`/inventory/view/${item.id}`}>
-                                    <Button variant="ghost" size="icon" title="View Details">
-                                      <Eye className="h-4 w-4" />
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </Button>
-                                  </Link>
-                                  {canPerformAction && (
-                                    <>
-                                      <Link to={`/inventory/edit/${item.id}`}>
-                                        <Button variant="ghost" size="icon" title="Edit Item">
-                                          <Pencil className="h-4 w-4" />
-                                        </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                      <Link to={`/inventory/view/${item.id}`} className="flex items-center">
+                                        <Eye className="mr-2 h-4 w-4" /> {t('common.view', 'View')}
                                       </Link>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        title="Delete Item"
-                                        onClick={() => setItemToDelete(item)}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                      </Button>
-                                    </>
-                                  )}
-                                </div>
+                                    </DropdownMenuItem>
+                                    {canPerformAction && (
+                                      <>
+                                        <DropdownMenuItem asChild>
+                                          <Link to={`/inventory/edit/${item.id}`} className="flex items-center">
+                                            <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                          </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setItemToDelete(item)}>
+                                          <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           );
@@ -496,7 +530,7 @@ const Inventory = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {advancedAnalytics.top_performing_items.slice(0, 10).map((item: any, index: number) => (
-                        <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={item.id} className="flex items-center justify-between px-4 py-3.5 border border-border/30 rounded-lg">
                           <div className="flex items-center gap-4">
                             <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-full">
                               <span className="text-sm font-medium">#{index + 1}</span>
@@ -529,7 +563,7 @@ const Inventory = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {advancedAnalytics.category_performance.map((category: any) => (
-                        <div key={category.category} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div key={category.category} className="flex items-center justify-between px-4 py-3.5 border border-border/30 rounded-lg">
                           <div>
                             <div className="font-medium">{category.category}</div>
                             <div className="text-sm text-muted-foreground">
