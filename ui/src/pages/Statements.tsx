@@ -479,7 +479,7 @@ export default function Statements() {
       return;
     }
 
-    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Reference'];
+    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Notes', 'Reference'];
     let csvContent = [
       headers.join(','),
       ...rows.map(row => {
@@ -488,11 +488,11 @@ export default function Statements() {
         if ((row as any).invoice_id) refs.push(`INV #${(row as any).invoice_id}`);
         if ((row as any).linked_transfer) {
           const lt = (row as any).linked_transfer;
-          const linkType = lt?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
+           const linkType = lt?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
           const statementId = lt?.linked_statement_id;
           const filename = lt?.linked_statement_filename || '';
           const url = statementId ? `${window.location.origin}/statements?id=${statementId}` : '';
-          refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
+           refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
         }
         return [
           row.date,
@@ -501,6 +501,7 @@ export default function Statements() {
           row.transaction_type,
           row.balance ?? '',
           row.category ?? '',
+          `"${(row as any).notes?.replace(/"/g, '""') || ''}"`,
           refs.join('; ')
         ].join(',');
       })
