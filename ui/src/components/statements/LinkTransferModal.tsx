@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -6,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -55,6 +57,7 @@ export function LinkTransferModal({
   sourceStatementId,
   onLinked,
 }: LinkTransferModalProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>('pick-statement');
   const [search, setSearch] = useState('');
   const [statements, setStatements] = useState<BankStatementSummary[]>([]);
@@ -84,7 +87,7 @@ export function LinkTransferModal({
       .then(({ statements: all }) => {
         setStatements(all.filter((s) => s.id !== sourceStatementId && s.status !== 'failed'));
       })
-      .catch(() => toast.error('Failed to load statements'))
+      .catch(() => toast.error(t('statements.link_transfer.load_statements_failed', 'Failed to load statements')))
       .finally(() => setLoadingStatements(false));
   }, [isOpen, sourceStatementId]);
 
@@ -96,7 +99,7 @@ export function LinkTransferModal({
       const detail = await bankStatementApi.get(stmt.id);
       setStatementDetail(detail);
     } catch {
-      toast.error('Failed to load transactions');
+      toast.error(t('statements.link_transfer.load_transactions_failed', 'Failed to load transactions'));
       setStep('pick-statement');
     } finally {
       setLoadingDetail(false);
@@ -126,7 +129,7 @@ export function LinkTransferModal({
 
       if (linkForSource) {
         onLinked(linkForSource);
-        toast.success('Transfer linked successfully');
+        toast.success(t('statements.link_transfer.link_success', 'Transfer linked successfully'));
       } else {
         // Fallback: construct from response
         onLinked({
@@ -138,10 +141,10 @@ export function LinkTransferModal({
           linked_statement_filename: selectedStatement!.original_filename,
           created_at: result.link.created_at,
         });
-        toast.success('Transfer linked successfully');
+        toast.success(t('statements.link_transfer.link_success', 'Transfer linked successfully'));
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to link transfer');
+      toast.error(e?.message || t('statements.link_transfer.link_failed', 'Failed to link transfer'));
     } finally {
       setSubmitting(false);
     }
@@ -166,17 +169,20 @@ export function LinkTransferModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowLeftRight className="w-5 h-5 text-blue-500" />
-            Link Transfer
+            {t('statements.link_transfer.title', 'Link Transfer')}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('statements.link_transfer.description', 'Select a statement and transaction to link a transfer.')}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className={step === 'pick-statement' ? 'text-primary font-medium' : ''}>1. Select statement</span>
+          <span className={step === 'pick-statement' ? 'text-primary font-medium' : ''}>{t('statements.link_transfer.step1', '1. Select statement')}</span>
           <ArrowRight className="w-3 h-3" />
-          <span className={step === 'pick-transaction' ? 'text-primary font-medium' : ''}>2. Select transaction</span>
+          <span className={step === 'pick-transaction' ? 'text-primary font-medium' : ''}>{t('statements.link_transfer.step2', '2. Select transaction')}</span>
           <ArrowRight className="w-3 h-3" />
-          <span className={step === 'confirm' ? 'text-primary font-medium' : ''}>3. Confirm</span>
+          <span className={step === 'confirm' ? 'text-primary font-medium' : ''}>{t('statements.link_transfer.step3', '3. Confirm')}</span>
         </div>
 
         <div className="flex-1 overflow-hidden">
@@ -184,14 +190,14 @@ export function LinkTransferModal({
           {step === 'pick-statement' && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Source: <span className="font-medium text-foreground">{sourceTransaction.description}</span>{' '}
+                {t('statements.link_transfer.source', 'Source: ')}<span className="font-medium text-foreground">{sourceTransaction.description}</span>{' '}
                 <span className={sourceTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}>
                   {formatAmount(sourceTransaction.amount, sourceTransaction.transaction_type)}
                 </span>{' '}
-                on {safeDate(sourceTransaction.date)}
+                {t('common.on', 'on')} {safeDate(sourceTransaction.date)}
               </p>
               <Input
-                placeholder="Search statements..."
+                placeholder={t('statements.search_placeholder', 'Search statements...')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-8"
@@ -228,7 +234,7 @@ export function LinkTransferModal({
                     {!loadingStatements && statements.filter((s) =>
                       !search || s.original_filename.toLowerCase().includes(search.toLowerCase())
                     ).length === 0 && (
-                      <p className="text-center text-sm text-muted-foreground py-8">No other statements found</p>
+                      <p className="text-center text-sm text-muted-foreground py-8">{t('statements.link_transfer.no_other_statements', 'No other statements found')}</p>
                     )}
                   </div>
                 </ScrollArea>
@@ -241,22 +247,22 @@ export function LinkTransferModal({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <button onClick={() => setStep('pick-statement')} className="text-xs text-muted-foreground hover:text-foreground underline">
-                  ← {selectedStatement?.original_filename}
+                  &larr; {selectedStatement?.original_filename}
                 </button>
               </div>
               <div className="flex items-center gap-3">
-                <Label className="text-xs text-muted-foreground shrink-0">Link type</Label>
+                <Label className="text-xs text-muted-foreground shrink-0">{t('statements.link_transfer.link_type', 'Link type')}</Label>
                 <Select value={linkType} onValueChange={(v) => setLinkType(v as typeof linkType)}>
                   <SelectTrigger className="h-7 w-44 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="transfer">Transfer</SelectItem>
-                    <SelectItem value="fx_conversion">FX Conversion</SelectItem>
+                    <SelectItem value="transfer">{t('statements.link_transfer.type_transfer', 'Transfer')}</SelectItem>
+                    <SelectItem value="fx_conversion">{t('statements.link_transfer.type_fx_conversion', 'FX Conversion')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <span className="text-xs text-muted-foreground">
-                  {linkType === 'transfer' ? 'Showing opposite type only' : 'Showing all transactions'}
+                  {linkType === 'transfer' ? t('statements.link_transfer.showing_opposite_type', 'Showing opposite type only') : t('statements.link_transfer.showing_all_transactions', 'Showing all transactions')}
                 </span>
               </div>
               {loadingDetail ? (
@@ -268,10 +274,10 @@ export function LinkTransferModal({
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b text-muted-foreground">
-                        <th className="text-left py-1 pr-2">Date</th>
-                        <th className="text-left py-1 pr-2">Description</th>
-                        <th className="text-right py-1 pr-2">Amount</th>
-                        <th className="text-left py-1">Type</th>
+                        <th className="text-left py-1 pr-2">{t('common.date', 'Date')}</th>
+                        <th className="text-left py-1 pr-2">{t('common.description', 'Description')}</th>
+                        <th className="text-right py-1 pr-2">{t('common.amount', 'Amount')}</th>
+                        <th className="text-left py-1">{t('common.type', 'Type')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -296,7 +302,7 @@ export function LinkTransferModal({
                       {filteredTransactions.length === 0 && (
                         <tr>
                           <td colSpan={4} className="text-center text-muted-foreground py-8">
-                            No matching transactions
+                            {t('statements.link_transfer.no_matching_transactions', 'No matching transactions')}
                           </td>
                         </tr>
                       )}
@@ -311,11 +317,11 @@ export function LinkTransferModal({
           {step === 'confirm' && selectedTransaction && (
             <div className="space-y-4">
               <button onClick={() => setStep('pick-transaction')} className="text-xs text-muted-foreground hover:text-foreground underline">
-                ← Back
+                &larr; {t('common.back', 'Back')}
               </button>
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-lg border p-3 space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Source</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t('statements.link_transfer.source_label', 'Source')}</p>
                   <p className="text-sm font-medium">{sourceTransaction.description}</p>
                   <p className={`text-sm font-semibold ${sourceTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}`}>
                     {formatAmount(sourceTransaction.amount, sourceTransaction.transaction_type)}
@@ -323,7 +329,7 @@ export function LinkTransferModal({
                   <p className="text-xs text-muted-foreground">{safeDate(sourceTransaction.date)}</p>
                 </div>
                 <div className="rounded-lg border p-3 space-y-1 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Target</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t('statements.link_transfer.target_label', 'Target')}</p>
                   <p className="text-sm font-medium">{selectedTransaction.description}</p>
                   <p className={`text-sm font-semibold ${selectedTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}`}>
                     {formatAmount(selectedTransaction.amount, selectedTransaction.transaction_type)}
@@ -334,23 +340,23 @@ export function LinkTransferModal({
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Label className="text-sm shrink-0">Link type</Label>
+                  <Label className="text-sm shrink-0">{t('statements.link_transfer.link_type', 'Link type')}</Label>
                   <Select value={linkType} onValueChange={(v) => setLinkType(v as typeof linkType)}>
                     <SelectTrigger className="h-8 w-44">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="transfer">Transfer</SelectItem>
-                      <SelectItem value="fx_conversion">FX Conversion</SelectItem>
+                      <SelectItem value="transfer">{t('statements.link_transfer.type_transfer', 'Transfer')}</SelectItem>
+                      <SelectItem value="fx_conversion">{t('statements.link_transfer.type_fx_conversion', 'FX Conversion')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Notes (optional)</Label>
+                  <Label className="text-sm">{t('statements.link_transfer.notes_optional', 'Notes (optional)')}</Label>
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="e.g. Monthly savings transfer, CAD conversion at 1.38"
+                    placeholder={t('statements.link_transfer.notes_placeholder', 'e.g. Monthly savings transfer, CAD conversion at 1.38')}
                     className="resize-none h-16 text-sm"
                   />
                 </div>
@@ -360,12 +366,12 @@ export function LinkTransferModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.cancel', 'Cancel')}</Button>
           {step === 'confirm' && (
             <Button onClick={handleLink} disabled={submitting} className="gap-2">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               <ArrowLeftRight className="w-4 h-4" />
-              Link Transfer
+              {t('statements.link_transfer.button_link', 'Link Transfer')}
             </Button>
           )}
         </DialogFooter>

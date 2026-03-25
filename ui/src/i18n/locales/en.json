@@ -78,7 +78,12 @@
     "processing": "Processing",
     "queued": "Queued",
     "failed": "Failed",
-    "save_notes": "Save Notes"
+    "save_notes": "Save Notes",
+    "list_density_comfortable": "Switch to comfortable list density",
+    "comfortable": "Comfortable",
+    "id": "ID",
+    "reference": "Reference",
+    "copy_id": "Copy ID"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -182,7 +187,16 @@
     "dark_mode": "Dark Mode",
     "invoice_recycle_bin": "@:recycleBin.title",
     "expense_recycle_bin": "@:recycleBin.title",
-    "statement_recycle_bin": "@:recycleBin.title"
+    "statement_recycle_bin": "@:recycleBin.title",
+    "approvals": "Approvals",
+    "section": {
+      "core": "Core",
+      "administration": "Administration",
+      "plugins": "Plugins"
+    }
+  },
+  "roles": {
+    "administrator": "Administrator"
   },
   "auth": {
     "login": "Login",
@@ -3152,6 +3166,8 @@
     "search_placeholder": "Search statements...",
     "filter_by_label": "Filter by label",
     "upload": "Upload",
+    "parallel_view": "Parallel View",
+    "delete_expense": "Delete Expense",
     "processing": "Processing...",
     "new_statement": "New Statement",
     "drop_files_here": "Drop files here or click to browse",
@@ -3180,6 +3196,30 @@
       "pending": "Pending",
       "failed": "Failed",
       "diff_found": "Diff Found"
+    },
+    "link_transfer": {
+      "title": "Link Transfer",
+      "description": "Select a statement and transaction to link a transfer.",
+      "step1": "1. Select statement",
+      "step2": "2. Select transaction",
+      "step3": "3. Confirm",
+      "source": "Source: ",
+      "load_statements_failed": "Failed to load statements",
+      "load_transactions_failed": "Failed to load transactions",
+      "no_other_statements": "No other statements found",
+      "link_type": "Link type",
+      "type_transfer": "Transfer",
+      "type_fx_conversion": "FX Conversion",
+      "showing_opposite_type": "Showing opposite type only",
+      "showing_all_transactions": "Showing all transactions",
+      "no_matching_transactions": "No matching transactions",
+      "source_label": "Source",
+      "target_label": "Target",
+      "notes_optional": "Notes (optional)",
+      "notes_placeholder": "e.g. Monthly savings transfer, CAD conversion at 1.38",
+      "button_link": "Link Transfer",
+      "link_success": "Transfer linked successfully",
+      "link_failed": "Failed to link transfer"
     },
     "transactions": "Transactions",
     "uploaded": "Uploaded",

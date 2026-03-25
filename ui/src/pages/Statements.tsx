@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,24 +16,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
 import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useQuery } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
@@ -69,7 +67,6 @@ const STATEMENT_PROVIDERS = [
 ];
 
 const STATEMENT_STATUSES = ['uploaded', 'processing', 'processed', 'failed', 'merged'] as const;
-type StatementStatus = typeof STATEMENT_STATUSES[number];
 
 type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null; linked_transfer?: TransactionLinkInfo | null };
 
@@ -80,7 +77,7 @@ function StatusBadge({
   analysis_error
 }: {
   status?: string;
-  extraction_method?: string;
+  extraction_method?: string | null;
   analysis_error?: string | null;
 }) {
   const { t } = useTranslation();
@@ -103,6 +100,11 @@ function StatusBadge({
       {status === 'processed' && extraction_method && (
         <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold tracking-tighter">
           via {extraction_method}
+        </span>
+      )}
+      {status === 'failed' && analysis_error && (
+        <span className="text-[10px] text-red-600 dark:text-red-400 ml-1 line-clamp-2" title={analysis_error}>
+          {analysis_error}
         </span>
       )}
     </div>
