@@ -205,6 +205,7 @@ export default function Statements() {
   const [splitViewPdfUrl, setSplitViewPdfUrl] = useState<string | null>(null);
   const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
   const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
+  const [linkTransferModalMounted, setLinkTransferModalMounted] = useState(false);
   const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
   const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -674,15 +675,19 @@ export default function Statements() {
     }
   }, [showRecycleBin, recycleBinCurrentPage]);
 
-  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
-    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+  const closeLinkTransferModal = () => {
     setLinkTransferModalOpen(false);
     setLinkingRowIdx(null);
-    // Delay reload until after the Dialog close animation finishes (duration-200)
-    // to avoid interrupting Radix's cleanup which would leave the overlay stuck.
+    // Unmount after animation completes so Radix can clean up the overlay properly
+    setTimeout(() => setLinkTransferModalMounted(false), 300);
+  };
+
+  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
+    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+    closeLinkTransferModal();
     if (selected) {
       const id = selected;
-      setTimeout(() => openStatement(id), 300);
+      setTimeout(() => openStatement(id), 350);
     }
   };
 
@@ -2486,6 +2491,7 @@ export default function Statements() {
                                         onClick={() => {
                                           setLinkingRowIdx(idx);
                                           setLinkTransferModalOpen(true);
+                                          setLinkTransferModalMounted(true);
                                         }}
                                         disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
                                       >
@@ -3034,13 +3040,15 @@ export default function Statements() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <LinkTransferModal
-          isOpen={linkTransferModalOpen && linkingRowIdx !== null && !!rows[linkingRowIdx]?.backend_id && !!selected}
-          onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
-          sourceTransaction={linkingRowIdx !== null && rows[linkingRowIdx] ? { ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined } : {} as BankTransactionEntry}
-          sourceStatementId={selected ?? 0}
-          onLinked={(link) => linkingRowIdx !== null && handleTransactionLinked(linkingRowIdx, link)}
-        />
+        {linkTransferModalMounted && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
+          <LinkTransferModal
+            isOpen={linkTransferModalOpen}
+            onClose={closeLinkTransferModal}
+            sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined }}
+            sourceStatementId={selected}
+            onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
+          />
+        )}
       </div>
     </>
   );
