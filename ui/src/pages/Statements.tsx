@@ -213,7 +213,7 @@ export default function Statements() {
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
   useEffect(() => {
-    if (location.pathname === '/statements') {
+    if (location.pathname === '/statements' && !searchParams.get('id')) {
       setSelected(null);
       setDetail(null);
       setRows([]);
@@ -632,14 +632,14 @@ export default function Statements() {
     loadList();
   }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
-  // Auto-open statement from URL ?id= param on mount / after list loads
+  // Auto-open statement from URL ?id= param on initial mount only
   useEffect(() => {
-    const idParam = searchParams.get('id');
-    if (idParam && !selected) {
+    const idParam = new URLSearchParams(window.location.search).get('id');
+    if (idParam) {
       const id = parseInt(idParam, 10);
       if (!isNaN(id)) openStatement(id);
     }
-  }, [searchParams]);
+  }, []);
 
   // Listen for polling completion events
   useEffect(() => {
@@ -701,7 +701,9 @@ export default function Statements() {
 
   const openStatement = async (id: number, highlightBackendId?: number) => {
     setSelected(id);
-    setSearchParams({ id: String(id) }, { replace: true });
+    if (searchParams.get('id') !== String(id)) {
+      setSearchParams({ id: String(id) }, { replace: true });
+    }
     setDetailLoading(true);
     setHighlightedBackendId(null);
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
