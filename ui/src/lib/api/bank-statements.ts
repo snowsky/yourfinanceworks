@@ -20,6 +20,7 @@ export interface BankTransactionEntry {
   category?: string | null;
   invoice_id?: number | null;
   expense_id?: number | null;
+  notes?: string | null;
   linked_transfer?: TransactionLinkInfo | null;
 }
 
@@ -121,6 +122,17 @@ export const bankStatementApi = {
     return apiRequest<{ success: boolean; updated_count: number }>(
       `/statements/${statementId}/transactions`,
       { method: 'PUT', body: JSON.stringify({ transactions }) }
+    );
+  },
+
+  patchTransaction: async (
+    statementId: number,
+    transactionId: number,
+    fields: Record<string, unknown>
+  ): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>(
+      `/statements/${statementId}/transactions/${transactionId}`,
+      { method: 'PATCH', body: JSON.stringify(fields) }
     );
   },
 

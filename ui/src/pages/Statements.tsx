@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,24 +16,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
 import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useQuery } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
@@ -69,7 +67,6 @@ const STATEMENT_PROVIDERS = [
 ];
 
 const STATEMENT_STATUSES = ['uploaded', 'processing', 'processed', 'failed', 'merged'] as const;
-type StatementStatus = typeof STATEMENT_STATUSES[number];
 
 type BankRow = BankTransactionEntry & { id?: number; invoice_id?: number | null; expense_id?: number | null; backend_id?: number | null; linked_transfer?: TransactionLinkInfo | null };
 
@@ -80,7 +77,7 @@ function StatusBadge({
   analysis_error
 }: {
   status?: string;
-  extraction_method?: string;
+  extraction_method?: string | null;
   analysis_error?: string | null;
 }) {
   const { t } = useTranslation();
@@ -103,6 +100,11 @@ function StatusBadge({
       {status === 'processed' && extraction_method && (
         <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold tracking-tighter">
           via {extraction_method}
+        </span>
+      )}
+      {status === 'failed' && analysis_error && (
+        <span className="text-[10px] text-red-600 dark:text-red-400 ml-1 line-clamp-2" title={analysis_error}>
+          {analysis_error}
         </span>
       )}
     </div>
@@ -171,6 +173,7 @@ export default function Statements() {
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
   const [shareStatementId, setShareStatementId] = useState<number | null>(null);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setPageContext } = usePageContext();
 
   const [files, setFiles] = useState<File[]>([]);
@@ -204,7 +207,10 @@ export default function Statements() {
   const [splitViewPdfUrl, setSplitViewPdfUrl] = useState<string | null>(null);
   const [splitViewPdfObjectUrl, setSplitViewPdfObjectUrl] = useState<string | null>(null);
   const [linkTransferModalOpen, setLinkTransferModalOpen] = useState(false);
+  const [linkTransferModalMounted, setLinkTransferModalMounted] = useState(false);
   const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
+  const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
+  const [rowToUnlink, setRowToUnlink] = useState<number | null>(null);
   const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -212,7 +218,7 @@ export default function Statements() {
   const isCompleted = (s: { status?: string }) => s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
   useEffect(() => {
-    if (location.pathname === '/statements') {
+    if (location.pathname === '/statements' && !searchParams.get('id')) {
       setSelected(null);
       setDetail(null);
       setRows([]);
@@ -473,18 +479,37 @@ export default function Statements() {
       return;
     }
 
-    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category'];
-    const csvContent = [
+    const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Notes', 'Reference'];
+    let csvContent = [
       headers.join(','),
-      ...rows.map(row => [
-        row.date,
-        `"${row.description.replace(/"/g, '""')}"`,
-        row.amount,
-        row.transaction_type,
-        row.balance ?? '',
-        row.category ?? ''
-      ].join(','))
+      ...rows.map(row => {
+        const refs: string[] = [];
+        if ((row as any).expense_id) refs.push(`EXP #${(row as any).expense_id}`);
+        if ((row as any).invoice_id) refs.push(`INV #${(row as any).invoice_id}`);
+        if ((row as any).linked_transfer) {
+          const lt = (row as any).linked_transfer;
+           const linkType = lt?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
+          const statementId = lt?.linked_statement_id;
+          const filename = lt?.linked_statement_filename || '';
+          const url = statementId ? `${window.location.origin}/statements?id=${statementId}` : '';
+           refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
+        }
+        return [
+          row.date,
+          `"${row.description.replace(/"/g, '""')}"`,
+          row.amount,
+          row.transaction_type,
+          row.balance ?? '',
+          row.category ?? '',
+          `"${(row as any).notes?.replace(/"/g, '""') || ''}"`,
+          refs.join('; ')
+        ].join(',');
+      })
     ].join('\n');
+
+    if (statementNotes) {
+      csvContent += `\n\n"Notes: ${statementNotes.replace(/"/g, '""')}"`;
+    }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -536,19 +561,11 @@ export default function Statements() {
       toast.success(t('statements.expense.create_success', { defaultValue: 'Expense created successfully' }));
 
       // Link this transaction to the created expense to prevent duplicates
-      const updatedRows: BankRow[] = rows.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r);
-      setRows(updatedRows);
-      if (selected) {
+      setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r));
+      const backendId = (transaction as any).backend_id;
+      if (selected && backendId) {
         try {
-          const cleaned = updatedRows.map(r => ({
-            ...r,
-            balance: r.balance === undefined ? null : r.balance,
-            category: r.category || null,
-            invoice_id: r.invoice_id ?? null,
-            expense_id: r.expense_id ?? null,
-          }));
-          await bankStatementApi.replaceTransactions(selected, cleaned);
-          // Reload to confirm persisted link
+          await bankStatementApi.patchTransaction(selected, backendId, { expense_id: created.id });
           await openStatement(selected);
         } catch (linkErr: any) {
           console.error('Failed to persist expense link:', linkErr);
@@ -625,6 +642,15 @@ export default function Statements() {
     loadList();
   }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
+  // Auto-open statement from URL ?id= param on initial mount only
+  useEffect(() => {
+    const idParam = new URLSearchParams(window.location.search).get('id');
+    if (idParam) {
+      const id = parseInt(idParam, 10);
+      if (!isNaN(id)) openStatement(id);
+    }
+  }, []);
+
   // Listen for polling completion events
   useEffect(() => {
     const handleRefresh = (e: any) => {
@@ -658,33 +684,47 @@ export default function Statements() {
     }
   }, [showRecycleBin, recycleBinCurrentPage]);
 
-  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
-    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+  const closeLinkTransferModal = () => {
     setLinkTransferModalOpen(false);
-    setLinkingRowIdx(null);
+    // Unmount after animation completes so Radix can clean up the overlay properly
+    setTimeout(() => {
+      setLinkTransferModalMounted(false);
+      setLinkingRowIdx(null);
+    }, 300);
   };
 
-  const handleUnlinkTransfer = async (rowIdx: number) => {
-    const row = rows[rowIdx];
+  const handleTransactionLinked = (rowIdx: number, link: TransactionLinkInfo) => {
+    setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
+    closeLinkTransferModal();
+    if (selected) {
+      const id = selected;
+      setTimeout(() => openStatement(id), 350);
+    }
+  };
+
+  const confirmUnlinkTransfer = async () => {
+    if (rowToUnlink === null) return;
+    const row = rows[rowToUnlink];
     const linkId = row.linked_transfer?.id;
     if (!linkId) return;
-    if (!confirm('Remove this transfer link?')) return;
+
     try {
       await bankStatementApi.deleteTransactionLink(linkId);
-      setRows((prev) => prev.map((r, i) => {
-        if (i === rowIdx) return { ...r, linked_transfer: null };
-        // Also clear the linked side if it's visible in the same statement
-        if (r.backend_id === row.linked_transfer?.linked_transaction_id) return { ...r, linked_transfer: null };
-        return r;
-      }));
       toast.success('Transfer link removed');
+      if (selected) await openStatement(selected);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to remove transfer link');
+    } finally {
+      setUnlinkModalOpen(false);
+      setRowToUnlink(null);
     }
   };
 
   const openStatement = async (id: number, highlightBackendId?: number) => {
     setSelected(id);
+    if (searchParams.get('id') !== String(id)) {
+      setSearchParams({ id: String(id) }, { replace: true });
+    }
     setDetailLoading(true);
     setHighlightedBackendId(null);
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
@@ -702,6 +742,7 @@ export default function Statements() {
         transaction_type: (t.transaction_type === 'debit' || t.transaction_type === 'credit') ? t.transaction_type : (t.amount < 0 ? 'debit' : 'credit'),
         balance: t.balance ?? null,
         category: t.category ?? null,
+        notes: (t as any).notes ?? null,
         invoice_id: (t as any).invoice_id ?? null,
         expense_id: (t as any).expense_id ?? null,
         linked_transfer: (t as any).linked_transfer ?? null,
@@ -787,6 +828,7 @@ export default function Statements() {
         id: r.backend_id || undefined, // Use backend_id for API, or let backend assign new ID
         balance: r.balance === undefined ? null : r.balance,
         category: r.category || null,
+        notes: (r as any).notes || null,
         invoice_id: r.invoice_id ?? null,
         expense_id: r.expense_id ?? null,
       }));
@@ -836,6 +878,7 @@ export default function Statements() {
         setSelected(null);
         setDetail(null);
         setRows([]);
+        setSearchParams({}, { replace: true });
       }
     } catch (e: any) {
       toast.error(e?.message || t('statements.failed_to_delete'));
@@ -1851,7 +1894,7 @@ export default function Statements() {
                     <ProfessionalButton
                       variant="outline"
                       size="icon-sm"
-                      onClick={() => { setSelected(null); setDetail(null); setRows([]); }}
+                      onClick={() => { setSelected(null); setDetail(null); setRows([]); setSearchParams({}, { replace: true }); }}
                       className="rounded-full"
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -2293,6 +2336,7 @@ export default function Statements() {
                       <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance', { defaultValue: 'Balance' })}</TableHead>
                       <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type', { defaultValue: 'Type' })}</TableHead>
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
+                      <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_notes', { defaultValue: 'Notes' })}</TableHead>
                       <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference', { defaultValue: 'Reference' })}</TableHead>
                       <TableHead className="w-[80px] text-right font-bold text-foreground">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
@@ -2402,17 +2446,35 @@ export default function Statements() {
                                 </Badge>
                               )}
                             </TableCell>
+                            <TableCell>
+                              {editingRow === idx ? (
+                                <Input
+                                  value={r.notes || ''}
+                                  onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, notes: e.target.value } : x))}
+                                  className="h-9 border-border/50 bg-muted/20 w-full"
+                                  placeholder={t('statements.notes_placeholder', { defaultValue: 'Notes...' })}
+                                />
+                              ) : (
+                                <span className="text-sm truncate max-w-[150px] inline-block" title={r.notes || ''}>
+                                  {r.notes || <span className="text-muted-foreground/50 italic">-</span>}
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-center">
                               <div className="flex flex-col gap-1">
                                 {Boolean((r as any).expense_id) && (
-                                  <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center">
-                                    EXP #{(r as any).expense_id}
-                                  </Badge>
+                                  <Link to={`/expenses/view/${(r as any).expense_id}`}>
+                                    <Badge className="bg-destructive/5 text-destructive border-destructive/20 border text-[10px] h-5 justify-center cursor-pointer hover:bg-destructive/10 transition-colors">
+                                      EXP #{(r as any).expense_id}
+                                    </Badge>
+                                  </Link>
                                 )}
                                 {Boolean((r as any).invoice_id) && (
-                                  <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center">
-                                    INV #{(r as any).invoice_id}
-                                  </Badge>
+                                  <Link to={`/invoices/view/${(r as any).invoice_id}`}>
+                                    <Badge className="bg-success/5 text-success border-success/20 border text-[10px] h-5 justify-center cursor-pointer hover:bg-success/10 transition-colors">
+                                      INV #{(r as any).invoice_id}
+                                    </Badge>
+                                  </Link>
                                 )}
                                 {Boolean((r as any).linked_transfer) && (
                                   <Badge
@@ -2462,9 +2524,12 @@ export default function Statements() {
                                       <DropdownMenuSeparator />
 
                                       <DropdownMenuItem
-                                        onClick={() => {
-                                          setLinkingRowIdx(idx);
-                                          setLinkTransferModalOpen(true);
+                                        onSelect={() => {
+                                          setTimeout(() => {
+                                            setLinkingRowIdx(idx);
+                                            setLinkTransferModalOpen(true);
+                                            setLinkTransferModalMounted(true);
+                                          }, 100);
                                         }}
                                         disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
                                       >
@@ -2473,7 +2538,12 @@ export default function Statements() {
                                       </DropdownMenuItem>
                                       {Boolean((r as any).linked_transfer) && (
                                         <DropdownMenuItem
-                                          onClick={() => handleUnlinkTransfer(idx)}
+                                          onSelect={() => {
+                                            setTimeout(() => {
+                                              setRowToUnlink(idx);
+                                              setUnlinkModalOpen(true);
+                                            }, 100);
+                                          }}
                                           className="text-destructive focus:text-destructive"
                                           disabled={readOnly}
                                         >
@@ -2515,17 +2585,10 @@ export default function Statements() {
                                                     const expId = (r as any).expense_id;
                                                     await expenseApi.deleteExpense(expId);
                                                     toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
-                                                    const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
-                                                    setRows(updated);
-                                                    if (selected) {
-                                                      const cleaned = updated.map(row => ({
-                                                        ...row,
-                                                        balance: row.balance === undefined ? null : row.balance,
-                                                        category: row.category || null,
-                                                        invoice_id: row.invoice_id ?? null,
-                                                        expense_id: row.expense_id ?? null,
-                                                      }));
-                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                    setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
+                                                    const backendId = (r as any).backend_id;
+                                                    if (selected && backendId) {
+                                                      await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
                                                       await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
@@ -2576,17 +2639,10 @@ export default function Statements() {
                                                     const invId = Number((r as any).invoice_id);
                                                     await invoiceApi.deleteInvoice(invId);
                                                     toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
-                                                    const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
-                                                    setRows(updated);
-                                                    if (selected) {
-                                                      const cleaned = updated.map(row => ({
-                                                        ...row,
-                                                        balance: row.balance === undefined ? null : row.balance,
-                                                        category: row.category || null,
-                                                        invoice_id: row.invoice_id ?? null,
-                                                        expense_id: row.expense_id ?? null,
-                                                      }));
-                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
+                                                    setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
+                                                    const backendId = (r as any).backend_id;
+                                                    if (selected && backendId) {
+                                                      await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
                                                       await openStatement(selected);
                                                     }
                                                   } catch (e: any) {
@@ -2652,17 +2708,10 @@ export default function Statements() {
                                         const expId = (r as any).expense_id;
                                         await expenseApi.deleteExpense(expId);
                                         toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
-                                        const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
-                                        setRows(updated);
-                                        if (selected) {
-                                          const cleaned = updated.map(row => ({
-                                            ...row,
-                                            balance: row.balance === undefined ? null : row.balance,
-                                            category: row.category || null,
-                                            invoice_id: row.invoice_id ?? null,
-                                            expense_id: row.expense_id ?? null,
-                                          }));
-                                          await bankStatementApi.replaceTransactions(selected, cleaned);
+                                        setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
+                                        const backendId = (r as any).backend_id;
+                                        if (selected && backendId) {
+                                          await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
                                           await openStatement(selected);
                                         }
                                       } catch (e: any) {
@@ -2713,17 +2762,10 @@ export default function Statements() {
                                         const invId = Number((r as any).invoice_id);
                                         await invoiceApi.deleteInvoice(invId);
                                         toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
-                                        const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
-                                        setRows(updated);
-                                        if (selected) {
-                                          const cleaned = updated.map(row => ({
-                                            ...row,
-                                            balance: row.balance === undefined ? null : row.balance,
-                                            category: row.category || null,
-                                            invoice_id: row.invoice_id ?? null,
-                                            expense_id: row.expense_id ?? null,
-                                          }));
-                                          await bankStatementApi.replaceTransactions(selected, cleaned);
+                                        setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
+                                        const backendId = (r as any).backend_id;
+                                        if (selected && backendId) {
+                                          await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
                                           await openStatement(selected);
                                         }
                                       } catch (e: any) {
@@ -3041,12 +3083,31 @@ export default function Statements() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {linkTransferModalOpen && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
+        {/* Unlink Transfer Modal */}
+        <AlertDialog open={unlinkModalOpen} onOpenChange={setUnlinkModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Transfer Link</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove this transfer link? This will unlink the transaction from the other statement, but will not delete the transaction itself.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setRowToUnlink(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmUnlinkTransfer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <X className="mr-2 h-4 w-4" />
+                Unlink
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {linkTransferModalMounted && linkingRowIdx !== null && rows[linkingRowIdx]?.backend_id && selected && (
           <LinkTransferModal
             isOpen={linkTransferModalOpen}
-            onClose={() => { setLinkTransferModalOpen(false); setLinkingRowIdx(null); }}
+            onClose={closeLinkTransferModal}
             sourceTransaction={{ ...rows[linkingRowIdx], id: rows[linkingRowIdx].backend_id ?? undefined }}
-            sourceStatementId={selected!}
+            sourceStatementId={selected}
             onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
           />
         )}

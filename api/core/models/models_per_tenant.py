@@ -515,6 +515,7 @@ class BankStatementTransaction(Base):
     transaction_type = Column(String, nullable=False)  # debit|credit
     balance = Column(Float, nullable=True)
     category = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
     # Optional link to an invoice created from this transaction (prevents duplicates)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
     # Optional link to an expense created from this transaction (prevents duplicates)
