@@ -565,15 +565,26 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
             </div>
 
             {/* Env vars info */}
-            <div className="flex gap-3 p-4 rounded-xl bg-blue-50/60 border border-blue-200/50">
-              <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-              <div className="space-y-1 text-sm">
-                <p className="font-medium text-blue-900">{t('settings.no_destinations_configured')}</p>
-                <p className="text-blue-700">{t('settings.environment_variables_will_be_used')}</p>
-                <p className="text-blue-700 font-medium mt-2">{t('settings.supported_env_vars')}:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mt-1">
-                  {['AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY', 'AZURE_STORAGE_CONNECTION_STRING', 'GOOGLE_APPLICATION_CREDENTIALS'].map(v => (
-                    <code key={v} className="text-xs bg-blue-100/80 text-blue-800 px-2 py-1 rounded font-mono leading-tight">{v}</code>
+            <div className="rounded-xl bg-blue-50/60 border border-blue-200/50 p-4 space-y-3">
+              <div className="flex gap-2.5 items-start">
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900">{t('settings.no_destinations_configured')}</p>
+                  <p className="text-blue-700 mt-0.5">{t('settings.environment_variables_will_be_used')}</p>
+                </div>
+              </div>
+              <div className="border-t border-blue-200/60 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-blue-600/70 mb-2">{t('settings.supported_env_vars')}</p>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { provider: 'AWS S3', vars: 'AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY' },
+                    { provider: 'Azure', vars: 'AZURE_STORAGE_CONNECTION_STRING' },
+                    { provider: 'Google', vars: 'GOOGLE_APPLICATION_CREDENTIALS' },
+                  ].map(({ provider, vars }) => (
+                    <div key={provider} className="flex items-center gap-2">
+                      <span className="text-xs text-blue-600/70 w-12 shrink-0">{provider}</span>
+                      <code className="text-xs bg-blue-100/80 text-blue-800 px-2 py-0.5 rounded font-mono">{vars}</code>
+                    </div>
                   ))}
                 </div>
               </div>
