@@ -678,6 +678,7 @@ export default function Statements() {
     setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
     setLinkTransferModalOpen(false);
     setLinkingRowIdx(null);
+    if (selected) openStatement(selected);
   };
 
   const handleUnlinkTransfer = async (rowIdx: number) => {
@@ -687,13 +688,8 @@ export default function Statements() {
     if (!confirm('Remove this transfer link?')) return;
     try {
       await bankStatementApi.deleteTransactionLink(linkId);
-      setRows((prev) => prev.map((r, i) => {
-        if (i === rowIdx) return { ...r, linked_transfer: null };
-        // Also clear the linked side if it's visible in the same statement
-        if (r.backend_id === row.linked_transfer?.linked_transaction_id) return { ...r, linked_transfer: null };
-        return r;
-      }));
       toast.success('Transfer link removed');
+      if (selected) await openStatement(selected);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to remove transfer link');
     }
