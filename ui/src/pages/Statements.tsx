@@ -481,8 +481,12 @@ export default function Statements() {
         if ((row as any).expense_id) refs.push(`EXP #${(row as any).expense_id}`);
         if ((row as any).invoice_id) refs.push(`INV #${(row as any).invoice_id}`);
         if ((row as any).linked_transfer) {
-          const linkType = (row as any).linked_transfer?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
-          refs.push(linkType);
+          const lt = (row as any).linked_transfer;
+          const linkType = lt?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
+          const statementId = lt?.linked_statement_id;
+          const filename = lt?.linked_statement_filename || '';
+          const url = statementId ? `${window.location.origin}/statements?id=${statementId}` : '';
+          refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
         }
         return [
           row.date,
@@ -546,20 +550,11 @@ export default function Statements() {
       toast.success(t('statements.expense.create_success', { defaultValue: 'Expense created successfully' }));
 
       // Link this transaction to the created expense to prevent duplicates
-      const updatedRows: BankRow[] = rows.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r);
-      setRows(updatedRows);
-      if (selected) {
+      setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r));
+      const backendId = (transaction as any).backend_id;
+      if (selected && backendId) {
         try {
-          const cleaned = updatedRows.map(r => ({
-            ...r,
-            balance: r.balance === undefined ? null : r.balance,
-            category: r.category || null,
-            invoice_id: r.invoice_id ?? null,
-            expense_id: r.expense_id ?? null,
-          }));
-          await bankStatementApi.replaceTransactions(selected, cleaned);
-          // Reload to confirm persisted link
-          await openStatement(selected);
+          await bankStatementApi.patchTransaction(selected, backendId, { expense_id: created.id });
         } catch (linkErr: any) {
           console.error('Failed to persist expense link:', linkErr);
         }
@@ -2525,18 +2520,10 @@ export default function Statements() {
                                                     const expId = (r as any).expense_id;
                                                     await expenseApi.deleteExpense(expId);
                                                     toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
-                                                    const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
-                                                    setRows(updated);
-                                                    if (selected) {
-                                                      const cleaned = updated.map(row => ({
-                                                        ...row,
-                                                        balance: row.balance === undefined ? null : row.balance,
-                                                        category: row.category || null,
-                                                        invoice_id: row.invoice_id ?? null,
-                                                        expense_id: row.expense_id ?? null,
-                                                      }));
-                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                      await openStatement(selected);
+                                                    setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
+                                                    const backendId = (r as any).backend_id;
+                                                    if (selected && backendId) {
+                                                      await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
                                                     }
                                                   } catch (e: any) {
                                                     toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
@@ -2586,18 +2573,10 @@ export default function Statements() {
                                                     const invId = Number((r as any).invoice_id);
                                                     await invoiceApi.deleteInvoice(invId);
                                                     toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
-                                                    const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
-                                                    setRows(updated);
-                                                    if (selected) {
-                                                      const cleaned = updated.map(row => ({
-                                                        ...row,
-                                                        balance: row.balance === undefined ? null : row.balance,
-                                                        category: row.category || null,
-                                                        invoice_id: row.invoice_id ?? null,
-                                                        expense_id: row.expense_id ?? null,
-                                                      }));
-                                                      await bankStatementApi.replaceTransactions(selected, cleaned);
-                                                      await openStatement(selected);
+                                                    setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
+                                                    const backendId = (r as any).backend_id;
+                                                    if (selected && backendId) {
+                                                      await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
                                                     }
                                                   } catch (e: any) {
                                                     let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
@@ -2662,18 +2641,10 @@ export default function Statements() {
                                         const expId = (r as any).expense_id;
                                         await expenseApi.deleteExpense(expId);
                                         toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
-                                        const updated = rows.map((row, i) => i === idx ? { ...row, expense_id: null } : row);
-                                        setRows(updated);
-                                        if (selected) {
-                                          const cleaned = updated.map(row => ({
-                                            ...row,
-                                            balance: row.balance === undefined ? null : row.balance,
-                                            category: row.category || null,
-                                            invoice_id: row.invoice_id ?? null,
-                                            expense_id: row.expense_id ?? null,
-                                          }));
-                                          await bankStatementApi.replaceTransactions(selected, cleaned);
-                                          await openStatement(selected);
+                                        setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
+                                        const backendId = (r as any).backend_id;
+                                        if (selected && backendId) {
+                                          await bankStatementApi.patchTransaction(selected, backendId, { expense_id: null });
                                         }
                                       } catch (e: any) {
                                         toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
@@ -2723,18 +2694,10 @@ export default function Statements() {
                                         const invId = Number((r as any).invoice_id);
                                         await invoiceApi.deleteInvoice(invId);
                                         toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
-                                        const updated = rows.map((row, i) => i === idx ? { ...row, invoice_id: null } : row);
-                                        setRows(updated);
-                                        if (selected) {
-                                          const cleaned = updated.map(row => ({
-                                            ...row,
-                                            balance: row.balance === undefined ? null : row.balance,
-                                            category: row.category || null,
-                                            invoice_id: row.invoice_id ?? null,
-                                            expense_id: row.expense_id ?? null,
-                                          }));
-                                          await bankStatementApi.replaceTransactions(selected, cleaned);
-                                          await openStatement(selected);
+                                        setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
+                                        const backendId = (r as any).backend_id;
+                                        if (selected && backendId) {
+                                          await bankStatementApi.patchTransaction(selected, backendId, { invoice_id: null });
                                         }
                                       } catch (e: any) {
                                         let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });

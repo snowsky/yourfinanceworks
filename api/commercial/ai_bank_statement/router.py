@@ -1090,6 +1090,52 @@ async def update_statement_meta(
         raise HTTPException(status_code=500, detail=f"Failed to update statement: {e}")
 
 
+@router.patch("/{statement_id}/transactions/{transaction_id}", response_model=Dict[str, Any])
+async def patch_statement_transaction(
+    statement_id: int,
+    transaction_id: int,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "edit bank statement transaction")
+    try:
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    txn = (
+        db.query(BankStatementTransaction)
+        .join(BankStatement)
+        .filter(
+            BankStatementTransaction.id == transaction_id,
+            BankStatementTransaction.statement_id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    allowed_fields = {"expense_id", "invoice_id", "category", "description", "amount", "balance", "transaction_type", "date"}
+    for field, value in payload.items():
+        if field not in allowed_fields:
+            continue
+        if field in ("expense_id", "invoice_id"):
+            try:
+                setattr(txn, field, int(value) if value not in (None, "") else None)
+            except Exception:
+                setattr(txn, field, None)
+        else:
+            setattr(txn, field, value)
+
+    db.commit()
+    return {"success": True}
+
+
 @router.put("/{statement_id}/transactions", response_model=Dict[str, Any])
 async def replace_statement_transactions(
     statement_id: int,

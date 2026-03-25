@@ -124,6 +124,17 @@ export const bankStatementApi = {
     );
   },
 
+  patchTransaction: async (
+    statementId: number,
+    transactionId: number,
+    fields: Record<string, unknown>
+  ): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>(
+      `/statements/${statementId}/transactions/${transactionId}`,
+      { method: 'PATCH', body: JSON.stringify(fields) }
+    );
+  },
+
   reprocess: async (statementId: number): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(
       `/statements/${statementId}/reprocess`,
