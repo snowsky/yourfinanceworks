@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package, X, Tag } from "lucide-react";
+import { Plus, Search, Filter, FileText, Loader2, Pencil, Trash2, RotateCcw, ChevronDown, ChevronUp, Upload, Edit, Copy, Grid3X3, List, Eye, Package, X, Tag, MoreHorizontal } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
@@ -1183,26 +1183,34 @@ const Invoices = () => {
                               </div>
                             </div>
                           </TableCell>}
-                          <TableCell>
+                          <TableCell className="text-right">
                             {canPerformAction && (
-                              <div className="text-right flex gap-2 justify-end">
-                                <Link to={`/invoices/view/${invoice.id}`}>
-                                  <Button size="sm" variant="outline">
-                                    <Eye className="h-4 w-4" />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
-                                </Link>
-                                <Link to={`/invoices/edit/${invoice.id}`}>
-                                  <Button size="sm" variant="outline">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Button size="sm" variant="outline" onClick={() => handleCloneInvoice(invoice.id)}>
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteInvoice(invoice.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/invoices/view/${invoice.id}`} className="flex items-center">
+                                      <Eye className="mr-2 h-4 w-4" /> {t('common.view', 'View')}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/invoices/edit/${invoice.id}`} className="flex items-center">
+                                      <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCloneInvoice(invoice.id)}>
+                                    <Copy className="mr-2 h-4 w-4" /> {t('invoices.clone', 'Clone')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteInvoice(invoice.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </TableCell>
                         </TableRow>

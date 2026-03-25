@@ -41,7 +41,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 // removed duplicate useEffect import
 // removed duplicate icons
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -151,6 +151,7 @@ const Expenses = () => {
 
   // Inventory consumption state for edit expense
   const [isEditInventoryConsumption, setIsEditInventoryConsumption] = useState(false);
+  const [expenseIdToDelete, setExpenseIdToDelete] = useState<number | null>(null);
   const [editConsumptionItems, setEditConsumptionItems] = useState<any[]>([]);
 
   // Processing lock state for expenses
@@ -735,7 +736,6 @@ const Expenses = () => {
                   {t('expenses.analytics')}
                   {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
-                <ColumnPicker columns={EXPENSE_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
                 <div className="flex gap-1">
                   <Link to="/expenses/new">
                     <ProfessionalButton variant="default" size="default" className="shadow-lg">
@@ -1006,6 +1006,8 @@ const Expenses = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <ColumnPicker columns={EXPENSE_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
               </div>
             </div>
 
@@ -1475,39 +1477,33 @@ const Expenses = () => {
                             </Button>
                           </div>
                         </TableCell>}
-                        <TableCell>
+                        <TableCell className="text-right">
                           {canPerformActions() && (
-                            <div className="text-right flex gap-2 justify-end">
-                              <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/view/${e.id}`}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              {canEditExpense(e) && (
-                                <Button size="sm" variant="outline" onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
-                                  <Edit className="w-4 h-4" />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </Button>
-                              )}
-                              {canDeleteExpense(e) && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive">
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('expenses.delete_confirm_description')}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDelete(e.id)}>{t('expenses.delete')}</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => window.location.href = `/expenses/view/${e.id}`}>
+                                  <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                                </DropdownMenuItem>
+                                {canEditExpense(e) && (
+                                  <DropdownMenuItem onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
+                                    <Edit className="mr-2 w-4 h-4" /> {t('common.edit', 'Edit')}
+                                  </DropdownMenuItem>
+                                )}
+                                {canDeleteExpense(e) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setExpenseIdToDelete(e.id)}>
+                                      <Trash2 className="mr-2 w-4 h-4" /> {t('expenses.delete', 'Delete')}
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </TableCell>
                       </TableRow>
@@ -1919,6 +1915,20 @@ const Expenses = () => {
           readOnly={selectedReviewExpense?.review_status === 'reviewed' || selectedReviewExpense?.review_status === 'no_diff'}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={expenseIdToDelete !== null} onOpenChange={(open) => { if (!open) setExpenseIdToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('expenses.delete_confirm_title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('expenses.delete_confirm_description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('expenses.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (expenseIdToDelete !== null) { handleDelete(expenseIdToDelete); setExpenseIdToDelete(null); } }}>{t('expenses.delete')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

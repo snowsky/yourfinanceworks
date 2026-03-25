@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Pencil, Trash2, Eye, Package, AlertTriangle, TrendingUp, DollarSign, BarChart3, Zap, Target, Lightbulb, Image as ImageIcon } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Eye, Package, AlertTriangle, TrendingUp, DollarSign, BarChart3, Zap, Target, Lightbulb, Image as ImageIcon, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState, useEffect } from "react";
 import { inventoryApi, InventoryItem, InventoryCategory, InventoryAnalytics, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
@@ -401,31 +402,34 @@ const Inventory = () => {
                                   {stockStatus.label}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Link to={`/inventory/view/${item.id}`}>
-                                    <Button variant="ghost" size="icon" title="View Details">
-                                      <Eye className="h-4 w-4" />
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </Button>
-                                  </Link>
-                                  {canPerformAction && (
-                                    <>
-                                      <Link to={`/inventory/edit/${item.id}`}>
-                                        <Button variant="ghost" size="icon" title="Edit Item">
-                                          <Pencil className="h-4 w-4" />
-                                        </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                      <Link to={`/inventory/view/${item.id}`} className="flex items-center">
+                                        <Eye className="mr-2 h-4 w-4" /> {t('common.view', 'View')}
                                       </Link>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        title="Delete Item"
-                                        onClick={() => setItemToDelete(item)}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                      </Button>
-                                    </>
-                                  )}
-                                </div>
+                                    </DropdownMenuItem>
+                                    {canPerformAction && (
+                                      <>
+                                        <DropdownMenuItem asChild>
+                                          <Link to={`/inventory/edit/${item.id}`} className="flex items-center">
+                                            <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                          </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setItemToDelete(item)}>
+                                          <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           );

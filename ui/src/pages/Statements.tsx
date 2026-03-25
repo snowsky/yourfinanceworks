@@ -1640,72 +1640,67 @@ export default function Statements() {
                             </div>
                           </TableCell>
                         )}
-                        <TableCell className="text-right flex gap-2 justify-end">
-                          <ShareButton recordType="bank_statement" recordId={s.id} size="sm" />
-                          <Button size="sm" variant="outline" onClick={() => openStatement(s.id)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          {isCompleted(s) && s.status !== 'merged' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                if (reprocessingLocks.has(s.id)) return;
-                                try {
-                                  setReprocessingLocks(prev => new Set([...prev, s.id]));
-                                  await bankStatementApi.reprocess(s.id);
-                                  const startPolling = (window as any).startStatementPolling;
-                                  if (typeof startPolling === 'function') {
-                                    startPolling([s.id]);
-                                  }
-                                  toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
-                                  await loadList();
-                                  setTimeout(() => {
-                                    setReprocessingLocks(prev => {
-                                      const next = new Set(prev);
-                                      next.delete(s.id);
-                                      return next;
-                                    });
-                                  }, 30000);
-                                } catch (e: any) {
-                                  setReprocessingLocks(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(s.id);
-                                    return next;
-                                  });
-                                  toast.error(e?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
-                                }
-                              }}
-                              disabled={reprocessingLocks.has(s.id)}
-                            >
-                              {reprocessingLocks.has(s.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                            </Button>
-                          )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handlePreview(s.id)}
-                              disabled={previewLoading === s.id || s.status === 'merged'}
-                            >
-                            {previewLoading === s.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <ExternalLink className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDownload(s.id, s.original_filename)} disabled={s.status === 'merged'}>
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              setStatementToDelete(s.id);
-                              setDeleteModalOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <TableCell className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            <ShareButton recordType="bank_statement" recordId={s.id} size="sm" variant="ghost" />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openStatement(s.id)}>
+                                  <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                                </DropdownMenuItem>
+                                {isCompleted(s) && s.status !== 'merged' && (
+                                  <DropdownMenuItem
+                                    disabled={reprocessingLocks.has(s.id)}
+                                    onClick={async () => {
+                                      if (reprocessingLocks.has(s.id)) return;
+                                      try {
+                                        setReprocessingLocks(prev => new Set([...prev, s.id]));
+                                        await bankStatementApi.reprocess(s.id);
+                                        const startPolling = (window as any).startStatementPolling;
+                                        if (typeof startPolling === 'function') startPolling([s.id]);
+                                        toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
+                                        await loadList();
+                                        setTimeout(() => {
+                                          setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
+                                        }, 30000);
+                                      } catch (err: any) {
+                                        setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
+                                        toast.error(err?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
+                                      }
+                                    }}
+                                  >
+                                    {reprocessingLocks.has(s.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                                    {t('statements.reprocess.label', 'Reprocess')}
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  disabled={previewLoading === s.id || s.status === 'merged'}
+                                  onClick={() => handlePreview(s.id)}
+                                >
+                                  {previewLoading === s.id ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : <ExternalLink className="mr-2 w-4 h-4" />}
+                                  {t('common.preview', 'Preview')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={s.status === 'merged'}
+                                  onClick={() => handleDownload(s.id, s.original_filename)}
+                                >
+                                  <Download className="mr-2 w-4 h-4" /> {t('common.download', 'Download')}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => { setStatementToDelete(s.id); setDeleteModalOpen(true); }}
+                                >
+                                  <Trash2 className="mr-2 w-4 h-4" /> {t('common.delete', 'Delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

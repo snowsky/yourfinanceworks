@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Loader2, Pencil, Trash2, Users, Tag, Minus, X } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Users, Tag, Minus, X, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
@@ -14,6 +14,7 @@ import { canPerformActions } from "@/utils/auth";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { ColumnPicker } from "@/components/ui/column-picker";
 
@@ -456,25 +457,27 @@ const Clients = () => {
                             ${(client.outstanding_balance || 0).toFixed(2)}
                           </span>
                         </TableCell>}
-                        <TableCell>
-                          <div className="text-right flex gap-2 justify-end">
-                            {canPerformAction && (
-                              <>
-                                <Link to={`/clients/edit/${client.id}`}>
-                                  <Button size="sm" variant="outline">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => setClientToDelete(client)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
+                        <TableCell className="text-right">
+                          {canPerformAction && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </Button>
-                              </>
-                            )}
-                          </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/clients/edit/${client.id}`} className="flex items-center">
+                                    <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setClientToDelete(client)}>
+                                  <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
