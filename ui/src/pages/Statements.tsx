@@ -2496,10 +2496,13 @@ export default function Statements() {
                                       <DropdownMenuSeparator />
 
                                       <DropdownMenuItem
-                                        onClick={() => {
-                                          setLinkingRowIdx(idx);
-                                          setLinkTransferModalOpen(true);
-                                          setLinkTransferModalMounted(true);
+                                        onSelect={(e) => {
+                                          e.preventDefault();
+                                          setTimeout(() => {
+                                            setLinkingRowIdx(idx);
+                                            setLinkTransferModalOpen(true);
+                                            setLinkTransferModalMounted(true);
+                                          }, 50);
                                         }}
                                         disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
                                       >
@@ -2508,9 +2511,12 @@ export default function Statements() {
                                       </DropdownMenuItem>
                                       {Boolean((r as any).linked_transfer) && (
                                         <DropdownMenuItem
-                                          onClick={() => {
-                                            setRowToUnlink(idx);
-                                            setUnlinkModalOpen(true);
+                                          onSelect={(e) => {
+                                            e.preventDefault();
+                                            setTimeout(() => {
+                                              setRowToUnlink(idx);
+                                              setUnlinkModalOpen(true);
+                                            }, 50);
                                           }}
                                           className="text-destructive focus:text-destructive"
                                           disabled={readOnly}
