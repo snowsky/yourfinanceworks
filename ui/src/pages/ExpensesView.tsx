@@ -10,7 +10,8 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, MoreHorizontal, Share2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export default function ExpensesView() {
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
   const [form, setForm] = useState<Partial<Expense>>({});
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const [attachments, setAttachments] = useState<ExpenseAttachmentMeta[]>([]);
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
@@ -165,7 +167,8 @@ export default function ExpensesView() {
           ]}
           actions={
             <div className="flex gap-2">
-              {form.id && <ShareButton recordType="expense" recordId={form.id as number} />}
+              {form.id && <ShareButton recordType="expense" recordId={form.id as number} open={shareOpen} onOpenChange={setShareOpen} />}
+              {/* ShareButton dialog is rendered above; trigger is in the ⋯ dropdown below */}
               {approval && (
                 <ApprovalActionButtons
                   approval={approval}
@@ -191,6 +194,20 @@ export default function ExpensesView() {
                   <Pencil className="mr-2 h-4 w-4" />
                   {t('common.edit')}
                 </Button>
+              )}
+              {form.id && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                      <Share2 className="mr-2 h-4 w-4" /> Share
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           }

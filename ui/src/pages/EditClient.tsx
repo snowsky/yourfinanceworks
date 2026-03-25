@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, MoreHorizontal, Share2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { ClientNotes } from "@/components/clients/ClientNotes";
 import { ClientTimeline } from "@/components/clients/ClientTimeline";
 import { CrmContactsPanel } from "@/components/clients/CrmContactsPanel";
@@ -20,6 +22,7 @@ const EditClient = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isPluginEnabled } = usePlugins();
+  const [shareOpen, setShareOpen] = useState(false);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -94,7 +97,23 @@ const EditClient = () => {
               <h1 className="text-4xl font-bold tracking-tight">{t('editClient.editClient')}</h1>
               <p className="text-lg text-muted-foreground">{t('editClient.updateClientInformation')}</p>
             </div>
-            {client?.id && <ShareButton recordType="client" recordId={client.id} />}
+            {client?.id && (
+              <>
+                <ShareButton recordType="client" recordId={client.id} open={shareOpen} onOpenChange={setShareOpen} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                      <Share2 className="mr-2 h-4 w-4" /> Share
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
 

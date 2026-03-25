@@ -11,7 +11,8 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CalendarIcon, Edit, Eye, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
+import { CalendarIcon, Edit, Eye, Loader2, AlertCircle, RotateCcw, MoreHorizontal, Share2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES, settingsApi, Settings } from '@/lib/api';
@@ -32,6 +33,7 @@ export default function ViewInvoice() {
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const [approval, setApproval] = useState<ApprovalHistoryEntry | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
@@ -214,7 +216,6 @@ export default function ViewInvoice() {
           ]}
           actions={
             <div className="flex gap-2">
-              <ShareButton recordType="invoice" recordId={invoice.id} />
               <ProfessionalButton
                 variant="outline"
                 onClick={handleLivePreview}
@@ -260,6 +261,19 @@ export default function ViewInvoice() {
                   {t('common.edit')}
                 </Button>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                    <Share2 className="mr-2 h-4 w-4" /> Share
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ShareButton recordType="invoice" recordId={invoice.id} open={shareOpen} onOpenChange={setShareOpen} />
             </div>
           }
         />
