@@ -235,6 +235,7 @@ const EmailIntegrationSettingsContent: React.FC = () => {
     };
 
     return (
+        <div className="space-y-6">
         <ProfessionalCard variant="elevated">
             <ProfessionalCardHeader>
                 <ProfessionalCardTitle className="flex items-center gap-2">
@@ -447,6 +448,7 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                 </div>
             </ProfessionalCardContent>
         </ProfessionalCard>
+        </div>
     );
 };
 

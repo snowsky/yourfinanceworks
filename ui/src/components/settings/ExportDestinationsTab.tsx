@@ -5,9 +5,7 @@ import { FeatureGate } from '@/components/FeatureGate';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
-  ProfessionalCardHeader,
-  ProfessionalCardTitle,
-  ProfessionalCardDescription
+  ProfessionalCardHeader
 } from '@/components/ui/professional-card';
 import { ProfessionalInput } from '@/components/ui/professional-input';
 import { ProfessionalButton } from '@/components/ui/professional-button';
@@ -17,11 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Save, Globe, Database, Folder, HardDrive, FileText, Cloud, Shield, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, CheckCircle, XCircle, AlertCircle, Eye, EyeOff, Globe, Database, Folder, HardDrive, Cloud, Shield, ExternalLink } from 'lucide-react';
 import { exportDestinationApi, ExportDestination, ExportDestinationCreate, ExportDestinationUpdate } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea'; // Keep for now as fallback if ProfessionalTextarea implies specific styling not matching
 
 interface ExportDestinationsTabProps {
   isAdmin: boolean;
@@ -421,18 +418,13 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
   }
 
   return (
+    <div className="space-y-6">
     <ProfessionalCard variant="elevated">
       <ProfessionalCardHeader>
         <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <ProfessionalCardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-primary" />
-              {t('settings.export_destinations')}
-            </ProfessionalCardTitle>
-            <p className="text-sm text-muted-foreground">
-              {t('settings.export_destinations_description')}
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {t('settings.export_destinations_description')}
+          </p>
           <ProfessionalButton onClick={handleCreate} size="sm" variant="gradient">
             <Plus className="h-4 w-4 mr-2" />
             {t('settings.add_destination')}
@@ -535,39 +527,65 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
             ))}
           </div>
         ) : (
-          <div className="bg-muted/30 border border-dashed border-muted-foreground/30 rounded-xl p-8 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="p-3 bg-muted/50 rounded-full">
-                <Database className="h-8 w-8 text-muted-foreground/50" />
+          <div className="space-y-6">
+            {/* Empty state hero */}
+            <div className="rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 px-8 py-12 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
+                <ExternalLink className="w-8 h-8 text-primary/60" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">{t('settings.no_export_destinations_configured')}</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm leading-relaxed">
+                {t('settings.add_destination_to_get_started')}
+              </p>
+              <ProfessionalButton onClick={handleCreate} variant="gradient" size="lg">
+                <Plus className="h-4 w-4 mr-2" />
+                {t('settings.add_destination')}
+              </ProfessionalButton>
+
+              {/* Supported provider tiles */}
+              <div className="mt-10 w-full max-w-md">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 mb-4">
+                  Supported Destinations
+                </p>
+                <div className="grid grid-cols-5 gap-3">
+                  {[
+                    { icon: <Cloud className="w-5 h-5 text-orange-500" />, label: 'AWS S3', bg: 'bg-orange-50 border-orange-200/60' },
+                    { icon: <Database className="w-5 h-5 text-blue-500" />, label: 'Azure', bg: 'bg-blue-50 border-blue-200/60' },
+                    { icon: <Globe className="w-5 h-5 text-green-500" />, label: 'GCS', bg: 'bg-green-50 border-green-200/60' },
+                    { icon: <HardDrive className="w-5 h-5 text-yellow-500" />, label: 'Drive', bg: 'bg-yellow-50 border-yellow-200/60' },
+                    { icon: <Folder className="w-5 h-5 text-gray-500" />, label: 'Local', bg: 'bg-gray-50 border-gray-200/60' },
+                  ].map(({ icon, label, bg }) => (
+                    <div key={label} className={`flex flex-col items-center gap-2 p-3 rounded-xl border ${bg}`}>
+                      {icon}
+                      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            <h3 className="text-lg font-medium mb-1">{t('settings.no_export_destinations_configured')}</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-              {t('settings.add_destination_to_get_started')}
-            </p>
-            <ProfessionalButton onClick={handleCreate} variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              {t('settings.add_destination')}
-            </ProfessionalButton>
 
-            <div className="mt-8 pt-6 border-t border-border/50 text-left">
-              <div className="flex gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-                <div>
-                  <h4 className="font-medium text-blue-900 mb-1">
-                    {t('settings.no_destinations_configured')}
-                  </h4>
-                  <p className="text-sm text-blue-800">
-                    {t('settings.environment_variables_will_be_used')}
-                  </p>
-                  <p className="text-sm text-blue-700 mt-2 font-medium">
-                    {t('settings.supported_env_vars')}:
-                  </p>
-                  <ul className="text-sm text-blue-700 mt-1 list-disc list-inside space-y-0.5">
-                    <li>AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY...</li>
-                    <li>AZURE_STORAGE_CONNECTION_STRING...</li>
-                    <li>GOOGLE_APPLICATION_CREDENTIALS...</li>
-                  </ul>
+            {/* Env vars info */}
+            <div className="rounded-xl bg-blue-50/60 border border-blue-200/50 p-4 space-y-3">
+              <div className="flex gap-2.5 items-start">
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900">{t('settings.no_destinations_configured')}</p>
+                  <p className="text-blue-700 mt-0.5">{t('settings.environment_variables_will_be_used')}</p>
+                </div>
+              </div>
+              <div className="border-t border-blue-200/60 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-blue-600/70 mb-2">{t('settings.supported_env_vars')}</p>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { provider: 'AWS S3', vars: 'AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY' },
+                    { provider: 'Azure', vars: 'AZURE_STORAGE_CONNECTION_STRING' },
+                    { provider: 'Google', vars: 'GOOGLE_APPLICATION_CREDENTIALS' },
+                  ].map(({ provider, vars }) => (
+                    <div key={provider} className="flex items-center gap-2">
+                      <span className="text-xs text-blue-600/70 w-12 shrink-0">{provider}</span>
+                      <code className="text-xs bg-blue-100/80 text-blue-800 px-2 py-0.5 rounded font-mono">{vars}</code>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -978,6 +996,7 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
         </DialogContent>
       </Dialog>
     </ProfessionalCard>
+    </div>
   );
 };
 

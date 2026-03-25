@@ -20,9 +20,9 @@ import {
 import { Button } from "@/components/ui/button";
 import {
     ProfessionalCard,
+    ProfessionalCardContent,
     ProfessionalCardHeader,
     ProfessionalCardTitle,
-    ProfessionalCardContent,
 } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import {
@@ -168,15 +168,15 @@ export const DiscountRulesTab: React.FC<DiscountRulesTabProps> = ({
         <>
             <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <ProfessionalCardTitle className="flex items-center gap-2">
-                            <Percent className="w-5 h-5 text-primary" />
-                            {t('settings.discount_rules.title')}
-                        </ProfessionalCardTitle>
-                        <ProfessionalButton
-                            onClick={handleOpenCreateDialog}
-                            leftIcon={<Plus className="h-4 w-4" />}
-                        >
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <ProfessionalCardTitle className="flex items-center gap-2">
+                                <Percent className="w-4 h-4 text-primary" />
+                                {t('settings.discount_rules.title')}
+                            </ProfessionalCardTitle>
+                            <p className="text-sm text-muted-foreground mt-0.5">{t('settings.discount_rules.description', 'Automate discounts based on invoice amounts')}</p>
+                        </div>
+                        <ProfessionalButton onClick={handleOpenCreateDialog} leftIcon={<Plus className="h-4 w-4" />}>
                             {t('settings.discount_rules.create_rule')}
                         </ProfessionalButton>
                     </div>
@@ -197,7 +197,7 @@ export const DiscountRulesTab: React.FC<DiscountRulesTabProps> = ({
                     ) : (
                         <div className="rounded-xl border border-border/50 overflow-hidden">
                             <ProfessionalTable>
-                                <ProfessionalTableHeader>
+                                <ProfessionalTableHeader className="bg-gradient-to-r from-muted/50 to-muted/30">
                                     <ProfessionalTableRow>
                                         <ProfessionalTableHead>{t('settings.discount_rules.rule_name')}</ProfessionalTableHead>
                                         <ProfessionalTableHead>{t('settings.discount_rules.min_amount')}</ProfessionalTableHead>

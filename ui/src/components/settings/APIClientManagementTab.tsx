@@ -486,37 +486,35 @@ const APIClientManagementContent: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Professional Header Section */}
-      <ProfessionalCard variant="elevated">
-        <ProfessionalCardContent className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center space-x-4 w-full md:w-auto">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shadow-sm">
-                <Key className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">{t('settings.api_keys.api_clients')}</h2>
-                <div className="flex items-center gap-3 text-muted-foreground mt-1">
-                  <p>{t('settings.api_keys.manage_api_keys_oauth')}</p>
-                  <Badge variant={clients.length >= 2 ? "destructive" : clients.length > 0 ? "secondary" : "outline"}>
-                    {clients.length}/2 {t('settings.api_keys.used')}
-                  </Badge>
-                </div>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Key className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">{t('settings.api_keys.api_clients')}</h3>
+              <div className="flex items-center gap-3 text-muted-foreground mt-0.5">
+                <p>{t('settings.api_keys.manage_api_keys_oauth')}</p>
+                <Badge variant={clients.length >= 2 ? "destructive" : clients.length > 0 ? "secondary" : "outline"}>
+                  {clients.length}/2 {t('settings.api_keys.used')}
+                </Badge>
               </div>
             </div>
+          </div>
 
-            <div className="flex space-x-3 w-full md:w-auto">
-              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogTrigger asChild>
-                  <ProfessionalButton
-                    variant="gradient"
-                    disabled={clients.length >= 2}
-                    className={cn("w-full md:w-auto", clients.length >= 2 && "opacity-50 cursor-not-allowed")}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t('settings.api_keys.create_api_key')}
-                  </ProfessionalButton>
-                </DialogTrigger>
+          <div className="flex space-x-3 w-full md:w-auto">
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <ProfessionalButton
+                  variant="gradient"
+                  disabled={clients.length >= 2}
+                  className={cn("w-full md:w-auto", clients.length >= 2 && "opacity-50 cursor-not-allowed")}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t('settings.api_keys.create_api_key')}
+                </ProfessionalButton>
+              </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-xl">{t('settings.api_keys.create_new_api_key')}</DialogTitle>
@@ -696,8 +694,6 @@ const APIClientManagementContent: React.FC = () => {
               </Dialog>
             </div>
           </div>
-        </ProfessionalCardContent>
-      </ProfessionalCard>
 
       {/* API Key Display Dialog */}
       {showApiKey && (

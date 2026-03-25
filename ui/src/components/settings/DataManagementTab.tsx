@@ -8,9 +8,11 @@ import { settingsApi, syncApi, getErrorMessage, SyncStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
-    ProfessionalCard
+    ProfessionalCard,
+    ProfessionalCardHeader,
+    ProfessionalCardTitle,
+    ProfessionalCardContent,
 } from "@/components/ui/professional-card";
 import { useMutation } from "@tanstack/react-query";
 
@@ -110,16 +112,16 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
         <div className="space-y-6">
             {/* Data Overview Section */}
             <ProfessionalCard>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="flex items-center gap-2">
                         <Database className="h-5 w-5" />
                         {t('settings.data_management.title')}
-                    </CardTitle>
+                    </ProfessionalCardTitle>
                     <p className="text-sm text-muted-foreground">
                         {t('settings.data_management.description')}
                     </p>
-                </CardHeader>
-                <CardContent>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
                             <div className="text-2xl font-bold text-blue-600">📊</div>
@@ -137,13 +139,13 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                             <p className="text-sm text-purple-700 mt-1">{t('settings.data_management.data_control_description')}</p>
                         </div>
                     </div>
-                </CardContent>
+                </ProfessionalCardContent>
             </ProfessionalCard>
 
             {/* Synchronization Section */}
             <ProfessionalCard>
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <RefreshCw className={`h-5 w-5 ${checkStatusMutation.isPending ? 'animate-spin' : ''}`} />
                             {t('settings.data_management.cloud_synchronization')}
@@ -161,12 +163,12 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                                 <div className={`w-3 h-3 rounded-full ${status.is_in_sync ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'} animate-pulse`}></div>
                             </div>
                         )}
-                    </CardTitle>
+                    </ProfessionalCardTitle>
                     <p className="text-sm text-muted-foreground">
                         {t('settings.data_management.sync_description')}
                     </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="remote-url">{t('settings.data_management.remote_instance_url')}</Label>
@@ -266,21 +268,21 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                             </div>
                         )}
                     </div>
-                </CardContent>
+                </ProfessionalCardContent>
             </ProfessionalCard>
 
             {/* Import Section */}
             <ProfessionalCard>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="flex items-center gap-2">
                         <Upload className="h-5 w-5" />
                         {t('settings.data_management.import_data')}
-                    </CardTitle>
+                    </ProfessionalCardTitle>
                     <p className="text-sm text-muted-foreground">
                         {t('settings.data_management.import_data_description')}
                     </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <div className="flex items-start gap-3">
                             <div className="text-amber-600 text-lg">⚠️</div>
@@ -392,18 +394,18 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                             {t('settings.data_management.recommended_backup_hint')}
                         </p>
                     </div>
-                </CardContent>
+                </ProfessionalCardContent>
             </ProfessionalCard>
 
             {/* Best Practices Section */}
             <ProfessionalCard>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="flex items-center gap-2">
                         <span className="text-lg">💡</span>
                         {t('settings.data_management.best_practices_and_tips')}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <h4 className="font-medium mb-3 text-green-700">{t('settings.data_management.recommended_practices')}</h4>
@@ -449,7 +451,7 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                             </ul>
                         </div>
                     </div>
-                </CardContent>
+                </ProfessionalCardContent>
             </ProfessionalCard>
         </div>
     );

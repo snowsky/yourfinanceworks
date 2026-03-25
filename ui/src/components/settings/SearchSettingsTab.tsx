@@ -18,6 +18,7 @@ interface SearchSettingsTabProps {
 export const SearchSettingsTab: React.FC<SearchSettingsTabProps> = ({ isAdmin }) => {
     const { t } = useTranslation();
     return (
+        <div className="space-y-6">
         <FeatureGate
             feature="advanced_search"
             fallback={
@@ -78,5 +79,6 @@ export const SearchSettingsTab: React.FC<SearchSettingsTabProps> = ({ isAdmin })
                 <SearchStatus />
             </div>
         </FeatureGate>
+        </div>
     );
 };
