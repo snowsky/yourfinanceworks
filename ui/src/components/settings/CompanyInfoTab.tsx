@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, Plus, Loader2 } from "lucide-react";
+import { Building2, MapPin, Palette, Plus, Loader2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -22,9 +22,7 @@ interface CompanyInfoTabProps {
     isAdmin: boolean;
 }
 
-export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
-    isAdmin,
-}) => {
+export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
 
@@ -51,18 +49,10 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
 
     useEffect(() => {
         if (settings) {
-            if (settings.company_info) {
-                setCompanyInfo(settings.company_info);
-            }
-            if (settings.timezone) {
-                setTimezone(settings.timezone);
-            }
-            if (settings.allow_join_lookup !== undefined) {
-                setAllowJoinLookup(settings.allow_join_lookup);
-            }
-            if (settings.join_lookup_exact_match !== undefined) {
-                setJoinLookupExactMatch(settings.join_lookup_exact_match);
-            }
+            if (settings.company_info) setCompanyInfo(settings.company_info);
+            if (settings.timezone) setTimezone(settings.timezone);
+            if (settings.allow_join_lookup !== undefined) setAllowJoinLookup(settings.allow_join_lookup);
+            if (settings.join_lookup_exact_match !== undefined) setJoinLookupExactMatch(settings.join_lookup_exact_match);
         }
     }, [settings]);
 
@@ -74,15 +64,14 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
             setLogoFile(null);
             setLogoPreview("");
         },
-        onError: (error) => {
-            console.error("Failed to save company info:", error);
+        onError: () => {
             toast.error(t('settings.failed_to_save_settings'));
         }
     });
 
     const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        if (name === 'email') return; // Email is usually non-editable here
+        if (name === 'email') return;
         setCompanyInfo((prev) => ({ ...prev, [name]: value }));
     };
 
@@ -91,28 +80,23 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
         if (file) {
             setLogoFile(file);
             const reader = new FileReader();
-            reader.onload = (e) => {
-                setLogoPreview(e.target?.result as string);
-            };
+            reader.onload = (e) => { setLogoPreview(e.target?.result as string); };
             reader.readAsDataURL(file);
         }
     };
 
     const uploadLogo = async (): Promise<string | null> => {
         if (!logoFile) return null;
-
         setUploadingLogo(true);
         try {
             const formData = new FormData();
             formData.append('file', logoFile);
-
             const result = await apiRequest<{ url: string }>('/settings/upload-logo', {
                 method: 'POST',
                 body: formData,
             });
             return result.url;
-        } catch (error) {
-            console.error('Failed to upload logo:', error);
+        } catch {
             toast.error(t('settings.failed_to_upload_logo'));
             return null;
         } finally {
@@ -122,28 +106,19 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
 
     const handleSave = async () => {
         if (!isAdmin) return;
-
         try {
             let currentLogo = companyInfo.logo;
-
             if (logoFile) {
                 const uploadedUrl = await uploadLogo();
-                if (uploadedUrl) {
-                    currentLogo = uploadedUrl;
-                }
+                if (uploadedUrl) currentLogo = uploadedUrl;
             }
-
             updateSettingsMutation.mutate({
-                company_info: {
-                    ...companyInfo,
-                    logo: currentLogo
-                },
-                timezone: timezone,
+                company_info: { ...companyInfo, logo: currentLogo },
+                timezone,
                 allow_join_lookup: allowJoinLookup,
                 join_lookup_exact_match: joinLookupExactMatch
             });
-        } catch (error) {
-            console.error("Failed to save company info:", error);
+        } catch {
             toast.error(t('settings.failed_to_save_settings'));
         }
     };
@@ -156,191 +131,226 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({
         );
     }
 
-
     return (
-        <ProfessionalCard variant="elevated">
-            <ProfessionalCardHeader>
-                <ProfessionalCardTitle className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-primary" />
-                    {t('settings.company_info.title')}
-                </ProfessionalCardTitle>
-            </ProfessionalCardHeader>
-            <ProfessionalCardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ProfessionalInput
-                        label={t('settings.company_info.company_name')}
-                        id="name"
-                        name="name"
-                        value={companyInfo.name}
-                        onChange={handleCompanyChange}
-                    />
-                    <ProfessionalInput
-                        label={t('settings.company_info.tax_id')}
-                        id="tax_id"
-                        name="tax_id"
-                        value={companyInfo.tax_id}
-                        onChange={handleCompanyChange}
-                    />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ProfessionalInput
-                        label={t('settings.company_info.company_email')}
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={companyInfo.email}
-                        onChange={handleCompanyChange}
-                        disabled
-                        helperText={t('settings.company_info.email_readonly_hint', 'Company email cannot be changed here.')}
-                    />
-                    <ProfessionalInput
-                        label={t('settings.company_info.company_phone')}
-                        id="phone"
-                        name="phone"
-                        value={companyInfo.phone}
-                        onChange={handleCompanyChange}
-                    />
-                </div>
-
-                <ProfessionalTextarea
-                    label={t('settings.company_info.company_address')}
-                    id="address"
-                    name="address"
-                    rows={3}
-                    value={companyInfo.address}
-                    onChange={handleCompanyChange}
-                />
-
-                <div className="space-y-2">
-                    <Label htmlFor="timezone" className="text-sm font-medium">{t('settings.timezone')}</Label>
-                    <Select value={timezone} onValueChange={setTimezone}>
-                        <SelectTrigger id="timezone" className="rounded-lg">
-                            <SelectValue placeholder="Select timezone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
-                            <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
-                            <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
-                            <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
-                            <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
-                            <SelectItem value="America/Phoenix">Arizona</SelectItem>
-                            <SelectItem value="America/Anchorage">Alaska</SelectItem>
-                            <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
-                            <SelectItem value="Europe/London">London</SelectItem>
-                            <SelectItem value="Europe/Paris">Paris</SelectItem>
-                            <SelectItem value="Europe/Berlin">Berlin</SelectItem>
-                            <SelectItem value="Europe/Rome">Rome</SelectItem>
-                            <SelectItem value="Europe/Madrid">Madrid</SelectItem>
-                            <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
-                            <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
-                            <SelectItem value="Europe/Zurich">Zurich</SelectItem>
-                            <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                            <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
-                            <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
-                            <SelectItem value="Asia/Singapore">Singapore</SelectItem>
-                            <SelectItem value="Asia/Dubai">Dubai</SelectItem>
-                            <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
-                            <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
-                            <SelectItem value="Australia/Sydney">Sydney</SelectItem>
-                            <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
-                            <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
-                            <SelectItem value="Australia/Perth">Perth</SelectItem>
-                            <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
-                            <SelectItem value="America/Toronto">Toronto</SelectItem>
-                            <SelectItem value="America/Vancouver">Vancouver</SelectItem>
-                            <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
-                            <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
-                            <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
-                            <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
-                            <SelectItem value="Africa/Cairo">Cairo</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <p className="text-sm text-muted-foreground">{t('settings.organization_timezone')}</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-border/50">
-                    <div className="flex items-center justify-between space-x-4">
-                        <div className="space-y-0.5">
-                            <Label className="text-base font-semibold">{t('settings.company_info.allow_join_lookup', 'Allow users to find this organization')}</Label>
-                            <p className="text-sm text-muted-foreground">
-                                {t('settings.company_info.allow_join_lookup_hint', 'If enabled, users can find this organization when searching to join.')}
-                            </p>
-                        </div>
-                        <Switch
-                            checked={allowJoinLookup}
-                            onCheckedChange={setAllowJoinLookup}
-                        />
+        <div className="space-y-6">
+            {/* Gradient Banner */}
+            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-6 h-6 text-primary" />
                     </div>
-                    <div className="flex items-center justify-between space-x-4">
-                        <div className="space-y-0.5">
-                            <Label className="text-base font-semibold">{t('settings.company_info.join_lookup_exact_match', 'Exact match only')}</Label>
-                            <p className="text-sm text-muted-foreground">
-                                {t('settings.company_info.join_lookup_exact_match_hint', 'Users must type the exact name to find this organization.')}
-                            </p>
-                        </div>
-                        <Switch
-                            checked={joinLookupExactMatch}
-                            onCheckedChange={setJoinLookupExactMatch}
-                            disabled={!allowJoinLookup}
-                        />
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight">{t('settings.company_info.title')}</h2>
+                        <p className="text-muted-foreground mt-0.5">{t('settings.company_info.description', 'Configure your organization\'s details and branding')}</p>
                     </div>
                 </div>
+            </div>
 
-                <div className="space-y-4 pt-2">
-                    <Label className="text-sm font-medium">{t('settings.company_info.company_logo')}</Label>
-                    <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-4 bg-muted/30 rounded-xl border border-border/50">
-                        <div className="relative group">
-                            <div className="w-24 h-24 rounded-xl overflow-hidden bg-background border-2 border-dashed border-border group-hover:border-primary transition-colors flex items-center justify-center">
-                                {(logoPreview || companyInfo.logo) ? (
-                                    <img
-                                        src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
-                                        alt="Company Logo"
-                                        className="w-full h-full object-contain"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                ) : (
-                                    <Building2 className="w-8 h-8 text-muted-foreground" />
-                                )}
+            {/* Card 1: Company Details */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-primary" />
+                        {t('settings.company_info.company_details', 'Company Details')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ProfessionalInput
+                            label={t('settings.company_info.company_name')}
+                            id="name"
+                            name="name"
+                            value={companyInfo.name}
+                            onChange={handleCompanyChange}
+                        />
+                        <ProfessionalInput
+                            label={t('settings.company_info.tax_id')}
+                            id="tax_id"
+                            name="tax_id"
+                            value={companyInfo.tax_id}
+                            onChange={handleCompanyChange}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ProfessionalInput
+                            label={t('settings.company_info.company_email')}
+                            id="email"
+                            name="email"
+                            type="email"
+                            value={companyInfo.email}
+                            onChange={handleCompanyChange}
+                            disabled
+                            helperText={t('settings.company_info.email_readonly_hint', 'Company email cannot be changed here.')}
+                        />
+                        <ProfessionalInput
+                            label={t('settings.company_info.company_phone')}
+                            id="phone"
+                            name="phone"
+                            value={companyInfo.phone}
+                            onChange={handleCompanyChange}
+                        />
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Card 2: Location & Preferences */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        {t('settings.company_info.location_preferences', 'Location & Preferences')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <ProfessionalTextarea
+                        label={t('settings.company_info.company_address')}
+                        id="address"
+                        name="address"
+                        rows={3}
+                        value={companyInfo.address}
+                        onChange={handleCompanyChange}
+                    />
+                    <div className="space-y-2">
+                        <Label htmlFor="timezone" className="text-sm font-medium flex items-center gap-2">
+                            <Globe className="w-3.5 h-3.5" />
+                            {t('settings.timezone')}
+                        </Label>
+                        <Select value={timezone} onValueChange={setTimezone}>
+                            <SelectTrigger id="timezone" className="rounded-lg">
+                                <SelectValue placeholder="Select timezone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
+                                <SelectItem value="America/New_York">Eastern Time (US & Canada)</SelectItem>
+                                <SelectItem value="America/Chicago">Central Time (US & Canada)</SelectItem>
+                                <SelectItem value="America/Denver">Mountain Time (US & Canada)</SelectItem>
+                                <SelectItem value="America/Los_Angeles">Pacific Time (US & Canada)</SelectItem>
+                                <SelectItem value="America/Phoenix">Arizona</SelectItem>
+                                <SelectItem value="America/Anchorage">Alaska</SelectItem>
+                                <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
+                                <SelectItem value="Europe/London">London</SelectItem>
+                                <SelectItem value="Europe/Paris">Paris</SelectItem>
+                                <SelectItem value="Europe/Berlin">Berlin</SelectItem>
+                                <SelectItem value="Europe/Rome">Rome</SelectItem>
+                                <SelectItem value="Europe/Madrid">Madrid</SelectItem>
+                                <SelectItem value="Europe/Amsterdam">Amsterdam</SelectItem>
+                                <SelectItem value="Europe/Stockholm">Stockholm</SelectItem>
+                                <SelectItem value="Europe/Zurich">Zurich</SelectItem>
+                                <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                                <SelectItem value="Asia/Shanghai">Shanghai</SelectItem>
+                                <SelectItem value="Asia/Hong_Kong">Hong Kong</SelectItem>
+                                <SelectItem value="Asia/Singapore">Singapore</SelectItem>
+                                <SelectItem value="Asia/Dubai">Dubai</SelectItem>
+                                <SelectItem value="Asia/Kolkata">Mumbai, Kolkata, New Delhi</SelectItem>
+                                <SelectItem value="Asia/Bangkok">Bangkok</SelectItem>
+                                <SelectItem value="Australia/Sydney">Sydney</SelectItem>
+                                <SelectItem value="Australia/Melbourne">Melbourne</SelectItem>
+                                <SelectItem value="Australia/Brisbane">Brisbane</SelectItem>
+                                <SelectItem value="Australia/Perth">Perth</SelectItem>
+                                <SelectItem value="Pacific/Auckland">Auckland</SelectItem>
+                                <SelectItem value="America/Toronto">Toronto</SelectItem>
+                                <SelectItem value="America/Vancouver">Vancouver</SelectItem>
+                                <SelectItem value="America/Mexico_City">Mexico City</SelectItem>
+                                <SelectItem value="America/Sao_Paulo">Sao Paulo</SelectItem>
+                                <SelectItem value="America/Buenos_Aires">Buenos Aires</SelectItem>
+                                <SelectItem value="Africa/Johannesburg">Johannesburg</SelectItem>
+                                <SelectItem value="Africa/Cairo">Cairo</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground">{t('settings.organization_timezone')}</p>
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Card 3: Organization & Branding */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-primary" />
+                        {t('settings.company_info.organization_branding', 'Organization & Branding')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                            <div className="space-y-0.5">
+                                <Label className="text-base font-semibold">{t('settings.company_info.allow_join_lookup', 'Allow users to find this organization')}</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    {t('settings.company_info.allow_join_lookup_hint', 'If enabled, users can find this organization when searching to join.')}
+                                </p>
                             </div>
-                            <input
-                                id="logo-upload"
-                                name="logo"
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleLogoFileChange}
-                                disabled={uploadingLogo}
-                            />
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon"
-                                className="absolute -bottom-2 -right-2 rounded-full shadow-lg"
-                                onClick={() => document.getElementById('logo-upload')?.click()}
-                                disabled={uploadingLogo}
-                            >
-                                <Plus className="w-4 h-4" />
-                            </Button>
+                            <Switch checked={allowJoinLookup} onCheckedChange={setAllowJoinLookup} />
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-sm font-semibold">{t('settings.logo_preview')}</p>
-                            <p className="text-xs text-muted-foreground max-w-[200px]">{t('settings.recommended_size')}</p>
-                            <p className="text-xs font-medium text-primary mt-1">
-                                {logoFile ? logoFile.name : t('settings.no_file_selected')}
-                            </p>
+                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                            <div className="space-y-0.5">
+                                <Label className="text-base font-semibold">{t('settings.company_info.join_lookup_exact_match', 'Exact match only')}</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    {t('settings.company_info.join_lookup_exact_match_hint', 'Users must type the exact name to find this organization.')}
+                                </p>
+                            </div>
+                            <Switch
+                                checked={joinLookupExactMatch}
+                                onCheckedChange={setJoinLookupExactMatch}
+                                disabled={!allowJoinLookup}
+                            />
                         </div>
                     </div>
-                </div>
 
-                <div className="flex justify-end pt-4">
-                    <ProfessionalButton onClick={handleSave} loading={updateSettingsMutation.isPending} variant="gradient" size="lg">
-                        {t('settings.save_changes')}
-                    </ProfessionalButton>
-                </div>
-            </ProfessionalCardContent>
-        </ProfessionalCard>
+                    {/* Logo Upload */}
+                    <div className="space-y-3">
+                        <Label className="text-sm font-medium">{t('settings.company_info.company_logo')}</Label>
+                        <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center p-4 bg-muted/30 rounded-xl border border-border/50">
+                            <div className="relative group">
+                                <div className="w-24 h-24 rounded-xl overflow-hidden bg-background border-2 border-dashed border-border group-hover:border-primary transition-colors flex items-center justify-center">
+                                    {(logoPreview || companyInfo.logo) ? (
+                                        <img
+                                            src={logoPreview || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${companyInfo.logo}`}
+                                            alt="Company Logo"
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
+                                    ) : (
+                                        <Building2 className="w-8 h-8 text-muted-foreground" />
+                                    )}
+                                </div>
+                                <input
+                                    id="logo-upload"
+                                    name="logo"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleLogoFileChange}
+                                    disabled={uploadingLogo}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="icon"
+                                    className="absolute -bottom-2 -right-2 rounded-full shadow-lg"
+                                    onClick={() => document.getElementById('logo-upload')?.click()}
+                                    disabled={uploadingLogo}
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold">{t('settings.logo_preview')}</p>
+                                <p className="text-xs text-muted-foreground max-w-[200px]">{t('settings.recommended_size')}</p>
+                                <p className="text-xs font-medium text-primary mt-1">
+                                    {logoFile ? logoFile.name : t('settings.no_file_selected')}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Save */}
+            <div className="flex justify-end">
+                <ProfessionalButton onClick={handleSave} loading={updateSettingsMutation.isPending || uploadingLogo} variant="gradient" size="lg">
+                    {t('settings.save_changes')}
+                </ProfessionalButton>
+            </div>
+        </div>
     );
 };

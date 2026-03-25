@@ -235,6 +235,20 @@ const EmailIntegrationSettingsContent: React.FC = () => {
     };
 
     return (
+        <div className="space-y-6">
+        {/* Gradient Banner */}
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">{t('emailIntegration.title', 'Email Integration')}</h2>
+                    <p className="text-muted-foreground mt-0.5">{t('emailIntegration.banner_description', 'Connect your email account to process invoices automatically')}</p>
+                </div>
+            </div>
+        </div>
+
         <ProfessionalCard variant="elevated">
             <ProfessionalCardHeader>
                 <ProfessionalCardTitle className="flex items-center gap-2">
@@ -447,6 +461,7 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                 </div>
             </ProfessionalCardContent>
         </ProfessionalCard>
+        </div>
     );
 };
 

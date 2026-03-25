@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Percent, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import {
     ProfessionalCard,
     ProfessionalCardHeader,
@@ -92,74 +92,85 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
 
 
     return (
-        <ProfessionalCard variant="elevated">
-            <ProfessionalCardHeader>
-                <ProfessionalCardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    {t('settings.invoice_settings')}
-                </ProfessionalCardTitle>
-            </ProfessionalCardHeader>
-            <ProfessionalCardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ProfessionalInput
-                        label={t('settings.invoice_prefix')}
-                        id="prefix"
-                        name="prefix"
-                        value={invoiceSettings.prefix}
-                        onChange={handleInvoiceChange}
-                    />
-                    <ProfessionalInput
-                        label={t('settings.next_invoice_number')}
-                        id="next_number"
-                        name="next_number"
-                        type="number"
-                        value={invoiceSettings.next_number}
-                        onChange={handleInvoiceChange}
-                    />
+        <div className="space-y-6">
+            {/* Gradient Banner */}
+            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight">{t('settings.invoice_settings')}</h2>
+                        <p className="text-muted-foreground mt-0.5">{t('settings.invoice_settings_description', 'Configure invoice numbering and default content')}</p>
+                    </div>
                 </div>
+            </div>
 
-                <ProfessionalTextarea
-                    label={t('settings.default_notes')}
-                    id="default_notes"
-                    name="notes"
-                    rows={4}
-                    value={invoiceSettings.notes || ''}
-                    onChange={handleInvoiceChange}
-                    placeholder={BACKEND_DEFAULT_NOTES}
-                />
+            {/* Numbering Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        {t('settings.invoice_numbering', 'Numbering')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ProfessionalInput
+                            label={t('settings.invoice_prefix')}
+                            id="prefix"
+                            name="prefix"
+                            value={invoiceSettings.prefix}
+                            onChange={handleInvoiceChange}
+                        />
+                        <ProfessionalInput
+                            label={t('settings.next_invoice_number')}
+                            id="next_number"
+                            name="next_number"
+                            type="number"
+                            value={invoiceSettings.next_number}
+                            onChange={handleInvoiceChange}
+                        />
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
 
-                <ProfessionalTextarea
-                    label={t('settings.default_footer')}
-                    id="default_footer"
-                    name="terms"
-                    rows={4}
-                    value={invoiceSettings.terms}
-                    onChange={handleInvoiceChange}
-                    placeholder={BACKEND_DEFAULT_TERMS}
-                />
-
-                {/* Optional settings like tax rate could be added here if defined in InvoiceSettings */}
-                {/* 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ProfessionalInput
-                        label={t('settings.default_tax_rate')}
-                        id="default_tax_rate"
-                        name="default_tax_rate"
-                        type="number"
-                        step="0.01"
-                        value={invoiceSettings.default_tax_rate}
+            {/* Default Content Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        {t('settings.default_content', 'Default Content')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <ProfessionalTextarea
+                        label={t('settings.default_notes')}
+                        id="default_notes"
+                        name="notes"
+                        rows={4}
+                        value={invoiceSettings.notes || ''}
                         onChange={handleInvoiceChange}
-                        rightIcon={<Percent className="w-4 h-4" />}
+                        placeholder={BACKEND_DEFAULT_NOTES}
                     />
-                </div>
-                */}
+                    <ProfessionalTextarea
+                        label={t('settings.default_footer')}
+                        id="default_footer"
+                        name="terms"
+                        rows={4}
+                        value={invoiceSettings.terms}
+                        onChange={handleInvoiceChange}
+                        placeholder={BACKEND_DEFAULT_TERMS}
+                    />
+                </ProfessionalCardContent>
+            </ProfessionalCard>
 
-                <div className="flex justify-end pt-4">
-                    <ProfessionalButton onClick={handleSave} loading={updateSettingsMutation.isPending} variant="gradient" size="lg">
-                        {t('settings.save_changes')}
-                    </ProfessionalButton>
-                </div>
-            </ProfessionalCardContent>
-        </ProfessionalCard>
+            {/* Save */}
+            <div className="flex justify-end">
+                <ProfessionalButton onClick={handleSave} loading={updateSettingsMutation.isPending} variant="gradient" size="lg">
+                    {t('settings.save_changes')}
+                </ProfessionalButton>
+            </div>
+        </div>
     );
 };
