@@ -195,7 +195,7 @@ export function CurrencyManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">{t('currency_manager.custom_currencies')}</h3>
+          <h3 className="text-lg font-semibold">{t('currency_manager.custom_currencies')}</h3>
           <p className="text-sm text-muted-foreground">
             {t('currency_manager.custom_currencies_description')}
           </p>
