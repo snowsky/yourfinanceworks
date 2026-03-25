@@ -28,6 +28,8 @@ import { ReviewDiffModal } from "@/components/ReviewDiffModal";
 import { Wand } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
+import { ShareButton } from "@/components/sharing/ShareButton";
+import { Share2 } from "lucide-react";
 import { ColumnPicker } from "@/components/ui/column-picker";
 
 const INVOICE_COLUMNS: ColumnDef[] = [
@@ -145,6 +147,7 @@ const Invoices = () => {
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
+  const [shareInvoiceId, setShareInvoiceId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [labelFilter, setLabelFilter] = useState("");
   const [bulkLabel, setBulkLabel] = useState("");
@@ -1205,6 +1208,9 @@ const Invoices = () => {
                                   <DropdownMenuItem onClick={() => handleCloneInvoice(invoice.id)}>
                                     <Copy className="mr-2 h-4 w-4" /> {t('invoices.clone', 'Clone')}
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setShareInvoiceId(invoice.id)}>
+                                    <Share2 className="mr-2 h-4 w-4" /> Share
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteInvoice(invoice.id)}>
                                     <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
@@ -1402,6 +1408,9 @@ const Invoices = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog >
+      {shareInvoiceId !== null && (
+        <ShareButton recordType="invoice" recordId={shareInvoiceId} open onOpenChange={(open) => { if (!open) setShareInvoiceId(null); }} />
+      )}
     </>
   );
 };

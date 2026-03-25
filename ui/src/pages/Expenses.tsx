@@ -57,6 +57,8 @@ import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { ShareButton } from "@/components/sharing/ShareButton";
+import { Share2 } from "lucide-react";
 
 const EXPENSE_COLUMNS: ColumnDef[] = [
   { key: 'select', label: 'Select', essential: true },
@@ -152,6 +154,7 @@ const Expenses = () => {
   // Inventory consumption state for edit expense
   const [isEditInventoryConsumption, setIsEditInventoryConsumption] = useState(false);
   const [expenseIdToDelete, setExpenseIdToDelete] = useState<number | null>(null);
+  const [shareExpenseId, setShareExpenseId] = useState<number | null>(null);
   const [editConsumptionItems, setEditConsumptionItems] = useState<any[]>([]);
 
   // Processing lock state for expenses
@@ -1494,6 +1497,9 @@ const Expenses = () => {
                                     <Edit className="mr-2 w-4 h-4" /> {t('common.edit', 'Edit')}
                                   </DropdownMenuItem>
                                 )}
+                                <DropdownMenuItem onClick={() => setShareExpenseId(e.id)}>
+                                  <Share2 className="mr-2 w-4 h-4" /> Share
+                                </DropdownMenuItem>
                                 {canDeleteExpense(e) && (
                                   <>
                                     <DropdownMenuSeparator />
@@ -1914,6 +1920,10 @@ const Expenses = () => {
           type="expense"
           readOnly={selectedReviewExpense?.review_status === 'reviewed' || selectedReviewExpense?.review_status === 'no_diff'}
         />
+      )}
+
+      {shareExpenseId !== null && (
+        <ShareButton recordType="expense" recordId={shareExpenseId} open onOpenChange={(open) => { if (!open) setShareExpenseId(null); }} />
       )}
 
       {/* Delete confirmation dialog */}

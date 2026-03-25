@@ -17,6 +17,8 @@ import { ProfessionalButton } from "@/components/ui/professional-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { ShareButton } from "@/components/sharing/ShareButton";
+import { Share2 } from "lucide-react";
 
 const CLIENT_COLUMNS: ColumnDef[] = [
   { key: 'select', label: 'Select', essential: true },
@@ -56,6 +58,7 @@ const Clients = () => {
 
   // Check if user can perform actions (not a viewer)
   const canPerformAction = canPerformActions();
+  const [shareClientId, setShareClientId] = useState<number | null>(null);
 
   // Get current tenant ID to trigger refetch when organization switches
   const getCurrentTenantId = () => {
@@ -471,6 +474,9 @@ const Clients = () => {
                                     <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
                                   </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setShareClientId(client.id)}>
+                                  <Share2 className="mr-2 h-4 w-4" /> Share
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setClientToDelete(client)}>
                                   <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
@@ -605,6 +611,9 @@ const Clients = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {shareClientId !== null && (
+        <ShareButton recordType="client" recordId={shareClientId} open onOpenChange={(open) => { if (!open) setShareClientId(null); }} />
+      )}
     </>
   );
 };
