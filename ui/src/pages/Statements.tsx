@@ -741,6 +741,7 @@ export default function Statements() {
         transaction_type: (t.transaction_type === 'debit' || t.transaction_type === 'credit') ? t.transaction_type : (t.amount < 0 ? 'debit' : 'credit'),
         balance: t.balance ?? null,
         category: t.category ?? null,
+        notes: (t as any).notes ?? null,
         invoice_id: (t as any).invoice_id ?? null,
         expense_id: (t as any).expense_id ?? null,
         linked_transfer: (t as any).linked_transfer ?? null,
@@ -826,6 +827,7 @@ export default function Statements() {
         id: r.backend_id || undefined, // Use backend_id for API, or let backend assign new ID
         balance: r.balance === undefined ? null : r.balance,
         category: r.category || null,
+        notes: (r as any).notes || null,
         invoice_id: r.invoice_id ?? null,
         expense_id: r.expense_id ?? null,
       }));
