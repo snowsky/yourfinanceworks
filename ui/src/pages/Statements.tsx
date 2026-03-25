@@ -678,7 +678,12 @@ export default function Statements() {
     setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, linked_transfer: link } : r));
     setLinkTransferModalOpen(false);
     setLinkingRowIdx(null);
-    if (selected) openStatement(selected);
+    // Delay reload until after the Dialog close animation finishes (duration-200)
+    // to avoid interrupting Radix's cleanup which would leave the overlay stuck.
+    if (selected) {
+      const id = selected;
+      setTimeout(() => openStatement(id), 300);
+    }
   };
 
   const handleUnlinkTransfer = async (rowIdx: number) => {
