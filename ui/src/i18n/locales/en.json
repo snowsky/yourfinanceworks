@@ -284,7 +284,24 @@
       "tips": {
         "org_taken_tip": "💡 Tip: If you're trying to join an existing organization, ask your admin to invite you instead of creating a new account.",
         "email_taken_tip": "💡 Tip: If you already have an account, try logging in instead."
-      }
+      },
+      "requested_role": "Requested Role",
+      "message_to_admin": "Message to Admin (Optional)",
+      "message_to_admin_placeholder": "Tell the admin why you want to join this organization...",
+      "request_to_join": "Request to Join",
+      "submitting_request": "Submitting Request...",
+      "join_request_submitted": "Join Request Submitted",
+      "ok": "OK",
+      "password_requirements_label": "Password requirements",
+      "req_min_length": "At least {{min_length}} characters",
+      "req_uppercase": "Uppercase letter",
+      "req_lowercase": "Lowercase letter",
+      "req_number": "Number",
+      "req_special_char": "Special character",
+      "terms_agreement": "By creating an account, you agree to our",
+      "terms": "Terms of Service",
+      "and": "and",
+      "privacy_policy": "Privacy Policy"
     }
   },
   "search": {

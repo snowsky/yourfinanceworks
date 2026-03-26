@@ -269,7 +269,24 @@
       "tips": {
         "org_taken_tip": "💡 Conseil : Si vous essayez de rejoindre une organisation existante, demandez à votre administrateur de vous inviter au lieu de créer un nouveau compte.",
         "email_taken_tip": "💡 Conseil : Si vous avez déjà un compte, essayez de vous connecter à la place."
-      }
+      },
+      "requested_role": "Rôle demandé",
+      "message_to_admin": "Message à l'administrateur (Optionnel)",
+      "message_to_admin_placeholder": "Indiquez à l'administrateur pourquoi vous souhaitez rejoindre cette organisation...",
+      "request_to_join": "Demander à rejoindre",
+      "submitting_request": "Envoi de la demande...",
+      "join_request_submitted": "Demande d'adhésion soumise",
+      "ok": "OK",
+      "password_requirements_label": "Exigences du mot de passe",
+      "req_min_length": "Au moins {{min_length}} caractères",
+      "req_uppercase": "Lettre majuscule",
+      "req_lowercase": "Lettre minuscule",
+      "req_number": "Chiffre",
+      "req_special_char": "Caractère spécial",
+      "terms_agreement": "En créant un compte, vous acceptez nos",
+      "terms": "Conditions d'utilisation",
+      "and": "et",
+      "privacy_policy": "Politique de confidentialité"
     }
   },
   "search": {

@@ -261,7 +261,24 @@
       "tips": {
         "org_taken_tip": "💡 Tipp: Wenn Sie einer bestehenden Organisation beitreten möchten, bitten Sie Ihren Admin um eine Einladung, anstatt ein neues Konto zu erstellen.",
         "email_taken_tip": "💡 Tipp: Wenn Sie bereits ein Konto haben, versuchen Sie sich anzumelden."
-      }
+      },
+      "requested_role": "Gewünschte Rolle",
+      "message_to_admin": "Nachricht an den Administrator (Optional)",
+      "message_to_admin_placeholder": "Teilen Sie dem Administrator mit, warum Sie dieser Organisation beitreten möchten...",
+      "request_to_join": "Beitritt beantragen",
+      "submitting_request": "Anfrage wird gesendet...",
+      "join_request_submitted": "Beitrittsanfrage eingereicht",
+      "ok": "OK",
+      "password_requirements_label": "Passwortanforderungen",
+      "req_min_length": "Mindestens {{min_length}} Zeichen",
+      "req_uppercase": "Großbuchstabe",
+      "req_lowercase": "Kleinbuchstabe",
+      "req_number": "Zahl",
+      "req_special_char": "Sonderzeichen",
+      "terms_agreement": "Mit der Erstellung eines Kontos stimmen Sie unseren",
+      "terms": "Nutzungsbedingungen",
+      "and": "und",
+      "privacy_policy": "Datenschutzrichtlinie"
     }
   },
   "search": {
