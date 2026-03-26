@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
-import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2 } from 'lucide-react';
+import { CalendarIcon, Upload, ArrowLeft, Eye, Download, ExternalLink, Trash2, FileText, Plus, Copy, X, Edit, MoreHorizontal, Loader2, ChevronDown, ChevronUp, RotateCcw, Search, Tag, Minus, Filter, Save, AlertCircle, CreditCard, Wallet, Columns, ArrowLeftRight, Share2, Archive } from 'lucide-react';
+import JSZip from 'jszip';
 import { format, parseISO, isValid } from 'date-fns';
 import { bankStatementApi, BankTransactionEntry, BankStatementDetail, BankStatementSummary, expenseApi, invoiceApi, clientApi, formatStatus, DeletedBankStatement } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
@@ -336,6 +337,8 @@ export default function Statements() {
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkMergeModalOpen, setBulkMergeModalOpen] = useState(false);
+  const [deleteTransactionModalOpen, setDeleteTransactionModalOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<{ idx: number; backendId: number } | null>(null);
 
   // Review Mode State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -522,6 +525,63 @@ export default function Statements() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success(t('statements.export.csv_success', { defaultValue: 'CSV exported successfully' }));
+  };
+
+  const exportSelectedAsZip = async () => {
+    if (selectedIds.length === 0) return;
+    setLoading(true);
+    try {
+      const zip = new JSZip();
+      const details = await Promise.all(selectedIds.map(id => bankStatementApi.get(id)));
+      for (const s of details) {
+        const txns = s.transactions ?? [];
+        const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Notes', 'Reference'];
+        let csvContent = [
+          headers.join(','),
+          ...txns.map(row => {
+            const refs: string[] = [];
+            if ((row as any).expense_id) refs.push(`EXP #${(row as any).expense_id}`);
+            if ((row as any).invoice_id) refs.push(`INV #${(row as any).invoice_id}`);
+            if ((row as any).linked_transfer) {
+              const lt = (row as any).linked_transfer;
+              const linkType = lt?.link_type === 'fx_conversion' ? 'FX' : 'TRF';
+              const statementId = lt?.linked_statement_id;
+              const filename = lt?.linked_statement_filename || '';
+              const url = statementId ? `${window.location.origin}/statements?id=${statementId}` : '';
+              refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
+            }
+            return [
+              row.date,
+              `"${row.description.replace(/"/g, '""')}"`,
+              row.amount,
+              row.transaction_type,
+              row.balance ?? '',
+              row.category ?? '',
+              `"${(row as any).notes?.replace(/"/g, '""') || ''}"`,
+              refs.join('; ')
+            ].join(',');
+          })
+        ].join('\n');
+        if (s.notes) {
+          csvContent += `\n\n"Notes: ${s.notes.replace(/"/g, '""')}"`;
+        }
+        const safeName = (s.original_filename || `statement-${s.id}`).replace(/\.pdf$/i, '');
+        zip.file(`${safeName}.csv`, csvContent);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `statements-export-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      toast.success(`${selectedIds.length} CSV file${selectedIds.length !== 1 ? 's' : ''} exported as ZIP`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to export ZIP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createExpenseFromTransaction = async (rowIndex: number) => {
@@ -1472,6 +1532,17 @@ export default function Statements() {
                       >
                         <Plus className="w-3.5 h-3.5" />
                         {t('statements.merge_transactions')}
+                      </ProfessionalButton>
+
+                      <ProfessionalButton
+                        variant="outline"
+                        size="sm"
+                        onClick={exportSelectedAsZip}
+                        disabled={loading}
+                        className="h-9 px-3 gap-1.5 shadow-sm border-primary/20 hover:bg-primary/10 transition-colors"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                        Export CSV (ZIP)
                       </ProfessionalButton>
 
                       <ProfessionalButton
@@ -2662,6 +2733,21 @@ export default function Statements() {
                                           )}
                                         </>
                                       )}
+
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        disabled={readOnly}
+                                        onClick={() => {
+                                          const backendId = (r as any).backend_id;
+                                          if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                                          setTransactionToDelete({ idx, backendId });
+                                          setDeleteTransactionModalOpen(true);
+                                        }}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete Transaction
+                                      </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 )}
@@ -2674,6 +2760,37 @@ export default function Statements() {
                             <Edit className="w-4 h-4 mr-2 text-primary" />
                             {t('common.edit', { defaultValue: 'Edit' })}
                           </ContextMenuItem>
+
+                          <ContextMenuSeparator />
+
+                          <ContextMenuItem
+                            onSelect={() => {
+                              setTimeout(() => {
+                                setLinkingRowIdx(idx);
+                                setLinkTransferModalOpen(true);
+                                setLinkTransferModalMounted(true);
+                              }, 100);
+                            }}
+                            disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
+                          >
+                            <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                            {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
+                          </ContextMenuItem>
+                          {Boolean((r as any).linked_transfer) && (
+                            <ContextMenuItem
+                              onSelect={() => {
+                                setTimeout(() => {
+                                  setRowToUnlink(idx);
+                                  setUnlinkModalOpen(true);
+                                }, 100);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                              disabled={readOnly}
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Unlink Transfer
+                            </ContextMenuItem>
+                          )}
 
                           <ContextMenuSeparator />
 
@@ -2785,6 +2902,20 @@ export default function Statements() {
                               )}
                             </>
                           )}
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            disabled={readOnly}
+                            onClick={() => {
+                              const backendId = (r as any).backend_id;
+                              if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                              setTransactionToDelete({ idx, backendId });
+                              setDeleteTransactionModalOpen(true);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Transaction
+                          </ContextMenuItem>
                         </ContextMenuContent>
                       </ContextMenu>
                     ))}
@@ -3040,6 +3171,40 @@ export default function Statements() {
               <AlertDialogAction onClick={confirmDeleteStatement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('statements.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Transaction Modal */}
+        <AlertDialog open={deleteTransactionModalOpen} onOpenChange={setDeleteTransactionModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this transaction? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  if (!transactionToDelete) return;
+                  try {
+                    await bankStatementApi.deleteTransaction(selected!, transactionToDelete.backendId);
+                    setRows(prev => prev.filter((_, i) => i !== transactionToDelete.idx));
+                    toast.success('Transaction deleted');
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Failed to delete transaction');
+                  } finally {
+                    setTransactionToDelete(null);
+                    setDeleteTransactionModalOpen(false);
+                  }
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

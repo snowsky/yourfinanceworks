@@ -136,6 +136,16 @@ export const bankStatementApi = {
     );
   },
 
+  deleteTransaction: async (
+    statementId: number,
+    transactionId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>(
+      `/statements/${statementId}/transactions/${transactionId}`,
+      { method: 'DELETE' }
+    );
+  },
+
   reprocess: async (statementId: number): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(
       `/statements/${statementId}/reprocess`,
