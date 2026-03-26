@@ -2731,6 +2731,30 @@ export default function Statements() {
                                           )}
                                         </>
                                       )}
+
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        disabled={readOnly}
+                                        onClick={async () => {
+                                          const backendId = (r as any).backend_id;
+                                          if (!backendId) {
+                                            toast.error('Transaction has not been saved yet');
+                                            return;
+                                          }
+                                          if (!confirm('Delete this transaction? This cannot be undone.')) return;
+                                          try {
+                                            await bankStatementApi.deleteTransaction(selected!, backendId);
+                                            setRows(prev => prev.filter((_, i) => i !== idx));
+                                            toast.success('Transaction deleted');
+                                          } catch (e: any) {
+                                            toast.error(e?.message || 'Failed to delete transaction');
+                                          }
+                                        }}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete Transaction
+                                      </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 )}
@@ -2743,6 +2767,37 @@ export default function Statements() {
                             <Edit className="w-4 h-4 mr-2 text-primary" />
                             {t('common.edit', { defaultValue: 'Edit' })}
                           </ContextMenuItem>
+
+                          <ContextMenuSeparator />
+
+                          <ContextMenuItem
+                            onSelect={() => {
+                              setTimeout(() => {
+                                setLinkingRowIdx(idx);
+                                setLinkTransferModalOpen(true);
+                                setLinkTransferModalMounted(true);
+                              }, 100);
+                            }}
+                            disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
+                          >
+                            <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                            {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
+                          </ContextMenuItem>
+                          {Boolean((r as any).linked_transfer) && (
+                            <ContextMenuItem
+                              onSelect={() => {
+                                setTimeout(() => {
+                                  setRowToUnlink(idx);
+                                  setUnlinkModalOpen(true);
+                                }, 100);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                              disabled={readOnly}
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Unlink Transfer
+                            </ContextMenuItem>
+                          )}
 
                           <ContextMenuSeparator />
 
