@@ -255,12 +255,19 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
     });
 
     const testConfigMutation = useMutation({
-        mutationFn: (data: Partial<AIConfigCreate>) => aiConfigApi.testAIConfigWithOverrides({
-            provider_name: data.provider_name!,
-            provider_url: data.provider_url,
-            api_key: data.api_key,
-            model_name: data.model_name!,
-        }),
+        mutationFn: (data: Partial<AIConfigCreate> & { _existingConfigId?: number }) => {
+            const { _existingConfigId, ...configData } = data;
+            if (_existingConfigId && !configData.api_key) {
+                // Editing an existing config without a new API key — use the stored key via ID
+                return aiConfigApi.testAIConfig(_existingConfigId);
+            }
+            return aiConfigApi.testAIConfigWithOverrides({
+                provider_name: configData.provider_name!,
+                provider_url: configData.provider_url,
+                api_key: configData.api_key,
+                model_name: configData.model_name!,
+            });
+        },
         onSuccess: (result) => {
             setTestResult({
                 success: result.success,
@@ -329,7 +336,10 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
     };
 
     const handleTestConfig = () => {
-        testConfigMutation.mutate(newAIConfig);
+        testConfigMutation.mutate({
+            ...newAIConfig,
+            _existingConfigId: editingAIConfig?.id,
+        });
     };
 
     const handleSaveConfig = () => {
@@ -845,7 +855,7 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
                         <Button
                             variant="outline"
                             onClick={handleTestConfig}
-                            disabled={testConfigMutation.isPending || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key)}
+                            disabled={testConfigMutation.isPending || !newAIConfig.model_name || (providerRequiresApiKey(newAIConfig.provider_name) && !newAIConfig.api_key && !editingAIConfig)}
                         >
                             {testConfigMutation.isPending ? (
                                 <>
