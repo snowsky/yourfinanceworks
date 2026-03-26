@@ -361,11 +361,14 @@ async def process_statement_pdf(
         )
 
         # Return response based on requested format
+        detected_card_type = transactions[0].get("card_type", "debit") if transactions else "debit"
         if format.lower() == "json":
-            return {"transactions": transactions}
+            return {"transactions": transactions, "statement_type": detected_card_type}
         else:
             # Default to CSV format
-            return _create_csv_response(transactions, file.filename)
+            response = _create_csv_response(transactions, file.filename)
+            response.headers["X-Statement-Type"] = detected_card_type
+            return response
 
     finally:
         # Clean up temporary file
