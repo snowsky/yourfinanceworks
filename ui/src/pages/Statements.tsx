@@ -2409,7 +2409,7 @@ export default function Statements() {
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
                       <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_notes', { defaultValue: 'Notes' })}</TableHead>
                       <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference', { defaultValue: 'Reference' })}</TableHead>
-                      <TableHead className="w-[80px] text-right font-bold text-foreground">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
+                      <TableHead className="w-[80px] text-right font-bold text-foreground sticky right-0 bg-muted/30 z-10 shadow-[-4px_0_8px_-2px_hsl(var(--border)/0.5)]">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2565,7 +2565,7 @@ export default function Statements() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-2px_hsl(var(--border)/0.5)]">
                               <div className="flex items-center justify-end gap-2">
                                 {editingRow === idx ? (
                                   <ProfessionalButton
