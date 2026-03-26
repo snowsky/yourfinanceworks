@@ -360,6 +360,7 @@ async def list_statements(
                 "created_by_user_id": s.created_by_user_id,
                 "created_by_username": created_by_username,
                 "created_by_email": created_by_email,
+                "card_type": getattr(s, "card_type", "debit"),
                 "review_status": getattr(s, "review_status", "not_started"),
                 "review_result": getattr(s, "review_result", None),
                 "reviewed_at": (
@@ -961,6 +962,7 @@ async def get_statement(
             "created_by_user_id": s.created_by_user_id,
             "created_by_username": s.created_by.email if s.created_by else None,
             "created_by_email": s.created_by.email if s.created_by else None,
+            "card_type": getattr(s, "card_type", "debit"),
             "review_status": getattr(s, "review_status", "not_started"),
             "review_result": getattr(s, "review_result", None),
             "reviewed_at": (
