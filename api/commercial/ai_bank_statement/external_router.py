@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header,
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from core.models.database import get_db, set_tenant_context
+from core.models.database import get_db, get_master_db, set_tenant_context
 from core.models.api_models import APIClient, ExternalTransaction
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, Permission
 from core.decorators.sandbox_validation import require_production_auth_context
@@ -35,7 +35,7 @@ async def get_api_auth_context(
     request: Request,
     authorization: Optional[str] = Header(None),
     x_api_key: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_master_db)
 ) -> AuthContext:
     """
     Authenticate API requests using API key from Authorization header or X-API-Key header.
@@ -85,8 +85,9 @@ async def process_statement_pdf(
     file: UploadFile = File(..., description="PDF or CSV bank statement file"),
     format: str = "csv",  # Response format: csv, json
     card_type: str = "auto", # debit|credit|auto
+    auth_context: AuthContext = Depends(get_api_auth_context),
     db: Session = Depends(get_db),
-    auth_context: AuthContext = Depends(get_api_auth_context)
+    master_db: Session = Depends(get_master_db)
 ) -> StreamingResponse:
     """
     Process a bank statement PDF/CSV file and return extracted transactions.
@@ -129,7 +130,7 @@ async def process_statement_pdf(
     validate_file_magic_bytes(file_content, file.content_type)
     
     # Get API client for rate limiting and permissions
-    api_client = db.query(APIClient).filter(
+    api_client = master_db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id,
         APIClient.is_active == True
     ).first()
@@ -139,7 +140,7 @@ async def process_statement_pdf(
     
     # Check rate limits
     rate_limit_ok, rate_limit_msg, retry_after = await auth_service.check_rate_limits(
-        db, api_client
+        master_db, api_client
     )
     if not rate_limit_ok:
         raise HTTPException(
@@ -434,7 +435,8 @@ def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: 
 
 @router.get("/statements/health")
 async def health_check(
-    auth_context: AuthContext = Depends(get_api_auth_context)
+    auth_context: AuthContext = Depends(get_api_auth_context),
+    db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
     Health check endpoint for API clients.
