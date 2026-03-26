@@ -2854,6 +2854,29 @@ export default function Statements() {
                               )}
                             </>
                           )}
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            disabled={readOnly}
+                            onClick={async () => {
+                              const backendId = (r as any).backend_id;
+                              if (!backendId) {
+                                toast.error('Transaction has not been saved yet');
+                                return;
+                              }
+                              if (!confirm('Delete this transaction? This cannot be undone.')) return;
+                              try {
+                                await bankStatementApi.deleteTransaction(selected!, backendId);
+                                setRows(prev => prev.filter((_, i) => i !== idx));
+                                toast.success('Transaction deleted');
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Failed to delete transaction');
+                              }
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Transaction
+                          </ContextMenuItem>
                         </ContextMenuContent>
                       </ContextMenu>
                     ))}
