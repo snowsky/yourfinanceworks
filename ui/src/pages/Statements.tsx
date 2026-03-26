@@ -337,6 +337,8 @@ export default function Statements() {
   const [bulkLabel, setBulkLabel] = useState('');
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkMergeModalOpen, setBulkMergeModalOpen] = useState(false);
+  const [deleteTransactionModalOpen, setDeleteTransactionModalOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<{ idx: number; backendId: number } | null>(null);
 
   // Review Mode State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -2735,20 +2737,11 @@ export default function Statements() {
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem
                                         disabled={readOnly}
-                                        onClick={async () => {
+                                        onClick={() => {
                                           const backendId = (r as any).backend_id;
-                                          if (!backendId) {
-                                            toast.error('Transaction has not been saved yet');
-                                            return;
-                                          }
-                                          if (!confirm('Delete this transaction? This cannot be undone.')) return;
-                                          try {
-                                            await bankStatementApi.deleteTransaction(selected!, backendId);
-                                            setRows(prev => prev.filter((_, i) => i !== idx));
-                                            toast.success('Transaction deleted');
-                                          } catch (e: any) {
-                                            toast.error(e?.message || 'Failed to delete transaction');
-                                          }
+                                          if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                                          setTransactionToDelete({ idx, backendId });
+                                          setDeleteTransactionModalOpen(true);
                                         }}
                                         className="text-destructive focus:text-destructive"
                                       >
@@ -2912,20 +2905,11 @@ export default function Statements() {
                           <ContextMenuSeparator />
                           <ContextMenuItem
                             disabled={readOnly}
-                            onClick={async () => {
+                            onClick={() => {
                               const backendId = (r as any).backend_id;
-                              if (!backendId) {
-                                toast.error('Transaction has not been saved yet');
-                                return;
-                              }
-                              if (!confirm('Delete this transaction? This cannot be undone.')) return;
-                              try {
-                                await bankStatementApi.deleteTransaction(selected!, backendId);
-                                setRows(prev => prev.filter((_, i) => i !== idx));
-                                toast.success('Transaction deleted');
-                              } catch (e: any) {
-                                toast.error(e?.message || 'Failed to delete transaction');
-                              }
+                              if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                              setTransactionToDelete({ idx, backendId });
+                              setDeleteTransactionModalOpen(true);
                             }}
                             className="text-destructive focus:text-destructive"
                           >
@@ -3187,6 +3171,40 @@ export default function Statements() {
               <AlertDialogAction onClick={confirmDeleteStatement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('statements.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Transaction Modal */}
+        <AlertDialog open={deleteTransactionModalOpen} onOpenChange={setDeleteTransactionModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this transaction? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  if (!transactionToDelete) return;
+                  try {
+                    await bankStatementApi.deleteTransaction(selected!, transactionToDelete.backendId);
+                    setRows(prev => prev.filter((_, i) => i !== transactionToDelete.idx));
+                    toast.success('Transaction deleted');
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Failed to delete transaction');
+                  } finally {
+                    setTransactionToDelete(null);
+                    setDeleteTransactionModalOpen(false);
+                  }
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
