@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Trash2, Edit, UserPlus, Building, Database, Users, ShieldCheck, AlertTriangle, Eye, RotateCcw, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { MetricCard } from '@/components/ui/professional-card';
 import { toast } from 'sonner';
 import { useTranslation } from "react-i18next";
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -68,7 +69,7 @@ interface Anomaly {
 }
 
 const SuperAdminDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const { t } = useTranslation();
 
   // Check if user is super admin BEFORE any hooks are called
@@ -85,11 +86,11 @@ const SuperAdminDashboard: React.FC = () => {
     );
   }
 
-  return <SuperAdminDashboardContent user={user} t={t} />;
+  return <SuperAdminDashboardContent user={user} refreshAuth={refreshAuth} t={t} />;
 };
 
 // Separate component for the main dashboard content
-const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options?: any) => string }> = ({ user, t }) => {
+const SuperAdminDashboardContent: React.FC<{ user: any; refreshAuth: () => void; t: (key: string, options?: any) => string }> = ({ user, refreshAuth, t }) => {
   // All hooks at the top!
   const { user: currentUser } = useAuth();
   const { isFeatureEnabled } = useFeatures();
@@ -101,11 +102,6 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   const [activeTab, setActiveTab] = useState('tenants');
 
   const isAnomaliesEnabled = isFeatureEnabled('anomaly_detection');
-  
-  // Force re-render when feature status changes
-  React.useEffect(() => {
-    console.log('SuperAdmin - Feature status changed, isAnomaliesEnabled:', isAnomaliesEnabled);
-  }, [isAnomaliesEnabled]);
 
   // Form states
   const [showCreateTenant, setShowCreateTenant] = useState(false);
@@ -174,21 +170,12 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
       params.set('limit', anomaliesPageSize.toString());
 
       const queryString = params.toString();
-      console.log('SuperAdmin: Fetching anomalies with params:', queryString);
-
       const data = await apiRequest<{
         items: Anomaly[];
         total: number;
         skip: number;
         limit: number;
       }>(`/super-admin/anomalies${queryString ? `?${queryString}` : ''}`, {}, { skipTenant: true });
-
-      console.log('SuperAdmin: Received anomalies data:', {
-        itemsCount: data.items?.length || 0,
-        total: data.total,
-        skip: data.skip,
-        limit: data.limit
-      });
 
       setAnomalies(data.items || []);
       setTotalAnomalies(data.total || 0);
@@ -317,6 +304,30 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
     }
   };
 
+  const handleToggleTenantStatus = async (tenant: Tenant) => {
+    try {
+      await apiRequest(`/super-admin/tenants/${tenant.id}/toggle-status`, {
+        method: 'PATCH'
+      }, { skipTenant: true });
+      toast.success(`Organization ${tenant.is_active ? 'disabled' : 'enabled'} successfully`);
+      fetchTenants();
+    } catch (err) {
+      toast.error('Failed to toggle organization status');
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    try {
+      await apiRequest(`/super-admin/users/${user.id}/toggle-status`, {
+        method: 'PATCH'
+      }, { skipTenant: true });
+      toast.success(`User ${user.is_active ? 'disabled' : 'enabled'} successfully`);
+      fetchUsers(selectedTenantForUsers?.id);
+    } catch (err) {
+      toast.error('Failed to toggle user status');
+    }
+  };
+
   const handleRecreateDatabase = (db: DatabaseStatus) => {
     setDbToRecreate(db);
   };
@@ -436,9 +447,9 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
       toast.success('User updated successfully');
       fetchUsers(selectedTenantForUsers?.id);
 
-      // Refresh page if the edited user is the same as the logged-in user
+      // Refresh auth state if the edited user is the same as the logged-in user
       if (currentUser && editUser.id === currentUser.id) {
-        window.location.reload();
+        refreshAuth();
       }
     } catch (err) {
       toast.error('Failed to update user');
@@ -450,16 +461,11 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
     const loadData = async () => {
       setLoading(true);
       try {
-        await fetchTenants();
-        await fetchUsers();
-        await fetchDatabaseOverview();
-        // Only fetch anomalies if the feature is enabled
+        const fetches: Promise<void>[] = [fetchTenants(), fetchUsers(), fetchDatabaseOverview()];
         if (isAnomaliesEnabled) {
-          await fetchAnomalies();
+          fetches.push(fetchAnomalies());
         }
-      } catch (err) {
-        console.error('SuperAdmin: Error loading initial data:', err);
-        // Error is already handled by individual fetch functions
+        await Promise.all(fetches);
       } finally {
         setLoading(false);
       }
@@ -471,7 +477,6 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
   // Separate useEffect for anomalies pagination
   useEffect(() => {
     if (isAnomaliesEnabled) {
-      console.log('SuperAdmin: Fetching anomalies with page', anomaliesPage, 'pageSize', anomaliesPageSize);
       fetchAnomalies();
     }
   }, [anomaliesPage, anomaliesPageSize, isAnomaliesEnabled]);
@@ -489,8 +494,8 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading super admin dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading super admin dashboard...</p>
         </div>
       </div>
     );
@@ -544,97 +549,38 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
           </Alert>
         )}
 
-        <div className="mb-8">
-          <ProfessionalCard className="slide-in">
-            <div className="p-6">
-              <form onSubmit={handlePromote} className="flex flex-col md:flex-row items-center gap-4">
-                <Label htmlFor="promote-email" className="font-medium">{t('superAdmin.promote_user_label')}</Label>
-                <Input
-                  id="promote-email"
-                  type="email"
-                  placeholder={t('superAdmin.promote_user_placeholder')}
-                  value={promoteEmail}
-                  onChange={e => {
-                    setPromoteEmail(e.target.value);
-                    setPromoteError(null);
-                  }}
-                  className="max-w-xs"
-                  required
-                />
-                <Button type="submit" disabled={promoteLoading || !promoteEmail}>
-                  {promoteLoading ? t('superAdmin.promoting_button') : t('superAdmin.promote_button')}
-                </Button>
-                {promoteError && (
-                  <div className="text-red-600 text-sm mt-2" role="alert">{promoteError}</div>
-                )}
-              </form>
-            </div>
-          </ProfessionalCard>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <ProfessionalCard className="border border-border/50 hover:border-border/80 transition-all duration-200 slide-in">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('superAdmin.total_organizations_label')}</p>
-                  <p className="text-2xl font-bold mt-1">{tenants.length}</p>
-                </div>
-                <Building className="h-8 w-8 text-primary/60" />
-              </div>
-              <p className="text-sm text-muted-foreground mt-3">{activeTenants} {t('superAdmin.active_label')}</p>
-            </div>
-          </ProfessionalCard>
-
-          <ProfessionalCard className="border border-border/50 hover:border-border/80 transition-all duration-200 slide-in">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('superAdmin.total_users_label')}</p>
-                  <p className="text-2xl font-bold mt-1">{totalUsers}</p>
-                </div>
-                <Users className="h-8 w-8 text-primary/60" />
-              </div>
-              <p className="text-sm text-muted-foreground mt-3">{superUsers} {t('superAdmin.super_users')}</p>
-            </div>
-          </ProfessionalCard>
-
-          <ProfessionalCard className="border border-border/50 hover:border-border/80 transition-all duration-200 slide-in">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('superAdmin.databases_label')}</p>
-                  <p className="text-2xl font-bold mt-1">{databases.length}</p>
-                </div>
-                <Database className="h-8 w-8 text-primary/60" />
-              </div>
-              <p className="text-sm text-muted-foreground mt-3">{healthyDatabases} {t('superAdmin.healthy_databases')}</p>
-            </div>
-          </ProfessionalCard>
-
-          <ProfessionalCard className="border border-border/50 hover:border-border/80 transition-all duration-200 slide-in">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('superAdmin.system_status_label')}</p>
-                  <p className={`text-2xl font-bold mt-1 ${systemHealthy ? 'text-green-600' : 'text-red-600'}`}>
-                    {systemHealthy ? t('superAdmin.all_systems_operational') : `${unhealthyDatabases.length} ${t('superAdmin.issues_detected')}`}
-                  </p>
-                </div>
-                {systemHealthy ? (
-                  <ShieldCheck className="h-8 w-8 text-green-600/60" />
-                ) : (
-                  <AlertTriangle className="h-8 w-8 text-red-600/60" />
-                )}
-              </div>
-            </div>
-          </ProfessionalCard>
+          <MetricCard
+            title={t('superAdmin.total_organizations_label')}
+            value={tenants.length}
+            icon={Building}
+            description={`${activeTenants} ${t('superAdmin.active_label')}`}
+          />
+          <MetricCard
+            title={t('superAdmin.total_users_label')}
+            value={totalUsers}
+            icon={Users}
+            description={`${superUsers} ${t('superAdmin.super_users')}`}
+          />
+          <MetricCard
+            title={t('superAdmin.databases_label')}
+            value={databases.length}
+            icon={Database}
+            description={`${healthyDatabases} ${t('superAdmin.healthy_databases')}`}
+            variant={healthyDatabases < databases.length ? 'warning' : 'default'}
+          />
+          <MetricCard
+            title={t('superAdmin.system_status_label')}
+            value={systemHealthy ? t('superAdmin.all_systems_operational') : `${unhealthyDatabases.length} ${t('superAdmin.issues_detected')}`}
+            icon={systemHealthy ? ShieldCheck : AlertTriangle}
+            variant={systemHealthy ? 'success' : 'danger'}
+          />
         </div>
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
             <TabsTrigger value="tenants" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.organizations_tab')}</TabsTrigger>
             <TabsTrigger value="users" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.users_tab')}</TabsTrigger>
             <TabsTrigger value="databases" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.databases_tab')}</TabsTrigger>
@@ -736,17 +682,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                                   <Button
                                     size="sm"
                                     variant={tenant.is_active ? "destructive" : "default"}
-                                    onClick={async () => {
-                                      try {
-                                        await apiRequest(`/super-admin/tenants/${tenant.id}/toggle-status`, {
-                                          method: 'PATCH'
-                                        }, { skipTenant: true });
-                                        toast.success(`Organization ${tenant.is_active ? 'disabled' : 'enabled'} successfully`);
-                                        fetchTenants();
-                                      } catch (err) {
-                                        toast.error('Failed to toggle organization status');
-                                      }
-                                    }}
+                                    onClick={() => handleToggleTenantStatus(tenant)}
                                   >
                                     {tenant.is_active ? t('superAdmin.disable_button') : t('superAdmin.enable_button')}
                                   </Button>
@@ -768,6 +704,31 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
+            <ProfessionalCard className="slide-in">
+              <div className="p-6 border-b border-border/50">
+                <form onSubmit={handlePromote} className="flex flex-col md:flex-row items-center gap-4">
+                  <Label htmlFor="promote-email" className="font-medium whitespace-nowrap">{t('superAdmin.promote_user_label')}</Label>
+                  <Input
+                    id="promote-email"
+                    type="email"
+                    placeholder={t('superAdmin.promote_user_placeholder')}
+                    value={promoteEmail}
+                    onChange={e => {
+                      setPromoteEmail(e.target.value);
+                      setPromoteError(null);
+                    }}
+                    className="max-w-xs"
+                    required
+                  />
+                  <Button type="submit" disabled={promoteLoading || !promoteEmail}>
+                    {promoteLoading ? t('superAdmin.promoting_button') : t('superAdmin.promote_button')}
+                  </Button>
+                  {promoteError && (
+                    <div className="text-destructive text-sm" role="alert">{promoteError}</div>
+                  )}
+                </form>
+              </div>
+            </ProfessionalCard>
             <ProfessionalCard className="slide-in">
               <div className="p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
@@ -1006,17 +967,7 @@ const SuperAdminDashboardContent: React.FC<{ user: any; t: (key: string, options
                                   <Button
                                     size="sm"
                                     variant={user.is_active ? "destructive" : "default"}
-                                    onClick={async () => {
-                                      try {
-                                        await apiRequest(`/super-admin/users/${user.id}/toggle-status`, {
-                                          method: 'PATCH'
-                                        }, { skipTenant: true });
-                                        toast.success(`User ${user.is_active ? 'disabled' : 'enabled'} successfully`);
-                                        fetchUsers(selectedTenantForUsers?.id);
-                                      } catch (err) {
-                                        toast.error('Failed to toggle user status');
-                                      }
-                                    }}
+                                    onClick={() => handleToggleUserStatus(user)}
                                   >
                                     {user.is_active ? t('superAdmin.disable_button') : t('superAdmin.enable_button')}
                                   </Button>

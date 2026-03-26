@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { superAdminApi, api } from '@/lib/api';
-import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalTextarea } from '@/components/ui/professional-textarea';
 import { useFeatures } from '@/contexts/FeatureContext';
 
@@ -219,10 +218,10 @@ export const TenantLicenseMonitoring: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('superAdmin.license_capacity_monitoring.title')}
-        description={t('superAdmin.license_capacity_monitoring.description')}
-      />
+      <div className="pb-2">
+        <h2 className="text-xl font-semibold">{t('superAdmin.license_capacity_monitoring.title')}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{t('superAdmin.license_capacity_monitoring.description')}</p>
+      </div>
 
       {/* Global License Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
