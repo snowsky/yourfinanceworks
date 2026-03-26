@@ -344,7 +344,11 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
 
     const handleSaveConfig = () => {
         if (editingAIConfig) {
-            updateConfigMutation.mutate({ id: editingAIConfig.id, data: newAIConfig });
+            const data = { ...newAIConfig };
+            if (!data.api_key) {
+                delete data.api_key; // Don't overwrite stored key with empty string
+            }
+            updateConfigMutation.mutate({ id: editingAIConfig.id, data });
         } else {
             createConfigMutation.mutate(newAIConfig);
         }
