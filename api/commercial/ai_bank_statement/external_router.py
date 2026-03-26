@@ -25,7 +25,7 @@ from core.services.statement_service import process_bank_pdf_with_llm, BankLLMUn
 from core.utils.audit import log_audit_event
 from core.utils.file_validation import validate_file_magic_bytes
 
-router = APIRouter(prefix="/api/v1", tags=["external-api"])
+router = APIRouter(prefix="/external", tags=["external-api"])
 logger = logging.getLogger(__name__)
 
 auth_service = ExternalAPIAuthService()
