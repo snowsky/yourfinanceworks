@@ -1167,6 +1167,14 @@ async def delete_statement_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
 
     db.delete(txn)
+    db.flush()
+
+    statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
+    if statement:
+        statement.extracted_count = db.query(BankStatementTransaction).filter(
+            BankStatementTransaction.statement_id == statement_id
+        ).count()
+
     db.commit()
     log_audit_event(db, current_user.id, current_user.email, "transaction_deleted",
                     f"Deleted transaction {transaction_id} from statement {statement_id}")
