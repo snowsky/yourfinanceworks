@@ -2503,7 +2503,7 @@ export default function Statements() {
                             </TableCell>
                             <TableCell>
                               {editingRow === idx ? (
-                                <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit' } : x))}>
+                                <Select value={r.transaction_type} onValueChange={(v) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, transaction_type: v as 'debit' | 'credit', amount: v !== x.transaction_type ? -x.amount : x.amount } : x))}>
                                   <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="debit">{t('statements.type_debit', { defaultValue: 'Debit' })}</SelectItem>
