@@ -89,6 +89,7 @@ export interface AIConfigTestResponse {
 }
 
 export interface AIConfigTestWithOverrides {
+  config_id?: number;
   provider_name?: string;
   provider_url?: string;
   api_key?: string;

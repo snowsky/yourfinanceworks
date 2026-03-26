@@ -284,6 +284,7 @@ async def delete_ai_config(
 @router.post("/test-with-overrides", response_model=AIConfigTestResponse)
 async def test_ai_config_with_overrides(
     test_request: AIConfigTestWithOverrides,
+    db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Test an AI configuration with override parameters for unsaved changes."""
@@ -297,6 +298,13 @@ async def test_ai_config_with_overrides(
             raise HTTPException(status_code=400, detail="provider_name is required")
         if not test_request.model_name:
             raise HTTPException(status_code=400, detail="model_name is required")
+
+        # If no api_key supplied but config_id is provided, use the stored key
+        api_key = test_request.api_key
+        if not api_key and test_request.config_id:
+            db_config = db.query(AIConfigModel).filter(AIConfigModel.id == test_request.config_id).first()
+            if db_config and db_config.api_key:
+                api_key = db_config.api_key
 
         try:
             # Import litellm here to avoid circular imports
@@ -331,22 +339,22 @@ async def test_ai_config_with_overrides(
             }
 
             # Add provider-specific configuration using override values
-            if provider_name == "openai" and test_request.api_key:
-                kwargs["api_key"] = test_request.api_key
+            if provider_name == "openai" and api_key:
+                kwargs["api_key"] = api_key
             elif provider_name == "openrouter":
-                if test_request.api_key:
-                    kwargs["api_key"] = test_request.api_key
+                if api_key:
+                    kwargs["api_key"] = api_key
                 # Set the OpenRouter API base URL
                 kwargs["api_base"] = test_request.provider_url or "https://openrouter.ai/api/v1"
-            elif provider_name == "anthropic" and test_request.api_key:
-                kwargs["api_key"] = test_request.api_key
-            elif provider_name == "google" and test_request.api_key:
-                kwargs["api_key"] = test_request.api_key
+            elif provider_name == "anthropic" and api_key:
+                kwargs["api_key"] = api_key
+            elif provider_name == "google" and api_key:
+                kwargs["api_key"] = api_key
             elif provider_name == "ollama" and test_request.provider_url:
                 kwargs["api_base"] = test_request.provider_url
             elif provider_name == "custom":
-                if test_request.api_key:
-                    kwargs["api_key"] = test_request.api_key
+                if api_key:
+                    kwargs["api_key"] = api_key
                 if test_request.provider_url:
                     kwargs["api_base"] = test_request.provider_url
 

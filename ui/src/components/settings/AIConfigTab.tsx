@@ -257,11 +257,8 @@ const AIConfigContent: React.FC<AIConfigTabProps> = ({
     const testConfigMutation = useMutation({
         mutationFn: (data: Partial<AIConfigCreate> & { _existingConfigId?: number }) => {
             const { _existingConfigId, ...configData } = data;
-            if (_existingConfigId && !configData.api_key) {
-                // Editing an existing config without a new API key — use the stored key via ID
-                return aiConfigApi.testAIConfig(_existingConfigId);
-            }
             return aiConfigApi.testAIConfigWithOverrides({
+                config_id: _existingConfigId,
                 provider_name: configData.provider_name!,
                 provider_url: configData.provider_url,
                 api_key: configData.api_key,
