@@ -24,7 +24,7 @@ psycopg2-binary==2.9.10
 # Email service dependencies
 boto3==1.42.51  # AWS SES
 azure-communication-email==1.0.0  # Azure Email Services
-requests==2.32.5  # For Mailgun HTTP API
+requests>=2.33.0  # For Mailgun HTTP API
 jinja2==3.1.6  # Email templating
 reportlab==4.4.3  # PDF generation for email attachments
 
@@ -35,7 +35,7 @@ langchain==1.0.3  # LangChain main package
 langchain-community==0.4.1  # LangChain community components
 langchain-core==1.2.13  # LangChain core components
 langchain-text-splitters==1.0.0  # LangChain text splitters
-pypdf==6.9.1  # Modern PDF processing (successor to PyPDF2)
+pypdf==6.9.2  # Modern PDF processing (successor to PyPDF2)
 ollama==0.6.1  # Ollama client
 ollama-ocr==0.1.6  # OCR processor (still needed for invoice processing)
 langchain-ollama==1.0.1  # LangChain Ollama integration
