@@ -183,6 +183,7 @@ async def upload_batch(
     client_id: Optional[int] = Form(None, description="Client ID for invoice documents"),
     custom_fields: Optional[str] = Form(None, description="Comma-separated custom fields to include in export"),
     webhook_url: Optional[str] = Form(None, description="Optional webhook URL for completion notification"),
+    card_type: str = Form("auto", description="Statement card type for bank statements: auto|debit|credit"),
     auth_context: tuple = Depends(get_api_key_auth),
     service: BatchProcessingService = Depends(get_batch_processing_service)
 ):
@@ -411,7 +412,8 @@ async def upload_batch(
                 client_id=client_id,
                 custom_fields=custom_fields_list,
                 webhook_url=webhook_url,
-                api_client=api_client
+                api_client=api_client,
+                card_type=card_type
             )
 
             logger.info(

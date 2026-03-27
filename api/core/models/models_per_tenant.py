@@ -548,8 +548,8 @@ class TransactionLink(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    transaction_a = relationship("BankStatementTransaction", foreign_keys=[transaction_a_id])
-    transaction_b = relationship("BankStatementTransaction", foreign_keys=[transaction_b_id])
+    transaction_a = relationship("BankStatementTransaction", foreign_keys=[transaction_a_id], overlaps="links_as_a")
+    transaction_b = relationship("BankStatementTransaction", foreign_keys=[transaction_b_id], overlaps="links_as_b")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
 
     __table_args__ = (

@@ -385,8 +385,36 @@ class UniversalBankTransactionExtractor:
                 template=BANK_TRANSACTION_EXTRACTION_PROMPT,
                 input_variables=["text"]
             )
+    def _detect_card_type_from_text(self, text: str) -> str:
+        """Detect card type using keyword analysis on the raw statement text.
+        Returns 'credit', 'debit', or '' if inconclusive."""
+        text_lower = text.lower()
+        credit_signals = [
+            'credit card', 'available credit', 'credit limit', 'minimum payment',
+            'minimum due', 'payment due', 'statement balance', 'revolving credit',
+            'visa credit', 'mastercard credit', 'amex', 'american express',
+        ]
+        debit_signals = [
+            'checking account', 'current account', 'savings account', 'chequing',
+            'debit card', 'available balance', 'overdraft', 'chequing account',
+        ]
+        credit_score = sum(1 for s in credit_signals if s in text_lower)
+        debit_score = sum(1 for s in debit_signals if s in text_lower)
+        if credit_score > debit_score:
+            return "credit"
+        if debit_score > credit_score:
+            return "debit"
+        return ""
+
     def _detect_card_type(self, text: str) -> str:
         """Detect if statement is for a credit or debit card"""
+        # First try fast text-based detection on the raw statement text
+        text_result = self._detect_card_type_from_text(text)
+        if text_result:
+            logger.info(f"🔍 Text-based card type detection: {text_result}")
+            return text_result
+
+        # Fall back to LLM-based detection
         try:
             from core.constants.default_prompts import BANK_STATEMENT_CLASSIFICATION_PROMPT
             from litellm import completion
@@ -403,7 +431,7 @@ class UniversalBankTransactionExtractor:
                 "temperature": 0.0
             })
 
-            logger.info(f"🔍 Detecting card type for {self.provider_name}")
+            logger.info(f"🔍 Detecting card type via LLM for {self.provider_name}")
             response = completion(**kwargs)
 
             if response and response.choices:
@@ -413,7 +441,7 @@ class UniversalBankTransactionExtractor:
                     return "credit"
                 elif '"card_type": "debit"' in result_text.lower() or "'card_type': 'debit'" in result_text.lower():
                     return "debit"
-                
+
                 # Fallback to keyword search in result
                 if "credit" in result_text.lower(): return "credit"
                 if "debit" in result_text.lower(): return "debit"
@@ -540,6 +568,14 @@ class UniversalBankTransactionExtractor:
         except Exception as e:
             logger.warning(f"Metadata extraction failed: {e}")
             # Non-critical failure, we continue with empty metadata
+
+        # If card_type is still 'auto' after LLM extraction, try text-based detection
+        if self.card_type == "auto":
+            text_detected = self._detect_card_type_from_text(text)
+            if text_detected:
+                self.detected_card_type = text_detected
+                self.card_type = text_detected
+                logger.info(f"🔍 [AI SMARTS] Text-based card type fallback detected: {text_detected}")
 
     def extract_transactions_with_litellm(self, text: str, temperature: float = None) -> List[Dict]:
         """Extract transactions using LiteLLM"""

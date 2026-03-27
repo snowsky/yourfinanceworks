@@ -74,7 +74,7 @@ class BankStatementAPI:
             data = {'format': format}
             
             response = self.session.post(
-                f"{self.base_url}/api/v1/statements/process",
+                f"{self.base_url}/api/v1/external/statements/process",
                 files=files,
                 data=data
             )
@@ -88,13 +88,13 @@ class BankStatementAPI:
     
     def health_check(self):
         """Check API health and authentication."""
-        response = self.session.get(f"{self.base_url}/api/v1/statements/health")
+        response = self.session.get(f"{self.base_url}/api/v1/external/statements/health")
         response.raise_for_status()
         return response.json()
     
     def get_usage_stats(self):
         """Get API usage statistics."""
-        response = self.session.get(f"{self.base_url}/api/v1/statements/usage")
+        response = self.session.get(f"{self.base_url}/api/v1/external/statements/usage")
         response.raise_for_status()
         return response.json()
     

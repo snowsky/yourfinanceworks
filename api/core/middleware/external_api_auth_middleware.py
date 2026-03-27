@@ -138,6 +138,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
             "/api/v1/external-auth",
             "/api/v1/external/",  # Developer API endpoints
             "/api/v1/tools/",     # Tools API endpoints (agent-consumable read+write)
+            "/api/v1/statements/", # External bank statement API
         ]
 
         # UI endpoints (require JWT authentication)

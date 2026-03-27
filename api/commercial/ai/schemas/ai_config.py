@@ -48,6 +48,9 @@ class AIConfigTestRequest(BaseModel):
 
 class AIConfigTestWithOverrides(BaseModel):
     """AI configuration test request schema with override parameters."""
+    # When provided, stored API key is used if api_key is not supplied
+    config_id: Optional[int] = None
+
     # Override fields for testing unsaved changes
     provider_name: Optional[str] = None
     provider_url: Optional[str] = None

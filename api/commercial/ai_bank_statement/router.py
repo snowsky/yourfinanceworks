@@ -360,6 +360,7 @@ async def list_statements(
                 "created_by_user_id": s.created_by_user_id,
                 "created_by_username": created_by_username,
                 "created_by_email": created_by_email,
+                "card_type": getattr(s, "card_type", "debit"),
                 "review_status": getattr(s, "review_status", "not_started"),
                 "review_result": getattr(s, "review_result", None),
                 "reviewed_at": (
@@ -961,6 +962,7 @@ async def get_statement(
             "created_by_user_id": s.created_by_user_id,
             "created_by_username": s.created_by.email if s.created_by else None,
             "created_by_email": s.created_by.email if s.created_by else None,
+            "card_type": getattr(s, "card_type", "debit"),
             "review_status": getattr(s, "review_status", "not_started"),
             "review_result": getattr(s, "review_result", None),
             "reviewed_at": (
@@ -1134,6 +1136,50 @@ async def patch_statement_transaction(
             setattr(txn, field, value)
 
     db.commit()
+    return {"success": True}
+
+
+@router.delete("/{statement_id}/transactions/{transaction_id}", response_model=Dict[str, Any])
+async def delete_statement_transaction(
+    statement_id: int,
+    transaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "delete bank statement transaction")
+    try:
+        from core.models.database import get_tenant_context
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    if tenant_id is None:
+        raise HTTPException(status_code=401, detail="Tenant context required")
+
+    txn = (
+        db.query(BankStatementTransaction)
+        .join(BankStatement)
+        .filter(
+            BankStatementTransaction.id == transaction_id,
+            BankStatementTransaction.statement_id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    db.delete(txn)
+    db.flush()
+
+    statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
+    if statement:
+        statement.extracted_count = db.query(BankStatementTransaction).filter(
+            BankStatementTransaction.statement_id == statement_id
+        ).count()
+
+    db.commit()
+    log_audit_event(db, current_user.id, current_user.email, "transaction_deleted",
+                    f"Deleted transaction {transaction_id} from statement {statement_id}")
     return {"success": True}
 
 
