@@ -9,9 +9,18 @@ Split from the original monolithic router.py (1,782 lines) into focused modules:
 """
 
 from fastapi import APIRouter
+from core.schemas.bank_statement import PaginatedBankStatements
 from . import upload, crud, transactions, processing
 
 router = APIRouter(prefix="/statements", tags=["statements"])
+
+# Register the no-trailing-slash list variant directly on the assembled router.
+# The app sets redirect_slashes=False, so GET /statements (no slash) would 404
+# if we only have the "/" route inside crud.router (which becomes /statements/).
+# Adding "" here is valid because this router has prefix="/statements", so the
+# effective path is /statements — only include_router() raises when both its own
+# prefix arg and the route path are simultaneously empty.
+router.add_api_route("", crud.list_statements, methods=["GET"], response_model=PaginatedBankStatements)
 
 # Static-path sub-routers (upload, list, bulk-labels, merge, recycle-bin, transaction links)
 # must be included before dynamic /{statement_id} routes.
