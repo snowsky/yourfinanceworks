@@ -33,7 +33,6 @@ router = APIRouter()
 
 
 @router.get("/", response_model=PaginatedBankStatements)
-@router.get("", response_model=PaginatedBankStatements)
 async def list_statements(
     skip: int = 0,
     limit: int = 100,
