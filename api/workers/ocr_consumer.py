@@ -748,6 +748,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         raise e
 
                     # Try unified OCR first, fallback to legacy
+                    card_type = payload.get("card_type", "auto")
                     txns = []
                     try:
                         ocr_config = OCRConfig(
@@ -762,15 +763,14 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
                         if text_result.success:
                             self.logger.info(f"✅ Text extraction successful: {text_result.text_length} chars")
-                            # Use legacy transaction parsing for now
-                            txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                            txns = process_bank_pdf_with_llm(file_path, ai_conf, db, card_type=card_type)
                         else:
                             self.logger.warning(f"UnifiedOCR text extraction failed: {text_result.error_message}. Falling back to legacy.")
-                            txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                            txns = process_bank_pdf_with_llm(file_path, ai_conf, db, card_type=card_type)
 
                     except Exception as e:
                         self.logger.warning(f"UnifiedOCR encountered error: {e}. Falling back to legacy.")
-                        txns = process_bank_pdf_with_llm(file_path, ai_conf, db)
+                        txns = process_bank_pdf_with_llm(file_path, ai_conf, db, card_type=card_type)
 
                     # Update statement with final results
                     created_statement_id = None
@@ -785,6 +785,10 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         statement.extracted_count = len(txns) if txns else 0
                         statement.notes = f"Batch processed from job {batch_job_id}"
                         statement.file_path = file_path # Update to local path if changed
+                        if txns:
+                            detected = txns[0].get('card_type')
+                            if detected in ('credit', 'debit'):
+                                statement.card_type = detected
 
                         # Create attachment record
                         original_filename = payload.get("original_filename", "batch_file")
@@ -816,7 +820,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
                                         date=txn.get('date'),
                                         description=txn.get('description', ''),
                                         amount=parse_number(txn.get('amount', 0.0)),
-                                        transaction_type=txn.get('type', 'debit'),
+                                        transaction_type=txn.get('transaction_type', 'debit'),
                                         balance=parse_number(txn.get('balance')),
                                         category=txn.get('category')
                                     )

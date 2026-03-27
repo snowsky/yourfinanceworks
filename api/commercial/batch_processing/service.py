@@ -383,7 +383,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
         client_id: Optional[int] = None,
         custom_fields: Optional[List[str]] = None,
         webhook_url: Optional[str] = None,
-        api_client: Optional[Any] = None
+        api_client: Optional[Any] = None,
+        card_type: str = "auto"
     ) -> BatchProcessingJob:
         """
         Create a new batch processing job and prepare files for processing.
@@ -563,7 +564,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                         file_size=file_size,
                         document_type=doc_type,
                         status="pending",
-                        retry_count=0
+                        retry_count=0,
+                        extracted_data={"card_type": card_type} if doc_type == "statement" else None
                     )
                     
                     self.db.add(batch_file)
@@ -883,6 +885,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                     )
 
                     # Publish message to Kafka
+                    file_card_type = (batch_file.extracted_data or {}).get("card_type", "auto") \
+                        if batch_file.document_type == "statement" else "auto"
                     message_id = await self._publish_to_kafka(
                         topic=topic,
                         job_id=job_id,
@@ -893,7 +897,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
                         tenant_id=batch_job.tenant_id,
                         user_id=batch_job.user_id,
                         document_type=batch_file.document_type,
-                        api_client_id=batch_job.api_client_id
+                        api_client_id=batch_job.api_client_id,
+                        card_type=file_card_type
                     )
 
                     # Update batch file with Kafka info
@@ -991,7 +996,8 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
         tenant_id: int,
         user_id: int,
         document_type: str,
-        api_client_id: Optional[str] = None
+        api_client_id: Optional[str] = None,
+        card_type: str = "auto"
     ) -> str:
         """
         Publish a message to Kafka with retry logic.
@@ -1030,6 +1036,7 @@ Respond with ONLY one word: invoice, expense, or statement. Do not include any e
             "user_id": user_id,
             "document_type": document_type,
             "api_client_id": api_client_id,
+            "card_type": card_type,
             "message_id": message_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "attempt": 0
