@@ -11,6 +11,7 @@ Large files to split into focused modules, ranked by size and impact.
 | `api/core/routers/invoices.py` | 3,640 | → 6 modules in `api/core/routers/invoices/`: `crud`, `attachments`, `history`, `pdf_email`, `reviews`, `_shared` (branch: `refactoring-2nd-phase-1`) |
 | `ui/src/pages/SuperAdmin.tsx` | 1,653 | → 4 tab modules in `ui/src/pages/SuperAdmin/`: `TenantsTab`, `UsersTab`, `DatabasesTab`, `AnomaliesTab` + shared `types.ts` |
 | `api/commercial/ai_bank_statement/router.py` | 1,782 | → 4 modules in `api/commercial/ai_bank_statement/routers/`: `upload`, `crud`, `transactions`, `processing` + `_shared` |
+| `api/commercial/batch_processing/service.py` | 1,822 | → 8 mixin modules in `api/commercial/batch_processing/services/`: `validation`, `classification`, `storage`, `job_creation`, `kafka`, `progress`, `retry`, `cancellation` + `_shared` |
 
 ## Remaining
 
@@ -30,5 +31,4 @@ Large files to split into focused modules, ranked by size and impact.
 | 13 | 1,921 | `api/workers/ocr_consumer.py` | Split by document type handler |
 | 14 | 1,904 | `api/commercial/reporting/router.py` | Split by report category |
 | 15 | 1,902 | `ui/src/pages/Expenses.tsx` | Extract sub-components like Statements |
-| 16 | 1,822 | `api/commercial/batch_processing/service.py` | Split by batch operation type |
 
