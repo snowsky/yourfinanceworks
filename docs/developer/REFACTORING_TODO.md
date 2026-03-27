@@ -10,6 +10,7 @@ Large files to split into focused modules, ranked by size and impact.
 | `api/MCP/tools.py` | 4,396 | → 19 mixin classes in `api/MCP/tools/` (branch: `tools-py-refactoring`) |
 | `api/core/routers/invoices.py` | 3,640 | → 6 modules in `api/core/routers/invoices/`: `crud`, `attachments`, `history`, `pdf_email`, `reviews`, `_shared` (branch: `refactoring-2nd-phase-1`) |
 | `ui/src/pages/SuperAdmin.tsx` | 1,653 | → 4 tab modules in `ui/src/pages/SuperAdmin/`: `TenantsTab`, `UsersTab`, `DatabasesTab`, `AnomaliesTab` + shared `types.ts` |
+| `api/commercial/ai_bank_statement/router.py` | 1,782 | → 4 modules in `api/commercial/ai_bank_statement/routers/`: `upload`, `crud`, `transactions`, `processing` + `_shared` |
 
 ## Remaining
 
@@ -30,4 +31,4 @@ Large files to split into focused modules, ranked by size and impact.
 | 14 | 1,904 | `api/commercial/reporting/router.py` | Split by report category |
 | 15 | 1,902 | `ui/src/pages/Expenses.tsx` | Extract sub-components like Statements |
 | 16 | 1,822 | `api/commercial/batch_processing/service.py` | Split by batch operation type |
-| 17 | 1,782 | `api/commercial/ai_bank_statement/router.py` | Split: upload, extraction, reconciliation |
+
