@@ -235,8 +235,17 @@ def run_install(job_id: str) -> None:
 
             # ── 4. Copy backend plugin files ─────────────────────────────────
             step = _step(job, "Installing plugin files")
-            nested = tmp_dir / "api" / "plugins" / folder_name
-            source_api = nested if nested.exists() else tmp_dir
+            source_api = next(
+                (
+                    c for c in (
+                        tmp_dir / "api" / "plugins" / folder_name,
+                        tmp_dir / "plugin" / "api",
+                        tmp_dir,
+                    )
+                    if c.exists()
+                ),
+                tmp_dir,
+            )
             shutil.copytree(str(source_api), str(dest_api), ignore=shutil.ignore_patterns("ui", ".git", "__pycache__", "*.pyc"))
             _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
@@ -244,6 +253,8 @@ def run_install(job_id: str) -> None:
             ui_source = None
             for candidate in (
                 tmp_dir / "ui" / "src" / "plugins" / folder_name,
+                tmp_dir / "plugin" / "ui",
+                tmp_dir / "ui" / "plugin-ui",
                 tmp_dir / "ui",
             ):
                 if candidate.exists() and (candidate / "index.ts").exists():

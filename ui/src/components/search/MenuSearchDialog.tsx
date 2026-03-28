@@ -35,9 +35,20 @@ import { getCurrentUser } from '@/utils/auth';
 // ---------------------------------------------------------------------------
 // Plugin nav module glob — evaluated once at module level (stable reference).
 // ---------------------------------------------------------------------------
+import type { LucideIcon } from 'lucide-react';
+import { Puzzle } from 'lucide-react';
+
 const _pluginNavModules = import.meta.glob('../../plugins/*/index.ts', {
   eager: true,
-}) as Record<string, { navItems?: PluginNavItem[] }>;
+}) as Record<string, { navItems?: PluginNavItem[]; pluginIcons?: Record<string, LucideIcon> }>;
+
+const _runtimeIconRegistry: Record<string, LucideIcon> = {
+  ...iconRegistry,
+  ...Object.values(_pluginNavModules).reduce<Record<string, LucideIcon>>(
+    (acc, m) => ({ ...acc, ...(m.pluginIcons ?? {}) }),
+    {},
+  ),
+};
 
 export function MenuSearchDialog() {
   const { t } = useTranslation();
@@ -225,7 +236,7 @@ export function MenuSearchDialog() {
             <CommandSeparator />
             <CommandGroup heading="Plugins">
               {pluginMenuItems.map((item) => {
-                const IconComponent = iconRegistry[item.icon];
+                const IconComponent = _runtimeIconRegistry[item.icon] ?? Puzzle;
                 return (
                   <CommandItem
                     key={item.path}

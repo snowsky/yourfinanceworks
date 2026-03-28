@@ -55,10 +55,24 @@ import { PluginMenuErrorBoundary } from '@/components/plugins/PluginErrorBoundar
 // Calling import.meta.glob inside a component body creates a new object
 // reference each render, which breaks useMemo dependency tracking.
 // ---------------------------------------------------------------------------
+import type { LucideIcon } from 'lucide-react';
+import { Puzzle } from 'lucide-react';
+
 const _pluginNavModules = import.meta.glob('../../plugins/*/index.ts', { eager: true }) as Record<
   string,
-  { navItems?: PluginNavItem[] }
+  { navItems?: PluginNavItem[]; pluginIcons?: Record<string, LucideIcon> }
 >;
+
+// Merge icons contributed by each plugin into the static registry.
+// External plugins export pluginIcons in their index.ts so they never
+// need to touch plugin-icons.ts. Unknown icons fall back to Puzzle.
+const _runtimeIconRegistry: Record<string, LucideIcon> = {
+  ...iconRegistry,
+  ...Object.values(_pluginNavModules).reduce<Record<string, LucideIcon>>(
+    (acc, m) => ({ ...acc, ...(m.pluginIcons ?? {}) }),
+    {},
+  ),
+};
 
 export function AppSidebar() {
   const { state, setOpenMobile, isMobile: isMobileContext } = useSidebar();
@@ -569,7 +583,7 @@ export function AppSidebar() {
                       </h3>
                     </div>
                     {pluginMenuItems.map((item) => {
-                      const IconComponent = iconRegistry[item.icon];
+                      const IconComponent = _runtimeIconRegistry[item.icon] ?? Puzzle;
                       return (
                         <SidebarMenuItem key={item.path}>
                           <PluginMenuErrorBoundary
