@@ -255,9 +255,6 @@ def run_install(job_id: str) -> None:
             _ok(step, job, f"Plugin: {raw_name} v{manifest['version']}")
 
             dest_api = _API_PLUGINS_DIR / folder_name
-            if dest_api.exists():
-                _fail(step, job, f"Plugin folder already exists: {dest_api}")
-                raise RuntimeError("Plugin already installed")
 
             # ── 3. Install Python dependencies ───────────────────────────────
             req_file = tmp_dir / "requirements.txt"
@@ -290,7 +287,21 @@ def run_install(job_id: str) -> None:
             if dest_api.exists():
                 shutil.rmtree(str(dest_api))
             shutil.copytree(str(source_api), str(dest_api), ignore=shutil.ignore_patterns("ui", ".git", "__pycache__", "*.pyc"))
-            _ok(step, job, f"Backend installed to plugins/{folder_name}/ (overwritten)")
+
+            # Ensure plugin.json lands in dest_api so the plugin loader can discover it.
+            # For plugins whose layout puts plugin.json at the repo root rather than
+            # inside the api/ sub-directory, copy it explicitly.
+            dest_manifest = dest_api / "plugin.json"
+            if not dest_manifest.exists():
+                for candidate in (
+                    tmp_dir / "plugin.json",
+                    tmp_dir / "plugin" / "plugin.json",
+                ):
+                    if candidate.exists():
+                        shutil.copy2(str(candidate), str(dest_manifest))
+                        break
+
+            _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
             ui_source = None
