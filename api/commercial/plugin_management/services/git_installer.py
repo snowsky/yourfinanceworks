@@ -21,6 +21,47 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# TypeScript / JSDoc comment safety helpers
+# ---------------------------------------------------------------------------
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def _sanitize_ts_comments(path: Path) -> bool:
+    """Replace bare ``*/`` sequences inside block comments with ``* /``.
+
+    Returns True if the file was modified.
+    """
+    text = path.read_text(encoding="utf-8")
+
+    def _fix(m: re.Match) -> str:
+        # Only fix occurrences that are NOT the genuine closing delimiter
+        # (i.e. ``*/`` that appears in the interior of the comment body).
+        body = m.group(0)
+        # Replace interior */ (not the final one that closes the comment)
+        fixed = re.sub(r"\*/(?!$)", "* /", body[2:-2])  # strip /* … */
+        return "/*" + fixed + "*/"
+
+    new_text = _BLOCK_COMMENT_RE.sub(_fix, text)
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
+        return True
+    return False
+
+
+def _validate_and_sanitize_ui_plugin(dest_ui: Path) -> list[str]:
+    """Scan all .ts/.tsx files under *dest_ui*, auto-fix dangerous comment
+    patterns, and return a list of warning messages (empty = all OK).
+    """
+    warnings: list[str] = []
+    for ts_file in dest_ui.rglob("*.ts*"):
+        try:
+            if _sanitize_ts_comments(ts_file):
+                warnings.append(f"Auto-fixed block comment in {ts_file.name}")
+        except Exception as exc:
+            warnings.append(f"Could not sanitize {ts_file.name}: {exc}")
+    return warnings
+
 # Paths relative to this file:
 # api/commercial/plugin_management/services/git_installer.py
 #  ^4 parents up = api/
@@ -246,8 +287,10 @@ def run_install(job_id: str) -> None:
                 ),
                 tmp_dir,
             )
+            if dest_api.exists():
+                shutil.rmtree(str(dest_api))
             shutil.copytree(str(source_api), str(dest_api), ignore=shutil.ignore_patterns("ui", ".git", "__pycache__", "*.pyc"))
-            _ok(step, job, f"Backend installed to plugins/{folder_name}/")
+            _ok(step, job, f"Backend installed to plugins/{folder_name}/ (overwritten)")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
             ui_source = None
@@ -264,8 +307,16 @@ def run_install(job_id: str) -> None:
             if ui_source and _UI_PLUGINS_DIR.exists():
                 step = _step(job, "Installing frontend plugin files")
                 dest_ui = _UI_PLUGINS_DIR / folder_name
+                overwritten = dest_ui.exists()
+                if overwritten:
+                    shutil.rmtree(str(dest_ui))
                 shutil.copytree(str(ui_source), str(dest_ui))
-                _ok(step, job, f"Frontend installed to ui/src/plugins/{folder_name}/")
+                san_warnings = _validate_and_sanitize_ui_plugin(dest_ui)
+                suffix = " (overwritten)" if overwritten else ""
+                msg = f"Frontend installed to ui/src/plugins/{folder_name}/{suffix}"
+                if san_warnings:
+                    msg += "; auto-fixed: " + ", ".join(san_warnings)
+                _ok(step, job, msg)
             else:
                 step = _step(job, "Frontend files")
                 _ok(step, job, "No frontend files found (backend-only plugin)")
