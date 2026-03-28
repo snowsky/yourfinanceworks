@@ -273,20 +273,29 @@ def run_install(job_id: str) -> None:
 
             # ── 4. Copy backend plugin files ─────────────────────────────────
             step = _step(job, "Installing plugin files")
-            source_api = next(
-                (
-                    c for c in (
-                        tmp_dir / "api" / "plugins" / folder_name,
-                        tmp_dir / "plugin" / "api",
-                        tmp_dir,
-                    )
-                    if c.exists()
-                ),
-                tmp_dir,
-            )
+            # Standard layout (recommended): copy the whole repo root so that
+            # both plugin/ and shared/ land in dest_api together.  The root
+            # __init__.py adds dest_api to sys.path at startup so both packages
+            # are importable.
+            # Legacy layout: if the repo already mirrors the installed path
+            # (api/plugins/<name>/), copy just that subtree.
+            legacy_src = tmp_dir / "api" / "plugins" / folder_name
+            source_api = legacy_src if legacy_src.exists() else tmp_dir
+
             if dest_api.exists():
                 shutil.rmtree(str(dest_api))
-            shutil.copytree(str(source_api), str(dest_api), ignore=shutil.ignore_patterns("ui", ".git", "__pycache__", "*.pyc"))
+            shutil.copytree(
+                str(source_api),
+                str(dest_api),
+                ignore=shutil.ignore_patterns(
+                    "ui",                       # frontend — installed separately
+                    ".git", "__pycache__", "*.pyc", ".ruff_cache",
+                    "standalone",               # standalone deployment artefacts
+                    "docs",
+                    ".env", ".env.*",
+                    "docker-compose.yml", "tsconfig.json",
+                ),
+            )
 
             # Ensure plugin.json lands in dest_api so the plugin loader can discover it.
             # For plugins whose layout puts plugin.json at the repo root rather than
