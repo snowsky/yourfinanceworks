@@ -32,23 +32,9 @@ import { useMe } from '@/hooks/useMe';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { getCurrentUser } from '@/utils/auth';
 
-// ---------------------------------------------------------------------------
-// Plugin nav module glob — evaluated once at module level (stable reference).
-// ---------------------------------------------------------------------------
 import type { LucideIcon } from 'lucide-react';
 import { Puzzle } from 'lucide-react';
-
-const _pluginNavModules = import.meta.glob('../../plugins/*/index.ts', {
-  eager: true,
-}) as Record<string, { navItems?: PluginNavItem[]; pluginIcons?: Record<string, LucideIcon> }>;
-
-const _runtimeIconRegistry: Record<string, LucideIcon> = {
-  ...iconRegistry,
-  ...Object.values(_pluginNavModules).reduce<Record<string, LucideIcon>>(
-    (acc, m) => ({ ...acc, ...(m.pluginIcons ?? {}) }),
-    {},
-  ),
-};
+import { usePluginModules } from '@/hooks/usePluginModules';
 
 export function MenuSearchDialog() {
   const { t } = useTranslation();
@@ -71,13 +57,21 @@ export function MenuSearchDialog() {
   const showAnalytics = (currentUser as any)?.show_analytics !== false;
 
   // ── Plugin items ──────────────────────────────────────────────────────────
+  const pluginModules = usePluginModules();
+  const _runtimeIconRegistry: Record<string, LucideIcon> = {
+    ...iconRegistry,
+    ...pluginModules.reduce<Record<string, LucideIcon>>(
+      (acc, m) => ({ ...acc, ...(m.pluginIcons ?? {}) }),
+      {},
+    ),
+  };
   const { enabledPlugins, isPluginEnabled } = usePlugins();
   const pluginMenuItems = useMemo(() => {
-    return Object.values(_pluginNavModules)
+    return pluginModules
       .flatMap((m) => m.navItems ?? [])
       .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
       .filter((item) => isPluginEnabled(item.id));
-  }, [enabledPlugins, isPluginEnabled]);
+  }, [pluginModules, enabledPlugins, isPluginEnabled]);
 
   // ── Keyboard shortcut: ⌘G / Ctrl+G ───────────────────────────────────────
   useEffect(() => {

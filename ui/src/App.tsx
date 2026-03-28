@@ -93,20 +93,10 @@ const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJo
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
 // ---------------------------------------------------------------------------
-// Plugin route auto-discovery via Vite glob
-// All ui/src/plugins/*/index.ts files are scanned at build time.
-// To add a new plugin: drop its folder here — no App.tsx changes needed.
+// Plugin route auto-discovery via Vite glob (lazy — isolates broken plugins)
 // ---------------------------------------------------------------------------
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
-import type { PluginRouteConfig } from "./types/plugin-routes";
-
-const _pluginModules = import.meta.glob("./plugins/*/index.ts", { eager: true }) as Record<
-  string,
-  { pluginRoutes?: PluginRouteConfig[] }
->;
-const allPluginRoutes: PluginRouteConfig[] = Object.values(_pluginModules).flatMap(
-  (m) => m.pluginRoutes ?? []
-);
+import { usePluginModules } from "./hooks/usePluginModules";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -138,6 +128,8 @@ const ClientRedirect = () => {
 
 const AppContent = () => {
   const { t } = useTranslation();
+  const pluginModules = usePluginModules();
+  const allPluginRoutes = pluginModules.flatMap((m) => m.pluginRoutes ?? []);
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
   const { startPolling: startStatementPolling } = useStatementStatusPolling();
