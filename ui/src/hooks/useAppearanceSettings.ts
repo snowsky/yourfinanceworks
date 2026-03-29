@@ -35,7 +35,16 @@ export function useAppearanceSettings() {
   }, [settings]);
 
   useEffect(() => {
-    const sync = () => setSettings(readSettings());
+    const sync = () => {
+      setSettings(prev => {
+        const next = readSettings();
+        // Return same reference if nothing changed so this effect doesn't re-fire
+        if (prev.showClock === next.showClock && prev.showDate === next.showDate) {
+          return prev;
+        }
+        return next;
+      });
+    };
     if (typeof window === "undefined") return;
     window.addEventListener("storage", sync);
     window.addEventListener(EVENT_NAME, sync as EventListener);
