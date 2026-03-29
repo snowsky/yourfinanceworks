@@ -391,8 +391,8 @@ const EditClient = () => {
               />
               <SummaryCard
                 title="Last Contact"
-                value={client.last_contact_at ? new Date(client.last_contact_at).toLocaleDateString() : "Not set"}
-                description={`Next: ${client.next_follow_up_at ? new Date(client.next_follow_up_at).toLocaleDateString() : "not scheduled"}`}
+                value={clientRecord.client.last_contact_at ? new Date(clientRecord.client.last_contact_at).toLocaleDateString() : "Not set"}
+                description={`Next: ${clientRecord.client.next_follow_up_at ? new Date(clientRecord.client.next_follow_up_at).toLocaleDateString() : "not scheduled"}`}
                 icon={<Clock3 className="h-5 w-5" />}
               />
             </div>
@@ -531,6 +531,7 @@ const EditClient = () => {
             newNote={activityNote}
             onNoteChange={setActivityNote}
             onAddNote={addActivityNote}
+            lastContactAt={clientRecord.client.last_contact_at}
             onMarkContacted={() => markContactedMutation.mutate()}
             onCreateTaskFromActivity={handleCreateTaskFromActivity}
             submittingNote={createActivityNoteMutation.isPending}

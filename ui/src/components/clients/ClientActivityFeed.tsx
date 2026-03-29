@@ -60,6 +60,7 @@ interface ClientActivityFeedProps {
   newNote: string;
   onNoteChange: (value: string) => void;
   onAddNote: () => void;
+  lastContactAt?: string | null;
   onMarkContacted?: () => void;
   onCreateTaskFromActivity?: (item: ClientActivityItem) => void;
   submittingNote?: boolean;
@@ -71,6 +72,7 @@ export function ClientActivityFeed({
   newNote,
   onNoteChange,
   onAddNote,
+  lastContactAt,
   onMarkContacted,
   onCreateTaskFromActivity,
   submittingNote = false,
@@ -93,9 +95,14 @@ export function ClientActivityFeed({
 
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-sm text-muted-foreground">
-              Track notes, tasks, invoices, and payments in one contact record.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Track notes, tasks, invoices, and payments in one contact record.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Last contacted: {lastContactAt ? formatWhen(lastContactAt) : "Not set"}
+              </p>
+            </div>
             {onMarkContacted && (
               <ProfessionalButton
                 size="sm"
