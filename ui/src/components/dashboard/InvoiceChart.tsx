@@ -109,7 +109,7 @@ export function InvoiceChart() {
   };
 
   return (
-    <>
+    <div className="w-full">
       {loading ? (
         <div className="h-[340px] flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -263,6 +263,6 @@ export function InvoiceChart() {
             </ResponsiveContainer>
           </div>
         )}
-    </>
+    </div>
   );
 }
