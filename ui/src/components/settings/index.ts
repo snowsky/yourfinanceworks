@@ -14,3 +14,4 @@ export * from './EmailIntegrationSettingsTab';
 export * from './ExportDestinationsTab';
 export * from './GamificationTab';
 export * from './PluginsTab';
+export * from './AppearanceTab';

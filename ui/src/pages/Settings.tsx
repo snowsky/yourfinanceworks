@@ -4,14 +4,15 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
-  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2
+  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette
 } from "lucide-react";
 import { getCurrentUser } from "@/utils/auth";
 import {
   CompanyInfoTab, InvoiceSettingsTab, UserProfileTab, DiscountRulesTab, AIConfigTab,
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
   CookieSettingsTab, ExportDestinationsTab, EmailIntegrationSettingsTab,
-  APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab
+  APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab,
+  AppearanceTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
@@ -92,6 +93,7 @@ const Settings = () => {
                 {t('settings.categories.personal', 'Personal')}
               </p>
               <NavItem value="profile" icon={User} label={t('settings.tabs.profile', 'Profile')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="appearance" icon={Palette} label={t('settings.tabs.appearance', 'Appearance')} activeTab={activeTab} onClick={setActiveTab} />
               <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Privacy')} activeTab={activeTab} onClick={setActiveTab} />
 
               {isAdmin && (
@@ -143,6 +145,10 @@ const Settings = () => {
           <div className="flex-1 min-w-0">
             <TabsContent value="profile" className="m-0 focus-visible:outline-none">
               <UserProfileTab />
+            </TabsContent>
+
+            <TabsContent value="appearance" className="m-0 focus-visible:outline-none">
+              <AppearanceTab />
             </TabsContent>
 
             <TabsContent value="cookies" className="m-0 focus-visible:outline-none">

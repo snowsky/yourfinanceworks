@@ -47,19 +47,9 @@ interface DashboardStats {
   };
 }
 
-function useLiveClock() {
-  const [time, setTime] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return time;
-}
-
 export function ProfessionalDashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const clock = useLiveClock();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     totalIncome: {},
     pendingInvoices: {},
@@ -248,14 +238,6 @@ export function ProfessionalDashboard() {
           <div className="space-y-2 flex-1">
             <h1 className="text-4xl font-bold tracking-tight">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
             <p className="text-muted-foreground text-base">{t('dashboard.overview')}</p>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className="text-2xl font-mono font-semibold tabular-nums">
-              {clock.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </div>
-            <div className="text-sm text-muted-foreground mt-0.5">
-              {clock.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-            </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <HelpCenter />
