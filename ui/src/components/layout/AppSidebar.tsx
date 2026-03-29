@@ -382,6 +382,12 @@ export function AppSidebar() {
       icon: <Clock className="w-5 h-5" />,
       tourId: 'nav-reminders'
     },
+    ...((!roleLoading && isAdminInCurrentOrg) ? [{
+      path: '/workflows',
+      label: t('navigation.workflows', { defaultValue: 'Workflows' }),
+      icon: <FolderKanban className="w-5 h-5" />,
+      tourId: 'nav-workflows'
+    }] : []),
     {
       path: '/reports',
       label: t('navigation.reports'),

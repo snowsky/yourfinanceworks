@@ -1189,6 +1189,45 @@ class ReminderNotification(Base):
     )
 
 
+class WorkflowDefinition(Base):
+    __tablename__ = "workflow_definitions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    key = Column(String, nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    trigger_type = Column(String, nullable=False, index=True)
+    conditions = Column(JSON, nullable=True)
+    actions = Column(JSON, nullable=True)
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    is_system = Column(Boolean, default=False, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    execution_logs = relationship("WorkflowExecutionLog", back_populates="workflow", cascade="all, delete-orphan")
+
+
+class WorkflowExecutionLog(Base):
+    __tablename__ = "workflow_execution_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workflow_id = Column(Integer, ForeignKey("workflow_definitions.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_key = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False, index=True)
+    entity_id = Column(String, nullable=False, index=True)
+    status = Column(String, nullable=False, default="success")
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    workflow = relationship("WorkflowDefinition", back_populates="execution_logs")
+
+    __table_args__ = (
+        UniqueConstraint('workflow_id', 'event_key', name='uq_workflow_execution_event'),
+    )
+
+
 # --- Cloud Storage Models ---
 
 class CloudStorageConfiguration(Base):

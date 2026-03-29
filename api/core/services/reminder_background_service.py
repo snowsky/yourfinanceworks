@@ -112,6 +112,8 @@ class ReminderBackgroundService:
 
             try:
                 scheduler = ReminderScheduler(db)
+                from core.services.workflow_service import WorkflowService
+                workflow_service = WorkflowService(db)
 
                 # Process due reminders
                 due_stats = scheduler.process_due_reminders()
@@ -120,6 +122,9 @@ class ReminderBackgroundService:
                 # Send upcoming reminder notifications (24 hours in advance)
                 upcoming_stats = scheduler.send_upcoming_reminders(advance_days=1)
                 logger.info(f"Processed upcoming reminders for tenant {tenant_id}: {upcoming_stats}")
+
+                workflow_stats = workflow_service.process_due_invoice_workflows()
+                logger.info(f"Processed workflows for tenant {tenant_id}: {workflow_stats}")
 
                 # Cleanup old notifications once per day (roughly)
                 if self._should_cleanup():
@@ -130,6 +135,7 @@ class ReminderBackgroundService:
                     "tenant_id": tenant_id,
                     "due_reminders": due_stats,
                     "upcoming_reminders": upcoming_stats,
+                    "workflow_runs": workflow_stats,
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
 

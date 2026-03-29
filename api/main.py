@@ -64,6 +64,7 @@ from core.routers import (
     sync,  # Add the synchronization router
     timeline,  # Add the client timeline router
     share_tokens,  # Add the record sharing router
+    workflows,
 )
 
 # Configure logging early so we can use it in imports
@@ -578,6 +579,7 @@ app.include_router(audit_log.router, prefix="/api/v1")       # Add the new audit
 app.include_router(sync.router, prefix="/api/v1")            # Add the sync router
 app.include_router(timeline.router, prefix="/api/v1")        # Add the client timeline router
 app.include_router(share_tokens.router, prefix="/api/v1")   # Add the record sharing router
+app.include_router(workflows.router, prefix="/api/v1")      # Add the workflows router
 
 
 # ------------------------------------------------------------------------------

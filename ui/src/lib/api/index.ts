@@ -20,3 +20,4 @@ export * from './plugins';
 export * from './export-destinations';
 export * from './payments';
 export * from './dashboard';
+export * from './workflows';
