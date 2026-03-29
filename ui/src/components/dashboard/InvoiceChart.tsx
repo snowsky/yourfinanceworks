@@ -109,13 +109,13 @@ export function InvoiceChart() {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col">
       {loading ? (
-        <div className="h-[340px] flex justify-center items-center">
+        <div className="flex-1 flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="h-[340px]">
+        <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}

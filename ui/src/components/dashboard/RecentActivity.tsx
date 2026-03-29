@@ -82,7 +82,7 @@ export function RecentActivity({ refreshKey }: RecentActivityProps) {
   }, [refreshKey]);
 
   return (
-    <div className="relative">
+    <div className="relative h-full flex flex-col">
       {/* Subtle refresh indicator */}
       {isRefreshing && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary/20 rounded-full overflow-hidden z-10">
@@ -90,7 +90,7 @@ export function RecentActivity({ refreshKey }: RecentActivityProps) {
         </div>
       )}
 
-      <div className="h-[420px]">
+      <div className="flex-1 min-h-0">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

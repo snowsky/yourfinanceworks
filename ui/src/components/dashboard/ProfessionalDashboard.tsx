@@ -287,26 +287,30 @@ export function ProfessionalDashboard() {
       {/* Charts and Recent Activity Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Charts */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 flex flex-col">
           {/* Chart Section */}
           <ContentSection
             title={t('dashboard.sections.revenue_trends')}
             description={t('dashboard.sections.revenue_trends_desc')}
             variant="card"
             data-tour="dashboard-revenue-chart"
+            className="flex-1 flex flex-col"
           >
-            <InvoiceChart />
+            <div className="flex-1 min-h-0">
+              <InvoiceChart />
+            </div>
           </ContentSection>
         </div>
 
         {/* Right Column - Recent Activity */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col">
           {/* Recent Invoices */}
           <ContentSection
             title={t('dashboard.sections.recent_activity')}
             description={t('dashboard.sections.recent_activity_desc')}
             variant="card"
             data-tour="dashboard-recent"
+            className="flex-1 flex flex-col"
             actions={
               <div className="flex items-center gap-2">
                 <ProfessionalButton
@@ -328,10 +332,10 @@ export function ProfessionalDashboard() {
               </div>
             }
           >
-            <RecentActivity refreshKey={refreshKey} />
+            <div className="flex-1 min-h-0">
+              <RecentActivity refreshKey={refreshKey} />
+            </div>
           </ContentSection>
-
-
         </div>
       </div>
 
