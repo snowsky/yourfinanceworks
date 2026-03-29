@@ -22,6 +22,13 @@ class WorkflowDefinitionResponse(BaseModel):
     updated_at: datetime
 
 
+class WorkflowCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    trigger_type: str
+    action_ids: list[str]
+
+
 class WorkflowToggleRequest(BaseModel):
     is_enabled: bool
 
@@ -33,3 +40,14 @@ class WorkflowRunNowResponse(BaseModel):
     notification_count: int
     skipped_count: int
     errors: list[str]
+
+
+class WorkflowOption(BaseModel):
+    id: str
+    label: str
+    description: str
+
+
+class WorkflowCatalogResponse(BaseModel):
+    triggers: list[WorkflowOption]
+    actions: list[WorkflowOption]

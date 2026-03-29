@@ -25,8 +25,25 @@ export interface WorkflowRunNowResponse {
   errors: string[];
 }
 
+export interface WorkflowOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface WorkflowCatalogResponse {
+  triggers: WorkflowOption[];
+  actions: WorkflowOption[];
+}
+
 export const workflowsApi = {
   list: () => apiRequest<WorkflowDefinition[]>('/workflows/'),
+  catalog: () => apiRequest<WorkflowCatalogResponse>('/workflows/catalog'),
+  create: (payload: { name: string; description?: string; trigger_type: string; action_ids: string[] }) =>
+    apiRequest<WorkflowDefinition>('/workflows/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   toggle: (id: number, is_enabled: boolean) =>
     apiRequest<WorkflowDefinition>(`/workflows/${id}/toggle`, {
       method: 'POST',

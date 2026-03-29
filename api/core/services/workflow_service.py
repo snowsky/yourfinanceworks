@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -20,6 +21,29 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_OVERDUE_WORKFLOW_KEY = "invoice-overdue-reminder-task"
+
+SUPPORTED_TRIGGERS = {
+    "invoice_became_overdue": {
+        "label": "Invoice becomes overdue",
+        "description": "Runs the first time an unpaid invoice passes its due date.",
+        "trigger_type": "invoice_became_overdue",
+        "conditions": {
+            "invoice_statuses": ["sent", "pending", "partially_paid", "overdue"],
+            "exclude_statuses": ["paid", "cancelled", "draft"],
+        },
+    },
+}
+
+SUPPORTED_ACTIONS = {
+    "send_internal_notification": {
+        "label": "Send internal reminder",
+        "description": "Notify the responsible teammate that the invoice needs follow-up.",
+    },
+    "create_internal_task": {
+        "label": "Create internal task",
+        "description": "Create a reminder-backed task assigned to the responsible teammate.",
+    },
+}
 
 
 class WorkflowService:
@@ -63,6 +87,65 @@ class WorkflowService:
             WorkflowDefinition.is_system.desc(),
             WorkflowDefinition.created_at.asc(),
         ).all()
+
+    def get_catalog(self) -> Dict[str, Any]:
+        return {
+            "triggers": [
+                {"id": key, "label": value["label"], "description": value["description"]}
+                for key, value in SUPPORTED_TRIGGERS.items()
+            ],
+            "actions": [
+                {"id": key, "label": value["label"], "description": value["description"]}
+                for key, value in SUPPORTED_ACTIONS.items()
+            ],
+        }
+
+    def create_workflow(
+        self,
+        *,
+        name: str,
+        description: Optional[str],
+        trigger_type: str,
+        action_ids: list[str],
+    ) -> WorkflowDefinition:
+        self.ensure_default_workflows()
+
+        if trigger_type not in SUPPORTED_TRIGGERS:
+            raise ValueError("Unsupported workflow trigger")
+
+        normalized_actions = []
+        for action_id in action_ids:
+            if action_id not in SUPPORTED_ACTIONS:
+                raise ValueError(f"Unsupported workflow action: {action_id}")
+            if action_id not in normalized_actions:
+                normalized_actions.append(action_id)
+
+        if not normalized_actions:
+            raise ValueError("Select at least one workflow action")
+
+        actions = {
+            "send_internal_notification": "send_internal_notification" in normalized_actions,
+            "create_internal_task": "create_internal_task" in normalized_actions,
+            "task_type": "reminder",
+            "task_title_template": "Follow up on overdue invoice #{invoice_number}",
+            "task_due_in_days": 1,
+        }
+
+        workflow = WorkflowDefinition(
+            name=name.strip(),
+            key=self._build_workflow_key(name),
+            description=(description or "").strip() or SUPPORTED_TRIGGERS[trigger_type]["description"],
+            trigger_type=SUPPORTED_TRIGGERS[trigger_type]["trigger_type"],
+            conditions=SUPPORTED_TRIGGERS[trigger_type]["conditions"],
+            actions=actions,
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+        )
+        self.db.add(workflow)
+        self.db.commit()
+        self.db.refresh(workflow)
+        return workflow
 
     def process_due_invoice_workflows(self) -> Dict[str, Any]:
         self.ensure_default_workflows()
@@ -232,3 +315,15 @@ class WorkflowService:
         self.db.add(reminder)
         self.db.flush()
         return reminder
+
+    def _build_workflow_key(self, name: str) -> str:
+        base = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+        if not base:
+            base = "workflow"
+
+        candidate = base
+        suffix = 1
+        while self.db.query(WorkflowDefinition).filter(WorkflowDefinition.key == candidate).first():
+            suffix += 1
+            candidate = f"{base}-{suffix}"
+        return candidate

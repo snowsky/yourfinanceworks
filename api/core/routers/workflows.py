@@ -6,6 +6,8 @@ from core.models.models import MasterUser
 from core.models.models_per_tenant import WorkflowDefinition
 from core.routers.auth import get_current_user
 from core.schemas.workflows import (
+    WorkflowCatalogResponse,
+    WorkflowCreateRequest,
     WorkflowDefinitionResponse,
     WorkflowRunNowResponse,
     WorkflowToggleRequest,
@@ -24,6 +26,36 @@ async def list_workflows(
     require_admin(current_user)
     service = WorkflowService(db)
     return service.list_workflows()
+
+
+@router.get("/catalog", response_model=WorkflowCatalogResponse)
+async def get_workflow_catalog(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    return WorkflowCatalogResponse(**service.get_catalog())
+
+
+@router.post("/", response_model=WorkflowDefinitionResponse)
+async def create_workflow(
+    payload: WorkflowCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    try:
+        workflow = service.create_workflow(
+            name=payload.name,
+            description=payload.description,
+            trigger_type=payload.trigger_type,
+            action_ids=payload.action_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return workflow
 
 
 @router.post("/{workflow_id}/toggle", response_model=WorkflowDefinitionResponse)

@@ -2,7 +2,7 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { FolderKanban, Play, RefreshCw } from 'lucide-react';
+import { FolderKanban, Play, RefreshCw, Sparkles } from 'lucide-react';
 
 import { workflowsApi, type WorkflowDefinition } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
@@ -14,8 +14,161 @@ import {
   ProfessionalCardTitle,
 } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
+import { ProfessionalInput } from '@/components/ui/professional-input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const WorkflowBuilder: React.FC = () => {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [name, setName] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [triggerType, setTriggerType] = React.useState('');
+  const [selectedActions, setSelectedActions] = React.useState<string[]>([
+    'send_internal_notification',
+    'create_internal_task',
+  ]);
+
+  const { data: catalog } = useQuery({
+    queryKey: ['workflow-catalog'],
+    queryFn: () => workflowsApi.catalog(),
+  });
+
+  React.useEffect(() => {
+    if (!triggerType && catalog?.triggers?.length) {
+      setTriggerType(catalog.triggers[0].id);
+    }
+  }, [catalog, triggerType]);
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      workflowsApi.create({
+        name,
+        description,
+        trigger_type: triggerType,
+        action_ids: selectedActions,
+      }),
+    onSuccess: () => {
+      toast.success(t('workflows.create_success', { defaultValue: 'Workflow created' }));
+      setName('');
+      setDescription('');
+      setSelectedActions(['send_internal_notification', 'create_internal_task']);
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, (key) => key));
+    },
+  });
+
+  const toggleAction = (actionId: string, checked: boolean) => {
+    setSelectedActions((current) => {
+      if (checked) {
+        return current.includes(actionId) ? current : [...current, actionId];
+      }
+      return current.filter((item) => item !== actionId);
+    });
+  };
+
+  const canCreate = name.trim().length > 1 && triggerType && selectedActions.length > 0;
+
+  return (
+    <ProfessionalCard variant="elevated" className="border-primary/20">
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          {t('workflows.builder_title', { defaultValue: 'Create Workflow' })}
+        </ProfessionalCardTitle>
+        <p className="text-sm text-muted-foreground">
+          {t(
+            'workflows.builder_description',
+            { defaultValue: 'Choose from supported triggers and actions. Only executable workflow options are shown here.' },
+          )}
+        </p>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <ProfessionalInput
+            label={t('workflows.name', { defaultValue: 'Workflow name' })}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Overdue invoice escalation"
+          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {t('workflows.trigger', { defaultValue: 'Trigger' })}
+            </label>
+            <Select value={triggerType} onValueChange={setTriggerType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a trigger" />
+              </SelectTrigger>
+              <SelectContent>
+                {(catalog?.triggers || []).map((trigger) => (
+                  <SelectItem key={trigger.id} value={trigger.id}>
+                    {trigger.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <ProfessionalInput
+          label={t('workflows.description_label', { defaultValue: 'Description' })}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Follow up with overdue customers and make sure an owner is assigned."
+        />
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t('workflows.actions', { defaultValue: 'Actions' })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t('workflows.actions_help', { defaultValue: 'Each selected action will run when the trigger fires.' })}
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {(catalog?.actions || []).map((action) => {
+              const checked = selectedActions.includes(action.id);
+              return (
+                <label
+                  key={action.id}
+                  className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/20 p-4 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(value) => toggleAction(action.id, value === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">{action.label}</p>
+                    <p className="text-xs text-muted-foreground">{action.description}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <ProfessionalButton onClick={() => createMutation.mutate()} disabled={!canCreate} loading={createMutation.isPending}>
+            Create workflow
+          </ProfessionalButton>
+        </div>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
+  );
+};
 
 const WorkflowCard: React.FC<{ workflow: WorkflowDefinition }> = ({ workflow }) => {
   const { t } = useTranslation();
@@ -139,6 +292,8 @@ const Workflows: React.FC = () => {
       />
 
       <ContentSection className="space-y-6 slide-in">
+        <WorkflowBuilder />
+
         <div className="flex justify-end">
           <ProfessionalButton variant="outline" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
