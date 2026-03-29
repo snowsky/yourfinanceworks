@@ -153,6 +153,17 @@ const EditClient = () => {
     }),
     onSuccess: (updatedClient) => {
       setClient(updatedClient);
+      queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) =>
+        current
+          ? {
+              ...current,
+              client: {
+                ...current.client,
+                ...updatedClient,
+              },
+            }
+          : current
+      );
       toast.success("Client record updated");
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -207,6 +218,23 @@ const EditClient = () => {
     }),
     onSuccess: (updatedClient) => {
       setClient(updatedClient);
+      if (updatedClient.last_contact_at) {
+        setRecordForm((current) => ({
+          ...current,
+          last_contact_at: updatedClient.last_contact_at ? updatedClient.last_contact_at.slice(0, 16) : "",
+        }));
+      }
+      queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) =>
+        current
+          ? {
+              ...current,
+              client: {
+                ...current.client,
+                ...updatedClient,
+              },
+            }
+          : current
+      );
       toast.success("Client marked as contacted");
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
