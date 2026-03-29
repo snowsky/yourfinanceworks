@@ -49,6 +49,7 @@ import { useOrganizations } from "@/hooks/useOrganizations";
 import { useMe } from "@/hooks/useMe";
 import { usePlugins } from '@/contexts/PluginContext';
 import { PluginMenuErrorBoundary } from '@/components/plugins/PluginErrorBoundary';
+import { useFeatures } from '@/contexts/FeatureContext';
 
 // ---------------------------------------------------------------------------
 // Module-level glob — evaluated ONCE at import time, not on every render.
@@ -75,6 +76,7 @@ export function AppSidebar() {
   // Use the hook directly or from context, consistency is key, but context one is synced with sidebar state
   const isMobile = useIsMobile();
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useFeatures();
   const [forceUpdate, setForceUpdate] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState(() => {
@@ -382,7 +384,7 @@ export function AppSidebar() {
       icon: <Clock className="w-5 h-5" />,
       tourId: 'nav-reminders'
     },
-    ...((!roleLoading && isAdminInCurrentOrg) ? [{
+    ...((!roleLoading && isAdminInCurrentOrg && isFeatureEnabled('workflow_automation')) ? [{
       path: '/workflows',
       label: t('navigation.workflows', { defaultValue: 'Workflows' }),
       icon: <FolderKanban className="w-5 h-5" />,

@@ -7,6 +7,7 @@ import { FolderKanban, Play, RefreshCw, Sparkles } from 'lucide-react';
 import { workflowsApi, type WorkflowDefinition } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
+import { FeatureGate } from '@/components/FeatureGate';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -280,40 +281,46 @@ const Workflows: React.FC = () => {
   });
 
   return (
-    <div className="h-full space-y-6 fade-in">
-      <PageHeader
-        title={t('navigation.workflows', { defaultValue: 'Workflows' })}
-        description={t(
-          'workflows.description',
-          {
-            defaultValue: 'Automate follow-up actions across finance operations. The first system workflow handles overdue invoices by notifying a teammate and creating an internal follow-up task.',
-          },
-        )}
-      />
+    <FeatureGate
+      feature="workflow_automation"
+      showUpgradePrompt={true}
+      upgradeMessage="Workflow automation requires a business license."
+    >
+      <div className="h-full space-y-6 fade-in">
+        <PageHeader
+          title={t('navigation.workflows', { defaultValue: 'Workflows' })}
+          description={t(
+            'workflows.description',
+            {
+              defaultValue: 'Automate follow-up actions across finance operations. The first system workflow handles overdue invoices by notifying a teammate and creating an internal follow-up task.',
+            },
+          )}
+        />
 
-      <ContentSection className="space-y-6 slide-in">
-        <WorkflowBuilder />
+        <ContentSection className="space-y-6 slide-in">
+          <WorkflowBuilder />
 
-        <div className="flex justify-end">
-          <ProfessionalButton variant="outline" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </ProfessionalButton>
-        </div>
+          <div className="flex justify-end">
+            <ProfessionalButton variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </ProfessionalButton>
+          </div>
 
-        {isLoading ? (
-          <ProfessionalCard variant="elevated">
-            <ProfessionalCardContent className="p-8 text-sm text-muted-foreground">
-              Loading workflows...
-            </ProfessionalCardContent>
-          </ProfessionalCard>
-        ) : (
-          workflows.map((workflow) => (
-            <WorkflowCard key={workflow.id} workflow={workflow} />
-          ))
-        )}
-      </ContentSection>
-    </div>
+          {isLoading ? (
+            <ProfessionalCard variant="elevated">
+              <ProfessionalCardContent className="p-8 text-sm text-muted-foreground">
+                Loading workflows...
+              </ProfessionalCardContent>
+            </ProfessionalCard>
+          ) : (
+            workflows.map((workflow) => (
+              <WorkflowCard key={workflow.id} workflow={workflow} />
+            ))
+          )}
+        </ContentSection>
+      </div>
+    </FeatureGate>
   );
 };
 

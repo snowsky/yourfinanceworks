@@ -13,9 +13,14 @@ from core.schemas.workflows import (
     WorkflowToggleRequest,
 )
 from core.services.workflow_service import WorkflowService
+from core.utils.feature_gate import require_feature
 from core.utils.rbac import require_admin
 
-router = APIRouter(prefix="/workflows", tags=["workflows"])
+router = APIRouter(
+    prefix="/workflows",
+    tags=["workflows"],
+    dependencies=[Depends(lambda db=Depends(get_db): require_feature("workflow_automation")(lambda: None)())]
+)
 
 
 @router.get("/", response_model=list[WorkflowDefinitionResponse])

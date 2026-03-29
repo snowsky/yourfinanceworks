@@ -15,6 +15,7 @@ from core.models.models_per_tenant import (
     WorkflowDefinition,
     WorkflowExecutionLog,
 )
+from core.services.feature_config_service import FeatureConfigService
 from core.utils.notifications import send_notification
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,9 @@ class WorkflowService:
         self.db = db
 
     def ensure_default_workflows(self) -> None:
+        if not FeatureConfigService.is_enabled("workflow_automation", db=self.db):
+            return
+
         existing = self.db.query(WorkflowDefinition).filter(
             WorkflowDefinition.key == DEFAULT_OVERDUE_WORKFLOW_KEY
         ).first()
@@ -148,13 +152,6 @@ class WorkflowService:
         return workflow
 
     def process_due_invoice_workflows(self) -> Dict[str, Any]:
-        self.ensure_default_workflows()
-
-        workflows = self.db.query(WorkflowDefinition).filter(
-            WorkflowDefinition.trigger_type == "invoice_became_overdue",
-            WorkflowDefinition.is_enabled == True,
-        ).all()
-
         stats = {
             "processed_count": 0,
             "created_task_count": 0,
@@ -162,6 +159,16 @@ class WorkflowService:
             "skipped_count": 0,
             "errors": [],
         }
+
+        if not FeatureConfigService.is_enabled("workflow_automation", db=self.db):
+            return stats
+
+        self.ensure_default_workflows()
+
+        workflows = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.trigger_type == "invoice_became_overdue",
+            WorkflowDefinition.is_enabled == True,
+        ).all()
 
         if not workflows:
             return stats

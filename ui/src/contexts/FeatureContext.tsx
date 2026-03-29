@@ -19,6 +19,7 @@ interface FeatureFlags {
   approvals: boolean;
   advanced_search: boolean;
   email_integration: boolean;
+  workflow_automation: boolean;
   prompt_management: boolean;
   anomaly_detection: boolean;
   plugin_management: boolean;
@@ -101,6 +102,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approvals: hasAllFeatures || enabledFeatures.includes('approvals'),
         advanced_search: hasAllFeatures || enabledFeatures.includes('advanced_search'),
         email_integration: hasAllFeatures || enabledFeatures.includes('email_integration'),
+        workflow_automation: hasAllFeatures || enabledFeatures.includes('workflow_automation'),
         prompt_management: hasAllFeatures || enabledFeatures.includes('prompt_management'),
         anomaly_detection: hasAllFeatures || enabledFeatures.includes('anomaly_detection'),
         plugin_management: hasAllFeatures || enabledFeatures.includes('plugin_management'),
@@ -181,6 +183,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approvals: false,
         advanced_search: false,
         email_integration: false,
+        workflow_automation: false,
         prompt_management: false,
         anomaly_detection: false,
         plugin_management: false,

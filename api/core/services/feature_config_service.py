@@ -94,6 +94,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'workflow_automation': {
+            'name': 'Workflow Automation',
+            'description': 'Automate finance follow-ups with predefined triggers and actions',
+            'category': 'integration',
+            'env_var': 'FEATURE_WORKFLOW_AUTOMATION_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
         'external_api': {
             'name': 'External API Access',
             'description': 'External API access with API key authentication for all financial domains (expenses, invoices, statements, portfolio)',
