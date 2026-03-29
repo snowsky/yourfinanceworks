@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { User, Key, ShieldCheck, Loader2, Lock, Mail } from "lucide-react";
+import { User, Key, ShieldCheck, Loader2, Lock, Mail, Rows2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -15,6 +15,7 @@ import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { updateCurrentUser } from "@/utils/auth";
+import { useListDensity } from "@/hooks/use-list-density";
 
 interface UserProfile {
     id: number;
@@ -35,6 +36,7 @@ interface PasswordData {
 export const UserProfileTab: React.FC = () => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const { density, toggleDensity } = useListDensity();
 
     const [userProfile, setUserProfile] = useState<UserProfile>({
         id: 0,
@@ -291,6 +293,29 @@ export const UserProfileTab: React.FC = () => {
                             )}
                         </>
                     )}
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Preferences Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Rows2 className="w-4 h-4 text-primary" />
+                        {t('settings.profile.preferences', 'Preferences')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5">
+                            <Label className="text-base font-semibold">{t('settings.profile.compact_density', 'Compact table density')}</Label>
+                            <p className="text-sm text-muted-foreground">{t('settings.profile.compact_density_description', 'Show more rows by reducing table row padding.')}</p>
+                        </div>
+                        <Switch
+                            id="list_density"
+                            checked={density === "compact"}
+                            onCheckedChange={toggleDensity}
+                        />
+                    </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
