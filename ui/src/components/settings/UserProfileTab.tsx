@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { User, Key, ShieldCheck, Loader2, Lock, Mail } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
     ProfessionalCard,
     ProfessionalCardHeader,
@@ -76,10 +75,6 @@ export const UserProfileTab: React.FC = () => {
         setUserProfile(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleShowAnalyticsChange = (checked: boolean) => {
-        setUserProfile(prev => ({ ...prev, show_analytics: checked }));
-    };
-
     const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setPasswordData(prev => ({ ...prev, [name]: value }));
@@ -91,12 +86,10 @@ export const UserProfileTab: React.FC = () => {
             await authApi.updateCurrentUser({
                 first_name: userProfile.first_name,
                 last_name: userProfile.last_name,
-                show_analytics: userProfile.show_analytics
             });
             updateCurrentUser({
                 first_name: userProfile.first_name,
                 last_name: userProfile.last_name,
-                show_analytics: userProfile.show_analytics
             });
             toast.success(t('settings.profile_updated_successfully'));
             queryClient.invalidateQueries({ queryKey: ['currentUser'] });
@@ -193,18 +186,6 @@ export const UserProfileTab: React.FC = () => {
                         {t('settings.profile.email_readonly_hint', 'Contact your administrator to change your email address.')}
                     </p>
 
-                    {/* Analytics toggle */}
-                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="show_analytics" className="text-base font-semibold">{t('settings.profile.show_analytics_menu')}</Label>
-                            <p className="text-sm text-muted-foreground">{t('settings.profile.show_analytics_menu_description')}</p>
-                        </div>
-                        <Switch
-                            id="show_analytics"
-                            checked={userProfile.show_analytics ?? true}
-                            onCheckedChange={handleShowAnalyticsChange}
-                        />
-                    </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
