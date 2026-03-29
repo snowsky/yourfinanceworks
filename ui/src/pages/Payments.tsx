@@ -17,11 +17,15 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility
 import { ColumnPicker } from "@/components/ui/column-picker";
 
 const PAYMENT_COLUMNS: ColumnDef[] = [
+  { key: 'id', label: 'ID' },
   { key: 'invoice', label: 'Invoice', essential: true },
   { key: 'client', label: 'Client', essential: true },
   { key: 'date', label: 'Date', essential: true },
   { key: 'amount', label: 'Amount', essential: true },
+  { key: 'currency', label: 'Currency' },
   { key: 'method', label: 'Method' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'notes', label: 'Notes' },
   { key: 'status', label: 'Status', essential: true },
   { key: 'actions', label: 'Actions', essential: true },
 ];
@@ -187,11 +191,15 @@ const Payments = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
+                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('payments.table.invoice')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
+                      {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('payments.table.currency', { defaultValue: 'Currency' })}</TableHead>}
                       {isVisible('method') && <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>}
+                      {isVisible('reference') && <TableHead className="font-bold text-foreground">{t('payments.table.reference', { defaultValue: 'Reference' })}</TableHead>}
+                      {isVisible('notes') && <TableHead className="font-bold text-foreground">{t('payments.table.notes', { defaultValue: 'Notes' })}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
@@ -200,6 +208,7 @@ const Payments = () => {
                     {filteredPayments.length > 0 ? (
                       filteredPayments.map((payment) => (
                         <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
+                          {isVisible('id') && <TableCell className="font-mono text-sm text-muted-foreground">#{payment.id}</TableCell>}
                           <TableCell className="font-semibold text-foreground">
                             <Link
                               to={`/invoices/view/${payment.invoice_id}`}
@@ -213,6 +222,7 @@ const Payments = () => {
                           <TableCell className="font-semibold text-foreground">
                             <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
                           </TableCell>
+                          {isVisible('currency') && <TableCell className="text-muted-foreground text-sm">{payment.currency || 'N/A'}</TableCell>}
                           {isVisible('method') && (
                             <TableCell>
                               <Badge variant="outline" className="capitalize font-medium">
@@ -220,6 +230,8 @@ const Payments = () => {
                               </Badge>
                             </TableCell>
                           )}
+                          {isVisible('reference') && <TableCell className="text-muted-foreground text-sm font-mono">{payment.reference_number || '—'}</TableCell>}
+                          {isVisible('notes') && <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{payment.notes || '—'}</TableCell>}
                           <TableCell>
                             <Badge variant="outline" className="capitalize font-medium">
                               {payment.status || 'N/A'}
@@ -249,7 +261,7 @@ const Payments = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-auto p-0 border-none">
+                        <TableCell colSpan={6 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
                           <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CreditCard className="h-8 w-8 text-primary" />
