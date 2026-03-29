@@ -12,12 +12,14 @@ from core.models.models_per_tenant import Client, Invoice, Settings
 from core.models.models import MasterUser, Tenant
 from core.routers.payments import Payment
 from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema, PaginatedClients
+from core.schemas.client_record import ClientRecordResponse
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_non_viewer
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+from core.services.client_record_service import ClientRecordService
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 # Configure logging
@@ -25,6 +27,35 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/clients", tags=["clients"])
+
+
+def _client_to_dict(
+    client: Client,
+    *,
+    total_paid: float = 0.0,
+    outstanding_balance: float = 0.0,
+) -> Dict[str, Any]:
+    return {
+        "id": client.id,
+        "name": client.name,
+        "email": client.email,
+        "phone": client.phone,
+        "address": client.address,
+        "company": client.company,
+        "balance": client.balance,
+        "paid_amount": float(total_paid),
+        "outstanding_balance": float(outstanding_balance),
+        "preferred_currency": client.preferred_currency,
+        "labels": client.labels,
+        "owner_user_id": client.owner_user_id,
+        "stage": client.stage,
+        "relationship_status": client.relationship_status,
+        "source": client.source,
+        "last_contact_at": client.last_contact_at.isoformat() if client.last_contact_at else None,
+        "next_follow_up_at": client.next_follow_up_at.isoformat() if client.next_follow_up_at else None,
+        "created_at": client.created_at.isoformat() if client.created_at else None,
+        "updated_at": client.updated_at.isoformat() if client.updated_at else None
+    }
 
 @router.get("/", response_model=PaginatedClients)
 async def read_clients(
@@ -79,22 +110,11 @@ async def read_clients(
         result = []
         for client, total_paid, total_invoiced, pending_invoiced, pending_paid in clients:
             outstanding_balance = float(pending_invoiced or 0) - float(pending_paid or 0)
-            
-            client_dict = {
-                "id": client.id,
-                "name": client.name,
-                "email": client.email,
-                "phone": client.phone,
-                "address": client.address,
-                "company": client.company,
-                "balance": client.balance,
-                "paid_amount": float(total_paid),
-                "outstanding_balance": outstanding_balance,
-                "preferred_currency": client.preferred_currency,
-                "labels": client.labels,
-                "created_at": client.created_at.isoformat() if client.created_at else None,
-                "updated_at": client.updated_at.isoformat() if client.updated_at else None
-            }
+            client_dict = _client_to_dict(
+                client,
+                total_paid=float(total_paid),
+                outstanding_balance=outstanding_balance,
+            )
             result.append(client_dict)
 
         return {
@@ -154,21 +174,11 @@ async def read_client(
         client, total_paid, pending_invoiced, pending_paid = client_tuple
         outstanding_balance = float(pending_invoiced or 0) - float(pending_paid or 0)
         
-        client_dict = {
-            "id": client.id,
-            "name": client.name,
-            "email": client.email,
-            "phone": client.phone,
-            "address": client.address,
-            "company": client.company,
-            "balance": client.balance,
-            "paid_amount": float(total_paid),
-            "outstanding_balance": outstanding_balance,
-            "preferred_currency": client.preferred_currency,
-            "labels": client.labels,
-            "created_at": client.created_at.isoformat() if client.created_at else None,
-            "updated_at": client.updated_at.isoformat() if client.updated_at else None
-        }
+        client_dict = _client_to_dict(
+            client,
+            total_paid=float(total_paid),
+            outstanding_balance=outstanding_balance,
+        )
         return client_dict
     except HTTPException:
         raise
@@ -300,20 +310,7 @@ async def create_client(
             # Don't fail the request if notification fails
         
         # Return client data as dict to avoid DetachedInstanceError
-        client_dict = {
-            "id": db_client.id,
-            "name": db_client.name,
-            "email": db_client.email,
-            "phone": db_client.phone,
-            "address": db_client.address,
-            "balance": db_client.balance,
-            "paid_amount": 0,
-            "outstanding_balance": 0,
-            "preferred_currency": db_client.preferred_currency,
-            "labels": db_client.labels,
-            "created_at": db_client.created_at.isoformat() if db_client.created_at else None,
-            "updated_at": db_client.updated_at.isoformat() if db_client.updated_at else None
-        }
+        client_dict = _client_to_dict(db_client)
         return client_dict
     except HTTPException as e:
         log_audit_event(
@@ -411,20 +408,7 @@ async def update_client(
             status="success"
         )
         # Return client data as dict to avoid DetachedInstanceError
-        client_dict = {
-            "id": db_client.id,
-            "name": db_client.name,
-            "email": db_client.email,
-            "phone": db_client.phone,
-            "address": db_client.address,
-            "balance": db_client.balance,
-            "paid_amount": 0,  # Will be calculated by frontend if needed
-            "outstanding_balance": 0,  # Will be calculated by frontend if needed
-            "preferred_currency": db_client.preferred_currency,
-            "labels": db_client.labels,
-            "created_at": db_client.created_at.isoformat() if db_client.created_at else None,
-            "updated_at": db_client.updated_at.isoformat() if db_client.updated_at else None
-        }
+        client_dict = _client_to_dict(db_client)
         return client_dict
     except HTTPException as e:
         log_audit_event(
@@ -515,6 +499,28 @@ async def delete_client(
             status_code=500,
             detail=FAILED_TO_FETCH_CLIENTS
         ) 
+
+
+@router.get("/{client_id}/record", response_model=ClientRecordResponse)
+async def get_client_record(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    try:
+        service = ClientRecordService(db)
+        result = service.get_client_record(client_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=CLIENT_NOT_FOUND)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_client_record: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=FAILED_TO_FETCH_CLIENT)
+
+
 @router.post("/bulk-labels")
 async def bulk_labels(
     payload: Dict[str, Any],

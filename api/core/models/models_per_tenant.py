@@ -57,12 +57,19 @@ class Client(Base):
     paid_amount = Column(Float, default=0)  # Keep unencrypted for calculations
     preferred_currency = Column(String, nullable=True)  # Optional, fallback to tenant default
     labels = Column(JSON, nullable=True)  # Multiple labels (tags) stored as JSON array of strings
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    stage = Column(String, nullable=False, default="active_client")
+    relationship_status = Column(String, nullable=False, default="healthy")
+    source = Column(String, nullable=True)
+    last_contact_at = Column(DateTime(timezone=True), nullable=True)
+    next_follow_up_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships (no tenant relationship needed)
     invoices = relationship("Invoice", back_populates="client", cascade="all, delete-orphan")
     notes = relationship("ClientNote", back_populates="client", cascade="all, delete-orphan")
+    owner = relationship("User", foreign_keys=[owner_user_id])
 
 class ClientNote(Base):
     __tablename__ = "client_notes"

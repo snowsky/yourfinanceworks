@@ -10,6 +10,12 @@ class ClientBase(BaseModel):
     company: Optional[str] = Field(None, description="Client's company name")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
     labels: Optional[List[str]] = Field(None, description="Client's labels")
+    owner_user_id: Optional[int] = Field(None, description="Owner user ID")
+    stage: Optional[str] = Field("active_client", description="Relationship stage")
+    relationship_status: Optional[str] = Field("healthy", description="Relationship health status")
+    source: Optional[str] = Field(None, description="Client acquisition source")
+    last_contact_at: Optional[datetime] = Field(None, description="Last contact timestamp")
+    next_follow_up_at: Optional[datetime] = Field(None, description="Next follow-up timestamp")
 
 class ClientCreate(ClientBase):
     pass
@@ -24,6 +30,12 @@ class ClientUpdate(BaseModel):
     paid_amount: Optional[float] = Field(None, description="Total amount paid")
     preferred_currency: Optional[str] = Field(None, description="Client's preferred currency code")
     labels: Optional[List[str]] = Field(None, description="Client's labels")
+    owner_user_id: Optional[int] = Field(None, description="Owner user ID")
+    stage: Optional[str] = Field(None, description="Relationship stage")
+    relationship_status: Optional[str] = Field(None, description="Relationship health status")
+    source: Optional[str] = Field(None, description="Client acquisition source")
+    last_contact_at: Optional[datetime] = Field(None, description="Last contact timestamp")
+    next_follow_up_at: Optional[datetime] = Field(None, description="Next follow-up timestamp")
 
 class Client(ClientBase):
     id: int
