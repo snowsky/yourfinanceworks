@@ -60,7 +60,10 @@ interface ClientActivityFeedProps {
   newNote: string;
   onNoteChange: (value: string) => void;
   onAddNote: () => void;
+  onMarkContacted?: () => void;
+  onCreateTaskFromActivity?: (item: ClientActivityItem) => void;
   submittingNote?: boolean;
+  markingContacted?: boolean;
 }
 
 export function ClientActivityFeed({
@@ -68,7 +71,10 @@ export function ClientActivityFeed({
   newNote,
   onNoteChange,
   onAddNote,
+  onMarkContacted,
+  onCreateTaskFromActivity,
   submittingNote = false,
+  markingContacted = false,
 }: ClientActivityFeedProps) {
   const [activeFilter, setActiveFilter] = useState("all");
 
@@ -86,6 +92,22 @@ export function ClientActivityFeed({
         </ProfessionalCardTitle>
 
         <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-muted-foreground">
+              Track notes, tasks, invoices, and payments in one contact record.
+            </p>
+            {onMarkContacted && (
+              <ProfessionalButton
+                size="sm"
+                variant="outline"
+                onClick={onMarkContacted}
+                loading={markingContacted}
+                leftIcon={<Clock className="h-4 w-4" />}
+              >
+                Mark Contacted
+              </ProfessionalButton>
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             {FILTERS.map((filter) => (
@@ -161,6 +183,19 @@ export function ClientActivityFeed({
                       <span>{formatRelative(item.timestamp)}</span>
                       <span>{formatWhen(item.timestamp)}</span>
                     </div>
+
+                    {onCreateTaskFromActivity &&
+                      (item.type === "invoice_overdue" || item.type === "payment_received" || item.type === "note_created") && (
+                        <div className="mt-4 flex justify-end">
+                          <ProfessionalButton
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onCreateTaskFromActivity(item)}
+                          >
+                            Create Follow-Up
+                          </ProfessionalButton>
+                        </div>
+                      )}
                   </div>
                 </div>
               );

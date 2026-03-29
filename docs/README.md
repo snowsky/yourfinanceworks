@@ -42,6 +42,7 @@ Deep dives into the system's core capabilities:
 - **[FinanceWorks Insights](features/FINANCEWORKS_INSIGHTS.md)**: AI-powered forensic auditing and anomaly detection.
 - **[Inventory Management](features/INVENTORY_MANAGEMENT.md)**: Tracking stock and linking to invoices.
 - **[Workflows](features/WORKFLOWS.md)**: Native business automation for overdue invoices and future trigger/action rules.
+- **[Client Activity & Tasks](features/CLIENT_ACTIVITY_TASK_RECORD.md)**: CRM-style client record with activity feed, follow-up tasks, and quick actions.
 
 ## 🛠️ Developer Resources
 

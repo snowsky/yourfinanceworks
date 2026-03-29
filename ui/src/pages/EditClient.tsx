@@ -49,6 +49,12 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function toLocalDateTimeInputValue(date: Date) {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 function SummaryCard({
   title,
   value,
@@ -195,6 +201,21 @@ const EditClient = () => {
     },
   });
 
+  const markContactedMutation = useMutation({
+    mutationFn: () => clientApi.updateClientRecord(clientId!, {
+      last_contact_at: new Date().toISOString(),
+    }),
+    onSuccess: (updatedClient) => {
+      setClient(updatedClient);
+      toast.success("Client marked as contacted");
+      queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, t));
+    },
+  });
+
   useEffect(() => {
     const fetchClient = async () => {
       if (!id) {
@@ -225,6 +246,56 @@ const EditClient = () => {
     }
 
     createActivityNoteMutation.mutate(activityNote.trim());
+  };
+
+  const openFollowUpTask = (options?: {
+    title?: string;
+    description?: string;
+    priority?: string;
+  }) => {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 1);
+    dueDate.setHours(9, 0, 0, 0);
+
+    setTaskForm((current) => ({
+      ...current,
+      title: options?.title ?? current.title,
+      description: options?.description ?? current.description,
+      priority: options?.priority ?? current.priority,
+      due_date: current.due_date || toLocalDateTimeInputValue(dueDate),
+      assigned_to_id: current.assigned_to_id || recordForm.owner_user_id,
+    }));
+    setActiveTab("Tasks");
+  };
+
+  const handleCreateTaskFromActivity = (item: ClientRecordResponse["recent_activity"][number]) => {
+    if (!client) return;
+
+    if (item.type === "invoice_overdue") {
+      openFollowUpTask({
+        title: `Follow up on ${item.title.replace(" is overdue", "")}`,
+        description: item.description || `Contact ${client.name} about the overdue balance and confirm the payment timeline.`,
+        priority: "high",
+      });
+      return;
+    }
+
+    if (item.type === "payment_received") {
+      openFollowUpTask({
+        title: `Follow up after payment from ${client.name}`,
+        description: "Send a thank-you note, confirm receipt details, or schedule the next step.",
+        priority: "medium",
+      });
+      return;
+    }
+
+    if (item.type === "note_created") {
+      openFollowUpTask({
+        title: `Continue follow-up for ${client.name}`,
+        description: item.description || "Review the latest note and decide on the next client action.",
+        priority: "medium",
+      });
+    }
   };
 
   if (loading) {
@@ -460,7 +531,10 @@ const EditClient = () => {
             newNote={activityNote}
             onNoteChange={setActivityNote}
             onAddNote={addActivityNote}
+            onMarkContacted={() => markContactedMutation.mutate()}
+            onCreateTaskFromActivity={handleCreateTaskFromActivity}
             submittingNote={createActivityNoteMutation.isPending}
+            markingContacted={markContactedMutation.isPending}
           />
         )}
 
