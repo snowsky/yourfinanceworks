@@ -41,6 +41,7 @@ Deep dives into the system's core capabilities:
 - **[AI Prompt Management](features/PROMPT_MANAGEMENT.md)**: Customizing AI templates, versioning, and overrides.
 - **[FinanceWorks Insights](features/FINANCEWORKS_INSIGHTS.md)**: AI-powered forensic auditing and anomaly detection.
 - **[Inventory Management](features/INVENTORY_MANAGEMENT.md)**: Tracking stock and linking to invoices.
+- **[Workflows](features/WORKFLOWS.md)**: Native business automation for overdue invoices and future trigger/action rules.
 
 ## 🛠️ Developer Resources
 
@@ -54,6 +55,7 @@ Technical documentation for contributors and system integrators:
 - **[Receipt PDF Upload API Guide](instructions/receipt-pdf-upload-api.md)**: Upload receipts via API.
 - **[Invoice Attachment Migration Guide](instructions/invoice-attachment-migration-guide.md)**: Move from legacy attachment endpoints.
 - **[Cross-Storage Attachment Sync](instructions/cross_storage_sync.md)**: Sync attachments across storage providers.
+- **[Workflows TODO](todos/WORKFLOWS_TODO.md)**: Current implementation backlog for the workflow system.
 
 ## ⚙️ Administration & Operations
 
