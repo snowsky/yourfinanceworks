@@ -114,6 +114,7 @@ export interface Invoice {
   reviewed_at?: string;
   // Bank statement link (reverse lookup)
   statement_transaction_id?: number | null;
+  statement_id?: number | null;
 }
 
 // Invoice API methods
@@ -150,6 +151,7 @@ export const invoiceApi = {
         review_result: apiInvoice.review_result,
         reviewed_at: apiInvoice.reviewed_at,
         statement_transaction_id: apiInvoice.statement_transaction_id ?? null,
+        statement_id: apiInvoice.statement_id ?? null,
       }));
       return mappedInvoices;
     } catch (error) {
@@ -198,6 +200,7 @@ export const invoiceApi = {
         review_result: apiInvoice.review_result,
         reviewed_at: apiInvoice.reviewed_at,
         statement_transaction_id: apiInvoice.statement_transaction_id ?? null,
+        statement_id: apiInvoice.statement_id ?? null,
       }));
 
       return { items: mappedInvoices, total: response.total };

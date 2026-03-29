@@ -717,10 +717,13 @@ export default function Statements() {
 
   // Auto-open statement from URL ?id= param on initial mount only
   useEffect(() => {
-    const idParam = new URLSearchParams(window.location.search).get('id');
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    const txnParam = params.get('txn');
     if (idParam) {
       const id = parseInt(idParam, 10);
-      if (!isNaN(id)) openStatement(id);
+      const txnId = txnParam ? parseInt(txnParam, 10) : undefined;
+      if (!isNaN(id)) openStatement(id, !txnId || isNaN(txnId) ? undefined : txnId);
     }
   }, []);
 

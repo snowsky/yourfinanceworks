@@ -1172,8 +1172,8 @@ const Invoices = () => {
                             )}
                           </TableCell>}
                           {isVisible('statement') && <TableCell>
-                            {typeof invoice.statement_transaction_id === 'number' ? (
-                              <Link to={`/statements?id=${invoice.statement_transaction_id}`} className="text-blue-600 hover:underline">#{invoice.statement_transaction_id}</Link>
+                            {typeof invoice.statement_id === 'number' && typeof invoice.statement_transaction_id === 'number' ? (
+                              <Link to={`/statements?id=${invoice.statement_id}&txn=${invoice.statement_transaction_id}`} className="text-blue-600 hover:underline">#{invoice.statement_transaction_id}</Link>
                             ) : (
                               <span className="text-muted-foreground">{t('expenses.none', { defaultValue: '—' })}</span>
                             )}

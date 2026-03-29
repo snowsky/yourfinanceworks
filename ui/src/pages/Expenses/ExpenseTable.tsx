@@ -205,8 +205,8 @@ export function ExpenseTable({
                   )}
                 </TableCell>}
                 {isVisible('statement') && <TableCell>
-                  {typeof e.statement_transaction_id === 'number' ? (
-                    <Link to={`/statements?id=${e.statement_transaction_id}`} className="text-blue-600 hover:underline">#{e.statement_transaction_id}</Link>
+                  {typeof e.statement_id === 'number' && typeof e.statement_transaction_id === 'number' ? (
+                    <Link to={`/statements?id=${e.statement_id}&txn=${e.statement_transaction_id}`} className="text-blue-600 hover:underline">#{e.statement_transaction_id}</Link>
                   ) : (
                     <span className="text-muted-foreground">{t('expenses.none')}</span>
                   )}
