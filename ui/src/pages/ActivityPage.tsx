@@ -192,7 +192,7 @@ export function ActivityPage() {
         title={t('dashboard.activity.timeline_title')}
         description={t('dashboard.activity.timeline_description')}
         breadcrumbs={[
-          { label: t('common.dashboard'), href: '/' },
+          { label: t('dashboard.title'), href: '/' },
           { label: t('dashboard.activity.timeline_title') }
         ]}
         actions={
