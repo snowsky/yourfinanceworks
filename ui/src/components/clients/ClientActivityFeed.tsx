@@ -19,6 +19,7 @@ const ACTIVITY_TYPE_META: Record<string, { label: string; icon: React.ElementTyp
   invoice_created: { label: "Invoices", icon: FileText, color: "text-sky-500" },
   invoice_overdue: { label: "Invoices", icon: FileText, color: "text-red-500" },
   payment_received: { label: "Payments", icon: CreditCard, color: "text-emerald-500" },
+  client_updated: { label: "Client Record", icon: Clock, color: "text-violet-500" },
 };
 
 const FILTERS = [

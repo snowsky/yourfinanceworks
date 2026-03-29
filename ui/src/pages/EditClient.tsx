@@ -55,6 +55,39 @@ function toLocalDateTimeInputValue(date: Date) {
   return localDate.toISOString().slice(0, 16);
 }
 
+function formatActivityDateTime(value?: string | null) {
+  if (!value) return "Not set";
+  return new Date(value).toLocaleString();
+}
+
+function prependActivityItem(
+  current: ClientRecordResponse | undefined,
+  item: ClientRecordResponse["recent_activity"][number],
+  updatedClient?: Client
+): ClientRecordResponse | undefined {
+  if (!current) return current;
+
+  const deduped = current.recent_activity.filter(
+    (existing) =>
+      !(
+        existing.type === item.type &&
+        existing.title === item.title &&
+        existing.timestamp === item.timestamp
+      )
+  );
+
+  return {
+    ...current,
+    client: updatedClient
+      ? {
+          ...current.client,
+          ...updatedClient,
+        }
+      : current.client,
+    recent_activity: [item, ...deduped].slice(0, 20),
+  };
+}
+
 function SummaryCard({
   title,
   value,
@@ -153,17 +186,66 @@ const EditClient = () => {
     }),
     onSuccess: (updatedClient) => {
       setClient(updatedClient);
-      queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) =>
-        current
-          ? {
-              ...current,
-              client: {
-                ...current.client,
-                ...updatedClient,
-              },
-            }
-          : current
-      );
+      queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) => {
+        const changed: string[] = [];
+        const details: string[] = [];
+
+        if (current?.client.owner_user_id !== updatedClient.owner_user_id) {
+          changed.push("Owner");
+          details.push(`Owner: ${current?.client.owner_user_id ?? "Not set"} -> ${updatedClient.owner_user_id ?? "Not set"}`);
+        }
+        if (current?.client.stage !== updatedClient.stage) {
+          changed.push("Stage");
+          details.push(`Stage: ${current?.client.stage ?? "Not set"} -> ${updatedClient.stage ?? "Not set"}`);
+        }
+        if (current?.client.relationship_status !== updatedClient.relationship_status) {
+          changed.push("Relationship status");
+          details.push(`Relationship status: ${current?.client.relationship_status ?? "Not set"} -> ${updatedClient.relationship_status ?? "Not set"}`);
+        }
+        if (current?.client.source !== updatedClient.source) {
+          changed.push("Source");
+          details.push(`Source: ${current?.client.source ?? "Not set"} -> ${updatedClient.source ?? "Not set"}`);
+        }
+        if (current?.client.last_contact_at !== updatedClient.last_contact_at) {
+          changed.push("Last contact");
+          details.push(`Last contact: ${formatActivityDateTime(current?.client.last_contact_at)} -> ${formatActivityDateTime(updatedClient.last_contact_at)}`);
+        }
+        if (current?.client.next_follow_up_at !== updatedClient.next_follow_up_at) {
+          changed.push("Next follow-up");
+          details.push(`Next follow-up: ${formatActivityDateTime(current?.client.next_follow_up_at)} -> ${formatActivityDateTime(updatedClient.next_follow_up_at)}`);
+        }
+
+        if (changed.length === 0) {
+          return current
+            ? {
+                ...current,
+                client: {
+                  ...current.client,
+                  ...updatedClient,
+                },
+              }
+            : current;
+        }
+
+        const title = changed.length === 1 && changed[0] === "Last contact"
+          ? "Contact logged"
+          : "Client record updated";
+
+        return prependActivityItem(
+          current,
+          {
+            type: "client_updated",
+            timestamp: new Date().toISOString(),
+            title,
+            description: details.join("; "),
+            actor_name: null,
+            entity_type: "client",
+            entity_id: String(updatedClient.id),
+            metadata: { changed_fields: changed },
+          },
+          updatedClient
+        );
+      });
       toast.success("Client record updated");
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -225,15 +307,20 @@ const EditClient = () => {
         }));
       }
       queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) =>
-        current
-          ? {
-              ...current,
-              client: {
-                ...current.client,
-                ...updatedClient,
-              },
-            }
-          : current
+        prependActivityItem(
+          current,
+          {
+            type: "client_updated",
+            timestamp: new Date().toISOString(),
+            title: "Contact logged",
+            description: `Last contact updated to ${formatActivityDateTime(updatedClient.last_contact_at)}`,
+            actor_name: null,
+            entity_type: "client",
+            entity_id: String(updatedClient.id),
+            metadata: { changed_fields: ["last_contact_at"] },
+          },
+          updatedClient
+        )
       );
       toast.success("Client marked as contacted");
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
