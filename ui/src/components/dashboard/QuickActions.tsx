@@ -12,18 +12,15 @@ import {
     DollarSign,
     Upload,
     Clock,
-    CheckCircle,
     AlertCircle,
-    TrendingUp,
     Package,
     ListChecks,
     BarChart,
     ArrowRight,
-    Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { canPerformActions, getCurrentUser } from '@/utils/auth';
-import { dashboardApi, approvalApi } from '@/lib/api';
+import { approvalApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { QuickActionsLoading } from './QuickActionsLoading';
 
@@ -220,23 +217,7 @@ export function QuickActions() {
     return (
         <div className="space-y-6">
             {/* Primary Actions */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900">
-                <CardHeader className="pb-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
-                            <Zap className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-lg font-semibold">
-                                {t('dashboard.quick_actions.title', 'Quick Actions')}
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                                {t('dashboard.quick_actions.subtitle', 'Common tasks and shortcuts')}
-                            </p>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <div className="space-y-4">
                     {/* Primary action buttons */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {primaryActions.map((action) => {
@@ -249,7 +230,7 @@ export function QuickActions() {
                                     onClick={() => handleActionClick(action)}
                                     disabled={isDisabled}
                                     className={cn(
-                                        "h-auto p-4 flex flex-col items-start gap-2 text-left transition-all duration-200 hover:scale-105 hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                                        "h-auto p-4 flex flex-col items-start gap-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:ring-2 focus:ring-offset-2",
                                         getActionStyles(action.variant || 'default')
                                     )}
                                     aria-label={`${action.title}: ${action.description}`}
@@ -296,7 +277,7 @@ export function QuickActions() {
                                     key={action.id}
                                     variant="ghost"
                                     onClick={() => handleActionClick(action)}
-                                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all duration-200 hover:scale-105 relative"
+                                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-muted/60 transition-all duration-200 hover:-translate-y-0.5 relative"
                                 >
                                     {action.badge && (
                                         <Badge className={cn(
@@ -322,8 +303,7 @@ export function QuickActions() {
                             );
                         })}
                     </div>
-                </CardContent>
-            </Card>
+            </div>
 
             {/* Pending Items */}
             {pendingItems.length > 0 && (

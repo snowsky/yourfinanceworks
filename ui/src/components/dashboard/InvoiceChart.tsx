@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Loader2, BarChart as BarChartIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { invoiceApi, Invoice } from "@/lib/api";
 import { toast } from "sonner";
-import { CurrencyDisplay } from "@/components/ui/currency-display";
-import { useTranslation } from "react-i18next";
 
 export function InvoiceChart() {
-  const { t } = useTranslation();
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -113,23 +109,14 @@ export function InvoiceChart() {
   };
 
   return (
-    <Card className="col-span-2 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent hover:shadow-lg transition-all duration-300">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-semibold flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-primary/10" >
-            <BarChartIcon className="h-5 w-5 text-primary" />
-          </div>
-          {t('dashboard.revenueTrends.invoice_overview')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="h-[300px] flex justify-center items-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : (
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full h-full flex flex-col">
+      {loading ? (
+        <div className="flex-1 flex justify-center items-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
                 margin={{
@@ -276,7 +263,6 @@ export function InvoiceChart() {
             </ResponsiveContainer>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
