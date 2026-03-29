@@ -33,7 +33,7 @@ openai==2.21.0  # OpenAI client (compatible with litellm)
 litellm==1.75.0  # Unified interface for multiple LLM providers
 langchain==1.0.3  # LangChain main package
 langchain-community==0.4.1  # LangChain community components
-langchain-core==1.2.13  # LangChain core components
+langchain-core==1.2.22  # LangChain core components
 langchain-text-splitters==1.0.0  # LangChain text splitters
 pypdf==6.9.2  # Modern PDF processing (successor to PyPDF2)
 ollama==0.6.1  # Ollama client
