@@ -40,6 +40,23 @@ class ClientTaskItem(BaseModel):
     workflow_id: Optional[int] = None
 
 
+class ClientRecordUpdateRequest(BaseModel):
+    owner_user_id: Optional[int] = None
+    stage: Optional[str] = None
+    relationship_status: Optional[str] = None
+    source: Optional[str] = None
+    last_contact_at: Optional[datetime] = None
+    next_follow_up_at: Optional[datetime] = None
+
+
+class ClientTaskCreateRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+    due_date: datetime
+    priority: str = "medium"
+    assigned_to_id: int
+
+
 class ClientRecordResponse(BaseModel):
     client: Client
     summary: ClientRecordSummary

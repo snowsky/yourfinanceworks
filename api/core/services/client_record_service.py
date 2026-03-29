@@ -1,9 +1,22 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from core.models.models_per_tenant import Client, ClientNote, Invoice, Payment, Reminder, User
+from core.models.models import MasterUser
+from core.models.database import get_master_db
+from core.models.models_per_tenant import (
+    Client,
+    ClientNote,
+    Invoice,
+    Payment,
+    Reminder,
+    ReminderPriority,
+    ReminderStatus,
+    User,
+)
+from core.schemas.client_record import ClientTaskCreateRequest
 from core.schemas.client import Client as ClientSchema
 from core.schemas.client_record import (
     ClientActivityItem,
@@ -96,6 +109,76 @@ class ClientRecordService:
             recent_activity=recent_activity,
             open_tasks=open_task_items,
         )
+
+    def update_client_record(self, client_id: int, payload: dict[str, Any]) -> Optional[Client]:
+        client = self.db.query(Client).filter(Client.id == client_id).first()
+        if client is None:
+            return None
+
+        if "owner_user_id" in payload and payload["owner_user_id"] is not None:
+            owner = self.db.query(User).filter(
+                User.id == payload["owner_user_id"],
+                User.is_active == True,
+            ).first()
+            if owner is None:
+                raise ValueError("Owner user not found")
+
+        for field, value in payload.items():
+            setattr(client, field, value)
+
+        client.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(client)
+        return client
+
+    def get_client_tasks(self, client_id: int) -> list[ClientTaskItem]:
+        reminders = self.db.query(Reminder).filter(
+            Reminder.is_deleted == False
+        ).order_by(Reminder.due_date.asc()).all()
+        client_reminders = [reminder for reminder in reminders if self._matches_client(reminder.extra_metadata, client_id)]
+        return [self._to_task_item(reminder) for reminder in client_reminders]
+
+    def create_client_task(
+        self,
+        *,
+        client_id: int,
+        task_data: ClientTaskCreateRequest,
+        current_user: MasterUser,
+    ) -> ClientTaskItem:
+        client = self.db.query(Client).filter(Client.id == client_id).first()
+        if client is None:
+            raise ValueError("Client not found")
+
+        self._ensure_tenant_user(task_data.assigned_to_id)
+
+        max_pos = self.db.query(func.max(Reminder.position)).filter(
+            Reminder.assigned_to_id == task_data.assigned_to_id,
+            Reminder.is_deleted == False
+        ).scalar() or 0
+
+        priority = self._parse_priority(task_data.priority)
+
+        reminder = Reminder(
+            title=task_data.title,
+            description=task_data.description,
+            due_date=task_data.due_date,
+            status=ReminderStatus.PENDING,
+            priority=priority,
+            created_by_id=current_user.id,
+            assigned_to_id=task_data.assigned_to_id,
+            position=max_pos + 1,
+            is_pinned=False,
+            tags=["client-task"],
+            extra_metadata={
+                "client_id": client_id,
+                "task_kind": "follow_up",
+                "task_origin": "manual",
+            },
+        )
+        self.db.add(reminder)
+        self.db.commit()
+        self.db.refresh(reminder)
+        return self._to_task_item(reminder)
 
     def _build_recent_activity(
         self,
@@ -209,6 +292,32 @@ class ClientRecordService:
             workflow_id=metadata.get("workflow_id"),
         )
 
+    def _ensure_tenant_user(self, user_id: int) -> User:
+        tenant_user = self.db.query(User).filter(User.id == user_id).first()
+        if tenant_user:
+            return tenant_user
+
+        master_db = next(get_master_db())
+        try:
+            master_user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+            if master_user is None:
+                raise ValueError("Assigned user not found")
+
+            tenant_user = User(
+                id=master_user.id,
+                email=master_user.email,
+                first_name=master_user.first_name,
+                last_name=master_user.last_name,
+                hashed_password=master_user.hashed_password,
+                role=master_user.role,
+                is_active=True,
+            )
+            self.db.add(tenant_user)
+            self.db.flush()
+            return tenant_user
+        finally:
+            master_db.close()
+
     def _matches_client(self, metadata: Any, client_id: int) -> bool:
         if not isinstance(metadata, dict):
             return False
@@ -226,3 +335,15 @@ class ClientRecordService:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value
+
+    def _parse_priority(self, value: str) -> ReminderPriority:
+        normalized = (value or "medium").lower()
+        mapping = {
+            "low": ReminderPriority.LOW,
+            "medium": ReminderPriority.MEDIUM,
+            "high": ReminderPriority.HIGH,
+            "urgent": ReminderPriority.URGENT,
+        }
+        if normalized not in mapping:
+            raise ValueError("Invalid task priority")
+        return mapping[normalized]

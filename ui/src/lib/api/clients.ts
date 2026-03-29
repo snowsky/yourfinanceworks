@@ -63,6 +63,23 @@ export interface ClientRecordResponse {
   open_tasks: ClientTaskItem[];
 }
 
+export interface ClientRecordUpdateRequest {
+  owner_user_id?: number | null;
+  stage?: string;
+  relationship_status?: string;
+  source?: string | null;
+  last_contact_at?: string | null;
+  next_follow_up_at?: string | null;
+}
+
+export interface ClientTaskCreateRequest {
+  title: string;
+  description?: string | null;
+  due_date: string;
+  priority: string;
+  assigned_to_id: number;
+}
+
 export interface ClientNote {
   id: number;
   note: string;
@@ -119,6 +136,17 @@ export const clientApi = {
     }),
   getClient: (id: number) => apiRequest<Client>(`/clients/${id}`),
   getClientRecord: (id: number) => apiRequest<ClientRecordResponse>(`/clients/${id}/record`),
+  updateClientRecord: (id: number, payload: ClientRecordUpdateRequest) =>
+    apiRequest<Client>(`/clients/${id}/record`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  getClientTasks: (id: number) => apiRequest<ClientTaskItem[]>(`/clients/${id}/tasks`),
+  createClientTask: (id: number, payload: ClientTaskCreateRequest) =>
+    apiRequest<ClientTaskItem>(`/clients/${id}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   createClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) =>
     apiRequest<Client>("/clients/", {
       method: 'POST',

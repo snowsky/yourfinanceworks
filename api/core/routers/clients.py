@@ -13,6 +13,7 @@ from core.models.models import MasterUser, Tenant
 from core.routers.payments import Payment
 from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema, PaginatedClients
 from core.schemas.client_record import ClientRecordResponse
+from core.schemas.client_record import ClientRecordUpdateRequest, ClientTaskCreateRequest, ClientTaskItem
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_non_viewer
 from core.utils.audit import log_audit_event
@@ -519,6 +520,79 @@ async def get_client_record(
         logger.error(f"Error in get_client_record: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=FAILED_TO_FETCH_CLIENT)
+
+
+@router.patch("/{client_id}/record", response_model=ClientSchema)
+async def update_client_record(
+    client_id: int,
+    payload: ClientRecordUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    require_non_viewer(current_user, "update client record")
+    try:
+        service = ClientRecordService(db)
+        update_data = payload.model_dump(exclude_unset=True)
+        client = service.update_client_record(client_id, update_data)
+        if client is None:
+            raise HTTPException(status_code=404, detail=CLIENT_NOT_FOUND)
+        return _client_to_dict(client)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in update_client_record: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=FAILED_TO_UPDATE_CLIENT)
+
+
+@router.get("/{client_id}/tasks", response_model=List[ClientTaskItem])
+async def get_client_tasks(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    try:
+        service = ClientRecordService(db)
+        record = service.get_client_record(client_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail=CLIENT_NOT_FOUND)
+        return service.get_client_tasks(client_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_client_tasks: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=FAILED_TO_FETCH_CLIENT)
+
+
+@router.post("/{client_id}/tasks", response_model=ClientTaskItem, status_code=status.HTTP_201_CREATED)
+async def create_client_task(
+    client_id: int,
+    payload: ClientTaskCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    require_non_viewer(current_user, "create client task")
+    try:
+        service = ClientRecordService(db)
+        return service.create_client_task(
+            client_id=client_id,
+            task_data=payload,
+            current_user=current_user,
+        )
+    except ValueError as e:
+        message = str(e)
+        if message == "Client not found":
+            raise HTTPException(status_code=404, detail=CLIENT_NOT_FOUND)
+        raise HTTPException(status_code=400, detail=message)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in create_client_task: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=FAILED_TO_CREATE_CLIENT)
 
 
 @router.post("/bulk-labels")
