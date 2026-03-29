@@ -11,11 +11,10 @@ import {
   ArrowRight,
   Zap,
   RefreshCw,
-  Plus,
   Gamepad2
 } from 'lucide-react';
 
-import { ContentSection, GridLayout } from '@/components/ui/professional-layout';
+import { ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { QuickActions } from './QuickActions';
@@ -231,9 +230,9 @@ export function ProfessionalDashboard() {
 
 
   return (
-    <div className="h-full space-y-6 fade-in" data-tour="dashboard-welcome">
+    <div className="h-full space-y-8 fade-in" data-tour="dashboard-welcome">
       {/* Dashboard Header with Professional Styling */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm" data-tour="dashboard-header">
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm" data-tour="dashboard-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-2 flex-1">
             <h1 className="text-4xl font-bold tracking-tight">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
@@ -267,54 +266,20 @@ export function ProfessionalDashboard() {
 
       {/* Metrics Grid */}
       <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')} data-tour="dashboard-stats">
-        <GridLayout cols={5} gap="lg" responsive>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {metrics.map((metric, index) => (
-            <div key={index} className="space-y-2">
-              <MetricCard
-                title={metric.title}
-                value={metric.value}
-                change={metric.change}
-                icon={metric.icon}
-                description={metric.description}
-                variant={metric.variant}
-                loading={loading}
-              />
-              {!loading && metric.title.toLowerCase().includes('client') && (
-                <div className="px-1 mt-[-8px]">
-                  <ProfessionalButton
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs h-7 text-primary hover:bg-primary/5 border border-primary/10"
-                    onClick={() => navigate('/clients/new')}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t('clients.add_client')}
-                  </ProfessionalButton>
-                </div>
-              )}
-              {!loading && (metric.value === '0' || metric.value === '$0.00') && metric.title !== t('dashboard.stats.overdue_invoices') && !metric.title.toLowerCase().includes('client') && (
-                <div className="px-1 mt-[-8px]">
-                  <ProfessionalButton
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs h-7 text-primary hover:bg-primary/5 border border-primary/10"
-                    onClick={() => {
-                      if (metric.title.toLowerCase().includes('income')) navigate('/invoices/new');
-                      else if (metric.title.toLowerCase().includes('expense')) navigate('/expenses/new');
-                      else if (metric.title.toLowerCase().includes('pending')) navigate('/invoices');
-                    }}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {metric.title.toLowerCase().includes('income') ? t('invoices.new_invoice') :
-                        metric.title.toLowerCase().includes('expense') ? t('expenses.new_expense', 'New Expense') :
-                          metric.title.toLowerCase().includes('pending') ? t('navigation.invoices') :
-                            t('common.add_data', 'Add Data')}
-                  </ProfessionalButton>
-                </div>
-              )}
-            </div>
+            <MetricCard
+              key={index}
+              title={metric.title}
+              value={metric.value}
+              change={metric.change}
+              icon={metric.icon}
+              description={metric.description}
+              variant={metric.variant}
+              loading={loading}
+            />
           ))}
-        </GridLayout>
+        </div>
       </ContentSection>
 
 
@@ -387,8 +352,8 @@ export function ProfessionalDashboard() {
         <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-payment-trends">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="p-3 bg-primary/10 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">{t('dashboard.sections.payment_trends')}</h3>
@@ -428,8 +393,8 @@ export function ProfessionalDashboard() {
         <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-business-health">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <Users className="h-6 w-6 text-green-600" />
+              <div className="p-3 bg-emerald-500/10 rounded-xl">
+                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">{t('dashboard.sections.business_health')}</h3>
