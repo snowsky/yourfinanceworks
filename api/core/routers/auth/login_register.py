@@ -415,11 +415,13 @@ async def read_users_me(current_user: MasterUser = Depends(get_current_user), db
 @router.put("/me", response_model=UserRead)
 async def update_current_user(
     user_update: UserUpdate,
+    request: Request,
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update current user's profile (first_name, last_name)"""
     updated = False
+    show_analytics_changed: Optional[bool] = None
     if user_update.first_name is not None:
         current_user.first_name = user_update.first_name
         updated = True
@@ -430,6 +432,7 @@ async def update_current_user(
         current_user.theme = user_update.theme
         updated = True
     if hasattr(user_update, 'show_analytics') and user_update.show_analytics is not None:
+        show_analytics_changed = user_update.show_analytics
         current_user.show_analytics = user_update.show_analytics
         updated = True
     if not updated:
@@ -440,6 +443,7 @@ async def update_current_user(
 
     from core.services.tenant_database_manager import tenant_db_manager
     from core.models.models_per_tenant import User as TenantUser
+    from core.utils.audit import log_audit_event
     tenant_db = tenant_db_manager.get_tenant_session(current_user.tenant_id)()
     try:
         tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == current_user.id).first()
@@ -454,6 +458,20 @@ async def update_current_user(
                 tenant_user.show_analytics = user_update.show_analytics
             tenant_db.commit()
             tenant_db.refresh(tenant_user)
+
+        if show_analytics_changed is not None:
+            log_audit_event(
+                db=tenant_db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="UPDATE_USER_SETTING",
+                resource_type="user_setting",
+                resource_id=str(current_user.id),
+                resource_name="show_analytics",
+                details={"show_analytics": show_analytics_changed},
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
     finally:
         tenant_db.close()
 

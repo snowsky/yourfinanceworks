@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Rows2, Clock } from "lucide-react";
+import { Rows2, Clock, BarChart2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -11,11 +11,31 @@ import {
 } from "@/components/ui/professional-card";
 import { useListDensity } from "@/hooks/use-list-density";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { authApi } from "@/lib/api";
+import { updateCurrentUser } from "@/utils/auth";
+import { toast } from "sonner";
 
 export const AppearanceTab: React.FC = () => {
     const { t } = useTranslation();
+    const queryClient = useQueryClient();
     const { density, toggleDensity } = useListDensity();
     const { settings, update } = useAppearanceSettings();
+
+    const { data: user } = useQuery({
+        queryKey: ['currentUser'],
+        queryFn: () => authApi.getCurrentUser(),
+    });
+
+    const handleShowAnalyticsChange = async (checked: boolean) => {
+        try {
+            await authApi.updateCurrentUser({ show_analytics: checked });
+            updateCurrentUser({ show_analytics: checked });
+            queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+        } catch {
+            toast.error(t('settings.failed_to_update_profile'));
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -41,6 +61,33 @@ export const AppearanceTab: React.FC = () => {
                             id="list_density"
                             checked={density === "compact"}
                             onCheckedChange={toggleDensity}
+                        />
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Navigation */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <BarChart2 className="w-4 h-4 text-primary" />
+                        {t('settings.appearance.navigation', 'Navigation')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="show_analytics" className="text-base font-semibold">
+                                {t('settings.profile.show_analytics_menu')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                {t('settings.profile.show_analytics_menu_description')}
+                            </p>
+                        </div>
+                        <Switch
+                            id="show_analytics"
+                            checked={user?.show_analytics ?? true}
+                            onCheckedChange={handleShowAnalyticsChange}
                         />
                     </div>
                 </ProfessionalCardContent>
