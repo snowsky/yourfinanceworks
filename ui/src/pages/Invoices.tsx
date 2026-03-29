@@ -43,6 +43,7 @@ const INVOICE_COLUMNS: ColumnDef[] = [
   { key: 'outstanding_balance', label: 'Outstanding Balance' },
   { key: 'status', label: 'Status', essential: true },
   { key: 'review', label: 'Review' },
+  { key: 'statement', label: 'Statement' },
   { key: 'created_at_by', label: 'Created at / by' },
   { key: 'actions', label: 'Actions', essential: true },
 ];
@@ -990,6 +991,7 @@ const Invoices = () => {
                         {isVisible('outstanding_balance') && <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('invoices.table.status')}</TableHead>
                         {isVisible('review') && <TableHead className="font-bold text-foreground">{t('invoices.review.title', { defaultValue: 'Review' })}</TableHead>}
+                        {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('invoices.table.statement', { defaultValue: 'Statement' })}</TableHead>}
                         {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
                         <TableHead className="w-[100px] text-right font-bold text-foreground">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
@@ -1169,10 +1171,17 @@ const Invoices = () => {
                                 </div>
                             )}
                           </TableCell>}
+                          {isVisible('statement') && <TableCell>
+                            {typeof invoice.statement_transaction_id === 'number' ? (
+                              <Link to={`/statements?id=${invoice.statement_transaction_id}`} className="text-blue-600 hover:underline">#{invoice.statement_transaction_id}</Link>
+                            ) : (
+                              <span className="text-muted-foreground">{t('expenses.none', { defaultValue: '—' })}</span>
+                            )}
+                          </TableCell>}
                           {isVisible('created_at_by') && <TableCell>
                             <div className="text-sm">
                               <div className="text-muted-foreground">
-                                {invoice.created_at ? new Date(invoice.created_at).toLocaleString(getLocale(), { 
+                                {invoice.created_at ? new Date(invoice.created_at).toLocaleString(getLocale(), {
                                   timeZone: timezone,
                                   year: 'numeric',
                                   month: 'short',

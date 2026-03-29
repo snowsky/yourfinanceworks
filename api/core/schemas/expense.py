@@ -169,6 +169,8 @@ class Expense(ExpenseBase):
     created_by_user_id: Optional[int] = None
     created_by_username: Optional[str] = None
     created_by_email: Optional[str] = None
+    # Bank statement link (reverse lookup)
+    statement_transaction_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
     

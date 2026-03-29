@@ -207,6 +207,20 @@ async def list_expenses(
         # Fallback: when tenant DB decryption fails, use master DB for creator name
         _apply_creator_fallback(expenses, master_db)
 
+        # Attach statement_transaction_id via reverse lookup (batch)
+        try:
+            if expenses:
+                expense_ids = [ex.id for ex in expenses]
+                txn_map: dict[int, int] = dict(
+                    db.query(BankStatementTransaction.expense_id, BankStatementTransaction.id)
+                    .filter(BankStatementTransaction.expense_id.in_(expense_ids))
+                    .all()
+                )
+                for ex in expenses:
+                    ex.__dict__['statement_transaction_id'] = txn_map.get(ex.id)
+        except Exception as e:
+            logger.warning(f"Failed to get statement_transaction_id for expenses: {e}")
+
         # Always return the structured response format
         return {
             "success": True,
@@ -259,6 +273,15 @@ async def get_expense(
 
     # Fallback: when tenant DB decryption fails, use master DB for creator name
     _apply_creator_fallback([expense], master_db)
+
+    # Attach statement_transaction_id via reverse lookup
+    try:
+        txn = db.query(BankStatementTransaction.id).filter(
+            BankStatementTransaction.expense_id == expense_id
+        ).first()
+        expense.__dict__['statement_transaction_id'] = txn[0] if txn else None
+    except Exception as e:
+        logger.warning(f"Failed to get statement_transaction_id for expense {expense_id}: {e}")
 
     return expense
 

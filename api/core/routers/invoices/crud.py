@@ -11,7 +11,7 @@ import os
 from datetime import datetime, timezone, timedelta
 
 from core.models.database import get_db
-from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings, InvoiceAttachment
+from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings, InvoiceAttachment, BankStatementTransaction
 from core.models.models import MasterUser
 from core.routers.payments import Payment
 from core.schemas.invoice import (
@@ -714,6 +714,18 @@ async def read_invoices(
         invoice_ids = [inv.id for inv, _, _ in invoices]
         creator_ids = list({inv.created_by_user_id for inv, _, _ in invoices if inv.created_by_user_id})
 
+        # Batch-load statement transaction IDs (reverse lookup)
+        txn_by_invoice: dict[int, int] = {}
+        if invoice_ids:
+            try:
+                for txn_inv_id, txn_id in db.query(
+                    BankStatementTransaction.invoice_id,
+                    BankStatementTransaction.id
+                ).filter(BankStatementTransaction.invoice_id.in_(invoice_ids)).all():
+                    txn_by_invoice[txn_inv_id] = txn_id
+            except Exception as e:
+                logger.warning(f"Failed to batch-load statement_transaction_id for invoices: {e}")
+
         attachments_by_invoice: dict = {}
         if invoice_ids:
             for att in db.query(InvoiceAttachment).filter(
@@ -774,7 +786,8 @@ async def read_invoices(
                 "created_by_email": created_by_email,
                 "review_status": invoice.review_status,
                 "review_result": invoice.review_result,
-                "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None
+                "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None,
+                "statement_transaction_id": txn_by_invoice.get(invoice.id),
             }
             result.append(invoice_dict)
 
@@ -1385,8 +1398,18 @@ async def read_invoice(
             "created_by_email": created_by_email,
             "review_status": invoice.review_status,
             "review_result": invoice.review_result,
-            "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None
+            "reviewed_at": invoice.reviewed_at.isoformat() if invoice.reviewed_at else None,
+            "statement_transaction_id": None,
         }
+
+        # Attach statement_transaction_id via reverse lookup
+        try:
+            txn = db.query(BankStatementTransaction.id).filter(
+                BankStatementTransaction.invoice_id == invoice_id
+            ).first()
+            invoice_dict["statement_transaction_id"] = txn[0] if txn else None
+        except Exception as e:
+            logger.warning(f"Failed to get statement_transaction_id for invoice {invoice_id}: {e}")
 
         return invoice_dict
     except HTTPException:

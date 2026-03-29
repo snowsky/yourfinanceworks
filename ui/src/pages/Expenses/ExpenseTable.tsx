@@ -93,6 +93,7 @@ export function ExpenseTable({
             <TableHead className="font-bold text-foreground">{t('expenses.table.amount')}</TableHead>
             {isVisible('total') && <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>}
             {isVisible('invoice') && <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>}
+            {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('expenses.table.statement', { defaultValue: 'Statement' })}</TableHead>}
             {isVisible('approval_status') && <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Approval Status' })}</TableHead>}
             {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
             {isVisible('analyzed') && <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>}
@@ -199,6 +200,13 @@ export function ExpenseTable({
                 {isVisible('invoice') && <TableCell>
                   {typeof e.invoice_id === 'number' ? (
                     <Link to={`/invoices/edit/${e.invoice_id}`} className="text-blue-600 hover:underline">#{e.invoice_id}</Link>
+                  ) : (
+                    <span className="text-muted-foreground">{t('expenses.none')}</span>
+                  )}
+                </TableCell>}
+                {isVisible('statement') && <TableCell>
+                  {typeof e.statement_transaction_id === 'number' ? (
+                    <Link to={`/statements?id=${e.statement_transaction_id}`} className="text-blue-600 hover:underline">#{e.statement_transaction_id}</Link>
                   ) : (
                     <span className="text-muted-foreground">{t('expenses.none')}</span>
                   )}

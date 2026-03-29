@@ -22,6 +22,7 @@ export const EXPENSE_COLUMNS: ColumnDef[] = [
   { key: 'amount', label: 'Amount', essential: true },
   { key: 'total', label: 'Total' },
   { key: 'invoice', label: 'Invoice' },
+  { key: 'statement', label: 'Statement' },
   { key: 'approval_status', label: 'Approval Status' },
   { key: 'created_at_by', label: 'Created at / by' },
   { key: 'analyzed', label: 'Analyzed' },
