@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.models.models import MasterUser
 from core.models.database import get_master_db
 from core.models.models_per_tenant import (
+    AuditLog,
     Client,
     ClientNote,
     Invoice,
@@ -55,6 +56,11 @@ class ClientRecordService:
         ).filter(
             ClientNote.client_id == client_id
         ).order_by(ClientNote.created_at.desc()).all()
+        client_audit_logs = self.db.query(AuditLog).filter(
+            AuditLog.resource_type == "client_record",
+            AuditLog.resource_id == str(client_id),
+            AuditLog.status == "success",
+        ).order_by(AuditLog.created_at.desc()).limit(10).all()
 
         total_outstanding = sum(
             float(invoice.amount or 0)
@@ -78,7 +84,13 @@ class ClientRecordService:
             last_invoice_at=invoices[0].created_at if invoices else None,
         )
 
-        recent_activity = self._build_recent_activity(notes=notes, invoices=invoices, payments=payments, reminders=client_reminders)
+        recent_activity = self._build_recent_activity(
+            notes=notes,
+            invoices=invoices,
+            payments=payments,
+            reminders=client_reminders,
+            audit_logs=client_audit_logs,
+        )
         open_task_items = [self._to_task_item(reminder) for reminder in open_tasks[:10]]
 
         client_payload = ClientSchema.model_validate({
@@ -110,10 +122,10 @@ class ClientRecordService:
             open_tasks=open_task_items,
         )
 
-    def update_client_record(self, client_id: int, payload: dict[str, Any]) -> Optional[Client]:
+    def update_client_record(self, client_id: int, payload: dict[str, Any]) -> tuple[Optional[Client], dict[str, dict[str, Any]]]:
         client = self.db.query(Client).filter(Client.id == client_id).first()
         if client is None:
-            return None
+            return None, {}
 
         if "owner_user_id" in payload and payload["owner_user_id"] is not None:
             owner = self.db.query(User).filter(
@@ -123,13 +135,20 @@ class ClientRecordService:
             if owner is None:
                 raise ValueError("Owner user not found")
 
+        changed_fields: dict[str, dict[str, Any]] = {}
         for field, value in payload.items():
+            previous_value = getattr(client, field)
+            if previous_value != value:
+                changed_fields[field] = {
+                    "from": self._serialize_activity_value(previous_value),
+                    "to": self._serialize_activity_value(value),
+                }
             setattr(client, field, value)
 
         client.updated_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(client)
-        return client
+        return client, changed_fields
 
     def get_client_tasks(self, client_id: int) -> list[ClientTaskItem]:
         reminders = self.db.query(Reminder).filter(
@@ -187,8 +206,14 @@ class ClientRecordService:
         invoices: list[Invoice],
         payments: list[Payment],
         reminders: list[Reminder],
+        audit_logs: list[AuditLog],
     ) -> list[ClientActivityItem]:
         items: list[ClientActivityItem] = []
+
+        for audit_log in audit_logs:
+            audit_item = self._to_client_audit_activity_item(audit_log)
+            if audit_item is not None:
+                items.append(audit_item)
 
         for note in notes[:10]:
             actor_name = None
@@ -276,6 +301,59 @@ class ClientRecordService:
         items.sort(key=lambda item: item.timestamp, reverse=True)
         return items[:20]
 
+    def _to_client_audit_activity_item(self, audit_log: AuditLog) -> Optional[ClientActivityItem]:
+        details = audit_log.details or {}
+        changed_fields = details.get("changed_fields") if isinstance(details, dict) else None
+        if not isinstance(changed_fields, dict) or not changed_fields:
+            return None
+
+        changed_names = list(changed_fields.keys())
+        actor_name = audit_log.user_email
+        title = "Client record updated"
+        description = self._describe_client_record_changes(changed_fields)
+        metadata: dict[str, Any] = {"changed_fields": changed_fields}
+
+        if changed_names == ["last_contact_at"]:
+            title = "Contact logged"
+            description = f"Last contact updated to {changed_fields['last_contact_at'].get('to') or 'Not set'}"
+        elif changed_names == ["next_follow_up_at"]:
+            title = "Follow-up scheduled"
+            description = f"Next follow-up set to {changed_fields['next_follow_up_at'].get('to') or 'Not set'}"
+        elif changed_names == ["stage"]:
+            title = "Client stage changed"
+        elif changed_names == ["owner_user_id"]:
+            title = "Client owner changed"
+        elif changed_names == ["relationship_status"]:
+            title = "Relationship status updated"
+
+        return ClientActivityItem(
+            type="client_updated",
+            timestamp=audit_log.created_at,
+            title=title,
+            description=description,
+            actor_name=actor_name,
+            entity_type="client",
+            entity_id=audit_log.resource_id or "",
+            metadata=metadata,
+        )
+
+    def _describe_client_record_changes(self, changed_fields: dict[str, dict[str, Any]]) -> str:
+        labels = {
+            "owner_user_id": "Owner",
+            "stage": "Stage",
+            "relationship_status": "Relationship status",
+            "source": "Source",
+            "last_contact_at": "Last contact",
+            "next_follow_up_at": "Next follow-up",
+        }
+        parts: list[str] = []
+        for field, change in changed_fields.items():
+            label = labels.get(field, field.replace("_", " ").title())
+            before = change.get("from")
+            after = change.get("to")
+            parts.append(f"{label}: {before or 'Not set'} -> {after or 'Not set'}")
+        return "; ".join(parts)
+
     def _to_task_item(self, reminder: Reminder) -> ClientTaskItem:
         metadata = reminder.extra_metadata or {}
         status = getattr(reminder.status, "value", reminder.status)
@@ -334,6 +412,11 @@ class ClientRecordService:
     def _coerce_datetime(self, value: datetime) -> datetime:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
+        return value
+
+    def _serialize_activity_value(self, value: Any) -> Any:
+        if isinstance(value, datetime):
+            return self._coerce_datetime(value).isoformat()
         return value
 
     def _parse_priority(self, value: str) -> ReminderPriority:

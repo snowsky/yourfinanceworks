@@ -8,7 +8,7 @@ import traceback
 from datetime import datetime, timezone
 
 from core.models.database import get_db, get_master_db
-from core.models.models_per_tenant import Client, Invoice, Settings
+from core.models.models_per_tenant import AuditLog, Client, Invoice, Settings
 from core.models.models import MasterUser, Tenant
 from core.routers.payments import Payment
 from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSchema, PaginatedClients
@@ -533,9 +533,23 @@ async def update_client_record(
     try:
         service = ClientRecordService(db)
         update_data = payload.model_dump(exclude_unset=True)
-        client = service.update_client_record(client_id, update_data)
+        client, changed_fields = service.update_client_record(client_id, update_data)
         if client is None:
             raise HTTPException(status_code=404, detail=CLIENT_NOT_FOUND)
+        if changed_fields:
+            audit_log = AuditLog(
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="UPDATE",
+                resource_type="client_record",
+                resource_id=str(client.id),
+                resource_name=client.name,
+                details={"changed_fields": changed_fields},
+                status="success",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(audit_log)
+            db.commit()
         return _client_to_dict(client)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
