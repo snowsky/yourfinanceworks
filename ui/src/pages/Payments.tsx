@@ -261,7 +261,7 @@ const Payments = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
+                        <TableCell colSpan={6 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
                           <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
                             <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CreditCard className="h-8 w-8 text-primary" />
