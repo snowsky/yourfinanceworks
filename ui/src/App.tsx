@@ -92,6 +92,11 @@ const Reminders = React.lazy(() => import("./pages/Reminders"));
 const Workflows = React.lazy(() => import("./pages/Workflows"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
+const MobileLayout = React.lazy(() => import("./components/mobile/MobileLayout"));
+const MobileCapture = React.lazy(() => import("./pages/mobile/MobileCapture"));
+const MobileInbox = React.lazy(() => import("./pages/mobile/MobileInbox"));
+const MobileTimeline = React.lazy(() => import("./pages/mobile/MobileTimeline"));
+const MobileInsights = React.lazy(() => import("./pages/mobile/MobileInsights"));
 
 // ---------------------------------------------------------------------------
 // Plugin route auto-discovery via Vite glob (lazy — isolates broken plugins)
@@ -187,6 +192,13 @@ const AppContent = () => {
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
+                    <Route path="/m" element={<Navigate to="/m/capture" replace />} />
+                    <Route path="/m/capture" element={<MobileCapture />} />
+                    <Route path="/m/inbox" element={<MobileInbox />} />
+                    <Route path="/m/timeline" element={<MobileTimeline />} />
+                    <Route path="/m/insights" element={<MobileInsights />} />
+                  </Route>
                   <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Index />} />

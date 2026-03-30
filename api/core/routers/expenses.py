@@ -17,9 +17,10 @@ from core.models.database import get_db, get_master_db
 from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction, Client
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
-from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest, ExpenseListResponse, PaginatedDeletedExpenses
+from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest, ExpenseListResponse, PaginatedDeletedExpenses, ExpenseVoiceParseRequest, ExpenseVoiceParseResponse
 from core.services.currency_service import CurrencyService
 from core.services.search_service import search_service
+from core.services.expense_voice_service import parse_voice_expense
 from core.utils.rbac import require_non_viewer
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
@@ -290,6 +291,33 @@ async def get_expense(
         logger.warning(f"Failed to get statement_transaction_id for expense {expense_id}: {e}")
 
     return expense
+
+
+@router.post("/parse-voice", response_model=ExpenseVoiceParseResponse)
+async def parse_expense_voice(
+    request: ExpenseVoiceParseRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "parse expense voice entries")
+
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    try:
+        return await parse_voice_expense(
+            db,
+            transcript=request.transcript,
+            currency_hint=request.currency_hint,
+            date_hint=request.date_hint,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to parse voice expense: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to parse voice expense")
 
 
 @router.post("/", response_model=ExpenseSchema)

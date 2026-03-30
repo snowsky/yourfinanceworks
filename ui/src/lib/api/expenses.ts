@@ -54,6 +54,18 @@ export interface ExpenseAttachmentMeta {
   extracted_amount?: number;
 }
 
+export interface ParsedVoiceExpense {
+  transcript: string;
+  amount?: number | null;
+  currency: string;
+  expense_date: string;
+  category: string;
+  vendor?: string | null;
+  notes?: string | null;
+  confidence: number;
+  parser_used: string;
+}
+
 // Define recycle bin types
 export interface DeletedExpense extends Expense {
   is_deleted: boolean;
@@ -191,6 +203,14 @@ export const expenseApi = {
     }
     return response.json();
   },
+  parseVoice: (transcript: string, currencyHint?: string) =>
+    apiRequest<ParsedVoiceExpense>(`/expenses/parse-voice`, {
+      method: 'POST',
+      body: JSON.stringify({
+        transcript,
+        currency_hint: currencyHint,
+      }),
+    }),
   acceptReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/accept-review`, { method: 'POST' }),
   rejectReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/reject-review`, { method: 'POST' }),
   reReview: (id: number) => apiRequest<Expense>(`/expenses/${id}/review`, { method: 'POST' }),

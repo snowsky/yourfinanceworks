@@ -90,6 +90,24 @@ class ExpenseCreate(ExpenseBase):
     pass
 
 
+class ExpenseVoiceParseRequest(BaseModel):
+    transcript: str = Field(..., min_length=1, description="Raw spoken or dictated expense text")
+    currency_hint: Optional[str] = Field(None, description="Optional currency hint like USD")
+    date_hint: Optional[date] = Field(None, description="Optional date to anchor relative phrases")
+
+
+class ExpenseVoiceParseResponse(BaseModel):
+    transcript: str
+    amount: Optional[float] = None
+    currency: str = "USD"
+    expense_date: date = Field(default_factory=date.today)
+    category: str = "General"
+    vendor: Optional[str] = None
+    notes: Optional[str] = None
+    confidence: float = 0.0
+    parser_used: str = "heuristic"
+
+
 class ExpenseUpdate(BaseModel):
     amount: Optional[float] = None
     currency: Optional[str] = None
@@ -330,5 +348,4 @@ class ExpenseListResponse(BaseModel):
 class PaginatedDeletedExpenses(BaseModel):
     items: List[DeletedExpense]
     total: int
-
 
