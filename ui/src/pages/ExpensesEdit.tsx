@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
+import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi, clientApi } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canEditExpense } from '@/utils/auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -41,7 +41,8 @@ export default function ExpensesEdit() {
   const [pendingDelete, setPendingDelete] = useState<Set<number>>(new Set());
   const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
-  const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
+  const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_id: number; client_name: string }>>([]);
+  const [clientOptions, setClientOptions] = useState<Array<{ id: number; name: string }>>([]);
   const [newLabel, setNewLabel] = useState<string>('');
 
   // Inventory consumption state
@@ -83,6 +84,10 @@ export default function ExpensesEdit() {
         const list = await expenseApi.listAttachments(Number(id));
         setAttachments(list);
         try { const invs = await linkApi.getInvoicesBasic(); setInvoiceOptions(invs); } catch { }
+        try {
+          const res = await clientApi.getClients(0, 500);
+          setClientOptions(res.items.map(c => ({ id: c.id, name: c.name })));
+        } catch { }
       } catch (e: any) {
         toast.error(e?.message || t('expenses.failed_to_load', { defaultValue: 'Failed to load expense' }));
       } finally {
@@ -179,6 +184,7 @@ export default function ExpensesEdit() {
       notes: form.notes,
       labels: labelsFromForm.length ? labelsFromForm : undefined,
       invoice_id: form.invoice_id ?? null,
+      client_id: form.client_id ?? null,
       is_inventory_consumption: isInventoryConsumption,
       consumption_items: isInventoryConsumption ? consumptionItems : null,
       receipt_timestamp: (form as any).receipt_timestamp || null,
@@ -394,16 +400,49 @@ export default function ExpensesEdit() {
               />
             </div>
             <div>
+              <label className="text-sm">Client</label>
+              <Select
+                value={form.client_id ? String(form.client_id) : undefined}
+                disabled={form.invoice_id != null}
+                onValueChange={v => setForm({ ...form, client_id: v === 'none' ? undefined : Number(v), invoice_id: undefined })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select client (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {clientOptions.map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {form.invoice_id != null && (
+                <p className="text-xs text-muted-foreground mt-1">Client is set by the linked invoice.</p>
+              )}
+            </div>
+            <div>
               <label className="text-sm">{t('expenses.link_to_invoice')}</label>
-              <Select value={form.invoice_id ? String(form.invoice_id) : undefined} onValueChange={v => setForm({ ...form, invoice_id: v === 'none' ? undefined : Number(v) })}>
+              <Select
+                value={form.invoice_id ? String(form.invoice_id) : undefined}
+                onValueChange={v => {
+                  if (v === 'none') {
+                    setForm({ ...form, invoice_id: undefined });
+                  } else {
+                    const inv = invoiceOptions.find(i => i.id === Number(v));
+                    setForm({ ...form, invoice_id: Number(v), client_id: inv?.client_id });
+                  }
+                }}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t('expenses.select_invoice')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{t('expenses.none')}</SelectItem>
-                  {invoiceOptions.map(inv => (
-                    <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
-                  ))}
+                  {invoiceOptions
+                    .filter(inv => form.client_id == null || inv.client_id === form.client_id)
+                    .map(inv => (
+                      <SelectItem key={inv.id} value={String(inv.id)}>{inv.number} — {inv.client_name}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
