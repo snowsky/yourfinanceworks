@@ -30,6 +30,7 @@ ui/next-env.d.ts
 api/reports
 api/.coverage
 api/.hypothesis
+api/.pytest_cache
 api/venv
 api/**/__pycache__
 api/.env

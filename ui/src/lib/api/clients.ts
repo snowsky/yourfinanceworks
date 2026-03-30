@@ -12,8 +12,72 @@ export interface Client {
   outstanding_balance?: number;
   preferred_currency?: string;
   labels?: string[];
+  owner_user_id?: number | null;
+  stage?: string;
+  relationship_status?: string;
+  source?: string | null;
+  last_contact_at?: string | null;
+  next_follow_up_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ClientRecordSummary {
+  open_invoices_count: number;
+  overdue_invoices_count: number;
+  total_outstanding: number;
+  total_paid: number;
+  open_tasks_count: number;
+  completed_tasks_count: number;
+  last_payment_at?: string | null;
+  last_invoice_at?: string | null;
+}
+
+export interface ClientActivityItem {
+  type: string;
+  timestamp: string;
+  title: string;
+  description?: string | null;
+  actor_name?: string | null;
+  entity_type: string;
+  entity_id: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ClientTaskItem {
+  id: number;
+  title: string;
+  description?: string | null;
+  due_date: string;
+  status: string;
+  priority: string;
+  assigned_to_id: number;
+  task_origin?: string | null;
+  workflow_id?: number | null;
+}
+
+export interface ClientRecordResponse {
+  client: Client;
+  summary: ClientRecordSummary;
+  recent_activity: ClientActivityItem[];
+  open_tasks: ClientTaskItem[];
+}
+
+export interface ClientRecordUpdateRequest {
+  owner_user_id?: number | null;
+  stage?: string;
+  relationship_status?: string;
+  source?: string | null;
+  last_contact_at?: string | null;
+  next_follow_up_at?: string | null;
+}
+
+export interface ClientTaskCreateRequest {
+  title: string;
+  description?: string | null;
+  due_date: string;
+  priority: string;
+  assigned_to_id: number;
 }
 
 export interface ClientNote {
@@ -71,6 +135,18 @@ export const clientApi = {
       body: JSON.stringify({ ids, action, label }),
     }),
   getClient: (id: number) => apiRequest<Client>(`/clients/${id}`),
+  getClientRecord: (id: number) => apiRequest<ClientRecordResponse>(`/clients/${id}/record`),
+  updateClientRecord: (id: number, payload: ClientRecordUpdateRequest) =>
+    apiRequest<Client>(`/clients/${id}/record`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  getClientTasks: (id: number) => apiRequest<ClientTaskItem[]>(`/clients/${id}/tasks`),
+  createClientTask: (id: number, payload: ClientTaskCreateRequest) =>
+    apiRequest<ClientTaskItem>(`/clients/${id}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   createClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) =>
     apiRequest<Client>("/clients/", {
       method: 'POST',
