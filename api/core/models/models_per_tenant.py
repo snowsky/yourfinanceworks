@@ -234,6 +234,7 @@ class Expense(Base):
     receipt_filename = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True)
+    client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
 
     # Inventory purchase fields
@@ -276,9 +277,17 @@ class Expense(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
     invoice = relationship("Invoice", back_populates="expenses")
+    client = relationship("Client")
     approvals = relationship("ExpenseApproval", back_populates="expense", cascade="all, delete-orphan")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     deleted_by_user = relationship("User", foreign_keys=[deleted_by])
+
+    @property
+    def client_name(self):
+        """Get linked client name for API responses"""
+        if self.client:
+            return self.client.name
+        return None
 
     @property
     def created_by_username(self):

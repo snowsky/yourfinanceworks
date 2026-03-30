@@ -446,6 +446,6 @@ export const linkApi = {
   getInvoicesBasic: async () => {
     const list = await invoiceApi.getInvoicesWithParams({ limit: 1000 });
     // Map to minimal data
-    return list.map(inv => ({ id: inv.id, number: inv.number, client_name: inv.client_name, amount: inv.amount, status: inv.status }));
+    return list.map(inv => ({ id: inv.id, number: inv.number, client_id: inv.client_id, client_name: inv.client_name, amount: inv.amount, status: inv.status }));
   },
 };

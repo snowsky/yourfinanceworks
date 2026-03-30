@@ -21,6 +21,7 @@ class ExpenseBase(BaseModel):
     status: str = Field(ExpenseStatus.RECORDED.value, description="Status of the expense")
     notes: Optional[str] = Field(None, description="Additional notes about the expense")
     invoice_id: Optional[int] = Field(None, description="Linked invoice ID (one expense -> at most one invoice)")
+    client_id: Optional[int] = Field(None, description="Linked client ID (must match invoice's client when invoice is set)")
     # Inventory purchase fields
     is_inventory_purchase: Optional[bool] = Field(False, description="Whether this expense is an inventory purchase")
     inventory_items: Optional[List[Dict[str, Any]]] = Field(None, description="List of inventory items purchased")
@@ -104,8 +105,9 @@ class ExpenseUpdate(BaseModel):
     reference_number: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
-    # Allow linking/unlinking to an invoice
+    # Allow linking/unlinking to an invoice or client
     invoice_id: Optional[int] = None
+    client_id: Optional[int] = None
     # Inventory purchase fields
     is_inventory_purchase: Optional[bool] = None
     inventory_items: Optional[List[Dict[str, Any]]] = None
@@ -165,6 +167,8 @@ class Expense(ExpenseBase):
     analysis_updated_at: Optional[datetime] = None
     receipt_timestamp: Optional[datetime] = None
     receipt_time_extracted: Optional[bool] = None
+    # Client name (denormalized for display)
+    client_name: Optional[str] = None
     # User attribution fields
     created_by_user_id: Optional[int] = None
     created_by_username: Optional[str] = None

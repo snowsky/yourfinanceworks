@@ -14,7 +14,7 @@ import sqlalchemy as sa
 import traceback
 
 from core.models.database import get_db, get_master_db
-from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction
+from core.models.models_per_tenant import Expense, ExpenseAttachment, User, Invoice, BankStatementTransaction, Client
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from core.schemas.expense import ExpenseCreate, ExpenseUpdate, Expense as ExpenseSchema, DeletedExpense, RecycleBinExpenseResponse, RestoreExpenseRequest, ExpenseListResponse, PaginatedDeletedExpenses
@@ -324,12 +324,22 @@ async def create_expense(
                 if total_amount is None:
                     total_amount = float(expense.amount) + float(tax_amount or 0)
 
-        # Validate invoice exists if provided
+        # Validate invoice/client and enforce consistency
+        resolved_client_id = expense.client_id
         if expense.invoice_id is not None:
             inv = db.query(Invoice).filter(Invoice.id == expense.invoice_id).first()
             if not inv:
                 raise HTTPException(status_code=400, detail=f"Invoice {expense.invoice_id} not found")
+            if expense.client_id is not None and expense.client_id != inv.client_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"client_id {expense.client_id} does not match invoice's client (client_id={inv.client_id})",
+                )
+            resolved_client_id = inv.client_id
             uvicorn_logger.info(f"Creating expense linked to invoice_id={expense.invoice_id}")
+        elif expense.client_id is not None:
+            if not db.query(Client).filter(Client.id == expense.client_id).first():
+                raise HTTPException(status_code=400, detail=f"Client {expense.client_id} not found")
 
         # Normalize labels: enforce max 10, unique, trimmed, non-empty
         input_labels = getattr(expense, "labels", None) or ([] if not getattr(expense, "label", None) else [getattr(expense, "label")])
@@ -454,6 +464,7 @@ async def create_expense(
             notes=expense.notes,
             user_id=current_user.id,
             invoice_id=expense.invoice_id,
+            client_id=resolved_client_id,
             is_inventory_purchase=is_inventory_purchase,
             inventory_items=inventory_items,
             is_inventory_consumption=is_inventory_consumption,
@@ -1115,11 +1126,29 @@ async def update_expense(
         if "expense_date" in update_data and isinstance(update_data["expense_date"], date):
             update_data["expense_date"] = datetime.combine(update_data["expense_date"], datetime.min.time()).replace(tzinfo=timezone.utc)
 
-        # Validate invoice exists if attempting to (re)link
+        # Validate invoice/client consistency on update
         if "invoice_id" in update_data and update_data["invoice_id"] is not None:
-            inv = db.query(Invoice).filter(Invoice.id == int(update_data["invoice_id"])) .first()
+            inv = db.query(Invoice).filter(Invoice.id == int(update_data["invoice_id"])).first()
             if not inv:
                 raise HTTPException(status_code=400, detail=f"Invoice {update_data['invoice_id']} not found")
+            effective_client_id = update_data.get("client_id", db_expense.client_id)
+            if effective_client_id is not None and effective_client_id != inv.client_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"client_id {effective_client_id} does not match invoice's client (client_id={inv.client_id})",
+                )
+            update_data["client_id"] = inv.client_id
+        elif "client_id" in update_data and update_data["client_id"] is not None:
+            if not db.query(Client).filter(Client.id == int(update_data["client_id"])).first():
+                raise HTTPException(status_code=400, detail=f"Client {update_data['client_id']} not found")
+            effective_invoice_id = update_data.get("invoice_id", db_expense.invoice_id)
+            if effective_invoice_id is not None:
+                inv = db.query(Invoice).filter(Invoice.id == effective_invoice_id).first()
+                if inv and update_data["client_id"] != inv.client_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"client_id {update_data['client_id']} does not match the linked invoice's client (client_id={inv.client_id})",
+                    )
 
         # Recalculate tax/total if needed
         amount = update_data.get("amount", db_expense.amount)
