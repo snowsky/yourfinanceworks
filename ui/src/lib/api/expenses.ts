@@ -19,6 +19,8 @@ export interface Expense {
   receipt_filename?: string;
   attachments_count?: number;
   invoice_id?: number | null;
+  client_id?: number | null;
+  client_name?: string | null;
   user_id?: number;
   created_at: string;
   updated_at: string;
