@@ -62,3 +62,11 @@ api/keys/master.key
 
 license_server/
 .env
+
+# Plugins
+api/plugins/*
+!api/plugins/
+!api/plugins/__init__.py
+ui/src/plugins/*
+!ui/src/plugins/
+!ui/src/plugins/plugin-icons.ts

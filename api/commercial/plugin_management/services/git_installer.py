@@ -66,11 +66,9 @@ def _validate_and_sanitize_ui_plugin(dest_ui: Path) -> list[str]:
 # api/commercial/plugin_management/services/git_installer.py
 #  ^4 parents up = api/
 _API_DIR = Path(__file__).parent.parent.parent.parent
-_API_PLUGINS_DIR = _API_DIR / "plugins"
-
-# UI plugins dir: prefer the env var (set in Docker to a mounted host path),
-# fall back to the relative path for local non-Docker runs.
-_UI_PLUGINS_DIR = Path(os.environ.get("UI_PLUGINS_DIR", str(_API_DIR.parent / "ui" / "src" / "plugins")))
+# In Dual-Path mode, new plugins go to the dynamic volumes
+_API_PLUGINS_DIR = Path("/app/plugins_dynamic")
+_UI_PLUGINS_DIR = Path(os.environ.get("UI_PLUGINS_DIR", "/app/src/plugins_dynamic"))
 
 _VALID_GIT_URL = re.compile(
     r"^(https?://[^\s]+|git@[^\s:]+:[^\s]+|ssh://[^\s]+|file://[^\s]+)$"
