@@ -29,6 +29,7 @@ Public helpers
 import importlib
 import json
 import logging
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -83,19 +84,26 @@ class PluginLoader:
         Walk all plugin directories and return validated plugin objects.
 
         Safe to call multiple times — runs the filesystem scan only once.
+
+        When the same plugin ID is found in both the static ``api/plugins/``
+        directory and the dynamic ``/app/plugins_dynamic/`` directory, the
+        **dynamic** copy takes priority (it is the one installed / updated via
+        the Git installer) and the static copy is silently skipped.
         """
         if self._discovery_done:
             return self._discovered
 
         self._discovered = []
 
-        # Scan both root plugin directories
+        # Scan both root plugin directories.
+        # Dynamic is scanned FIRST so it wins when a duplicate is found.
         scan_configs = [
-            {"dir": _PLUGINS_DIR, "prefix": "plugins"},
-            {"dir": _DYNAMIC_PLUGINS_DIR, "prefix": None}  # Direct import
+            {"dir": _DYNAMIC_PLUGINS_DIR, "prefix": None},   # Dynamic (priority)
+            {"dir": _PLUGINS_DIR, "prefix": "plugins"},       # Static (fallback)
         ]
 
-        import sys
+        seen_ids: set[str] = set()
+
         for config in scan_configs:
             scan_dir = config["dir"]
             if not scan_dir.exists():
@@ -110,6 +118,14 @@ class PluginLoader:
                 plugin_id = plugin_dir.name.replace("_", "-")
 
                 if plugin_id.startswith("_"):
+                    continue
+
+                # ── Deduplication ─────────────────────────────────────────
+                if plugin_id in seen_ids:
+                    logger.info(
+                        "Plugin '%s': skipping duplicate in %s (already loaded from dynamic)",
+                        plugin_id, scan_dir,
+                    )
                     continue
 
                 try:
@@ -133,6 +149,7 @@ class PluginLoader:
                         plugin_dir=plugin_dir,
                     )
                 )
+                seen_ids.add(plugin_id)
                 logger.info("Plugin discovered: %s v%s (from %s)", plugin_id, manifest.get("version", "?"), scan_dir)
 
         self._discovery_done = True
@@ -176,7 +193,23 @@ class PluginLoader:
         2. ``register_<folder_name>_plugin(app)``  — legacy name used by the
            existing ``investments`` and ``time_tracking`` plugins
         """
+        # Package names that plugins commonly reuse and that would collide
+        # in sys.modules if not cleared between plugin imports.
+        _COLLISION_NAMESPACES = ("shared", "plugin", "standalone")
+
         for plugin in self.discover():
+            # ── Namespace isolation ───────────────────────────────────
+            # Each yfw-* plugin uses generic top-level packages like
+            # ``shared`` and ``plugin``.  Clear them from sys.modules
+            # before importing the next plugin so Python re-discovers
+            # the correct package from the plugin's own sys.path entry.
+            stale_keys = [
+                k for k in sys.modules
+                if any(k == ns or k.startswith(f"{ns}.") for ns in _COLLISION_NAMESPACES)
+            ]
+            for k in stale_keys:
+                del sys.modules[k]
+
             try:
                 mod = importlib.import_module(plugin.package)
             except Exception as exc:
