@@ -197,12 +197,20 @@ class PluginLoader:
         # in sys.modules if not cleared between plugin imports.
         _COLLISION_NAMESPACES = ("shared", "plugin", "standalone")
 
+        # Snapshot the original sys.path so we can restore it between
+        # plugin imports — each plugin's __init__.py adds its own
+        # directory to sys.path, but those entries must not leak into
+        # subsequent plugins.
+        _original_sys_path = sys.path[:]
+
         for plugin in self.discover():
             # ── Namespace isolation ───────────────────────────────────
-            # Each yfw-* plugin uses generic top-level packages like
-            # ``shared`` and ``plugin``.  Clear them from sys.modules
-            # before importing the next plugin so Python re-discovers
-            # the correct package from the plugin's own sys.path entry.
+            # 1. Restore sys.path to baseline so plugin directories from
+            #    previous iterations don't pollute the import.
+            sys.path[:] = _original_sys_path[:]
+
+            # 2. Clear collision-prone packages from sys.modules so
+            #    Python re-discovers them from the current plugin's path.
             stale_keys = [
                 k for k in sys.modules
                 if any(k == ns or k.startswith(f"{ns}.") for ns in _COLLISION_NAMESPACES)
@@ -256,6 +264,9 @@ class PluginLoader:
                 logger.warning(
                     "Plugin '%s': tools router failed to register — %s", plugin.plugin_id, exc
                 )
+
+        # Restore sys.path one final time to baseline
+        sys.path[:] = _original_sys_path
 
     def get_valid_plugin_ids(self) -> set[str]:
         """Return the set of IDs of all discovered plugins (for API validation)."""
