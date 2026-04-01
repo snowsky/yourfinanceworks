@@ -124,7 +124,8 @@ export function OrganizationSwitcher() {
 
   // If there's an error or no organizations at all, still show the component but simplified
   const currentOrg = userOrganizations.find(org => org.id.toString() === currentOrgId);
-  const currentOrgName = currentOrg?.name || settings?.company_info?.name || 'InvoiceApp'; // Fallback to settings name
+  // Prefer settings company name (user-editable) over the org registration name
+  const currentOrgName = settings?.company_info?.name || currentOrg?.name || 'InvoiceApp';
 
   return (
     <>
