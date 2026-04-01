@@ -167,7 +167,19 @@ class PluginLoader:
 
         Plugins that have no ``models.py`` are silently skipped.
         """
+        _COLLISION_NAMESPACES = ("shared", "plugin", "standalone")
+        _original_sys_path = sys.path[:]
+
         for plugin in self.discover():
+            # Namespace isolation — same as register_all()
+            sys.path[:] = _original_sys_path[:]
+            stale_keys = [
+                k for k in sys.modules
+                if any(k == ns or k.startswith(f"{ns}.") for ns in _COLLISION_NAMESPACES)
+            ]
+            for k in stale_keys:
+                del sys.modules[k]
+
             models_module = f"{plugin.package}.models"
             try:
                 importlib.import_module(models_module)
@@ -182,6 +194,8 @@ class PluginLoader:
                     "Plugin '%s': error importing models — %s", plugin.plugin_id, exc
                 )
                 self._load_errors[plugin.plugin_id] = f"Model import failed: {exc}"
+
+        sys.path[:] = _original_sys_path
 
     def register_all(self, app: Any, mcp_registry: Any = None) -> None:
         """
