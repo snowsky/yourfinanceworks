@@ -73,6 +73,8 @@ class PluginLoader:
         self._discovery_done = False
         self._table_registry: dict[str, str] = {}
         self._load_errors: dict[str, str] = {}  # plugin_id → human-readable error
+        self._plugin_route_map: dict[str, str] = {}  # route_prefix → plugin_id
+        self._plugin_dir_cache: dict[str, Path] = {}  # plugin_id → plugin_dir
 
     # ------------------------------------------------------------------
     # Public API
@@ -136,6 +138,7 @@ class PluginLoader:
                 logger.info("Plugin discovered: %s v%s (from %s)", plugin_id, manifest.get("version", "?"), scan_dir)
 
         self._discovery_done = True
+        self._plugin_dir_cache = {p.plugin_id: p.plugin_dir for p in self._discovered}
         logger.info(
             "Plugin discovery complete — found %d plugin(s): %s",
             len(self._discovered),
@@ -200,6 +203,10 @@ class PluginLoader:
 
             try:
                 plugin_info = register_fn(app=app, mcp_registry=mcp_registry or None, feature_gate=None)
+                if plugin_info and "routes" in plugin_info:
+                    for route in plugin_info["routes"]:
+                        self._plugin_route_map[route] = plugin.plugin_id
+                
                 logger.info(
                     "Plugin '%s' registered — routes: %s",
                     plugin.plugin_id,
@@ -227,6 +234,20 @@ class PluginLoader:
     def get_valid_plugin_ids(self) -> set[str]:
         """Return the set of IDs of all discovered plugins (for API validation)."""
         return {p.plugin_id for p in self.discover()}
+
+    def get_plugin_dir(self, plugin_id: str) -> Optional[Path]:
+        """Return the physical directory of a discovered plugin."""
+        self.discover()  # ensure cache is populated
+        return self._plugin_dir_cache.get(plugin_id)
+
+    def is_dynamic_plugin(self, plugin_id: str) -> bool:
+        """Return True if the plugin was loaded from the dynamic plugins directory."""
+        p_dir = self.get_plugin_dir(plugin_id)
+        return p_dir is not None and p_dir.is_relative_to(_DYNAMIC_PLUGINS_DIR)
+
+    def get_plugin_route_map(self) -> dict[str, str]:
+        """Return the mapping of URL prefixes to plugin IDs."""
+        return self._plugin_route_map
 
     def get_registry(self) -> list[dict]:
         """Return a list of manifest dicts suitable for the /plugins/registry endpoint.

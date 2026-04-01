@@ -537,7 +537,9 @@ async def catch_exceptions_middleware(request: Request, call_next):
 
 # Add tenant context middleware (function-based)
 from core.middleware.tenant_context_middleware import tenant_context_middleware
-app.middleware('http')(tenant_context_middleware)
+from core.middleware.plugin_context_middleware import PluginContextMiddleware
+app.middleware("http")(tenant_context_middleware)
+app.add_middleware(PluginContextMiddleware)
 
 # Add external API authentication middleware
 from core.middleware.external_api_auth_middleware import ExternalAPIAuthMiddleware

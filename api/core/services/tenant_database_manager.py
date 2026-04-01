@@ -9,45 +9,60 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.models.models import Base, Tenant
 from core.models.database import SQLALCHEMY_DATABASE_URL
 from core.models.models_per_tenant import Base as TenantBase
-from core.utils.plugin_context import get_current_plugin_id
+from core.utils.plugin_context import get_current_plugin_id, is_lockdown_mode
+
+import re
 
 logger = logging.getLogger(__name__)
 
+# Matches table names after SQL DML/DDL keywords (handles quoted/bracketed/backtick identifiers)
+_TABLE_REGEX = re.compile(
+    r"\b(?:FROM|JOIN|UPDATE|INTO|TABLE|TRUNCATE)\s+[`\"\[]?([\w.\-]+)[`\"\]]?\b",
+    re.IGNORECASE
+)
+
 def _enforce_database_isolation(conn, cursor, statement, parameters, context, executemany):
     """
-    SQLAlchemy interceptor to prevent plugins from accessing each other's tables.
+    Hardened SQLAlchemy interceptor to prevent plugins from accessing unauthorized tables.
     """
     plugin_id = get_current_plugin_id()
     if not plugin_id:
         return
 
-    # Skip validation for non-SELECT/DML statements if needed, 
-    # but generally we want to be strict.
-
     # Import here to avoid circular dependencies
     from plugins.loader import plugin_loader
     registry = plugin_loader.get_table_ownership_registry()
 
-    # Simple but effective check: look for table names in the SQL statement
-    statement_upper = statement.upper()
+    # Strip SQL comments before parsing to avoid comment-injection bypasses
+    statement_clean = re.sub(r"--.*?\n", " ", statement)
+    statement_clean = re.sub(r"/\*.*?\*/", " ", statement_clean, flags=re.DOTALL)
 
-    logger.debug(f"Intercepting SQL for plugin '{plugin_id}': {statement[:100]}...")
+    is_dynamic = plugin_loader.is_dynamic_plugin(plugin_id)
+    locked = is_lockdown_mode()
+
+    # Extract all referenced table names from SQL once (O(1) scan)
+    sql_tables = set()
+    for match in _TABLE_REGEX.finditer(statement_clean):
+        full_match = match.group(1).upper()
+        sql_tables.add(full_match.split(".")[-1])
 
     for table_name, owner in registry.items():
-        # If the plugin is trying to access a table it doesn't own
-        if owner != "core" and owner != plugin_id:
-            table_upper = table_name.upper()
-            # More robust check for table name in SQL
-            found = False
-            if f" {table_upper} " in f" {statement_upper} " or \
-               f"\"{table_upper}\"" in statement_upper or \
-               f"[{table_upper}]" in statement_upper or \
-               f".{table_upper}" in statement_upper:
-                found = True
+        if owner == plugin_id:
+            continue
+        # Allow core tables unless this is a dynamic plugin running in lockdown
+        if owner == "core" and not (is_dynamic and locked):
+            continue
 
-            if found:
-                logger.error(f"SECURITY VIOLATION: Plugin '{plugin_id}' attempted to access unauthorized table '{table_name}'")
-                raise ValueError(f"Access Denied: Plugin '{plugin_id}' is not allowed to access table '{table_name}'")
+        table_upper = table_name.upper()
+        # Primary check via pre-extracted set; fallback to word-boundary search
+        found = table_upper in sql_tables or bool(
+            re.search(rf"\b{re.escape(table_name)}\b", statement_clean, re.IGNORECASE)
+        )
+
+        if found:
+            logger.error(f"LOCKDOWN VIOLATION: Plugin '{plugin_id}' attempted to access unauthorized table '{table_name}'")
+            logger.error(f"Query: {statement[:500]}")
+            raise ValueError(f"Access Denied: Plugin '{plugin_id}' is not allowed to access table '{table_name}'")
 
 class TenantDatabaseManager:
     """
