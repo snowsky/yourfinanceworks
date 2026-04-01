@@ -32,6 +32,9 @@ export default defineConfig({
     hmr: {
       clientPort: 443, // Assuming they use HTTPS on the demo site
     },
+    fs: {
+      allow: [".."],
+    },
     watch: {
       usePolling: true,
       interval: 1000,

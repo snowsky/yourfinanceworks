@@ -11,7 +11,8 @@ export interface LoadedPluginModule {
 // Lazy glob both repo-based and dynamic plugins
 const _pluginGlob = import.meta.glob([
   '../plugins/*/index.ts',
-  '../plugins_dynamic/*/index.ts'
+  '../plugins_dynamic/*/index.ts',
+  '../../../yfw-*/plugin/ui/index.ts'
 ]) as Record<
   string,
   () => Promise<LoadedPluginModule>
