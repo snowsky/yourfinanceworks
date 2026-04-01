@@ -6,11 +6,15 @@ const EVENT_NAME = "appearance-settings-changed";
 export interface AppearanceSettings {
   showClock: boolean;
   showDate: boolean;
+  showLocalClock: boolean;
+  showUTCClock: boolean;
 }
 
 const defaults: AppearanceSettings = {
   showClock: true,
   showDate: true,
+  showLocalClock: true,
+  showUTCClock: false,
 };
 
 function readSettings(): AppearanceSettings {
@@ -39,7 +43,7 @@ export function useAppearanceSettings() {
       setSettings(prev => {
         const next = readSettings();
         // Return same reference if nothing changed so this effect doesn't re-fire
-        if (prev.showClock === next.showClock && prev.showDate === next.showDate) {
+        if (prev.showClock === next.showClock && prev.showDate === next.showDate && prev.showLocalClock === next.showLocalClock && prev.showUTCClock === next.showUTCClock) {
           return prev;
         }
         return next;
