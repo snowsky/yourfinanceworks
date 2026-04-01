@@ -56,4 +56,10 @@ export interface PluginRouteConfig {
    * Defaults to true. Set to false for lightweight/redirect routes.
    */
   errorBoundary?: boolean;
+
+  /**
+   * If true, the route is accessible without authentication.
+   * Public routes are rendered outside the main ProtectedRoute block in App.tsx.
+   */
+  isPublic?: boolean;
 }

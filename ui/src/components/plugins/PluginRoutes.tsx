@@ -24,7 +24,7 @@ export function buildPluginElement(route: PluginRouteConfig): React.ReactElement
 
   let inner: React.ReactElement = <PageComponent />;
 
-  if (route.requiresRole) {
+  if (route.requiresRole && !route.isPublic) {
     inner = (
       <RoleProtectedRoute allowedRoles={route.requiresRole}>
         {inner}

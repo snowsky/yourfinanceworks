@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Absolute path to the directory that contains plugin sub-folders
 _PLUGINS_DIR = Path(__file__).parent
+_DYNAMIC_PLUGINS_DIR = Path("/app/plugins_dynamic")
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ class PluginLoader:
 
     def discover(self) -> list[DiscoveredPlugin]:
         """
-        Walk ``api/plugins/*/plugin.json`` and return validated plugin objects.
+        Walk all plugin directories and return validated plugin objects.
 
         Safe to call multiple times — runs the filesystem scan only once.
         """
@@ -88,39 +89,51 @@ class PluginLoader:
 
         self._discovered = []
 
-        for manifest_path in sorted(_PLUGINS_DIR.glob("*/plugin.json")):
-            plugin_dir = manifest_path.parent
-            # Normalize folder name to a hyphen-slug (currency_rates → currency-rates)
-            # so backend IDs align with the frontend convention.
-            # The Python package path still uses underscores (line below).
-            plugin_id = plugin_dir.name.replace("_", "-")
+        # Scan both root plugin directories
+        scan_configs = [
+            {"dir": _PLUGINS_DIR, "prefix": "plugins"},
+            {"dir": _DYNAMIC_PLUGINS_DIR, "prefix": None}  # Direct import
+        ]
 
-            # Skip private / helper directories
-            if plugin_id.startswith("_"):
+        import sys
+        for config in scan_configs:
+            scan_dir = config["dir"]
+            if not scan_dir.exists():
                 continue
 
-            try:
-                manifest = self._load_manifest(manifest_path)
-            except Exception as exc:
-                logger.error(
-                    "Plugin '%s': failed to load plugin.json — %s", plugin_id, exc
+            # Add dynamic directory to sys.path if not present
+            if config["prefix"] is None and str(scan_dir) not in sys.path:
+                sys.path.append(str(scan_dir))
+
+            for manifest_path in sorted(scan_dir.glob("*/plugin.json")):
+                plugin_dir = manifest_path.parent
+                plugin_id = plugin_dir.name.replace("_", "-")
+
+                if plugin_id.startswith("_"):
+                    continue
+
+                try:
+                    manifest = self._load_manifest(manifest_path)
+                except Exception as exc:
+                    logger.error("Plugin '%s': failed to load plugin.json — %s", plugin_id, exc)
+                    continue
+
+                if not self._validate_manifest(plugin_id, manifest):
+                    continue
+
+                # Resolve Python package path
+                pkg_name = plugin_dir.name.replace("-", "_")
+                package = f"{config['prefix']}.{pkg_name}" if config["prefix"] else pkg_name
+
+                self._discovered.append(
+                    DiscoveredPlugin(
+                        plugin_id=plugin_id,
+                        package=package,
+                        manifest=manifest,
+                        plugin_dir=plugin_dir,
+                    )
                 )
-                continue
-
-            if not self._validate_manifest(plugin_id, manifest):
-                continue
-
-            package = f"plugins.{plugin_id.replace('-', '_')}"
-
-            self._discovered.append(
-                DiscoveredPlugin(
-                    plugin_id=plugin_id,
-                    package=package,
-                    manifest=manifest,
-                    plugin_dir=plugin_dir,
-                )
-            )
-            logger.info("Plugin discovered: %s v%s", plugin_id, manifest.get("version", "?"))
+                logger.info("Plugin discovered: %s v%s (from %s)", plugin_id, manifest.get("version", "?"), scan_dir)
 
         self._discovery_done = True
         logger.info(

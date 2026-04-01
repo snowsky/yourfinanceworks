@@ -8,9 +8,12 @@ export interface LoadedPluginModule {
   pluginIcons?: Record<string, LucideIcon>;
 }
 
-// Lazy glob — Vite does NOT compile these files eagerly, so a syntax error
-// in one plugin only fails that plugin's dynamic import, not the whole app.
-const _pluginGlob = import.meta.glob('../plugins/*/index.ts') as Record<
+// Lazy glob both repo-based and dynamic plugins
+const _pluginGlob = import.meta.glob([
+  '../plugins/*/index.ts',
+  '../plugins_dynamic/*/index.ts',
+  '../../../yfw-*/plugin/ui/index.ts'
+]) as Record<
   string,
   () => Promise<LoadedPluginModule>
 >;

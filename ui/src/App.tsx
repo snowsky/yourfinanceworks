@@ -131,6 +131,8 @@ const AppContent = () => {
   const { t } = useTranslation();
   const pluginModules = usePluginModules();
   const allPluginRoutes = pluginModules.flatMap((m) => m.pluginRoutes ?? []);
+  const publicPluginRoutes = allPluginRoutes.filter(r => r.isPublic);
+  const privatePluginRoutes = allPluginRoutes.filter(r => !r.isPublic);
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
   const { startPolling: startStatementPolling } = useStatementStatusPolling();
@@ -187,6 +189,12 @@ const AppContent = () => {
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+
+                  {/* Public Plugin Routes */}
+                  {publicPluginRoutes.map(r => (
+                    <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
+                  ))}
+
                   <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Index />} />
@@ -217,7 +225,7 @@ const AppContent = () => {
                     <Route path="/time" element={<Navigate to="/time-tracking?tab=my-time" replace />} />
 
                     {/* ---- Plugin Routes — auto-registered from each plugin's index.ts ---- */}
-                    {allPluginRoutes.map(r => (
+                    {privatePluginRoutes.map(r => (
                       <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
                     ))}
 
