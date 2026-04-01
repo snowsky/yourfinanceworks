@@ -124,7 +124,8 @@
     "deleted_on": "Deleted on",
     "quick_actions": "Quick Actions",
     "generate_performance_report": "Generate Performance Report",
-    "asset_rebalancing_tool": "Asset Rebalancing Tool"
+    "asset_rebalancing_tool": "Asset Rebalancing Tool",
+    "portfolio_restored_successfully": "Portfolio restored successfully"
   },
   "create_holding": {
     "title": "Add New Holding",
@@ -206,15 +207,6 @@
     "initial_value": "Initial Value",
     "gain_loss": "Gain/Loss",
     "gain_loss_percentage": "Gain/Loss %"
-  },
-  "archive": {
-    "title": "Archive Portfolio",
-    "archive_portfolio": "Archive Portfolio",
-    "archive_confirmation": "Are you sure you want to archive this portfolio?",
-    "archive_description": "Archiving will hide this portfolio from the main view but preserve all data. You can restore it later.",
-    "archived_portfolios": "Archived Portfolios",
-    "restore_portfolio": "Restore Portfolio",
-    "portfolio_restored_successfully": "Portfolio restored successfully"
   },
   "errors": {
     "failed_to_load_portfolio": "Failed to load portfolio",

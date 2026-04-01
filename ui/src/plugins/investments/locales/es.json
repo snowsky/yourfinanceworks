@@ -123,7 +123,8 @@
     "deleted_on": "Eliminado en",
     "quick_actions": "Acciones Rápidas",
     "generate_performance_report": "Generar Informe de Rendimiento",
-    "asset_rebalancing_tool": "Herramienta de Reequilibrio de Activos"
+    "asset_rebalancing_tool": "Herramienta de Reequilibrio de Activos",
+    "portfolio_restored_successfully": "Portafolio restaurado exitosamente"
   },
   "create_holding": {
     "title": "Añadir Nueva Posición",
@@ -205,15 +206,6 @@
     "initial_value": "Valor Inicial",
     "gain_loss": "Ganancia/Pérdida",
     "gain_loss_percentage": "Ganancia/Pérdida %"
-  },
-  "archive": {
-    "title": "Archivar Portafolio",
-    "archive_portfolio": "Archivar Portafolio",
-    "archive_confirmation": "¿Estás seguro de que quieres archivar este portafolio?",
-    "archive_description": "Archivar ocultará este portafolio de la vista principal pero preservará todos los datos. Puedes restaurarlo más tarde.",
-    "archived_portfolios": "Portafolios Archivados",
-    "restore_portfolio": "Restaurar Portafolio",
-    "portfolio_restored_successfully": "Portafolio restaurado exitosamente"
   },
   "errors": {
     "failed_to_load_portfolio": "Error al cargar portafolio",

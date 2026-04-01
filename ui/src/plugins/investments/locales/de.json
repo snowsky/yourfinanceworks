@@ -123,7 +123,8 @@
     "deleted_on": "Gelöscht am",
     "quick_actions": "Schnelle Aktionen",
     "generate_performance_report": "Leistungsbericht erstellen",
-    "asset_rebalancing_tool": "Anlage-Rebalancing-Tool"
+    "asset_rebalancing_tool": "Anlage-Rebalancing-Tool",
+    "portfolio_restored_successfully": "Portfolio erfolgreich wiederhergestellt"
   },
   "create_holding": {
     "title": "Neue Position Hinzufügen",
@@ -205,15 +206,6 @@
     "initial_value": "Anfangswert",
     "gain_loss": "Gewinn/Verlust",
     "gain_loss_percentage": "Gewinn/Verlust %"
-  },
-  "archive": {
-    "title": "Portfolio Archivieren",
-    "archive_portfolio": "Portfolio Archivieren",
-    "archive_confirmation": "Sind Sie sicher, dass Sie dieses Portfolio archivieren möchten?",
-    "archive_description": "Das Archivieren blendet dieses Portfolio aus der Hauptansicht aus, erhält aber alle Daten. Sie können es später wiederherstellen.",
-    "archived_portfolios": "Archivierte Portfolios",
-    "restore_portfolio": "Portfolio Wiederherstellen",
-    "portfolio_restored_successfully": "Portfolio erfolgreich wiederhergestellt"
   },
   "errors": {
     "failed_to_load_portfolio": "Fehler beim Laden des Portfolios",

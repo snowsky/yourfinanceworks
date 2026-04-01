@@ -123,7 +123,8 @@
     "deleted_on": "Supprimé le",
     "quick_actions": "Actions Rapides",
     "generate_performance_report": "Générer un Rapport de Performance",
-    "asset_rebalancing_tool": "Outil de Rééquilibrage d'Actifs"
+    "asset_rebalancing_tool": "Outil de Rééquilibrage d'Actifs",
+    "portfolio_restored_successfully": "Portefeuille restauré avec succès"
   },
   "create_holding": {
     "title": "Ajouter une Nouvelle Position",
@@ -205,15 +206,6 @@
     "initial_value": "Valeur Initiale",
     "gain_loss": "Gain/Perte",
     "gain_loss_percentage": "Gain/Perte %"
-  },
-  "archive": {
-    "title": "Archiver le Portefeuille",
-    "archive_portfolio": "Archiver le Portefeuille",
-    "archive_confirmation": "Êtes-vous sûr de vouloir archiver ce portefeuille ?",
-    "archive_description": "L'archivage masquera ce portefeuille de la vue principale mais conservera toutes les données. Vous pourrez le restaurer plus tard.",
-    "archived_portfolios": "Portefeuilles Archivés",
-    "restore_portfolio": "Restaurer le Portefeuille",
-    "portfolio_restored_successfully": "Portefeuille restauré avec succès"
   },
   "errors": {
     "failed_to_load_portfolio": "Échec du chargement du portefeuille",

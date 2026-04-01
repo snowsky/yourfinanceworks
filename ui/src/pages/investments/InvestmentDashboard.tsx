@@ -235,7 +235,6 @@ const InvestmentDashboard: React.FC = () => {
   // Fetch aggregated analytics
   const {
     data: aggregatedData,
-    isLoading: analyticsLoading
   } = useQuery({
     queryKey: ['portfolios', 'analytics', typeFilter],
     queryFn: () => investmentApi.getAggregatedAnalytics(typeFilter === 'all' ? undefined : typeFilter),
@@ -395,7 +394,7 @@ const InvestmentDashboard: React.FC = () => {
                       </div>
                       <div className="mt-auto pt-3 border-t border-border/10 flex items-center justify-between">
                         <span className="text-[10px] text-muted-foreground font-medium">
-                          {t('portfolio.deleted_on')} {new Date(portfolio.updated_at).toLocaleDateString()}
+                          {t('portfolio.deleted_on')} {new Date(portfolio.updated_at || '').toLocaleDateString()}
                         </span>
                         <div className="flex items-center gap-1 text-[10px] font-bold text-foreground/70">
                           {formatCurrency(portfolio.total_value || 0)}
@@ -593,7 +592,7 @@ const InvestmentDashboard: React.FC = () => {
                       <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors line-clamp-1">{portfolio.name}</CardTitle>
                       <CardDescription className="flex items-center mt-1 text-muted-foreground/80">
                         <Calendar className="w-3.5 h-3.5 mr-1.5 opacity-60" />
-                        Added on {new Date(portfolio.created_at).toLocaleDateString()}
+                        Added on {portfolio.created_at ? new Date(portfolio.created_at).toLocaleDateString() : 'Unknown date'}
                       </CardDescription>
                     </div>
                   </CardHeader>
