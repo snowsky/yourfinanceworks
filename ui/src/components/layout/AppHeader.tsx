@@ -6,6 +6,8 @@ import { InAppNotifications } from "@/components/reminders";
 import { useTranslation } from "react-i18next";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
+import { useQuery } from "@tanstack/react-query";
+import { settingsApi } from "@/lib/api";
 
 function useLiveClock() {
   const [time, setTime] = useState(() => new Date());
@@ -21,6 +23,12 @@ export function AppHeader() {
   const { t } = useTranslation();
   const clock = useLiveClock();
   const { settings } = useAppearanceSettings();
+  const { data: tenantSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => settingsApi.getSettings(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const localTimezone = tenantSettings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <header className="flex items-center justify-between px-5 py-3 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
@@ -34,7 +42,7 @@ export function AppHeader() {
               <div className="flex items-center justify-end gap-1.5">
                 <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">LCL</span>
                 <div className="text-sm font-mono font-medium tabular-nums leading-tight">
-                  {clock.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {clock.toLocaleTimeString('en-US', { timeZone: localTimezone, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
               </div>
             )}
@@ -48,7 +56,7 @@ export function AppHeader() {
             )}
             {settings.showDate && (
               <div className="text-[11px] text-muted-foreground leading-tight">
-                {clock.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {clock.toLocaleDateString('en-US', { timeZone: localTimezone, weekday: 'short', month: 'short', day: 'numeric' })}
               </div>
             )}
           </div>
