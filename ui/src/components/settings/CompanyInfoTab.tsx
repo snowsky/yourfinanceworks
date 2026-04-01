@@ -61,6 +61,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
         onSuccess: () => {
             toast.success(t('settings.settings_saved_successfully'));
             queryClient.invalidateQueries({ queryKey: ['settings'] });
+            window.dispatchEvent(new CustomEvent('settings-updated'));
             setLogoFile(null);
             setLogoPreview("");
         },
