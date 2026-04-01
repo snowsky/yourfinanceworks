@@ -84,11 +84,11 @@ azure-keyvault-secrets==4.8.0  # Azure Key Vault secrets
 azure-identity==1.19.0  # Azure authentication
 hvac==2.3.0  # HashiCorp Vault client
 tenacity==9.0.0  # Retry logic for key vault operations
-cryptography==46.0.5  # Cryptographic operations
+cryptography==46.0.6  # Cryptographic operations
 
 # Export Destination
 azure-storage-blob==12.27.1
 google-cloud-storage==3.5.0
 
 # Market data service
-aiohttp==3.13.3  # Async HTTP client for market data APIs
+aiohttp==3.13.4  # Async HTTP client for market data APIs
