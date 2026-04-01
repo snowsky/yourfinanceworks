@@ -168,9 +168,10 @@ class PluginLoader:
         Plugins that have no ``models.py`` are silently skipped.
         """
         _COLLISION_NAMESPACES = ("shared", "plugin", "standalone")
-        _original_sys_path = sys.path[:]
+        plugins = self.discover()  # discover() adds dynamic dir to sys.path
+        _original_sys_path = sys.path[:]  # snapshot AFTER discover
 
-        for plugin in self.discover():
+        for plugin in plugins:
             # Namespace isolation — same as register_all()
             sys.path[:] = _original_sys_path[:]
             stale_keys = [
@@ -211,13 +212,12 @@ class PluginLoader:
         # in sys.modules if not cleared between plugin imports.
         _COLLISION_NAMESPACES = ("shared", "plugin", "standalone")
 
-        # Snapshot the original sys.path so we can restore it between
-        # plugin imports — each plugin's __init__.py adds its own
-        # directory to sys.path, but those entries must not leak into
-        # subsequent plugins.
+        # Call discover() first — it adds the dynamic plugins directory
+        # to sys.path.  Snapshot AFTER so the baseline includes it.
+        plugins = self.discover()
         _original_sys_path = sys.path[:]
 
-        for plugin in self.discover():
+        for plugin in plugins:
             # ── Namespace isolation ───────────────────────────────────
             # 1. Restore sys.path to baseline so plugin directories from
             #    previous iterations don't pollute the import.
