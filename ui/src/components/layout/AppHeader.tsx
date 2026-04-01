@@ -32,9 +32,7 @@ export function AppHeader() {
           <div className="text-right hidden sm:block select-none space-y-0.5">
             {settings.showLocalClock && (
               <div className="flex items-center justify-end gap-1.5">
-                {settings.showUTCClock && (
-                  <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">LCL</span>
-                )}
+                <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">LCL</span>
                 <div className="text-sm font-mono font-medium tabular-nums leading-tight">
                   {clock.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
@@ -42,9 +40,7 @@ export function AppHeader() {
             )}
             {settings.showUTCClock && (
               <div className="flex items-center justify-end gap-1.5">
-                {settings.showLocalClock && (
-                  <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">UTC</span>
-                )}
+                <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">UTC</span>
                 <div className="text-sm font-mono font-medium tabular-nums leading-tight">
                   {clock.toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
