@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Settings, ArrowRightLeft, Trash2, GitBranch } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Settings, ArrowRightLeft, Trash2, GitBranch, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -556,6 +557,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
 
   // Listen for feature updates and force re-render
@@ -700,6 +702,18 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
 
 
+  const filteredPlugins = searchQuery.trim()
+    ? plugins.filter(p => {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          (p.category && p.category.toLowerCase().includes(q)) ||
+          (p.author && p.author.toLowerCase().includes(q))
+        );
+      })
+    : plugins;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -745,6 +759,26 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder={t('plugins.search_placeholder', 'Search plugins...')}
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9"
+        />
+        {searchQuery && (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setSearchQuery('')}
+            aria-label="Clear search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
       {/* Discovery Errors Alert */}
       {discoveryErrors.length > 0 && (
         <Alert className="border-amber-200 bg-amber-50">
@@ -783,7 +817,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
 
       <div className="grid gap-4">
-        {plugins.map(plugin => {
+        {filteredPlugins.map(plugin => {
           const licenseCheck = checkPluginLicense(plugin);
           const { canToggle, licenseMessage, isExpired } = licenseCheck;
 
@@ -803,13 +837,20 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
         })}
       </div>
 
-      {plugins.length === 0 && (
+      {filteredPlugins.length === 0 && (
         <div className="text-center py-8">
           <Puzzle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_plugins_available')}</h3>
-          <p className="text-gray-600">
-            {t('plugins.no_plugins_installed')}
-          </p>
+          {searchQuery ? (
+            <>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_search_results', 'No plugins match your search')}</h3>
+              <p className="text-gray-600">{t('plugins.try_different_search', 'Try a different keyword or clear the search.')}</p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_plugins_available')}</h3>
+              <p className="text-gray-600">{t('plugins.no_plugins_installed')}</p>
+            </>
+          )}
         </div>
       )}
 
