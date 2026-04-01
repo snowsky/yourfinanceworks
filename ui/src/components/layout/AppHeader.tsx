@@ -28,11 +28,28 @@ export function AppHeader() {
         <SidebarTrigger />
       </div>
       <div className="flex items-center gap-4">
-        {settings.showClock && (
-          <div className="text-right hidden sm:block select-none">
-            <div className="text-sm font-mono font-medium tabular-nums leading-tight">
-              {clock.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </div>
+        {settings.showClock && (settings.showLocalClock || settings.showUTCClock) && (
+          <div className="text-right hidden sm:block select-none space-y-0.5">
+            {settings.showLocalClock && (
+              <div className="flex items-center justify-end gap-1.5">
+                {settings.showUTCClock && (
+                  <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">LCL</span>
+                )}
+                <div className="text-sm font-mono font-medium tabular-nums leading-tight">
+                  {clock.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+              </div>
+            )}
+            {settings.showUTCClock && (
+              <div className="flex items-center justify-end gap-1.5">
+                {settings.showLocalClock && (
+                  <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">UTC</span>
+                )}
+                <div className="text-sm font-mono font-medium tabular-nums leading-tight">
+                  {clock.toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+              </div>
+            )}
             {settings.showDate && (
               <div className="text-[11px] text-muted-foreground leading-tight">
                 {clock.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
