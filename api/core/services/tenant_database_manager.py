@@ -57,7 +57,7 @@ def _enforce_database_isolation(conn, cursor, statement, parameters, context, ex
             # Except if explicitly permitted in the plugin's manifest
             if table_name in permitted:
                 continue
-            
+
             logger.debug(
                 "Access to core table '%s' is being checked for plugin '%s' (is_dynamic=%s, locked=%s). "
                 "Permitted tables: %s",

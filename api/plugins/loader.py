@@ -139,21 +139,18 @@ class PluginLoader:
 
         self._discovery_done = True
         self._plugin_dir_cache = {p.plugin_id: p.plugin_dir for p in self._discovered}
-<<<<<<< Updated upstream
-=======
         self._permissions_registry = {}
         for p in self._discovered:
             permitted = set(p.manifest.get("permitted_core_tables", []))
             self._permissions_registry[p.plugin_id] = permitted
-            
-            # Also allow access by the 'name' field in manifest for backward compatibility 
+
+            # Also allow access by the 'name' field in manifest for backward compatibility
             # and to handle folder prefixes like 'yfw-' correctly.
             manifest_name = p.manifest.get("name")
             if manifest_name and manifest_name != p.plugin_id:
                 # Normalize manifest name just in case
                 manifest_name_normalized = manifest_name.lower().replace("_", "-")
                 self._permissions_registry[manifest_name_normalized] = permitted
->>>>>>> Stashed changes
         logger.info(
             "Plugin discovery complete — found %d plugin(s): %s",
             len(self._discovered),
@@ -297,7 +294,7 @@ class PluginLoader:
         if self._table_registry:
             return self._table_registry
 
-        # Ensure models are imported first
+    # Ensure models are imported first
         self.import_models()
 
         # Import TenantBase to inspect registered tables
