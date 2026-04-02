@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Clock, DollarSign, ListChecks,
+  Clock, DollarSign, ListChecks,
   Receipt, BarChart3, Plus, Trash2, Play, FileText, CheckCircle2, AlertCircle, Edit2, Save, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,6 @@ type TabType = typeof TABS[number];
 export default function ProjectDetailInternal() {
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || '0', 10);
-  const navigate = useNavigate();
   const [tab, setTab] = useState<TabType>('Overview');
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -222,13 +221,13 @@ export default function ProjectDetailInternal() {
           <UnbilledTab
             unbilled={unbilled}
             selectedIds={selectedEntryIds}
-            onToggleEntry={(id) =>
+            onToggleEntry={(id: number) =>
               setSelectedEntryIds((prev) =>
                 prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
               )
             }
-            onSelectAll={(ids) => setSelectedEntryIds(ids)}
-            isAllSelected={unbilled?.time_entries.length > 0 && selectedEntryIds.length === unbilled?.time_entries.length}
+            onSelectAll={(ids: number[]) => setSelectedEntryIds(ids)}
+            isAllSelected={(unbilled?.time_entries?.length ?? 0) > 0 && selectedEntryIds.length === (unbilled?.time_entries?.length ?? 0)}
             onInvoice={handleInvoice}
             isInvoicing={createInvoice.isPending}
             currency={project.currency}
@@ -409,7 +408,7 @@ function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[
   const [newTask, setNewTask] = useState({ name: '', estimated_hours: '', hourly_rate: '' });
   const [showAdd, setShowAdd] = useState(false);
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await createTask.mutateAsync({
       name: newTask.name,

@@ -2,20 +2,18 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
-import { Building, ChevronDown, Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Building, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCurrentUser } from "@/utils/auth";
 import { useOrganizations } from "@/hooks/useOrganizations";
-import { useTranslation } from 'react-i18next';
 import { settingsApi, API_BASE_URL } from "@/lib/api";
 
 export function OrganizationSwitcher() {
-  const { t } = useTranslation();
   const location = useLocation();
   const queryClient = useQueryClient();
   const user = getCurrentUser();
 
-  const { data: userOrganizations = [], isLoading: orgsLoading } = useOrganizations();
+  const { data: userOrganizations = [] } = useOrganizations();
   const [currentOrgId, setCurrentOrgId] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('selected_tenant_id');
