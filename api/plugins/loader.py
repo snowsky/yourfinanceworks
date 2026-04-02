@@ -29,6 +29,7 @@ Public helpers
 import importlib
 import json
 import logging
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -98,8 +99,6 @@ class PluginLoader:
             {"dir": _DYNAMIC_PLUGINS_DIR, "prefix": None}  # Direct import
         ]
 
-        import sys
-        logger.info("Plugin discovery starting. Scan configurations: %s", scan_configs)
         for config in scan_configs:
             scan_dir = config["dir"]
             logger.info("Scanning directory: %s (exists=%s)", scan_dir, scan_dir.exists())
