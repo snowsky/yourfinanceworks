@@ -254,12 +254,23 @@ class PluginLoader:
 
         Plugins that failed to load are included with a ``load_error`` field so the
         frontend can show an error state on the plugin card instead of hiding them.
+        Dynamic (externally installed) plugins also expose ``is_external`` and
+        ``git_source`` fields so the frontend can show a reinstall button.
         """
         result = []
         for p in self.discover():
             entry = dict(p.manifest)
             if p.plugin_id in self._load_errors:
                 entry["load_error"] = self._load_errors[p.plugin_id]
+            if self.is_dynamic_plugin(p.plugin_id):
+                entry["is_external"] = True
+                meta_file = p.plugin_dir / ".install_meta.json"
+                if meta_file.exists():
+                    try:
+                        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                        entry["git_source"] = {"git_url": meta.get("git_url"), "ref": meta.get("ref")}
+                    except Exception:
+                        pass
             result.append(entry)
         return result
 

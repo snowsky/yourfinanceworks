@@ -308,6 +308,10 @@ def run_install(job_id: str) -> None:
                         shutil.copy2(str(candidate), str(dest_manifest))
                         break
 
+            # Write install metadata so reinstall can re-use the same URL/ref
+            meta = {"git_url": job.git_url, "ref": job.ref, "installed_at": datetime.now(timezone.utc).isoformat()}
+            (dest_api / ".install_meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
             _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
@@ -394,6 +398,19 @@ def start_install(git_url: str, ref: str = "main", github_token: Optional[str] =
 def get_job(job_id: str) -> Optional[InstallJob]:
     """Load job state from disk — survives process restarts."""
     return _load_job(job_id)
+
+
+def get_install_meta(plugin_id: str) -> Optional[dict]:
+    """Return the install metadata written during installation, or None if not found."""
+    folder_name = plugin_id.replace("-", "_")
+    meta_file = _API_PLUGINS_DIR / folder_name / ".install_meta.json"
+    if not meta_file.exists():
+        return None
+    try:
+        return json.loads(meta_file.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("Could not read install meta for %s: %s", plugin_id, exc)
+        return None
 
 
 def uninstall_plugin(plugin_id: str) -> None:

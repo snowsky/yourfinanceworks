@@ -26,6 +26,8 @@ export interface Plugin {
   translationsLoaded?: boolean;
   translationError?: string;
   required_access?: PluginAccessRequirement[];
+  is_external?: boolean;
+  git_source?: { git_url: string; ref: string };
 }
 
 export interface PluginAccessRequirement {
@@ -79,6 +81,8 @@ interface PluginMetadata {
   homepage?: string;
   repository?: string;
   required_access?: PluginAccessRequirement[];
+  is_external?: boolean;
+  git_source?: { git_url: string; ref: string };
 }
 
 class PluginValidator {
@@ -148,7 +152,9 @@ class PluginValidator {
         rating: metadata.rating,
         homepage: metadata.homepage,
         repository: metadata.repository,
-        required_access: metadata.required_access
+        required_access: metadata.required_access,
+        is_external: metadata.is_external,
+        git_source: metadata.git_source,
       };
 
       return { isValid: true, errors: [], plugin };

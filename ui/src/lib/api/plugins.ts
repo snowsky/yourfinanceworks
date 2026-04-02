@@ -42,4 +42,11 @@ export const pluginApi = {
       { method: 'DELETE' },
     );
   },
+
+  reinstallPlugin: (pluginId: string, githubToken?: string) => {
+    return apiRequest<{ job_id: string; message: string; status_url: string }>(
+      `/plugins/${pluginId}/reinstall`,
+      { method: 'POST', body: JSON.stringify({ github_token: githubToken || undefined }) },
+    );
+  },
 };

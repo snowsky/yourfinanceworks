@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Settings, ArrowRightLeft, Trash2, GitBranch, Search, X } from 'lucide-react';
+import { Loader2, Puzzle, TrendingUp, FolderKanban, Info, Shield, RefreshCw, CheckCircle, XCircle, AlertCircle, Clock, ExternalLink, Star, Download, Calendar, Tag, Settings, ArrowRightLeft, Trash2, GitBranch, Search, X, RotateCcw, KeyRound } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -29,23 +31,72 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
+type ReinstallState = 'idle' | 'confirm' | 'running' | 'done' | 'failed';
+
 interface PluginCardProps {
   plugin: Plugin;
   onToggle: (pluginId: string, enabled: boolean, isAdmin?: boolean) => Promise<void>;
   onUninstall?: (pluginId: string) => Promise<void>;
+  onReinstall?: (pluginId: string, githubToken?: string) => Promise<string>;
   canToggle: boolean;
   licenseMessage?: string;
   isAdmin: boolean;
   isExpired?: boolean;
 }
 
-const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, canToggle, licenseMessage, isAdmin, isExpired }) => {
+const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, onReinstall, canToggle, licenseMessage, isAdmin, isExpired }) => {
   const [isToggling, setIsToggling] = useState(false);
   const [isUninstalling, setIsUninstalling] = useState(false);
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+  const [reinstallState, setReinstallState] = useState<ReinstallState>('idle');
+  const [reinstallToken, setReinstallToken] = useState('');
+  const [reinstallJob, setReinstallJob] = useState<import('@/lib/api/plugins').InstallJob | null>(null);
+  const reinstallPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { t } = useTranslation();
+
+  const stopReinstallPolling = () => {
+    if (reinstallPollRef.current) {
+      clearInterval(reinstallPollRef.current);
+      reinstallPollRef.current = null;
+    }
+  };
+
+  const handleReinstallConfirm = async () => {
+    if (!onReinstall) return;
+    try {
+      const jobId = await onReinstall(plugin.id, reinstallToken.trim() || undefined);
+      const initial = await pluginApi.getInstallStatus(jobId);
+      setReinstallJob(initial);
+      setReinstallState('running');
+      stopReinstallPolling();
+      reinstallPollRef.current = setInterval(async () => {
+        try {
+          const updated = await pluginApi.getInstallStatus(jobId);
+          setReinstallJob(updated);
+          if (updated.status === 'done') {
+            stopReinstallPolling();
+            setReinstallState('done');
+            toast.success(`${plugin.name} reinstalled. Restart the server to activate.`);
+          } else if (updated.status === 'failed') {
+            stopReinstallPolling();
+            setReinstallState('failed');
+          }
+        } catch { /* silently retry */ }
+      }, 2000);
+    } catch (error) {
+      setReinstallState('failed');
+      toast.error(`Failed to start reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleReinstallClose = () => {
+    stopReinstallPolling();
+    setReinstallState('idle');
+    setReinstallToken('');
+    setReinstallJob(null);
+  };
 
   const handleUninstall = async () => {
     if (!onUninstall) return;
@@ -337,6 +388,101 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reinstall dialog — confirm + progress */}
+      <Dialog open={reinstallState !== 'idle'} onOpenChange={(open) => { if (!open) handleReinstallClose(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-blue-600" />
+              Reinstall {plugin.name}
+            </DialogTitle>
+            <DialogDescription>
+              Re-clone and reinstall from the original git source. A server restart is required after reinstallation.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reinstallState === 'confirm' && (
+            <>
+              <div className="space-y-3 py-1">
+                {plugin.git_source && (
+                  <div className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2 font-mono break-all">
+                    {plugin.git_source.git_url}@{plugin.git_source.ref}
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label htmlFor="reinstall-token" className="flex items-center gap-1.5 text-sm">
+                    <KeyRound className="w-3.5 h-3.5" />
+                    GitHub Token <span className="text-muted-foreground font-normal">(optional — for private repos)</span>
+                  </Label>
+                  <Input
+                    id="reinstall-token"
+                    type="password"
+                    placeholder="ghp_…"
+                    value={reinstallToken}
+                    onChange={e => setReinstallToken(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleReinstallClose}>Cancel</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleReinstallConfirm}>
+                  Reinstall
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {(reinstallState === 'running' || reinstallState === 'done' || reinstallState === 'failed') && reinstallJob && (
+            <>
+              <div className="py-1 space-y-3">
+                <div className="flex items-center gap-2">
+                  {reinstallState === 'running' && <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Reinstalling…</Badge>}
+                  {reinstallState === 'done' && <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" /> Done</Badge>}
+                  {reinstallState === 'failed' && <Badge className="bg-red-100 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>}
+                </div>
+                <div className="rounded-md border bg-gray-50 p-3 space-y-2">
+                  {reinstallJob.steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      {step.status === 'done' && <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
+                      {step.status === 'failed' && <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                      {step.status === 'running' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />}
+                      {step.status === 'pending' && <Clock className="w-4 h-4 text-gray-300 shrink-0" />}
+                      <div className="flex-1">
+                        <span className={step.status === 'pending' ? 'text-gray-400' : 'text-gray-800'}>{step.label}</span>
+                        {step.detail && <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>}
+                      </div>
+                    </div>
+                  ))}
+                  {reinstallState === 'running' && reinstallJob.steps.length === 0 && (
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Starting…
+                    </div>
+                  )}
+                </div>
+                {reinstallState === 'failed' && reinstallJob.error && (
+                  <Alert className="border-red-200 bg-red-50">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 text-sm">{reinstallJob.error}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <DialogFooter>
+                {reinstallState === 'failed' && (
+                  <Button variant="outline" onClick={() => { setReinstallState('confirm'); setReinstallJob(null); }} className="mr-auto">
+                    <RotateCcw className="w-4 h-4 mr-1" /> Try Again
+                  </Button>
+                )}
+                <Button variant={reinstallState === 'done' ? 'default' : 'outline'} onClick={handleReinstallClose}>
+                  {reinstallState === 'done' ? 'Done' : 'Close'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <CardContent>
         <CardDescription className="text-sm text-gray-600 mb-3">
           {plugin.description}
@@ -446,6 +592,21 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                   ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                   : <Trash2 className="w-3 h-3 mr-1" />}
                 Uninstall
+              </Button>
+            </div>
+          )}
+
+          {/* Reinstall button — admin only, external plugins only */}
+          {isAdmin && onReinstall && (
+            <div className="pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7 text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => setReinstallState('confirm')}
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Reinstall
               </Button>
             </div>
           )}
@@ -652,6 +813,11 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     await refreshPluginDiscovery();
   };
 
+  const handleReinstall = async (pluginId: string, githubToken?: string): Promise<string> => {
+    const { job_id } = await pluginApi.reinstallPlugin(pluginId, githubToken);
+    return job_id;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -827,6 +993,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
                 plugin={plugin}
                 onToggle={togglePlugin}
                 onUninstall={isAdmin ? handleUninstall : undefined}
+                onReinstall={isAdmin && plugin.is_external ? handleReinstall : undefined}
                 canToggle={canToggle && isAdmin}
                 licenseMessage={licenseMessage}
                 isAdmin={isAdmin}
