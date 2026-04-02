@@ -4,6 +4,34 @@ import { Button } from '@/components/ui/button';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { cn } from '@/lib/utils';
 
+interface MenuBoundaryProps {
+  children: ReactNode;
+  pluginId?: string;
+  pluginName?: string;
+}
+
+/**
+ * PluginMenuErrorBoundary — lightweight boundary for sidebar menu items.
+ * Renders nothing when the plugin item errors, so one broken plugin
+ * doesn't affect the rest of the sidebar.
+ */
+export class PluginMenuErrorBoundary extends Component<MenuBoundaryProps, { hasError: boolean }> {
+  public state = { hasError: false };
+
+  public static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error(`[PluginMenuError:${this.props.pluginId || this.props.pluginName || 'Unknown'}]`, error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 interface Props {
   children: ReactNode;
   name?: string;
