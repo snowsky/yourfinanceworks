@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.models.models import Base, Tenant
 from core.models.database import SQLALCHEMY_DATABASE_URL
 from core.models.models_per_tenant import Base as TenantBase
-from core.utils.plugin_context import get_current_plugin_id, is_lockdown_mode
+from core.utils.plugin_context import get_current_plugin_id, is_isolation_bypassed, is_lockdown_mode
 
 import re
 
@@ -27,6 +27,12 @@ def _enforce_database_isolation(conn, cursor, statement, parameters, context, ex
     """
     plugin_id = get_current_plugin_id()
     if not plugin_id:
+        return
+
+    # Core services called from within a plugin request (e.g. BatchProcessingService,
+    # user_sync) use bypass_plugin_isolation() to opt out.  Trust them — they are
+    # not plugin-owned code and should not be blocked.
+    if is_isolation_bypassed():
         return
 
     # Import here to avoid circular dependencies
