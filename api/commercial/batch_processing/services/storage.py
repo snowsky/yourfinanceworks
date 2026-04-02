@@ -55,7 +55,8 @@ class BatchStorageMixin:
         original_filename: str,
         destination_config: ExportDestinationConfig,
         tenant_id: int,
-        job_id: str
+        job_id: str,
+        db: Optional[Any] = None
     ) -> Optional[str]:
         try:
             with open(file_path, 'rb') as f:
@@ -64,7 +65,7 @@ class BatchStorageMixin:
             cloud_filename = f"{job_id}/{original_filename}"
 
             from core.services.export_service import ExportService
-            export_service = ExportService(self.db)
+            export_service = ExportService(db if db is not None else self.db)
 
             destination_type = destination_config.destination_type
 
