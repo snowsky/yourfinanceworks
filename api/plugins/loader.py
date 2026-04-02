@@ -99,8 +99,10 @@ class PluginLoader:
         ]
 
         import sys
+        logger.info("Plugin discovery starting. Scan configurations: %s", scan_configs)
         for config in scan_configs:
             scan_dir = config["dir"]
+            logger.info("Scanning directory: %s (exists=%s)", scan_dir, scan_dir.exists())
             if not scan_dir.exists():
                 continue
 
@@ -136,7 +138,13 @@ class PluginLoader:
                         plugin_dir=plugin_dir,
                     )
                 )
-                logger.info("Plugin discovered: %s v%s (from %s)", plugin_id, manifest.get("version", "?"), scan_dir)
+                logger.info(
+                    "Plugin discovered: %s v%s (Package: %s, Path: %s)",
+                    plugin_id,
+                    manifest.get("version", "?"),
+                    package,
+                    plugin_dir
+                )
 
         self._discovery_done = True
         self._plugin_dir_cache = {p.plugin_id: p.plugin_dir for p in self._discovered}
@@ -193,13 +201,16 @@ class PluginLoader:
            existing ``investments`` and ``time_tracking`` plugins
         """
         for plugin in self.discover():
+            logger.info("Attempting to register plugin: %s (package: %s)", plugin.plugin_id, plugin.package)
             try:
                 mod = importlib.import_module(plugin.package)
+                logger.info("Plugin '%s': package imported successfully.", plugin.plugin_id)
             except Exception as exc:
-                logger.warning(
-                    "Plugin '%s': cannot import package '%s' — %s",
+                logger.error(
+                    "Plugin '%s': CRITICAL - cannot import package '%s'. Search path: %s. Error: %s",
                     plugin.plugin_id,
                     plugin.package,
+                    sys.path,
                     exc,
                 )
                 self._load_errors[plugin.plugin_id] = f"Import failed: {exc}"

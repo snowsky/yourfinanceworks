@@ -1,0 +1,52 @@
+{
+  "name": "surveys",
+  "version": "1.0.0",
+  "description": "Create and distribute surveys, collect responses, export results",
+  "author": "YourFinanceWORKS",
+  "license": "AGPLv3",
+  "license_tier": "agpl",
+  "database_tables": ["surveys", "survey_questions", "survey_responses", "survey_answers"],
+  "api_routes": [
+    {
+      "path": "/api/v1/surveys",
+      "methods": ["GET", "POST"],
+      "description": "List and create surveys (authenticated)"
+    },
+    {
+      "path": "/api/v1/surveys/{id}",
+      "methods": ["GET", "PUT", "DELETE"],
+      "description": "Read, update, delete a survey (authenticated)"
+    },
+    {
+      "path": "/api/v1/surveys/{id}/questions",
+      "methods": ["POST"],
+      "description": "Add a question to a survey (authenticated)"
+    },
+    {
+      "path": "/api/v1/surveys/{id}/responses",
+      "methods": ["GET"],
+      "description": "List responses for a survey (authenticated)"
+    },
+    {
+      "path": "/api/v1/surveys/{id}/export",
+      "methods": ["GET"],
+      "description": "Export responses as CSV (authenticated)"
+    },
+    {
+      "path": "/api/v1/surveys/public/{slug}",
+      "methods": ["GET"],
+      "description": "Get public survey form (no auth)"
+    },
+    {
+      "path": "/api/v1/surveys/public/{slug}/submit",
+      "methods": ["POST"],
+      "description": "Submit a survey response (no auth)"
+    },
+    {
+      "path": "/api/v1/surveys/{id}/share-internal",
+      "methods": ["POST"],
+      "description": "Share a survey internally (authenticated)"
+    }
+  ],
+  "features": ["survey_builder", "response_collection", "csv_export"]
+}
