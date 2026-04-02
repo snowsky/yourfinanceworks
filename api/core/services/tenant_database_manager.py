@@ -50,8 +50,12 @@ def _enforce_database_isolation(conn, cursor, statement, parameters, context, ex
         if owner == plugin_id:
             continue
         # Allow core tables unless this is a dynamic plugin running in lockdown
-        if owner == "core" and not (is_dynamic and locked):
-            continue
+        if owner == "core":
+            if not (is_dynamic and locked):
+                continue
+            # Except if explicitly permitted in the plugin's manifest
+            if table_name in plugin_loader.get_permitted_core_tables(plugin_id):
+                continue
 
         table_upper = table_name.upper()
         # Primary check via pre-extracted set; fallback to word-boundary search
