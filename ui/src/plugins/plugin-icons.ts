@@ -37,6 +37,14 @@ import {
   UserPlus,
   Activity,
   Puzzle,
+  ClipboardList,
+  MessageSquare,
+  BookOpen,
+  Database,
+  Mail,
+  Search,
+  Star,
+  Layers,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -67,4 +75,12 @@ export const iconRegistry: Record<string, LucideIcon> = {
   UserPlus,
   Activity,
   Puzzle,
+  ClipboardList,
+  MessageSquare,
+  BookOpen,
+  Database,
+  Mail,
+  Search,
+  Star,
+  Layers,
 };

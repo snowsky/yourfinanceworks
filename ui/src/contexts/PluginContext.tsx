@@ -344,6 +344,8 @@ class PluginDiscovery {
           repository: p.metadata?.repository,
           required_access: p.required_access,
           load_error: p.load_error,
+          is_external: p.is_external,
+          git_source: p.git_source,
         };
       });
     } catch (err) {

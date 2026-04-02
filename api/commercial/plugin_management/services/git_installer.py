@@ -328,13 +328,16 @@ def run_install(job_id: str) -> None:
                 
                 # Copy entire repo to preserve relative paths like ui/ -> ../shared/
                 shutil.copytree(
-                    str(tmp_dir), 
+                    str(tmp_dir),
                     str(dest_ui),
                     ignore=shutil.ignore_patterns(
                         ".git", "__pycache__", "*.pyc", ".ruff_cache",
                         "standalone", "docs", ".env", ".env.*",
                         "docker-compose.yml", "tsconfig.json", "requirements.txt",
-                        "plugin.json", "__init__.py", "api", "plugin"
+                        "plugin.json", "__init__.py", "api",
+                        # Note: "plugin/" is intentionally NOT excluded here.
+                        # plugin/ui/index.ts is the frontend entry point discovered
+                        # by the host app via import.meta.glob("../plugins_dynamic/*/plugin/ui/index.ts").
                     )
                 )
                 
