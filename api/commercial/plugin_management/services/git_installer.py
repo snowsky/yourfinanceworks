@@ -315,11 +315,11 @@ def run_install(job_id: str) -> None:
             _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
-            # ── 5. Copy frontend plugin files (if present) ───────────────────
-            # Standard Mirrored Layout: if ui/ exists, copy the entire repo root
-            # so that ui/ and shared/ land side-by-side in the main app.
-            ui_marker = tmp_dir / "ui"
-            if ui_marker.exists() and _UI_PLUGINS_DIR.exists():
+            # Detect UI presence by checking either:
+            #   • legacy layout: ui/ dir at repo root
+            #   • standard layout: plugin/ui/ dir (e.g. yfw-surveys, yfw-plugin-template)
+            has_ui = (tmp_dir / "ui").exists() or (tmp_dir / "plugin" / "ui").exists()
+            if has_ui and _UI_PLUGINS_DIR.exists():
                 step = _step(job, "Installing frontend plugin files")
                 dest_ui = _UI_PLUGINS_DIR / folder_name
                 overwritten = dest_ui.exists()
