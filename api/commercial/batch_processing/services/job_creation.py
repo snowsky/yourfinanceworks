@@ -133,7 +133,7 @@ class BatchJobCreationMixin:
                 client_id=client_id,
                 total_files=len(files),
                 export_destination_type=export_destination.destination_type,
-                export_destination_config_id=export_destination_id,
+                export_destination_config_id=export_destination.id,
                 custom_fields=custom_fields,
                 webhook_url=webhook_url,
                 status="pending",
