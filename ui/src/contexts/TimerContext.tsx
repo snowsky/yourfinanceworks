@@ -7,7 +7,21 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { timeEntryApi, TimeEntry, TimerActiveResponse } from '@/plugins/time_tracking/api';
+import type { TimeEntry, TimerActiveResponse } from '@/plugins/time_tracking/plugin/ui/api';
+
+/**
+ * Helper to get the time tracking API lazily.
+ * This ensures that if the plugin is missing, we don't crash the whole app.
+ */
+async function getTimeTrackingApi() {
+  try {
+    const mod = await import('../plugins/time_tracking/plugin/ui/api');
+    return mod.timeEntryApi;
+  } catch (err) {
+    console.warn('[TimerContext] Time tracking plugin not available:', err);
+    return null;
+  }
+}
 
 interface TimerState {
   active: boolean;
@@ -37,8 +51,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   // Poll active timer on mount
   useEffect(() => {
     const fetchActive = async () => {
+      const api = await getTimeTrackingApi();
+      if (!api) return;
       try {
-        const res: TimerActiveResponse = await timeEntryApi.getActiveTimer();
+        const res: TimerActiveResponse = await api.getActiveTimer();
         if (res.active && res.entry) {
           setActive(true);
           setEntry(res.entry);
@@ -58,10 +74,12 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [active]);
 
-  const startTimer = useCallback(async (data: Parameters<typeof timeEntryApi.startTimer>[0]) => {
+  const startTimer = useCallback(async (data: { project_id: number; task_id?: number; description?: string; hourly_rate: number; billable?: boolean }) => {
+    const api = await getTimeTrackingApi();
+    if (!api) return;
     setIsLoading(true);
     try {
-      const newEntry = await timeEntryApi.startTimer(data);
+      const newEntry = await api.startTimer(data);
       setActive(true);
       setEntry(newEntry);
       setElapsedSeconds(0);
@@ -72,11 +90,13 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, [qc]);
 
   const stopTimer = useCallback(async (notes?: string) => {
+    const api = await getTimeTrackingApi();
+    if (!api) return;
     setIsLoading(true);
     // Capture project before clearing — needed for cache invalidation
     const projectId = entry?.project_id;
     try {
-      await timeEntryApi.stopTimer({ notes });
+      await api.stopTimer({ notes });
       setActive(false);
       setEntry(null);
       setElapsedSeconds(0);
