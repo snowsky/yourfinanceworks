@@ -43,10 +43,17 @@ export const pluginApi = {
     );
   },
 
-  reinstallPlugin: (pluginId: string, githubToken?: string) => {
+  reinstallPlugin: (pluginId: string, options?: { githubToken?: string; gitUrl?: string; ref?: string }) => {
     return apiRequest<{ job_id: string; message: string; status_url: string }>(
       `/plugins/${pluginId}/reinstall`,
-      { method: 'POST', body: JSON.stringify({ github_token: githubToken || undefined }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          github_token: options?.githubToken || undefined,
+          git_url: options?.gitUrl || undefined,
+          ref: options?.ref || undefined,
+        }),
+      },
     );
   },
 };

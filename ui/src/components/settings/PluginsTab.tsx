@@ -37,7 +37,7 @@ interface PluginCardProps {
   plugin: Plugin;
   onToggle: (pluginId: string, enabled: boolean, isAdmin?: boolean) => Promise<void>;
   onUninstall?: (pluginId: string) => Promise<void>;
-  onReinstall?: (pluginId: string, githubToken?: string) => Promise<string>;
+  onReinstall?: (pluginId: string, options?: { githubToken?: string; gitUrl?: string; ref?: string }) => Promise<string>;
   canToggle: boolean;
   licenseMessage?: string;
   isAdmin: boolean;
@@ -52,8 +52,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [reinstallState, setReinstallState] = useState<ReinstallState>('idle');
   const [reinstallToken, setReinstallToken] = useState('');
+  const [reinstallUrl, setReinstallUrl] = useState('');
+  const [reinstallRef, setReinstallRef] = useState('main');
   const [reinstallJob, setReinstallJob] = useState<import('@/lib/api/plugins').InstallJob | null>(null);
   const reinstallPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const needsUrl = !plugin.git_source;
   const { t } = useTranslation();
 
   const stopReinstallPolling = () => {
@@ -66,7 +69,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
   const handleReinstallConfirm = async () => {
     if (!onReinstall) return;
     try {
-      const jobId = await onReinstall(plugin.id, reinstallToken.trim() || undefined);
+      const jobId = await onReinstall(plugin.id, {
+        githubToken: reinstallToken.trim() || undefined,
+        gitUrl: needsUrl ? reinstallUrl.trim() || undefined : undefined,
+        ref: needsUrl ? reinstallRef.trim() || 'main' : undefined,
+      });
       const initial = await pluginApi.getInstallStatus(jobId);
       setReinstallJob(initial);
       setReinstallState('running');
@@ -95,6 +102,8 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
     stopReinstallPolling();
     setReinstallState('idle');
     setReinstallToken('');
+    setReinstallUrl('');
+    setReinstallRef('main');
     setReinstallJob(null);
   };
 
@@ -405,10 +414,36 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
           {reinstallState === 'confirm' && (
             <>
               <div className="space-y-3 py-1">
-                {plugin.git_source && (
+                {plugin.git_source ? (
                   <div className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2 font-mono break-all">
                     {plugin.git_source.git_url}@{plugin.git_source.ref}
                   </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reinstall-url" className="flex items-center gap-1.5 text-sm">
+                        <GitBranch className="w-3.5 h-3.5" />
+                        Repository URL
+                      </Label>
+                      <Input
+                        id="reinstall-url"
+                        placeholder="https://github.com/org/my-plugin"
+                        value={reinstallUrl}
+                        onChange={e => setReinstallUrl(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reinstall-ref" className="flex items-center gap-1.5 text-sm">
+                        Branch / Tag
+                      </Label>
+                      <Input
+                        id="reinstall-ref"
+                        placeholder="main"
+                        value={reinstallRef}
+                        onChange={e => setReinstallRef(e.target.value)}
+                      />
+                    </div>
+                  </>
                 )}
                 <div className="space-y-1.5">
                   <Label htmlFor="reinstall-token" className="flex items-center gap-1.5 text-sm">
@@ -427,7 +462,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={handleReinstallClose}>Cancel</Button>
-                <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleReinstallConfirm}>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleReinstallConfirm}
+                  disabled={needsUrl && !reinstallUrl.trim()}
+                >
                   Reinstall
                 </Button>
               </DialogFooter>
@@ -813,8 +852,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     await refreshPluginDiscovery();
   };
 
-  const handleReinstall = async (pluginId: string, githubToken?: string): Promise<string> => {
-    const { job_id } = await pluginApi.reinstallPlugin(pluginId, githubToken);
+  const handleReinstall = async (pluginId: string, options?: { githubToken?: string; gitUrl?: string; ref?: string }): Promise<string> => {
+    const { job_id } = await pluginApi.reinstallPlugin(pluginId, options);
     return job_id;
   };
 

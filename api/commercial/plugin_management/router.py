@@ -673,17 +673,22 @@ async def reinstall_plugin_endpoint(
             detail="Only externally installed plugins can be reinstalled",
         )
 
+    # Prefer stored metadata; fall back to URL supplied in the request body
+    # (needed for plugins installed before metadata tracking was added).
     meta = get_install_meta(normalized)
-    if not meta or not meta.get("git_url"):
+    git_url = (meta or {}).get("git_url") or str(payload.get("git_url", "")).strip()
+    ref = (meta or {}).get("ref") or str(payload.get("ref", "main")).strip() or "main"
+
+    if not git_url:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Install metadata not found. Uninstall and re-install manually.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="git_url is required — install metadata not found for this plugin.",
         )
 
     github_token = str(payload["github_token"]).strip() if payload.get("github_token") else None
 
     try:
-        job = start_install(git_url=meta["git_url"], ref=meta.get("ref", "main"), github_token=github_token)
+        job = start_install(git_url=git_url, ref=ref, github_token=github_token)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
